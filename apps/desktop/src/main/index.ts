@@ -29,6 +29,8 @@ function createWindow(): void {
 
   setMainWindow(win);
 
+  win.on("closed", () => setMainWindow(null));
+
   win.on("ready-to-show", () => win.show());
 
   const sendMaximized = () => {

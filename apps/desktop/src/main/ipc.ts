@@ -18,12 +18,13 @@ const starting = new Map<string, Promise<PiProcess>>();
 
 let mainWindow: BrowserWindow | null = null;
 
-export function setMainWindow(win: BrowserWindow): void {
+export function setMainWindow(win: BrowserWindow | null): void {
   mainWindow = win;
 }
 
 function push<K extends keyof HostEvents>(channel: K, payload: HostEvents[K]): void {
-  mainWindow?.webContents.send(channel, payload);
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send(channel, payload);
 }
 
 const authPush: auth.AuthPush = {
