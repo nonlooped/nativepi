@@ -1,0 +1,17 @@
+{
+  "name": "nativepi",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A Windows-first desktop interface for the Pi coding agent.",
+  "author": "nonlooped",
+  "license": "MIT",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "cd apps/desktop && bun run dev",
+    "build": "cd apps/desktop && bun run build",
+    "pack": "cd apps/desktop && bun run pack",
+    "dist": "cd apps/desktop && bun run dist",
+    "dist:win": "cd apps/desktop && bun run dist:win",
+    "preview": "cd apps/desktop && bun run preview"
+  }
+}

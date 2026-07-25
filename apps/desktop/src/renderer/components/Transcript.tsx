@@ -1,0 +1,674 @@
+import { Collapsible } from "@base-ui/react/collapsible";
+import { ArrowDownIcon } from "@phosphor-icons/react/ArrowDown";
+import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
+import { CheckIcon } from "@phosphor-icons/react/Check";
+import { CircleIcon } from "@phosphor-icons/react/Circle";
+import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
+import { CopyIcon } from "@phosphor-icons/react/Copy";
+import { FileIcon } from "@phosphor-icons/react/File";
+import { FilePlusIcon } from "@phosphor-icons/react/FilePlus";
+import { StopIcon } from "@phosphor-icons/react/Stop";
+import { WarningIcon } from "@phosphor-icons/react/Warning";
+import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
+import { code } from "@streamdown/code";
+import { Streamdown } from "streamdown";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
+import { isAssistant, isToolResult, isUser, textOf } from "../../shared/messages.ts";
+import { toolArgSummary, toolResultsById } from "../lib/transcript.ts";
+import { diffPatchFor, fileDir, fileName, turnChanges, type FileChange } from "../lib/changes.ts";
+import { formatDuration, formatElapsed, formatLineDelta, pluralize } from "../lib/format.ts";
+import { scrollBehavior, useReducedMotion } from "../lib/motion.ts";
+import { useAppStore } from "../lib/store.ts";
+import { withHint } from "../lib/shortcuts.ts";
+import { Button } from "@/components/ui/button.tsx";
+import { cn } from "@/lib/utils.ts";
+import DiffView from "./DiffView.tsx";
+import { ExtensionEntry, ExtensionToolResult, useHasEntryRenderer, useHasToolRenderer } from "./ExtensionSlots.tsx";
+
+const streamdownPlugins = { code };
+
+const FOLLOW_THRESHOLD = 120;
+
+export default function Transcript() {
+  const entries = useAppStore((s) => s.entries);
+  const streaming = useAppStore((s) => s.streaming);
+  const pending = useAppStore((s) => s.pending);
+  const running = useAppStore((s) => s.running);
+  const compacting = useAppStore((s) => s.compacting);
+  const retry = useAppStore((s) => s.retry);
+  const abortRetry = useAppStore((s) => s.abortRetry);
+  const jumpRequest = useAppStore((s) => s.jumpRequest);
+
+  const results = toolResultsById(entries);
+  const items = transcriptItems(entries, streaming);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const followingRef = useRef(true);
+  const [following, setFollowing] = useState(true);
+
+  function scrollToLatest(behavior: ScrollBehavior = scrollBehavior()) {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+    followingRef.current = true;
+    setFollowing(true);
+  }
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, []);
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !followingRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [entries, streaming, pending, running, compacting, retry]);
+
+  useEffect(() => {
+    if (jumpRequest > 0) scrollToLatest();
+  }, [jumpRequest]);
+
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const next = distanceFromBottom <= FOLLOW_THRESHOLD;
+    followingRef.current = next;
+    setFollowing((current) => (current === next ? current : next));
+  }
+
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        // role="log" gives assistive tech a navigable transcript, but live
+        // announcements are handled by TurnAnnouncer below: streaming markdown
+        // re-renders on every token and would otherwise be read continuously.
+        role="log"
+        aria-label="Conversation transcript"
+        aria-live="off"
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-5 [scrollbar-gutter:stable]"
+      >
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+          {items.map((item, index) =>
+            item.type === "response" ? (
+              // Keyed by position, not id: a response's id changes from the
+              // synthetic streaming one to its committed entry id mid-turn, and
+              // keying on that would remount the block and discard whichever
+              // tool panels the user had opened while watching it run.
+              <AssistantResponse
+                key={`response:${index}`}
+                messages={item.messages}
+                results={results}
+                startedAt={item.startedAt}
+                finishedAt={item.finishedAt}
+                streaming={running && index === items.length - 1}
+              />
+            ) : (
+              <EntryView key={item.entry.id} entry={item.entry} />
+            ),
+          )}
+          {pending.map((p) => (
+            <UserBubble key={p.id} text={p.text} pending />
+          ))}
+          {retry && (
+            <div
+              role="alert"
+              className="mx-auto flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning"
+            >
+              <WarningCircleIcon className="shrink-0" />
+              <span className="min-w-0">
+                Retrying after an error (attempt {retry.attempt} of {retry.maxAttempts})
+                {retry.error ? <span className="text-muted-foreground"> — {retry.error}</span> : null}
+              </span>
+              <Button size="sm" variant="ghost" className="ml-auto h-6 shrink-0 px-2" onClick={abortRetry}>
+                Stop
+              </Button>
+            </div>
+          )}
+          {compacting && (
+            <Notice>
+              <CircleNotchIcon className="mr-1.5 inline animate-spin align-[-2px]" />
+              Compacting context…
+            </Notice>
+          )}
+        </div>
+      </div>
+
+      <TurnAnnouncer
+        running={running}
+        compacting={compacting}
+        retry={retry}
+        activeTool={activeToolName(items, results)}
+      />
+
+      {/* The transient-affordance layer: run status and jump-to-latest, the two
+          controls that act on the view rather than on the message being typed. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-3 flex flex-col items-center gap-2">
+        {!following ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => scrollToLatest()}
+            className="pointer-events-auto h-8 rounded-full !bg-popover px-3.5 text-popover-foreground shadow-lg"
+          >
+            <ArrowDownIcon data-icon="inline-start" />
+            Jump to latest
+          </Button>
+        ) : null}
+        {running ? <RunStatusBar activeTool={activeToolName(items, results)} compacting={compacting} /> : null}
+      </div>
+    </div>
+  );
+}
+
+function RunStatusBar({ activeTool, compacting }: { activeTool?: string; compacting: boolean }) {
+  const abort = useAppStore((s) => s.abort);
+  const runStartedAt = useAppStore((s) => s.runStartedAt);
+  const git = useAppStore((s) => s.git);
+  const elapsed = useElapsed(runStartedAt);
+  const reduced = useReducedMotion();
+  const changed = git?.isRepo ? git.files.length : 0;
+
+  return (
+    <div className="pointer-events-auto flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full border bg-popover py-1 pl-3 pr-1 text-xs text-popover-foreground shadow-lg">
+      {reduced ? (
+        <CircleIcon weight="fill" className="shrink-0 text-muted-foreground" />
+      ) : (
+        <CircleNotchIcon className="shrink-0 animate-spin text-muted-foreground" />
+      )}
+      <span className="truncate font-medium">
+        {compacting ? "Compacting context" : activeTool ? `Running ${activeTool}` : "Working"}
+      </span>
+      {elapsed ? (
+        <span className="shrink-0 tabular-nums text-muted-foreground" aria-hidden="true">
+          {elapsed}
+        </span>
+      ) : null}
+      {changed > 0 ? (
+        <>
+          <span aria-hidden="true" className="text-muted-foreground/50">
+            ·
+          </span>
+          <span className="shrink-0 truncate text-muted-foreground">{pluralize(changed, "file")} changed</span>
+        </>
+      ) : null}
+      {/* A labelled rectangle, not another circle: geometry, not hue, is what
+          separates it from Send. */}
+      <Button
+        variant="destructive"
+        size="sm"
+        onClick={abort}
+        title={withHint("Stop this turn", "stopTurn")}
+        className="ml-1 h-6 shrink-0 rounded-full px-2.5"
+      >
+        <StopIcon weight="fill" data-icon="inline-start" />
+        Stop
+      </Button>
+    </div>
+  );
+}
+
+function useElapsed(startedAt: number | null): string {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (startedAt === null) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [startedAt]);
+
+  if (startedAt === null) return "";
+  return formatElapsed(Math.max(0, now - startedAt));
+}
+
+/**
+ * A polite live region carrying coarse turn phases. Screen readers otherwise get
+ * silence for the whole duration of an agent turn, since the streaming markdown
+ * itself is deliberately not announced.
+ */
+function TurnAnnouncer({
+  running,
+  compacting,
+  retry,
+  activeTool,
+}: {
+  running: boolean;
+  compacting: boolean;
+  retry: { attempt: number; maxAttempts: number } | null;
+  activeTool?: string;
+}) {
+  const phase = retry
+    ? `Retrying after an error, attempt ${retry.attempt} of ${retry.maxAttempts}`
+    : compacting
+      ? "Compacting context"
+      : running
+        ? activeTool
+          ? `Running ${activeTool}`
+          : "Working"
+        : "";
+
+  const [message, setMessage] = useState("");
+  const wasBusy = useRef(false);
+
+  useEffect(() => {
+    if (phase) {
+      wasBusy.current = true;
+      setMessage(phase);
+      return;
+    }
+    if (wasBusy.current) {
+      wasBusy.current = false;
+      setMessage("Response complete");
+    }
+  }, [phase]);
+
+  return (
+    <div role="status" aria-live="polite" className="sr-only">
+      {message}
+    </div>
+  );
+}
+
+function activeToolName(items: TranscriptItem[], results: Map<string, ToolResultMessage>): string | undefined {
+  const last = items.at(-1);
+  if (last?.type !== "response") return undefined;
+  for (let i = last.messages.length - 1; i >= 0; i--) {
+    for (const block of last.messages[i]!.content) {
+      if (block.type === "toolCall" && !results.has(block.id)) return block.name;
+    }
+  }
+  return undefined;
+}
+
+type TranscriptItem =
+  | { type: "entry"; entry: SessionEntry }
+  | {
+      type: "response";
+      id: string;
+      messages: AssistantMessage[];
+      startedAt?: string;
+      finishedAt?: string;
+    };
+
+function transcriptItems(entries: SessionEntry[], streaming: AssistantMessage | null): TranscriptItem[] {
+  const items: TranscriptItem[] = [];
+  let responseStartedAt: string | undefined;
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    if (entry.type !== "message") {
+      items.push({ type: "entry", entry });
+      continue;
+    }
+    if (isUser(entry.message)) {
+      responseStartedAt = entry.timestamp;
+      items.push({ type: "entry", entry });
+      continue;
+    }
+    if (isToolResult(entry.message)) continue;
+    if (!isAssistant(entry.message)) continue;
+
+    const messages = [entry.message];
+    let finishedAt = entry.timestamp;
+    while (i + 1 < entries.length) {
+      const next = entries[i + 1];
+      if (next.type !== "message" || (!isAssistant(next.message) && !isToolResult(next.message))) break;
+      i++;
+      finishedAt = next.timestamp;
+      if (isAssistant(next.message)) messages.push(next.message);
+    }
+    items.push({
+      type: "response",
+      id: entry.id,
+      messages,
+      startedAt: responseStartedAt,
+      finishedAt,
+    });
+  }
+
+  if (streaming) {
+    const last = items.at(-1);
+    if (last?.type === "response") {
+      items[items.length - 1] = {
+        ...last,
+        messages: [...last.messages, streaming],
+        finishedAt: undefined,
+      };
+    } else {
+      items.push({
+        type: "response",
+        id: "streaming-response",
+        messages: [streaming],
+        startedAt: responseStartedAt,
+      });
+    }
+  }
+
+  return items;
+}
+
+function EntryView({ entry }: { entry: SessionEntry }) {
+  if (entry.type === "message") {
+    const message = entry.message;
+    if (isUser(message)) return <UserBubble text={textOf(message.content)} timestamp={entry.timestamp} />;
+    return null; // toolResult messages render inline under their tool call.
+  }
+  if (entry.type === "compaction") {
+    return <Notice>Context compacted — earlier messages summarized.</Notice>;
+  }
+  return <CustomEntry entry={entry} />;
+}
+
+function CustomEntry({ entry }: { entry: SessionEntry }) {
+  const hasRenderer = useHasEntryRenderer(entry.type);
+  if (!hasRenderer) return null;
+  return <ExtensionEntry entry={entry} />;
+}
+
+function UserBubble({ text, timestamp, pending = false }: { text: string; timestamp?: string; pending?: boolean }) {
+  return (
+    <article className="group/message flex flex-col items-end py-1" aria-busy={pending || undefined}>
+      <span className="sr-only">You{pending ? " (sending)" : ""}:</span>
+      <div
+        className={cn(
+          // break-words so an unbroken path, URL, or hash wraps instead of
+          // overflowing the bubble.
+          "max-w-[85%] rounded-2xl rounded-br-md bg-secondary px-4 py-3 text-sm leading-6 break-words whitespace-pre-wrap text-secondary-foreground",
+          pending && "opacity-60",
+        )}
+      >
+        {text}
+      </div>
+      {pending ? (
+        <span className="flex h-7 items-center gap-1.5 text-xs text-muted-foreground">
+          <CircleNotchIcon className="animate-spin" />
+          Sending…
+        </span>
+      ) : timestamp ? (
+        <MessageActions text={text} timestamp={timestamp} />
+      ) : null}
+    </article>
+  );
+}
+
+function AssistantResponse({
+  messages,
+  results,
+  startedAt,
+  finishedAt,
+  streaming = false,
+}: {
+  messages: AssistantMessage[];
+  results: Map<string, ToolResultMessage>;
+  startedAt?: string;
+  finishedAt?: string;
+  streaming?: boolean;
+}) {
+  const lastMessage = messages.at(-1);
+  const finalMessage = lastMessage?.content.some((block) => block.type === "toolCall") ? undefined : lastMessage;
+  const work = messages.flatMap((message) =>
+    message.content.filter((block) => message !== finalMessage || block.type !== "text"),
+  );
+  const finalText = finalMessage?.content
+    .flatMap((block) => (block.type === "text" ? block.text : []))
+    .join("") ?? "";
+  const reduced = useReducedMotion();
+  const workIsStreaming = streaming && !finalText && !reduced;
+  const [workOpen, setWorkOpen] = useState(streaming);
+  const changes = useMemo(() => turnChanges(messages, results), [messages, results]);
+  useEffect(() => {
+    if (!streaming) setWorkOpen(false);
+  }, [streaming]);
+  let error: string | undefined;
+  for (const message of messages) {
+    if (message.errorMessage) error = message.errorMessage;
+  }
+
+  return (
+    <article className="group/message flex flex-col gap-3 text-sm leading-relaxed" aria-busy={streaming || undefined}>
+      <span className="sr-only">Assistant:</span>
+      {work.length > 0 ? (
+        <Collapsible.Root open={workOpen} onOpenChange={setWorkOpen}>
+          <Collapsible.Trigger className="group flex items-center gap-1.5 rounded-sm py-1 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+            <span>{streaming ? "Working…" : `Worked for ${formatDuration(startedAt, finishedAt)}`}</span>
+            <CaretRightIcon className="transition-transform group-data-[panel-open]:rotate-90" />
+          </Collapsible.Trigger>
+          <Collapsible.Panel className="mt-3 flex flex-col gap-3 border-b border-border/60 pb-4">
+            {work.map((block, i) => {
+              if (block.type === "text") {
+                return (
+                  <Streamdown
+                    key={i}
+                    caret="block"
+                    isAnimating={workIsStreaming && i === work.length - 1}
+                    mode={workIsStreaming ? "streaming" : "static"}
+                    plugins={streamdownPlugins}
+                  >
+                    {block.text}
+                  </Streamdown>
+                );
+              }
+              if (block.type === "thinking") {
+                return (
+                  <Streamdown
+                    key={i}
+                    caret="block"
+                    className="text-xs text-muted-foreground"
+                    isAnimating={workIsStreaming && i === work.length - 1}
+                    mode={workIsStreaming ? "streaming" : "static"}
+                    plugins={streamdownPlugins}
+                  >
+                    {block.thinking}
+                  </Streamdown>
+                );
+              }
+              const result = results.get(block.id);
+              return <ToolCallView key={i} call={block} result={result} />;
+            })}
+          </Collapsible.Panel>
+        </Collapsible.Root>
+      ) : null}
+      {changes.files.length > 0 ? <ChangeStrip changes={changes} /> : null}
+      {finalText ? (
+        <Streamdown
+          caret="block"
+          isAnimating={streaming && !reduced}
+          mode={streaming ? "streaming" : "static"}
+          plugins={streamdownPlugins}
+        >
+          {finalText}
+        </Streamdown>
+      ) : null}
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <WarningIcon />
+          {error}
+        </div>
+      )}
+      {!streaming && finishedAt && finalText ? <MessageActions text={finalText} timestamp={finishedAt} /> : null}
+    </article>
+  );
+}
+
+function ChangeStrip({ changes }: { changes: ReturnType<typeof turnChanges> }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const delta = formatLineDelta(changes.added, changes.removed);
+
+  return (
+    <section
+      aria-label="Files changed in this turn"
+      className="overflow-hidden rounded-lg border border-border bg-card/40"
+    >
+      <h3 className="flex items-center gap-2 border-b px-3 py-2 text-xs font-medium">
+        {pluralize(changes.files.length, "file")} changed
+        {delta ? <span className="font-mono tabular-nums text-muted-foreground">{delta}</span> : null}
+      </h3>
+      <ul className="flex flex-col">
+        {changes.files.map((file) => (
+          <li key={file.path} className="border-b last:border-b-0">
+            <ChangeRow file={file} open={open === file.path} onToggle={() => setOpen(open === file.path ? null : file.path)} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; onToggle: () => void }) {
+  const directory = fileDir(file.path);
+  const delta = formatLineDelta(file.added, file.removed);
+  const Icon = file.kind === "write" ? FilePlusIcon : FileIcon;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        disabled={!file.patch}
+        title={file.path}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:cursor-default disabled:hover:bg-transparent"
+      >
+        <CaretRightIcon className={cn("shrink-0 text-muted-foreground transition-transform", open && "rotate-90", !file.patch && "invisible")} />
+        <Icon className={cn("shrink-0", file.failed ? "text-destructive" : "text-muted-foreground")} weight="duotone" />
+        <span className="min-w-0 truncate font-medium">{fileName(file.path)}</span>
+        {directory ? <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{directory}</span> : <span className="flex-1" />}
+        {file.failed ? (
+          <span className="shrink-0 rounded-sm bg-destructive/15 px-1.5 py-0.5 font-medium text-destructive">Failed</span>
+        ) : delta ? (
+          <span className="shrink-0 font-mono tabular-nums text-muted-foreground">{delta}</span>
+        ) : null}
+      </button>
+      {open && file.patch ? (
+        <div className="max-h-96 overflow-auto border-t bg-background">
+          <DiffView patch={file.patch} className="py-1.5" />
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+const timeFormatter = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+
+function MessageActions({ text, timestamp }: { text: string; timestamp: string }) {
+  const [copied, setCopied] = useState(false);
+  const date = new Date(timestamp);
+  const time = Number.isNaN(date.getTime()) ? "" : timeFormatter.format(date);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
+  return (
+    <div className="flex h-7 items-center gap-2 text-xs text-muted-foreground opacity-0 transition-opacity group-hover/message:opacity-100 group-focus-within/message:opacity-100">
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        className="text-muted-foreground"
+        aria-label={copied ? "Message copied" : "Copy message"}
+        title={copied ? "Copied" : "Copy message"}
+        onClick={() => void navigator.clipboard.writeText(text).then(() => setCopied(true))}
+      >
+        {copied ? <CheckIcon className="text-success" /> : <CopyIcon />}
+      </Button>
+      <span aria-live="polite">{copied ? "Copied" : time ? <time dateTime={date.toISOString()}>{time}</time> : null}</span>
+    </div>
+  );
+}
+
+function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMessage }) {
+  const hasExtRenderer = useHasToolRenderer(call.name);
+  const reduced = useReducedMotion();
+  const summary = toolArgSummary(call.name, call.arguments);
+  const output = result ? textOf(result.content) : "";
+  const running = !result;
+  const failed = !!result?.isError;
+  const diffPatch = diffPatchFor(call, result);
+
+  if (hasExtRenderer) return <ExtensionToolResult call={call} result={result} />;
+
+  const header = (
+    <>
+      <span className="font-medium">{call.name}</span>
+      {summary && <span className="truncate font-mono text-muted-foreground">{summary}</span>}
+      {running && (
+        <span className="ml-auto flex shrink-0 items-center gap-1.5 text-muted-foreground">
+          {/* The word carries the state; the motion only reinforces it, so
+              removing the motion loses nothing. */}
+          {reduced ? <CircleIcon weight="fill" /> : <CircleNotchIcon className="animate-spin" />}
+          running…
+        </span>
+      )}
+      {failed && (
+        <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-sm bg-destructive/15 px-1.5 py-0.5 font-medium text-destructive">
+          <WarningCircleIcon weight="fill" />
+          Failed
+        </span>
+      )}
+    </>
+  );
+
+  // A failed tool call is the loudest thing in a turn, not the quietest: it is
+  // bordered in coral and opens itself, because a failed `edit` and a failed
+  // `ls` cannot look the same.
+  if (failed) {
+    return (
+      <Collapsible.Root defaultOpen className="rounded-lg border border-destructive/40 bg-destructive/5">
+        <Collapsible.Trigger className="group flex w-full items-center gap-2 px-3 py-2 text-xs outline-none hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+          <CaretRightIcon className="shrink-0 text-destructive transition-transform group-data-[panel-open]:rotate-90" />
+          {header}
+        </Collapsible.Trigger>
+        <Collapsible.Panel className="max-h-72 overflow-auto border-t border-destructive/30 px-2.5 py-2 font-mono text-xs whitespace-pre-wrap text-destructive">
+          {output || "The tool reported an error with no output."}
+        </Collapsible.Panel>
+      </Collapsible.Root>
+    );
+  }
+
+  if (diffPatch) {
+    return (
+      <Collapsible.Root defaultOpen className="rounded-lg border bg-card/40">
+        <Collapsible.Trigger className="group flex w-full items-center gap-2 px-3 py-2 text-xs outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+          <CaretRightIcon className="shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-90" />
+          {header}
+        </Collapsible.Trigger>
+        <Collapsible.Panel className="max-h-96 overflow-auto border-t">
+          <DiffView patch={diffPatch} className="py-1.5" />
+        </Collapsible.Panel>
+      </Collapsible.Root>
+    );
+  }
+
+  if (!output) {
+    return (
+      <div className="rounded-lg border bg-card/40">
+        <div className="flex items-center gap-2 px-3 py-2 text-xs">{header}</div>
+      </div>
+    );
+  }
+
+  return (
+    <Collapsible.Root defaultOpen={false} className="rounded-lg border bg-card/40">
+      <Collapsible.Trigger className="group flex w-full items-center gap-2 px-3 py-2 text-xs outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+        <CaretRightIcon className="shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-90" />
+        {header}
+      </Collapsible.Trigger>
+      <Collapsible.Panel className="max-h-72 overflow-auto border-t px-2.5 py-2 font-mono text-xs whitespace-pre-wrap text-muted-foreground">
+        {output}
+      </Collapsible.Panel>
+    </Collapsible.Root>
+  );
+}
+
+function Notice({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mx-auto rounded-full border bg-muted/40 px-3 py-1 text-xs text-muted-foreground">{children}</div>
+  );
+}

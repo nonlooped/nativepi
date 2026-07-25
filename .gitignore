@@ -1,0 +1,90 @@
+# Dependencies
+node_modules/
+
+# Bun
+.bun/
+*.bun-build
+
+# Build / pack output
+dist/
+out/
+build/
+release/
+artifacts/
+*.asar
+
+# Electron / electron-builder
+*.exe
+*.exe.blockmap
+*.msi
+*.dmg
+*.AppImage
+*.snap
+*.deb
+*.rpm
+*.yml.cache
+electron-builder.yml.cache
+
+# Caches
+.cache/
+.vite/
+.turbo/
+.eslintcache
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+bun-debug.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Test / coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# OS
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Editors / IDEs
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Local agent / tool state (keep shared skills)
+.impeccable/
+.claude/settings.local.json
+.claude/settings.json
+.codex/sessions/
+*.local.json
+
+# Debug / crash dumps
+*.stackdump
+*.dmp
+core
+core.*
+
+# AI Tooling
+.agents
+.claude
+.codex
+.impeccable
+skills-lock.json

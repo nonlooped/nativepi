@@ -1,0 +1,576 @@
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
+import { z } from "zod";
+import { PiProcess } from "./pi/client.ts";
+import type { PiMessage } from "./pi/protocol.ts";
+import { deleteSession, listSessions, readSession, sessionMtime, watchSessionFile } from "./sessions.ts";
+import { loadState, saveState } from "./state.ts";
+import * as auth from "./auth.ts";
+import { gitDiff, gitStatus } from "./git.ts";
+import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
+import { loadGraphicalExtensions } from "./extensions.ts";
+import { listInstalledEditors, openProjectIn } from "./editors.ts";
+import type { HostEvents, HostRequestName, HostRequests, PiStatus } from "../shared/rpc-schema.ts";
+import type { ForkPoint, ModelInfo, RpcSessionState, SessionStats, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
+
+const pis = new Map<string, PiProcess>();
+const starting = new Map<string, Promise<PiProcess>>();
+
+let mainWindow: BrowserWindow | null = null;
+
+export function setMainWindow(win: BrowserWindow): void {
+  mainWindow = win;
+}
+
+function push<K extends keyof HostEvents>(channel: K, payload: HostEvents[K]): void {
+  mainWindow?.webContents.send(channel, payload);
+}
+
+const authPush: auth.AuthPush = {
+  prompt: (id, prompt) => push("authPrompt", { id, prompt }),
+  notice: (notice) => push("authNotice", { notice }),
+};
+
+function status(projectDir: string, status: PiStatus, detail?: string): void {
+  push("piStatus", { projectDir, status, detail });
+}
+
+/**
+ * Concurrent-session detection (PLAN section 16).
+ *
+ * `busyUntil` is the write-attribution heuristic PLAN allows: our own Pi writes
+ * the session file throughout a turn and for a moment after it settles, so any
+ * change outside that window came from somewhere else — a second NativePi
+ * window, or the Pi CLI in a terminal.
+ */
+const busyUntil = new Map<string, number>();
+const SETTLE_GRACE_MS = 3000;
+let sessionWatch: { projectDir: string; sessionFile: string; mtimeMs: number; stop: () => void } | null = null;
+
+function markBusy(projectDir: string, until: number): void {
+  busyUntil.set(projectDir, until);
+}
+
+function forwardEvent(projectDir: string, event: PiMessage): void {
+  if (event["type"] === "agent_start") markBusy(projectDir, Number.POSITIVE_INFINITY);
+  else if (event["type"] === "agent_settled" || event["type"] === "agent_end") {
+    markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
+  }
+  // Any Pi message means Pi is alive and touching this project right now.
+  else if (busyUntil.get(projectDir) !== Number.POSITIVE_INFINITY) {
+    markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
+  }
+  push("piEvent", { projectDir, sessionFile: pis.get(projectDir)?.boundSessionFile, event });
+}
+
+function stopSessionWatch(): void {
+  sessionWatch?.stop();
+  sessionWatch = null;
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function ensurePi(projectDir: string): Promise<PiProcess> {
+  const existing = pis.get(projectDir);
+  if (existing) return Promise.resolve(existing);
+  const inflight = starting.get(projectDir);
+  if (inflight) return inflight;
+
+  const startup = (async () => {
+    status(projectDir, "starting", projectDir);
+    const pi = new PiProcess(
+      projectDir,
+      (msg) => forwardEvent(projectDir, msg),
+      (code) => {
+        pis.delete(projectDir);
+        status(projectDir, "exited", `exit ${code ?? "?"}`);
+      },
+    );
+    pis.set(projectDir, pi);
+    try {
+      const state = await pi.request<RpcSessionState>({ type: "get_state" });
+      pi.boundSessionFile = state.sessionFile;
+    } catch {
+    }
+    status(projectDir, "ready");
+    starting.delete(projectDir);
+    return pi;
+  })();
+
+  starting.set(projectDir, startup);
+  return startup;
+}
+
+async function bindPi(projectDir: string, sessionFile: string): Promise<PiProcess> {
+  const pi = await ensurePi(projectDir);
+  // Everything reached through bindPi may write the session file (rename, fork,
+  // clone, compact), so claim the write before it happens.
+  markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
+  if (pi.boundSessionFile !== sessionFile) {
+    const res = await pi.request<{ cancelled: boolean }>({ type: "switch_session", sessionPath: sessionFile });
+    if (res.cancelled) throw new Error("The session is busy. Try again once the current run finishes.");
+    pi.boundSessionFile = sessionFile;
+  }
+  return pi;
+}
+
+async function rebound(pi: PiProcess): Promise<string | undefined> {
+  const state = await pi.request<RpcSessionState>({ type: "get_state" });
+  pi.boundSessionFile = state.sessionFile;
+  return state.sessionFile;
+}
+
+function toModelInfo(model: unknown): ModelInfo {
+  const m = (model ?? {}) as Record<string, unknown>;
+  return {
+    provider: String(m["provider"] ?? ""),
+    id: String(m["id"] ?? ""),
+    name: typeof m["name"] === "string" ? m["name"] : undefined,
+    reasoning: typeof m["reasoning"] === "boolean" ? m["reasoning"] : undefined,
+    contextWindow: typeof m["contextWindow"] === "number" ? m["contextWindow"] : undefined,
+  };
+}
+
+function toSessionState(data: RpcSessionState): RpcSessionState {
+  return { ...data, model: data.model ? toModelInfo(data.model) : undefined };
+}
+
+const THINKING_LEVELS = new Set<ThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+const openProjectInParamsSchema = z.object({ projectDir: z.string().min(1), editorId: z.string().min(1) });
+
+function isThinkingLevel(level: unknown): level is ThinkingLevel {
+  return typeof level === "string" && THINKING_LEVELS.has(level as ThinkingLevel);
+}
+
+type HandlerMap = {
+  [K in HostRequestName]: (params: HostRequests[K]["params"]) => Promise<HostRequests[K]["response"]> | HostRequests[K]["response"];
+};
+
+const handlers: HandlerMap = {
+  pickProject: async () => {
+    const options = {
+      properties: ["openDirectory" as const],
+      defaultPath: app.getPath("home"),
+    };
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+    return { path: result.canceled || !result.filePaths[0] ? null : result.filePaths[0] };
+  },
+
+  loadState: () => loadState(),
+  saveState: async ({ state }) => {
+    await saveState(state);
+    return { ok: true };
+  },
+
+  listSessions: async ({ projectDir }) => ({ sessions: await listSessions(projectDir) }),
+  readSession: async ({ sessionFile }) => ({ entries: await readSession(sessionFile) }),
+
+  ensurePi: async ({ projectDir }) => {
+    try {
+      await ensurePi(projectDir);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  restartPi: async ({ projectDir }) => {
+    const pi = pis.get(projectDir);
+    pis.delete(projectDir);
+    starting.delete(projectDir);
+    if (pi) await pi.stop();
+    return { ok: true };
+  },
+
+  newChat: async ({ projectDir }) => {
+    try {
+      const pi = await ensurePi(projectDir);
+      await pi.request({ type: "new_session" });
+      const state = await pi.request<RpcSessionState>({ type: "get_state" });
+      pi.boundSessionFile = state.sessionFile;
+      return { ok: true, sessionFile: state.sessionFile };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  importSession: async ({ projectDir }) => {
+    try {
+      const options = {
+        title: "Import chat",
+        properties: ["openFile" as const],
+        defaultPath: app.getPath("home"),
+        filters: [{ name: "Pi session", extensions: ["jsonl"] }],
+      };
+      const result = mainWindow
+        ? await dialog.showOpenDialog(mainWindow, options)
+        : await dialog.showOpenDialog(options);
+      const source = result.filePaths[0];
+      if (result.canceled || !source) return { ok: false, canceled: true };
+
+      const manager = SessionManager.forkFrom(source, projectDir);
+      return { ok: true, sessionFile: manager.getSessionFile() };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  submit: async ({ projectDir, sessionFile, message }) => {
+    try {
+      const pi = await ensurePi(projectDir);
+      // Claim the write before Pi's first event arrives, so our own append is
+      // never mistaken for a concurrent editor.
+      markBusy(projectDir, Number.POSITIVE_INFINITY);
+      if (sessionFile) {
+        if (pi.boundSessionFile !== sessionFile) {
+          await pi.request({ type: "switch_session", sessionPath: sessionFile });
+          pi.boundSessionFile = sessionFile;
+        }
+      } else {
+        await pi.request({ type: "new_session" });
+        const state = await pi.request<RpcSessionState>({ type: "get_state" });
+        pi.boundSessionFile = state.sessionFile;
+        sessionFile = state.sessionFile ?? null;
+      }
+      pi.send({ type: "prompt", message });
+      return { ok: true, sessionFile: sessionFile ?? undefined };
+    } catch (err) {
+      markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  enqueue: ({ projectDir, behavior, message }) => {
+    const pi = pis.get(projectDir);
+    if (!pi) return { ok: false, error: "Pi is not running" };
+    pi.send({ type: behavior === "steer" ? "steer" : "follow_up", message });
+    return { ok: true };
+  },
+
+  abort: ({ projectDir }) => {
+    pis.get(projectDir)?.send({ type: "abort" });
+    return { ok: true };
+  },
+
+  getModels: async ({ projectDir }) => {
+    try {
+      const pi = await ensurePi(projectDir);
+      const data = await pi.request<{ models: unknown[] }>({ type: "get_available_models" });
+      return { models: data.models.map(toModelInfo) };
+    } catch (err) {
+      return { models: [], error: errorMessage(err) };
+    }
+  },
+
+  getState: async ({ projectDir }) => {
+    try {
+      const pi = await ensurePi(projectDir);
+      const data = await pi.request<RpcSessionState>({ type: "get_state" });
+      return { state: toSessionState(data) };
+    } catch (err) {
+      return { error: errorMessage(err) };
+    }
+  },
+
+  getThinkingLevels: async ({ projectDir }) => {
+    try {
+      const pi = await ensurePi(projectDir);
+      const data = await pi.request<{ levels: unknown[] }>({ type: "get_available_thinking_levels" });
+      return { levels: data.levels.filter(isThinkingLevel) };
+    } catch (err) {
+      return { levels: [], error: errorMessage(err) };
+    }
+  },
+
+  setModel: async ({ projectDir, provider, modelId }) => {
+    try {
+      const pi = await ensurePi(projectDir);
+      await pi.request({ type: "set_model", provider, modelId });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  setThinkingLevel: async ({ projectDir, level }) => {
+    try {
+      const pi = await ensurePi(projectDir);
+      await pi.request({ type: "set_thinking_level", level });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  renameChat: async ({ projectDir, sessionFile, name }) => {
+    try {
+      const pi = await bindPi(projectDir, sessionFile);
+      await pi.request({ type: "set_session_name", name });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  cloneChat: async ({ projectDir, sessionFile }) => {
+    try {
+      const pi = await bindPi(projectDir, sessionFile);
+      const res = await pi.request<{ cancelled: boolean }>({ type: "clone" });
+      if (res.cancelled) return { ok: false, error: "Clone was cancelled" };
+      return { ok: true, sessionFile: await rebound(pi) };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  deleteChat: async ({ projectDir, sessionFile }) => {
+    try {
+      // Pi keeps the file open while bound to it; move it off this chat first so
+      // the delete cannot race a write, and so Pi isn't left pointing at nothing.
+      const pi = pis.get(projectDir);
+      if (pi?.boundSessionFile === sessionFile) {
+        await pi.request({ type: "new_session" });
+        pi.boundSessionFile = (await pi.request<RpcSessionState>({ type: "get_state" })).sessionFile;
+      }
+      if (sessionWatch?.sessionFile === sessionFile) stopSessionWatch();
+      await deleteSession(projectDir, sessionFile);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  watchSession: async ({ projectDir, sessionFile }) => {
+    if (sessionWatch?.sessionFile === sessionFile && sessionWatch.projectDir === projectDir) return { ok: true };
+    stopSessionWatch();
+    if (!sessionFile) return { ok: true };
+
+    const baseline = await sessionMtime(sessionFile);
+    const entry = {
+      projectDir,
+      sessionFile,
+      mtimeMs: baseline,
+      stop: () => {},
+    };
+    entry.stop = watchSessionFile(sessionFile, (mtimeMs) => {
+      if (sessionWatch !== entry || mtimeMs === entry.mtimeMs) return;
+      entry.mtimeMs = mtimeMs;
+      if (Date.now() < (busyUntil.get(projectDir) ?? 0)) return; // Our own Pi wrote it.
+      push("sessionChangedExternally", { projectDir, sessionFile });
+    });
+    sessionWatch = entry;
+    return { ok: true };
+  },
+
+  getForkPoints: async ({ projectDir, sessionFile }) => {
+    try {
+      const pi = await bindPi(projectDir, sessionFile);
+      const data = await pi.request<{ messages: ForkPoint[] }>({ type: "get_fork_messages" });
+      return { points: data.messages };
+    } catch (err) {
+      return { points: [], error: errorMessage(err) };
+    }
+  },
+
+  forkChat: async ({ projectDir, sessionFile, entryId }) => {
+    try {
+      const pi = await bindPi(projectDir, sessionFile);
+      const res = await pi.request<{ text: string; cancelled: boolean }>({ type: "fork", entryId });
+      if (res.cancelled) return { ok: false, error: "Fork was cancelled" };
+      return { ok: true, sessionFile: await rebound(pi), text: res.text };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  getTree: async ({ projectDir, sessionFile }) => {
+    try {
+      const pi = await bindPi(projectDir, sessionFile);
+      const data = await pi.request<{ tree: SessionTreeNode[]; leafId: string | null }>({ type: "get_tree" });
+      return { tree: data.tree, leafId: data.leafId };
+    } catch (err) {
+      return { tree: [], leafId: null, error: errorMessage(err) };
+    }
+  },
+
+  getStats: async ({ projectDir, sessionFile }) => {
+    try {
+      const pi = await bindPi(projectDir, sessionFile);
+      const stats = await pi.request<SessionStats>({ type: "get_session_stats" });
+      return { stats };
+    } catch (err) {
+      return { error: errorMessage(err) };
+    }
+  },
+
+  compact: async ({ projectDir, sessionFile }) => {
+    try {
+      const pi = await bindPi(projectDir, sessionFile);
+      await pi.request({ type: "compact" });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  abortRetry: ({ projectDir }) => {
+    pis.get(projectDir)?.send({ type: "abort_retry" });
+    return { ok: true };
+  },
+
+  exportHtml: async ({ projectDir, sessionFile }) => {
+    try {
+      const pi = await bindPi(projectDir, sessionFile);
+      const data = await pi.request<{ path: string }>({ type: "export_html" });
+      return { ok: true, path: data.path };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  listProviders: async () => {
+    try {
+      return { providers: await auth.listProviders() };
+    } catch (err) {
+      return { providers: [], error: errorMessage(err) };
+    }
+  },
+
+  login: async ({ providerId, type }) => {
+    try {
+      await auth.login(providerId, type, authPush);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  authRespond: ({ id, value, cancel }) => {
+    auth.respondPrompt(id, { value, cancel });
+    return { ok: true };
+  },
+
+  logout: async ({ providerId }) => {
+    try {
+      await auth.logout(providerId);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  checkTrust: ({ projectDir }) => auth.checkTrust(projectDir),
+  setTrust: ({ projectDir, trusted }) => {
+    auth.setTrust(projectDir, trusted);
+    return { ok: true };
+  },
+
+  windowMinimize: () => {
+    mainWindow?.minimize();
+    return { ok: true };
+  },
+  windowToggleMaximize: () => {
+    if (!mainWindow) return { maximized: false };
+    if (mainWindow.isMaximized()) mainWindow.unmaximize();
+    else mainWindow.maximize();
+    return { maximized: mainWindow.isMaximized() };
+  },
+  windowClose: () => {
+    mainWindow?.close();
+    return { ok: true };
+  },
+  windowIsMaximized: () => ({ maximized: mainWindow?.isMaximized() ?? false }),
+
+  openExternal: async ({ url }) => {
+    try {
+      await shell.openExternal(url);
+      return { ok: true };
+    } catch {
+      return { ok: false };
+    }
+  },
+
+  listEditors: async () => {
+    try {
+      return { editors: await listInstalledEditors() };
+    } catch {
+      return { editors: [{ id: "explorer", name: "Explorer", icon: "explorer" }] };
+    }
+  },
+  openProjectIn: async (params) => {
+    try {
+      const { projectDir, editorId } = openProjectInParamsSchema.parse(params);
+      await openProjectIn(projectDir, editorId);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  versions: () => ({ pi: auth.PI_VERSION_STRING, app: app.getVersion() }),
+
+  gitStatus: async ({ projectDir }) => ({ status: await gitStatus(projectDir) }),
+  gitDiff: async ({ projectDir, file, untracked }) => ({ diff: await gitDiff(projectDir, file, untracked) }),
+
+  listPackages: async ({ projectDir }) => {
+    try {
+      return await listPackages(projectDir);
+    } catch (err) {
+      return { packages: [], extensions: [], projectTrusted: false, errors: [errorMessage(err)] };
+    }
+  },
+  installPackage: async ({ projectDir, source, scope }) => {
+    try {
+      await installPackage(projectDir, source, scope);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+  removePackage: async ({ projectDir, source, scope }) => {
+    try {
+      await removePackage(projectDir, source, scope);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+  updatePackage: async ({ projectDir, source }) => {
+    try {
+      await updatePackage(projectDir, source);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+  loadGraphicalExtensions: async ({ projectDir }) => {
+    try {
+      return { extensions: await loadGraphicalExtensions(projectDir) };
+    } catch {
+      return { extensions: [] };
+    }
+  },
+  extensionRespond: ({ projectDir, response }) => {
+    pis.get(projectDir)?.sendRaw(response);
+    return { ok: true };
+  },
+};
+
+export function registerIpc(): void {
+  for (const [name, handler] of Object.entries(handlers) as [HostRequestName, HandlerMap[HostRequestName]][]) {
+    ipcMain.removeHandler(name);
+    ipcMain.handle(name, (_event, params) => (handler as (p: unknown) => unknown)(params ?? {}));
+  }
+}
+
+export async function stopAllPi(): Promise<void> {
+  stopSessionWatch();
+  const all = [...pis.values()];
+  pis.clear();
+  starting.clear();
+  await Promise.all(all.map((pi) => pi.stop()));
+}

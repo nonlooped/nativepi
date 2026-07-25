@@ -1,0 +1,194 @@
+import type {
+  AuthNotice,
+  AuthProviderInfo,
+  AuthPromptRequest,
+  PiStatus,
+  Project,
+} from "../../../shared/rpc-schema.ts";
+import type {
+  AssistantMessage,
+  ExtensionUiRequest,
+  GitStatus,
+  ModelInfo,
+  PiEvent,
+  SessionEntry,
+  SessionSummary,
+  ThinkingLevel,
+} from "../../../shared/pi-types.ts";
+import type { LoadedExtension } from "../extensionHost.ts";
+
+/**
+ * The store's shape, split by what each group of state is *about*.
+ *
+ * The slices are a reading aid, not a boundary: they compose into one store and
+ * one `AppState`, and an action in one slice calls actions in another freely
+ * (selecting a project reloads models, git and extensions). Splitting them into
+ * separate stores would only move that coordination somewhere less obvious.
+ */
+
+export type ExtensionPrompt = Extract<
+  ExtensionUiRequest,
+  { method: "select" | "confirm" | "input" | "editor" }
+>;
+
+export interface ExtensionWidget {
+  lines: string[];
+  placement: "aboveEditor" | "belowEditor";
+}
+
+export type ErrorRecovery = "retrySend" | "restartPi";
+
+export interface PendingMessage {
+  id: number;
+  text: string;
+}
+
+export interface AuthFlow {
+  providerId: string;
+  providerName: string;
+  type: "api_key" | "oauth";
+  busy: boolean;
+  prompt?: { id: string; request: AuthPromptRequest };
+  notices: AuthNotice[];
+  error?: string;
+}
+
+/** Projects, and which one is open. */
+export interface WorkspaceSlice {
+  ready: boolean;
+  projects: Project[];
+  activeProjectPath: string | null;
+  piStatus: Record<string, PiStatus>;
+
+  init: () => Promise<void>;
+  addProject: () => Promise<void>;
+  removeProject: (path: string) => Promise<void>;
+  selectProject: (path: string) => Promise<void>;
+  selectAdjacentProject: (direction: 1 | -1) => Promise<void>;
+  restartPi: () => Promise<void>;
+  onStatus: (projectDir: string, status: PiStatus) => void;
+}
+
+/** The conversation: which chat, its transcript, and everything sent into it. */
+export interface ChatSlice {
+  sessionsByProject: Record<string, SessionSummary[]>;
+  activeSessionFile: string | null;
+  isNewChat: boolean;
+  sessionName?: string;
+
+  entries: SessionEntry[];
+  streaming: AssistantMessage | null;
+  running: boolean;
+  runStartedAt: number | null;
+  compacting: boolean;
+  retry: { attempt: number; maxAttempts: number; error: string } | null;
+  queue: { steering: string[]; followUp: string[] };
+  pending: PendingMessage[];
+  sendBehavior: "steer" | "followUp";
+
+  drafts: Record<string, string>;
+  error?: string;
+  errorRecovery?: ErrorRecovery;
+  externalChange: { sessionFile: string } | null;
+
+  refreshSessions: (projectPath: string) => Promise<void>;
+  selectChat: (sessionFile: string) => Promise<void>;
+  newChat: () => void;
+  importSession: () => Promise<void>;
+  setDraft: (text: string) => void;
+  setSendBehavior: (behavior: "steer" | "followUp") => void;
+  send: () => Promise<void>;
+  enqueue: (behavior: "steer" | "followUp") => Promise<void>;
+  abort: () => void;
+  abortRetry: () => void;
+  renameChat: (sessionFile: string, name: string) => Promise<{ ok: boolean; error?: string }>;
+  cloneChat: (sessionFile: string) => Promise<{ ok: boolean; error?: string }>;
+  deleteChat: (sessionFile: string) => Promise<{ ok: boolean; error?: string }>;
+  forkChat: (sessionFile: string, entryId: string) => Promise<{ ok: boolean; error?: string }>;
+  compactActive: () => Promise<void>;
+  reloadActiveSession: () => Promise<void>;
+  clearError: () => void;
+
+  onEvent: (payload: { projectDir: string; sessionFile?: string; event: PiEvent }) => void;
+  onPiError: (projectDir: string, message: string) => void;
+  onSessionChangedExternally: (payload: { projectDir: string; sessionFile: string }) => void;
+}
+
+/** Which model answers, and how hard it thinks. */
+export interface ModelSlice {
+  models: ModelInfo[];
+  model?: ModelInfo;
+  favoriteModels: string[];
+  thinkingLevel: ThinkingLevel;
+  thinkingLevels: ThinkingLevel[];
+
+  setModel: (model: ModelInfo) => Promise<void>;
+  toggleFavoriteModel: (model: ModelInfo) => void;
+  setThinkingLevel: (level: ThinkingLevel) => Promise<void>;
+  cycleThinkingLevel: () => Promise<void>;
+}
+
+/** Provider credentials and the project trust decision. */
+export interface AuthSlice {
+  providers: AuthProviderInfo[];
+  providersLoaded: boolean;
+  authFlow: AuthFlow | null;
+  trustPrompt: { projectPath: string } | null;
+  trust: { required: boolean; trusted: boolean } | null;
+
+  loadProviders: () => Promise<void>;
+  startLogin: (providerId: string, type: "api_key" | "oauth") => Promise<void>;
+  submitAuthPrompt: (value: string) => void;
+  cancelLogin: () => void;
+  logoutProvider: (providerId: string) => Promise<void>;
+  trustActiveProject: () => Promise<void>;
+  dismissTrust: () => void;
+  revokeTrust: () => Promise<void>;
+  promptTrust: () => void;
+  onAuthPrompt: (payload: { id: string; prompt: AuthPromptRequest }) => void;
+  onAuthNotice: (notice: AuthNotice) => void;
+}
+
+/** What the project looks like right now: working tree, and loaded extensions. */
+export interface ProjectContextSlice {
+  git: GitStatus | null;
+  extPrompts: ExtensionPrompt[];
+  extStatuses: Record<string, string>;
+  extWidgets: Record<string, ExtensionWidget>;
+  extRenderers: LoadedExtension[];
+  extLoadErrors: { name: string; error: string }[];
+
+  refreshGit: () => Promise<void>;
+  reloadExtensions: () => Promise<void>;
+  respondExtension: (value: { value?: string; confirmed?: boolean; cancel?: boolean }) => void;
+}
+
+/** Chrome: what is open, how wide, and one-shot requests to the view. */
+export interface UiSlice {
+  settingsOpen: boolean;
+  sidebarSize: number;
+  sidebarOpen: boolean;
+  reopenLastProject: boolean;
+  contextPaneOpen: boolean;
+  contextPaneChosen: boolean;
+  jumpRequest: number;
+  searchFocusRequest: number;
+
+  openSettings: () => void;
+  closeSettings: () => void;
+  setSidebarSize: (size: number) => void;
+  setSidebarOpen: (open: boolean) => void;
+  toggleSidebar: () => void;
+  setReopenLastProject: (value: boolean) => void;
+  toggleContextPane: () => void;
+  requestJumpToLatest: () => void;
+  requestSearchFocus: () => void;
+}
+
+export type AppState = WorkspaceSlice & ChatSlice & ModelSlice & AuthSlice & ProjectContextSlice & UiSlice;
+
+export type SetState = (partial: Partial<AppState> | ((s: AppState) => Partial<AppState>)) => void;
+export type GetState = () => AppState;
+
+/** Every slice is created with the whole store's `set`/`get`. */
+export type SliceCreator<T> = (set: SetState, get: GetState) => T;
