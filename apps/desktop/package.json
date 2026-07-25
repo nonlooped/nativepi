@@ -81,7 +81,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "installerSidebar": "resources/installer-sidebar.bmp"
     }
   }
 }
