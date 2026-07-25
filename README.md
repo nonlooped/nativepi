@@ -1,78 +1,75 @@
-# NativePi
+<p align="center">
+  <img src="./docs/assets/nativepi-wordmark.svg" alt="NativePi" width="270">
+</p>
 
-**Pi, at home on your desktop.**
+<p align="center">
+  <strong>Pi, at home on your desktop.</strong><br>
+  A free, open-source Windows desktop interface for the <a href="https://pi.dev/">Pi coding agent</a>.
+</p>
 
-NativePi is a free, open-source Windows desktop interface for the
-[Pi coding agent](https://pi.dev/). It brings projects, conversations, model
-controls, tool activity, diffs, authentication, and extensions into one focused
-workspace without replacing the agent that makes Pi powerful.
+<p align="center">
+  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="Platform: Windows" src="https://img.shields.io/badge/platform-Windows-0078D4.svg">
+  <img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-orange.svg">
+  <img alt="Built with Electron + React" src="https://img.shields.io/badge/built%20with-Electron%20%2B%20React%2019-47848F.svg">
+</p>
+
+<p align="center">
+  <a href="#why-nativepi">Why NativePi</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#getting-started">Getting Started</a> ·
+  <a href="#architecture">Architecture</a>
+</p>
+
+---
+
+![NativePi showing a project, Pi conversation, and model controls](./docs/assets/nativepi-home.png)
+
+NativePi brings projects, conversations, model controls, tool activity, diffs,
+authentication, and extensions into one focused workspace, without replacing
+the agent that makes Pi powerful.
 
 > [!IMPORTANT]
-> NativePi is **pre-alpha software**. Core workflows are taking shape, but
-> releases may be incomplete, unstable, or incompatible between versions. It is
-> not yet recommended for critical work without a backup and comfort debugging
-> early-stage software.
+> NativePi is **pre-alpha software**. Releases may be incomplete, unstable, or
+> incompatible between versions. Keep backups and expect rough edges.
 
-## The Pi You Know, With A Native Place To Work
+## Why NativePi
 
-Pi is intentionally minimal and deeply adaptable. NativePi keeps that philosophy
-intact while giving it a visual home: projects and chats stay close at hand,
-agent work remains visible as it happens, and the files changed by a run are
-available for review without leaving the conversation.
+Most agent frontends replace the agent they wrap: their own loop, their own
+storage, their own login. NativePi takes the opposite approach.
 
-NativePi is not another agent harness and does not hide Pi behind a parallel
-system. Pi still owns the agent loop, providers, models, authentication, tools,
-extensions, prompts, skills, compaction, queues, and sessions. NativePi calls Pi,
-renders what Pi returns, and keeps the desktop experience out of the agent's way.
+- **It's all in on extensions.** NativePi extends Pi's extension API into a
+  graphical one, so the app itself is hackable. You shape NativePi the same way
+  you already shape Pi.
+- **Pi stays in charge.** Pi owns the agent loop, providers, auth, tools,
+  extensions, and sessions. NativePi calls Pi and renders what Pi returns, so
+  Pi improvements land automatically.
+- **Nothing is locked in.** Sessions and credentials live in Pi's normal
+  storage, fully interchangeable with the Pi CLI. Drop NativePi anytime and
+  lose nothing.
+- **Everything runs on your machine.** No account, no cloud store, no
+  telemetry, no NativePi servers.
+- **Free and open source.** MIT licensed, from the app down to the extension
+  contract.
 
-## Built For Flow
+## Features
 
-- **Move between projects and chats quickly.** Open local folders, resume Pi
-  sessions, and keep the active conversation in view.
-- **Watch the work, not a spinner.** Follow streamed responses, thinking, tool
-  calls, errors, and file changes as they happen.
-- **Stay in control mid-run.** Send, steer, queue a follow-up, or stop the agent
-  from the same workspace.
-- **Choose the right model for the moment.** Use Pi's providers, models, and
-  thinking levels without rebuilding your configuration.
-- **Review code where the conversation happened.** Inspect read-only Git status
-  and rich diffs alongside the transcript.
-- **Keep your Pi setup yours.** Existing credentials, sessions, packages,
-  extensions, skills, and prompts remain in Pi's normal storage and continue to
-  work with the Pi CLI.
-- **Work locally.** NativePi has no product account, cloud conversation store,
-  collaboration service, or telemetry.
+| | |
+|---|---|
+| **Projects and chats, close at hand** | Open local folders, resume Pi sessions, and keep the active conversation in view. |
+| **Watch the work, not a spinner** | Follow streamed responses, thinking, tool calls, errors, and file changes as they happen. |
+| **Stay in control mid-run** | Send, steer, queue a follow-up, or stop the agent from the same workspace. |
+| **The right model for the moment** | Use Pi's providers, models, and thinking levels without rebuilding your configuration. |
+| **Review code in context** | Inspect read-only Git status and rich diffs alongside the transcript. |
+| **Manage extensions visually** | Pi extensions can opt into richer desktop presentation through the graphical extension API. |
 
-## A Desktop Wrapper, Not A Walled Garden
+## Getting Started
 
-NativePi is designed for people who already shape Pi around their workflow and
-for developers who want that power without living in a terminal. Normal Pi
-extensions continue to run inside Pi. Extensions can also opt into controlled
-NativePi surfaces for richer desktop presentation without replacing the core
-composer, transcript, or navigation.
-
-Sessions remain Pi sessions. Credentials remain Pi credentials. If NativePi
-disappeared tomorrow, your agent history and configuration would still belong to
-the Pi ecosystem rather than a second proprietary store.
-
-## Pre-Alpha Roadmap
-
-The current codebase already covers much of the daily workspace: local projects,
-session discovery, conversations, streaming, tool results, model controls,
-provider authentication, read-only Git context, and extension management.
-
-Before the first stable release, the project still needs sustained real-world
-testing, stronger recovery around concurrent session changes and process
-failures, polished diagnostics, a complete update flow, and clean-machine
-installer validation. See [PLAN.md](./PLAN.md) for the product boundary, release
-criteria, and implementation phases.
-
-## Develop NativePi
-
-NativePi is Windows-first. You need [Bun](https://bun.sh/) and Git available on
-your machine.
+NativePi is Windows-first. You need [Bun](https://bun.sh/) and Git installed.
 
 ```sh
+git clone https://github.com/nonlooped/nativepi.git
+cd nativepi
 bun install
 bun run dev
 ```
@@ -80,43 +77,58 @@ bun run dev
 The desktop application lives in `apps/desktop`; the public graphical extension
 contract lives in `packages/extension-api`.
 
-## Test And Build
+### Test and build
 
 ```sh
-cd apps/desktop && bun test
-cd ../.. && bun run build
-bun run pack
-bun run dist:win
+cd apps/desktop && bun test   # run the test suite
+cd ../.. && bun run build     # build the app
+bun run pack                  # package without installer
+bun run dist:win              # build the Windows installer
 ```
 
-Windows installers are currently unsigned, so Windows SmartScreen will warn on
-first launch.
+> [!NOTE]
+> Windows installers are currently unsigned, so Windows SmartScreen will warn on
+> first launch.
 
-## Technical Shape
+## Architecture
 
-NativePi uses Electron, electron-vite, React 19 with React Compiler, Tailwind CSS
-4, shadcn/ui, Zustand, and Zod. Bun manages the workspace, but Electron's Node
-runtime runs the main and preload processes.
-
-A pinned `@earendil-works/pi-coding-agent` dependency is bundled with the app and
-started in RPC mode through Electron's binary using `ELECTRON_RUN_AS_NODE`. The
-renderer communicates with the host through Electron IPC and a constrained
-`contextBridge`; it does not run a local HTTP or WebSocket server.
+Electron, electron-vite, React 19 with React Compiler, Tailwind CSS 4,
+shadcn/ui, Zustand, and Zod. Bun manages the workspace.
 
 ```text
-React renderer
-    | Electron IPC
-Electron main process
-    | Pi JSON RPC over stdin/stdout
-Bundled Pi process
+┌─────────────────────────────┐
+│       React renderer        │
+└──────────────┬──────────────┘
+               │  Electron IPC
+┌──────────────▼──────────────┐
+│    Electron main process    │
+└──────────────┬──────────────┘
+               │  Pi JSON RPC over stdin/stdout
+┌──────────────▼──────────────┐
+│      Bundled Pi process     │
+└─────────────────────────────┘
 ```
 
-The NativePi graphical extension API is imported as
-`@nativepi/extension-api`. Extension manifests opt in with a `nativepi.renderer`
-entry. This API is also pre-alpha and may change before its first stable release.
+A pinned `@earendil-works/pi-coding-agent` is bundled with the app and started
+in RPC mode via `ELECTRON_RUN_AS_NODE`. The renderer talks to the host through
+Electron IPC and a constrained `contextBridge`; there is no local HTTP or
+WebSocket server.
+
+### Extensions
+
+Normal Pi extensions run inside Pi, unchanged. To reach the desktop surface,
+an extension imports `@nativepi/extension-api` and adds a `nativepi.renderer`
+entry to its manifest. The API is pre-alpha and may change before its first
+stable release.
 
 ## License
 
 NativePi is available under the [MIT License](./LICENSE). The bundled Departure
 Mono wordmark font is by Helena Zhang and is distributed under the SIL Open Font
 License; its license is included beside the font asset.
+
+---
+
+<p align="center">
+  Made for people who already shape Pi around their workflow.
+</p>
