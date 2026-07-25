@@ -12,7 +12,7 @@ export default defineConfig({
         input: {
           index: resolve("src/main/index.ts"),
         },
-        external: [/^@earendil-works\//],
+        external: ["electron", /^electron\//, /^@earendil-works\//],
       },
     },
   },
@@ -23,6 +23,7 @@ export default defineConfig({
         input: {
           index: resolve("src/preload/index.ts"),
         },
+        external: ["electron", /^electron\//],
         output: {
           format: "cjs",
           entryFileNames: "[name].cjs",
