@@ -12,6 +12,7 @@
     "pack": "cd apps/desktop && bun run pack",
     "dist": "cd apps/desktop && bun run dist",
     "dist:win": "cd apps/desktop && bun run dist:win",
+    "typecheck": "cd apps/desktop && bun run typecheck",
     "preview": "cd apps/desktop && bun run preview"
   }
 }
