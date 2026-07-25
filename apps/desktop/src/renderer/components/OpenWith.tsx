@@ -1,7 +1,4 @@
 import { useEffect, useState } from "react";
-import Antigravity from "@lobehub/icons/es/Antigravity";
-import Cursor from "@lobehub/icons/es/Cursor";
-import Windsurf from "@lobehub/icons/es/Windsurf";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CheckIcon } from "@phosphor-icons/react/Check";
 import { CodeIcon } from "@phosphor-icons/react/Code";
@@ -12,6 +9,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
 import { rpc } from "@/lib/rpc.ts";
 import { cn, NO_DRAG_REGION } from "@/lib/utils.ts";
+import BrandIcon from "./BrandIcon.tsx";
 
 const EXPLORER: InstalledEditor = { id: "explorer", name: "Explorer", icon: "explorer" };
 
@@ -101,9 +99,9 @@ export default function OpenWith({ projectDir }: { projectDir: string }) {
 
 function EditorIcon({ editor }: { editor: InstalledEditor }) {
   if (editor.iconUrl) return <img src={editor.iconUrl} width="16" height="16" alt="" />;
-  if (editor.icon === "cursor") return <Cursor aria-hidden />;
-  if (editor.icon === "antigravity") return <Antigravity.Color aria-hidden />;
-  if (editor.icon === "windsurf") return <Windsurf aria-hidden />;
+  if (editor.icon === "cursor") return <BrandIcon name="cursor" />;
+  if (editor.icon === "antigravity") return <BrandIcon name="antigravity" color />;
+  if (editor.icon === "windsurf") return <BrandIcon name="windsurf" />;
   if (editor.icon === "explorer") return <FolderOpenIcon aria-hidden />;
   return <CodeIcon aria-hidden />;
 }

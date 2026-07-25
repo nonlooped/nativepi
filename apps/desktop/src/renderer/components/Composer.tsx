@@ -1,5 +1,4 @@
 import { ArrowBendUpRightIcon, CaretDownIcon, CheckIcon, MagnifyingGlassIcon, PaperPlaneRightIcon, StarIcon, WarningCircleIcon } from "../../shared/icons.ts"
-import { ProviderIcon } from "@lobehub/icons";
 import { useId, useMemo, useState } from "react";
 import type { AssistantMessage, ModelInfo } from "../../shared/pi-types.ts";
 import { draftKeyFor, modelKey } from "../../shared/messages.ts";
@@ -13,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
 import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
 import { ComposerWidgets } from "./ExtensionSlots.tsx";
+import BrandIcon from "./BrandIcon.tsx";
 
 export default function Composer({ prominent = false }: { prominent?: boolean }) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -344,12 +344,9 @@ function ModelSelector() {
 
 function ModelProviderIcon({ provider }: { provider: string }) {
   return (
-    <ProviderIcon
-      provider={providerIconName(provider)}
+    <BrandIcon
+      name={providerIconName(provider)}
       size={16}
-      type="mono"
-      className="shrink-0 [--ant-color-text-description:currentColor]"
-      aria-hidden
     />
   );
 }

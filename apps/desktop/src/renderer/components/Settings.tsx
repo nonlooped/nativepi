@@ -1,4 +1,3 @@
-import { ProviderIcon } from "@lobehub/icons";
 import { useState } from "react";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
@@ -26,6 +25,7 @@ import { DRAG_REGION, NO_DRAG_REGION, WINDOW_CONTROLS_CLEARANCE, cn } from "@/li
 import ConfirmDialog from "./ConfirmDialog.tsx";
 import ExtensionsManager from "./ExtensionsManager.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
+import BrandIcon from "./BrandIcon.tsx";
 
 const categories = [
   { name: "General", icon: GearSixIcon },
@@ -302,12 +302,10 @@ function ProviderGroup({
               className="flex w-full items-center gap-4 rounded-lg px-2 py-5 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
-                <ProviderIcon
-                  provider={providerIconName(provider.id)}
+                <BrandIcon
+                  name={providerIconName(provider.id)}
                   size={21}
-                  type="color"
-                  className={provider.id === "radius" ? "[--ant-color-text-description:currentColor]" : undefined}
-                  aria-hidden
+                  color
                 />
               </span>
               <span className="min-w-0 flex-1">
