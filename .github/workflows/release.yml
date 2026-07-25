@@ -50,3 +50,4 @@ jobs:
             apps/desktop/release/latest.yml
           generate_release_notes: true
           draft: false
+          prerelease: true
