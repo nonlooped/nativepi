@@ -41,9 +41,18 @@ jobs:
             apps/desktop/release/latest.yml
           if-no-files-found: error
 
+      - name: Prepare release title
+        id: release
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          $shortSha = $env:GITHUB_SHA.Substring(0, 12)
+          "title=NativePi $version ($shortSha)" >> $env:GITHUB_OUTPUT
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
         with:
+          name: ${{ steps.release.outputs.title }}
           files: |
             apps/desktop/release/*.exe
             apps/desktop/release/*.blockmap
