@@ -10,6 +10,7 @@ app.setName("NativePi");
 function createWindow(): void {
   const win = new BrowserWindow({
     title: "NativePi",
+    icon: join(__dirname, "../../resources/icon.png"),
     width: 1280,
     height: 840,
     minWidth: 720,

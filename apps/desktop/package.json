@@ -1,7 +1,7 @@
 {
   "name": "@nativepi/desktop",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A Windows-first desktop interface for the Pi coding agent.",
   "author": "nonlooped",
   "type": "module",
@@ -65,7 +65,8 @@
       "output": "release"
     },
     "files": [
-      "out/**/*"
+      "out/**/*",
+      "resources/icon.png"
     ],
     "asarUnpack": [
       "**/node_modules/@earendil-works/**/*",
@@ -73,6 +74,7 @@
       "**/node_modules/@esbuild/**/*"
     ],
     "win": {
+      "icon": "resources/icon.ico",
       "target": [
         "nsis"
       ]

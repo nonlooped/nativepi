@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title id="title">NativePi</title>
+  <rect x="8" y="8" width="240" height="240" rx="48" fill="#18181b"/>
+  <rect x="9" y="9" width="238" height="238" rx="47" fill="none" stroke="#2f3036" stroke-width="2"/>
+  <path fill="#9b9ba3" d="M52 76h76v24h-12v80H92v-56H68v56H44V84a8 8 0 0 1 8-8Z"/>
+  <path fill="#f0f0f2" d="M116 76h96v24h-16v80h-28v-80h-24v80h-28v-80h-8V76h8Z"/>
+</svg>
