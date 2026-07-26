@@ -117,6 +117,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
       <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-3">
         {projects.length === 0 && (
           <button
+            type="button"
             onClick={() => void addProjectAndClose()}
             className="flex items-center gap-2 rounded-lg border border-dashed px-2.5 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:border-sidebar-ring focus-visible:ring-2 focus-visible:ring-sidebar-ring/30 focus-visible:outline-none"
           >
@@ -128,6 +129,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
           <div key={project.path} className="flex flex-col gap-0.5">
             <div className="group flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent">
               <button
+                type="button"
                 onClick={() => void selectProjectAndClose(project.path)}
                 className={cn(
                   "flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-left text-sm font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
@@ -235,7 +237,8 @@ function ChatList({
           )}
         >
           <button
-            onClick={() => void selectChat(session.path).then(onNavigate)}
+            type="button"
+            onClick={() => void selectChat(session.path).then(onNavigate).catch(() => undefined)}
             className="flex min-w-0 flex-1 flex-row items-center gap-3 rounded-lg px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
           >
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{chatTitle(session)}</span>

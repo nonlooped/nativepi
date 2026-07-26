@@ -21,7 +21,7 @@ export function useReducedMotion(): boolean {
   return reduced;
 }
 
-export function prefersReducedMotion(): boolean {
+function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }

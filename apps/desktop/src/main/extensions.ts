@@ -76,10 +76,9 @@ async function readManifest(root: string): Promise<{ name: string; renderer: str
 }
 
 export async function loadGraphicalExtensions(projectDir: string): Promise<GraphicalExtension[]> {
-  const out: GraphicalExtension[] = [];
-  for (const root of candidateRoots(projectDir)) {
+  const extensions = await Promise.all(candidateRoots(projectDir).map(async (root) => {
     const manifest = await readManifest(root);
-    if (!manifest) continue;
+    if (!manifest) return null;
     const entry = path.resolve(root, manifest.renderer);
     try {
       const result = await build({
@@ -92,10 +91,10 @@ export async function loadGraphicalExtensions(projectDir: string): Promise<Graph
         logLevel: "silent",
         plugins: [hostGlobalsPlugin],
       });
-      out.push({ id: root, name: manifest.name, code: result.outputFiles[0]?.text ?? "" });
+      return { id: root, name: manifest.name, code: result.outputFiles[0]?.text ?? "" };
     } catch (err) {
-      out.push({ id: root, name: manifest.name, code: "", error: err instanceof Error ? err.message : String(err) });
+      return { id: root, name: manifest.name, code: "", error: err instanceof Error ? err.message : String(err) };
     }
-  }
-  return out;
+  }));
+  return extensions.filter((extension): extension is GraphicalExtension => extension !== null);
 }

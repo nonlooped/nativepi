@@ -47,19 +47,25 @@ export default function SessionMenu({ session, className }: { session: SessionSu
 
   async function doClone() {
     setBusyAction(true);
-    await cloneChat(session.path);
-    setBusyAction(false);
+    try {
+      await cloneChat(session.path);
+    } finally {
+      setBusyAction(false);
+    }
   }
 
   async function doExport() {
     const projectDir = useAppStore.getState().activeProjectPath;
     if (!projectDir) return;
     setBusyAction(true);
-    const res = await rpc.request.exportHtml({ projectDir, sessionFile: session.path });
-    setBusyAction(false);
-    if (res.ok && res.path) {
-      setExportPath(res.path);
-      setDialog("export");
+    try {
+      const res = await rpc.request.exportHtml({ projectDir, sessionFile: session.path });
+      if (res.ok && res.path) {
+        setExportPath(res.path);
+        setDialog("export");
+      }
+    } finally {
+      setBusyAction(false);
     }
   }
 
@@ -152,10 +158,13 @@ function RenameDialog({ session, onClose }: { session: SessionSummary; onClose: 
     const trimmed = name.trim();
     if (!trimmed) return;
     setSaving(true);
-    const res = await renameChat(session.path, trimmed);
-    setSaving(false);
-    if (res.ok) onClose();
-    else setError(res.error ?? "Rename failed");
+    try {
+      const res = await renameChat(session.path, trimmed);
+      if (res.ok) onClose();
+      else setError(res.error ?? "Rename failed");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -206,10 +215,13 @@ function ForkDialog({ session, onClose }: { session: SessionSummary; onClose: ()
 
   async function fork(entryId: string) {
     setForking(true);
-    const res = await forkChat(session.path, entryId);
-    setForking(false);
-    if (res.ok) onClose();
-    else setForkError(res.error ?? "Fork failed");
+    try {
+      const res = await forkChat(session.path, entryId);
+      if (res.ok) onClose();
+      else setForkError(res.error ?? "Fork failed");
+    } finally {
+      setForking(false);
+    }
   }
 
   return (

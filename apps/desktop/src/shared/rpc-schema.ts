@@ -74,7 +74,7 @@ export type AuthNotice =
  */
 const projectSchema = z.object({ path: z.string(), name: z.string().optional() });
 
-export const paneStateSchema = z.object({
+const paneStateSchema = z.object({
   sidebarOpen: z.boolean().catch(true),
   // Clamped, not rejected: a size outside the resizable range would render the
   // sidebar unusable, and dropping the whole object over it loses the rest.
@@ -106,7 +106,6 @@ export const nativePiStateSchema = z.object({
 });
 
 export type NativePiState = z.infer<typeof nativePiStateSchema>;
-export type PaneState = z.infer<typeof paneStateSchema>;
 
 export type HostRequests = {
   pickProject: { params: Record<string, never>; response: { path: string | null } };

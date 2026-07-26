@@ -1,0 +1,48 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "ignore": {
+    "files": ["src/renderer/components/ui/**"],
+    "rules": ["deslop/unused-file"],
+    "overrides": [
+      {
+        "files": ["src/renderer/components/WindowControls.tsx"],
+        "rules": ["react-doctor/effect-needs-cleanup"]
+      },
+      {
+        "files": [
+          "src/renderer/components/Composer.tsx",
+          "src/renderer/components/ExtensionSlots.tsx",
+          "src/renderer/components/ExtensionUi.tsx",
+          "src/renderer/components/ExtensionsManager.tsx",
+          "src/renderer/components/Settings.tsx",
+          "src/renderer/components/Transcript.tsx"
+        ],
+        "rules": ["react-doctor/no-array-index-as-key"]
+      },
+      {
+        "files": ["src/renderer/lib/extensionHost.ts"],
+        "rules": ["react-doctor/async-await-in-loop"]
+      },
+      {
+        "files": ["src/renderer/components/Transcript.tsx"],
+        "rules": [
+          "react-doctor/no-derived-state",
+          "react-doctor/no-derived-state-effect",
+          "react-doctor/no-adjust-state-on-prop-change"
+        ]
+      },
+      {
+        "files": ["src/renderer/App.tsx"],
+        "rules": ["react-doctor/no-giant-component"]
+      },
+      {
+        "files": [
+          "src/main/sessions.ts",
+          "src/renderer/components/ExtensionSlots.tsx",
+          "src/renderer/components/TrustDialog.tsx"
+        ],
+        "rules": ["react-doctor/js-combine-iterations"]
+      }
+    ]
+  }
+}

@@ -8,7 +8,6 @@ export function cn(...inputs: ClassValue[]) {
 export const DRAG_REGION = "app-drag"
 export const NO_DRAG_REGION = "app-no-drag"
 
-export const WINDOW_CONTROLS_WIDTH = 132
 export const WINDOW_CONTROLS_CLEARANCE = "pr-[132px]"
 
 export const SCROLLBAR_GUTTER_OFFSET = "pr-[26px]"

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import type { ExtensionPrompt } from "../lib/store.ts";
 import { useAppStore } from "../lib/store.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -11,7 +11,7 @@ export default function ExtensionUi() {
   const prompt = useAppStore((s) => s.extPrompts[0]);
   // Notifications are not rendered here: they go straight to the toast layer,
   // which owns stacking and dismissal for every transient message in the app.
-  return prompt ? <ExtensionPromptDialog prompt={prompt} /> : null;
+  return prompt ? <ExtensionPromptDialog key={prompt.id} prompt={prompt} /> : null;
 }
 
 const PROMPT_DESCRIPTIONS: Record<ExtensionPrompt["method"], string> = {
@@ -25,8 +25,6 @@ function ExtensionPromptDialog({ prompt }: { prompt: ExtensionPrompt }) {
   const respond = useAppStore((s) => s.respondExtension);
   const [value, setValue] = useState(prompt.method === "editor" ? (prompt.prefill ?? "") : "");
   const fieldId = useId();
-
-  useEffect(() => setValue(prompt.method === "editor" ? (prompt.prefill ?? "") : ""), [prompt.id]);
 
   const cancel = () => respond({ cancel: true });
   // DESIGN.md makes descriptions mandatory, and these dialogs come from

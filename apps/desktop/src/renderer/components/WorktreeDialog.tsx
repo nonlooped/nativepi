@@ -75,10 +75,13 @@ function Branches({ projectPath, onClose }: { projectPath: string; onClose: () =
     if (busy) return;
     setBusy(true);
     setFailure(null);
-    const res = await rpc.request.gitAddWorktree({ projectDir: projectPath, branch, create: isNew });
-    setBusy(false);
-    if (res.ok && res.path) await open(res.path);
-    else setFailure(res.error ?? "Git could not add the worktree.");
+    try {
+      const res = await rpc.request.gitAddWorktree({ projectDir: projectPath, branch, create: isNew });
+      if (res.ok && res.path) await open(res.path);
+      else setFailure(res.error ?? "Git could not add the worktree.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

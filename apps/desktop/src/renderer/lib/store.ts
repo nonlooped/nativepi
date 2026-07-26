@@ -45,10 +45,6 @@ rpc.events.on("authNotice", ({ notice }) => useAppStore.getState().onAuthNotice(
 export { thinkingLabel } from "./store/models.ts";
 
 export type {
-  AppState,
   AuthFlow,
-  ErrorRecovery,
   ExtensionPrompt,
-  ExtensionWidget,
-  PendingMessage,
 } from "./store/types.ts";

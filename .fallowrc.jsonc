@@ -5,6 +5,14 @@
     "src/index.{js,jsx,mjs}",
     "src/main.{js,jsx,mjs}"
   ],
+  "ignorePatterns": [
+    "apps/desktop/src/renderer/components/ui/**"
+  ],
+  // These are consumed only by the excluded shadcn primitives above.
+  "ignoreDependencies": [
+    "class-variance-authority",
+    "react-resizable-panels"
+  ],
   "workspaces": {
     "patterns": [
       "apps/*",

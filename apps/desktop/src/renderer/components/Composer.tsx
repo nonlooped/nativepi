@@ -162,17 +162,15 @@ function QueuedMessages() {
   if (steering.length === 0 && followUp.length === 0) return null;
 
   return (
-    <div
-      role="list"
-      aria-label="Messages queued for this turn"
-      className="mx-auto mb-2 flex max-h-40 w-full max-w-3xl flex-col gap-1 overflow-y-auto"
-    >
-      {steering.map((text, i) => (
-        <QueueRow key={`s${i}`} label="Steer" text={text} />
-      ))}
-      {followUp.map((text, i) => (
-        <QueueRow key={`f${i}`} label="Follow up" text={text} />
-      ))}
+    <div className="mx-auto mb-2 flex max-h-40 w-full max-w-3xl flex-col gap-1 overflow-y-auto">
+      <ul aria-label="Messages queued for this turn" className="flex flex-col gap-1">
+        {steering.map((text, i) => (
+          <QueueRow key={`s${i}`} label="Steer" text={text} />
+        ))}
+        {followUp.map((text, i) => (
+          <QueueRow key={`f${i}`} label="Follow up" text={text} />
+        ))}
+      </ul>
       {/* Pi owns this queue and exposes no way to withdraw an entry, so say so
           rather than leaving the user hunting for a control that cannot exist. */}
       <p className="px-1 pt-0.5 text-xs text-muted-foreground">
@@ -184,7 +182,7 @@ function QueuedMessages() {
 
 function QueueRow({ label, text }: { label: string; text: string }) {
   return (
-    <div role="listitem" className="flex items-start gap-2 rounded-xl border bg-card/60 px-3 py-2 text-sm">
+    <li className="flex items-start gap-2 rounded-xl border bg-card/60 px-3 py-2 text-sm">
       <span className="mt-0.5 shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
         {label}
       </span>
@@ -193,7 +191,7 @@ function QueueRow({ label, text }: { label: string; text: string }) {
       <span className="min-w-0 flex-1 line-clamp-2 break-words whitespace-pre-wrap text-muted-foreground" title={text}>
         {text}
       </span>
-    </div>
+    </li>
   );
 }
 
@@ -244,6 +242,8 @@ function ModelSelector() {
   const openSettings = useAppStore((s) => s.openSettings);
   const [query, setQuery] = useState("");
   const [selectedTab, setSelectedTab] = useState<string | null>(null);
+  const favoriteModelKeys = new Set(favoriteModels);
+  const providerNames = new Map(providers.map((item) => [item.id, item.name]));
   const label = model ? (model.name ?? model.id) : "Model";
   const authenticatedProviders = providers.filter((item) => item.configured && models.some((m) => m.provider === item.id));
 
@@ -251,9 +251,9 @@ function ModelSelector() {
     selectedTab ?? (favoriteModels.length > 0 ? "favorite" : (authenticatedProviders[0]?.id ?? "favorite"));
 
   const visibleModels = models.filter((item) => {
-    if (provider === "favorite" && !favoriteModels.includes(modelKey(item))) return false;
+    if (provider === "favorite" && !favoriteModelKeys.has(modelKey(item))) return false;
     if (provider !== "favorite" && item.provider !== provider) return false;
-    const providerName = providers.find((p) => p.id === item.provider)?.name ?? "";
+    const providerName = providerNames.get(item.provider) ?? "";
     const haystack = `${item.name ?? item.id} ${item.id} ${item.provider} ${providerName}`.toLowerCase();
     return haystack.includes(query.trim().toLowerCase());
   });
@@ -326,7 +326,7 @@ function ModelSelector() {
                 {provider === "favorite" ? "Favorite" : (providers.find((item) => item.id === provider)?.name ?? provider)}
               </p>
               {visibleModels.length ? visibleModels.map((m) => {
-                const favorite = favoriteModels.includes(modelKey(m));
+                const favorite = favoriteModelKeys.has(modelKey(m));
                 const selected = isSameModel(m, model);
                 return (
                 <MenuItem
@@ -348,7 +348,7 @@ function ModelSelector() {
                   <ModelProviderIcon provider={m.provider} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{m.name ?? m.id}</p>
-                    <p className="truncate text-xs text-muted-foreground">{providers.find((item) => item.id === m.provider)?.name ?? m.provider}</p>
+                    <p className="truncate text-xs text-muted-foreground">{providerNames.get(m.provider) ?? m.provider}</p>
                   </div>
                   <button
                     type="button"
@@ -535,12 +535,15 @@ function BranchList({ onDone }: { onDone: () => void }) {
     if (busy) return;
     setBusy(true);
     setError(null);
-    const res = await switchBranch(branch, create);
-    setBusy(false);
-    // Left open on failure: Git's refusal, usually uncommitted changes or an
-    // invalid name, answers what the user just tried and belongs beside it.
-    if (res.ok) onDone();
-    else setError(res.error ?? "Git refused this change.");
+    try {
+      const res = await switchBranch(branch, create);
+      // Left open on failure: Git's refusal, usually uncommitted changes or an
+      // invalid name, answers what the user just tried and belongs beside it.
+      if (res.ok) onDone();
+      else setError(res.error ?? "Git refused this change.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

@@ -35,6 +35,12 @@ const categories = [
   { name: "About", icon: InfoIcon },
 ] as const;
 
+const byProviderName = (a: AuthProviderInfo, b: AuthProviderInfo) => a.name.localeCompare(b.name);
+
+function openExternal(url: string): void {
+  void rpc.request.openExternal({ url });
+}
+
 type Category = (typeof categories)[number]["name"];
 
 const CATEGORY_BLURBS: Partial<Record<Category, string>> = {
@@ -202,9 +208,8 @@ function ProviderSettings() {
   const matching = normalized
     ? providers.filter((provider) => provider.name.toLocaleLowerCase().includes(normalized))
     : providers;
-  const byName = (a: AuthProviderInfo, b: AuthProviderInfo) => a.name.localeCompare(b.name);
-  const connected = matching.filter((provider) => provider.configured).toSorted(byName);
-  const available = matching.filter((provider) => !provider.configured).toSorted(byName);
+  const connected = matching.filter((provider) => provider.configured).toSorted(byProviderName);
+  const available = matching.filter((provider) => !provider.configured).toSorted(byProviderName);
 
   return (
     <div className="flex flex-col gap-8">
@@ -457,7 +462,6 @@ function hostOf(url: string): string {
 
 function AuthProgress({ provider, flow }: { provider: AuthProviderInfo; flow: AuthFlow }) {
   const cancelLogin = useAppStore((s) => s.cancelLogin);
-  const openExternal = (url: string) => void rpc.request.openExternal({ url });
   const deviceCode = flow.notices.findLast((n) => n.kind === "device_code");
   const authUrl = flow.notices.findLast((n) => n.kind === "auth_url");
   const messages = flow.notices.filter((n) => n.kind === "progress" || n.kind === "info");
