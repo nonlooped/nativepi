@@ -38,18 +38,6 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
     return res;
   },
 
-  // A worktree is a second checkout in its own directory, which is precisely
-  // what a NativePi project already is — so it becomes one, with its own Pi and
-  // its own chats, rather than a second notion of "where work happens".
-  branchInWorktree: async (branch, create) => {
-    const path = get().activeProjectPath;
-    if (!path) return { ok: false, error: "No project is open." };
-    const res = await rpc.request.gitAddWorktree({ projectDir: path, branch, create });
-    if (!res.ok || !res.path) return { ok: false, error: res.error };
-    await get().openProjectPath(res.path);
-    return { ok: true };
-  },
-
   // Extensions are loaded by Pi at startup, so a reload is a restart.
   reloadExtensions: async () => get().restartPi(),
 

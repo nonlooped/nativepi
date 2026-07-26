@@ -441,6 +441,11 @@ Include:
 - Switching to a branch, or creating one, in the current checkout.
 - Adding a worktree for a branch, opened as its own NativePi project.
 
+Branch switching belongs to the composer, beside the model. Worktrees belong to
+the project actions: a worktree has its own Pi, chats and changes, which makes
+it a project rather than a setting on an existing one. They are not one
+control.
+
 Do not include staging, commits, merges, rebases, hidden snapshots, discard, or
 rollback. Nothing NativePi does may rewrite history or move work the user has
 not committed.

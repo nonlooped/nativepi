@@ -161,7 +161,6 @@ export interface ProjectContextSlice {
 
   refreshGit: () => Promise<void>;
   switchBranch: (branch: string, create: boolean) => Promise<{ ok: boolean; error?: string }>;
-  branchInWorktree: (branch: string, create: boolean) => Promise<{ ok: boolean; error?: string }>;
   reloadExtensions: () => Promise<void>;
   respondExtension: (value: { value?: string; confirmed?: boolean; cancel?: boolean }) => void;
 }
