@@ -116,8 +116,8 @@ management, and contextual controls without crowding the basic flow.
 - Other agent harnesses.
 - Remote projects or SSH launching.
 - A browser client or network server.
-- Worktrees or checkpoints.
-- Git staging, commits, branches, or rollback.
+- Checkpoints.
+- Git staging, commits, merges, or rollback.
 - A full terminal emulator.
 - Cloud sync or collaboration.
 - An extension marketplace.
@@ -428,7 +428,7 @@ without inventing replacement behavior.
 
 ## 12. Git and Diffs
 
-Git support is read-only.
+Git support is read-only apart from choosing where work happens.
 
 Include:
 
@@ -438,9 +438,17 @@ Include:
 - Changed-file list.
 - Working-tree diff.
 - Rich rendering of Pi edit and write results.
+- Switching to a branch, or creating one, in the current checkout.
+- Adding a worktree for a branch, opened as its own NativePi project.
 
-Do not include staging, commits, branch management, worktrees, hidden snapshots,
-discard, or rollback.
+Branch switching belongs to the composer, beside the model. Worktrees belong to
+the project actions: a worktree has its own Pi, chats and changes, which makes
+it a project rather than a setting on an existing one. They are not one
+control.
+
+Do not include staging, commits, merges, rebases, hidden snapshots, discard, or
+rollback. Nothing NativePi does may rewrite history or move work the user has
+not committed.
 
 Run simple Git commands from the Electron main process and return their output.
 Do not create a Git service framework or persistent repository model.

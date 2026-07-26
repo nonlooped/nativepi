@@ -1,10 +1,12 @@
-import { ArrowBendUpRightIcon, CaretDownIcon, CheckIcon, MagnifyingGlassIcon, PaperPlaneRightIcon, StarIcon, WarningCircleIcon } from "../../shared/icons.ts"
+import { ArrowBendUpRightIcon, CaretDownIcon, CheckIcon, GitBranchIcon, MagnifyingGlassIcon, PaperPlaneRightIcon, PlusIcon, StarIcon, TreeStructureIcon, WarningCircleIcon } from "../../shared/icons.ts"
 import { useId, useMemo, useState } from "react";
 import type { AssistantMessage, ModelInfo } from "../../shared/pi-types.ts";
 import { draftKeyFor, modelKey } from "../../shared/messages.ts";
 import { thinkingLabel, useAppStore } from "../lib/store.ts";
 import { formatTokens } from "../lib/format.ts";
 import { providerIconName } from "../lib/providerIcons.ts";
+import { rpc } from "../lib/rpc.ts";
+import { useRequest } from "../lib/useRequest.ts";
 import { withHint } from "../lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -13,6 +15,7 @@ import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx
 import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
 import { ComposerWidgets } from "./ExtensionSlots.tsx";
 import BrandIcon from "./BrandIcon.tsx";
+import WorktreeDialog from "./WorktreeDialog.tsx";
 
 export default function Composer({ prominent = false }: { prominent?: boolean }) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -78,6 +81,8 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           <div className="mx-1 h-5 w-px bg-border" />
           <ThinkingSelector />
           <ContextWindow />
+          <BranchSelector />
+          <WorktreeButton />
           <div className="flex-1" />
           {running ? <BehaviorSelector behavior={behavior} setBehavior={setBehavior} /> : null}
           <Button
@@ -384,6 +389,166 @@ function ThinkingSelector() {
         ))}
       </MenuPopup>
     </Menu>
+  );
+}
+
+/**
+ * Worktrees for this project, as its own surface.
+ *
+ * Next to the branch control but never inside it. Switching a branch changes the
+ * folder you already have open; a worktree is a second folder with its own Pi,
+ * chats and changes, which makes it a project. Two neighbouring controls keep
+ * both a click away without implying they are one choice.
+ */
+function WorktreeButton() {
+  const projectPath = useAppStore((s) => s.activeProjectPath);
+  const isRepo = useAppStore((s) => s.git?.isRepo ?? false);
+  const [open, setOpen] = useState(false);
+
+  if (!isRepo || !projectPath) return null;
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon-lg"
+        onClick={() => setOpen(true)}
+        title="Worktrees"
+        aria-label="Worktrees"
+        className="rounded-lg text-muted-foreground hover:text-foreground"
+      >
+        <TreeStructureIcon />
+      </Button>
+      <WorktreeDialog projectPath={open ? projectPath : null} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
+/**
+ * Which branch this project is on.
+ *
+ * Branches only. Worktrees are the button beside this one.
+ */
+function BranchSelector() {
+  const isRepo = useAppStore((s) => s.git?.isRepo ?? false);
+  const branch = useAppStore((s) => s.git?.branch);
+  const detached = useAppStore((s) => s.git?.detached ?? false);
+  const running = useAppStore((s) => s.running);
+  const [open, setOpen] = useState(false);
+
+  if (!isRepo) return null;
+
+  const label = detached ? "detached HEAD" : (branch ?? "—");
+
+  return (
+    <Menu open={open} onOpenChange={setOpen}>
+      <MenuTrigger
+        // Disabled wholesale rather than per row: a switch rewrites the files
+        // the agent is part way through reading, and every row would otherwise
+        // repeat the same refusal.
+        disabled={running}
+        title={running ? "Stop the current run before switching branches" : "Switch branch"}
+        aria-label={`Branch: ${label}`}
+        className="flex h-8 max-w-48 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+      >
+        <GitBranchIcon className="shrink-0" />
+        <span className="truncate">{label}</span>
+        <CaretDownIcon className="shrink-0 text-muted-foreground" />
+      </MenuTrigger>
+      <MenuPopup side="top" className="max-h-none w-72 overflow-hidden p-0">
+        {/* Mounted only while open, so every opening reads the branches fresh:
+            the user may have committed or branched in a terminal since. */}
+        {open ? <BranchList onDone={() => setOpen(false)} /> : null}
+      </MenuPopup>
+    </Menu>
+  );
+}
+
+function BranchList({ onDone }: { onDone: () => void }) {
+  const projectDir = useAppStore((s) => s.activeProjectPath);
+  const switchBranch = useAppStore((s) => s.switchBranch);
+  const [query, setQuery] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const { data, error: unread, loading } = useRequest(
+    () => rpc.request.gitBranches({ projectDir: projectDir ?? "" }),
+    [projectDir],
+  );
+  const branches = data?.branches ?? [];
+  const name = query.trim();
+  const matches = branches.filter((item) => item.name.toLowerCase().includes(name.toLowerCase()));
+  const canCreate = name.length > 0 && !branches.some((item) => item.name === name);
+
+  async function go(branch: string, create: boolean) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    const res = await switchBranch(branch, create);
+    setBusy(false);
+    // Left open on failure: Git's refusal, usually uncommitted changes or an
+    // invalid name, answers what the user just tried and belongs beside it.
+    if (res.ok) onDone();
+    else setError(res.error ?? "Git refused this change.");
+  }
+
+  return (
+    <div className="flex max-h-[min(24rem,60vh)] flex-col">
+      <div className="p-1.5 pb-0">
+        <Input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Switch to or create a branch…"
+          aria-label="Switch to or create a branch"
+          className="h-8 border-0 bg-muted text-sm shadow-none"
+        />
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+        {loading ? <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">Loading…</p> : null}
+        {matches.map((item) => {
+          // Git allows one checkout per branch, so a branch another worktree
+          // holds is not available here however much the user wants it.
+          const held = !item.current && item.worktree;
+          return (
+            <MenuItem
+              key={item.name}
+              closeOnClick={false}
+              disabled={busy || item.current || !!held}
+              onClick={() => void go(item.name, false)}
+              title={held ? `Checked out in ${held}` : undefined}
+              className={cn("min-h-9 rounded-md px-2.5 text-sm", (item.current || held) && "opacity-60")}
+            >
+              <span className="min-w-0 flex-1 truncate">{item.name}</span>
+              {held ? <span className="shrink-0 text-xs text-muted-foreground">in worktree</span> : null}
+              {item.current ? <CheckIcon className="shrink-0 text-success" /> : null}
+            </MenuItem>
+          );
+        })}
+        {canCreate ? (
+          <MenuItem
+            closeOnClick={false}
+            disabled={busy}
+            onClick={() => void go(name, true)}
+            className="min-h-9 rounded-md px-2.5 text-sm"
+          >
+            <PlusIcon className="shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">
+              Create <span className="font-medium">{name}</span>
+            </span>
+          </MenuItem>
+        ) : null}
+        {/* An unanswered request is not an empty repository. Reporting one as
+            the other sent the user looking for branches that were always there. */}
+        {unread ? (
+          <p className="px-2.5 py-6 text-center text-sm text-destructive">Could not read this repository's branches.</p>
+        ) : !loading && matches.length === 0 && !canCreate ? (
+          <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">No branches yet.</p>
+        ) : null}
+      </div>
+      {error ? (
+        <p className="border-t px-3 py-2 text-xs whitespace-pre-wrap text-destructive">{error}</p>
+      ) : null}
+    </div>
   );
 }
 

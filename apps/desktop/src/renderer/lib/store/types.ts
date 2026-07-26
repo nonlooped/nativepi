@@ -62,6 +62,7 @@ export interface WorkspaceSlice {
 
   init: () => Promise<void>;
   addProject: () => Promise<void>;
+  openProjectPath: (path: string) => Promise<void>;
   removeProject: (path: string) => Promise<void>;
   selectProject: (path: string) => Promise<void>;
   selectAdjacentProject: (direction: 1 | -1) => Promise<void>;
@@ -159,6 +160,7 @@ export interface ProjectContextSlice {
   extLoadErrors: { name: string; error: string }[];
 
   refreshGit: () => Promise<void>;
+  switchBranch: (branch: string, create: boolean) => Promise<{ ok: boolean; error?: string }>;
   reloadExtensions: () => Promise<void>;
   respondExtension: (value: { value?: string; confirmed?: boolean; cancel?: boolean }) => void;
 }

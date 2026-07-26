@@ -3,6 +3,7 @@ import type {
   ExtensionUiResponse,
   FileEntry,
   ForkPoint,
+  GitBranch,
   GitDiff,
   GitStatus,
   GraphicalExtension,
@@ -209,6 +210,15 @@ export type HostRequests = {
   gitDiff: {
     params: { projectDir: string; file: string; untracked: boolean };
     response: { diff: GitDiff };
+  };
+  gitBranches: { params: { projectDir: string }; response: { branches: GitBranch[] } };
+  gitCheckout: {
+    params: { projectDir: string; branch: string; create: boolean };
+    response: { ok: boolean; error?: string };
+  };
+  gitAddWorktree: {
+    params: { projectDir: string; branch: string; create: boolean };
+    response: { ok: boolean; path?: string; error?: string };
   };
 
   listPackages: {

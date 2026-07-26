@@ -40,7 +40,10 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
 
   addProject: async () => {
     const { path } = await rpc.request.pickProject({});
-    if (!path) return;
+    if (path) await get().openProjectPath(path);
+  },
+
+  openProjectPath: async (path) => {
     const name = path.split(/[/\\]/).filter(Boolean).pop() ?? path;
     if (!get().projects.some((p) => p.path === path)) {
       set((s) => ({ projects: [...s.projects, { path, name }] }));

@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
-import type { GitDiff, GitStatus } from "../shared/pi-types.ts";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import type { GitBranch, GitDiff, GitStatus } from "../shared/pi-types.ts";
 
 
 function run(args: string[], cwd: string): Promise<{ stdout: string; stderr: string; code: number }> {
@@ -66,4 +68,90 @@ export async function gitDiff(projectDir: string, file: string, untracked: boole
     : ["diff", "--no-color", "HEAD", "--", file];
   const res = await run(args, projectDir);
   return { path: file, patch: res.stdout };
+}
+
+/** Git's own message is the useful one; ours would only be vaguer. */
+function failure(res: { stdout: string; stderr: string }): string {
+  return (res.stderr.trim() || res.stdout.trim() || "git failed").split("\n").slice(0, 4).join("\n");
+}
+
+function samePath(a: string, b: string): boolean {
+  return path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
+}
+
+export async function gitBranches(projectDir: string): Promise<GitBranch[]> {
+  const here = await run(["rev-parse", "--show-toplevel"], projectDir);
+  if (here.code !== 0) return [];
+  const root = here.stdout.trim();
+
+  // `%(worktreepath)` is empty unless the branch is checked out somewhere, which
+  // is exactly the constraint that decides what a row is allowed to do.
+  const res = await run(
+    ["for-each-ref", "--format=%(refname:short)%00%(worktreepath)%00%(HEAD)", "--sort=-committerdate", "refs/heads"],
+    projectDir,
+  );
+  if (res.code !== 0) return [];
+
+  return res.stdout.split("\n").flatMap((line): GitBranch[] => {
+    const [name, worktree, head] = line.trim().split("\0");
+    if (!name) return [];
+    // The current checkout is reported as a worktree too; only *other* worktrees
+    // are worth naming, since those are the ones this checkout cannot take.
+    const elsewhere = worktree && !samePath(worktree, root) ? path.normalize(worktree) : undefined;
+    return [{ name, current: head === "*", worktree: elsewhere }];
+  });
+}
+
+export async function gitCheckout(
+  projectDir: string,
+  branch: string,
+  create: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  const status = await run(["status", "--porcelain=v1", "--untracked-files=all"], projectDir);
+  if (status.code !== 0) return { ok: false, error: failure(status) };
+  if (status.stdout.trim()) {
+    return { ok: false, error: "Commit or stash your changes before switching branches." };
+  }
+
+  const res = await run(create ? ["checkout", "-b", branch] : ["checkout", branch], projectDir);
+  return res.code === 0 ? { ok: true } : { ok: false, error: failure(res) };
+}
+
+/**
+ * Where a new worktree goes.
+ *
+ * Beside the repository rather than inside it, so the checkout never has to
+ * ignore its own worktrees. A normal repository can use the checkout containing
+ * its common `.git`; submodules and separate Git dirs must use the current
+ * checkout instead of placing work under hidden metadata.
+ */
+async function worktreePathFor(projectDir: string, branch: string): Promise<string | null> {
+  const [checkout, commonDir] = await Promise.all([
+    run(["rev-parse", "--show-toplevel"], projectDir),
+    run(["rev-parse", "--path-format=absolute", "--git-common-dir"], projectDir),
+  ]);
+  if (checkout.code !== 0 || commonDir.code !== 0) return null;
+  const common = commonDir.stdout.trim();
+  const mainRoot = path.basename(common) === ".git" ? path.dirname(common) : checkout.stdout.trim();
+  const base = path.join(path.dirname(mainRoot), `${path.basename(mainRoot)}-worktrees`);
+  const slug = branch.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "branch";
+
+  let candidate = path.join(base, slug);
+  for (let n = 2; existsSync(candidate); n++) candidate = path.join(base, `${slug}-${n}`);
+  return candidate;
+}
+
+export async function gitAddWorktree(
+  projectDir: string,
+  branch: string,
+  create: boolean,
+): Promise<{ ok: boolean; path?: string; error?: string }> {
+  const target = await worktreePathFor(projectDir, branch);
+  if (!target) return { ok: false, error: "This folder is not a Git repository." };
+
+  const res = await run(
+    create ? ["worktree", "add", "-b", branch, target] : ["worktree", "add", target, branch],
+    projectDir,
+  );
+  return res.code === 0 ? { ok: true, path: target } : { ok: false, error: failure(res) };
 }

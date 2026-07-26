@@ -1,4 +1,5 @@
 import { rpc } from "../rpc.ts";
+import { showHint } from "../toast.ts";
 import { markGitRefreshed, persist } from "./internals.ts";
 import type { ProjectContextSlice, SliceCreator } from "./types.ts";
 
@@ -23,6 +24,18 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
       set({ contextPaneOpen: true, contextPaneChosen: true });
       persist(get);
     }
+  },
+
+  switchBranch: async (branch, create) => {
+    const path = get().activeProjectPath;
+    if (!path) return { ok: false, error: "No project is open." };
+    const res = await rpc.request.gitCheckout({ projectDir: path, branch, create });
+    if (!res.ok) return res;
+    if (get().activeProjectPath === path) {
+      await get().refreshGit();
+      showHint(branch);
+    }
+    return res;
   },
 
   // Extensions are loaded by Pi at startup, so a reload is a restart.

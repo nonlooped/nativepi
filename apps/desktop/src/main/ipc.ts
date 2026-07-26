@@ -6,7 +6,7 @@ import type { PiMessage } from "./pi/protocol.ts";
 import { deleteSession, listSessions, readSession, sessionMtime, watchSessionFile } from "./sessions.ts";
 import { loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
-import { gitDiff, gitStatus } from "./git.ts";
+import { gitAddWorktree, gitBranches, gitCheckout, gitDiff, gitStatus } from "./git.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
 import { listInstalledEditors, openProjectIn } from "./editors.ts";
@@ -140,6 +140,11 @@ function toSessionState(data: RpcSessionState): RpcSessionState {
 
 const THINKING_LEVELS = new Set<ThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 const openProjectInParamsSchema = z.object({ projectDir: z.string().min(1), editorId: z.string().min(1) });
+const gitMutationParamsSchema = z.object({
+  projectDir: z.string().min(1),
+  branch: z.string().min(1),
+  create: z.boolean(),
+});
 
 function isThinkingLevel(level: unknown): level is ThinkingLevel {
   return typeof level === "string" && THINKING_LEVELS.has(level as ThinkingLevel);
@@ -516,6 +521,23 @@ const handlers: HandlerMap = {
 
   gitStatus: async ({ projectDir }) => ({ status: await gitStatus(projectDir) }),
   gitDiff: async ({ projectDir, file, untracked }) => ({ diff: await gitDiff(projectDir, file, untracked) }),
+  gitBranches: async ({ projectDir }) => ({ branches: await gitBranches(projectDir) }),
+  gitCheckout: async (params) => {
+    try {
+      const { projectDir, branch, create } = gitMutationParamsSchema.parse(params);
+      return await gitCheckout(projectDir, branch, create);
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+  gitAddWorktree: async (params) => {
+    try {
+      const { projectDir, branch, create } = gitMutationParamsSchema.parse(params);
+      return await gitAddWorktree(projectDir, branch, create);
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
 
   listPackages: async ({ projectDir }) => {
     try {

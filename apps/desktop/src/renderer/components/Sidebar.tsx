@@ -13,6 +13,7 @@ import { useAppStore } from "../lib/store.ts";
 import { chatTitle } from "../lib/transcript.ts";
 import { hintFor, withHint } from "../lib/shortcuts.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
+import WorktreeDialog from "./WorktreeDialog.tsx";
 import SessionMenu from "./SessionMenu.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -34,6 +35,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const [query, setQuery] = useState("");
   const [now, setNow] = useState(Date.now);
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
+  const [worktreesFor, setWorktreesFor] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -162,6 +164,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                   <DotsThreeOutlineIcon weight="fill" />
                 </MenuTrigger>
                 <MenuPopup align="end">
+                  <MenuItem onClick={() => setWorktreesFor(project.path)}>Worktrees…</MenuItem>
                   <MenuItem onClick={() => setPendingRemoval(project)} className="text-destructive">
                     Remove from NativePi
                   </MenuItem>
@@ -172,6 +175,8 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
           </div>
         ))}
       </div>
+
+      <WorktreeDialog projectPath={worktreesFor} onClose={() => setWorktreesFor(null)} />
 
       <ConfirmDialog
         open={pendingRemoval !== null}
