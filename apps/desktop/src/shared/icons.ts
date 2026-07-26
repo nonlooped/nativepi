@@ -6,6 +6,7 @@ import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { PaperPlaneRightIcon } from "@phosphor-icons/react/PaperPlaneRight";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { StarIcon } from "@phosphor-icons/react/Star";
+import { TreeStructureIcon } from "@phosphor-icons/react/TreeStructure";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 
 export {
@@ -17,5 +18,6 @@ export {
     PaperPlaneRightIcon,
     PlusIcon,
     StarIcon,
+    TreeStructureIcon,
     WarningCircleIcon,
 }

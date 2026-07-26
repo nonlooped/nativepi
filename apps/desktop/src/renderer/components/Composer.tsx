@@ -1,4 +1,4 @@
-import { ArrowBendUpRightIcon, CaretDownIcon, CheckIcon, GitBranchIcon, MagnifyingGlassIcon, PaperPlaneRightIcon, PlusIcon, StarIcon, WarningCircleIcon } from "../../shared/icons.ts"
+import { ArrowBendUpRightIcon, CaretDownIcon, CheckIcon, GitBranchIcon, MagnifyingGlassIcon, PaperPlaneRightIcon, PlusIcon, StarIcon, TreeStructureIcon, WarningCircleIcon } from "../../shared/icons.ts"
 import { useId, useMemo, useState } from "react";
 import type { AssistantMessage, ModelInfo } from "../../shared/pi-types.ts";
 import { draftKeyFor, modelKey } from "../../shared/messages.ts";
@@ -15,6 +15,7 @@ import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx
 import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
 import { ComposerWidgets } from "./ExtensionSlots.tsx";
 import BrandIcon from "./BrandIcon.tsx";
+import WorktreeDialog from "./WorktreeDialog.tsx";
 
 export default function Composer({ prominent = false }: { prominent?: boolean }) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -81,6 +82,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           <ThinkingSelector />
           <ContextWindow />
           <BranchSelector />
+          <WorktreeButton />
           <div className="flex-1" />
           {running ? <BehaviorSelector behavior={behavior} setBehavior={setBehavior} /> : null}
           <Button
@@ -391,11 +393,41 @@ function ThinkingSelector() {
 }
 
 /**
+ * Worktrees for this project, as its own surface.
+ *
+ * Next to the branch control but never inside it. Switching a branch changes the
+ * folder you already have open; a worktree is a second folder with its own Pi,
+ * chats and changes, which makes it a project. Two neighbouring controls keep
+ * both a click away without implying they are one choice.
+ */
+function WorktreeButton() {
+  const projectPath = useAppStore((s) => s.activeProjectPath);
+  const isRepo = useAppStore((s) => s.git?.isRepo ?? false);
+  const [open, setOpen] = useState(false);
+
+  if (!isRepo || !projectPath) return null;
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon-lg"
+        onClick={() => setOpen(true)}
+        title="Worktrees"
+        aria-label="Worktrees"
+        className="rounded-lg text-muted-foreground hover:text-foreground"
+      >
+        <TreeStructureIcon />
+      </Button>
+      <WorktreeDialog projectPath={open ? projectPath : null} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
+/**
  * Which branch this project is on.
  *
- * Branches only. A worktree is a second checkout with its own chats and its own
- * Pi, which makes it a project rather than a property of this one — it is
- * created from the project menu, not from here.
+ * Branches only. Worktrees are the button beside this one.
  */
 function BranchSelector() {
   const isRepo = useAppStore((s) => s.git?.isRepo ?? false);
@@ -439,7 +471,7 @@ function BranchList({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data, loading } = useRequest(
+  const { data, error: unread, loading } = useRequest(
     () => rpc.request.gitBranches({ projectDir: projectDir ?? "" }),
     [projectDir],
   );
@@ -505,7 +537,11 @@ function BranchList({ onDone }: { onDone: () => void }) {
             </span>
           </MenuItem>
         ) : null}
-        {!loading && matches.length === 0 && !canCreate ? (
+        {/* An unanswered request is not an empty repository. Reporting one as
+            the other sent the user looking for branches that were always there. */}
+        {unread ? (
+          <p className="px-2.5 py-6 text-center text-sm text-destructive">Could not read this repository's branches.</p>
+        ) : !loading && matches.length === 0 && !canCreate ? (
           <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">No branches yet.</p>
         ) : null}
       </div>

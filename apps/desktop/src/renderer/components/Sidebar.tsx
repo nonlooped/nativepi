@@ -35,7 +35,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const [query, setQuery] = useState("");
   const [now, setNow] = useState(Date.now);
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
-  const [worktreesFor, setWorktreesFor] = useState<Project | null>(null);
+  const [worktreesFor, setWorktreesFor] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -164,7 +164,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                   <DotsThreeOutlineIcon weight="fill" />
                 </MenuTrigger>
                 <MenuPopup align="end">
-                  <MenuItem onClick={() => setWorktreesFor(project)}>Worktrees…</MenuItem>
+                  <MenuItem onClick={() => setWorktreesFor(project.path)}>Worktrees…</MenuItem>
                   <MenuItem onClick={() => setPendingRemoval(project)} className="text-destructive">
                     Remove from NativePi
                   </MenuItem>
@@ -176,7 +176,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
         ))}
       </div>
 
-      <WorktreeDialog project={worktreesFor} onClose={() => setWorktreesFor(null)} />
+      <WorktreeDialog projectPath={worktreesFor} onClose={() => setWorktreesFor(null)} />
 
       <ConfirmDialog
         open={pendingRemoval !== null}

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { GitBranchIcon } from "@phosphor-icons/react/GitBranch";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
-import type { Project } from "../../shared/rpc-schema.ts";
 import { rpc } from "../lib/rpc.ts";
 import { useAppStore } from "../lib/store.ts";
 import { useRequest } from "../lib/useRequest.ts";
@@ -27,9 +26,15 @@ import { cn } from "@/lib/utils.ts";
  * another project. It belongs with the project actions that create and remove
  * projects, not with the control that says which branch this one is on.
  */
-export default function WorktreeDialog({ project, onClose }: { project: Project | null; onClose: () => void }) {
+export default function WorktreeDialog({
+  projectPath,
+  onClose,
+}: {
+  projectPath: string | null;
+  onClose: () => void;
+}) {
   return (
-    <Dialog open={project !== null} onOpenChange={(next) => !next && onClose()}>
+    <Dialog open={projectPath !== null} onOpenChange={(next) => !next && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="font-heading text-base font-semibold">Worktrees</DialogTitle>
@@ -40,19 +45,22 @@ export default function WorktreeDialog({ project, onClose }: { project: Project 
         </DialogHeader>
         {/* Keyed on the project so switching projects cannot show the previous
             repository's branches while the new ones load. */}
-        {project ? <Branches key={project.path} project={project} onClose={onClose} /> : null}
+        {projectPath ? <Branches key={projectPath} projectPath={projectPath} onClose={onClose} /> : null}
       </DialogContent>
     </Dialog>
   );
 }
 
-function Branches({ project, onClose }: { project: Project; onClose: () => void }) {
+function Branches({ projectPath, onClose }: { projectPath: string; onClose: () => void }) {
   const openProjectPath = useAppStore((s) => s.openProjectPath);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
 
-  const { data, loading } = useRequest(() => rpc.request.gitBranches({ projectDir: project.path }), [project.path]);
+  const { data, error, loading } = useRequest(
+    () => rpc.request.gitBranches({ projectDir: projectPath }),
+    [projectPath],
+  );
   const branches = data?.branches ?? [];
   const name = query.trim();
   const matches = branches.filter((item) => item.name.toLowerCase().includes(name.toLowerCase()));
@@ -66,11 +74,11 @@ function Branches({ project, onClose }: { project: Project; onClose: () => void 
   async function create(branch: string, isNew: boolean) {
     if (busy) return;
     setBusy(true);
-    setError(null);
-    const res = await rpc.request.gitAddWorktree({ projectDir: project.path, branch, create: isNew });
+    setFailure(null);
+    const res = await rpc.request.gitAddWorktree({ projectDir: projectPath, branch, create: isNew });
     setBusy(false);
     if (res.ok && res.path) await open(res.path);
-    else setError(res.error ?? "Git could not add the worktree.");
+    else setFailure(res.error ?? "Git could not add the worktree.");
   }
 
   return (
@@ -105,14 +113,18 @@ function Branches({ project, onClose }: { project: Project; onClose: () => void 
           </Row>
         ) : null}
 
-        {!loading && matches.length === 0 && !canCreate ? (
+        {/* An unanswered request is not an empty repository. Reporting one as
+            the other sent the user looking for missing branches. */}
+        {error ? (
+          <p className="px-2.5 py-6 text-center text-sm text-destructive">Could not read this repository's branches.</p>
+        ) : !loading && matches.length === 0 && !canCreate ? (
           <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">
             No branches here. This folder may not be a Git repository yet.
           </p>
         ) : null}
       </div>
 
-      {error ? <p className="text-xs whitespace-pre-wrap text-destructive">{error}</p> : null}
+      {failure ? <p className="text-xs whitespace-pre-wrap text-destructive">{failure}</p> : null}
 
       <DialogFooter>
         <Button variant="ghost" onClick={onClose}>
