@@ -71,6 +71,32 @@ test("a new worktree lands beside the repository, never inside it", async () => 
   expect((await gitBranches(dir)).find((b) => b.name === "feat/one")?.worktree).toBe(res.path);
 });
 
+test("a new worktree lands beside the checkout when the Git directory is separate", async () => {
+  const source = await repo();
+  const parent = await mkdtemp(path.join(tmpdir(), "nativepi-separate-git-"));
+  const checkout = path.join(parent, "checkout");
+  const gitDir = path.join(parent, "metadata");
+  execFileSync("git", ["clone", `--separate-git-dir=${gitDir}`, source, checkout], { stdio: "pipe" });
+
+  const res = await gitAddWorktree(checkout, "separate", true);
+
+  expect(res.ok).toBe(true);
+  expect(path.dirname(res.path!)).toBe(path.join(parent, "checkout-worktrees"));
+});
+
+test("branch switching refuses to carry uncommitted changes", async () => {
+  const dir = await repo();
+  expect(await gitCheckout(dir, "feature", true)).toEqual({ ok: true });
+  expect(await gitCheckout(dir, "main", false)).toEqual({ ok: true });
+  await writeFile(path.join(dir, "a.txt"), "changed\n", "utf8");
+
+  const res = await gitCheckout(dir, "feature", false);
+
+  expect(res.ok).toBe(false);
+  expect(res.error).toContain("Commit or stash");
+  expect((await gitBranches(dir)).find((branch) => branch.name === "main")?.current).toBe(true);
+});
+
 test("a checkout Git refuses returns its reason instead of claiming success", async () => {
   const dir = await repo();
   const res = await gitCheckout(dir, "does-not-exist", false);

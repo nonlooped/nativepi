@@ -107,6 +107,12 @@ export async function gitCheckout(
   branch: string,
   create: boolean,
 ): Promise<{ ok: boolean; error?: string }> {
+  const status = await run(["status", "--porcelain=v1", "--untracked-files=all"], projectDir);
+  if (status.code !== 0) return { ok: false, error: failure(status) };
+  if (status.stdout.trim()) {
+    return { ok: false, error: "Commit or stash your changes before switching branches." };
+  }
+
   const res = await run(create ? ["checkout", "-b", branch] : ["checkout", branch], projectDir);
   return res.code === 0 ? { ok: true } : { ok: false, error: failure(res) };
 }
@@ -115,14 +121,18 @@ export async function gitCheckout(
  * Where a new worktree goes.
  *
  * Beside the repository rather than inside it, so the checkout never has to
- * ignore its own worktrees. `--git-common-dir` resolves to the main repository
- * even when this project *is* a worktree, so every worktree of a repo lands in
- * one place regardless of which one the user was looking at.
+ * ignore its own worktrees. A normal repository can use the checkout containing
+ * its common `.git`; submodules and separate Git dirs must use the current
+ * checkout instead of placing work under hidden metadata.
  */
 async function worktreePathFor(projectDir: string, branch: string): Promise<string | null> {
-  const res = await run(["rev-parse", "--path-format=absolute", "--git-common-dir"], projectDir);
-  if (res.code !== 0) return null;
-  const mainRoot = path.dirname(res.stdout.trim());
+  const [checkout, commonDir] = await Promise.all([
+    run(["rev-parse", "--show-toplevel"], projectDir),
+    run(["rev-parse", "--path-format=absolute", "--git-common-dir"], projectDir),
+  ]);
+  if (checkout.code !== 0 || commonDir.code !== 0) return null;
+  const common = commonDir.stdout.trim();
+  const mainRoot = path.basename(common) === ".git" ? path.dirname(common) : checkout.stdout.trim();
   const base = path.join(path.dirname(mainRoot), `${path.basename(mainRoot)}-worktrees`);
   const slug = branch.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "branch";
 
