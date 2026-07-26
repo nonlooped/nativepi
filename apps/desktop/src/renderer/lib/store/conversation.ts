@@ -29,7 +29,7 @@ export function emptyConversation(): Conversation {
  * What selectors fall back to when a project has no runtime yet. One frozen
  * instance, so a selector returning it does not re-render on every store write.
  */
-export const EMPTY_CONVERSATION: Conversation = Object.freeze(emptyConversation());
+const EMPTY_CONVERSATION: Conversation = Object.freeze(emptyConversation());
 
 export function conversationFor(s: AppState, projectPath: string | null): Conversation {
   return (projectPath ? s.conversations[projectPath] : undefined) ?? EMPTY_CONVERSATION;
