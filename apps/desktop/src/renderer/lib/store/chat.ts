@@ -1,10 +1,10 @@
-import type { SessionEntry } from "../../../shared/pi-types.ts";
+import type { SessionEntry, ThinkingLevel } from "../../../shared/pi-types.ts";
 import type { ExtensionUiRequest } from "../../../shared/pi-types.ts";
 import { rpc } from "../rpc.ts";
+import { conversationFor, emptyConversation, patchConversation } from "./conversation.ts";
 import { applyExtensionUi, reduce, sessionInfoName } from "./events.ts";
 import {
   draftKey,
-  emptyConversation,
   forgetLastChat,
   getLastChat,
   gitRefreshedWithin,
@@ -19,7 +19,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   sessionsByProject: {},
   activeSessionFile: null,
   isNewChat: false,
-  ...emptyConversation(),
+  conversations: {},
   sendBehavior: "followUp",
   drafts: {},
 
@@ -30,32 +30,38 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   },
 
   selectChat: async (sessionFile) => {
-    set({ activeSessionFile: sessionFile, isNewChat: false, ...emptyConversation() });
     const projectPath = get().activeProjectPath;
+    set({ activeSessionFile: sessionFile, isNewChat: false });
     if (projectPath) {
       setLastChat(projectPath, sessionFile);
       persist(get);
       // Watch the chat being viewed for writes from another NativePi window or
       // a Pi CLI in a terminal.
       void rpc.request.watchSession({ projectDir: projectPath, sessionFile });
+      // A run already streaming into this chat keeps its live state — this is
+      // the path back into a project that kept working in the background, and
+      // its conversation has been fed every event in the meantime.
+      const conv = get().conversations[projectPath];
+      if (conv && conv.sessionFile === sessionFile && (conv.running || conv.error !== undefined)) return;
+      patchConversation(set, projectPath, () => ({ ...emptyConversation(), sessionFile }));
     }
     const { entries } = await rpc.request.readSession({ sessionFile });
-    if (get().activeSessionFile !== sessionFile) return;
-    set({
-      entries: entries.filter((e): e is SessionEntry => e.type !== "session"),
-      sessionName: sessionInfoName(entries),
-    });
+    if (get().activeSessionFile !== sessionFile || get().activeProjectPath !== projectPath) return;
+    if (projectPath) {
+      patchConversation(set, projectPath, {
+        entries: entries.filter((e): e is SessionEntry => e.type !== "session"),
+        sessionName: sessionInfoName(entries),
+      });
+    }
   },
 
   newChat: () => {
     const projectDir = get().activeProjectPath;
-    if (projectDir) void rpc.request.watchSession({ projectDir, sessionFile: null });
-    set({
-      activeSessionFile: null,
-      isNewChat: true,
-      sessionName: undefined,
-      ...emptyConversation(),
-    });
+    if (projectDir) {
+      void rpc.request.watchSession({ projectDir, sessionFile: null });
+      patchConversation(set, projectDir, () => emptyConversation());
+    }
+    set({ activeSessionFile: null, isNewChat: true });
   },
 
   importSession: async () => {
@@ -64,7 +70,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     const res = await rpc.request.importSession({ projectDir });
     if (res.canceled) return;
     if (!res.ok || !res.sessionFile) {
-      set({ error: res.error ?? "Failed to import chat" });
+      patchConversation(set, projectDir, { error: res.error ?? "Failed to import chat" });
       return;
     }
     await get().refreshSessions(projectDir);
@@ -84,61 +90,65 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     const projectDir = s.activeProjectPath;
     // Section 16: while another writer owns this chat we send nothing, and the
     // draft stays exactly where the user left it.
-    if (!projectDir || s.externalChange) return;
+    if (!projectDir || conversationFor(s, projectDir).externalChange) return;
     const key = draftKey(get);
     const text = (s.drafts[key] ?? "").trim();
     if (!text) return;
 
     const pendingEntry: PendingMessage = { id: pendingId++, text };
-    set((st) => ({
-      pending: [...st.pending, pendingEntry],
-      drafts: { ...st.drafts, [key]: "" },
+    patchConversation(set, projectDir, (c) => ({
+      pending: [...c.pending, pendingEntry],
       error: undefined,
       errorRecovery: undefined,
       runStartedAt: Date.now(),
     }));
+    set((st) => ({ drafts: { ...st.drafts, [key]: "" } }));
     persist(get);
 
     const res = await rpc.request.submit({ projectDir, sessionFile: s.activeSessionFile, message: text });
     if (!res.ok) {
-      set((st) => ({
-        pending: st.pending.filter((p) => p.id !== pendingEntry.id),
-        drafts: { ...st.drafts, [key]: text },
+      patchConversation(set, projectDir, (c) => ({
+        pending: c.pending.filter((p) => p.id !== pendingEntry.id),
         error: res.error ?? "Failed to send",
         errorRecovery: "retrySend",
         runStartedAt: null,
       }));
+      set((st) => ({ drafts: { ...st.drafts, [key]: text } }));
       return;
     }
-    if (res.sessionFile && get().activeSessionFile !== res.sessionFile) {
-      set({ activeSessionFile: res.sessionFile, isNewChat: false });
-      if (get().activeProjectPath) setLastChat(projectDir, res.sessionFile);
+    if (res.sessionFile) {
+      patchConversation(set, projectDir, { sessionFile: res.sessionFile });
+      setLastChat(projectDir, res.sessionFile);
       persist(get);
-      void rpc.request.watchSession({ projectDir, sessionFile: res.sessionFile });
-      void get().refreshSessions(projectDir);
+      if (get().activeProjectPath === projectDir && get().activeSessionFile !== res.sessionFile) {
+        set({ activeSessionFile: res.sessionFile, isNewChat: false });
+        void rpc.request.watchSession({ projectDir, sessionFile: res.sessionFile });
+        void get().refreshSessions(projectDir);
+      }
     }
   },
 
   enqueue: async (behavior) => {
     const s = get();
     const projectDir = s.activeProjectPath;
-    if (!projectDir || s.externalChange) return;
+    if (!projectDir || conversationFor(s, projectDir).externalChange) return;
     const key = draftKey(get);
     const text = (s.drafts[key] ?? "").trim();
     if (!text) return;
 
     // No optimistic entry: Pi echoes the queued message back via queue_update,
     // which is the source of truth for what's pending.
-    set((st) => ({ drafts: { ...st.drafts, [key]: "" }, error: undefined }));
+    patchConversation(set, projectDir, { error: undefined });
+    set((st) => ({ drafts: { ...st.drafts, [key]: "" } }));
     persist(get);
 
     const res = await rpc.request.enqueue({ projectDir, behavior, message: text });
     if (!res.ok) {
-      set((st) => ({
-        drafts: { ...st.drafts, [key]: text },
+      patchConversation(set, projectDir, {
         error: res.error ?? "Failed to queue message",
         errorRecovery: "retrySend",
-      }));
+      });
+      set((st) => ({ drafts: { ...st.drafts, [key]: text } }));
     }
   },
 
@@ -158,7 +168,9 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     const res = await rpc.request.renameChat({ projectDir, sessionFile, name });
     if (res.ok) {
       await get().refreshSessions(projectDir);
-      if (get().activeSessionFile === sessionFile) set({ sessionName: name });
+      if (get().activeSessionFile === sessionFile) {
+        patchConversation(set, projectDir, { sessionName: name });
+      }
     }
     return res;
   },
@@ -215,43 +227,64 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
 
   reloadActiveSession: async () => {
     const sessionFile = get().activeSessionFile;
-    if (!sessionFile) return;
-    set({ externalChange: null });
-    await get().selectChat(sessionFile);
     const projectDir = get().activeProjectPath;
-    if (projectDir) await get().refreshSessions(projectDir);
+    if (!sessionFile) return;
+    if (projectDir) patchConversation(set, projectDir, { externalChange: null });
+    await get().selectChat(sessionFile);
+    if (projectDir && get().activeProjectPath === projectDir) await get().refreshSessions(projectDir);
   },
 
-  clearError: () => set({ error: undefined, errorRecovery: undefined }),
+  clearError: () => {
+    const projectDir = get().activeProjectPath;
+    if (projectDir) patchConversation(set, projectDir, { error: undefined, errorRecovery: undefined });
+  },
 
   onEvent: ({ projectDir, sessionFile, event }) => {
     const s = get();
-    if (projectDir !== s.activeProjectPath) return;
     if (event.type === "extension_ui_request") {
-      applyExtensionUi(set, get, event as ExtensionUiRequest);
+      // Extension UI (dialogs, statuses, widgets) is chrome for the project on
+      // screen; an inactive project's prompts would have nothing to attach to.
+      if (projectDir === s.activeProjectPath) applyExtensionUi(set, get, event as ExtensionUiRequest);
       return;
     }
-    if (sessionFile && s.activeSessionFile && sessionFile !== s.activeSessionFile) return;
-    // Files change throughout a turn, not only at its end: refresh as messages
-    // land, so the changes pane is live rather than stale for the whole
-    // duration of a run. Rate-limited here rather than in refreshGit, so an
-    // explicit Refresh click is never swallowed.
-    if (event.type === "agent_settled") void get().refreshGit();
-    else if (event.type === "message_end" && !gitRefreshedWithin(1000)) void get().refreshGit();
-    set(reduce(s, event));
+    if (event.type === "thinking_level_changed") {
+      if (projectDir === s.activeProjectPath) {
+        set({ thinkingLevel: (event as { level: ThinkingLevel }).level });
+      }
+      return;
+    }
+    // Every project's events fold into its own conversation, active or not, so
+    // a run keeps its state — and its transcript — while another project is on
+    // screen. Events for a chat other than the one this runtime belongs to are
+    // still dropped, exactly as before.
+    const conv = conversationFor(s, projectDir);
+    if (sessionFile && conv.sessionFile && sessionFile !== conv.sessionFile) return;
+    if (projectDir === s.activeProjectPath) {
+      // Files change throughout a turn, not only at its end: refresh as messages
+      // land, so the changes pane is live rather than stale for the whole
+      // duration of a run. Rate-limited here rather than in refreshGit, so an
+      // explicit Refresh click is never swallowed.
+      if (event.type === "agent_settled") void get().refreshGit();
+      else if (event.type === "message_end" && !gitRefreshedWithin(1000)) void get().refreshGit();
+    }
+    patchConversation(set, projectDir, reduce(conv, event));
   },
 
   onPiError: (projectDir, message) => {
-    if (projectDir !== get().activeProjectPath) return;
     // The draft was cleared by the submit that succeeded, so there is nothing
     // to re-send; restarting Pi is the recovery that actually applies.
-    set({ error: message, errorRecovery: "restartPi", running: false, runStartedAt: null });
+    patchConversation(set, projectDir, {
+      error: message,
+      errorRecovery: "restartPi",
+      running: false,
+      runStartedAt: null,
+    });
   },
 
   onSessionChangedExternally: ({ projectDir, sessionFile }) => {
-    const s = get();
-    if (projectDir !== s.activeProjectPath || sessionFile !== s.activeSessionFile) return;
-    if (s.running || s.externalChange) return;
-    set({ externalChange: { sessionFile } });
+    const conv = get().conversations[projectDir];
+    if (!conv || sessionFile !== conv.sessionFile) return;
+    if (conv.running || conv.externalChange) return;
+    patchConversation(set, projectDir, { externalChange: { sessionFile } });
   },
 });

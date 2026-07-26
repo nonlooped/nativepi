@@ -70,13 +70,17 @@ export interface WorkspaceSlice {
   onStatus: (projectDir: string, status: PiStatus) => void;
 }
 
-/** The conversation: which chat, its transcript, and everything sent into it. */
-export interface ChatSlice {
-  sessionsByProject: Record<string, SessionSummary[]>;
-  activeSessionFile: string | null;
-  isNewChat: boolean;
+/**
+ * One project's conversation runtime: the transcript being streamed, whether a
+ * turn is running, its queue, retries, and errors.
+ *
+ * Keyed per project in `ChatSlice.conversations` so a run in one project keeps
+ * receiving events — and keeps its state — while another project is on screen.
+ * `sessionFile` records which chat this runtime belongs to.
+ */
+export interface Conversation {
+  sessionFile: string | null;
   sessionName?: string;
-
   entries: SessionEntry[];
   streaming: AssistantMessage | null;
   running: boolean;
@@ -85,12 +89,22 @@ export interface ChatSlice {
   retry: { attempt: number; maxAttempts: number; error: string } | null;
   queue: { steering: string[]; followUp: string[] };
   pending: PendingMessage[];
-  sendBehavior: "steer" | "followUp";
-
-  drafts: Record<string, string>;
   error?: string;
   errorRecovery?: ErrorRecovery;
   externalChange: { sessionFile: string } | null;
+}
+
+/** The conversation: which chat, its transcript, and everything sent into it. */
+export interface ChatSlice {
+  sessionsByProject: Record<string, SessionSummary[]>;
+  activeSessionFile: string | null;
+  isNewChat: boolean;
+
+  /** Conversation runtime per project path, active or not. */
+  conversations: Record<string, Conversation>;
+  sendBehavior: "steer" | "followUp";
+
+  drafts: Record<string, string>;
 
   refreshSessions: (projectPath: string) => Promise<void>;
   selectChat: (sessionFile: string) => Promise<void>;

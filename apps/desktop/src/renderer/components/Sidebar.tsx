@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderPlusIcon } from "@phosphor-icons/react/FolderPlus";
@@ -29,7 +30,9 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const openSettings = useAppStore((s) => s.openSettings);
   const selectProject = useAppStore((s) => s.selectProject);
   const removeProject = useAppStore((s) => s.removeProject);
-  const running = useAppStore((s) => s.running);
+  const projectBusyStates = useAppStore(
+    useShallow((s) => s.projects.map((project) => s.conversations[project.path]?.running ?? false)),
+  );
   const importSession = useAppStore((s) => s.importSession);
   const searchFocusRequest = useAppStore((s) => s.searchFocusRequest);
   const [query, setQuery] = useState("");
@@ -125,7 +128,9 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
             Open your first folder
           </button>
         )}
-        {projects.map((project) => (
+        {projects.map((project, index) => {
+          const busy = projectBusyStates[index] ?? false;
+          return (
           <div key={project.path} className="flex flex-col gap-0.5">
             <div className="group flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent">
               <button
@@ -134,22 +139,29 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                 className={cn(
                   "flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-left text-sm font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
                 )}
-                title={project.path}
+                title={busy ? `${project.path} — agent running` : project.path}
               >
                 {project.path === activeProjectPath ? (
                   <CaretDownIcon className="shrink-0 text-muted-foreground" weight="bold" />
                 ) : null}
                 <FolderIcon className="shrink-0 text-muted-foreground" />
                 <span className="truncate">{project.name}</span>
+                {busy ? (
+                  <span
+                    role="status"
+                    aria-label={`Agent running in ${project.name}`}
+                    className="ml-auto size-1.5 shrink-0 animate-pulse rounded-full bg-primary"
+                  />
+                ) : null}
               </button>
               <Button
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => void startNewChat(project.path)}
-                disabled={project.path === activeProjectPath && running}
+                disabled={busy}
                 aria-label={`New chat in ${project.name}`}
                 title={
-                  project.path === activeProjectPath && running
+                  busy
                     ? "Stop the current run before starting a new chat"
                     : withHint(`New chat in ${project.name}`, "newChat")
                 }
@@ -175,7 +187,8 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
             </div>
             {project.path === activeProjectPath ? <ChatList projectPath={project.path} query={query} now={now} onNavigate={overlay ? onClose : undefined} /> : null}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <WorktreeDialog projectPath={worktreesFor} onClose={() => setWorktreesFor(null)} />

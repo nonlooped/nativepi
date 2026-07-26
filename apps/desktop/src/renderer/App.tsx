@@ -20,7 +20,7 @@ import Settings from "./components/Settings.tsx";
 import Toaster from "./components/Toaster.tsx";
 import TrustDialog from "./components/TrustDialog.tsx";
 import WindowControls from "./components/WindowControls.tsx";
-import { useAppStore } from "./lib/store.ts";
+import { activeConversation, useAppStore } from "./lib/store.ts";
 import { chatTitle } from "./lib/transcript.ts";
 import { bindings, withHint } from "./lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -40,39 +40,19 @@ const NARROW_MAX = 1099;
 export default function App() {
   const init = useAppStore((s) => s.init);
   const ready = useAppStore((s) => s.ready);
-  const projects = useAppStore((s) => s.projects);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
-  const isNewChat = useAppStore((s) => s.isNewChat);
-  const activeSessions = useAppStore((s) => (s.activeProjectPath ? s.sessionsByProject[s.activeProjectPath] : undefined));
-  const error = useAppStore((s) => s.error);
-  const errorRecovery = useAppStore((s) => s.errorRecovery);
-  const externalChange = useAppStore((s) => s.externalChange);
-  const restartPi = useAppStore((s) => s.restartPi);
-  const selectAdjacentProject = useAppStore((s) => s.selectAdjacentProject);
-  const hasConversation = useAppStore(
-    (s) => s.entries.length > 0 || !!s.streaming || s.pending.length > 0 || s.running,
-  );
-  const addProject = useAppStore((s) => s.addProject);
-  const openSettings = useAppStore((s) => s.openSettings);
-  const closeSettings = useAppStore((s) => s.closeSettings);
-  const newChat = useAppStore((s) => s.newChat);
-  const importSession = useAppStore((s) => s.importSession);
-  const running = useAppStore((s) => s.running);
-  const abort = useAppStore((s) => s.abort);
-  const send = useAppStore((s) => s.send);
-  const clearError = useAppStore((s) => s.clearError);
+  const error = useAppStore((s) => activeConversation(s).error);
+  const externalChange = useAppStore((s) => activeConversation(s).externalChange);
+  const hasConversation = useAppStore((s) => {
+    const c = activeConversation(s);
+    return c.entries.length > 0 || !!c.streaming || c.pending.length > 0 || c.running;
+  });
   const settingsOpen = useAppStore((s) => s.settingsOpen);
   const contextPaneOpen = useAppStore((s) => s.contextPaneOpen);
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
-  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
-  const requestJumpToLatest = useAppStore((s) => s.requestJumpToLatest);
-  const requestSearchFocus = useAppStore((s) => s.requestSearchFocus);
-  const cycleThinkingLevel = useAppStore((s) => s.cycleThinkingLevel);
-  const activeProjectName = projects.find((project) => project.path === activeProjectPath)?.name;
-  const activeSession = activeSessions?.find((session) => session.path === activeSessionFile);
   const [sidebarSheetOpen, setSidebarSheetOpen] = useState(false);
   const [contextSheetOpen, setContextSheetOpen] = useState(false);
   const [layout, setLayout] = useState<WorkspaceLayout>(currentWorkspaceLayout);
@@ -102,95 +82,7 @@ export default function App() {
     setContextSheetOpen(false);
   }, [layout]);
 
-  useEffect(() => {
-    /** Shortcuts that need a project open do nothing without one. */
-    const withProject = (run: () => void) => (event: KeyboardEvent) => {
-      if (!activeProjectPath) return;
-      event.preventDefault();
-      run();
-    };
-    const always = (run: () => void) => (event: KeyboardEvent) => {
-      event.preventDefault();
-      run();
-    };
-
-    return tinykeys(
-      window,
-      bindings({
-        openSettings: always(openSettings),
-
-        stopTurn: (event) => {
-          if (settingsOpen) {
-            event.preventDefault();
-            closeSettings();
-            return;
-          }
-          // Escape belongs to a single-line field first — it clears or closes
-          // whatever the user is typing in. The composer is a textarea, so
-          // stopping a run while writing the next message still works.
-          if (running && !(event.target instanceof HTMLInputElement)) {
-            event.preventDefault();
-            abort();
-          }
-        },
-
-        toggleSidebar: always(() => {
-          if (layout === "compact") setSidebarSheetOpen((open) => !open);
-          else toggleSidebar();
-        }),
-
-        search: always(() => {
-          if (layout === "compact") setSidebarSheetOpen(true);
-          else setSidebarOpen(true);
-          requestSearchFocus();
-        }),
-
-        jumpToLatest: always(requestJumpToLatest),
-        nextProject: always(() => void selectAdjacentProject(1)),
-        previousProject: always(() => void selectAdjacentProject(-1)),
-
-        toggleContextPane: withProject(() => {
-          if (layout === "wide") toggleContextPane();
-          else setContextSheetOpen((open) => !open);
-        }),
-
-        newChat: withProject(() => {
-          if (running) return;
-          closeSettings();
-          newChat();
-        }),
-
-        importChat: withProject(() => {
-          closeSettings();
-          void importSession();
-        }),
-
-        cycleThinking: withProject(() => void cycleThinkingLevel()),
-      }),
-      // tinykeys otherwise ignores keystrokes originating in inputs and
-      // textareas, which would silence every one of these inside the composer.
-      // Only IME composition is filtered: mid-composition keys belong to the
-      // candidate window, not to NativePi.
-      { ignore: (event) => (event as KeyboardEvent).isComposing },
-    );
-  }, [
-    abort,
-    activeProjectPath,
-    closeSettings,
-    cycleThinkingLevel,
-    importSession,
-    layout,
-    newChat,
-    openSettings,
-    requestJumpToLatest,
-    requestSearchFocus,
-    running,
-    selectAdjacentProject,
-    setSidebarOpen,
-    settingsOpen,
-    toggleContextPane,
-    toggleSidebar,
-  ]);
+  useWorkspaceShortcuts(layout, setSidebarSheetOpen, setContextSheetOpen);
 
   if (!ready) {
     return (
@@ -215,54 +107,12 @@ export default function App() {
         {sidebarDocked ? <Sidebar onClose={() => setSidebarOpen(false)} /> : null}
         <ResizablePanel id="conversation" minSize="35%">
           <main className="conversation-shell flex h-full min-h-0 min-w-0 flex-col">
-            <header
-              className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-2 pl-5 ${contextDocked ? "pr-2" : WINDOW_CONTROLS_CLEARANCE}`}
-            >
-              {!sidebarDocked ? (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => (layout === "compact" ? setSidebarSheetOpen(true) : setSidebarOpen(true))}
-                  title={withHint("Open sidebar", "toggleSidebar")}
-                  aria-label="Open sidebar"
-                  className={NO_DRAG_REGION}
-                >
-                  <SidebarSimpleIcon />
-                </Button>
-              ) : null}
-              <div className="min-w-0 flex-1 self-stretch">
-                {activeProjectPath ? (
-                  <div className="flex h-full min-w-0 items-center gap-2 text-sm font-medium">
-                    <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-                      <FolderIcon className="shrink-0" />
-                      <span className="truncate">{activeProjectName ?? activeProjectPath}</span>
-                    </span>
-                    <span aria-hidden="true" className="shrink-0 text-muted-foreground/50">
-                      /
-                    </span>
-                    <span className="min-w-0 truncate">
-                      {isNewChat ? "New chat" : activeSession ? chatTitle(activeSession) : "Untitled chat"}
-                    </span>
-                  </div>
-                ) : (
-                  <NativePiWordmark className="flex h-full items-center" />
-                )}
-              </div>
-              {activeProjectPath ? <OpenWith projectDir={activeProjectPath} /> : null}
-              {activeProjectPath ? <ProjectStatus className={NO_DRAG_REGION} /> : null}
-              {activeProjectPath && !contextDocked ? (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => (layout === "wide" ? toggleContextPane() : setContextSheetOpen(true))}
-                  title={withHint("Show changes pane", "toggleContextPane")}
-                  aria-label="Show changes pane"
-                  className={NO_DRAG_REGION}
-                >
-                  <SidebarSimpleIcon className="-scale-x-100" />
-                </Button>
-              ) : null}
-            </header>
+            <WorkspaceHeader
+              sidebarDocked={sidebarDocked}
+              contextDocked={contextDocked}
+              onOpenSidebar={() => (layout === "compact" ? setSidebarSheetOpen(true) : setSidebarOpen(true))}
+              onOpenContext={() => (layout === "wide" ? toggleContextPane() : setContextSheetOpen(true))}
+            />
 
             {activeProjectPath ? (
               <div className="flex min-h-0 flex-1 flex-col">
@@ -282,92 +132,11 @@ export default function App() {
                   </div>
                 )}
                 {externalChange ? <ExternalChangeNotice /> : null}
-                {error ? (
-                  <div className={`mx-auto w-full max-w-3xl px-4 pb-2 ${SCROLLBAR_GUTTER_OFFSET}`}>
-                    <div
-                      role="alert"
-                      className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
-                    >
-                      <WarningCircleIcon weight="fill" className="mt-0.5 shrink-0" />
-                      <p className="min-w-0 flex-1 break-words">{error}</p>
-                      {/* The action is whatever actually recovers from *this*
-                          failure. Retry used to be offered unconditionally and
-                          did nothing at all on the Pi-error path, because that
-                          path never restores a draft for send() to read. */}
-                      {errorRecovery === "retrySend" ? (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="shrink-0 text-destructive hover:bg-destructive/15 hover:text-destructive"
-                          onClick={() => void send()}
-                        >
-                          <ArrowClockwiseIcon data-icon="inline-start" />
-                          Retry
-                        </Button>
-                      ) : errorRecovery === "restartPi" ? (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="shrink-0 text-destructive hover:bg-destructive/15 hover:text-destructive"
-                          onClick={() => void restartPi()}
-                        >
-                          <ArrowClockwiseIcon data-icon="inline-start" />
-                          Restart Pi
-                        </Button>
-                      ) : null}
-                      <Button
-                        size="icon-xs"
-                        variant="ghost"
-                        className="shrink-0 text-destructive hover:bg-destructive/15 hover:text-destructive"
-                        onClick={clearError}
-                        title="Dismiss"
-                        aria-label="Dismiss error"
-                      >
-                        <XIcon />
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
+                {error ? <ErrorBanner /> : null}
                 {hasConversation ? <Composer /> : null}
               </div>
             ) : (
-              <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-8 pb-12">
-                <div className="my-auto flex max-w-md flex-col items-center gap-6 text-center">
-                  <NativePiWordmark display />
-                  <div className="flex flex-col gap-2">
-                    <h1 className="font-heading text-2xl font-medium tracking-tight">Start building with NativePi</h1>
-                    <p className="text-sm leading-6 text-muted-foreground">
-                      NativePi runs the Pi coding agent on this computer. Your projects, conversations, and credentials
-                      stay here.
-                    </p>
-                  </div>
-
-                  {/* Three sentences of orientation on the one screen where a
-                      first-timer has nothing else to read. */}
-                  <ol className="flex w-full flex-col gap-3 text-left">
-                    <OnboardingStep index={1} title="Connect a provider">
-                      Sign in with a subscription or paste an API key. Pi stores the credential.
-                    </OnboardingStep>
-                    <OnboardingStep index={2} title="Open a project folder">
-                      The agent reads and edits files in that folder, and nothing outside it.
-                    </OnboardingStep>
-                    <OnboardingStep index={3} title="Describe a task">
-                      Watch the run, review the files it changed, and steer it while it works.
-                    </OnboardingStep>
-                  </ol>
-
-                  <div className="flex items-center gap-2">
-                    <Button size="lg" onClick={() => void addProject()}>
-                      <FolderOpenIcon data-icon="inline-start" weight="fill" />
-                      Open folder
-                    </Button>
-                    <Button size="lg" variant="outline" onClick={openSettings}>
-                      <SlidersHorizontalIcon data-icon="inline-start" />
-                      Set up provider
-                    </Button>
-                  </div>
-                </div>
-              </div>
+              <WelcomeScreen />
             )}
           </main>
         </ResizablePanel>
@@ -479,6 +248,296 @@ function ExternalChangeNotice() {
           <CopyIcon data-icon="inline-start" />
           Duplicate
         </Button>
+      </div>
+    </div>
+  );
+}
+
+/** The drag-region title bar: project, chat title, and pane toggles. */
+function WorkspaceHeader({
+  sidebarDocked,
+  contextDocked,
+  onOpenSidebar,
+  onOpenContext,
+}: {
+  sidebarDocked: boolean;
+  contextDocked: boolean;
+  onOpenSidebar: () => void;
+  onOpenContext: () => void;
+}) {
+  const activeProjectPath = useAppStore((s) => s.activeProjectPath);
+  const isNewChat = useAppStore((s) => s.isNewChat);
+  const activeProjectName = useAppStore(
+    (s) => s.projects.find((project) => project.path === s.activeProjectPath)?.name,
+  );
+  const activeSession = useAppStore((s) =>
+    s.activeProjectPath
+      ? s.sessionsByProject[s.activeProjectPath]?.find((session) => session.path === s.activeSessionFile)
+      : undefined,
+  );
+
+  return (
+    <header
+      className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-2 pl-5 ${contextDocked ? "pr-2" : WINDOW_CONTROLS_CLEARANCE}`}
+    >
+      {!sidebarDocked ? (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onOpenSidebar}
+          title={withHint("Open sidebar", "toggleSidebar")}
+          aria-label="Open sidebar"
+          className={NO_DRAG_REGION}
+        >
+          <SidebarSimpleIcon />
+        </Button>
+      ) : null}
+      <div className="min-w-0 flex-1 self-stretch">
+        {activeProjectPath ? (
+          <div className="flex h-full min-w-0 items-center gap-2 text-sm font-medium">
+            <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+              <FolderIcon className="shrink-0" />
+              <span className="truncate">{activeProjectName ?? activeProjectPath}</span>
+            </span>
+            <span aria-hidden="true" className="shrink-0 text-muted-foreground/50">
+              /
+            </span>
+            <span className="min-w-0 truncate">
+              {isNewChat ? "New chat" : activeSession ? chatTitle(activeSession) : "Untitled chat"}
+            </span>
+          </div>
+        ) : (
+          <NativePiWordmark className="flex h-full items-center" />
+        )}
+      </div>
+      {activeProjectPath ? <OpenWith projectDir={activeProjectPath} /> : null}
+      {activeProjectPath ? <ProjectStatus className={NO_DRAG_REGION} /> : null}
+      {activeProjectPath && !contextDocked ? (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onOpenContext}
+          title={withHint("Show changes pane", "toggleContextPane")}
+          aria-label="Show changes pane"
+          className={NO_DRAG_REGION}
+        >
+          <SidebarSimpleIcon className="-scale-x-100" />
+        </Button>
+      ) : null}
+    </header>
+  );
+}
+
+/** Global keyboard shortcuts for the workspace, routed per layout. */
+function useWorkspaceShortcuts(
+  layout: WorkspaceLayout,
+  setSidebarSheetOpen: React.Dispatch<React.SetStateAction<boolean>>,
+  setContextSheetOpen: React.Dispatch<React.SetStateAction<boolean>>,
+) {
+  const activeProjectPath = useAppStore((s) => s.activeProjectPath);
+  const running = useAppStore((s) => activeConversation(s).running);
+  const settingsOpen = useAppStore((s) => s.settingsOpen);
+  const abort = useAppStore((s) => s.abort);
+  const openSettings = useAppStore((s) => s.openSettings);
+  const closeSettings = useAppStore((s) => s.closeSettings);
+  const newChat = useAppStore((s) => s.newChat);
+  const importSession = useAppStore((s) => s.importSession);
+  const selectAdjacentProject = useAppStore((s) => s.selectAdjacentProject);
+  const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+  const toggleContextPane = useAppStore((s) => s.toggleContextPane);
+  const requestJumpToLatest = useAppStore((s) => s.requestJumpToLatest);
+  const requestSearchFocus = useAppStore((s) => s.requestSearchFocus);
+  const cycleThinkingLevel = useAppStore((s) => s.cycleThinkingLevel);
+
+  useEffect(() => {
+    /** Shortcuts that need a project open do nothing without one. */
+    const withProject = (run: () => void) => (event: KeyboardEvent) => {
+      if (!activeProjectPath) return;
+      event.preventDefault();
+      run();
+    };
+    const always = (run: () => void) => (event: KeyboardEvent) => {
+      event.preventDefault();
+      run();
+    };
+
+    return tinykeys(
+      window,
+      bindings({
+        openSettings: always(openSettings),
+
+        stopTurn: (event) => {
+          if (settingsOpen) {
+            event.preventDefault();
+            closeSettings();
+            return;
+          }
+          // Escape belongs to a single-line field first — it clears or closes
+          // whatever the user is typing in. The composer is a textarea, so
+          // stopping a run while writing the next message still works.
+          if (running && !(event.target instanceof HTMLInputElement)) {
+            event.preventDefault();
+            abort();
+          }
+        },
+
+        toggleSidebar: always(() => {
+          if (layout === "compact") setSidebarSheetOpen((open) => !open);
+          else toggleSidebar();
+        }),
+
+        search: always(() => {
+          if (layout === "compact") setSidebarSheetOpen(true);
+          else setSidebarOpen(true);
+          requestSearchFocus();
+        }),
+
+        jumpToLatest: always(requestJumpToLatest),
+        nextProject: always(() => void selectAdjacentProject(1)),
+        previousProject: always(() => void selectAdjacentProject(-1)),
+
+        toggleContextPane: withProject(() => {
+          if (layout === "wide") toggleContextPane();
+          else setContextSheetOpen((open) => !open);
+        }),
+
+        newChat: withProject(() => {
+          if (running) return;
+          closeSettings();
+          newChat();
+        }),
+
+        importChat: withProject(() => {
+          closeSettings();
+          void importSession();
+        }),
+
+        cycleThinking: withProject(() => void cycleThinkingLevel()),
+      }),
+      // tinykeys otherwise ignores keystrokes originating in inputs and
+      // textareas, which would silence every one of these inside the composer.
+      // Only IME composition is filtered: mid-composition keys belong to the
+      // candidate window, not to NativePi.
+      { ignore: (event) => (event as KeyboardEvent).isComposing },
+    );
+  }, [
+    abort,
+    activeProjectPath,
+    closeSettings,
+    cycleThinkingLevel,
+    importSession,
+    layout,
+    newChat,
+    openSettings,
+    requestJumpToLatest,
+    requestSearchFocus,
+    running,
+    selectAdjacentProject,
+    setSidebarOpen,
+    setSidebarSheetOpen,
+    setContextSheetOpen,
+    settingsOpen,
+    toggleContextPane,
+    toggleSidebar,
+  ]);
+}
+
+function ErrorBanner() {
+  const error = useAppStore((s) => activeConversation(s).error);
+  const errorRecovery = useAppStore((s) => activeConversation(s).errorRecovery);
+  const restartPi = useAppStore((s) => s.restartPi);
+  const send = useAppStore((s) => s.send);
+  const clearError = useAppStore((s) => s.clearError);
+
+  return (
+    <div className={`mx-auto w-full max-w-3xl px-4 pb-2 ${SCROLLBAR_GUTTER_OFFSET}`}>
+      <div
+        role="alert"
+        className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
+      >
+        <WarningCircleIcon weight="fill" className="mt-0.5 shrink-0" />
+        <p className="min-w-0 flex-1 break-words">{error}</p>
+        {/* The action is whatever actually recovers from *this*
+            failure. Retry used to be offered unconditionally and
+            did nothing at all on the Pi-error path, because that
+            path never restores a draft for send() to read. */}
+        {errorRecovery === "retrySend" ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="shrink-0 text-destructive hover:bg-destructive/15 hover:text-destructive"
+            onClick={() => void send()}
+          >
+            <ArrowClockwiseIcon data-icon="inline-start" />
+            Retry
+          </Button>
+        ) : errorRecovery === "restartPi" ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="shrink-0 text-destructive hover:bg-destructive/15 hover:text-destructive"
+            onClick={() => void restartPi()}
+          >
+            <ArrowClockwiseIcon data-icon="inline-start" />
+            Restart Pi
+          </Button>
+        ) : null}
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          className="shrink-0 text-destructive hover:bg-destructive/15 hover:text-destructive"
+          onClick={clearError}
+          title="Dismiss"
+          aria-label="Dismiss error"
+        >
+          <XIcon />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function WelcomeScreen() {
+  const addProject = useAppStore((s) => s.addProject);
+  const openSettings = useAppStore((s) => s.openSettings);
+
+  return (
+    <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-8 pb-12">
+      <div className="my-auto flex max-w-md flex-col items-center gap-6 text-center">
+        <NativePiWordmark display />
+        <div className="flex flex-col gap-2">
+          <h1 className="font-heading text-2xl font-medium tracking-tight">Start building with NativePi</h1>
+          <p className="text-sm leading-6 text-muted-foreground">
+            NativePi runs the Pi coding agent on this computer. Your projects, conversations, and credentials
+            stay here.
+          </p>
+        </div>
+
+        {/* Three sentences of orientation on the one screen where a
+            first-timer has nothing else to read. */}
+        <ol className="flex w-full flex-col gap-3 text-left">
+          <OnboardingStep index={1} title="Connect a provider">
+            Sign in with a subscription or paste an API key. Pi stores the credential.
+          </OnboardingStep>
+          <OnboardingStep index={2} title="Open a project folder">
+            The agent reads and edits files in that folder, and nothing outside it.
+          </OnboardingStep>
+          <OnboardingStep index={3} title="Describe a task">
+            Watch the run, review the files it changed, and steer it while it works.
+          </OnboardingStep>
+        </ol>
+
+        <div className="flex items-center gap-2">
+          <Button size="lg" onClick={() => void addProject()}>
+            <FolderOpenIcon data-icon="inline-start" weight="fill" />
+            Open folder
+          </Button>
+          <Button size="lg" variant="outline" onClick={openSettings}>
+            <SlidersHorizontalIcon data-icon="inline-start" />
+            Set up provider
+          </Button>
+        </div>
       </div>
     </div>
   );

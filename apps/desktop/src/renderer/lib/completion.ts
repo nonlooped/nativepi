@@ -1,16 +1,16 @@
 import { useEffect, useRef } from "react";
 import { formatElapsed, pluralize } from "./format.ts";
-import { useAppStore } from "./store.ts";
+import { activeConversation, useAppStore } from "./store.ts";
 
 export function useTurnCompletionSignal(): void {
-  const running = useAppStore((s) => s.running);
+  const running = useAppStore((s) => activeConversation(s).running);
   const wasRunning = useRef(false);
   const startedAt = useRef<number | null>(null);
 
   useEffect(() => {
     if (running) {
       wasRunning.current = true;
-      startedAt.current = useAppStore.getState().runStartedAt ?? Date.now();
+      startedAt.current = activeConversation(useAppStore.getState()).runStartedAt ?? Date.now();
       return;
     }
     if (!wasRunning.current) return;

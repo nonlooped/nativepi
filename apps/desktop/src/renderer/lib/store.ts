@@ -43,6 +43,7 @@ rpc.events.on("authPrompt", (payload) => useAppStore.getState().onAuthPrompt(pay
 rpc.events.on("authNotice", ({ notice }) => useAppStore.getState().onAuthNotice(notice));
 
 export { thinkingLabel } from "./store/models.ts";
+export { activeConversation } from "./store/conversation.ts";
 
 export type {
   AuthFlow,
