@@ -4,13 +4,73 @@ on:
   push:
     tags:
       - "v*"
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
+  release:
+    name: Resolve release
+    if: github.event_name == 'push' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.release.outputs.publish }}
+      sha: ${{ steps.release.outputs.sha }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
+
+      - name: Resolve release
+        id: release
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $desktopVersion = (Get-Content apps/desktop/package.json | ConvertFrom-Json).version
+          if ($version -ne $desktopVersion) {
+            throw "Root version $version does not match desktop version $desktopVersion"
+          }
+
+          $tag = "v$version"
+          if ("${{ github.event_name }}" -eq "push") {
+            if ("${{ github.ref_name }}" -ne $tag) {
+              throw "Tag ${{ github.ref_name }} does not match package version $version"
+            }
+          } else {
+            $previousVersion = (git show HEAD^:package.json | ConvertFrom-Json).version
+            if ($version -eq $previousVersion) {
+              "publish=false" >> $env:GITHUB_OUTPUT
+              exit 0
+            }
+
+            if (git ls-remote --exit-code --tags origin "refs/tags/$tag") {
+              git fetch origin "refs/tags/$tag:refs/tags/$tag"
+              if ((git rev-parse "$tag^{commit}") -ne (git rev-parse HEAD)) {
+                throw "Tag $tag already points to a different commit"
+              }
+            } else {
+              git config user.name github-actions[bot]
+              git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+              git tag --annotate $tag --message $tag
+              git push origin $tag
+            }
+          }
+
+          "publish=true" >> $env:GITHUB_OUTPUT
+          "sha=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
   windows-installer:
     name: Build Windows Setup & Publish
+    needs: release
+    if: needs.release.outputs.publish == 'true'
     runs-on: windows-latest
     env:
       # No code-signing certificate configured; skip auto-discovery
@@ -18,6 +78,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.sha }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -53,13 +115,14 @@ jobs:
         id: release
         shell: pwsh
         run: |
-          $version = $env:GITHUB_REF_NAME -replace '^v', ''
-          $shortSha = $env:GITHUB_SHA.Substring(0, 12)
+          $version = "${{ needs.release.outputs.tag }}" -replace '^v', ''
+          $shortSha = "${{ needs.release.outputs.sha }}".Substring(0, 12)
           "title=NativePi $version ($shortSha)" >> $env:GITHUB_OUTPUT
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ needs.release.outputs.tag }}
           name: ${{ steps.release.outputs.title }}
           files: |
             apps/desktop/release/*.exe
