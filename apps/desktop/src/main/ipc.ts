@@ -6,7 +6,7 @@ import type { PiMessage } from "./pi/protocol.ts";
 import { deleteSession, listSessions, readSession, sessionMtime, watchSessionFile } from "./sessions.ts";
 import { loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
-import { gitDiff, gitStatus } from "./git.ts";
+import { gitAddWorktree, gitBranches, gitCheckout, gitDiff, gitStatus } from "./git.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
 import { listInstalledEditors, openProjectIn } from "./editors.ts";
@@ -516,6 +516,9 @@ const handlers: HandlerMap = {
 
   gitStatus: async ({ projectDir }) => ({ status: await gitStatus(projectDir) }),
   gitDiff: async ({ projectDir, file, untracked }) => ({ diff: await gitDiff(projectDir, file, untracked) }),
+  gitBranches: async ({ projectDir }) => ({ branches: await gitBranches(projectDir) }),
+  gitCheckout: ({ projectDir, branch, create }) => gitCheckout(projectDir, branch, create),
+  gitAddWorktree: ({ projectDir, branch, create }) => gitAddWorktree(projectDir, branch, create),
 
   listPackages: async ({ projectDir }) => {
     try {

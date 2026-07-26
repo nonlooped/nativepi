@@ -60,7 +60,8 @@ storage, their own login. NativePi takes the opposite approach.
 | **Watch the work, not a spinner** | Follow streamed responses, thinking, tool calls, errors, and file changes as they happen. |
 | **Stay in control mid-run** | Send, steer, queue a follow-up, or stop the agent from the same workspace. |
 | **The right model for the moment** | Use Pi's providers, models, and thinking levels without rebuilding your configuration. |
-| **Review code in context** | Inspect read-only Git status and rich diffs alongside the transcript. |
+| **Review code in context** | Inspect Git status and rich diffs alongside the transcript. |
+| **Work on the right branch** | Switch branches from the composer, or open one in a new worktree that becomes its own project. |
 | **Manage extensions visually** | Pi extensions can opt into richer desktop presentation through the graphical extension API. |
 
 ## Getting Started

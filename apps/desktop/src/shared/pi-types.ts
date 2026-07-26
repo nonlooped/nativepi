@@ -192,6 +192,12 @@ export interface GitDiff {
   path: string;
   patch: string;
 }
+export interface GitBranch {
+  name: string;
+  current: boolean;
+  /** Absolute path of another worktree holding this branch, if one does. */
+  worktree?: string;
+}
 
 
 export interface PackageInfo {

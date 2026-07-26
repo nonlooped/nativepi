@@ -1,10 +1,12 @@
-import { ArrowBendUpRightIcon, CaretDownIcon, CheckIcon, MagnifyingGlassIcon, PaperPlaneRightIcon, StarIcon, WarningCircleIcon } from "../../shared/icons.ts"
+import { ArrowBendUpRightIcon, CaretDownIcon, CheckIcon, GitBranchIcon, MagnifyingGlassIcon, PaperPlaneRightIcon, PlusIcon, StarIcon, WarningCircleIcon } from "../../shared/icons.ts"
 import { useId, useMemo, useState } from "react";
-import type { AssistantMessage, ModelInfo } from "../../shared/pi-types.ts";
+import type { AssistantMessage, GitBranch, ModelInfo } from "../../shared/pi-types.ts";
 import { draftKeyFor, modelKey } from "../../shared/messages.ts";
 import { thinkingLabel, useAppStore } from "../lib/store.ts";
 import { formatTokens } from "../lib/format.ts";
 import { providerIconName } from "../lib/providerIcons.ts";
+import { rpc } from "../lib/rpc.ts";
+import { useRequest } from "../lib/useRequest.ts";
 import { withHint } from "../lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -78,6 +80,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           <div className="mx-1 h-5 w-px bg-border" />
           <ThinkingSelector />
           <ContextWindow />
+          <BranchSelector />
           <div className="flex-1" />
           {running ? <BehaviorSelector behavior={behavior} setBehavior={setBehavior} /> : null}
           <Button
@@ -384,6 +387,213 @@ function ThinkingSelector() {
         ))}
       </MenuPopup>
     </Menu>
+  );
+}
+
+/**
+ * Which branch the agent works on, and in which checkout.
+ *
+ * The destination is a mode over the whole list rather than a submenu per
+ * branch: "same branch, different place" is the choice being made, and a mode
+ * lets one glance at the list answer "what can I do from here" — a branch held
+ * by another worktree can never be checked out, and the branch already open
+ * here can never become a new one.
+ */
+function BranchSelector() {
+  const isRepo = useAppStore((s) => s.git?.isRepo ?? false);
+  const branch = useAppStore((s) => s.git?.branch);
+  const detached = useAppStore((s) => s.git?.detached ?? false);
+  const [open, setOpen] = useState(false);
+
+  if (!isRepo) return null;
+
+  return (
+    <Menu open={open} onOpenChange={setOpen}>
+      <MenuTrigger
+        title="Switch branch, or open one in a new worktree"
+        aria-label={`Branch: ${detached ? "detached HEAD" : (branch ?? "unknown")}`}
+        className="flex h-8 max-w-48 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <GitBranchIcon className="shrink-0" />
+        <span className="truncate">{detached ? "detached HEAD" : (branch ?? "—")}</span>
+        <CaretDownIcon className="shrink-0 text-muted-foreground" />
+      </MenuTrigger>
+      <MenuPopup side="top" className="max-h-none w-[min(26rem,calc(100vw-2rem))] overflow-hidden p-0">
+        {/* Mounted only while open, so every opening reads the branches fresh —
+            the user may have committed or branched in a terminal since. */}
+        {open ? <BranchPicker onDone={() => setOpen(false)} /> : null}
+      </MenuPopup>
+    </Menu>
+  );
+}
+
+function BranchPicker({ onDone }: { onDone: () => void }) {
+  const projectDir = useAppStore((s) => s.activeProjectPath);
+  const running = useAppStore((s) => s.running);
+  const switchBranch = useAppStore((s) => s.switchBranch);
+  const branchInWorktree = useAppStore((s) => s.branchInWorktree);
+  const openProjectPath = useAppStore((s) => s.openProjectPath);
+  const [worktree, setWorktree] = useState(false);
+  const [query, setQuery] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const { data, loading } = useRequest(
+    () => rpc.request.gitBranches({ projectDir: projectDir ?? "" }),
+    [projectDir],
+  );
+  const branches = data?.branches ?? [];
+
+  const name = query.trim();
+  const matches = branches.filter((item) => item.name.toLowerCase().includes(name.toLowerCase()));
+  const canCreate = name.length > 0 && !branches.some((item) => item.name === name);
+
+  async function apply(run: () => Promise<{ ok: boolean; error?: string }>) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    const res = await run();
+    setBusy(false);
+    // Left open on failure: Git's refusal (uncommitted changes, an invalid name)
+    // is the answer to what the user just tried, and it belongs beside the list
+    // they tried it from.
+    if (res.ok) onDone();
+    else setError(res.error ?? "Git refused this change.");
+  }
+
+  function choose(item: GitBranch) {
+    if (!worktree) return apply(() => switchBranch(item.name, false));
+    if (item.worktree) {
+      const path = item.worktree;
+      return apply(async () => {
+        await openProjectPath(path);
+        return { ok: true };
+      });
+    }
+    return apply(() => branchInWorktree(item.name, false));
+  }
+
+  return (
+    <div className="flex max-h-[min(28rem,70vh)] flex-col">
+      <div className="flex flex-col gap-2 border-b p-2">
+        <div className="relative">
+          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Find a branch, or type a new name…"
+            aria-label="Find or name a branch"
+            className="border-0 bg-muted pl-9 shadow-none"
+          />
+        </div>
+        <div className="flex items-center gap-1 rounded-lg bg-muted p-0.5">
+          <DestinationTab active={!worktree} onClick={() => setWorktree(false)} label="This checkout">
+            Switch the folder you are working in
+          </DestinationTab>
+          <DestinationTab active={worktree} onClick={() => setWorktree(true)} label="New worktree">
+            Open a second folder, left as it is here
+          </DestinationTab>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+        {loading ? (
+          <p className="px-2 py-6 text-center text-sm text-muted-foreground">Loading branches…</p>
+        ) : null}
+        {matches.map((item) => {
+          // Git enforces one checkout per branch; saying so up front beats
+          // letting the click fail with a fatal.
+          const blocked = worktree
+            ? item.current
+              ? "Already checked out here"
+              : null
+            : item.worktree
+              ? "Checked out in another worktree"
+              : item.current
+                ? "Already on this branch"
+                : running
+                  ? "Stop the current run before switching branches"
+                  : null;
+
+          return (
+            <MenuItem
+              key={item.name}
+              closeOnClick={false}
+              disabled={busy || blocked !== null}
+              onClick={() => void choose(item)}
+              title={blocked ?? item.worktree ?? undefined}
+              className={cn("min-h-10 rounded-md px-2.5 text-sm", blocked && "opacity-50")}
+            >
+              <GitBranchIcon className="shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">{item.name}</span>
+              {blocked ? (
+                <span className="shrink-0 text-xs text-muted-foreground">{blocked}</span>
+              ) : worktree && item.worktree ? (
+                <span className="shrink-0 text-xs text-muted-foreground">Open worktree</span>
+              ) : null}
+              {item.current ? <CheckIcon className="shrink-0 text-success" /> : null}
+            </MenuItem>
+          );
+        })}
+
+        {canCreate ? (
+          <MenuItem
+            closeOnClick={false}
+            disabled={busy || (!worktree && running)}
+            onClick={() =>
+              void apply(() => (worktree ? branchInWorktree(name, true) : switchBranch(name, true)))
+            }
+            className="min-h-10 rounded-md px-2.5 text-sm"
+          >
+            <PlusIcon className="shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">
+              Create <span className="font-medium">{name}</span> {worktree ? "in a new worktree" : "here"}
+            </span>
+          </MenuItem>
+        ) : null}
+
+        {!loading && matches.length === 0 && !canCreate ? (
+          <p className="px-2 py-6 text-center text-sm text-muted-foreground">No branches yet.</p>
+        ) : null}
+      </div>
+
+      {error ? (
+        <p className="border-t px-3 py-2 text-xs whitespace-pre-wrap text-destructive">{error}</p>
+      ) : (
+        <p className="border-t px-3 py-2 text-xs text-muted-foreground">
+          {worktree
+            ? "A worktree is a separate folder on the same repository. NativePi opens it as its own project, with its own chats."
+            : "Switching moves this project's files. Uncommitted work comes with you."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DestinationTab({
+  active,
+  onClick,
+  label,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  children: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      title={children}
+      onClick={onClick}
+      className={cn(
+        "flex-1 rounded-md px-2 py-1.5 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+        active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label}
+    </button>
   );
 }
 

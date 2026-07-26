@@ -42,7 +42,7 @@ Do not add:
 - NativePi-owned agent tools.
 - Provider-specific implementations when Pi already owns them.
 - Support for other agent harnesses.
-- Worktrees, checkpoints, hidden commits, or Git mutation features.
+- Checkpoints, hidden commits, or anything that rewrites Git history.
 - A second durable conversation store or parallel Pi domain model.
 - Architecture copied from the previous `nonlooped/pi-wrapper` attempt.
 
