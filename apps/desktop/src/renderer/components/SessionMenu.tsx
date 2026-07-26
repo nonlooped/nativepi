@@ -14,7 +14,7 @@ import type { ForkPoint, SessionStats, SessionSummary, SessionTreeNode } from ".
 import { textOf } from "../../shared/messages.ts";
 import { chatTitle } from "../lib/transcript.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
-import { useAppStore } from "../lib/store.ts";
+import { activeConversation, useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -37,7 +37,7 @@ export default function SessionMenu({ session, className }: { session: SessionSu
   const [exportPath, setExportPath] = useState<string>("");
   const [busyAction, setBusyAction] = useState(false);
 
-  const running = useAppStore((s) => s.running);
+  const running = useAppStore((s) => activeConversation(s).running);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const cloneChat = useAppStore((s) => s.cloneChat);
   const deleteChat = useAppStore((s) => s.deleteChat);

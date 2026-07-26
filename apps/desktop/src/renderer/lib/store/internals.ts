@@ -2,7 +2,7 @@ import type { NativePiState } from "../../../shared/rpc-schema.ts";
 import { draftKeyFor, modelKey } from "../../../shared/messages.ts";
 import { loadGraphicalExtensions } from "../extensionHost.ts";
 import { rpc } from "../rpc.ts";
-import type { AppState, GetState, SetState } from "./types.ts";
+import type { GetState, SetState } from "./types.ts";
 
 /**
  * State the store keeps but never renders.
@@ -126,39 +126,4 @@ export function warmProject(set: SetState, get: GetState, path: string): void {
     if (get().activeProjectPath !== path) return;
     set({ extRenderers: res.extensions, extLoadErrors: res.errors });
   });
-}
-
-/**
- * The state a chat starts from, shared by opening, creating and switching.
- *
- * A function, not a constant: these arrays go into the store, and handing every
- * reset the same instances would let one chat's transcript alias another's.
- */
-export function emptyConversation(): Pick<
-  AppState,
-  | "entries"
-  | "streaming"
-  | "running"
-  | "runStartedAt"
-  | "compacting"
-  | "retry"
-  | "pending"
-  | "queue"
-  | "error"
-  | "errorRecovery"
-  | "externalChange"
-> {
-  return {
-    entries: [],
-    streaming: null,
-    running: false,
-    runStartedAt: null,
-    compacting: false,
-    retry: null,
-    pending: [],
-    queue: { steering: [], followUp: [] },
-    error: undefined,
-    errorRecovery: undefined,
-    externalChange: null,
-  };
 }

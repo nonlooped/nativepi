@@ -19,7 +19,7 @@ import { toolArgSummary, toolResultsById } from "../lib/transcript.ts";
 import { diffPatchFor, fileDir, fileName, turnChanges, type FileChange } from "../lib/changes.ts";
 import { formatDuration, formatElapsed, formatLineDelta, pluralize } from "../lib/format.ts";
 import { scrollBehavior, useReducedMotion } from "../lib/motion.ts";
-import { useAppStore } from "../lib/store.ts";
+import { activeConversation, useAppStore } from "../lib/store.ts";
 import { withHint } from "../lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
@@ -31,12 +31,12 @@ const streamdownPlugins = { code };
 const FOLLOW_THRESHOLD = 120;
 
 export default function Transcript() {
-  const entries = useAppStore((s) => s.entries);
-  const streaming = useAppStore((s) => s.streaming);
-  const pending = useAppStore((s) => s.pending);
-  const running = useAppStore((s) => s.running);
-  const compacting = useAppStore((s) => s.compacting);
-  const retry = useAppStore((s) => s.retry);
+  const entries = useAppStore((s) => activeConversation(s).entries);
+  const streaming = useAppStore((s) => activeConversation(s).streaming);
+  const pending = useAppStore((s) => activeConversation(s).pending);
+  const running = useAppStore((s) => activeConversation(s).running);
+  const compacting = useAppStore((s) => activeConversation(s).compacting);
+  const retry = useAppStore((s) => activeConversation(s).retry);
   const abortRetry = useAppStore((s) => s.abortRetry);
   const jumpRequest = useAppStore((s) => s.jumpRequest);
 
@@ -167,7 +167,7 @@ export default function Transcript() {
 
 function RunStatusBar({ activeTool, compacting }: { activeTool?: string; compacting: boolean }) {
   const abort = useAppStore((s) => s.abort);
-  const runStartedAt = useAppStore((s) => s.runStartedAt);
+  const runStartedAt = useAppStore((s) => activeConversation(s).runStartedAt);
   const git = useAppStore((s) => s.git);
   const elapsed = useElapsed(runStartedAt);
   const reduced = useReducedMotion();
