@@ -1,5 +1,5 @@
 // @nativepi/extension-api
-// Public API surface for NativePi graphical extensions (PLAN section 14).
+// Public API surface for NativePi graphical extensions.
 //
 // An extension's `nativepi.renderer` entry imports this package, describes the
 // UI slots it contributes, and default-exports the result of `defineRenderer`.

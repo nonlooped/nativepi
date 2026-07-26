@@ -36,7 +36,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       setLastChat(projectPath, sessionFile);
       persist(get);
       // Watch the chat being viewed for writes from another NativePi window or
-      // a Pi CLI in a terminal (PLAN section 16).
+      // a Pi CLI in a terminal.
       void rpc.request.watchSession({ projectDir: projectPath, sessionFile });
     }
     const { entries } = await rpc.request.readSession({ sessionFile });

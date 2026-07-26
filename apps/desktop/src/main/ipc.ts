@@ -37,12 +37,12 @@ function status(projectDir: string, status: PiStatus, detail?: string): void {
 }
 
 /**
- * Concurrent-session detection (PLAN section 16).
+ * Concurrent-session detection.
  *
- * `busyUntil` is the write-attribution heuristic PLAN allows: our own Pi writes
- * the session file throughout a turn and for a moment after it settles, so any
- * change outside that window came from somewhere else — a second NativePi
- * window, or the Pi CLI in a terminal.
+ * `busyUntil` is the write-attribution heuristic: our own Pi writes the session
+ * file throughout a turn and for a moment after it settles, so any change
+ * outside that window came from somewhere else — a second NativePi window, or
+ * the Pi CLI in a terminal.
  */
 const busyUntil = new Map<string, number>();
 const SETTLE_GRACE_MS = 3000;

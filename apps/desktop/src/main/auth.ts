@@ -10,11 +10,11 @@ import { isProjectTrusted } from "./pi/services.ts";
 import type { AuthNotice, AuthProviderInfo, AuthPromptRequest } from "../shared/rpc-schema.ts";
 
 /**
- * Provider authentication and project trust, driven through Pi's exported APIs
- * (PLAN section 10). RPC has no auth commands, so NativePi owns login/logout
- * orchestration over a single in-process ModelRuntime that reads and writes the
- * normal `~/.pi/agent` files. Credentials are only ever stored where Pi stores
- * them; nothing here touches NativePi's own state file.
+ * Provider authentication and project trust are driven through Pi's exported
+ * APIs. RPC has no auth commands, so NativePi owns login/logout orchestration
+ * over a single in-process ModelRuntime that reads and writes the normal
+ * `~/.pi/agent` files. Credentials are only ever stored where Pi stores them;
+ * nothing here touches NativePi's own state file.
  */
 
 export const PI_VERSION_STRING: string = PI_VERSION;

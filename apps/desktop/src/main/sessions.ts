@@ -60,7 +60,7 @@ export async function sessionMtime(sessionFile: string): Promise<number> {
 }
 
 /**
- * Watch one session file for writes (PLAN section 16).
+ * Watch one session file for writes.
  *
  * Pi rewrites the file through its own process, so `onChange` fires for our own
  * turns too; attribution is the caller's job (it knows whether its Pi is busy).

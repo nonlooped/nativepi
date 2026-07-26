@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
+import { Kbd } from "@/components/ui/kbd.tsx";
 import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
 import { ComposerWidgets } from "./ExtensionSlots.tsx";
 import BrandIcon from "./BrandIcon.tsx";
@@ -30,6 +31,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
   const enqueue = useAppStore((s) => s.enqueue);
   const behavior = useAppStore((s) => s.sendBehavior);
   const setBehavior = useAppStore((s) => s.setSendBehavior);
+  const isRepo = useAppStore((s) => s.git?.isRepo ?? false);
 
   const disabled = !activeProjectPath;
   const canSend = !!draft.trim() && !disabled && !blocked;
@@ -59,28 +61,35 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
             }
           }}
           rows={2}
+          aria-label="Message Pi"
+          // The placeholder names the one thing this keystroke will do next, so
+          // it tracks the queue behaviour rather than listing both options and
+          // leaving the user to guess which one is armed.
           placeholder={
             disabled
               ? "Open a project to begin"
               : blocked
                 ? "This chat changed outside NativePi — reload or duplicate it to continue"
-                : running
-                  ? "Steer this turn or queue a follow-up…"
-                  : "Ask for follow-up changes or attach images"
+                : steering
+                  ? "Steer this turn…"
+                  : running
+                    ? "Queue a follow-up…"
+                    : "Ask for a change, or a question about this code"
           }
           disabled={disabled}
           className="max-h-56 min-h-24 resize-none border-0 bg-transparent px-2.5 py-3 text-[15px] shadow-none focus-visible:ring-0 dark:bg-transparent"
         />
-        {/* Two groups, not six peers: everything that describes the message on
-            the left, the single act of sending it on the right. The context
-            readout is a readout, so it belongs with the settings it reports on —
-            not wedged between the spacer and Send. Stop is not here at all; it
-            acts on the run and lives with the run status above the transcript. */}
+        {/* Three groups, not six peers: what answers the message (model,
+            reasoning, the context it has left), then what the answer lands in
+            (branch, worktree), then the single act of sending. The rule earns
+            its place only between groups — a divider after every control is
+            just noise with a border. Stop is not here at all; it acts on the
+            run and lives with the run status above the transcript. */}
         <div className="flex items-center gap-1 px-1">
           <ModelSelector />
-          <div className="mx-1 h-5 w-px bg-border" />
           <ThinkingSelector />
           <ContextWindow />
+          {isRepo ? <GroupRule /> : null}
           <BranchSelector />
           <WorktreeButton />
           <div className="flex-1" />
@@ -90,8 +99,8 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
             className="rounded-full"
             onClick={submit}
             disabled={!canSend}
-            title={steering ? "Steer this turn" : running ? "Queue a follow-up" : "Send message"}
-            aria-label={steering ? "Steer this turn" : running ? "Queue a follow-up" : "Send message"}
+            title={sendLabel(running, steering)}
+            aria-label={sendLabel(running, steering)}
           >
             {/* Steering redirects the turn in flight; it is not the same act as
                 sending, so it does not wear the same glyph. */}
@@ -99,9 +108,37 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           </Button>
         </div>
       </div>
+      {/* Only on the empty-project screen, where a first-timer has nothing else
+          to read and the keys are otherwise undiscoverable. The persistent
+          composer stays silent: by then the user has sent a message. */}
+      {prominent ? (
+        <p className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-2 gap-y-1 pt-0.5 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <Kbd>Enter</Kbd> to send
+          </span>
+          <span aria-hidden="true" className="text-muted-foreground/50">
+            ·
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>Shift+Enter</Kbd> for a new line
+          </span>
+        </p>
+      ) : null}
       <ComposerWidgets placement="belowComposer" />
     </div>
   );
+}
+
+/** The one-word name for what Enter does right now, shared by tooltip and label. */
+function sendLabel(running: boolean, steering: boolean): string {
+  if (steering) return "Steer this turn (Enter)";
+  if (running) return "Queue a follow-up (Enter)";
+  return "Send message (Enter)";
+}
+
+/** A hairline between control groups, not between controls. */
+function GroupRule() {
+  return <div aria-hidden="true" className="mx-1.5 h-5 w-px shrink-0 bg-border" />;
 }
 
 function ExtensionStatuses() {
@@ -109,7 +146,7 @@ function ExtensionStatuses() {
   const entries = Object.entries(statuses);
   if (entries.length === 0) return null;
   return (
-    <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-x-3 gap-y-1 px-1 text-xs text-muted-foreground">
+    <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-x-3 gap-y-1 px-1 text-xs text-muted-foreground">
       {entries.map(([key, text]) => (
         <span key={key} className="truncate">
           {text}
@@ -125,7 +162,11 @@ function QueuedMessages() {
   if (steering.length === 0 && followUp.length === 0) return null;
 
   return (
-    <div className="mx-auto mb-2 flex max-h-40 w-full max-w-3xl flex-col gap-1 overflow-y-auto">
+    <div
+      role="list"
+      aria-label="Messages queued for this turn"
+      className="mx-auto mb-2 flex max-h-40 w-full max-w-3xl flex-col gap-1 overflow-y-auto"
+    >
       {steering.map((text, i) => (
         <QueueRow key={`s${i}`} label="Steer" text={text} />
       ))}
@@ -143,7 +184,7 @@ function QueuedMessages() {
 
 function QueueRow({ label, text }: { label: string; text: string }) {
   return (
-    <div className="flex items-start gap-2 rounded-xl border bg-card/60 px-3 py-2 text-sm">
+    <div role="listitem" className="flex items-start gap-2 rounded-xl border bg-card/60 px-3 py-2 text-sm">
       <span className="mt-0.5 shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
         {label}
       </span>
@@ -284,7 +325,10 @@ function ModelSelector() {
               <p className="px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground">
                 {provider === "favorite" ? "Favorite" : (providers.find((item) => item.id === provider)?.name ?? provider)}
               </p>
-              {visibleModels.length ? visibleModels.map((m) => (
+              {visibleModels.length ? visibleModels.map((m) => {
+                const favorite = favoriteModels.includes(modelKey(m));
+                const selected = isSameModel(m, model);
+                return (
                 <MenuItem
                   key={`${m.provider}/${m.id}`}
                   onClick={() => void setModel(m)}
@@ -299,7 +343,7 @@ function ModelSelector() {
                     event.stopPropagation();
                     toggleFavoriteModel(m);
                   }}
-                  className={cn("min-h-14 rounded-lg px-3", isSameModel(m, model) && "bg-accent")}
+                  className={cn("group/model min-h-14 rounded-lg px-3", selected && "bg-accent")}
                 >
                   <ModelProviderIcon provider={m.provider} />
                   <div className="min-w-0 flex-1">
@@ -308,24 +352,31 @@ function ModelSelector() {
                   </div>
                   <button
                     type="button"
-                    aria-label={`${favoriteModels.includes(modelKey(m)) ? "Remove" : "Add"} ${m.name ?? m.id} ${favoriteModels.includes(modelKey(m)) ? "from" : "to"} favorites`}
-                    aria-pressed={favoriteModels.includes(modelKey(m))}
-                    title={`${favoriteModels.includes(modelKey(m)) ? "Remove from favorites" : "Add to favorites"} (F)`}
+                    aria-label={`${favorite ? "Remove" : "Add"} ${m.name ?? m.id} ${favorite ? "from" : "to"} favorites`}
+                    aria-pressed={favorite}
+                    title={`${favorite ? "Remove from favorites" : "Add to favorites"} (F)`}
                     onPointerDown={(event) => event.stopPropagation()}
                     onClick={(event) => {
                       event.stopPropagation();
                       toggleFavoriteModel(m);
                     }}
-                    className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    // Hidden until the row is hovered, focused or already
+                    // starred: a column of grey stars down every row reads as
+                    // ornament and competes with the model names being scanned.
+                    className={cn(
+                      "flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none group-hover/model:opacity-100 group-data-[highlighted]/model:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring",
+                      favorite && "opacity-100",
+                    )}
                   >
                     <StarIcon
-                      className={cn(favoriteModels.includes(modelKey(m)) && "text-favorite")}
-                      weight={favoriteModels.includes(modelKey(m)) ? "fill" : "regular"}
+                      className={cn(favorite && "text-favorite")}
+                      weight={favorite ? "fill" : "regular"}
                     />
                   </button>
-                  {isSameModel(m, model) ? <CheckIcon className="text-success" /> : null}
+                  {selected ? <CheckIcon className="text-success" /> : null}
                 </MenuItem>
-              )) : provider === "favorite" && favoriteModels.length === 0 ? (
+                );
+              }) : provider === "favorite" && favoriteModels.length === 0 ? (
                 <div className="flex flex-col items-center gap-1 px-6 py-10 text-center">
                   <StarIcon className="mb-1 text-favorite" />
                   <p className="text-sm font-medium">No favorites yet</p>
@@ -498,6 +549,20 @@ function BranchList({ onDone }: { onDone: () => void }) {
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          // Enter commits what the list is already showing, so a filter that
+          // narrows to one branch does not then demand a reach for the mouse.
+          // Only ever with something typed: on an empty field the "first match"
+          // is whichever branch sorts first, which nobody asked for.
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" || !name) return;
+            event.preventDefault();
+            if (canCreate) {
+              void go(name, true);
+              return;
+            }
+            const target = matches.find((item) => !item.current && !item.worktree);
+            if (target) void go(target.name, false);
+          }}
           placeholder="Switch to or create a branch…"
           aria-label="Switch to or create a branch"
           className="h-8 border-0 bg-muted text-sm shadow-none"
@@ -579,29 +644,40 @@ function ContextWindow() {
   const total = model?.contextWindow ?? 0;
   const percent = total ? Math.min(100, Math.round((used / total) * 100)) : 0;
 
+  // A ring with nothing behind it is decoration. Until Pi reports a window for
+  // this model there is no reading to give, so the control is not there at all.
+  if (!total) return null;
+
+  // Colour is status here, not theme: the ring stays neutral for the whole
+  // stretch where the number is nobody's problem, and only speaks up near the
+  // limit — which is also the point at which the figure itself appears, so the
+  // warning survives being unable to distinguish the hue.
+  const tight = percent >= 75;
+  const tone = percent >= 90 ? "text-destructive" : tight ? "text-warning" : "text-muted-foreground";
+
   return (
-    <div className="group relative flex size-9 items-center justify-center">
+    <div className="group relative flex items-center">
       <button
         type="button"
         // The figure lives in the accessible name, so the ring is not a
         // visual-only readout for anyone who can't see it.
-        aria-label={
-          total
-            ? `Context window ${percent}% used, ${formatTokens(used)} of ${formatTokens(total)} tokens`
-            : "Context window usage unavailable"
-        }
+        aria-label={`Context window ${percent}% used, ${formatTokens(used)} of ${formatTokens(total)} tokens`}
         aria-expanded={pinned}
         aria-controls={panelId}
         onClick={() => setPinned((current) => !current)}
         onKeyDown={(event) => {
           if (event.key === "Escape") setPinned(false);
         }}
-        className="flex size-9 items-center justify-center rounded-full outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+        className={cn(
+          "flex h-8 items-center gap-1.5 rounded-lg px-1.5 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
+          tone,
+        )}
       >
-        <svg viewBox="0 0 24 24" className="size-6 -rotate-90" aria-hidden>
+        <svg viewBox="0 0 24 24" className="size-5 shrink-0 -rotate-90" aria-hidden>
           <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted" />
-          <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" pathLength="100" strokeDasharray={`${percent} 100`} className="text-muted-foreground" />
+          <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" pathLength="100" strokeDasharray={`${percent} 100`} />
         </svg>
+        {tight ? <span className="text-sm tabular-nums" aria-hidden="true">{percent}%</span> : null}
       </button>
       {/*
         Not a live region: this panel is permanently mounted and its numbers
@@ -619,12 +695,12 @@ function ContextWindow() {
       >
         <div className="flex items-baseline justify-between gap-4">
           <p className="text-sm font-semibold">Context window</p>
-          <p className="text-xs tabular-nums text-muted-foreground">
-            {total ? `${percent}% · ${formatTokens(used)}/${formatTokens(total)}` : "Unavailable"}
+          <p className={cn("text-xs tabular-nums", tone)}>
+            {percent}% · {formatTokens(used)}/{formatTokens(total)}
           </p>
         </div>
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-          <div className="h-full rounded-full bg-muted-foreground transition-[width]" style={{ width: `${percent}%` }} />
+          <div className={cn("h-full rounded-full bg-current transition-[width]", tone)} style={{ width: `${percent}%` }} />
         </div>
         <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
           Pi automatically compacts the conversation before it reaches the model limit.
