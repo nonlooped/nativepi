@@ -261,3 +261,4 @@ before introducing it.
   Git tag and GitHub release. Do not leave bumped versions untagged or unpublished.
 - Commits must have `nonlooped` as their sole author. Never add `Co-authored-by`,
   generated-by, agent attribution, or any other additional author or trailer.
+- Ensure that commits have no body, just a title.
