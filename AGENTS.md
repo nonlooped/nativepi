@@ -5,14 +5,15 @@
 NativePi is a small, local, Windows-first desktop interface for the Pi coding
 agent. It is a wrapper, not an agent harness.
 
-Read `PLAN.md` before making architectural or product-scope decisions.
+Read `apps/desktop/PRODUCT.md` before making product-scope decisions and
+`apps/desktop/DESIGN.md` before changing the interface's visual language.
 
-The intended stack is:
+The stack is:
 
 - Electron and electron-vite.
 - Bun as the package manager (not the desktop runtime).
 - React 19.2 with React Compiler.
-- Vite+ / Vite.
+- Vite 8.
 - Tailwind CSS 4.
 - shadcn/ui using preset `b1wXDkDqCm`.
 - Zustand.

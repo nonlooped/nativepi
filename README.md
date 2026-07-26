@@ -10,14 +10,15 @@
 <p align="center">
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Platform: Windows" src="https://img.shields.io/badge/platform-Windows-0078D4.svg">
-  <img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-orange.svg">
+  <img alt="Status: prerelease" src="https://img.shields.io/badge/status-prerelease-orange.svg">
   <img alt="Built with Electron + React" src="https://img.shields.io/badge/built%20with-Electron%20%2B%20React%2019-47848F.svg">
 </p>
 
 <p align="center">
   <a href="#why-nativepi">Why NativePi</a> ·
   <a href="#features">Features</a> ·
-  <a href="#getting-started">Getting Started</a> ·
+  <a href="#install">Install</a> ·
+  <a href="#development">Development</a> ·
   <a href="#architecture">Architecture</a>
 </p>
 
@@ -30,7 +31,7 @@ authentication, and extensions into one focused workspace, without replacing
 the agent that makes Pi powerful.
 
 > [!IMPORTANT]
-> NativePi is **pre-alpha software**. Releases may be incomplete, unstable, or
+> NativePi is **prerelease software**. Releases may be incomplete, unstable, or
 > incompatible between versions. Keep backups and expect rough edges.
 
 ## Why NativePi
@@ -42,11 +43,11 @@ storage, their own login. NativePi takes the opposite approach.
   graphical one, so the app itself is hackable. You shape NativePi the same way
   you already shape Pi.
 - **Pi stays in charge.** Pi owns the agent loop, providers, auth, tools,
-  extensions, and sessions. NativePi calls Pi and renders what Pi returns, so
-  Pi improvements land automatically.
+  extensions, and sessions. NativePi calls Pi and renders what Pi returns; each
+  NativePi release bundles a tested Pi version.
 - **Nothing is locked in.** Sessions and credentials live in Pi's normal
-  storage, fully interchangeable with the Pi CLI. Drop NativePi anytime and
-  lose nothing.
+  storage and remain interchangeable with the Pi CLI. NativePi does not create
+  a second conversation store.
 - **Everything runs on your machine.** No account, no cloud store, no
   telemetry, no NativePi servers.
 - **Free and open source.** MIT licensed, from the app down to the extension
@@ -60,13 +61,24 @@ storage, their own login. NativePi takes the opposite approach.
 | **Watch the work, not a spinner** | Follow streamed responses, thinking, tool calls, errors, and file changes as they happen. |
 | **Stay in control mid-run** | Send, steer, queue a follow-up, or stop the agent from the same workspace. |
 | **The right model for the moment** | Use Pi's providers, models, and thinking levels without rebuilding your configuration. |
+| **Full session workflows** | Create, resume, rename, fork, clone, import, export, compact, and inspect session history. |
 | **Review code in context** | Inspect Git status and rich diffs alongside the transcript. |
-| **Work on the right branch** | Switch branches from the composer, and add worktrees from the project menu as projects of their own. |
-| **Manage extensions visually** | Pi extensions can opt into richer desktop presentation through the graphical extension API. |
+| **Work on the right branch** | Switch or create branches from the composer, and add worktrees from the project menu as projects of their own. |
+| **Manage extensions visually** | Install, update, remove, and reload Pi packages; extensions can opt into richer desktop presentation through the graphical API. |
 
-## Getting Started
+## Install
 
-NativePi is Windows-first. You need [Bun](https://bun.sh/) and Git installed.
+Download the latest Windows installer from
+[GitHub Releases](https://github.com/nonlooped/nativepi/releases). Releases are
+currently prerelease builds and the installer is unsigned, so Windows
+SmartScreen will warn on first launch.
+
+NativePi bundles Pi. A separate Pi installation is not required, and existing
+Pi credentials, configuration, and sessions in `~/.pi/agent` are reused.
+
+## Development
+
+To run from source, install [Bun](https://bun.sh/) and Git:
 
 ```sh
 git clone https://github.com/nonlooped/nativepi.git
@@ -86,10 +98,6 @@ cd ../.. && bun run build     # build the app
 bun run pack                  # package without installer
 bun run dist:win              # build the Windows installer
 ```
-
-> [!NOTE]
-> Windows installers are currently unsigned, so Windows SmartScreen will warn on
-> first launch.
 
 ## Architecture
 
@@ -117,10 +125,12 @@ WebSocket server.
 
 ### Extensions
 
-Normal Pi extensions run inside Pi, unchanged. To reach the desktop surface,
-an extension imports `@nativepi/extension-api` and adds a `nativepi.renderer`
-entry to its manifest. The API is pre-alpha and may change before its first
-stable release.
+Normal Pi extensions run inside Pi, unchanged. NativePi can install and manage
+Pi packages at user or project scope. To reach the desktop surface, an extension
+imports `@nativepi/extension-api` and adds a `nativepi.renderer` entry to its
+manifest. NativePi compiles that browser entry with esbuild and loads its tool,
+entry, composer-widget, and context-panel contributions behind error boundaries.
+The API is unstable and may change before its first stable release.
 
 ## License
 

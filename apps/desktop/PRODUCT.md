@@ -4,7 +4,7 @@
 
 ## Platform
 
-web
+Windows desktop (Electron)
 
 ## Users
 
@@ -19,7 +19,7 @@ Both groups use NativePi while working in local project folders. Basic workflows
 
 NativePi is a free, open-source desktop interface for the Pi coding agent. It gives Pi a focused graphical workflow for projects, conversations, model controls, tool results, diffs, authentication, settings, and extensions.
 
-Success means NativePi is useful enough to be the daily desktop interface for Pi project work: users can open a local project, authenticate, start or resume conversations, direct agent runs, inspect results, and manage relevant Pi capabilities without needing Pi's terminal UI.
+Success means NativePi is useful as the daily desktop interface for Pi project work: users can open a local project, authenticate, start or resume conversations, direct agent runs, inspect results, and manage relevant Pi capabilities without needing Pi's terminal UI.
 
 ## Positioning
 
@@ -28,22 +28,33 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 ## Operating Context
 
 - NativePi is a local, single-window Windows desktop application used alongside local code projects, Git repositories, and the existing Pi CLI ecosystem.
-- Users pin project folders, discover or create Pi sessions, converse with Pi, inspect streaming messages and tool activity, and review read-only Git state and diffs.
+- Users pin project folders; create, discover, import, and manage Pi sessions; inspect streamed messages and tool activity; and review Git state and diffs.
 - Existing Pi credentials, configuration, sessions, packages, skills, prompts, and extensions remain in Pi's normal storage and remain usable by the Pi CLI.
-- A project can have one active Pi agent run at a time. Different projects may run concurrently.
-- Conversations must open from Pi session files without waiting for a Pi process to start, and drafts must remain safe through cold starts and failures.
+- NativePi keeps at most one Pi process per project. Different projects may run concurrently.
+- Conversations open directly from Pi session files without waiting for a Pi process to start. Drafts remain editable and are restored if a cold send fails.
+- Narrow windows move project navigation and project context into sheets so the conversation and composer remain usable.
 
-## Capabilities and Constraints
+## Current Capabilities
 
-- Windows-first for version 1; macOS and Linux may be added later.
-- Local-only, single-window, and dark-only for version 1.
-- Pi-only. NativePi does not own an agent loop, make its own LLM requests, add agent tools, or support other harnesses.
-- Pi session files are the durable conversation source of truth. NativePi stores only its own small set of UI state, including pinned projects, selections, pane state, drafts, pending attachments, preferences, and update-check state.
-- Authentication is Pi-backed. Credentials must never be stored in NativePi renderer persistence.
-- Git functionality is read-only. NativePi does not stage, commit, switch branches, create worktrees or checkpoints, discard changes, or perform rollback.
-- Normal Pi extensions run unchanged. Optional graphical extensions may contribute only through controlled NativePi UI slots and are trusted code, not sandboxed code.
-- No cloud sync, collaboration, remote projects, SSH launching, terminal emulator, configurable keybindings, product accounts, paid features, or telemetry in version 1.
-- NativePi is MIT licensed and initially distributed without paid code-signing certificates; unsigned installer warnings must be explained honestly.
+- Project pinning, chat discovery, filtering, and direct opening in installed editors or Explorer.
+- New, resume, rename, clone, fork, delete, import, HTML export, session-tree, statistics, and compaction workflows backed by Pi.
+- Streaming text, thinking, tool activity, file-change summaries, rich diffs, retries, steering, follow-ups, queues, and abort controls.
+- Pi-backed model and thinking-level selection, favorite models, provider authentication, and project trust controls.
+- Git status and working-tree diffs, clean-worktree branch switching or creation, and creation of worktrees that are added as NativePi projects.
+- User- and project-scoped Pi package installation, update, removal, reload, and load-error display.
+- Normal Pi extension UI requests plus optional graphical tool, entry, composer-widget, and context-panel contributions through `@nativepi/extension-api`.
+- Responsive project and context panes, fixed keyboard shortcuts, reduced-motion handling, and standard accessible desktop controls.
+
+## Boundaries and Constraints
+
+- NativePi is currently Windows-only, local-only, single-window, and dark-only.
+- NativePi does not own an agent loop, make its own LLM requests, add agent tools, or support other harnesses.
+- Pi session files are the durable conversation source of truth. NativePi persists only pinned projects, the last project and chat, text drafts, favorite models, pane state, and the reopen-last-project preference.
+- Authentication is Pi-backed. Credentials are never stored in NativePi renderer persistence or its state file.
+- Git mutation is deliberately narrow: branch checkout and creation require a clean worktree, and worktrees may be added. NativePi does not stage, commit, merge, rebase, discard changes, create checkpoints, roll back work, or rewrite history.
+- Normal Pi extensions run unchanged. Optional graphical extensions contribute only through controlled NativePi UI slots and are trusted code, not sandboxed code.
+- NativePi has no cloud sync, collaboration, remote projects, SSH launching, terminal emulator, configurable keybindings, product accounts, paid features, or telemetry.
+- NativePi is MIT licensed. GitHub publishes prerelease Windows installers, currently without code signing, so SmartScreen warnings are expected.
 
 ## Brand Commitments
 
@@ -54,9 +65,9 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 
 ## Evidence on Hand
 
-- `PLAN.md` is the authoritative product plan and scope record.
-- The working desktop implementation in `src/` demonstrates project and session navigation, chat composition and transcripts, provider authentication, settings, trust prompts, read-only Git context, diffs, and extension management.
-- `components.json` records the installed shadcn preset and component baseline.
+- `src/` is the source of truth for implemented behavior; this document records the durable product boundary rather than a speculative roadmap.
+- `package.json`, `electron.vite.config.ts`, and `components.json` record the current runtime, build stack, dependencies, and shadcn baseline.
+- `DESIGN.md` records the incumbent visual system and responsive desktop layout.
 - No testimonials, customer logos, usage benchmarks, pricing claims, press coverage, or commercial proof assets are available and future work must not fabricate them.
 
 ## Product Principles
@@ -65,7 +76,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 2. Serve new and experienced users together: make the basic path obvious and reveal advanced Pi capabilities progressively.
 3. Protect local work: keep Pi sessions authoritative, preserve drafts, and fail conservatively around external session changes.
 4. Prefer direct, understandable behavior over speculative infrastructure or hidden automation.
-5. Keep user trust explicit through local-only operation, no telemetry, honest extension trust boundaries, and read-only Git integration.
+5. Keep user trust explicit through local-only operation, no telemetry, honest extension trust boundaries, and narrowly scoped Git operations.
 
 ## Accessibility & Inclusion
 

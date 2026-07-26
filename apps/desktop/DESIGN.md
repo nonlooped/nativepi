@@ -244,7 +244,7 @@ Transcript and composer content share a centered 48rem maximum width, keeping me
 
 Spacing follows the quarter-rem Tailwind rhythm plus its half-steps: eighth-rem for tightly bound text pairs (a label above its description), five-eighths-rem as the standard inset for dense controls, half-rem and three-quarter-rem gaps for control clusters, and one- to one-and-a-half-rem spacing between content groups. Values off that ladder are drift, not intent. One-pixel resizable hairlines define persistent pane boundaries.
 
-The current implementation collapses either side pane to protect conversation space and constrains large menus to the viewport. It does not yet establish a mobile reflow or sheet pattern; future responsive work must preserve the conversation and composer before adding new navigation behavior.
+The implementation collapses either side pane to protect conversation space and constrains large menus to the viewport. Below 1100px the context pane moves into a right sheet; below 900px project navigation also moves into a left sheet. These compact layouts preserve the conversation and composer rather than attempting to turn the desktop application into a separate mobile interface.
 
 ## Elevation & Depth
 
@@ -331,7 +331,7 @@ The component system is compact and restrained, with soft geometry and explicit 
 ### Composer
 
 - The persistent composer is the signature floating surface: centered with the transcript, strongly rounded, and softly elevated.
-- Model, thinking level, context usage, queue behavior, send, and stop controls share one compact bottom row.
+- Model, thinking level, context usage, queue behavior, and send controls share one compact bottom row. Stop remains in the floating run-status pill above the composer.
 - The input remains usable while Pi starts or runs; pending and queued states appear immediately above the surface.
 
 ### Dialogs And Menus
