@@ -1,13 +1,17 @@
 import { expect, test } from "bun:test";
 import type { PiEvent } from "../../../shared/pi-types.ts";
 
+let invoke: (channel: string, params?: unknown) => Promise<unknown> = async () => ({});
+
 Object.assign(globalThis, {
   window: {
-    nativepi: { invoke: async () => ({}), events: { on: () => () => {} } },
+    nativepi: { invoke: (channel: string, params?: unknown) => invoke(channel, params), events: { on: () => () => {} } },
   },
 });
 
 const { useAppStore } = await import("../store.ts");
+const { emptyConversation } = await import("./conversation.ts");
+const { getLastChat } = await import("./internals.ts");
 
 function event(type: string): PiEvent {
   return { type } as PiEvent;
@@ -66,4 +70,52 @@ test("events for a chat other than the conversation's own are still dropped", ()
   });
 
   expect(useAppStore.getState().conversations["A:\\proj-a"]?.running).toBe(true);
+});
+
+test("a new session is remembered when submit returns after switching projects", async () => {
+  let finishSubmit!: (response: { ok: true; sessionFile: string }) => void;
+  invoke = async (channel) => {
+    if (channel === "submit") {
+      return new Promise((resolve) => {
+        finishSubmit = resolve;
+      });
+    }
+    return {};
+  };
+  useAppStore.setState({
+    activeProjectPath: "A:\\delayed-submit",
+    activeSessionFile: null,
+    conversations: {},
+    drafts: {},
+  });
+  useAppStore.getState().setDraft("Start a new session");
+
+  const sending = useAppStore.getState().send();
+  useAppStore.setState({ activeProjectPath: "B:\\other-project", activeSessionFile: "other.jsonl" });
+  finishSubmit({ ok: true, sessionFile: "new.jsonl" });
+  await sending;
+
+  expect(getLastChat("A:\\delayed-submit")).toBe("new.jsonl");
+});
+
+test("reopening the same session preserves a background failure", async () => {
+  invoke = async (channel) => (channel === "readSession" ? { entries: [] } : {});
+  useAppStore.setState({
+    activeProjectPath: "A:\\failed-run",
+    activeSessionFile: null,
+    conversations: {
+      "A:\\failed-run": {
+        ...emptyConversation(),
+        sessionFile: "failed.jsonl",
+        error: "Pi crashed",
+        errorRecovery: "restartPi",
+      },
+    },
+  });
+
+  await useAppStore.getState().selectChat("failed.jsonl");
+
+  const conv = useAppStore.getState().conversations["A:\\failed-run"];
+  expect(conv?.error).toBe("Pi crashed");
+  expect(conv?.errorRecovery).toBe("restartPi");
 });

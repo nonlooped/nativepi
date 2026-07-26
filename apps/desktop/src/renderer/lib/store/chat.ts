@@ -42,7 +42,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       // the path back into a project that kept working in the background, and
       // its conversation has been fed every event in the meantime.
       const conv = get().conversations[projectPath];
-      if (conv && conv.sessionFile === sessionFile && conv.running) return;
+      if (conv && conv.sessionFile === sessionFile && (conv.running || conv.error !== undefined)) return;
       patchConversation(set, projectPath, () => ({ ...emptyConversation(), sessionFile }));
     }
     const { entries } = await rpc.request.readSession({ sessionFile });
@@ -118,10 +118,10 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     }
     if (res.sessionFile) {
       patchConversation(set, projectDir, { sessionFile: res.sessionFile });
+      setLastChat(projectDir, res.sessionFile);
+      persist(get);
       if (get().activeProjectPath === projectDir && get().activeSessionFile !== res.sessionFile) {
         set({ activeSessionFile: res.sessionFile, isNewChat: false });
-        setLastChat(projectDir, res.sessionFile);
-        persist(get);
         void rpc.request.watchSession({ projectDir, sessionFile: res.sessionFile });
         void get().refreshSessions(projectDir);
       }

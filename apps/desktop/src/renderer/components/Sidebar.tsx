@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderPlusIcon } from "@phosphor-icons/react/FolderPlus";
@@ -29,7 +30,9 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const openSettings = useAppStore((s) => s.openSettings);
   const selectProject = useAppStore((s) => s.selectProject);
   const removeProject = useAppStore((s) => s.removeProject);
-  const conversations = useAppStore((s) => s.conversations);
+  const projectBusyStates = useAppStore(
+    useShallow((s) => s.projects.map((project) => s.conversations[project.path]?.running ?? false)),
+  );
   const importSession = useAppStore((s) => s.importSession);
   const searchFocusRequest = useAppStore((s) => s.searchFocusRequest);
   const [query, setQuery] = useState("");
@@ -125,8 +128,8 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
             Open your first folder
           </button>
         )}
-        {projects.map((project) => {
-          const busy = conversations[project.path]?.running ?? false;
+        {projects.map((project, index) => {
+          const busy = projectBusyStates[index] ?? false;
           return (
           <div key={project.path} className="flex flex-col gap-0.5">
             <div className="group flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent">
