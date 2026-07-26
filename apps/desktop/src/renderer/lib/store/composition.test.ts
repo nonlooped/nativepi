@@ -59,9 +59,7 @@ test("the initial state is what the app starts from", () => {
   expect(s.projects).toEqual([]);
   expect(s.activeProjectPath).toBeNull();
   expect(s.activeSessionFile).toBeNull();
-  expect(s.entries).toEqual([]);
-  expect(s.running).toBe(false);
-  expect(s.queue).toEqual({ steering: [], followUp: [] });
+  expect(s.conversations).toEqual({});
   expect(s.sendBehavior).toBe("followUp");
   expect(s.thinkingLevel).toBe("off");
   expect(s.thinkingLevels).toEqual(["off"]);
@@ -74,11 +72,12 @@ test("the initial state is what the app starts from", () => {
   expect(s.trust).toBeNull();
 });
 
-test("a conversation reset hands out fresh collections each time", () => {
+test("a conversation reset hands out fresh collections each time", async () => {
   // `emptyConversation()` is a function precisely so two resets cannot end up
   // sharing one array; if it were a constant these would be the same object.
-  const first = createChatSlice(noopSet, noopGet);
-  const second = createChatSlice(noopSet, noopGet);
+  const { emptyConversation } = await import("./conversation.ts");
+  const first = emptyConversation();
+  const second = emptyConversation();
 
   expect(first.entries).not.toBe(second.entries);
   expect(first.queue).not.toBe(second.queue);

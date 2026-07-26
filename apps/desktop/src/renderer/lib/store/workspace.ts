@@ -1,7 +1,7 @@
 import { rpc } from "../rpc.ts";
 import { showHint } from "../toast.ts";
+import { patchConversation } from "./conversation.ts";
 import {
-  emptyConversation,
   getLastChat,
   persist,
   replaceLastChats,
@@ -53,26 +53,30 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
   },
 
   removeProject: async (path) => {
-    // Stop any turn still running in this project before its transcript goes
-    // away, so the agent isn't left editing files with nothing on screen.
-    if (get().running && get().activeProjectPath === path) {
+    // Stop any turn still running in this project before its state goes away,
+    // whether or not the project is the one on screen.
+    if (get().conversations[path]?.running) {
       await rpc.request.abort({ projectDir: path });
     }
-    set((s) => ({ projects: s.projects.filter((p) => p.path !== path) }));
+    set((s) => {
+      const { [path]: _removed, ...conversations } = s.conversations;
+      return { projects: s.projects.filter((p) => p.path !== path), conversations };
+    });
     if (get().activeProjectPath === path) {
       const next = get().projects[0]?.path ?? null;
-      set({ activeProjectPath: next, activeSessionFile: null, entries: [], isNewChat: false });
+      set({ activeProjectPath: next, activeSessionFile: null, isNewChat: false });
       if (next) await get().selectProject(next);
     }
     persist(get);
   },
 
   selectProject: async (path) => {
+    // The previous project's conversation is left alone: it keeps folding in
+    // events while off screen, and is picked back up on return.
     set({
       activeProjectPath: path,
       activeSessionFile: null,
       isNewChat: false,
-      ...emptyConversation(),
       models: [],
       model: undefined,
       thinkingLevels: ["off"],
@@ -89,7 +93,10 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
 
     await get().refreshSessions(path);
 
-    const last = getLastChat(path);
+    // A chat still running in this project wins over the last-opened one: the
+    // user coming back mid-run should land on the run, not beside it.
+    const runningConv = get().conversations[path];
+    const last = (runningConv?.running && runningConv.sessionFile) || getLastChat(path);
     const sessions = get().sessionsByProject[path] ?? [];
     if (last && sessions.some((s) => s.path === last)) {
       await get().selectChat(last);
@@ -125,7 +132,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
   restartPi: async () => {
     const path = get().activeProjectPath;
     if (!path) return;
-    set({ error: undefined, errorRecovery: undefined });
+    patchConversation(set, path, { error: undefined, errorRecovery: undefined });
     await rpc.request.restartPi({ projectDir: path });
     if (get().activeProjectPath === path) warmProject(set, get, path);
   },

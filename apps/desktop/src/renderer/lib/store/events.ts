@@ -4,14 +4,13 @@ import type {
   FileEntry,
   PiEvent,
   SessionEntry,
-  ThinkingLevel,
 } from "../../../shared/pi-types.ts";
 import { draftKeyFor, isAssistant } from "../../../shared/messages.ts";
 import { showExtensionNotification } from "../toast.ts";
-import type { AppState, GetState, SetState } from "./types.ts";
+import type { Conversation, GetState, SetState } from "./types.ts";
 
-/** Fold one Pi event into a state patch. Pure, so it can be read as a table. */
-export function reduce(s: AppState, event: PiEvent): Partial<AppState> {
+/** Fold one Pi event into a conversation patch. Pure, so it can be read as a table. */
+export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
   switch (event.type) {
     case "agent_start":
       return { running: true, error: undefined, errorRecovery: undefined, runStartedAt: s.runStartedAt ?? Date.now() };
@@ -42,7 +41,7 @@ export function reduce(s: AppState, event: PiEvent): Partial<AppState> {
       const message = (event as { message?: AgentMessage }).message;
       const role = (message as { role?: string } | undefined)?.role;
       if (!message || (role !== "user" && role !== "assistant" && role !== "toolResult")) return {};
-      const patch: Partial<AppState> = { entries: [...s.entries, liveEntry(message)] };
+      const patch: Partial<Conversation> = { entries: [...s.entries, liveEntry(message)] };
       if (role === "assistant") patch.streaming = null;
       if (role === "user" && s.pending.length > 0) patch.pending = s.pending.slice(1);
       return patch;
@@ -61,8 +60,6 @@ export function reduce(s: AppState, event: PiEvent): Partial<AppState> {
       };
     case "session_info_changed":
       return { sessionName: (event as { name?: string }).name };
-    case "thinking_level_changed":
-      return { thinkingLevel: (event as { level: ThinkingLevel }).level };
     case "compaction_start":
       return { compacting: true };
     case "compaction_end":

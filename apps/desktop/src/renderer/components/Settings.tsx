@@ -13,7 +13,7 @@ import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { StopIcon } from "@phosphor-icons/react/Stop";
 import type { AuthProviderInfo } from "../../shared/rpc-schema.ts";
 import type { AuthFlow } from "../lib/store.ts";
-import { useAppStore } from "../lib/store.ts";
+import { activeConversation, useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { providerIconName } from "../lib/providerIcons.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -149,7 +149,7 @@ export default function Settings() {
 }
 
 function RunningAgentBadge() {
-  const running = useAppStore((s) => s.running);
+  const running = useAppStore((s) => activeConversation(s).running);
   const abort = useAppStore((s) => s.abort);
   const closeSettings = useAppStore((s) => s.closeSettings);
   if (!running) return null;

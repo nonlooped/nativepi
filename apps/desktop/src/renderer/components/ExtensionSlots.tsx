@@ -1,14 +1,14 @@
 import type { NativePiContext, SessionEntry as ExtSessionEntry, ToolResult } from "@nativepi/extension-api";
 import type { SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
 import { textOf } from "../../shared/messages.ts";
-import { useAppStore } from "../lib/store.ts";
+import { activeConversation, useAppStore } from "../lib/store.ts";
 import ExtensionBoundary from "./ExtensionBoundary.tsx";
 
 
 function useNativePiContext(): NativePiContext {
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const sessionFile = useAppStore((s) => s.activeSessionFile);
-  const sessionName = useAppStore((s) => s.sessionName);
+  const sessionName = useAppStore((s) => activeConversation(s).sessionName);
   const dark = typeof document !== "undefined" ? document.documentElement.classList.contains("dark") : true;
   return {
     session: projectDir ? { projectDir, sessionFile: sessionFile ?? undefined, sessionName } : null,
