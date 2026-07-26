@@ -14,6 +14,12 @@
     "dist": "cd apps/desktop && bun run dist",
     "dist:win": "cd apps/desktop && bun run dist:win",
     "typecheck": "cd apps/desktop && bun run typecheck",
+    "quality:fallow": "fallow",
+    "quality:doctor": "react-doctor apps/desktop --yes --verbose",
     "preview": "cd apps/desktop && bun run preview"
+  },
+  "devDependencies": {
+    "fallow": "^3.9.1",
+    "react-doctor": "^0.9.1"
   }
 }
