@@ -53,11 +53,6 @@ jobs:
               if ((git rev-parse "$tag^{commit}") -ne (git rev-parse HEAD)) {
                 throw "Tag $tag already points to a different commit"
               }
-            } else {
-              git config user.name github-actions[bot]
-              git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-              git tag --annotate $tag --message $tag
-              git push origin $tag
             }
           }
 
@@ -111,6 +106,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.release.outputs.tag }}
+          target_commitish: ${{ needs.release.outputs.sha }}
           name: ${{ steps.release.outputs.title }}
           files: |
             apps/desktop/release/*.exe
