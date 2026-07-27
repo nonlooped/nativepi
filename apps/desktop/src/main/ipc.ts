@@ -689,9 +689,11 @@ const handlers: HandlerMap = {
   localServerStatus: () => localServerStatus(),
   startLocalServer: async () => {
     try {
+      if (process.env["ELECTRON_RENDERER_URL"]) {
+        return { running: false, links: [], error: "Local server access is available in packaged NativePi." };
+      }
       return await startLocalServer({
         rendererDir: resolve(import.meta.dirname, "../renderer"),
-        rendererUrl: process.env["ELECTRON_RENDERER_URL"],
         invoke: invokeHostRequest,
         subscribe: subscribeHostEvents,
       });

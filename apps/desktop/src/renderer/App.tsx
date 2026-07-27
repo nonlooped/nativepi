@@ -100,7 +100,7 @@ export default function App() {
 
   useWorkspaceShortcuts(layout, setSidebarSheetOpen, setContextSheetOpen, toggleTerminal);
 
-  if (!ready) {
+  if (startupError || !ready) {
     return (
       <div className="relative flex h-full items-center justify-center overflow-hidden bg-background text-foreground">
         <div className="flex max-w-md flex-col items-center gap-3 px-6 text-center" role={startupError ? "alert" : "status"}>

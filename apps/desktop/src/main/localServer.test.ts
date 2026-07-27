@@ -1,9 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { createServer } from "node:http";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import WebSocket, { WebSocketServer } from "ws";
+import WebSocket from "ws";
 import { startLocalServer, stopLocalServer } from "./localServer.ts";
 
 afterEach(() => stopLocalServer());
@@ -79,47 +78,6 @@ describe("local server", () => {
     expect(await message(socket)).toEqual({ type: "response", id: "2", result: { path: null } });
     expect(invoked).toBeFalse();
   });
-
-  test("proxies Vite HTTP and HMR WebSockets in development", async () => {
-    const viteHttp = createServer((_request, response) => {
-      response.setHeader("Content-Type", "text/html");
-      response.end(
-        `<meta http-equiv="Content-Security-Policy" content="script-src 'self'">` +
-        `<script type="module">window.__vite = true</script>`,
-      );
-    });
-    const viteWebSockets = new WebSocketServer({ server: viteHttp });
-    viteWebSockets.on("connection", (socket) => {
-      socket.on("message", (data) => socket.send(`hmr:${data.toString()}`));
-    });
-    await new Promise<void>((resolve) => viteHttp.listen(0, "127.0.0.1", resolve));
-    const viteAddress = viteHttp.address();
-    if (!viteAddress || typeof viteAddress === "string") throw new Error("Vite test server did not start.");
-
-    try {
-      const status = await startLocalServer({
-        rendererDir: "unused-in-development",
-        rendererUrl: `http://127.0.0.1:${viteAddress.port}`,
-        invoke: (async () => ({})) as never,
-        subscribe: () => () => {},
-      });
-      const link = new URL(status.links[0]!);
-      const html = await (await fetch(`http://127.0.0.1:${link.port}`)).text();
-      expect(html).toMatch(/script-src 'self' 'nonce-[^']+'/);
-      expect(html).toMatch(/<script nonce="[^"]+" type="module">/);
-
-      const socket = new WebSocket(`ws://127.0.0.1:${link.port}/?token=hmr`, "vite-hmr");
-      await within(opened(socket), "HMR proxy did not open");
-      socket.send("update");
-      expect(await within(messageText(socket), "HMR proxy did not forward a message")).toBe("hmr:update");
-      socket.terminate();
-    } finally {
-      for (const client of viteWebSockets.clients) client.terminate();
-      viteWebSockets.close();
-      viteHttp.closeAllConnections();
-      await new Promise<void>((resolve) => viteHttp.close(() => resolve()));
-    }
-  });
 });
 
 function opened(socket: WebSocket): Promise<void> {
@@ -134,13 +92,3 @@ function message(socket: WebSocket): Promise<unknown> {
   return new Promise((resolve) => socket.once("message", (data) => resolve(JSON.parse(data.toString()))));
 }
 
-function messageText(socket: WebSocket): Promise<string> {
-  return new Promise((resolve) => socket.once("message", (data) => resolve(data.toString())));
-}
-
-function within<T>(promise: Promise<T>, message: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_resolve, reject) => setTimeout(() => reject(new Error(message)), 1000)),
-  ]);
-}

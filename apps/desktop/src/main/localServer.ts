@@ -1,16 +1,9 @@
-import {
-  createServer,
-  request as httpRequest,
-  type IncomingMessage,
-  type Server as HttpServer,
-} from "node:http";
-import { request as httpsRequest } from "node:https";
+import { createServer, type Server as HttpServer } from "node:http";
 import { networkInterfaces } from "node:os";
 import { extname, resolve, sep } from "node:path";
 import { readFile } from "node:fs/promises";
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import type { Duplex } from "node:stream";
-import { WebSocket, WebSocketServer, type RawData } from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 import type {
   HostEventName,
@@ -28,7 +21,6 @@ type Subscribe = (listener: <K extends HostEventName>(name: K, payload: HostEven
 
 export interface LocalServerOptions {
   rendererDir: string;
-  rendererUrl?: string;
   invoke: Invoke;
   subscribe: Subscribe;
 }
@@ -46,7 +38,6 @@ const clientMessageSchema = z.discriminatedUnion("type", [
 const desktopOnlyResponses: Partial<Record<HostRequestName, unknown>> = {
   pickProject: { path: null },
   importSession: { ok: false, canceled: true },
-  watchSession: { ok: true },
   windowMinimize: { ok: false },
   windowToggleMaximize: { maximized: false },
   windowClose: { ok: false },
@@ -68,8 +59,9 @@ const desktopOnlyResponses: Partial<Record<HostRequestName, unknown>> = {
 
 type RunningServer = {
   http: HttpServer;
-  webSockets: WebSocketServer[];
-  sockets: Set<WebSocket>;
+  rpcWebSockets: WebSocketServer;
+  rpcSockets: Set<WebSocket>;
+  authenticatedRpcSockets: Set<WebSocket>;
   unsubscribe: () => void;
   links: string[];
 };
@@ -84,9 +76,9 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
   if (running) return localServerStatus();
 
   const token = randomBytes(24).toString("base64url");
-  const sockets = new Set<WebSocket>();
+  const rpcSockets = new Set<WebSocket>();
+  const authenticatedRpcSockets = new Set<WebSocket>();
   const rpcWebSockets = new WebSocketServer({ noServer: true, maxPayload: 70 * 1024 * 1024 });
-  const devWebSockets = options.rendererUrl ? new WebSocketServer({ noServer: true }) : undefined;
   const http = createServer((request, response) => {
     void serveRenderer(request.url ?? "/", response, options).catch(() => {
       if (!response.headersSent) response.writeHead(500);
@@ -102,14 +94,11 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
       });
       return;
     }
-    if (options.rendererUrl && devWebSockets) {
-      proxyRendererWebSocket(request, socket, head, options.rendererUrl, devWebSockets, sockets);
-      return;
-    }
     socket.destroy();
   });
 
   rpcWebSockets.on("connection", (socket) => {
+    rpcSockets.add(socket);
     let authenticated = false;
     const authTimer = setTimeout(() => socket.close(1008, "Authentication required"), 5000);
 
@@ -130,7 +119,7 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
           }
           authenticated = true;
           clearTimeout(authTimer);
-          sockets.add(socket);
+          authenticatedRpcSockets.add(socket);
           socket.send(JSON.stringify({ type: "ready" }));
           return;
         }
@@ -151,7 +140,8 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
 
     socket.on("close", () => {
       clearTimeout(authTimer);
-      sockets.delete(socket);
+      rpcSockets.delete(socket);
+      authenticatedRpcSockets.delete(socket);
     });
   });
 
@@ -166,25 +156,26 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
     };
     http.once("error", onError);
     http.once("listening", onListening);
-    http.listen(0, "0.0.0.0");
+    http.listen(0, "::");
   });
 
   if (!http.address() || typeof http.address() === "string") {
     http.close();
     throw new Error("NativePi could not determine the local server address.");
   }
-  const links = localAddresses().map((address) => `http://${address}:${addressPort(http)}/#token=${token}`);
+  const links = localAddresses().map((address) => `http://${formatAddress(address)}:${addressPort(http)}/#token=${token}`);
   const unsubscribe = options.subscribe((name, payload) => {
     const message = JSON.stringify({ type: "event", name, payload });
-    for (const socket of sockets) {
+    for (const socket of authenticatedRpcSockets) {
       if (socket.readyState === WebSocket.OPEN) socket.send(message);
     }
   });
 
   running = {
     http,
-    webSockets: devWebSockets ? [rpcWebSockets, devWebSockets] : [rpcWebSockets],
-    sockets,
+    rpcWebSockets,
+    rpcSockets,
+    authenticatedRpcSockets,
     unsubscribe,
     links,
   };
@@ -196,11 +187,11 @@ export async function stopLocalServer(): Promise<void> {
   running = undefined;
   if (!server) return;
   server.unsubscribe();
-  for (const socket of server.sockets) {
+  for (const socket of server.rpcSockets) {
     socket.close(1001, "Server stopped");
     socket.terminate();
   }
-  for (const webSockets of server.webSockets) webSockets.close();
+  server.rpcWebSockets.close();
   server.http.closeAllConnections();
   await new Promise<void>((resolveClose) => server.http.close(() => resolveClose()));
 }
@@ -221,12 +212,16 @@ function localAddresses(): string[] {
   const addresses = Object.values(networkInterfaces())
     .flat()
     .filter((entry): entry is NonNullable<typeof entry> =>
-      Boolean(entry && entry.family === "IPv4" && !entry.internal),
+      Boolean(entry && !entry.internal),
     )
     .map((entry) => entry.address);
   const unique = [...new Set(addresses)];
   unique.sort((a, b) => privateAddressRank(a) - privateAddressRank(b) || a.localeCompare(b));
   return unique.length > 0 ? unique : ["127.0.0.1"];
+}
+
+function formatAddress(address: string): string {
+  return address.includes(":") ? `[${address}]` : address;
 }
 
 function privateAddressRank(address: string): number {
@@ -242,11 +237,6 @@ async function serveRenderer(
   response: import("node:http").ServerResponse,
   options: LocalServerOptions,
 ): Promise<void> {
-  if (options.rendererUrl) {
-    await proxyRenderer(urlValue, response, options.rendererUrl);
-    return;
-  }
-
   const pathname = decodeURIComponent(new URL(urlValue, "http://nativepi.local").pathname);
   const relative = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
   let file = resolve(options.rendererDir, relative);
@@ -267,100 +257,6 @@ async function serveRenderer(
   response.setHeader("Cache-Control", extname(file) ? "no-cache" : "no-store");
   response.writeHead(200);
   response.end(content);
-}
-
-function proxyRenderer(
-  urlValue: string,
-  response: import("node:http").ServerResponse,
-  rendererUrl: string,
-): Promise<void> {
-  return new Promise((resolveProxy, rejectProxy) => {
-    const target = new URL(urlValue, rendererUrl);
-    const send = target.protocol === "https:" ? httpsRequest : httpRequest;
-    const upstream = send(target, { headers: { host: target.host } }, (upstreamResponse) => {
-      if (String(upstreamResponse.headers["content-type"]).includes("text/html")) {
-        const chunks: Buffer[] = [];
-        upstreamResponse.on("data", (chunk: Buffer) => chunks.push(chunk));
-        upstreamResponse.on("end", () => {
-          const nonce = randomBytes(18).toString("base64url");
-          const html = secureViteHtml(Buffer.concat(chunks).toString("utf8"), nonce);
-          const headers = { ...upstreamResponse.headers };
-          delete headers["content-length"];
-          response.writeHead(upstreamResponse.statusCode ?? 502, headers);
-          response.end(html);
-          resolveProxy();
-        });
-        return;
-      }
-      response.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
-      upstreamResponse.pipe(response);
-      upstreamResponse.on("end", resolveProxy);
-    });
-    upstream.on("error", rejectProxy);
-    upstream.end();
-  });
-}
-
-function secureViteHtml(html: string, nonce: string): string {
-  return html
-    .replace("script-src 'self'", `script-src 'self' 'nonce-${nonce}'`)
-    .replace(/<script(?![^>]*\bsrc=)([^>]*)>/gi, `<script nonce="${nonce}"$1>`);
-}
-
-/**
- * Development serves the renderer through Vite. Its HMR client connects back
- * to the page origin, so upgrades other than `/rpc` must follow the HTTP proxy
- * to Vite as well; production assets contain no HMR client.
- */
-function proxyRendererWebSocket(
-  request: IncomingMessage,
-  socket: Duplex,
-  head: Buffer,
-  rendererUrl: string,
-  server: WebSocketServer,
-  sockets: Set<WebSocket>,
-): void {
-  server.handleUpgrade(request, socket, head, (client) => {
-    sockets.add(client);
-    const target = new URL(request.url ?? "/", rendererUrl);
-    target.protocol = target.protocol === "https:" ? "wss:" : "ws:";
-    const requested = request.headers["sec-websocket-protocol"];
-    const protocols = requested
-      ?.split(",")
-      .map((protocol) => protocol.trim())
-      .filter(Boolean);
-    const upstream = new WebSocket(target, protocols);
-    sockets.add(upstream);
-    const queued: { data: RawData; binary: boolean }[] = [];
-
-    client.on("message", (data, binary) => {
-      if (upstream.readyState === WebSocket.OPEN) upstream.send(data, { binary });
-      else if (upstream.readyState === WebSocket.CONNECTING) queued.push({ data, binary });
-    });
-    upstream.on("open", () => {
-      for (const message of queued) upstream.send(message.data, { binary: message.binary });
-      queued.length = 0;
-    });
-    upstream.on("message", (data, binary) => {
-      if (client.readyState === WebSocket.OPEN) client.send(data, { binary });
-    });
-
-    const close = (peer: WebSocket, code: number, reason: Buffer) => {
-      if (peer.readyState !== WebSocket.OPEN) return;
-      if (code === 1005) peer.terminate();
-      else peer.close(code, reason);
-    };
-    client.on("close", (code, reason) => {
-      sockets.delete(client);
-      close(upstream, code, reason);
-    });
-    upstream.on("close", (code, reason) => {
-      sockets.delete(upstream);
-      close(client, code, reason);
-    });
-    client.on("error", () => upstream.terminate());
-    upstream.on("error", () => client.terminate());
-  });
 }
 
 function contentType(file: string): string {

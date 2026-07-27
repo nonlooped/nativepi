@@ -1,7 +1,7 @@
 import type { NativePiState } from "../../../shared/rpc-schema.ts";
 import { draftKeyFor, modelKey } from "../../../shared/messages.ts";
 import { loadGraphicalExtensions } from "../extensionHost.ts";
-import { rpc } from "../rpc.ts";
+import { isRemote, rpc } from "../rpc.ts";
 import type { GetState, SetState } from "./types.ts";
 
 /**
@@ -52,6 +52,7 @@ export function gitRefreshedWithin(ms: number): boolean {
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function persist(get: GetState): void {
+  if (isRemote) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     const s = get();
