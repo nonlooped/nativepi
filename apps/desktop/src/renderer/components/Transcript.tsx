@@ -14,7 +14,7 @@ import { code } from "@streamdown/code";
 import { Streamdown } from "streamdown";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
-import { isAssistant, isToolResult, isUser, textOf } from "../../shared/messages.ts";
+import { imagesOf, isAssistant, isToolResult, isUser, textOf } from "../../shared/messages.ts";
 import { toolArgSummary, toolResultsById } from "../lib/transcript.ts";
 import { diffPatchFor, fileDir, fileName, turnChanges, type FileChange } from "../lib/changes.ts";
 import { formatDuration, formatElapsed, formatLineDelta, pluralize } from "../lib/format.ts";
@@ -112,7 +112,7 @@ export default function Transcript() {
             ),
           )}
           {pending.map((p) => (
-            <UserBubble key={p.id} text={p.text} pending />
+            <UserBubble key={p.id} text={p.text} images={p.images} pending />
           ))}
           {retry && (
             <div
@@ -355,7 +355,9 @@ function transcriptItems(entries: SessionEntry[], streaming: AssistantMessage | 
 function EntryView({ entry }: { entry: SessionEntry }) {
   if (entry.type === "message") {
     const message = entry.message;
-    if (isUser(message)) return <UserBubble text={textOf(message.content)} timestamp={entry.timestamp} />;
+    if (isUser(message)) {
+      return <UserBubble text={textOf(message.content)} images={imagesOf(message.content)} timestamp={entry.timestamp} />;
+    }
     return null; // toolResult messages render inline under their tool call.
   }
   if (entry.type === "compaction") {
@@ -370,7 +372,18 @@ function CustomEntry({ entry }: { entry: SessionEntry }) {
   return <ExtensionEntry entry={entry} />;
 }
 
-function UserBubble({ text, timestamp, pending = false }: { text: string; timestamp?: string; pending?: boolean }) {
+function UserBubble({
+  text,
+  images = [],
+  timestamp,
+  pending = false,
+}: {
+  text: string;
+  /** Anything with base64 and a mime type: a sent attachment or one still in flight. */
+  images?: { mimeType: string; data: string }[];
+  timestamp?: string;
+  pending?: boolean;
+}) {
   return (
     <article className="group/message flex flex-col items-end py-1" aria-busy={pending || undefined}>
       <span className="sr-only">You{pending ? " (sending)" : ""}:</span>
@@ -382,6 +395,20 @@ function UserBubble({ text, timestamp, pending = false }: { text: string; timest
           pending && "opacity-60",
         )}
       >
+        {images.length > 0 ? (
+          // Sized to be recognisable, not to be studied: the bubble is a record
+          // of what was sent, and the agent's reading of it is what follows.
+          <div className={cn("flex flex-wrap justify-end gap-2", text && "pb-2")}>
+            {images.map((image, index) => (
+              <img
+                key={index}
+                src={`data:${image.mimeType};base64,${image.data}`}
+                alt={`Attached image ${index + 1}`}
+                className="max-h-40 rounded-lg border object-contain"
+              />
+            ))}
+          </div>
+        ) : null}
         {text}
       </div>
       {pending ? (

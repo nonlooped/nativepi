@@ -9,6 +9,7 @@ import type {
   GitDiff,
   GitStatus,
   GraphicalExtension,
+  ImageContent,
   ModelInfo,
   PackageInfo,
   PiEvent,
@@ -33,6 +34,34 @@ export interface InstalledEditor {
   name: string;
   icon: "cursor" | "antigravity" | "windsurf" | "code" | "explorer";
   iconUrl?: string;
+}
+
+/**
+ * An image the composer is holding for the next message.
+ *
+ * `data` is base64 already sized by Pi, so sending one is a matter of dropping
+ * the id and name — everything else is the `ImageContent` Pi's prompt takes.
+ * The name is kept for the alt text and the tooltip, not for Pi.
+ */
+export interface ImageAttachment {
+  id: string;
+  name: string;
+  mimeType: string;
+  data: string;
+}
+
+/**
+ * What is still running when the user asks to quit.
+ *
+ * Both are project directories with one entry per running thing, so a project
+ * with three terminals appears three times: the window has the project list and
+ * can turn a path into the name the user gave it.
+ */
+export interface PendingWork {
+  /** Projects with an agent turn in flight. */
+  runs: string[];
+  /** Projects owning a terminal whose shell is still alive. */
+  terminals: string[];
 }
 
 export interface TerminalSession {
@@ -171,6 +200,7 @@ export type HostRequests = {
       projectDir: string;
       sessionFile: string | null;
       message: string;
+      images?: ImageContent[];
       /**
        * Set only while a turn is running. Pi executes an extension command
        * immediately regardless, and queues anything else the way this says —
@@ -181,8 +211,13 @@ export type HostRequests = {
     response: { ok: boolean; sessionFile?: string; error?: string };
   };
   enqueue: {
-    params: { projectDir: string; behavior: "steer" | "followUp"; message: string };
+    params: { projectDir: string; behavior: "steer" | "followUp"; message: string; images?: ImageContent[] };
     response: { ok: boolean; error?: string };
+  };
+  /** Resize dropped, pasted or picked images through Pi before they wait in the composer. */
+  prepareImages: {
+    params: { files: { name: string; mimeType: string; data: string }[] };
+    response: { images: ImageAttachment[]; rejected: string[] };
   };
   abort: { params: { projectDir: string }; response: { ok: boolean } };
   getModels: { params: { projectDir: string }; response: { models: ModelInfo[]; error?: string } };
@@ -252,6 +287,8 @@ export type HostRequests = {
   windowMinimize: { params: Record<string, never>; response: { ok: boolean } };
   windowToggleMaximize: { params: Record<string, never>; response: { maximized: boolean } };
   windowClose: { params: Record<string, never>; response: { ok: boolean } };
+  /** Answer to `quitRequested`: stop the running work and close the window. */
+  confirmQuit: { params: Record<string, never>; response: { ok: boolean } };
   windowIsMaximized: { params: Record<string, never>; response: { maximized: boolean } };
   openExternal: { params: { url: string }; response: { ok: boolean } };
   listEditors: { params: Record<string, never>; response: { editors: InstalledEditor[] } };
@@ -349,6 +386,8 @@ export type HostEvents = {
   authPrompt: { id: string; prompt: AuthPromptRequest };
   authNotice: { notice: AuthNotice };
   windowMaximized: { maximized: boolean };
+  /** The close was held back because work is in flight. The window decides. */
+  quitRequested: { work: PendingWork };
   terminalData: { projectDir: string; terminalId: string; data: string; sequence: number };
   terminalExit: { projectDir: string; terminalId: string; exitCode: number };
 };

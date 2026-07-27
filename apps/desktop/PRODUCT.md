@@ -39,6 +39,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Project pinning, chat discovery, filtering, and direct opening in installed editors or Explorer.
 - New, resume, rename, clone, fork, delete, import, HTML export, session-tree, statistics, and compaction workflows backed by Pi.
 - Streaming text, thinking, tool activity, file-change summaries, rich diffs, retries, steering, follow-ups, queues, and abort controls.
+- Images attached to a message by paste, drag and drop, or the file picker, resized by Pi before they are sent and shown in the transcript alongside the message they went with.
 - Pi-backed model and thinking-level selection, favorite models, provider authentication, and project trust controls.
 - Git status and working-tree diffs, clean-worktree branch switching or creation, and creation of worktrees that are added as NativePi projects.
 - User- and project-scoped Pi package installation, update, removal, reload, and load-error display.
@@ -46,6 +47,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Pi's own slash commands — extension commands, prompt templates, and skills — offered by name in the composer and run through Pi, including while a turn is in flight.
 - Responsive project and context panes, fixed keyboard shortcuts, reduced-motion handling, and standard accessible desktop controls.
 - Project-scoped integrated terminals with resizable splits that remain alive while hidden or while another project is active.
+- A quit confirmation that names the agent turns and terminals closing the window would stop, so a run is never ended by accident.
 - A settings screen covering NativePi's own appearance and notification preferences, a user-scope editor for the Pi settings that mean something in a desktop window, a shortcut reference, and the paths to Pi's own files.
 
 ## Boundaries and Constraints

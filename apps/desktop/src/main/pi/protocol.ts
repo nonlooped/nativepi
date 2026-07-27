@@ -1,3 +1,5 @@
+import type { ImageContent } from "../../shared/pi-types.ts";
+
 /**
  * The Pi RPC boundary.
  *
@@ -15,9 +17,9 @@ export function isPiMessage(value: unknown): value is PiMessage {
 
 /** Commands NativePi writes to Pi's stdin. A subset of Pi's RpcCommand union. */
 export type PiCommand =
-  | { id?: string; type: "prompt"; message: string; streamingBehavior?: "steer" | "followUp" }
-  | { id?: string; type: "steer"; message: string }
-  | { id?: string; type: "follow_up"; message: string }
+  | { id?: string; type: "prompt"; message: string; images?: ImageContent[]; streamingBehavior?: "steer" | "followUp" }
+  | { id?: string; type: "steer"; message: string; images?: ImageContent[] }
+  | { id?: string; type: "follow_up"; message: string; images?: ImageContent[] }
   | { id?: string; type: "abort" }
   | { id?: string; type: "get_state" }
   | { id?: string; type: "new_session"; parentSession?: string }
