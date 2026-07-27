@@ -8,6 +8,28 @@ const mainDir = import.meta.dirname;
 
 app.setName("NativePi");
 
+/**
+ * One NativePi at a time.
+ *
+ * A second copy would keep its own Pi process per project and its own copy of
+ * the state file, so the two would overwrite each other's projects, drafts and
+ * pane sizes, and each would see the other's session writes as an external
+ * edit. Electron hands the losing launch to the instance holding the lock,
+ * which raises the window the user already has. `exit` rather than `quit`: this
+ * process owns nothing yet, so there is nothing for `before-quit` to shut down.
+ */
+if (!app.requestSingleInstanceLock()) app.exit(0);
+
+app.on("second-instance", () => {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (!win) return;
+  if (win.isMinimized()) win.restore();
+  // `show` as well as `focus`: the window starts hidden until `ready-to-show`,
+  // and focusing a window that was never shown leaves the user with nothing.
+  win.show();
+  win.focus();
+});
+
 function createWindow(): void {
   const win = new BrowserWindow({
     title: "NativePi",
