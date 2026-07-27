@@ -158,6 +158,8 @@ export type HostRequests = {
   readSession: { params: { sessionFile: string }; response: { entries: FileEntry[] } };
   ensurePi: { params: { projectDir: string }; response: { ok: boolean; error?: string } };
   restartPi: { params: { projectDir: string }; response: { ok: boolean } };
+  /** Stop every live Pi, so a restart-only setting reaches background projects too. */
+  restartAllPi: { params: Record<string, never>; response: { ok: boolean } };
   newChat: { params: { projectDir: string }; response: { ok: boolean; sessionFile?: string; error?: string } };
   importSession: {
     params: { projectDir: string };

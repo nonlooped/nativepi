@@ -1,8 +1,9 @@
 import path from "node:path";
 import { getAgentDir, SettingsManager } from "@earendil-works/pi-coding-agent";
 import { app } from "electron";
-import type { PiPaths, PiSettings, PiSettingsPatch } from "../shared/pi-settings.ts";
+import { LIVE_SETTINGS, type PiPaths, type PiSettings, type PiSettingsPatch } from "../shared/pi-settings.ts";
 import type { ThinkingLevel } from "../shared/pi-types.ts";
+import { piServices } from "./pi/services.ts";
 
 /**
  * NativePi's settings screen, read and written through Pi's own SettingsManager.
@@ -32,6 +33,25 @@ import type { ThinkingLevel } from "../shared/pi-types.ts";
  */
 function manager(): SettingsManager {
   return SettingsManager.create(app.getPath("home"), getAgentDir(), { projectTrusted: false });
+}
+
+/**
+ * One settings write at a time.
+ *
+ * Each write builds a manager from its own snapshot of `settings.json`, so two
+ * overlapping writes both start from the pre-change file and the second one
+ * flushes the first one's field back to its old value. Chaining the whole
+ * read-modify-write-readback cycle is what keeps two controls toggled in quick
+ * succession from cancelling each other out, and it makes the settings each
+ * request reads back include every write that preceded it.
+ */
+let writes: Promise<unknown> = Promise.resolve();
+
+export function queuePiSettings<T>(task: () => Promise<T>): Promise<T> {
+  // Both arms run `task`: a failed write must not stall every write after it.
+  const run = writes.then(task, task);
+  writes = run.catch(() => undefined);
+  return run;
 }
 
 export function piPaths(): PiPaths {
@@ -83,6 +103,39 @@ export function readPiSettings(): PiSettings {
     enableInstallTelemetry: settings.getEnableInstallTelemetry(),
     enableAnalytics: settings.getEnableAnalytics(),
   };
+}
+
+/** The four live-appliable settings, as they resolve for one project. */
+export type LivePiSettings = Pick<PiSettings, (typeof LIVE_SETTINGS)[number]>;
+
+/**
+ * What the live settings resolve to inside a given project.
+ *
+ * The settings screen edits the user scope, but a project can override any of
+ * these in its own `settings.json`, and Pi resolves project over user. Pushing
+ * the raw user value into a running process would therefore override an
+ * override — the session would follow a setting Pi itself would not have
+ * chosen, until the next restart put the project's value back. Reading through
+ * a project-scoped manager after the user file is written gives exactly the
+ * value Pi would resolve, overridden or not.
+ *
+ * `undefined` when the project's settings cannot be read; the caller then has
+ * nothing better to send than what the user chose.
+ */
+export function liveSettingsFor(projectDir: string): LivePiSettings | undefined {
+  try {
+    const { settings } = piServices(projectDir);
+    if (settings.drainErrors().length > 0) return undefined;
+    const retry = settings.getRetrySettings();
+    return {
+      steeringMode: settings.getSteeringMode(),
+      followUpMode: settings.getFollowUpMode(),
+      autoCompaction: settings.getCompactionEnabled(),
+      autoRetry: retry.enabled,
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 /** Split a whitespace- or newline-separated list into the entries Pi stores. */

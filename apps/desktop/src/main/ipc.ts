@@ -12,7 +12,7 @@ import { listSkills } from "./skills.ts";
 import { listProjectFiles } from "./files.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
 import { listInstalledEditors, openProjectIn } from "./editors.ts";
-import { piPaths, readPiSettings, writePiSettings } from "./piSettings.ts";
+import { liveSettingsFor, piPaths, queuePiSettings, readPiSettings, writePiSettings } from "./piSettings.ts";
 import { piSettingsPatchSchema, type PiSettingsPatch } from "../shared/pi-settings.ts";
 import {
   closeTerminal,
@@ -145,13 +145,26 @@ async function rebound(pi: PiProcess): Promise<string | undefined> {
  * every live Pi means the modes the user just chose govern the run they are
  * watching rather than the one after it. The RPC form is session-scoped and does
  * not persist, which is why the file was written first.
+ *
+ * What each process is sent is the value Pi resolves for that project, not the
+ * user value verbatim: a project that overrides one of these keeps its override,
+ * exactly as it would across a restart.
  */
 function applyLive(patch: PiSettingsPatch): void {
-  for (const pi of pis.values()) {
-    if (patch.steeringMode) pi.send({ type: "set_steering_mode", mode: patch.steeringMode });
-    if (patch.followUpMode) pi.send({ type: "set_follow_up_mode", mode: patch.followUpMode });
-    if (patch.autoCompaction !== undefined) pi.send({ type: "set_auto_compaction", enabled: patch.autoCompaction });
-    if (patch.autoRetry !== undefined) pi.send({ type: "set_auto_retry", enabled: patch.autoRetry });
+  for (const [projectDir, pi] of pis) {
+    const live = liveSettingsFor(projectDir) ?? patch;
+    if (patch.steeringMode !== undefined && live.steeringMode) {
+      pi.send({ type: "set_steering_mode", mode: live.steeringMode });
+    }
+    if (patch.followUpMode !== undefined && live.followUpMode) {
+      pi.send({ type: "set_follow_up_mode", mode: live.followUpMode });
+    }
+    if (patch.autoCompaction !== undefined && live.autoCompaction !== undefined) {
+      pi.send({ type: "set_auto_compaction", enabled: live.autoCompaction });
+    }
+    if (patch.autoRetry !== undefined && live.autoRetry !== undefined) {
+      pi.send({ type: "set_auto_retry", enabled: live.autoRetry });
+    }
   }
 }
 
@@ -227,6 +240,22 @@ const handlers: HandlerMap = {
     pis.delete(projectDir);
     starting.delete(projectDir);
     if (pi) await pi.stop();
+    return { ok: true };
+  },
+
+  /**
+   * Restart every live Pi, not just the active project's.
+   *
+   * A setting that only takes effect on start is stale in every process that was
+   * already running, and the projects the user is not looking at give no sign of
+   * it. Stopping them all means the next time one is opened it starts on the
+   * settings the file now holds.
+   */
+  restartAllPi: async () => {
+    const all = [...pis.values()];
+    pis.clear();
+    starting.clear();
+    await Promise.all(all.map((pi) => pi.stop()));
     return { ok: true };
   },
 
@@ -564,18 +593,21 @@ const handlers: HandlerMap = {
       return { error: errorMessage(err) };
     }
   },
-  setPiSettings: async ({ patch }) => {
-    try {
-      const parsed = piSettingsPatchSchema.parse(patch);
-      await writePiSettings(parsed);
-      applyLive(parsed);
-      // Read back rather than echo: this is what Pi now reports, including any
-      // value it normalized on the way in.
-      return { ok: true, settings: readPiSettings() };
-    } catch (err) {
-      return { ok: false, error: errorMessage(err) };
-    }
-  },
+  // Queued as one unit: writing, pushing live, and reading back all have to see
+  // the same file, or an overlapping write undoes this one.
+  setPiSettings: ({ patch }) =>
+    queuePiSettings(async () => {
+      try {
+        const parsed = piSettingsPatchSchema.parse(patch);
+        await writePiSettings(parsed);
+        applyLive(parsed);
+        // Read back rather than echo: this is what Pi now reports, including any
+        // value it normalized on the way in.
+        return { ok: true, settings: readPiSettings() };
+      } catch (err) {
+        return { ok: false, error: errorMessage(err) };
+      }
+    }),
   piPaths: () => ({ paths: piPaths() }),
   showInFolder: ({ path }) => {
     shell.showItemInFolder(path);
