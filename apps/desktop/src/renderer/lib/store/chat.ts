@@ -11,9 +11,18 @@ import {
   persist,
   setLastChat,
 } from "./internals.ts";
-import type { ChatSlice, PendingMessage, SliceCreator } from "./types.ts";
+import type { ChatSlice, GetState, PendingMessage, SliceCreator } from "./types.ts";
 
 let pendingId = 1;
+
+function currentDraft(get: GetState) {
+  const state = get();
+  const projectDir = state.activeProjectPath;
+  if (!projectDir || conversationFor(state, projectDir).externalChange) return null;
+  const key = draftKey(get);
+  const text = (state.drafts[key] ?? "").trim();
+  return text ? { state, projectDir, key, text } : null;
+}
 
 export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   sessionsByProject: {},
@@ -86,14 +95,11 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   },
 
   send: async () => {
-    const s = get();
-    const projectDir = s.activeProjectPath;
     // Section 16: while another writer owns this chat we send nothing, and the
     // draft stays exactly where the user left it.
-    if (!projectDir || conversationFor(s, projectDir).externalChange) return;
-    const key = draftKey(get);
-    const text = (s.drafts[key] ?? "").trim();
-    if (!text) return;
+    const draft = currentDraft(get);
+    if (!draft) return;
+    const { state: s, projectDir, key, text } = draft;
 
     const pendingEntry: PendingMessage = { id: pendingId++, text };
     patchConversation(set, projectDir, (c) => ({
@@ -128,12 +134,9 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   },
 
   enqueue: async (behavior) => {
-    const s = get();
-    const projectDir = s.activeProjectPath;
-    if (!projectDir || conversationFor(s, projectDir).externalChange) return;
-    const key = draftKey(get);
-    const text = (s.drafts[key] ?? "").trim();
-    if (!text) return;
+    const draft = currentDraft(get);
+    if (!draft) return;
+    const { projectDir, key, text } = draft;
 
     // No optimistic entry: Pi echoes the queued message back via queue_update,
     // which is the source of truth for what's pending.
