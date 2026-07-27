@@ -102,8 +102,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       errorRecovery: undefined,
       runStartedAt: Date.now(),
     }));
-    set((st) => ({ drafts: { ...st.drafts, [key]: "" } }));
-    persist(get);
+    get().setDraft("");
 
     const res = await rpc.request.submit({ projectDir, sessionFile: s.activeSessionFile, message: text });
     if (!res.ok) {
@@ -139,8 +138,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     // No optimistic entry: Pi echoes the queued message back via queue_update,
     // which is the source of truth for what's pending.
     patchConversation(set, projectDir, { error: undefined });
-    set((st) => ({ drafts: { ...st.drafts, [key]: "" } }));
-    persist(get);
+    get().setDraft("");
 
     const res = await rpc.request.enqueue({ projectDir, behavior, message: text });
     if (!res.ok) {
