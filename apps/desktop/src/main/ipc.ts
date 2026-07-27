@@ -8,6 +8,8 @@ import { loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
 import { gitAddWorktree, gitBranches, gitCheckout, gitDiff, gitStatus } from "./git.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
+import { listSkills } from "./skills.ts";
+import { listProjectFiles } from "./files.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
 import { listInstalledEditors, openProjectIn } from "./editors.ts";
 import type { HostEvents, HostRequestName, HostRequests, PiStatus } from "../shared/rpc-schema.ts";
@@ -536,6 +538,23 @@ const handlers: HandlerMap = {
       return await gitAddWorktree(projectDir, branch, create);
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  listSkills: async ({ projectDir }) => {
+    try {
+      return { skills: await listSkills(projectDir) };
+    } catch {
+      // The composer opens its menu regardless; an empty one says "nothing to
+      // insert", which is the truth as far as this window can tell.
+      return { skills: [] };
+    }
+  },
+  listProjectFiles: async ({ projectDir }) => {
+    try {
+      return { files: await listProjectFiles(projectDir) };
+    } catch {
+      return { files: [] };
     }
   },
 

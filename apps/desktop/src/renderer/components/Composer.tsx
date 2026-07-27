@@ -7,12 +7,13 @@ import { formatTokens } from "../lib/format.ts";
 import { rpc } from "../lib/rpc.ts";
 import { useRequest } from "../lib/useRequest.ts";
 import { withHint } from "../lib/shortcuts.ts";
+import { hoistSkill } from "../lib/composerText.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { Textarea } from "@/components/ui/textarea.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
 import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
+import ComposerInput from "./ComposerInput.tsx";
 import { ComposerWidgets } from "./ExtensionSlots.tsx";
 import ModelSelector from "./ModelSelector.tsx";
 import WorktreeDialog from "./WorktreeDialog.tsx";
@@ -38,6 +39,10 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
 
   const submit = () => {
     if (!canSend) return;
+    // Pi reads a skill only at the head of the message; a chip the user placed
+    // mid-sentence is moved there on the way out rather than being ignored.
+    const outgoing = hoistSkill(draft);
+    if (outgoing !== draft) setDraft(outgoing);
     if (running) void enqueue(behavior);
     else void send();
   };
@@ -48,19 +53,12 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
       <ComposerWidgets placement="aboveComposer" />
       <QueuedMessages />
       <div className="composer-surface mx-auto flex w-full max-w-3xl flex-col rounded-3xl bg-card px-3 pb-3 pt-2">
-        <Textarea
+        <ComposerInput
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            // isComposing guards IME input: without it, Enter commits a
-            // half-composed CJK word instead of accepting the candidate.
-            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          rows={2}
-          aria-label="Message Pi"
+          onChange={setDraft}
+          onSubmit={submit}
+          projectPath={activeProjectPath}
+          disabled={disabled}
           // The placeholder names the one thing this keystroke will do next, so
           // it tracks the queue behaviour rather than listing both options and
           // leaving the user to guess which one is armed.
@@ -75,8 +73,6 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
                     ? "Queue a follow-up…"
                     : "Ask for a change, or a question about this code"
           }
-          disabled={disabled}
-          className="max-h-56 min-h-24 resize-none border-0 bg-transparent px-2.5 py-3 text-[15px] shadow-none focus-visible:ring-0 dark:bg-transparent"
         />
         {/* Three groups, not six peers: what answers the message (model,
             reasoning, the context it has left), then what the answer lands in
@@ -120,6 +116,14 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           </span>
           <span className="flex items-center gap-1.5">
             <Kbd>Shift+Enter</Kbd> for a new line
+          </span>
+          <span aria-hidden="true" className="text-muted-foreground/50">
+            ·
+          </span>
+          {/* The two triggers are invisible until typed, and this screen is the
+              only place that says they exist. */}
+          <span className="flex items-center gap-1.5">
+            <Kbd>$</Kbd> for skills, <Kbd>@</Kbd> for files
           </span>
         </p>
       ) : null}

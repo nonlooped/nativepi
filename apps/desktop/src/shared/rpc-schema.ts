@@ -15,6 +15,7 @@ import type {
   SessionStats,
   SessionSummary,
   SessionTreeNode,
+  SkillInfo,
   ThinkingLevel,
 } from "./pi-types.ts";
 
@@ -219,6 +220,10 @@ export type HostRequests = {
     params: { projectDir: string; branch: string; create: boolean };
     response: { ok: boolean; path?: string; error?: string };
   };
+
+  /** What the composer's `$` and `@` menus offer. Read on demand, never cached in main. */
+  listSkills: { params: { projectDir: string }; response: { skills: SkillInfo[] } };
+  listProjectFiles: { params: { projectDir: string }; response: { files: string[] } };
 
   listPackages: {
     params: { projectDir: string };
