@@ -6,6 +6,7 @@ import { activeConversation, thinkingLabel, useAppStore } from "../lib/store.ts"
 import { formatTokens } from "../lib/format.ts";
 import { rpc } from "../lib/rpc.ts";
 import { useRequest } from "../lib/useRequest.ts";
+import { filterBranches } from "../lib/branches.ts";
 import { withHint } from "../lib/shortcuts.ts";
 import { hoistSkill } from "../lib/composerText.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -354,9 +355,7 @@ function BranchList({ onDone }: { onDone: () => void }) {
     [projectDir],
   );
   const branches = data?.branches ?? [];
-  const name = query.trim();
-  const matches = branches.filter((item) => item.name.toLowerCase().includes(name.toLowerCase()));
-  const canCreate = name.length > 0 && !branches.some((item) => item.name === name);
+  const { name, matches, canCreate } = filterBranches(branches, query);
 
   async function go(branch: string, create: boolean) {
     if (busy) return;

@@ -5,6 +5,7 @@ import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { rpc } from "../lib/rpc.ts";
 import { useAppStore } from "../lib/store.ts";
 import { useRequest } from "../lib/useRequest.ts";
+import { filterBranches } from "../lib/branches.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import {
@@ -62,9 +63,7 @@ function Branches({ projectPath, onClose }: { projectPath: string; onClose: () =
     [projectPath],
   );
   const branches = data?.branches ?? [];
-  const name = query.trim();
-  const matches = branches.filter((item) => item.name.toLowerCase().includes(name.toLowerCase()));
-  const canCreate = name.length > 0 && !branches.some((item) => item.name === name);
+  const { name, matches, canCreate } = filterBranches(branches, query);
 
   async function open(path: string) {
     onClose();
