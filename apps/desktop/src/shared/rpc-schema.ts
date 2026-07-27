@@ -330,6 +330,10 @@ export type HostRequests = {
     params: { projectDir: string; terminalId: string; cols: number; rows: number };
     response: { ok: boolean };
   };
+  terminalClear: {
+    params: { projectDir: string; terminalId: string };
+    response: { ok: boolean };
+  };
   terminalClose: {
     params: { projectDir: string; terminalId: string };
     response: { ok: boolean };

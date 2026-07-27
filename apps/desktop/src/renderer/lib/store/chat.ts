@@ -114,8 +114,8 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     set({ activeSessionFile: null, isNewChat: true });
   },
 
-  importSession: async () => {
-    const projectDir = get().activeProjectPath;
+  importSession: async (targetProjectDir) => {
+    const projectDir = targetProjectDir ?? get().activeProjectPath;
     if (!projectDir) return;
     const res = await rpc.request.importSession({ projectDir });
     if (res.canceled) return;

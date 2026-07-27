@@ -15,7 +15,6 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import { WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { withHint } from "../lib/shortcuts.ts";
 import DiffView from "./DiffView.tsx";
@@ -26,10 +25,10 @@ import { ExtensionPanels } from "./ExtensionSlots.tsx";
 export default function ContextPane({ overlay = false, onClose }: { overlay?: boolean; onClose?: () => void }) {
   const git = useAppStore((s) => s.git);
   const refreshGit = useAppStore((s) => s.refreshGit);
+  const requestBranchMenu = useAppStore((s) => s.requestBranchMenu);
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const [selected, setSelected] = useState<GitChangedFile | null>(null);
-  const [branchesOpen, setBranchesOpen] = useState(false);
 
   useEffect(() => setSelected(null), [projectDir]);
 
@@ -75,7 +74,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
                 <ContextMenuItem disabled={!git.branch} onClick={() => git.branch && void navigator.clipboard.writeText(git.branch)}>
                   Copy branch name
                 </ContextMenuItem>
-                <ContextMenuItem onClick={() => setBranchesOpen(true)}>Switch branch…</ContextMenuItem>
+                <ContextMenuItem onClick={requestBranchMenu}>Switch branch…</ContextMenuItem>
                 <ContextMenuItem onClick={() => void refreshGit()}>Refresh status</ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
@@ -118,57 +117,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
 
         <ExtensionPanels />
       </div>
-      {branchesOpen && projectDir ? <BranchDialog projectDir={projectDir} onClose={() => setBranchesOpen(false)} /> : null}
     </aside>
-  );
-}
-
-function BranchDialog({ projectDir, onClose }: { projectDir: string; onClose: () => void }) {
-  const switchBranch = useAppStore((s) => s.switchBranch);
-  const running = useAppStore((s) => s.conversations[projectDir]?.running ?? false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
-  const request = useRequest(() => rpc.request.gitBranches({ projectDir }), [projectDir]);
-
-  async function select(branch: string) {
-    setBusy(true);
-    setError(undefined);
-    try {
-      const result = await switchBranch(branch, false);
-      if (result.ok) onClose();
-      else setError(result.error ?? "Git refused this change.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="font-heading text-base font-semibold">Switch branch</DialogTitle>
-          <DialogDescription>Choose a local branch for this project.</DialogDescription>
-        </DialogHeader>
-        <div className="flex max-h-80 flex-col gap-1 overflow-y-auto">
-          {request.loading ? <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p> : null}
-          {request.data?.branches.map((branch) => (
-            <button
-              key={branch.name}
-              type="button"
-              disabled={busy || running || branch.current || !!branch.worktree}
-              onClick={() => void select(branch.name)}
-              className="flex items-center rounded-md px-3 py-2 text-left text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-            >
-              <span className="min-w-0 flex-1 truncate">{branch.name}</span>
-              {branch.current ? <span className="text-xs text-muted-foreground">current</span> : null}
-              {branch.worktree ? <span className="text-xs text-muted-foreground">in worktree</span> : null}
-            </button>
-          ))}
-        </div>
-        {running ? <p className="text-xs text-muted-foreground">Stop the current run before switching branches.</p> : null}
-        {request.error || error ? <p className="text-xs text-destructive">{error ?? "Could not load branches."}</p> : null}
-      </DialogContent>
-    </Dialog>
   );
 }
 

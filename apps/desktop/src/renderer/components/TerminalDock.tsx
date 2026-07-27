@@ -340,7 +340,15 @@ function TerminalSurface({
           Paste
         </ContextMenuItem>
         <ContextMenuItem onClick={() => terminalRef.current?.selectAll()}>Select all</ContextMenuItem>
-        <ContextMenuItem onClick={() => terminalRef.current?.clear()}>Clear terminal</ContextMenuItem>
+        <ContextMenuItem
+          onClick={() =>
+            void rpc.request
+              .terminalClear({ projectDir, terminalId: session.id })
+              .then(() => terminalRef.current?.clear())
+          }
+        >
+          Clear terminal
+        </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => void onSplit()}>Split terminal</ContextMenuItem>
         <ContextMenuItem disabled={closing} onClick={onClose}>Close this terminal</ContextMenuItem>

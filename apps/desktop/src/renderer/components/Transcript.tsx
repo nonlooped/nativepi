@@ -10,6 +10,7 @@ import { WarningIcon } from "@phosphor-icons/react/Warning";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { code } from "@streamdown/code";
 import { Streamdown } from "streamdown";
+import { toast } from "sonner";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
 import { imagesOf, isAssistant, isToolResult, isUser, textOf } from "../../shared/messages.ts";
@@ -864,13 +865,19 @@ function TranscriptContextMenu({ children, items }: { children: ReactElement; it
 function TranscriptImage({ image, name }: { image: { mimeType: string; data: string }; name: string }) {
   const [preview, setPreview] = useState(false);
   const src = `data:${image.mimeType};base64,${image.data}`;
+
+  async function save() {
+    const result = await rpc.request.saveImage({ ...image, suggestedName: name });
+    if (!result.ok && !result.canceled) toast.error(result.error ?? "Could not save image.");
+  }
+
   return (
     <>
       <TranscriptContextMenu
         items={
           <>
             <ContextMenuItem onClick={() => void copyDataImage(src)}>Copy image</ContextMenuItem>
-            <ContextMenuItem onClick={() => void rpc.request.saveImage({ ...image, suggestedName: name })}>Save image as…</ContextMenuItem>
+            <ContextMenuItem onClick={() => void save()}>Save image as…</ContextMenuItem>
             <ContextMenuItem onClick={() => setPreview(true)}>Open preview</ContextMenuItem>
           </>
         }
