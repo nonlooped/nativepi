@@ -28,6 +28,16 @@ export function showHint(text: string): void {
 }
 
 /**
+ * Name the files the composer would not take.
+ *
+ * Silence would read as "it worked": the strip below the composer would simply
+ * be missing an image the user watched themselves drop onto it.
+ */
+export function showAttachmentsRejected(names: string[]): void {
+  toast.warning(`Could not attach ${names.join(", ")}`, { closeButton: true, duration: 8000 });
+}
+
+/**
  * Surface a message from a Pi extension.
  *
  * An error stays until dismissed — it reports something that did not happen, and

@@ -1,7 +1,9 @@
 import { ArrowBendUpRightIcon, CaretDownIcon, CheckIcon, GitBranchIcon, PaperPlaneRightIcon, PlusIcon, TreeStructureIcon } from "../../shared/icons.ts"
-import { useId, useMemo, useState } from "react";
+import { PaperclipIcon } from "@phosphor-icons/react/Paperclip";
+import { useId, useMemo, useRef, useState } from "react";
 import type { AssistantMessage } from "../../shared/pi-types.ts";
 import { draftKeyFor } from "../../shared/messages.ts";
+import { ACCEPTED_IMAGE_TYPES, draggingImages, imageFilesIn } from "../lib/attachments.ts";
 import { activeConversation, thinkingLabel, useAppStore } from "../lib/store.ts";
 import { formatTokens } from "../lib/format.ts";
 import { rpc } from "../lib/rpc.ts";
@@ -14,6 +16,7 @@ import { Input } from "@/components/ui/input.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
 import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
+import ComposerAttachments from "./ComposerAttachments.tsx";
 import ComposerInput from "./ComposerInput.tsx";
 import { ComposerWidgets } from "./ExtensionSlots.tsx";
 import ModelSelector from "./ModelSelector.tsx";
@@ -33,9 +36,18 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
   const behavior = useAppStore((s) => s.sendBehavior);
   const setBehavior = useAppStore((s) => s.setSendBehavior);
   const isRepo = useAppStore((s) => s.git?.isRepo ?? false);
+  const attached = useAppStore(
+    (s) => (activeProjectPath ? (s.attachments[draftKeyFor(activeProjectPath, activeSessionFile)]?.length ?? 0) : 0),
+  );
+  const attach = useAppStore((s) => s.attach);
+  const preparing = useAppStore(
+    (s) => (activeProjectPath ? (s.preparing[draftKeyFor(activeProjectPath, activeSessionFile)] ?? 0) : 0),
+  );
 
   const disabled = !activeProjectPath;
-  const canSend = !!draft.trim() && !disabled && !blocked;
+  // Images being read hold the send: they belong to this message, and Enter a
+  // moment too early would send the text alone and leave them for the next one.
+  const canSend = (!!draft.trim() || attached > 0) && !disabled && !blocked && preparing === 0;
   const steering = running && behavior === "steer";
 
   const submit = () => {
@@ -53,11 +65,28 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
       <ExtensionStatuses />
       <ComposerWidgets placement="aboveComposer" />
       <QueuedMessages />
-      <div className="composer-surface mx-auto flex w-full max-w-(--conversation-width) flex-col rounded-3xl bg-card px-3 pb-3 pt-2">
+      {/* Drop anywhere on the composer, not only on the text: the target the
+          user aims at is the box, and a drop that lands two pixels outside the
+          editable area would otherwise navigate the window to the file. */}
+      <div
+        className="composer-surface mx-auto flex w-full max-w-(--conversation-width) flex-col rounded-3xl bg-card px-3 pb-3 pt-2"
+        onDragOver={(event) => {
+          if (disabled || !draggingImages(event.dataTransfer)) return;
+          event.preventDefault();
+        }}
+        onDrop={(event) => {
+          const files = imageFilesIn(event.dataTransfer);
+          if (disabled || files.length === 0) return;
+          event.preventDefault();
+          void attach(files);
+        }}
+      >
+        <ComposerAttachments />
         <ComposerInput
           value={draft}
           onChange={setDraft}
           onSubmit={submit}
+          onAttach={(files) => void attach(files)}
           projectPath={activeProjectPath}
           disabled={disabled}
           // The placeholder names the one thing this keystroke will do next, so
@@ -82,6 +111,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
             just noise with a border. Stop is not here at all; it acts on the
             run and lives with the run status above the transcript. */}
         <div className="flex items-center gap-1 px-1">
+          <AttachButton disabled={disabled} onPick={attach} />
           <ModelSelector />
           <ThinkingSelector />
           <ContextWindow />
@@ -138,6 +168,45 @@ function sendLabel(running: boolean, steering: boolean): string {
   if (steering) return "Steer this turn (Enter)";
   if (running) return "Queue a follow-up (Enter)";
   return "Send message (Enter)";
+}
+
+/**
+ * The third way to attach an image, after paste and drop.
+ *
+ * A real file input rather than Electron's dialog: paste and drop both hand the
+ * window a `File`, and using the same object here means one path from a picture
+ * to a prompt instead of a second one that starts from a path.
+ */
+function AttachButton({ disabled, onPick }: { disabled: boolean; onPick: (files: File[]) => Promise<void> }) {
+  const input = useRef<HTMLInputElement>(null);
+
+  return (
+    <>
+      <input
+        ref={input}
+        type="file"
+        multiple
+        accept={ACCEPTED_IMAGE_TYPES}
+        className="hidden"
+        onChange={(event) => {
+          void onPick([...(event.target.files ?? [])]);
+          // Cleared so picking the same file twice in a row still fires.
+          event.target.value = "";
+        }}
+      />
+      <Button
+        variant="ghost"
+        size="icon-lg"
+        disabled={disabled}
+        onClick={() => input.current?.click()}
+        title="Attach an image"
+        aria-label="Attach an image"
+        className="rounded-lg text-muted-foreground hover:text-foreground"
+      >
+        <PaperclipIcon />
+      </Button>
+    </>
+  );
 }
 
 /** A hairline between control groups, not between controls. */

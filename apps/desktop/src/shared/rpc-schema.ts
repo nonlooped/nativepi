@@ -8,6 +8,7 @@ import type {
   GitDiff,
   GitStatus,
   GraphicalExtension,
+  ImageContent,
   ModelInfo,
   PackageInfo,
   PiEvent,
@@ -32,6 +33,20 @@ export interface InstalledEditor {
   name: string;
   icon: "cursor" | "antigravity" | "windsurf" | "code" | "explorer";
   iconUrl?: string;
+}
+
+/**
+ * An image the composer is holding for the next message.
+ *
+ * `data` is base64 already sized by Pi, so sending one is a matter of dropping
+ * the id and name — everything else is the `ImageContent` Pi's prompt takes.
+ * The name is kept for the alt text and the tooltip, not for Pi.
+ */
+export interface ImageAttachment {
+  id: string;
+  name: string;
+  mimeType: string;
+  data: string;
 }
 
 /**
@@ -180,12 +195,17 @@ export type HostRequests = {
     response: { ok: boolean; sessionFile?: string; canceled?: boolean; error?: string };
   };
   submit: {
-    params: { projectDir: string; sessionFile: string | null; message: string };
+    params: { projectDir: string; sessionFile: string | null; message: string; images?: ImageContent[] };
     response: { ok: boolean; sessionFile?: string; error?: string };
   };
   enqueue: {
-    params: { projectDir: string; behavior: "steer" | "followUp"; message: string };
+    params: { projectDir: string; behavior: "steer" | "followUp"; message: string; images?: ImageContent[] };
     response: { ok: boolean; error?: string };
+  };
+  /** Resize dropped, pasted or picked images through Pi before they wait in the composer. */
+  prepareImages: {
+    params: { files: { name: string; mimeType: string; data: string }[] };
+    response: { images: ImageAttachment[]; rejected: string[] };
   };
   abort: { params: { projectDir: string }; response: { ok: boolean } };
   getModels: { params: { projectDir: string }; response: { models: ModelInfo[]; error?: string } };

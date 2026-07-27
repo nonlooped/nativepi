@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { KeyboardEvent } from "react";
+import { imageFilesIn } from "../lib/attachments.ts";
 import { caretOffset, caretToEnd, render, replaceWithChip, serialize } from "../lib/composerDom.ts";
 import { AutocompleteMenu, useComposerAutocomplete } from "./ComposerAutocomplete.tsx";
 import { cn } from "@/lib/utils.ts";
@@ -17,6 +18,7 @@ export default function ComposerInput({
   value,
   onChange,
   onSubmit,
+  onAttach,
   projectPath,
   placeholder,
   disabled,
@@ -24,6 +26,7 @@ export default function ComposerInput({
   value: string;
   onChange: (text: string) => void;
   onSubmit: () => void;
+  onAttach: (files: File[]) => void;
   projectPath: string | null;
   placeholder: string;
   disabled: boolean;
@@ -112,14 +115,16 @@ export default function ComposerInput({
         onKeyDown={onKeyDown}
         onBlur={complete.close}
         // Rich clipboard content would arrive as markup this editor does not
-        // model, and the message is plain text in the end anyway.
+        // model, and the message is plain text in the end anyway. An image is
+        // the exception: it cannot be text, so it goes to the attachment strip
+        // instead of being dropped on the floor.
         onPaste={(event) => {
           event.preventDefault();
-          event.currentTarget.ownerDocument.execCommand(
-            "insertText",
-            false,
-            event.clipboardData.getData("text/plain"),
-          );
+          const images = imageFilesIn(event.clipboardData);
+          if (images.length > 0) onAttach(images);
+          const text = event.clipboardData.getData("text/plain");
+          if (!text) return;
+          event.currentTarget.ownerDocument.execCommand("insertText", false, text);
           emit();
         }}
         className={cn(
