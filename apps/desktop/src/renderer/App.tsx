@@ -320,6 +320,7 @@ function WorkspaceHeader({
       ? s.sessionsByProject[s.activeProjectPath]?.find((session) => session.path === s.activeSessionFile)
       : undefined,
   );
+  const title = isNewChat ? "New chat" : activeSession ? chatTitle(activeSession) : "Untitled chat";
 
   return (
     <header
@@ -347,8 +348,8 @@ function WorkspaceHeader({
             <span aria-hidden="true" className="shrink-0 text-muted-foreground/50">
               /
             </span>
-            <span className="min-w-0 truncate">
-              {isNewChat ? "New chat" : activeSession ? chatTitle(activeSession) : "Untitled chat"}
+            <span className="min-w-0 max-w-80 truncate" title={title}>
+              {title}
             </span>
           </div>
         ) : (

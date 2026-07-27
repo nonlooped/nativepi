@@ -1,7 +1,36 @@
 import { expect, test } from "bun:test";
-import type { SessionEntry } from "../../shared/pi-types.ts";
+import type { SessionEntry, SessionSummary } from "../../shared/pi-types.ts";
 import { textOf } from "../../shared/messages.ts";
-import { toolArgSummary, toolResultsById } from "./transcript.ts";
+import { chatTitle, toolArgSummary, toolResultsById } from "./transcript.ts";
+
+function session(firstMessage: string, name?: string): SessionSummary {
+  return { path: "s.jsonl", id: "s", name, firstMessage, messageCount: 1, created: "t", modified: "t" };
+}
+
+test("chatTitle hides leading composer metadata", () => {
+  expect(chatTitle(session('/review check this diff'))).toBe("check this diff");
+  expect(chatTitle(session('@src/renderer/App.tsx explain this'))).toBe("explain this");
+  expect(chatTitle(session('<file name="C:\\project\\App.tsx">\nfile contents\n</file>\nexplain this'))).toBe("explain this");
+  expect(chatTitle(session('/skill:releasing publish the app'))).toBe("publish the app");
+  expect(
+    chatTitle(
+      session(
+        '<skill name="releasing" location="C:\\skills\\releasing\\SKILL.md">\nReferences are relative to C:\\skills\\releasing.\n\nRelease instructions\n</skill>\n\npublish the app',
+      ),
+    ),
+  ).toBe("publish the app");
+});
+
+test("chatTitle uses the leading item name when there is no request text", () => {
+  expect(chatTitle(session('/review'))).toBe("review");
+  expect(chatTitle(session('@src/renderer/App.tsx'))).toBe("App.tsx");
+  expect(chatTitle(session('<file name="C:\\project\\App.tsx">\nfile contents\n</file>'))).toBe("App.tsx");
+  expect(chatTitle(session('<skill name="releasing" location="C:\\skills\\releasing\\SKILL.md">\nRelease instructions\n</skill>'))).toBe("releasing");
+});
+
+test("chatTitle preserves an explicit session name", () => {
+  expect(chatTitle(session('/review check this diff', "Release review"))).toBe("Release review");
+});
 
 test("textOf flattens string and block content, ignoring non-text blocks", () => {
   expect(textOf("plain")).toBe("plain");
