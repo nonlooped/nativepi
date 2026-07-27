@@ -1,4 +1,5 @@
 import { chipText, parseSegments, type ChipKind } from "./composerText.ts";
+import { fileIconUrl } from "./fileIcons.ts";
 
 /**
  * The bridge between a draft string and the editable element showing it.
@@ -20,12 +21,29 @@ const CHIP_ATTRIBUTE = "data-chip";
 const HARD_SPACE = " ";
 
 /** Static markup, never user content: the label is set as text, never as HTML. */
-const GLYPHS: Record<ChipKind, string> = {
-  skill:
-    '<svg viewBox="0 0 16 16" aria-hidden="true" class="size-3 shrink-0"><path fill="currentColor" d="M9.6 1 3 8.6h3.6L6 15l6.6-7.6H9L9.6 1Z"/></svg>',
-  file:
-    '<svg viewBox="0 0 16 16" aria-hidden="true" class="size-3 shrink-0"><path fill="currentColor" d="M9 1H4.5A1.5 1.5 0 0 0 3 2.5v11A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5V5L9 1Zm0 4.5V2.3L12 5.4H9.4a.4.4 0 0 1-.4-.4Z"/></svg>',
-};
+const SKILL_GLYPH =
+  '<svg viewBox="0 0 16 16" aria-hidden="true" class="size-3 shrink-0"><path fill="currentColor" d="M9.6 1 3 8.6h3.6L6 15l6.6-7.6H9L9.6 1Z"/></svg>';
+
+/**
+ * The mark a chip opens with: a bolt for a skill, and for a file the icon of its
+ * own type, so a mention of `package.json` reads as that file at a glance rather
+ * than as a page with a folded corner.
+ */
+function chipGlyph(document: Document, kind: ChipKind, value: string): Node {
+  if (kind === "skill") {
+    const glyph = document.createElement("span");
+    glyph.className = "inline-flex shrink-0";
+    glyph.innerHTML = SKILL_GLYPH;
+    return glyph;
+  }
+
+  const icon = document.createElement("img");
+  icon.src = fileIconUrl(value);
+  icon.alt = "";
+  icon.draggable = false;
+  icon.className = "size-4 shrink-0 select-none object-contain";
+  return icon;
+}
 
 const CHIP_CLASS: Record<ChipKind, string> = {
   skill:
@@ -43,7 +61,7 @@ export function createChip(document: Document, kind: ChipKind, value: string): H
   // like one object.
   chip.contentEditable = "false";
   chip.className = CHIP_CLASS[kind];
-  chip.innerHTML = GLYPHS[kind];
+  chip.appendChild(chipGlyph(document, kind, value));
   chip.appendChild(document.createTextNode(kind === "file" ? basename(value) : value));
   chip.title = kind === "skill" ? `Skill: ${value}` : value;
   return chip;

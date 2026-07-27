@@ -348,6 +348,7 @@ The component system is compact and restrained, with soft geometry and explicit 
 - **Do** build hierarchy with graphite tone, typography, spacing, and hairline separation before adding color or shadow.
 - **Do** keep controls compact while preserving visible keyboard focus and practical hit targets.
 - **Do** use Phosphor icons for application actions and provider marks only where provider identity is meaningful.
+- **Do** use the Material Icon Theme file-type mark wherever a specific file is named, so a path is recognizable before it is read.
 - **Do** keep transcript prose open on the canvas and reserve containers for user messages, tools, diffs, errors, and transient state.
 
 ### Don't:

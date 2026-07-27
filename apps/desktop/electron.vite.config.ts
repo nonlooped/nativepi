@@ -1,8 +1,17 @@
-import { resolve } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, resolve } from "node:path";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+
+// `import.meta.glob` cannot take a bare package specifier, and the icon set is a
+// plain directory of SVGs rather than an entry point, so it gets an alias
+// pointing at wherever the package actually landed in node_modules.
+const materialIcons = resolve(
+  dirname(createRequire(import.meta.url).resolve("material-icon-theme/package.json")),
+  "icons",
+);
 
 export default defineConfig({
   main: {
@@ -46,6 +55,7 @@ export default defineConfig({
     resolve: {
       alias: {
         "@": resolve("src/renderer"),
+        "@material-icons": materialIcons,
       },
     },
     plugins: [

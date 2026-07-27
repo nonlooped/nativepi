@@ -5,8 +5,6 @@ import { CheckIcon } from "@phosphor-icons/react/Check";
 import { CircleIcon } from "@phosphor-icons/react/Circle";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
-import { FileIcon } from "@phosphor-icons/react/File";
-import { FilePlusIcon } from "@phosphor-icons/react/FilePlus";
 import { StopIcon } from "@phosphor-icons/react/Stop";
 import { WarningIcon } from "@phosphor-icons/react/Warning";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
@@ -24,6 +22,7 @@ import { withHint } from "../lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
 import DiffView from "./DiffView.tsx";
+import FileTypeIcon from "./FileTypeIcon.tsx";
 import { ExtensionEntry, ExtensionToolResult, useHasEntryRenderer, useHasToolRenderer } from "./ExtensionSlots.tsx";
 
 const streamdownPlugins = { code };
@@ -549,7 +548,6 @@ function ChangeStrip({ changes }: { changes: ReturnType<typeof turnChanges> }) {
 function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; onToggle: () => void }) {
   const directory = fileDir(file.path);
   const delta = formatLineDelta(file.added, file.removed);
-  const Icon = file.kind === "write" ? FilePlusIcon : FileIcon;
 
   return (
     <>
@@ -562,7 +560,7 @@ function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; 
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:cursor-default disabled:hover:bg-transparent"
       >
         <CaretRightIcon className={cn("shrink-0 text-muted-foreground transition-transform", open && "rotate-90", !file.patch && "invisible")} />
-        <Icon className={cn("shrink-0", file.failed ? "text-destructive" : "text-muted-foreground")} weight="duotone" />
+        <FileTypeIcon path={file.path} className={cn(file.failed && "opacity-50 grayscale")} />
         <span className="min-w-0 truncate font-medium">{fileName(file.path)}</span>
         {directory ? <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{directory}</span> : <span className="flex-1" />}
         {file.failed ? (

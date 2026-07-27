@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
-import { FileCodeIcon } from "@phosphor-icons/react/FileCode";
 import { GitBranchIcon } from "@phosphor-icons/react/GitBranch";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import type { GitChangedFile } from "../../shared/pi-types.ts";
@@ -13,6 +12,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { withHint } from "../lib/shortcuts.ts";
 import DiffView from "./DiffView.tsx";
+import FileTypeIcon from "./FileTypeIcon.tsx";
 import { ExtensionPanels } from "./ExtensionSlots.tsx";
 
 export default function ContextPane({ overlay = false, onClose }: { overlay?: boolean; onClose?: () => void }) {
@@ -79,7 +79,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
                       title={file.path}
                     >
                       {selected?.path === file.path ? <CaretDownIcon /> : <CaretRightIcon />}
-                      <FileCodeIcon className={cn("shrink-0", stateColor(file.state))} weight="duotone" />
+                      <FileTypeIcon path={file.path} />
                       <span className="min-w-0 flex-1 truncate font-medium">{file.path}</span>
                       {file.staged ? <span className="shrink-0 text-xs text-muted-foreground">staged</span> : null}
                       <span className={cn("w-4 shrink-0 text-center font-mono text-xs font-semibold", stateColor(file.state))}>

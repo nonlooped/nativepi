@@ -1,4 +1,3 @@
-import { FileTextIcon } from "@phosphor-icons/react/FileText";
 import { LightningIcon } from "@phosphor-icons/react/Lightning";
 import { TerminalIcon } from "@phosphor-icons/react/Terminal";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -17,6 +16,7 @@ import { rpc } from "../lib/rpc.ts";
 import { useAppStore } from "../lib/store.ts";
 import { Kbd } from "@/components/ui/kbd.tsx";
 import { cn } from "@/lib/utils.ts";
+import FileTypeIcon from "./FileTypeIcon.tsx";
 
 /**
  * `/` for Pi commands, `$` for skills and `@` for files, inline in the composer.
@@ -275,7 +275,7 @@ function Row({
     if (activeRow) ref.current?.scrollIntoView({ block: "nearest" });
   }, [activeRow]);
 
-  const Icon = option.kind === "command" ? TerminalIcon : option.kind === "skill" ? LightningIcon : FileTextIcon;
+  const Icon = option.kind === "command" ? TerminalIcon : LightningIcon;
   const nameOffset = option.value.length - option.label.length;
   // What kind of thing runs, which is the only thing a command row can usefully
   // say about itself beyond its description: an extension command executes code,
@@ -305,7 +305,11 @@ function Row({
         activeRow ? "bg-accent text-accent-foreground" : "text-foreground",
       )}
     >
-      <Icon className={cn("size-4 shrink-0", activeRow ? "text-foreground" : "text-muted-foreground")} weight="fill" />
+      {option.kind === "file" ? (
+        <FileTypeIcon path={option.value} />
+      ) : (
+        <Icon className={cn("size-4 shrink-0", activeRow ? "text-foreground" : "text-muted-foreground")} weight="fill" />
+      )}
       <span className="min-w-0 shrink-0 max-w-[55%] truncate font-medium">
         <Highlighted text={option.label} positions={option.positions} offset={nameOffset} />
       </span>
