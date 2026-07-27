@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { delimiter, join } from "node:path";
 import type { IPty } from "node-pty";
 import { spawn } from "node-pty";
 import type { TerminalSession } from "../shared/rpc-schema.ts";
@@ -13,6 +15,30 @@ type ManagedTerminal = TerminalSession & {
 };
 
 const terminals = new Map<string, ManagedTerminal>();
+
+function resolveShell(): string {
+  const path = process.env["PATH"] ?? "";
+  for (const dir of path.split(delimiter)) {
+    if (!dir) continue;
+    const candidate = join(dir, "pwsh.exe");
+    if (existsSync(candidate)) return candidate;
+  }
+  return "powershell.exe";
+}
+
+function shellEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value === undefined) continue;
+    // PSModulePath is per-edition. If the app was launched from pwsh (7), its
+    // value points at PowerShell 7's module tree, and inheriting it into a
+    // Windows PowerShell 5.1 session makes 5.1 load PS7 modules it cannot run
+    // ("Cannot load PSReadLine module"). Dropping it lets each host build its own.
+    if (key.toUpperCase() === "PSMODULEPATH") continue;
+    env[key] = value;
+  }
+  return env;
+}
 
 function publicSession(terminal: ManagedTerminal): TerminalSession {
   return {
@@ -35,15 +61,12 @@ export function createTerminal(
   onExit: (payload: { projectDir: string; terminalId: string; exitCode: number }) => void,
 ): TerminalSession {
   const id = randomUUID();
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
-  );
-  const pty = spawn("powershell.exe", ["-NoLogo"], {
+  const pty = spawn(resolveShell(), ["-NoLogo"], {
     name: "xterm-256color",
     cols: 100,
     rows: 24,
     cwd: projectDir,
-    env,
+    env: shellEnv(),
   });
   const terminal: ManagedTerminal = {
     id,

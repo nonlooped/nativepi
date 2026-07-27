@@ -1,16 +1,17 @@
 import { app, BrowserWindow, shell } from "electron";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { registerIpc, setMainWindow, stopAllPi } from "./ipc.ts";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// Not named `__dirname`: rolldown injects a CommonJS `__dirname` shim at the top
+// of the main bundle, and a same-named top-level const collides with it at load.
+const mainDir = import.meta.dirname;
 
 app.setName("NativePi");
 
 function createWindow(): void {
   const win = new BrowserWindow({
     title: "NativePi",
-    icon: join(__dirname, "../../resources/icon.png"),
+    icon: join(mainDir, "../../resources/icon.png"),
     width: 1280,
     height: 840,
     minWidth: 720,
@@ -20,7 +21,7 @@ function createWindow(): void {
     titleBarStyle: "hidden",
     backgroundColor: "#0c0c0e",
     webPreferences: {
-      preload: join(__dirname, "../preload/index.cjs"),
+      preload: join(mainDir, "../preload/index.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -54,7 +55,7 @@ function createWindow(): void {
   if (process.env["ELECTRON_RENDERER_URL"]) {
     void win.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
-    void win.loadFile(join(__dirname, "../renderer/index.html"));
+    void win.loadFile(join(mainDir, "../renderer/index.html"));
   }
 }
 

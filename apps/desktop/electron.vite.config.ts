@@ -12,7 +12,17 @@ export default defineConfig({
         input: {
           index: resolve("src/main/index.ts"),
         },
-        external: ["electron", /^electron\//, /^@earendil-works\//],
+        // Anything with native binaries or platform-specific binary lookups has to
+        // stay external: bundling moves the module's relative require() paths to
+        // out/main/, where the .node files it looks for do not exist.
+        external: [
+          "electron",
+          /^electron\//,
+          /^@earendil-works\//,
+          "node-pty",
+          "esbuild",
+          /^@esbuild\//,
+        ],
       },
     },
   },

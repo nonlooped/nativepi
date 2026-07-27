@@ -133,6 +133,9 @@ export default function TerminalDock({
               projectDir={projectDir}
               defaultSize={`${100 / terminals.length}%`}
               showHandle={index > 0}
+              // A single terminal needs no chrome: the dock header already names it
+              // and can close it. Splits do, or an individual split cannot be closed.
+              showChrome={terminals.length > 1}
               closing={closing}
               onClose={() => void closeSplit(terminal.id)}
             />
@@ -148,6 +151,7 @@ function TerminalSplit({
   projectDir,
   defaultSize,
   showHandle,
+  showChrome,
   closing,
   onClose,
 }: {
@@ -155,6 +159,7 @@ function TerminalSplit({
   projectDir: string;
   defaultSize: string;
   showHandle: boolean;
+  showChrome: boolean;
   closing: boolean;
   onClose: () => void;
 }) {
@@ -163,13 +168,13 @@ function TerminalSplit({
       {showHandle ? <ResizableHandle className="hover:bg-ring focus-visible:bg-ring" /> : null}
       <ResizablePanel id={session.id} defaultSize={defaultSize}>
         <div className="flex h-full min-h-0 flex-col">
-          <div className="flex h-7 shrink-0 items-center gap-2 border-b px-2 text-[11px] text-muted-foreground">
-            <span className="min-w-0 flex-1 truncate">PowerShell</span>
-            {session.exited ? <span>Exited {session.exitCode ?? ""}</span> : null}
-            <Button variant="ghost" size="icon-xs" onClick={onClose} disabled={closing} title="Close terminal" aria-label="Close terminal">
-              <XIcon />
-            </Button>
-          </div>
+          {showChrome ? (
+            <div className="flex h-7 shrink-0 items-center justify-end border-b px-2">
+              <Button variant="ghost" size="icon-xs" onClick={onClose} disabled={closing} title="Close terminal" aria-label="Close terminal">
+                <XIcon />
+              </Button>
+            </div>
+          ) : null}
           <TerminalSurface session={session} projectDir={projectDir} />
         </div>
       </ResizablePanel>
@@ -200,6 +205,20 @@ function TerminalSurface({ session, projectDir }: { session: TerminalSession; pr
         selectionBackground: styles.getPropertyValue("--accent").trim(),
       },
     });
+    // xterm has no copy binding of its own: Ctrl+Shift+C always copies, and plain
+    // Ctrl+C copies only when something is selected, otherwise it stays an interrupt.
+    // Copying clears the selection so the next Ctrl+C interrupts as usual.
+    terminal.attachCustomKeyEventHandler((event) => {
+      if (event.type !== "keydown" || !event.ctrlKey || event.altKey || event.code !== "KeyC") return true;
+      if (!event.shiftKey && !terminal.hasSelection()) return true;
+      const selection = terminal.getSelection();
+      if (selection) {
+        void navigator.clipboard.writeText(selection);
+        terminal.clearSelection();
+      }
+      return false;
+    });
+
     const fit = new FitAddon();
     terminal.loadAddon(fit);
     terminal.open(container);
