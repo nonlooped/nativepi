@@ -45,7 +45,7 @@ function PiSettingsStatus() {
   const restartPending = useAppStore((s) => s.piRestartPending);
   const applyRestart = useAppStore((s) => s.applyPiSettingsRestart);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
-  const running = useAppStore((s) => (s.activeProjectPath ? s.conversations[s.activeProjectPath]?.running : false));
+  const running = useAppStore((s) => Object.values(s.conversations).some((conversation) => conversation.running));
 
   if (error) {
     return (
@@ -74,7 +74,7 @@ function PiSettingsStatus() {
           variant="outline"
           className="shrink-0"
           disabled={running}
-          title={running ? "Wait for the current turn to finish" : undefined}
+          title={running ? "Wait for every running turn to finish" : undefined}
           onClick={() => void applyRestart()}
         >
           <ArrowClockwiseIcon data-icon="inline-start" />
