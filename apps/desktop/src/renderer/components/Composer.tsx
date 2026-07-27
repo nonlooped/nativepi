@@ -382,12 +382,15 @@ function BranchSelector() {
   const branch = useAppStore((s) => s.git?.branch);
   const detached = useAppStore((s) => s.git?.detached ?? false);
   const running = useAppStore((s) => activeConversation(s).running);
-  const branchMenuRequest = useAppStore((s) => s.branchMenuRequest);
+  const branchMenuRequested = useAppStore((s) => s.branchMenuRequested);
+  const consumeBranchMenuRequest = useAppStore((s) => s.consumeBranchMenuRequest);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (branchMenuRequest > 0) setOpen(true);
-  }, [branchMenuRequest]);
+    if (!branchMenuRequested) return;
+    consumeBranchMenuRequest();
+    setOpen(true);
+  }, [branchMenuRequested, consumeBranchMenuRequest]);
 
   if (!isRepo) return null;
 

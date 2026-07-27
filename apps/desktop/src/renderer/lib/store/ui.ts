@@ -11,7 +11,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   contextPaneChosen: false,
   jumpRequest: 0,
   searchFocusRequest: 0,
-  branchMenuRequest: 0,
+  branchMenuRequested: false,
   terminalProjects: new Set(),
   preferences: DEFAULT_PREFERENCES,
 
@@ -55,8 +55,9 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   requestBranchMenu: () => {
     const projectPath = get().activeProjectPath;
     if (!projectPath || get().conversations[projectPath]?.running) return;
-    set((s) => ({ branchMenuRequest: s.branchMenuRequest + 1 }));
+    set({ branchMenuRequested: true });
   },
+  consumeBranchMenuRequest: () => set({ branchMenuRequested: false }),
   openTerminal: (projectPath) =>
     set((s) => ({ terminalProjects: new Set(s.terminalProjects).add(projectPath) })),
   toggleTerminal: (projectPath) =>

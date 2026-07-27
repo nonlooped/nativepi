@@ -8,3 +8,7 @@ test("absolute project paths are not joined to the project twice", () => {
 test("relative project paths become normalized Windows paths", () => {
   expect(absoluteProjectPath("C:\\repo\\", "src/file.ts")).toBe("C:\\repo\\src\\file.ts");
 });
+
+test("forward-slash UNC paths remain absolute", () => {
+  expect(absoluteProjectPath("C:\\repo", "//server/share/file.ts")).toBe("\\\\server\\share\\file.ts");
+});

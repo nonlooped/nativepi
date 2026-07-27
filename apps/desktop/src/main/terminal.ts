@@ -118,6 +118,9 @@ export function clearTerminal(projectDir: string, terminalId: string): void {
   if (!terminal || terminal.projectDir !== projectDir) return;
   terminal.output = [];
   terminal.outputSize = 0;
+  // PSReadLine redraws the current prompt and any typed input after clearing,
+  // so the fresh output remains replayable when the terminal surface remounts.
+  if (!terminal.exited) terminal.process.write("\x0c");
 }
 
 export function writeTerminal(projectDir: string, terminalId: string, data: string): void {

@@ -8,14 +8,17 @@ test("external branch picker requests are ignored while a turn is running", () =
   const projectPath = "C:\\project";
   useAppStore.setState({
     activeProjectPath: projectPath,
-    branchMenuRequest: 0,
+    branchMenuRequested: false,
     conversations: { [projectPath]: { ...emptyConversation(), running: true } },
   });
 
   useAppStore.getState().requestBranchMenu();
-  expect(useAppStore.getState().branchMenuRequest).toBe(0);
+  expect(useAppStore.getState().branchMenuRequested).toBe(false);
 
   useAppStore.setState({ conversations: { [projectPath]: emptyConversation() } });
   useAppStore.getState().requestBranchMenu();
-  expect(useAppStore.getState().branchMenuRequest).toBe(1);
+  expect(useAppStore.getState().branchMenuRequested).toBe(true);
+
+  useAppStore.getState().consumeBranchMenuRequest();
+  expect(useAppStore.getState().branchMenuRequested).toBe(false);
 });

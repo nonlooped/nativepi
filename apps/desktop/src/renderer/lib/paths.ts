@@ -1,5 +1,5 @@
 export function absoluteProjectPath(projectDir: string, relativePath: string): string {
-  if (/^(?:[a-z]:[\\/]|\\\\)/i.test(relativePath)) return relativePath.replace(/\//g, "\\");
+  if (/^(?:[a-z]:[\\/]|[\\/]{2})/i.test(relativePath)) return relativePath.replace(/\//g, "\\");
   return `${projectDir.replace(/[\\/]+$/, "")}\\${relativePath.replace(/^[/\\]+/, "").replace(/\//g, "\\")}`;
 }
 
