@@ -101,19 +101,29 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     if (!draft) return;
     const { state: s, projectDir, key, text } = draft;
 
-    const pendingEntry: PendingMessage = { id: pendingId++, text };
+    /**
+     * A `/` message gets no optimistic bubble.
+     *
+     * The bubble is removed when Pi echoes the user message back, and an
+     * extension command may run to completion without one: it does its work and
+     * returns, and nothing would ever arrive to take the "Sending…" spinner off
+     * the screen or clear `runStartedAt` for the next run's timer. Only Pi knows
+     * which kind of command this is, so nothing is claimed on its behalf —
+     * whatever it does show up as arrives as events, a moment later.
+     */
+    const pendingEntry: PendingMessage | null = text.startsWith("/") ? null : { id: pendingId++, text };
     patchConversation(set, projectDir, (c) => ({
-      pending: [...c.pending, pendingEntry],
+      pending: pendingEntry ? [...c.pending, pendingEntry] : c.pending,
       error: undefined,
       errorRecovery: undefined,
-      runStartedAt: Date.now(),
+      runStartedAt: pendingEntry ? Date.now() : c.runStartedAt,
     }));
     get().setDraft("");
 
     const res = await rpc.request.submit({ projectDir, sessionFile: s.activeSessionFile, message: text });
     if (!res.ok) {
       patchConversation(set, projectDir, (c) => ({
-        pending: c.pending.filter((p) => p.id !== pendingEntry.id),
+        pending: c.pending.filter((p) => p.id !== pendingEntry?.id),
         error: res.error ?? "Failed to send",
         errorRecovery: "retrySend",
         runStartedAt: null,

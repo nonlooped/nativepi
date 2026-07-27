@@ -14,6 +14,7 @@ import {
   type TriggerKind,
 } from "../lib/autocomplete.ts";
 import { rpc } from "../lib/rpc.ts";
+import { useAppStore } from "../lib/store.ts";
 import { Kbd } from "@/components/ui/kbd.tsx";
 import { cn } from "@/lib/utils.ts";
 
@@ -139,6 +140,14 @@ function sameTrigger(a: Trigger | null, b: Trigger | null): boolean {
   return a.kind === b.kind && a.start === b.start && a.query === b.query;
 }
 
+interface CompletionLists {
+  commands: CommandInfo[];
+  skills: SkillInfo[];
+  files: string[];
+}
+
+const NO_COMPLETIONS: CompletionLists = { commands: [], skills: [], files: [] };
+
 /**
  * The lists behind the menus, read when one opens rather than on a timer.
  *
@@ -147,14 +156,22 @@ function sameTrigger(a: Trigger | null, b: Trigger | null): boolean {
  * be a cache to invalidate.
  */
 function useCompletionData(projectPath: string | null, kind: TriggerKind | null) {
-  const [commands, setCommands] = useState<CommandInfo[]>([]);
-  const [skills, setSkills] = useState<SkillInfo[]>([]);
-  const [files, setFiles] = useState<string[]>([]);
+  // Keyed by project, so switching does not offer one project's commands while
+  // the other's are still being read. Starting Pi in the project just opened can
+  // take seconds, and a command accepted from the previous project's list would
+  // run whatever the new one happens to call by that name.
+  const [byProject, setByProject] = useState<Record<string, CompletionLists>>({});
   const [loading, setLoading] = useState(false);
   const read = useRef<{ key: string; at: number } | null>(null);
+  // Pi honours a project's trust decision only at startup, and every list but
+  // the commands one is read off disk. Asking for commands before the user has
+  // answered would start Pi in the untrusted mode they are being asked about,
+  // and the answer would then arrive too late to matter.
+  const awaitingTrust = useAppStore((s) => s.trust === null || s.trustPrompt !== null);
 
   useEffect(() => {
     if (!kind || !projectPath) return;
+    if (kind === "command" && awaitingTrust) return;
     const key = `${kind}:${projectPath}`;
     const last = read.current;
     if (last?.key === key && Date.now() - last.at < REFRESH_AFTER_MS) return;
@@ -162,18 +179,16 @@ function useCompletionData(projectPath: string | null, kind: TriggerKind | null)
 
     let cancelled = false;
     setLoading(true);
+    const keep = (patch: Partial<CompletionLists>) => {
+      if (cancelled) return;
+      setByProject((s) => ({ ...s, [projectPath]: { ...(s[projectPath] ?? NO_COMPLETIONS), ...patch } }));
+    };
     const request =
       kind === "command"
-        ? rpc.request.listCommands({ projectDir: projectPath }).then((result) => {
-            if (!cancelled) setCommands(result.commands);
-          })
+        ? rpc.request.listCommands({ projectDir: projectPath }).then((result) => keep({ commands: result.commands }))
         : kind === "skill"
-          ? rpc.request.listSkills({ projectDir: projectPath }).then((result) => {
-              if (!cancelled) setSkills(result.skills);
-            })
-          : rpc.request.listProjectFiles({ projectDir: projectPath }).then((result) => {
-              if (!cancelled) setFiles(result.files);
-            });
+          ? rpc.request.listSkills({ projectDir: projectPath }).then((result) => keep({ skills: result.skills }))
+          : rpc.request.listProjectFiles({ projectDir: projectPath }).then((result) => keep({ files: result.files }));
 
     void request.catch(() => {}).finally(() => {
       if (!cancelled) setLoading(false);
@@ -181,9 +196,10 @@ function useCompletionData(projectPath: string | null, kind: TriggerKind | null)
     return () => {
       cancelled = true;
     };
-  }, [kind, projectPath]);
+  }, [awaitingTrust, kind, projectPath]);
 
-  return { commands, skills, files, loading };
+  const lists = (projectPath ? byProject[projectPath] : null) ?? NO_COMPLETIONS;
+  return { ...lists, loading: loading || (kind === "command" && awaitingTrust) };
 }
 
 /** What the menu calls itself, and what it says when nothing matches. */

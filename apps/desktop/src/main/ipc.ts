@@ -191,6 +191,28 @@ const gitMutationParamsSchema = z.object({
   create: z.boolean(),
 });
 const projectDirParamsSchema = z.object({ projectDir: z.string().min(1) });
+/**
+ * `get_commands` as the composer needs it, checked at the Pi boundary.
+ *
+ * A command whose shape Pi changed is dropped rather than passed on: the menu
+ * ranks and renders these directly, and one entry missing a name would break the
+ * list the user is typing into. Unknown fields are kept — this is Pi's data, and
+ * NativePi is only reading it.
+ */
+const commandSchema = z.looseObject({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  source: z.enum(["extension", "prompt", "skill"]),
+  location: z.enum(["user", "project", "path"]).optional(),
+});
+const commandsSchema = z.object({ commands: z.array(z.unknown()) });
+
+function parseCommands(data: unknown): CommandInfo[] {
+  return commandsSchema.parse(data).commands.flatMap((entry) => {
+    const parsed = commandSchema.safeParse(entry);
+    return parsed.success ? [parsed.data as CommandInfo] : [];
+  });
+}
 const terminalIdParamsSchema = projectDirParamsSchema.extend({ terminalId: z.string().min(1) });
 const terminalResizeParamsSchema = terminalIdParamsSchema.extend({
   cols: z.number().int().min(2).max(1000),
@@ -686,11 +708,12 @@ const handlers: HandlerMap = {
   listCommands: async ({ projectDir }) => {
     try {
       const pi = await ensurePi(projectDir);
-      const data = await pi.request<{ commands: CommandInfo[] }>({ type: "get_commands" });
-      return { commands: data.commands };
+      return { commands: parseCommands(await pi.request({ type: "get_commands" })) };
     } catch {
       // Same as the skills menu below: an empty list says "nothing to run",
-      // which is the truth as far as this window can tell.
+      // which is the truth as far as this window can tell. A response from a Pi
+      // that answers `get_commands` with something else lands here too, rather
+      // than reaching the menu as a shape it cannot render.
       return { commands: [] };
     }
   },
