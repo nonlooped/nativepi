@@ -27,7 +27,7 @@ import {
   writeTerminal,
 } from "./terminal.ts";
 import type { HostEvents, HostRequestName, HostRequests, PiStatus } from "../shared/rpc-schema.ts";
-import type { ForkPoint, ModelInfo, RpcSessionState, SessionStats, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
+import type { CommandInfo, ForkPoint, ModelInfo, RpcSessionState, SessionStats, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
 
 const pis = new Map<string, PiProcess>();
 const starting = new Map<string, Promise<PiProcess>>();
@@ -221,6 +221,29 @@ const gitMutationParamsSchema = z.object({
   create: z.boolean(),
 });
 const projectDirParamsSchema = z.object({ projectDir: z.string().min(1) });
+/**
+ * `get_commands` as the composer needs it, checked at the Pi boundary.
+ *
+ * A command whose shape Pi changed is dropped rather than passed on: the menu
+ * ranks and renders these directly, and one entry missing a name would break the
+ * list the user is typing into. Unknown fields are kept — this is Pi's data, and
+ * NativePi is only reading it.
+ */
+const commandSchema = z.looseObject({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  source: z.enum(["extension", "prompt", "skill"]),
+  location: z.enum(["user", "project", "path"]).optional(),
+});
+const commandsSchema = z.object({ commands: z.array(z.unknown()) });
+
+function parseCommands(data: unknown): CommandInfo[] {
+  return commandsSchema.parse(data).commands.flatMap((entry) => {
+    const parsed = commandSchema.safeParse(entry);
+    return parsed.success ? [parsed.data as CommandInfo] : [];
+  });
+}
+
 const prepareImagesParamsSchema = z.object({
   // Shape only. Size, format and how many of them are decided per file in
   // `prepareImages`, so one image nobody can use — or twenty past the limit —
@@ -328,7 +351,7 @@ const handlers: HandlerMap = {
     }
   },
 
-  submit: async ({ projectDir, sessionFile, message, images }) => {
+  submit: async ({ projectDir, sessionFile, message, images, streamingBehavior }) => {
     // Claim the write before Pi is even up, so our own append is never mistaken
     // for a concurrent editor and a cold start counts as work in flight: the
     // renderer has already cleared the draft, and a close that slipped through
@@ -347,7 +370,7 @@ const handlers: HandlerMap = {
         pi.boundSessionFile = state.sessionFile;
         sessionFile = state.sessionFile ?? null;
       }
-      pi.send({ type: "prompt", message, images });
+      pi.send({ type: "prompt", message, images, streamingBehavior });
       return { ok: true, sessionFile: sessionFile ?? undefined };
     } catch (err) {
       markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
@@ -735,6 +758,18 @@ const handlers: HandlerMap = {
     }
   },
 
+  listCommands: async ({ projectDir }) => {
+    try {
+      const pi = await ensurePi(projectDir);
+      return { commands: parseCommands(await pi.request({ type: "get_commands" })) };
+    } catch {
+      // Same as the skills menu below: an empty list says "nothing to run",
+      // which is the truth as far as this window can tell. A response from a Pi
+      // that answers `get_commands` with something else lands here too, rather
+      // than reaching the menu as a shape it cannot render.
+      return { commands: [] };
+    }
+  },
   listSkills: async ({ projectDir }) => {
     try {
       return { skills: await listSkills(projectDir) };

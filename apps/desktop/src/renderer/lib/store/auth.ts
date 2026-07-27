@@ -64,6 +64,10 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
     if (!path) return;
     await rpc.request.setTrust({ projectDir: path, trusted: true });
     set({ trustPrompt: null, trust: { required: true, trusted: true } });
+    // Trust is read once, when Pi starts. A process that came up while the
+    // prompt was open is still running untrusted and would ignore the answer
+    // the user just gave, so it goes and `warmProject` starts a trusted one.
+    await rpc.request.restartPi({ projectDir: path });
     if (get().activeProjectPath === path) warmProject(set, get, path);
   },
 

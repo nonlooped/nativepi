@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { PiPaths, PiSettings, PiSettingsPatch } from "./pi-settings.ts";
 import type {
+  CommandInfo,
   ExtensionUiResponse,
   FileEntry,
   ForkPoint,
@@ -195,7 +196,18 @@ export type HostRequests = {
     response: { ok: boolean; sessionFile?: string; canceled?: boolean; error?: string };
   };
   submit: {
-    params: { projectDir: string; sessionFile: string | null; message: string; images?: ImageContent[] };
+    params: {
+      projectDir: string;
+      sessionFile: string | null;
+      message: string;
+      images?: ImageContent[];
+      /**
+       * Set only while a turn is running. Pi executes an extension command
+       * immediately regardless, and queues anything else the way this says —
+       * which is why a `/` message takes this path rather than `enqueue`.
+       */
+      streamingBehavior?: "steer" | "followUp";
+    };
     response: { ok: boolean; sessionFile?: string; error?: string };
   };
   enqueue: {
@@ -330,7 +342,8 @@ export type HostRequests = {
     response: { ok: boolean; path?: string; error?: string };
   };
 
-  /** What the composer's `$` and `@` menus offer. Read on demand, never cached in main. */
+  /** What the composer's `/`, `$` and `@` menus offer. Read on demand, never cached in main. */
+  listCommands: { params: { projectDir: string }; response: { commands: CommandInfo[] } };
   listSkills: { params: { projectDir: string }; response: { skills: SkillInfo[] } };
   listProjectFiles: { params: { projectDir: string }; response: { files: string[] } };
 

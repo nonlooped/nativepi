@@ -184,12 +184,22 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     if (!draft) return;
     const { state: s, projectDir, key, text, images } = draft;
 
-    const pendingEntry: PendingMessage = { id: pendingId++, text, images };
+    /**
+     * A `/` message gets no optimistic bubble.
+     *
+     * The bubble is removed when Pi echoes the user message back, and an
+     * extension command may run to completion without one: it does its work and
+     * returns, and nothing would ever arrive to take the "Sending…" spinner off
+     * the screen or clear `runStartedAt` for the next run's timer. Only Pi knows
+     * which kind of command this is, so nothing is claimed on its behalf —
+     * whatever it does show up as arrives as events, a moment later.
+     */
+    const pendingEntry: PendingMessage | null = text.startsWith("/") ? null : { id: pendingId++, text, images };
     patchConversation(set, projectDir, (c) => ({
-      pending: [...c.pending, pendingEntry],
+      pending: pendingEntry ? [...c.pending, pendingEntry] : c.pending,
       error: undefined,
       errorRecovery: undefined,
-      runStartedAt: Date.now(),
+      runStartedAt: pendingEntry ? Date.now() : c.runStartedAt,
     }));
     get().setDraft("");
     clearAttachments(set, key);
@@ -202,7 +212,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     });
     if (!res.ok) {
       patchConversation(set, projectDir, (c) => ({
-        pending: c.pending.filter((p) => p.id !== pendingEntry.id),
+        pending: c.pending.filter((p) => p.id !== pendingEntry?.id),
         error: res.error ?? "Failed to send",
         errorRecovery: "retrySend",
         runStartedAt: null,
@@ -238,7 +248,24 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     get().setDraft("");
     clearAttachments(set, key);
 
-    const res = await rpc.request.enqueue({ projectDir, behavior, message: text, images: images.map(toImageContent) });
+    /**
+     * A command goes to `prompt`, never to `steer` or `follow_up`.
+     *
+     * Pi refuses an extension command on the queueing commands outright, and
+     * `prompt` is where it decides: an extension command runs immediately even
+     * mid-turn, while a skill or a prompt template is queued the way `behavior`
+     * asks. Sending every `/` message this way lets Pi make that call rather
+     * than NativePi guessing which kind of command it is holding.
+     */
+    const res = text.startsWith("/")
+      ? await rpc.request.submit({
+          projectDir,
+          sessionFile: get().activeSessionFile,
+          message: text,
+          images: images.map(toImageContent),
+          streamingBehavior: behavior,
+        })
+      : await rpc.request.enqueue({ projectDir, behavior, message: text, images: images.map(toImageContent) });
     if (!res.ok) {
       patchConversation(set, projectDir, {
         error: res.error ?? "Failed to queue message",

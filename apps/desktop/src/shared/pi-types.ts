@@ -209,6 +209,20 @@ export interface SkillInfo {
 }
 
 
+/**
+ * One command Pi will expand or execute when a message opens with `/name`.
+ *
+ * Pi's own `get_commands` is the only list: extension commands, prompt templates
+ * and skills all arrive here already resolved for this project, so the composer
+ * offers exactly what Pi would accept and nothing NativePi guessed at.
+ */
+export interface CommandInfo {
+  name: string;
+  description?: string;
+  source: "extension" | "prompt" | "skill";
+  location?: "user" | "project" | "path";
+}
+
 export interface PackageInfo {
   source: string;
   scope: "user" | "project";
