@@ -49,6 +49,20 @@ export interface ImageAttachment {
   data: string;
 }
 
+/**
+ * What is still running when the user asks to quit.
+ *
+ * Both are project directories with one entry per running thing, so a project
+ * with three terminals appears three times: the window has the project list and
+ * can turn a path into the name the user gave it.
+ */
+export interface PendingWork {
+  /** Projects with an agent turn in flight. */
+  runs: string[];
+  /** Projects owning a terminal whose shell is still alive. */
+  terminals: string[];
+}
+
 export interface TerminalSession {
   id: string;
   projectDir: string;
@@ -261,6 +275,8 @@ export type HostRequests = {
   windowMinimize: { params: Record<string, never>; response: { ok: boolean } };
   windowToggleMaximize: { params: Record<string, never>; response: { maximized: boolean } };
   windowClose: { params: Record<string, never>; response: { ok: boolean } };
+  /** Answer to `quitRequested`: stop the running work and close the window. */
+  confirmQuit: { params: Record<string, never>; response: { ok: boolean } };
   windowIsMaximized: { params: Record<string, never>; response: { maximized: boolean } };
   openExternal: { params: { url: string }; response: { ok: boolean } };
   listEditors: { params: Record<string, never>; response: { editors: InstalledEditor[] } };
@@ -357,6 +373,8 @@ export type HostEvents = {
   authPrompt: { id: string; prompt: AuthPromptRequest };
   authNotice: { notice: AuthNotice };
   windowMaximized: { maximized: boolean };
+  /** The close was held back because work is in flight. The window decides. */
+  quitRequested: { work: PendingWork };
   terminalData: { projectDir: string; terminalId: string; data: string; sequence: number };
   terminalExit: { projectDir: string; terminalId: string; exitCode: number };
 };

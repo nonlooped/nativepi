@@ -16,6 +16,7 @@ import ContextPane from "./components/ContextPane.tsx";
 import ExtensionUi from "./components/ExtensionUi.tsx";
 import NativePiWordmark from "./components/NativePiWordmark.tsx";
 import ProjectStatus from "./components/ProjectStatus.tsx";
+import QuitDialog from "./components/QuitDialog.tsx";
 import OpenWith from "./components/OpenWith.tsx";
 import Settings from "./components/Settings.tsx";
 import Toaster from "./components/Toaster.tsx";
@@ -229,6 +230,7 @@ export default function App() {
       <WindowControls />
 
       <TrustDialog />
+      <QuitDialog />
       <ExtensionUi />
     </div>
   );
