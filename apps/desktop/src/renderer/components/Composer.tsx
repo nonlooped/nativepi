@@ -3,7 +3,7 @@ import { PaperclipIcon } from "@phosphor-icons/react/Paperclip";
 import { useId, useMemo, useRef, useState } from "react";
 import type { AssistantMessage } from "../../shared/pi-types.ts";
 import { draftKeyFor } from "../../shared/messages.ts";
-import { ACCEPTED_IMAGE_TYPES, imageFilesIn } from "../lib/attachments.ts";
+import { ACCEPTED_IMAGE_TYPES, draggingImages, imageFilesIn } from "../lib/attachments.ts";
 import { activeConversation, thinkingLabel, useAppStore } from "../lib/store.ts";
 import { formatTokens } from "../lib/format.ts";
 import { rpc } from "../lib/rpc.ts";
@@ -40,9 +40,14 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
     (s) => (activeProjectPath ? (s.attachments[draftKeyFor(activeProjectPath, activeSessionFile)]?.length ?? 0) : 0),
   );
   const attach = useAppStore((s) => s.attach);
+  const preparing = useAppStore(
+    (s) => (activeProjectPath ? (s.preparing[draftKeyFor(activeProjectPath, activeSessionFile)] ?? 0) : 0),
+  );
 
   const disabled = !activeProjectPath;
-  const canSend = (!!draft.trim() || attached > 0) && !disabled && !blocked;
+  // Images being read hold the send: they belong to this message, and Enter a
+  // moment too early would send the text alone and leave them for the next one.
+  const canSend = (!!draft.trim() || attached > 0) && !disabled && !blocked && preparing === 0;
   const steering = running && behavior === "steer";
 
   const submit = () => {
@@ -66,7 +71,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
       <div
         className="composer-surface mx-auto flex w-full max-w-(--conversation-width) flex-col rounded-3xl bg-card px-3 pb-3 pt-2"
         onDragOver={(event) => {
-          if (disabled || imageFilesIn(event.dataTransfer).length === 0) return;
+          if (disabled || !draggingImages(event.dataTransfer)) return;
           event.preventDefault();
         }}
         onDrop={(event) => {

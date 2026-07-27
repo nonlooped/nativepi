@@ -193,11 +193,10 @@ const gitMutationParamsSchema = z.object({
 });
 const projectDirParamsSchema = z.object({ projectDir: z.string().min(1) });
 const prepareImagesParamsSchema = z.object({
-  // Shape only. Size and format are decided per file in `prepareImages`, so one
-  // image nobody can use does not cost the user the rest of the drop.
-  files: z
-    .array(z.object({ name: z.string(), mimeType: z.string(), data: z.string() }))
-    .max(20),
+  // Shape only. Size, format and how many of them are decided per file in
+  // `prepareImages`, so one image nobody can use — or twenty past the limit —
+  // does not cost the user the rest of the drop, or the toast naming them.
+  files: z.array(z.object({ name: z.string(), mimeType: z.string(), data: z.string() })),
 });
 const terminalIdParamsSchema = projectDirParamsSchema.extend({ terminalId: z.string().min(1) });
 const terminalResizeParamsSchema = terminalIdParamsSchema.extend({

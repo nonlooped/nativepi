@@ -115,6 +115,12 @@ export interface ChatSlice {
    * user forgot they pasted last week is worse than one they have to re-add.
    */
   attachments: Record<string, ImageAttachment[]>;
+  /**
+   * Batches still being read and resized, per draft key. Sending is held while a
+   * draft has one: the images are already on their way to that message, and a
+   * send that went out first would leave them behind for the next one.
+   */
+  preparing: Record<string, number>;
 
   refreshSessions: (projectPath: string) => Promise<void>;
   selectChat: (sessionFile: string) => Promise<void>;

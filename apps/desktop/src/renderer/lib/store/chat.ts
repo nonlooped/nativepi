@@ -13,6 +13,8 @@ import {
 } from "./internals.ts";
 import { readAsBase64, toImageContent } from "../attachments.ts";
 import { showAttachmentsRejected } from "../toast.ts";
+import { MAX_IMAGE_BYTES } from "../../../shared/images.ts";
+import type { ImageAttachment } from "../../../shared/rpc-schema.ts";
 import type { ChatSlice, GetState, PendingMessage, SetState, SliceCreator } from "./types.ts";
 
 let pendingId = 1;
@@ -41,6 +43,26 @@ function clearAttachments(set: SetState, key: string): void {
   });
 }
 
+/** Put images back under a key without disturbing whatever is there now. */
+function addAttachments(set: SetState, key: string, images: ImageAttachment[], atFront = false): void {
+  if (images.length === 0) return;
+  set((s) => {
+    const held = s.attachments[key] ?? [];
+    const merged = atFront ? [...images, ...held] : [...held, ...images];
+    return { attachments: { ...s.attachments, [key]: merged } };
+  });
+}
+
+/** One more, or one fewer, batch being read and resized for this draft. */
+function countPreparing(set: SetState, key: string, delta: number): void {
+  set((s) => {
+    const count = (s.preparing[key] ?? 0) + delta;
+    if (count > 0) return { preparing: { ...s.preparing, [key]: count } };
+    const { [key]: _done, ...rest } = s.preparing;
+    return { preparing: rest };
+  });
+}
+
 export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   sessionsByProject: {},
   activeSessionFile: null,
@@ -49,6 +71,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   sendBehavior: "followUp",
   drafts: {},
   attachments: {},
+  preparing: {},
 
   refreshSessions: async (projectPath) => {
     const { sessions } = await rpc.request.listSessions({ projectDir: projectPath });
@@ -113,20 +136,35 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   },
 
   /**
-   * Hold images against the current draft.
+   * Hold images against the draft they were added to.
    *
-   * The chat can change while the bytes are being read and resized, so the key
-   * is taken again on the way back: images land on the draft that is open when
-   * they are ready, not the one that was open when they were dropped.
+   * The key is taken before any of the reading starts and kept: the user can
+   * switch chat or project while a drop is being read and resized, and an image
+   * that followed them would be attached to a conversation they never dropped it
+   * on — and sent there. The draft it belongs to is the one that was open when
+   * they let go.
+   *
+   * Anything too large to be worth sending is refused here rather than being
+   * read: `readAsDataURL` on a 400 MB file costs the renderer that much memory
+   * and more, all to have the main process turn it down afterwards.
    */
   attach: async (files) => {
     if (files.length === 0) return;
-    const read = await Promise.all(files.map((file) => readAsBase64(file)));
-    const result = await rpc.request.prepareImages({ files: read });
-    if (result.rejected.length > 0) showAttachmentsRejected(result.rejected);
-    if (result.images.length === 0) return;
     const key = draftKey(get);
-    set((s) => ({ attachments: { ...s.attachments, [key]: [...(s.attachments[key] ?? []), ...result.images] } }));
+    const oversized = files.filter((file) => file.size > MAX_IMAGE_BYTES);
+    const readable = files.filter((file) => file.size <= MAX_IMAGE_BYTES);
+    if (oversized.length > 0) showAttachmentsRejected(oversized.map((file) => file.name || "Pasted image"));
+    if (readable.length === 0) return;
+
+    countPreparing(set, key, 1);
+    try {
+      const read = await Promise.all(readable.map((file) => readAsBase64(file)));
+      const result = await rpc.request.prepareImages({ files: read });
+      if (result.rejected.length > 0) showAttachmentsRejected(result.rejected);
+      addAttachments(set, key, result.images);
+    } finally {
+      countPreparing(set, key, -1);
+    }
   },
 
   detach: (id) => {
@@ -170,8 +208,11 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
         runStartedAt: null,
       }));
       // The images go back with the text: a retry that silently dropped them
-      // would send a message about a screenshot that is no longer attached.
-      set((st) => ({ drafts: { ...st.drafts, [key]: text }, attachments: { ...st.attachments, [key]: images } }));
+      // would send a message about a screenshot that is no longer attached. They
+      // go in front of whatever was attached while the send was in flight — the
+      // composer stayed usable, and those images are for the next message.
+      set((st) => ({ drafts: { ...st.drafts, [key]: text } }));
+      addAttachments(set, key, images, true);
       return;
     }
     if (res.sessionFile) {
@@ -203,7 +244,8 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
         error: res.error ?? "Failed to queue message",
         errorRecovery: "retrySend",
       });
-      set((st) => ({ drafts: { ...st.drafts, [key]: text }, attachments: { ...st.attachments, [key]: images } }));
+      set((st) => ({ drafts: { ...st.drafts, [key]: text } }));
+      addAttachments(set, key, images, true);
     }
   },
 

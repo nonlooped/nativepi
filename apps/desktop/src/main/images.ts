@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { resizeImage } from "@earendil-works/pi-coding-agent";
 import type { ImageAttachment } from "../shared/rpc-schema.ts";
+import { MAX_IMAGES } from "../shared/images.ts";
 
 /**
  * Images on their way to a prompt, sized the way Pi sizes them.
@@ -27,9 +28,12 @@ export async function prepareImages(
   files: { name: string; mimeType: string; data: string }[],
 ): Promise<{ images: ImageAttachment[]; rejected: string[] }> {
   const images: ImageAttachment[] = [];
-  const rejected: string[] = [];
+  // Past the batch limit the extra files are named rather than dropped: a drop
+  // of thirty images that came back empty and silent would look like a failure
+  // of the whole feature.
+  const rejected: string[] = files.slice(MAX_IMAGES).map((file) => file.name);
 
-  for (const file of files) {
+  for (const file of files.slice(0, MAX_IMAGES)) {
     if (!SUPPORTED.has(file.mimeType) || file.data.length > MAX_INPUT_BASE64_BYTES) {
       rejected.push(file.name);
       continue;
