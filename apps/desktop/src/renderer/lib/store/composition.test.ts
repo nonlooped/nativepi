@@ -1,10 +1,6 @@
 import { expect, test } from "bun:test";
 
-Object.assign(globalThis, {
-  window: {
-    nativepi: { invoke: async () => ({}), events: { on: () => () => {} } },
-  },
-});
+import "./testBridge.ts";
 
 const { createAuthSlice } = await import("./auth.ts");
 const { createChatSlice } = await import("./chat.ts");
