@@ -5,7 +5,7 @@ import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
 import { GitBranchIcon } from "@phosphor-icons/react/GitBranch";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import type { GitChangedFile } from "../../shared/pi-types.ts";
-import { useAppStore } from "../lib/store.ts";
+import { activeConversation, useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -28,6 +28,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
   const requestBranchMenu = useAppStore((s) => s.requestBranchMenu);
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const projectDir = useAppStore((s) => s.activeProjectPath);
+  const running = useAppStore((s) => activeConversation(s).running);
   const [selected, setSelected] = useState<GitChangedFile | null>(null);
 
   useEffect(() => setSelected(null), [projectDir]);
@@ -74,7 +75,15 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
                 <ContextMenuItem disabled={!git.branch} onClick={() => git.branch && void navigator.clipboard.writeText(git.branch)}>
                   Copy branch name
                 </ContextMenuItem>
-                <ContextMenuItem onClick={requestBranchMenu}>Switch branch…</ContextMenuItem>
+                <ContextMenuItem
+                  disabled={running}
+                  onClick={() => {
+                    onClose?.();
+                    requestBranchMenu();
+                  }}
+                >
+                  Switch branch…
+                </ContextMenuItem>
                 <ContextMenuItem onClick={() => void refreshGit()}>Refresh status</ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
