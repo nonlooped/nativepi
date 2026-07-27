@@ -185,6 +185,28 @@ export function replaceWithChip(root: HTMLElement, start: number, end: number, k
   setCaret(root, space, 1);
 }
 
+/**
+ * Swap the draft range `[start, end)` for literal text followed by a space.
+ *
+ * What a command completion needs and a chip cannot give: `/review` is the head
+ * of a sentence the user carries on writing, so it has to stay editable text
+ * rather than becoming one atomic object the caret steps over.
+ */
+export function replaceWithText(root: HTMLElement, start: number, end: number, text: string): void {
+  const document = root.ownerDocument;
+  const from = locate(root, start);
+  const to = locate(root, end);
+
+  const range = document.createRange();
+  range.setStart(from.node, from.offset);
+  range.setEnd(to.node, to.offset);
+  range.deleteContents();
+
+  const node = document.createTextNode(text + HARD_SPACE);
+  range.insertNode(node);
+  setCaret(root, node, node.length);
+}
+
 function setCaret(root: HTMLElement, node: Node, offset: number): void {
   const selection = root.ownerDocument.getSelection();
   if (!selection) return;

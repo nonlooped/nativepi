@@ -143,7 +143,23 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     patchConversation(set, projectDir, { error: undefined });
     get().setDraft("");
 
-    const res = await rpc.request.enqueue({ projectDir, behavior, message: text });
+    /**
+     * A command goes to `prompt`, never to `steer` or `follow_up`.
+     *
+     * Pi refuses an extension command on the queueing commands outright, and
+     * `prompt` is where it decides: an extension command runs immediately even
+     * mid-turn, while a skill or a prompt template is queued the way `behavior`
+     * asks. Sending every `/` message this way lets Pi make that call rather
+     * than NativePi guessing which kind of command it is holding.
+     */
+    const res = text.startsWith("/")
+      ? await rpc.request.submit({
+          projectDir,
+          sessionFile: get().activeSessionFile,
+          message: text,
+          streamingBehavior: behavior,
+        })
+      : await rpc.request.enqueue({ projectDir, behavior, message: text });
     if (!res.ok) {
       patchConversation(set, projectDir, {
         error: res.error ?? "Failed to queue message",

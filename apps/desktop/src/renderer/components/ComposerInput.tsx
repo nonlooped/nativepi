@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { KeyboardEvent } from "react";
-import { caretOffset, caretToEnd, render, replaceWithChip, serialize } from "../lib/composerDom.ts";
+import { completionText } from "../lib/autocomplete.ts";
+import { caretOffset, caretToEnd, render, replaceWithChip, replaceWithText, serialize } from "../lib/composerDom.ts";
 import { AutocompleteMenu, useComposerAutocomplete } from "./ComposerAutocomplete.tsx";
 import { cn } from "@/lib/utils.ts";
 
@@ -44,7 +45,13 @@ export default function ComposerInput({
   const complete = useComposerAutocomplete(projectPath, (trigger, option) => {
     const element = root.current;
     if (!element) return;
-    replaceWithChip(element, trigger.start, trigger.end, trigger.kind, option.value);
+    // A command stays editable text — the user types its arguments next — where
+    // a skill or a file becomes one atomic chip.
+    if (trigger.kind === "command") {
+      replaceWithText(element, trigger.start, trigger.end, completionText(trigger, option.value));
+    } else {
+      replaceWithChip(element, trigger.start, trigger.end, trigger.kind, option.value);
+    }
     emit();
   });
 

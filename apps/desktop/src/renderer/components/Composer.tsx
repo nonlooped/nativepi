@@ -121,10 +121,10 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           <span aria-hidden="true" className="text-muted-foreground/50">
             ·
           </span>
-          {/* The two triggers are invisible until typed, and this screen is the
-              only place that says they exist. */}
+          {/* The three triggers are invisible until typed, and this screen is
+              the only place that says they exist. */}
           <span className="flex items-center gap-1.5">
-            <Kbd>$</Kbd> for skills, <Kbd>@</Kbd> for files
+            <Kbd>/</Kbd> for commands, <Kbd>$</Kbd> for skills, <Kbd>@</Kbd> for files
           </span>
         </p>
       ) : null}

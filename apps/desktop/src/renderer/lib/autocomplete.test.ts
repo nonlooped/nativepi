@@ -16,6 +16,13 @@ test("$ opens at any word boundary, since a chip reads mid-sentence", () => {
   expect(findTrigger("costs$5", 7)).toBeNull();
 });
 
+test("/ opens only at the head, because that is the only place Pi reads a command", () => {
+  expect(findTrigger("/rev", 4)).toEqual({ kind: "command", query: "rev", start: 0, end: 4 });
+  // Pi would not expand either of these, so neither may be offered.
+  expect(findTrigger("run /rev", 8)).toBeNull();
+  expect(findTrigger("/review the diff", 16)).toBeNull();
+});
+
 test("a query long enough to be a sentence is a sentence", () => {
   expect(findTrigger(`@${"x".repeat(65)}`, 66)).toBeNull();
 });
@@ -23,6 +30,8 @@ test("a query long enough to be a sentence is a sentence", () => {
 test("an accepted option becomes the text its chip stands for", () => {
   expect(completionText(findTrigger("@sto", 4)!, "src/store.ts")).toBe("@src/store.ts");
   expect(completionText(findTrigger("$rev", 4)!, "review")).toBe("/skill:review");
+  // A command is literal text the user types arguments after, not a chip.
+  expect(completionText(findTrigger("/rev", 4)!, "review-pr")).toBe("/review-pr");
 });
 
 test("a non-subsequence does not match, an empty query matches everything", () => {

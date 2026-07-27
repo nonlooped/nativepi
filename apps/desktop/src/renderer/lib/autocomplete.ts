@@ -1,15 +1,15 @@
-import type { SkillInfo } from "../../shared/pi-types.ts";
+import type { CommandInfo, SkillInfo } from "../../shared/pi-types.ts";
 import { chipText } from "./composerText.ts";
 
 /**
- * The composer's two insertion menus, as pure functions.
+ * The composer's insertion menus, as pure functions.
  *
  * All of the fiddly parts of an inline autocomplete — where the trigger starts,
  * what counts as still typing it, and what the text looks like afterwards — are
  * decided here so the component only has to render a list and move a highlight.
  */
 
-export type TriggerKind = "skill" | "file";
+export type TriggerKind = "command" | "skill" | "file";
 
 export interface Trigger {
   kind: TriggerKind;
@@ -33,15 +33,19 @@ const BOUNDARY = new Set(["/", "\\", "-", "_", ".", " "]);
 /**
  * The trigger the caret is currently inside, if any.
  *
- * Both open at a word boundary and close at the next space, so `@` in the middle
- * of an address and `$` in the middle of a price are left alone.
+ * `@` and `$` open at a word boundary and close at the next space, so `@` in the
+ * middle of an address and `$` in the middle of a price are left alone. `/` only
+ * opens at the very start of the message, because that is the only place Pi
+ * reads a command — offering one mid-sentence would promise an expansion that
+ * never happens.
  */
 export function findTrigger(text: string, caret: number): Trigger | null {
   let start = caret;
   while (start > 0 && !/\s/.test(text[start - 1] as string)) start--;
 
   const token = text.slice(start, caret);
-  const kind = token.startsWith("@") ? "file" : token.startsWith("$") ? "skill" : null;
+  const kind =
+    token.startsWith("@") ? "file" : token.startsWith("$") ? "skill" : start === 0 && token.startsWith("/") ? "command" : null;
   if (!kind) return null;
 
   const query = token.slice(1);
@@ -53,11 +57,12 @@ export function findTrigger(text: string, caret: number): Trigger | null {
 /**
  * The text a trigger becomes once accepted.
  *
- * Both kinds turn into a chip in the editor, so this is only the plain text
- * behind it; `composerText.ts` owns what that text has to look like.
+ * `@` and `$` turn into a chip in the editor, so this is only the plain text
+ * behind it; `composerText.ts` owns what that text has to look like. A command
+ * is written literally, because the user goes on to type arguments after it.
  */
 export function completionText(trigger: Trigger, value: string): string {
-  return chipText(trigger.kind, value);
+  return trigger.kind === "command" ? `/${value}` : chipText(trigger.kind, value);
 }
 
 export interface Match {
@@ -104,6 +109,15 @@ export function fuzzyMatch(candidate: string, query: string): Match | null {
   return { score, positions };
 }
 
+export interface CommandOption {
+  kind: "command";
+  value: string;
+  label: string;
+  detail: string;
+  source: CommandInfo["source"];
+  positions: number[];
+}
+
 export interface SkillOption {
   kind: "skill";
   value: string;
@@ -123,9 +137,42 @@ export interface FileOption {
   positions: number[];
 }
 
-export type Option = SkillOption | FileOption;
+export type Option = CommandOption | SkillOption | FileOption;
 
 const MAX_OPTIONS = 50;
+
+/**
+ * Rank the commands Pi reported, most relevant first.
+ *
+ * Ties break towards the shorter name rather than alphabetically: `/test`
+ * matching the query `test` is what was meant, not `/test-integration`.
+ */
+export function rankCommands(commands: CommandInfo[], query: string): CommandOption[] {
+  return commands
+    .flatMap((command) => {
+      const match = fuzzyMatch(command.name, query);
+      if (!match) return [];
+      return [
+        {
+          option: {
+            kind: "command" as const,
+            value: command.name,
+            label: command.name,
+            detail: command.description ?? "",
+            source: command.source,
+            positions: match.positions,
+          },
+          score: match.score,
+        },
+      ];
+    })
+    .sort(
+      (a, b) =>
+        b.score - a.score || a.option.value.length - b.option.value.length || a.option.value.localeCompare(b.option.value),
+    )
+    .slice(0, MAX_OPTIONS)
+    .map((entry) => entry.option);
+}
 
 export function rankSkills(skills: SkillInfo[], query: string): SkillOption[] {
   return skills

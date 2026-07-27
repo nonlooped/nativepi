@@ -25,7 +25,7 @@ import {
   writeTerminal,
 } from "./terminal.ts";
 import type { HostEvents, HostRequestName, HostRequests, PiStatus } from "../shared/rpc-schema.ts";
-import type { ForkPoint, ModelInfo, RpcSessionState, SessionStats, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
+import type { CommandInfo, ForkPoint, ModelInfo, RpcSessionState, SessionStats, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
 
 const pis = new Map<string, PiProcess>();
 const starting = new Map<string, Promise<PiProcess>>();
@@ -292,7 +292,7 @@ const handlers: HandlerMap = {
     }
   },
 
-  submit: async ({ projectDir, sessionFile, message }) => {
+  submit: async ({ projectDir, sessionFile, message, streamingBehavior }) => {
     try {
       const pi = await ensurePi(projectDir);
       // Claim the write before Pi's first event arrives, so our own append is
@@ -309,7 +309,7 @@ const handlers: HandlerMap = {
         pi.boundSessionFile = state.sessionFile;
         sessionFile = state.sessionFile ?? null;
       }
-      pi.send({ type: "prompt", message });
+      pi.send({ type: "prompt", message, streamingBehavior });
       return { ok: true, sessionFile: sessionFile ?? undefined };
     } catch (err) {
       markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
@@ -683,6 +683,17 @@ const handlers: HandlerMap = {
     }
   },
 
+  listCommands: async ({ projectDir }) => {
+    try {
+      const pi = await ensurePi(projectDir);
+      const data = await pi.request<{ commands: CommandInfo[] }>({ type: "get_commands" });
+      return { commands: data.commands };
+    } catch {
+      // Same as the skills menu below: an empty list says "nothing to run",
+      // which is the truth as far as this window can tell.
+      return { commands: [] };
+    }
+  },
   listSkills: async ({ projectDir }) => {
     try {
       return { skills: await listSkills(projectDir) };
