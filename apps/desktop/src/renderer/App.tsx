@@ -365,6 +365,10 @@ function WorkspaceHeader({
           onClick={onOpenContext}
           title={withHint("Show changes pane", "toggleContextPane")}
           aria-label="Show changes pane"
+          // Always false while rendered — the button leaves the header once the
+          // pane is docked — but the attribute still tells assistive tech this
+          // is a pane toggle, matching the terminal button beside it.
+          aria-pressed={false}
           className={NO_DRAG_REGION}
         >
           <SidebarSimpleIcon className="-scale-x-100" />
@@ -507,7 +511,19 @@ function ErrorBanner() {
         className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
       >
         <WarningCircleIcon weight="fill" className="mt-0.5 shrink-0" />
-        <p className="min-w-0 flex-1 break-words">{error}</p>
+        {/* A plain-language headline first: the raw message below is often a
+            long Pi stderr string, and nobody should have to parse one to learn
+            which kind of bad news this is. */}
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">
+            {errorRecovery === "retrySend"
+              ? "Your message didn't send"
+              : errorRecovery === "restartPi"
+                ? "Pi stopped unexpectedly"
+                : "This turn hit an error"}
+          </p>
+          <p className="mt-0.5 break-words text-destructive/80">{error}</p>
+        </div>
         {/* The action is whatever actually recovers from *this*
             failure. Retry used to be offered unconditionally and
             did nothing at all on the Pi-error path, because that
@@ -578,14 +594,18 @@ function WelcomeScreen() {
           </OnboardingStep>
         </ol>
 
+        {/* Same order and same words as the numbered steps above, so the
+            buttons read as "do step 1, do step 2" rather than contradicting
+            them. Open folder keeps the primary treatment: existing Pi users
+            arrive with a credential already stored. */}
         <div className="flex items-center gap-2">
+          <Button size="lg" variant="outline" onClick={openSettings}>
+            <SlidersHorizontalIcon data-icon="inline-start" />
+            Connect a provider
+          </Button>
           <Button size="lg" onClick={() => void addProject()}>
             <FolderOpenIcon data-icon="inline-start" weight="fill" />
             Open folder
-          </Button>
-          <Button size="lg" variant="outline" onClick={openSettings}>
-            <SlidersHorizontalIcon data-icon="inline-start" />
-            Set up provider
           </Button>
         </div>
       </div>

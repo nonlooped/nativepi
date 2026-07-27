@@ -35,7 +35,7 @@ export default function QuitDialog() {
           </DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
             {runs > 0
-              ? "Quitting stops the turn where it is. Everything Pi has already written to the chat is saved, but the rest of the turn will not happen."
+              ? "Quitting stops the turn where it is: the rest of the turn will not happen. Everything Pi has already written to the chat is saved."
               : "Quitting closes these shells and ends whatever they are running."}
           </DialogDescription>
         </DialogHeader>

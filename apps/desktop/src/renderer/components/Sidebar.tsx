@@ -31,6 +31,7 @@ import {
 import { NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import { editorName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
+import { showHint } from "../lib/toast.ts";
 
 export default function Sidebar({ onClose, overlay = false }: { onClose: () => void; overlay?: boolean }) {
   const projects = useAppStore((s) => s.projects);
@@ -109,9 +110,14 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search"
           aria-label="Search chats"
-          className="border-0 bg-transparent pl-8 pr-16 text-base shadow-none focus-visible:ring-2 focus-visible:ring-sidebar-ring md:text-base"
+          className={cn(
+            "border-0 bg-transparent pl-8 text-base shadow-none focus-visible:ring-2 focus-visible:ring-sidebar-ring md:text-base",
+            query ? "pr-3" : "pr-16",
+          )}
         />
-        <Kbd className="pointer-events-none absolute right-5 top-4">{hintFor("search")}</Kbd>
+        {/* The shortcut hint yields once there is text: on a narrow sidebar it
+            would otherwise sit on top of what the user is typing. */}
+        {query ? null : <Kbd className="pointer-events-none absolute right-5 top-4">{hintFor("search")}</Kbd>}
       </div>
 
       <div className="flex items-center justify-between px-4 pb-2">
@@ -224,7 +230,11 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                   Reveal in Explorer
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => void showTerminal(project.path)}>Open terminal here</ContextMenuItem>
-                <ContextMenuItem onClick={() => void navigator.clipboard.writeText(project.path)}>Copy path</ContextMenuItem>
+                <ContextMenuItem
+                  onClick={() => void navigator.clipboard.writeText(project.path).then(() => showHint("Path copied"))}
+                >
+                  Copy path
+                </ContextMenuItem>
                 <ContextMenuSeparator />
                 <ContextMenuItem onClick={() => setWorktreesFor(project.path)}>Worktrees…</ContextMenuItem>
                 <ContextMenuSeparator />
@@ -307,7 +317,7 @@ function ChatList({
                 className="flex min-w-0 flex-1 flex-row items-center gap-3 rounded-lg px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
               >
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{chatTitle(session)}</span>
-                <span className="shrink-0 text-xs font-semibold text-muted-foreground">{hoursAgo(session.modified, now)}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">{hoursAgo(session.modified, now)}</span>
               </button>
               {menu}
             </div>
@@ -315,7 +325,9 @@ function ChatList({
         />
       ))}
       {sessions.length === 0 && !isNewChat && (
-        <p className="px-2.5 py-1.5 text-xs text-muted-foreground">No chats yet</p>
+        <p className="px-2.5 py-1.5 text-xs text-muted-foreground">
+          No chats yet — press {hintFor("newChat")} to start one
+        </p>
       )}
       {sessions.length > 0 && visibleSessions.length === 0 && (
         <p className="px-2.5 py-1.5 text-xs text-muted-foreground">No matching chats</p>
@@ -332,5 +344,13 @@ function hoursAgo(timestamp: string, now: number): string {
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h`;
-  return `${Math.floor(hours / 24)}d`;
+  // The scale keeps climbing: a year-old chat reading "365d" makes the reader
+  // do the division that this label exists to do for them.
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo`;
+  return `${Math.floor(days / 365)}y`;
 }

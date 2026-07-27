@@ -59,6 +59,44 @@ export default function Transcript() {
   const [following, setFollowing] = useState(true);
   const [transcriptSelection, setTranscriptSelection] = useState("");
 
+  // The end of a run is the payoff of the whole loop, so the status pill
+  // settles into a short "Done" beat instead of vanishing the instant Pi
+  // finishes. Failed endings are excluded: the error banner owns those.
+  const activeProjectPath = useAppStore((s) => s.activeProjectPath);
+  const activeSessionFile = useAppStore((s) => s.activeSessionFile);
+  const [runDone, setRunDone] = useState<{ elapsed: string; files: number; stopped: boolean } | null>(null);
+  const runStart = useRef<number | null>(null);
+  const abortedRef = useRef(false);
+
+  useEffect(() => {
+    // A chat switch flips `running` without a run ending here; never carry a
+    // beat (or a pending start) across conversations.
+    runStart.current = null;
+    abortedRef.current = false;
+    setRunDone(null);
+  }, [activeProjectPath, activeSessionFile]);
+
+  useEffect(() => {
+    if (running) {
+      runStart.current = activeConversation(useAppStore.getState()).runStartedAt ?? Date.now();
+      abortedRef.current = false;
+      setRunDone(null);
+      return;
+    }
+    const started = runStart.current;
+    if (started === null) return;
+    runStart.current = null;
+    const state = useAppStore.getState();
+    if (activeConversation(state).error) return;
+    setRunDone({
+      elapsed: formatElapsed(Date.now() - started),
+      files: state.git?.isRepo ? state.git.files.length : 0,
+      stopped: abortedRef.current,
+    });
+    const timer = window.setTimeout(() => setRunDone(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [running]);
+
   useEffect(() => {
     const update = () => {
       const selection = window.getSelection();
@@ -187,13 +225,31 @@ export default function Transcript() {
             Jump to latest
           </Button>
         ) : null}
-        {running ? <RunStatusBar activeTool={activeToolName(items, results)} compacting={compacting} /> : null}
+        {running ? (
+          <RunStatusBar
+            activeTool={activeToolName(items, results)}
+            compacting={compacting}
+            onAbort={() => {
+              abortedRef.current = true;
+            }}
+          />
+        ) : runDone ? (
+          <RunDoneBar {...runDone} />
+        ) : null}
       </div>
     </div>
   );
 }
 
-function RunStatusBar({ activeTool, compacting }: { activeTool?: string; compacting: boolean }) {
+function RunStatusBar({
+  activeTool,
+  compacting,
+  onAbort,
+}: {
+  activeTool?: string;
+  compacting: boolean;
+  onAbort?: () => void;
+}) {
   const abort = useAppStore((s) => s.abort);
   const runStartedAt = useAppStore((s) => activeConversation(s).runStartedAt);
   const git = useAppStore((s) => s.git);
@@ -229,13 +285,44 @@ function RunStatusBar({ activeTool, compacting }: { activeTool?: string; compact
       <Button
         variant="destructive"
         size="sm"
-        onClick={abort}
+        onClick={() => {
+          onAbort?.();
+          abort();
+        }}
         title={withHint("Stop this turn", "stopTurn")}
         className="ml-1 h-6 shrink-0 rounded-full px-2.5"
       >
         <StopIcon weight="fill" data-icon="inline-start" />
         Stop
       </Button>
+    </div>
+  );
+}
+
+/**
+ * The pill's settling moment: the same shape as the run pill, holding the
+ * turn's duration and file count for a beat before the transcript goes quiet.
+ * A stopped run says so — "Done" would misreport an abort as a completion.
+ */
+function RunDoneBar({ elapsed, files, stopped }: { elapsed: string; files: number; stopped: boolean }) {
+  return (
+    <div className="pointer-events-auto flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full border bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-lg">
+      {stopped ? (
+        <StopIcon weight="fill" className="shrink-0 text-muted-foreground" />
+      ) : (
+        <CheckIcon weight="bold" className="shrink-0 text-success" />
+      )}
+      <span className="truncate font-medium">
+        {stopped ? (elapsed ? `Stopped after ${elapsed}` : "Stopped") : elapsed ? `Done in ${elapsed}` : "Done"}
+      </span>
+      {files > 0 ? (
+        <>
+          <span aria-hidden="true" className="text-muted-foreground/50">
+            ·
+          </span>
+          <span className="shrink-0 truncate text-muted-foreground">{pluralize(files, "file")} changed</span>
+        </>
+      ) : null}
     </div>
   );
 }

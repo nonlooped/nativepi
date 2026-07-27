@@ -16,6 +16,7 @@ import { chatTitle } from "../lib/transcript.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
+import { showHint } from "../lib/toast.ts";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -94,9 +95,9 @@ export default function SessionMenu({
     tree: () => setDialog("tree" as const),
     info: () => setDialog("info" as const),
     export: () => void doExport(),
-    copyTitle: () => void navigator.clipboard.writeText(chatTitle(session)),
+    copyTitle: () => void navigator.clipboard.writeText(chatTitle(session)).then(() => showHint("Title copied")),
     reveal: () => void rpc.request.showInFolder({ path: session.path }),
-    copyPath: () => void navigator.clipboard.writeText(session.path),
+    copyPath: () => void navigator.clipboard.writeText(session.path).then(() => showHint("Path copied")),
     delete: () => setDialog("delete" as const),
   };
 
@@ -508,6 +509,12 @@ function ExportDialog({ path, onClose }: { path: string; onClose: () => void }) 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
             Close
+          </Button>
+          {/* The file is often the destination's neighbour, not the destination:
+              an export usually gets attached or moved next, which starts in
+              Explorer rather than a browser tab. */}
+          <Button variant="outline" onClick={() => void rpc.request.showInFolder({ path })}>
+            Reveal in Explorer
           </Button>
           <Button onClick={() => void rpc.request.openExternal({ url: fileUrl(path) })}>
             <ArrowSquareOutIcon data-icon="inline-start" /> Open

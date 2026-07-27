@@ -1,4 +1,5 @@
 import { ArrowBendUpRightIcon, CaretDownIcon, CheckIcon, GitBranchIcon, PaperPlaneRightIcon, PlusIcon, TreeStructureIcon } from "../../shared/icons.ts"
+import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { PaperclipIcon } from "@phosphor-icons/react/Paperclip";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { AssistantMessage } from "../../shared/pi-types.ts";
@@ -394,7 +395,10 @@ function BranchSelector() {
 
   if (!isRepo) return null;
 
-  const label = detached ? "detached HEAD" : (branch ?? "—");
+  // Git's own term stays in the parenthesis for the people who know it; the
+  // words in front of it are for the people the product promises not to
+  // require terminal knowledge from.
+  const label = detached ? "No branch (detached)" : (branch ?? "—");
 
   return (
     <Menu open={open} onOpenChange={setOpen}>
@@ -475,7 +479,12 @@ function BranchList({ onDone }: { onDone: () => void }) {
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-        {loading ? <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">Loading…</p> : null}
+        {loading ? (
+          <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">
+            <CircleNotchIcon className="mr-1.5 inline animate-spin align-[-2px]" />
+            Loading branches…
+          </p>
+        ) : null}
         {matches.map((item) => {
           // Git allows one checkout per branch, so a branch another worktree
           // holds is not available here however much the user wants it.
@@ -551,8 +560,10 @@ function ContextWindow() {
   const percent = total ? Math.min(100, Math.round((used / total) * 100)) : 0;
 
   // A ring with nothing behind it is decoration. Until Pi reports a window for
-  // this model there is no reading to give, so the control is not there at all.
-  if (!total) return null;
+  // this model there is no reading to give, so the control is not interactive —
+  // but its slot stays reserved, so switching between models that do and don't
+  // report a window doesn't shuffle the neighbouring controls sideways.
+  if (!total) return <div aria-hidden="true" className="h-8 w-8 shrink-0" />;
 
   // Colour is status here, not theme: the ring stays neutral for the whole
   // stretch where the number is nobody's problem, and only speaks up near the

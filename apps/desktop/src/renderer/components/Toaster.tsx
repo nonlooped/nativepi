@@ -24,8 +24,10 @@ export default function Toaster() {
       toastOptions={{
         unstyled: true,
         classNames: {
+          // Sized by content between bounds: a fixed width forced long
+          // extension messages into a tall 320px ribbon of wrapped text.
           toast:
-            "pointer-events-auto flex w-80 items-start gap-2 rounded-lg border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg",
+            "pointer-events-auto flex w-auto min-w-64 max-w-96 items-start gap-2 rounded-lg border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg",
           title: "min-w-0 flex-1 whitespace-pre-wrap font-normal",
           description: "text-muted-foreground",
           icon: "mt-0.5 shrink-0",

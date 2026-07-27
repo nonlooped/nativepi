@@ -7,6 +7,7 @@ import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import type { GitChangedFile } from "../../shared/pi-types.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
+import { showHint } from "../lib/toast.ts";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
 import {
@@ -68,11 +69,16 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
             <ContextMenu>
               <ContextMenuTrigger render={<div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground" />}>
                 <GitBranchIcon className="shrink-0" />
-                <span className="truncate">{git.detached ? "detached HEAD" : (git.branch ?? "—")}</span>
+                <span className="truncate">{git.detached ? "No branch (detached)" : (git.branch ?? "—")}</span>
                 <span className="ml-auto tabular-nums">{git.files.length} changed</span>
               </ContextMenuTrigger>
               <ContextMenuContent>
-                <ContextMenuItem disabled={!git.branch} onClick={() => git.branch && void navigator.clipboard.writeText(git.branch)}>
+                <ContextMenuItem
+                  disabled={!git.branch}
+                  onClick={() =>
+                    git.branch && void navigator.clipboard.writeText(git.branch).then(() => showHint("Branch name copied"))
+                  }
+                >
                   Copy branch name
                 </ContextMenuItem>
                 <ContextMenuItem
@@ -109,8 +115,12 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
                       <FileTypeIcon path={file.path} />
                       <span className="min-w-0 flex-1 truncate font-medium">{file.path}</span>
                       {file.staged ? <span className="shrink-0 text-xs text-muted-foreground">staged</span> : null}
-                      <span className={cn("w-4 shrink-0 text-center font-mono text-xs font-semibold", stateColor(file.state))}>
-                        {stateBadge(file.state)}
+                      <span
+                        className={cn("w-4 shrink-0 text-center font-mono text-xs font-semibold", stateColor(file.state))}
+                        title={stateLabel(file.state)}
+                      >
+                        <span aria-hidden="true">{stateBadge(file.state)}</span>
+                        <span className="sr-only">{stateLabel(file.state)}</span>
                       </span>
                     </button>
                     </FileContextMenu> : null}
@@ -163,6 +173,18 @@ function FileDiff({ file, projectDir }: { file: GitChangedFile; projectDir: stri
 
 function stateBadge(state: GitChangedFile["state"]): string {
   return state === "added" ? "A" : state === "deleted" ? "D" : state === "renamed" ? "R" : state === "untracked" ? "U" : "M";
+}
+/** The badge letter's full word, for hover and assistive tech. */
+function stateLabel(state: GitChangedFile["state"]): string {
+  return state === "added"
+    ? "Added"
+    : state === "deleted"
+      ? "Deleted"
+      : state === "renamed"
+        ? "Renamed"
+        : state === "untracked"
+          ? "Untracked"
+          : "Modified";
 }
 function stateColor(state: GitChangedFile["state"]): string {
   if (state === "added") return "text-success";
