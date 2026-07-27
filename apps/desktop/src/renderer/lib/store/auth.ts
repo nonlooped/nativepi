@@ -1,6 +1,13 @@
 import { rpc } from "../rpc.ts";
 import { warmProject } from "./internals.ts";
-import type { AuthSlice, SliceCreator } from "./types.ts";
+import type { AuthSlice, GetState, SetState, SliceCreator } from "./types.ts";
+
+async function restartActiveProject(set: SetState, get: GetState): Promise<void> {
+  const projectDir = get().activeProjectPath;
+  if (!projectDir) return;
+  await rpc.request.restartPi({ projectDir });
+  if (get().activeProjectPath === projectDir) warmProject(set, get, projectDir);
+}
 
 export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
   providers: [],
@@ -26,11 +33,7 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
       await get().loadProviders();
       // The running Pi cached credentials at startup, so it can't see this new
       // login until restarted. Restart it, then reload models and state.
-      const projectDir = get().activeProjectPath;
-      if (projectDir) {
-        await rpc.request.restartPi({ projectDir });
-        if (get().activeProjectPath === projectDir) warmProject(set, get, projectDir);
-      }
+      await restartActiveProject(set, get);
     } else {
       set((s) => (s.authFlow ? { authFlow: { ...s.authFlow, busy: false, prompt: undefined, error: res.error } } : {}));
     }
@@ -53,11 +56,7 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
     await rpc.request.logout({ providerId });
     await get().loadProviders();
     // Restart Pi so its cached credentials drop the removed provider.
-    const projectDir = get().activeProjectPath;
-    if (projectDir) {
-      await rpc.request.restartPi({ projectDir });
-      if (get().activeProjectPath === projectDir) warmProject(set, get, projectDir);
-    }
+    await restartActiveProject(set, get);
   },
 
   trustActiveProject: async () => {
