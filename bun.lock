@@ -11,7 +11,7 @@
     },
     "apps/desktop": {
       "name": "@nativepi/desktop",
-      "version": "0.3.0",
+      "version": "0.6.0",
       "dependencies": {
         "@earendil-works/pi-coding-agent": "0.82.1",
         "@xterm/addon-fit": "^0.11.0",
