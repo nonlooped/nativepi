@@ -19,6 +19,7 @@ import {
   closeProjectTerminals,
   createTerminal,
   listTerminals,
+  liveTerminalProjects,
   resizeTerminal,
   stopAllTerminals,
   terminalSnapshot,
@@ -76,6 +77,27 @@ function forwardEvent(projectDir: string, event: PiMessage): void {
     markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
   }
   push("piEvent", { projectDir, sessionFile: pis.get(projectDir)?.boundSessionFile, event });
+}
+
+/**
+ * Whether the close has to wait for an answer.
+ *
+ * Quitting kills every Pi and every shell, and neither gets a chance to finish
+ * what it was doing. `busyUntil` already knows which projects are mid-turn — the
+ * infinite value is set on `agent_start` and replaced when the turn settles — so
+ * the summary the window shows is the same reading the session watcher trusts.
+ * Only projects with a live process count: a Pi that died mid-turn leaves its
+ * marker behind, and nothing is running for the user to lose.
+ */
+let quitConfirmed = false;
+
+export function quitBlocked(): boolean {
+  if (quitConfirmed) return false;
+  const runs = [...pis.keys()].filter((projectDir) => busyUntil.get(projectDir) === Number.POSITIVE_INFINITY);
+  const terminals = liveTerminalProjects();
+  if (runs.length === 0 && terminals.length === 0) return false;
+  push("quitRequested", { work: { runs, terminals } });
+  return true;
 }
 
 function stopSessionWatch(): void {
@@ -553,6 +575,11 @@ const handlers: HandlerMap = {
     return { maximized: mainWindow.isMaximized() };
   },
   windowClose: () => {
+    mainWindow?.close();
+    return { ok: true };
+  },
+  confirmQuit: () => {
+    quitConfirmed = true;
     mainWindow?.close();
     return { ok: true };
   },

@@ -32,6 +32,7 @@ const allowedEvents: Record<HostEventName, true> = {
   authPrompt: true,
   authNotice: true,
   windowMaximized: true,
+  quitRequested: true,
   terminalData: true,
   terminalExit: true,
 };

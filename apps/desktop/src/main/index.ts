@@ -1,12 +1,14 @@
 import { app, BrowserWindow, shell } from "electron";
 import { join } from "node:path";
-import { registerIpc, setMainWindow, stopAllPi } from "./ipc.ts";
+import { quitBlocked, registerIpc, setMainWindow, stopAllPi } from "./ipc.ts";
 
 // Not named `__dirname`: rolldown injects a CommonJS `__dirname` shim at the top
 // of the main bundle, and a same-named top-level const collides with it at load.
 const mainDir = import.meta.dirname;
 
 app.setName("NativePi");
+
+let quitting = false;
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -29,6 +31,17 @@ function createWindow(): void {
   });
 
   setMainWindow(win);
+
+  /**
+   * Closing is where an agent turn and a shell die, so it is where the user is
+   * asked. Held here rather than in `before-quit`, which on Windows only runs
+   * once the window is already gone and there is nothing left to show a dialog
+   * in. A quit that is already under way is let through: by then the answer has
+   * been given, or the OS is ending the session and is not waiting for one.
+   */
+  win.on("close", (event) => {
+    if (!quitting && quitBlocked()) event.preventDefault();
+  });
 
   win.on("closed", () => setMainWindow(null));
 
@@ -72,7 +85,6 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-let quitting = false;
 app.on("before-quit", (event) => {
   if (quitting) return;
   event.preventDefault();
