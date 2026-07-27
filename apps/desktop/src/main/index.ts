@@ -8,6 +8,44 @@ const mainDir = import.meta.dirname;
 
 app.setName("NativePi");
 
+/**
+ * One NativePi at a time.
+ *
+ * A second copy would keep its own Pi process per project and its own copy of
+ * the state file, so the two would overwrite each other's projects, drafts and
+ * pane sizes, and each would see the other's session writes as an external
+ * edit. Electron hands the losing launch to the instance holding the lock,
+ * which raises the window the user already has. `exit` rather than `quit`: this
+ * process owns nothing yet, so there is nothing for `before-quit` to shut down.
+ */
+if (!app.requestSingleInstanceLock()) app.exit(0);
+
+let quitting = false;
+let relaunchAfterQuit = false;
+
+app.on("second-instance", () => {
+  // The lock is held until this process exits, so a launch that arrives while
+  // `stopAllPi` is still running lands here with no window left to raise.
+  // Handing it to a second process instead would put two owners on the Pi
+  // children and the state file, so honour it by relaunching once this one has
+  // finished shutting down.
+  if (quitting) {
+    relaunchAfterQuit = true;
+    return;
+  }
+  const win = BrowserWindow.getAllWindows()[0];
+  // No window but not quitting: macOS keeps the app alive after the last close.
+  if (!win) {
+    createWindow();
+    return;
+  }
+  if (win.isMinimized()) win.restore();
+  // `show` as well as `focus`: the window starts hidden until `ready-to-show`,
+  // and focusing a window that was never shown leaves the user with nothing.
+  win.show();
+  win.focus();
+});
+
 function createWindow(): void {
   const win = new BrowserWindow({
     title: "NativePi",
@@ -72,10 +110,12 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-let quitting = false;
 app.on("before-quit", (event) => {
   if (quitting) return;
   event.preventDefault();
   quitting = true;
-  void stopAllPi().finally(() => app.quit());
+  void stopAllPi().finally(() => {
+    if (relaunchAfterQuit) app.relaunch();
+    app.quit();
+  });
 });
