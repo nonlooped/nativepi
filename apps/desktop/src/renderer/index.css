@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "streamdown/styles.css";
+@import "@xterm/xterm/css/xterm.css";
 @import "@fontsource-variable/nunito-sans";
 @import "@fontsource-variable/raleway";
 
@@ -214,6 +215,27 @@ body {
   background:
     radial-gradient(circle at 50% -20%, color-mix(in oklch, var(--foreground) 4%, transparent), transparent 38%),
     var(--background);
+}
+
+.terminal-surface .xterm,
+.terminal-surface .xterm-viewport {
+  height: 100%;
+}
+
+.terminal-surface .xterm-viewport {
+  background: transparent !important;
+}
+
+.terminal-dock-enter {
+  animation: terminal-dock-enter 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: bottom;
+}
+
+@keyframes terminal-dock-enter {
+  from {
+    clip-path: inset(1rem 0 0);
+    transform: translateY(0.75rem);
+  }
 }
 
 .sidebar-panel {

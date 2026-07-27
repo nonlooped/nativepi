@@ -17,7 +17,10 @@
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "0.82.1",
-    "esbuild": "^0.28.1"
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "esbuild": "^0.28.1",
+    "node-pty": "^1.1.0"
   },
   "devDependencies": {
     "@base-ui/react": "^1.6.0",
@@ -61,6 +64,7 @@
   "build": {
     "appId": "dev.nativepi.app",
     "productName": "NativePi",
+    "npmRebuild": false,
     "directories": {
       "output": "release"
     },
@@ -71,7 +75,8 @@
     "asarUnpack": [
       "**/node_modules/@earendil-works/**/*",
       "**/node_modules/esbuild/**/*",
-      "**/node_modules/@esbuild/**/*"
+      "**/node_modules/@esbuild/**/*",
+      "**/node_modules/node-pty/**/*"
     ],
     "win": {
       "icon": "resources/icon.ico",

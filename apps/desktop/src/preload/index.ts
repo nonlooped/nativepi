@@ -32,6 +32,8 @@ const allowedEvents: Record<HostEventName, true> = {
   authPrompt: true,
   authNotice: true,
   windowMaximized: true,
+  terminalData: true,
+  terminalExit: true,
 };
 
 export type NativePiApi = {

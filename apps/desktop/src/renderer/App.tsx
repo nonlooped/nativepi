@@ -6,6 +6,7 @@ import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { SlidersHorizontalIcon } from "@phosphor-icons/react/SlidersHorizontal";
+import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { XIcon } from "@phosphor-icons/react/X";
 import Sidebar from "./components/Sidebar.tsx";
@@ -20,6 +21,7 @@ import Settings from "./components/Settings.tsx";
 import Toaster from "./components/Toaster.tsx";
 import TrustDialog from "./components/TrustDialog.tsx";
 import WindowControls from "./components/WindowControls.tsx";
+import TerminalDock from "./components/TerminalDock.tsx";
 import { activeConversation, useAppStore } from "./lib/store.ts";
 import { chatTitle } from "./lib/transcript.ts";
 import { bindings, withHint } from "./lib/shortcuts.ts";
@@ -41,6 +43,7 @@ export default function App() {
   const init = useAppStore((s) => s.init);
   const ready = useAppStore((s) => s.ready);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
+  const projects = useAppStore((s) => s.projects);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const error = useAppStore((s) => activeConversation(s).error);
   const externalChange = useAppStore((s) => activeConversation(s).externalChange);
@@ -56,8 +59,20 @@ export default function App() {
   const [sidebarSheetOpen, setSidebarSheetOpen] = useState(false);
   const [contextSheetOpen, setContextSheetOpen] = useState(false);
   const [layout, setLayout] = useState<WorkspaceLayout>(currentWorkspaceLayout);
+  const [terminalProjects, setTerminalProjects] = useState<Set<string>>(() => new Set());
   const sidebarDocked = layout !== "compact" && sidebarOpen;
   const contextDocked = layout === "wide" && contextPaneOpen;
+  const terminalOpen = activeProjectPath ? terminalProjects.has(activeProjectPath) : false;
+
+  const toggleTerminal = () => {
+    if (!activeProjectPath) return;
+    setTerminalProjects((current) => {
+      const next = new Set(current);
+      if (next.has(activeProjectPath)) next.delete(activeProjectPath);
+      else next.add(activeProjectPath);
+      return next;
+    });
+  };
 
   useEffect(() => {
     void init();
@@ -82,7 +97,15 @@ export default function App() {
     setContextSheetOpen(false);
   }, [layout]);
 
-  useWorkspaceShortcuts(layout, setSidebarSheetOpen, setContextSheetOpen);
+  useEffect(() => {
+    const paths = new Set(projects.map((project) => project.path));
+    setTerminalProjects((current) => {
+      const next = new Set([...current].filter((path) => paths.has(path)));
+      return next.size === current.size ? current : next;
+    });
+  }, [projects]);
+
+  useWorkspaceShortcuts(layout, setSidebarSheetOpen, setContextSheetOpen, toggleTerminal);
 
   if (!ready) {
     return (
@@ -106,12 +129,16 @@ export default function App() {
       <ResizablePanelGroup orientation="horizontal">
         {sidebarDocked ? <Sidebar onClose={() => setSidebarOpen(false)} /> : null}
         <ResizablePanel id="conversation" minSize="35%">
+          <ResizablePanelGroup orientation="vertical">
+          <ResizablePanel id="workspace" minSize="35%">
           <main className="conversation-shell flex h-full min-h-0 min-w-0 flex-col">
             <WorkspaceHeader
               sidebarDocked={sidebarDocked}
               contextDocked={contextDocked}
+              terminalOpen={terminalOpen}
               onOpenSidebar={() => (layout === "compact" ? setSidebarSheetOpen(true) : setSidebarOpen(true))}
               onOpenContext={() => (layout === "wide" ? toggleContextPane() : setContextSheetOpen(true))}
+              onToggleTerminal={toggleTerminal}
             />
 
             {activeProjectPath ? (
@@ -139,6 +166,16 @@ export default function App() {
               <WelcomeScreen />
             )}
           </main>
+          </ResizablePanel>
+          {activeProjectPath && terminalOpen ? (
+            <>
+              <ResizableHandle className="hover:bg-ring focus-visible:bg-ring" />
+              <ResizablePanel id={`terminal-${activeProjectPath}`} defaultSize="34%" minSize="15%" maxSize="65%">
+                <TerminalDock key={activeProjectPath} projectDir={activeProjectPath} onMinimize={toggleTerminal} />
+              </ResizablePanel>
+            </>
+          ) : null}
+          </ResizablePanelGroup>
         </ResizablePanel>
 
         {activeProjectPath && contextDocked ? (
@@ -257,13 +294,17 @@ function ExternalChangeNotice() {
 function WorkspaceHeader({
   sidebarDocked,
   contextDocked,
+  terminalOpen,
   onOpenSidebar,
   onOpenContext,
+  onToggleTerminal,
 }: {
   sidebarDocked: boolean;
   contextDocked: boolean;
+  terminalOpen: boolean;
   onOpenSidebar: () => void;
   onOpenContext: () => void;
+  onToggleTerminal: () => void;
 }) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const isNewChat = useAppStore((s) => s.isNewChat);
@@ -312,6 +353,19 @@ function WorkspaceHeader({
       </div>
       {activeProjectPath ? <OpenWith projectDir={activeProjectPath} /> : null}
       {activeProjectPath ? <ProjectStatus className={NO_DRAG_REGION} /> : null}
+      {activeProjectPath ? (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onToggleTerminal}
+          title={withHint(terminalOpen ? "Hide terminal" : "Show terminal", "toggleTerminal")}
+          aria-label={terminalOpen ? "Hide terminal" : "Show terminal"}
+          aria-pressed={terminalOpen}
+          className={NO_DRAG_REGION}
+        >
+          <TerminalWindowIcon />
+        </Button>
+      ) : null}
       {activeProjectPath && !contextDocked ? (
         <Button
           variant="ghost"
@@ -333,6 +387,7 @@ function useWorkspaceShortcuts(
   layout: WorkspaceLayout,
   setSidebarSheetOpen: React.Dispatch<React.SetStateAction<boolean>>,
   setContextSheetOpen: React.Dispatch<React.SetStateAction<boolean>>,
+  toggleTerminal: () => void,
 ) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const running = useAppStore((s) => activeConversation(s).running);
@@ -402,6 +457,8 @@ function useWorkspaceShortcuts(
           else setContextSheetOpen((open) => !open);
         }),
 
+        toggleTerminal: withProject(toggleTerminal),
+
         newChat: withProject(() => {
           if (running) return;
           closeSettings();
@@ -439,6 +496,7 @@ function useWorkspaceShortcuts(
     setContextSheetOpen,
     settingsOpen,
     toggleContextPane,
+    toggleTerminal,
     toggleSidebar,
   ]);
 }

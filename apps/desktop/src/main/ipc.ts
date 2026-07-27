@@ -12,6 +12,16 @@ import { listSkills } from "./skills.ts";
 import { listProjectFiles } from "./files.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
 import { listInstalledEditors, openProjectIn } from "./editors.ts";
+import {
+  closeTerminal,
+  closeProjectTerminals,
+  createTerminal,
+  listTerminals,
+  resizeTerminal,
+  stopAllTerminals,
+  terminalSnapshot,
+  writeTerminal,
+} from "./terminal.ts";
 import type { HostEvents, HostRequestName, HostRequests, PiStatus } from "../shared/rpc-schema.ts";
 import type { ForkPoint, ModelInfo, RpcSessionState, SessionStats, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
 
@@ -146,6 +156,12 @@ const gitMutationParamsSchema = z.object({
   projectDir: z.string().min(1),
   branch: z.string().min(1),
   create: z.boolean(),
+});
+const projectDirParamsSchema = z.object({ projectDir: z.string().min(1) });
+const terminalIdParamsSchema = projectDirParamsSchema.extend({ terminalId: z.string().min(1) });
+const terminalResizeParamsSchema = terminalIdParamsSchema.extend({
+  cols: z.number().int().min(2).max(1000),
+  rows: z.number().int().min(1).max(1000),
 });
 
 function isThinkingLevel(level: unknown): level is ThinkingLevel {
@@ -521,6 +537,55 @@ const handlers: HandlerMap = {
 
   versions: () => ({ pi: auth.PI_VERSION_STRING, app: app.getVersion() }),
 
+  terminalEnsure: (params) => {
+    const { projectDir } = projectDirParamsSchema.parse(params);
+    const existing = listTerminals(projectDir);
+    if (existing.length > 0) return { terminals: existing };
+    return {
+      terminals: [
+        createTerminal(
+          projectDir,
+          (payload) => push("terminalData", payload),
+          (payload) => push("terminalExit", payload),
+        ),
+      ],
+    };
+  },
+  terminalCreate: (params) => {
+    const { projectDir } = projectDirParamsSchema.parse(params);
+    return {
+      terminal: createTerminal(
+        projectDir,
+        (payload) => push("terminalData", payload),
+        (payload) => push("terminalExit", payload),
+      ),
+    };
+  },
+  terminalSnapshot: (params) => {
+    const { projectDir, terminalId } = terminalIdParamsSchema.parse(params);
+    return terminalSnapshot(projectDir, terminalId);
+  },
+  terminalWrite: (params) => {
+    const { projectDir, terminalId, data } = terminalIdParamsSchema.extend({ data: z.string().max(64 * 1024) }).parse(params);
+    writeTerminal(projectDir, terminalId, data);
+    return { ok: true };
+  },
+  terminalResize: (params) => {
+    const { projectDir, terminalId, cols, rows } = terminalResizeParamsSchema.parse(params);
+    resizeTerminal(projectDir, terminalId, cols, rows);
+    return { ok: true };
+  },
+  terminalClose: (params) => {
+    const { projectDir, terminalId } = terminalIdParamsSchema.parse(params);
+    closeTerminal(projectDir, terminalId);
+    return { ok: true };
+  },
+  terminalCloseProject: (params) => {
+    const { projectDir } = projectDirParamsSchema.parse(params);
+    closeProjectTerminals(projectDir);
+    return { ok: true };
+  },
+
   gitStatus: async ({ projectDir }) => ({ status: await gitStatus(projectDir) }),
   gitDiff: async ({ projectDir, file, untracked }) => ({ diff: await gitDiff(projectDir, file, untracked) }),
   gitBranches: async ({ projectDir }) => ({ branches: await gitBranches(projectDir) }),
@@ -611,6 +676,7 @@ export function registerIpc(): void {
 
 export async function stopAllPi(): Promise<void> {
   stopSessionWatch();
+  stopAllTerminals();
   const all = [...pis.values()];
   pis.clear();
   starting.clear();
