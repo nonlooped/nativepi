@@ -1,7 +1,7 @@
 {
   "name": "nativepi",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "A Windows-first desktop interface for the Pi coding agent.",
   "author": "nonlooped",
   "license": "MIT",
