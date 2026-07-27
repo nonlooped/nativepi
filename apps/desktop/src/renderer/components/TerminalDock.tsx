@@ -6,6 +6,7 @@ import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { XIcon } from "@phosphor-icons/react/X";
 import type { TerminalSession } from "../../shared/rpc-schema.ts";
+import { useAppStore } from "../lib/store.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.tsx";
 import { rpc } from "@/lib/rpc.ts";
@@ -184,6 +185,9 @@ function TerminalSplit({
 
 function TerminalSurface({ session, projectDir }: { session: TerminalSession; projectDir: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const fontSize = useAppStore((s) => s.preferences.terminalFontSize);
+  const scrollback = useAppStore((s) => s.preferences.terminalScrollback);
+  const cursorBlink = useAppStore((s) => s.preferences.terminalCursorBlink);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -191,12 +195,12 @@ function TerminalSurface({ session, projectDir }: { session: TerminalSession; pr
 
     const styles = getComputedStyle(document.documentElement);
     const terminal = new Terminal({
-      cursorBlink: true,
+      cursorBlink,
       cursorStyle: "block",
       fontFamily: "Consolas, 'Cascadia Mono', ui-monospace, monospace",
-      fontSize: 13,
+      fontSize,
       lineHeight: 1.2,
-      scrollback: 5000,
+      scrollback,
       screenReaderMode: true,
       theme: {
         background: styles.getPropertyValue("--background").trim(),
@@ -282,7 +286,11 @@ function TerminalSurface({ session, projectDir }: { session: TerminalSession; pr
       offExit();
       terminal.dispose();
     };
-  }, [projectDir, session]);
+    // A preference change rebuilds the surface rather than mutating the live
+    // terminal's options. The pty and its output live in the main process, and
+    // the snapshot above restores the scrollback, so a rebuild is invisible —
+    // the same path a project switch already takes.
+  }, [projectDir, session, fontSize, scrollback, cursorBlink]);
 
   return <div ref={containerRef} className="terminal-surface min-h-0 flex-1 px-2 py-1.5" />;
 }

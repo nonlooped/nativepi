@@ -52,7 +52,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
       <ExtensionStatuses />
       <ComposerWidgets placement="aboveComposer" />
       <QueuedMessages />
-      <div className="composer-surface mx-auto flex w-full max-w-3xl flex-col rounded-3xl bg-card px-3 pb-3 pt-2">
+      <div className="composer-surface mx-auto flex w-full max-w-(--conversation-width) flex-col rounded-3xl bg-card px-3 pb-3 pt-2">
         <ComposerInput
           value={draft}
           onChange={setDraft}
@@ -107,7 +107,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           to read and the keys are otherwise undiscoverable. The persistent
           composer stays silent: by then the user has sent a message. */}
       {prominent ? (
-        <p className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-2 gap-y-1 pt-0.5 text-xs text-muted-foreground">
+        <p className="mx-auto flex w-full max-w-(--conversation-width) flex-wrap items-center justify-center gap-x-2 gap-y-1 pt-0.5 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Kbd>Enter</Kbd> to send
           </span>
@@ -149,7 +149,7 @@ function ExtensionStatuses() {
   const entries = Object.entries(statuses);
   if (entries.length === 0) return null;
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-x-3 gap-y-1 px-1 text-xs text-muted-foreground">
+    <div className="mx-auto flex w-full max-w-(--conversation-width) flex-wrap items-center gap-x-3 gap-y-1 px-1 text-xs text-muted-foreground">
       {entries.map(([key, text]) => (
         <span key={key} className="truncate">
           {text}
@@ -165,7 +165,7 @@ function QueuedMessages() {
   if (steering.length === 0 && followUp.length === 0) return null;
 
   return (
-    <div className="mx-auto mb-2 flex max-h-40 w-full max-w-3xl flex-col gap-1 overflow-y-auto">
+    <div className="mx-auto mb-2 flex max-h-40 w-full max-w-(--conversation-width) flex-col gap-1 overflow-y-auto">
       <ul aria-label="Messages queued for this turn" className="flex flex-col gap-1">
         {steering.map((text, i) => (
           <QueueRow key={`s${i}`} label="Steer" text={text} />

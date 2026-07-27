@@ -1,3 +1,4 @@
+import { DEFAULT_PREFERENCES } from "../../../shared/rpc-schema.ts";
 import { persist } from "./internals.ts";
 import type { SliceCreator, UiSlice } from "./types.ts";
 
@@ -10,6 +11,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   contextPaneChosen: false,
   jumpRequest: 0,
   searchFocusRequest: 0,
+  preferences: DEFAULT_PREFERENCES,
 
   openSettings: () => set({ settingsOpen: true }),
   closeSettings: () => set({ settingsOpen: false }),
@@ -31,6 +33,11 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
 
   setReopenLastProject: (reopenLastProject) => {
     set({ reopenLastProject });
+    persist(get);
+  },
+
+  setPreference: (key, value) => {
+    set((s) => ({ preferences: { ...s.preferences, [key]: value } }));
     persist(get);
   },
 

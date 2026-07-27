@@ -34,6 +34,7 @@ import {
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet.tsx";
 import { DRAG_REGION, NO_DRAG_REGION, SCROLLBAR_GUTTER_OFFSET, WINDOW_CONTROLS_CLEARANCE } from "@/lib/utils.ts";
 import { useTurnCompletionSignal } from "./lib/completion.ts";
+import { useAppearance } from "./lib/appearance.ts";
 
 type WorkspaceLayout = "wide" | "narrow" | "compact";
 const COMPACT_MAX = 899;
@@ -79,6 +80,7 @@ export default function App() {
   }, [init]);
 
   useTurnCompletionSignal();
+  useAppearance();
 
   useEffect(() => {
     const narrow = window.matchMedia(`(max-width: ${NARROW_MAX}px)`);
@@ -147,7 +149,7 @@ export default function App() {
                   <Transcript key={activeSessionFile ?? "new"} />
                 ) : (
                   <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-6 pb-8">
-                    <div className="my-auto flex w-full max-w-3xl flex-col items-center gap-6">
+                    <div className="my-auto flex w-full max-w-(--conversation-width) flex-col items-center gap-6">
                       <div className="flex flex-col items-center gap-2 text-center">
                         <h1 className="font-heading text-2xl font-medium tracking-tight">What do you want to build?</h1>
                         <p className="text-sm text-muted-foreground">
@@ -263,7 +265,7 @@ function ExternalChangeNotice() {
   const sessionFile = useAppStore((s) => s.activeSessionFile);
 
   return (
-    <div className={`mx-auto w-full max-w-3xl px-4 pb-2 ${SCROLLBAR_GUTTER_OFFSET}`}>
+    <div className={`mx-auto w-full max-w-(--conversation-width) px-4 pb-2 ${SCROLLBAR_GUTTER_OFFSET}`}>
       <div
         role="alert"
         className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-sm text-warning"
@@ -509,7 +511,7 @@ function ErrorBanner() {
   const clearError = useAppStore((s) => s.clearError);
 
   return (
-    <div className={`mx-auto w-full max-w-3xl px-4 pb-2 ${SCROLLBAR_GUTTER_OFFSET}`}>
+    <div className={`mx-auto w-full max-w-(--conversation-width) px-4 pb-2 ${SCROLLBAR_GUTTER_OFFSET}`}>
       <div
         role="alert"
         className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"

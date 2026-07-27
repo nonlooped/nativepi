@@ -1,7 +1,10 @@
 import { PatchDiff } from "@pierre/diffs/react";
+import { useAppStore } from "../lib/store.ts";
 import { cn } from "@/lib/utils.ts";
 
 export default function DiffView({ patch, className }: { patch: string; className?: string }) {
+  const diffStyle = useAppStore((s) => s.preferences.diffStyle);
+
   if (!patch.trim()) {
     return <p className="px-3 py-2 text-xs text-muted-foreground">No changes to display.</p>;
   }
@@ -12,7 +15,7 @@ export default function DiffView({ patch, className }: { patch: string; classNam
         patch={patch}
         options={{
           themeType: "dark",
-          diffStyle: "unified",
+          diffStyle,
           diffIndicators: "bars",
           disableFileHeader: true,
           overflow: "scroll",

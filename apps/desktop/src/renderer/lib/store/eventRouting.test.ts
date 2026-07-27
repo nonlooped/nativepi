@@ -1,13 +1,7 @@
 import { expect, test } from "bun:test";
 import type { PiEvent } from "../../../shared/pi-types.ts";
 
-let invoke: (channel: string, params?: unknown) => Promise<unknown> = async () => ({});
-
-Object.assign(globalThis, {
-  window: {
-    nativepi: { invoke: (channel: string, params?: unknown) => invoke(channel, params), events: { on: () => () => {} } },
-  },
-});
+import { stubInvoke } from "./testBridge.ts";
 
 const { useAppStore } = await import("../store.ts");
 const { emptyConversation } = await import("./conversation.ts");
@@ -74,14 +68,14 @@ test("events for a chat other than the conversation's own are still dropped", ()
 
 test("a new session is remembered when submit returns after switching projects", async () => {
   let finishSubmit!: (response: { ok: true; sessionFile: string }) => void;
-  invoke = async (channel) => {
+  stubInvoke(async (channel) => {
     if (channel === "submit") {
       return new Promise((resolve) => {
-        finishSubmit = resolve;
+        finishSubmit = resolve as (response: { ok: true; sessionFile: string }) => void;
       });
     }
     return {};
-  };
+  });
   useAppStore.setState({
     activeProjectPath: "A:\\delayed-submit",
     activeSessionFile: null,
@@ -99,7 +93,7 @@ test("a new session is remembered when submit returns after switching projects",
 });
 
 test("reopening the same session preserves a background failure", async () => {
-  invoke = async (channel) => (channel === "readSession" ? { entries: [] } : {});
+  stubInvoke(async (channel) => (channel === "readSession" ? { entries: [] } : {}));
   useAppStore.setState({
     activeProjectPath: "A:\\failed-run",
     activeSessionFile: null,

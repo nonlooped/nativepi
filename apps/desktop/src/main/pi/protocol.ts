@@ -33,6 +33,10 @@ export type PiCommand =
   | { id?: string; type: "get_tree" }
   | { id?: string; type: "get_session_stats" }
   | { id?: string; type: "compact"; customInstructions?: string }
+  | { id?: string; type: "set_steering_mode"; mode: "all" | "one-at-a-time" }
+  | { id?: string; type: "set_follow_up_mode"; mode: "all" | "one-at-a-time" }
+  | { id?: string; type: "set_auto_compaction"; enabled: boolean }
+  | { id?: string; type: "set_auto_retry"; enabled: boolean }
   | { id?: string; type: "abort_retry" }
   | { id?: string; type: "export_html"; outputPath?: string };
 

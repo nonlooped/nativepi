@@ -19,6 +19,7 @@ export function useTurnCompletionSignal(): void {
     const state = useAppStore.getState();
     const elapsed = startedAt.current ? formatElapsed(Date.now() - startedAt.current) : "";
     startedAt.current = null;
+    if (!state.preferences.notifyOnTurnEnd) return;
     if (document.hasFocus()) return;
     if (typeof Notification === "undefined" || Notification.permission === "denied") return;
     if (Notification.permission === "default") {
@@ -32,7 +33,10 @@ export function useTurnCompletionSignal(): void {
       .join(" · ");
 
     try {
-      new Notification("NativePi", { body: detail || "The agent finished its turn.", silent: false });
+      new Notification("NativePi", {
+        body: detail || "The agent finished its turn.",
+        silent: !state.preferences.notificationSound,
+      });
     } catch {
     }
   }, [running]);
