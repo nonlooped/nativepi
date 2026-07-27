@@ -21,6 +21,13 @@ import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu.tsx";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -32,7 +39,15 @@ import { cn } from "@/lib/utils.ts";
 
 type DialogKind = "rename" | "fork" | "tree" | "info" | "export" | "delete";
 
-export default function SessionMenu({ session, className }: { session: SessionSummary; className?: string }) {
+export default function SessionMenu({
+  session,
+  className,
+  renderRow,
+}: {
+  session: SessionSummary;
+  className?: string;
+  renderRow: (menu: React.ReactNode) => React.ReactElement;
+}) {
   const [dialog, setDialog] = useState<DialogKind | null>(null);
   const [exportPath, setExportPath] = useState<string>("");
   const [busyAction, setBusyAction] = useState(false);
@@ -69,9 +84,24 @@ export default function SessionMenu({ session, className }: { session: SessionSu
     }
   }
 
-  return (
-    <>
-      <Menu>
+  const actions = {
+    blocked,
+    active: activeSessionFile === session.path,
+    rename: () => setDialog("rename" as const),
+    fork: () => setDialog("fork" as const),
+    clone: () => void doClone(),
+    compact: () => void compactActive(),
+    tree: () => setDialog("tree" as const),
+    info: () => setDialog("info" as const),
+    export: () => void doExport(),
+    copyTitle: () => void navigator.clipboard.writeText(chatTitle(session)),
+    reveal: () => void rpc.request.showInFolder({ path: session.path }),
+    copyPath: () => void navigator.clipboard.writeText(session.path),
+    delete: () => setDialog("delete" as const),
+  };
+
+  const menu = (
+    <Menu>
         <MenuTrigger
           aria-label="Chat actions"
           className={cn(
@@ -82,40 +112,19 @@ export default function SessionMenu({ session, className }: { session: SessionSu
           {busyAction ? <CircleNotchIcon className="animate-spin" /> : <DotsThreeIcon weight="bold" />}
         </MenuTrigger>
         <MenuPopup align="end" className="w-52">
-          <MenuItem onClick={() => setDialog("rename")}>
-            <PencilSimpleIcon /> Rename
-          </MenuItem>
-          <MenuItem onClick={() => setDialog("fork")} disabled={blocked}>
-            <GitForkIcon /> Fork from a message…
-          </MenuItem>
-          <MenuItem onClick={() => void doClone()} disabled={blocked}>
-            <CopyIcon /> Duplicate
-          </MenuItem>
-          {activeSessionFile === session.path ? (
-            <MenuItem
-              onClick={() => void compactActive()}
-              disabled={blocked}
-              title="Summarize earlier messages so a long chat keeps fitting in the model's context window"
-            >
-              <ArrowsInSimpleIcon /> Compact context
-            </MenuItem>
-          ) : null}
-          <div className="my-1 h-px bg-border" />
-          <MenuItem onClick={() => setDialog("tree")}>
-            <TreeStructureIcon /> Session tree…
-          </MenuItem>
-          <MenuItem onClick={() => setDialog("info")}>
-            <InfoIcon /> Session info…
-          </MenuItem>
-          <MenuItem onClick={() => void doExport()}>
-            <ExportIcon /> Export to HTML
-          </MenuItem>
-          <div className="my-1 h-px bg-border" />
-          <MenuItem onClick={() => setDialog("delete")} disabled={blocked} className="text-destructive">
-            <TrashIcon /> Delete chat…
-          </MenuItem>
+          <SessionItems actions={actions} />
         </MenuPopup>
       </Menu>
+  );
+
+  return (
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger render={renderRow(menu)} />
+        <ContextMenuContent className="w-56">
+          <SessionItems actions={actions} context />
+        </ContextMenuContent>
+      </ContextMenu>
 
       <ConfirmDialog
         open={dialog === "delete"}
@@ -146,6 +155,65 @@ export default function SessionMenu({ session, className }: { session: SessionSu
       ) : null}
     </>
   );
+}
+
+type SessionActions = {
+  blocked: boolean;
+  active: boolean;
+  rename: () => void;
+  fork: () => void;
+  clone: () => void;
+  compact: () => void;
+  tree: () => void;
+  info: () => void;
+  export: () => void;
+  copyTitle: () => void;
+  reveal: () => void;
+  copyPath: () => void;
+  delete: () => void;
+};
+
+function SessionItems({ actions, context = false }: { actions: SessionActions; context?: boolean }) {
+  const separator = context ? <ContextMenuSeparator /> : <div className="my-1 h-px bg-border" />;
+  return (
+    <>
+      <SessionItem context={context} onClick={actions.rename}><PencilSimpleIcon /> Rename</SessionItem>
+      <SessionItem context={context} onClick={actions.fork} disabled={actions.blocked}><GitForkIcon /> Fork from a message…</SessionItem>
+      <SessionItem context={context} onClick={actions.clone} disabled={actions.blocked}><CopyIcon /> Duplicate</SessionItem>
+      {actions.active ? (
+        <SessionItem context={context} onClick={actions.compact} disabled={actions.blocked} title="Summarize earlier messages so a long chat keeps fitting in the model's context window">
+          <ArrowsInSimpleIcon /> Compact context
+        </SessionItem>
+      ) : null}
+      {separator}
+      <SessionItem context={context} onClick={actions.copyTitle}><CopyIcon /> Copy title</SessionItem>
+      <SessionItem context={context} onClick={actions.reveal}><ArrowSquareOutIcon /> Reveal session file</SessionItem>
+      <SessionItem context={context} onClick={actions.copyPath}><CopyIcon /> Copy session file path</SessionItem>
+      {separator}
+      <SessionItem context={context} onClick={actions.tree}><TreeStructureIcon /> Session tree…</SessionItem>
+      <SessionItem context={context} onClick={actions.info}><InfoIcon /> Session info…</SessionItem>
+      <SessionItem context={context} onClick={actions.export}><ExportIcon /> Export to HTML</SessionItem>
+      {separator}
+      <SessionItem context={context} onClick={actions.delete} disabled={actions.blocked} className="text-destructive">
+        <TrashIcon /> Delete chat…
+      </SessionItem>
+    </>
+  );
+}
+
+function SessionItem({
+  context,
+  children,
+  ...props
+}: {
+  context: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  title?: string;
+  className?: string;
+}) {
+  return context ? <ContextMenuItem {...props}>{children}</ContextMenuItem> : <MenuItem {...props}>{children}</MenuItem>;
 }
 
 function RenameDialog({ session, onClose }: { session: SessionSummary; onClose: () => void }) {

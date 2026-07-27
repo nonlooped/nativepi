@@ -8,6 +8,7 @@ import type { InstalledEditor } from "../../shared/rpc-schema.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
 import { rpc } from "@/lib/rpc.ts";
+import { useAppStore } from "@/lib/store.ts";
 import { cn, NO_DRAG_REGION } from "@/lib/utils.ts";
 import BrandIcon from "./BrandIcon.tsx";
 
@@ -15,7 +16,8 @@ const EXPLORER: InstalledEditor = { id: "explorer", name: "Explorer", icon: "exp
 
 export default function OpenWith({ projectDir }: { projectDir: string }) {
   const [editors, setEditors] = useState<InstalledEditor[]>([EXPLORER]);
-  const [selectedId, setSelectedId] = useState<string>(EXPLORER.id);
+  const selectedId = useAppStore((s) => s.preferences.preferredEditorId);
+  const setPreference = useAppStore((s) => s.setPreference);
   const [opening, setOpening] = useState(false);
 
   useEffect(() => {
@@ -28,9 +30,8 @@ export default function OpenWith({ projectDir }: { projectDir: string }) {
           ? scanned
           : [EXPLORER, ...scanned];
         setEditors(list);
-        setSelectedId((current) =>
-          current && list.some((editor) => editor.id === current) ? current : list[0]!.id,
-        );
+        const current = useAppStore.getState().preferences.preferredEditorId;
+        if (!list.some((editor) => editor.id === current)) setPreference("preferredEditorId", list[0]!.id);
       })
       .catch(() => {
         // Keep the Explorer fallback so the control still works if the scan IPC fails.
@@ -38,7 +39,7 @@ export default function OpenWith({ projectDir }: { projectDir: string }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [setPreference]);
 
   const selected = editors.find((editor) => editor.id === selectedId) ?? EXPLORER;
 
@@ -83,7 +84,7 @@ export default function OpenWith({ projectDir }: { projectDir: string }) {
               key={editor.id}
               role="menuitemradio"
               aria-checked={editor.id === selectedId}
-              onClick={() => setSelectedId(editor.id)}
+              onClick={() => setPreference("preferredEditorId", editor.id)}
               className="text-sm"
             >
               <EditorIcon editor={editor} />

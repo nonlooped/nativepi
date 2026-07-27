@@ -10,7 +10,7 @@ import { WarningIcon } from "@phosphor-icons/react/Warning";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { code } from "@streamdown/code";
 import { Streamdown } from "streamdown";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
 import { imagesOf, isAssistant, isToolResult, isUser, textOf } from "../../shared/messages.ts";
 import { toolArgSummary, toolResultsById } from "../lib/transcript.ts";
@@ -20,10 +20,21 @@ import { scrollBehavior, useReducedMotion } from "../lib/motion.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { withHint } from "../lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu.tsx";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog.tsx";
 import { cn } from "@/lib/utils.ts";
+import { copyDataImage } from "@/lib/clipboard.ts";
+import { rpc } from "@/lib/rpc.ts";
 import DiffView from "./DiffView.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 import { ExtensionEntry, ExtensionToolResult, useHasEntryRenderer, useHasToolRenderer } from "./ExtensionSlots.tsx";
+import FileContextMenu from "./FileContextMenu.tsx";
 
 const streamdownPlugins = { code };
 
@@ -45,6 +56,17 @@ export default function Transcript() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const followingRef = useRef(true);
   const [following, setFollowing] = useState(true);
+  const [transcriptSelection, setTranscriptSelection] = useState("");
+
+  useEffect(() => {
+    const update = () => {
+      const selection = window.getSelection();
+      const anchor = selection?.anchorNode;
+      setTranscriptSelection(anchor && scrollRef.current?.contains(anchor) ? selection.toString().trim() : "");
+    };
+    document.addEventListener("selectionchange", update);
+    return () => document.removeEventListener("selectionchange", update);
+  }, []);
 
   function scrollToLatest(behavior: ScrollBehavior = scrollBehavior()) {
     const el = scrollRef.current;
@@ -80,17 +102,17 @@ export default function Transcript() {
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        // role="log" gives assistive tech a navigable transcript, but live
-        // announcements are handled by TurnAnnouncer below: streaming markdown
-        // re-renders on every token and would otherwise be read continuously.
-        role="log"
-        aria-label="Conversation transcript"
-        aria-live="off"
-        className="min-h-0 flex-1 overflow-y-auto px-4 py-5 [scrollbar-gutter:stable]"
-      >
+      {/* role="log" gives assistive tech a navigable transcript, but live
+          announcements are handled by TurnAnnouncer below: streaming markdown
+          re-renders on every token and would otherwise be read continuously. */}
+      <ContextMenu disabled={!transcriptSelection}>
+        <ContextMenuTrigger
+          render={<div ref={scrollRef} onScroll={handleScroll} />}
+          role="log"
+          aria-label="Conversation transcript"
+          aria-live="off"
+          className="min-h-0 flex-1 overflow-y-auto px-4 py-5 [scrollbar-gutter:stable]"
+        >
         <div className="mx-auto flex w-full max-w-(--conversation-width) flex-col gap-6">
           {items.map((item, index) =>
             item.type === "response" ? (
@@ -134,8 +156,14 @@ export default function Transcript() {
               Compacting context…
             </Notice>
           )}
-        </div>
-      </div>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-48">
+          <ContextMenuItem onClick={() => void navigator.clipboard.writeText(transcriptSelection)}>Copy</ContextMenuItem>
+          <ContextMenuItem onClick={() => useAppStore.getState().quoteInReply(transcriptSelection)}>Quote in reply</ContextMenuItem>
+          <ContextMenuItem onClick={() => useAppStore.getState().askAbout(transcriptSelection)}>Ask Pi about this</ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
 
       <TurnAnnouncer
         running={running}
@@ -355,7 +383,7 @@ function EntryView({ entry }: { entry: SessionEntry }) {
   if (entry.type === "message") {
     const message = entry.message;
     if (isUser(message)) {
-      return <UserBubble text={textOf(message.content)} images={imagesOf(message.content)} timestamp={entry.timestamp} />;
+      return <UserBubble entryId={entry.id} text={textOf(message.content)} images={imagesOf(message.content)} timestamp={entry.timestamp} />;
     }
     return null; // toolResult messages render inline under their tool call.
   }
@@ -372,18 +400,24 @@ function CustomEntry({ entry }: { entry: SessionEntry }) {
 }
 
 function UserBubble({
+  entryId,
   text,
   images = [],
   timestamp,
   pending = false,
 }: {
+  entryId?: string;
   text: string;
   /** Anything with base64 and a mime type: a sent attachment or one still in flight. */
   images?: { mimeType: string; data: string }[];
   timestamp?: string;
   pending?: boolean;
 }) {
-  return (
+  const sessionFile = useAppStore((s) => s.activeSessionFile);
+  const running = useAppStore((s) => activeConversation(s).running);
+  const forkChat = useAppStore((s) => s.forkChat);
+  const quoteInReply = useAppStore((s) => s.quoteInReply);
+  const article = (
     <article className="group/message flex flex-col items-end py-1" aria-busy={pending || undefined}>
       <span className="sr-only">You{pending ? " (sending)" : ""}:</span>
       <div
@@ -399,11 +433,10 @@ function UserBubble({
           // of what was sent, and the agent's reading of it is what follows.
           <div className={cn("flex flex-wrap justify-end gap-2", text && "pb-2")}>
             {images.map((image, index) => (
-              <img
+              <TranscriptImage
                 key={index}
-                src={`data:${image.mimeType};base64,${image.data}`}
-                alt={`Attached image ${index + 1}`}
-                className="max-h-40 rounded-lg border object-contain"
+                image={image}
+                name={`Attached image ${index + 1}`}
               />
             ))}
           </div>
@@ -419,6 +452,25 @@ function UserBubble({
         <MessageActions text={text} timestamp={timestamp} />
       ) : null}
     </article>
+  );
+  if (pending) return article;
+  return (
+    <TranscriptContextMenu
+      items={
+        <>
+          <ContextMenuItem onClick={() => void navigator.clipboard.writeText(text)}>Copy message</ContextMenuItem>
+          <ContextMenuItem
+            disabled={!entryId || !sessionFile || running}
+            onClick={() => entryId && sessionFile && void forkChat(sessionFile, entryId)}
+          >
+            Fork from this message
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => quoteInReply(text)}>Quote in reply</ContextMenuItem>
+        </>
+      }
+    >
+      {article}
+    </TranscriptContextMenu>
   );
 }
 
@@ -446,6 +498,7 @@ function AssistantResponse({
   const reduced = useReducedMotion();
   const workIsStreaming = streaming && !finalText && !reduced;
   const [workOpen, setWorkOpen] = useState(streaming);
+  const responseRef = useRef<HTMLElement>(null);
   const changes = useMemo(() => turnChanges(messages, results), [messages, results]);
   useEffect(() => {
     if (!streaming) setWorkOpen(false);
@@ -455,8 +508,8 @@ function AssistantResponse({
     if (message.errorMessage) error = message.errorMessage;
   }
 
-  return (
-    <article className="group/message flex flex-col gap-3 text-sm leading-relaxed" aria-busy={streaming || undefined}>
+  const article = (
+    <article ref={responseRef} className="group/message flex flex-col gap-3 text-sm leading-relaxed" aria-busy={streaming || undefined}>
       <span className="sr-only">Assistant:</span>
       {work.length > 0 ? (
         <Collapsible.Root open={workOpen} onOpenChange={setWorkOpen}>
@@ -501,14 +554,16 @@ function AssistantResponse({
       ) : null}
       {changes.files.length > 0 ? <ChangeStrip changes={changes} /> : null}
       {finalText ? (
-        <Streamdown
+        <div data-response-text>
+          <Streamdown
           caret="block"
           isAnimating={streaming && !reduced}
           mode={streaming ? "streaming" : "static"}
           plugins={streamdownPlugins}
         >
           {finalText}
-        </Streamdown>
+          </Streamdown>
+        </div>
       ) : null}
       {error && (
         <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -518,6 +573,30 @@ function AssistantResponse({
       )}
       {!streaming && finishedAt && finalText ? <MessageActions text={finalText} timestamp={finishedAt} /> : null}
     </article>
+  );
+  return (
+    <TranscriptContextMenu
+      items={
+        <>
+          <ContextMenuItem onClick={() => void navigator.clipboard.writeText(finalText)} disabled={!finalText}>
+            Copy response as Markdown
+          </ContextMenuItem>
+          <ContextMenuItem
+            disabled={!finalText}
+            onClick={() => void navigator.clipboard.writeText(responseRef.current?.querySelector<HTMLElement>("[data-response-text]")?.innerText ?? finalText)}
+          >
+            Copy as plain text
+          </ContextMenuItem>
+          {work.length > 0 ? (
+            <ContextMenuItem onClick={() => setWorkOpen((open) => !open)}>
+              {workOpen ? "Collapse" : "Expand"} work section
+            </ContextMenuItem>
+          ) : null}
+        </>
+      }
+    >
+      {article}
+    </TranscriptContextMenu>
   );
 }
 
@@ -546,11 +625,13 @@ function ChangeStrip({ changes }: { changes: ReturnType<typeof turnChanges> }) {
 }
 
 function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; onToggle: () => void }) {
+  const projectDir = useAppStore((s) => s.activeProjectPath);
   const directory = fileDir(file.path);
   const delta = formatLineDelta(file.added, file.removed);
 
   return (
     <>
+      {projectDir ? <FileContextMenu projectDir={projectDir} file={file.path} patch={file.patch}>
       <button
         type="button"
         onClick={onToggle}
@@ -569,6 +650,7 @@ function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; 
           <span className="shrink-0 font-mono tabular-nums text-muted-foreground">{delta}</span>
         ) : null}
       </button>
+      </FileContextMenu> : null}
       {open && file.patch ? (
         <div className="max-h-96 overflow-auto border-t bg-background">
           <DiffView patch={file.patch} className="py-1.5" />
@@ -616,6 +698,11 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
   const running = !result;
   const failed = !!result?.isError;
   const diffPatch = diffPatchFor(call, result);
+  const [open, setOpen] = useState(failed || !!diffPatch);
+
+  useEffect(() => {
+    if (result && (failed || diffPatch)) setOpen(true);
+  }, [result, failed, diffPatch]);
 
   if (hasExtRenderer) return <ExtensionToolResult call={call} result={result} />;
 
@@ -644,8 +731,8 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
   // bordered in coral and opens itself, because a failed `edit` and a failed
   // `ls` cannot look the same.
   if (failed) {
-    return (
-      <Collapsible.Root defaultOpen className="rounded-lg border border-destructive/40 bg-destructive/5">
+    return wrapToolMenu(
+      <Collapsible.Root open={open} onOpenChange={setOpen} className="rounded-lg border border-destructive/40 bg-destructive/5">
         <Collapsible.Trigger className="group flex w-full items-center gap-2 px-3 py-2 text-xs outline-none hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
           <CaretRightIcon className="shrink-0 text-destructive transition-transform group-data-[panel-open]:rotate-90" />
           {header}
@@ -653,13 +740,17 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
         <Collapsible.Panel className="max-h-72 overflow-auto border-t border-destructive/30 px-2.5 py-2 font-mono text-xs whitespace-pre-wrap text-destructive">
           {output || "The tool reported an error with no output."}
         </Collapsible.Panel>
-      </Collapsible.Root>
+      </Collapsible.Root>,
+      call,
+      output || "The tool reported an error with no output.",
+      open,
+      setOpen,
     );
   }
 
   if (diffPatch) {
-    return (
-      <Collapsible.Root defaultOpen className="rounded-lg border bg-card/40">
+    return wrapToolMenu(
+      <Collapsible.Root open={open} onOpenChange={setOpen} className="rounded-lg border bg-card/40">
         <Collapsible.Trigger className="group flex w-full items-center gap-2 px-3 py-2 text-xs outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
           <CaretRightIcon className="shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-90" />
           {header}
@@ -667,20 +758,28 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
         <Collapsible.Panel className="max-h-96 overflow-auto border-t">
           <DiffView patch={diffPatch} className="py-1.5" />
         </Collapsible.Panel>
-      </Collapsible.Root>
+      </Collapsible.Root>,
+      call,
+      output || diffPatch,
+      open,
+      setOpen,
     );
   }
 
   if (!output) {
-    return (
+    return wrapToolMenu(
       <div className="rounded-lg border bg-card/40">
         <div className="flex items-center gap-2 px-3 py-2 text-xs">{header}</div>
-      </div>
+      </div>,
+      call,
+      "",
+      open,
+      setOpen,
     );
   }
 
-  return (
-    <Collapsible.Root defaultOpen={false} className="rounded-lg border bg-card/40">
+  return wrapToolMenu(
+    <Collapsible.Root open={open} onOpenChange={setOpen} className="rounded-lg border bg-card/40">
       <Collapsible.Trigger className="group flex w-full items-center gap-2 px-3 py-2 text-xs outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
         <CaretRightIcon className="shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-90" />
         {header}
@@ -688,7 +787,104 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
       <Collapsible.Panel className="max-h-72 overflow-auto border-t px-2.5 py-2 font-mono text-xs whitespace-pre-wrap text-muted-foreground">
         {output}
       </Collapsible.Panel>
-    </Collapsible.Root>
+    </Collapsible.Root>,
+    call,
+    output,
+    open,
+    setOpen,
+  );
+}
+
+function wrapToolMenu(
+  panel: ReactElement,
+  call: ToolCall,
+  output: string,
+  open: boolean,
+  setOpen: (open: boolean) => void,
+): ReactElement {
+  return (
+    <TranscriptContextMenu
+      items={
+        <>
+          <ContextMenuItem disabled={!output} onClick={() => void navigator.clipboard.writeText(output)}>
+            Copy output
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => void navigator.clipboard.writeText(JSON.stringify(call.arguments, null, 2))}>
+            Copy arguments
+          </ContextMenuItem>
+          <ContextMenuItem disabled={!output} onClick={() => setOpen(!open)}>
+            {open ? "Collapse" : "Expand"}
+          </ContextMenuItem>
+        </>
+      }
+    >
+      {panel}
+    </TranscriptContextMenu>
+  );
+}
+
+function TranscriptContextMenu({ children, items }: { children: ReactElement; items?: ReactNode }) {
+  const quoteInReply = useAppStore((s) => s.quoteInReply);
+  const askAbout = useAppStore((s) => s.askAbout);
+  const insertIntoComposer = useAppStore((s) => s.insertIntoComposer);
+  const [selection, setSelection] = useState("");
+  const [codeBlock, setCodeBlock] = useState("");
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger
+        render={children}
+        onContextMenuCapture={(event) => {
+          setSelection(window.getSelection()?.toString().trim() ?? "");
+          setCodeBlock((event.target as Element).closest("pre")?.innerText ?? "");
+        }}
+      />
+      <ContextMenuContent className="w-56">
+        {selection ? (
+          <>
+            <ContextMenuItem onClick={() => void navigator.clipboard.writeText(selection)}>Copy</ContextMenuItem>
+            <ContextMenuItem onClick={() => quoteInReply(selection)}>Quote in reply</ContextMenuItem>
+            <ContextMenuItem onClick={() => askAbout(selection)}>Ask Pi about this</ContextMenuItem>
+            <ContextMenuSeparator />
+          </>
+        ) : null}
+        {codeBlock ? (
+          <>
+            <ContextMenuItem onClick={() => void navigator.clipboard.writeText(codeBlock)}>Copy code block</ContextMenuItem>
+            <ContextMenuItem onClick={() => insertIntoComposer(codeBlock)}>Insert into composer</ContextMenuItem>
+            {items ? <ContextMenuSeparator /> : null}
+          </>
+        ) : null}
+        {items}
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
+function TranscriptImage({ image, name }: { image: { mimeType: string; data: string }; name: string }) {
+  const [preview, setPreview] = useState(false);
+  const src = `data:${image.mimeType};base64,${image.data}`;
+  return (
+    <>
+      <TranscriptContextMenu
+        items={
+          <>
+            <ContextMenuItem onClick={() => void copyDataImage(src)}>Copy image</ContextMenuItem>
+            <ContextMenuItem onClick={() => void rpc.request.saveImage({ ...image, suggestedName: name })}>Save image as…</ContextMenuItem>
+            <ContextMenuItem onClick={() => setPreview(true)}>Open preview</ContextMenuItem>
+          </>
+        }
+      >
+        <img src={src} alt={name} className="max-h-40 rounded-lg border object-contain" />
+      </TranscriptContextMenu>
+      <Dialog open={preview} onOpenChange={setPreview}>
+        <DialogContent className="max-h-[90vh] max-w-[90vw] p-3">
+          <DialogTitle className="sr-only">{name}</DialogTitle>
+          <DialogDescription className="sr-only">Full-size image preview</DialogDescription>
+          <img src={src} alt={name} className="max-h-[calc(90vh-1.5rem)] w-full object-contain" />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

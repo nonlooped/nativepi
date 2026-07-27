@@ -11,6 +11,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   contextPaneChosen: false,
   jumpRequest: 0,
   searchFocusRequest: 0,
+  terminalProjects: new Set(),
   preferences: DEFAULT_PREFERENCES,
 
   openSettings: () => set({ settingsOpen: true }),
@@ -50,4 +51,13 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   // requests for the same thing are two separate scrolls rather than one.
   requestJumpToLatest: () => set((s) => ({ jumpRequest: s.jumpRequest + 1 })),
   requestSearchFocus: () => set((s) => ({ searchFocusRequest: s.searchFocusRequest + 1 })),
+  openTerminal: (projectPath) =>
+    set((s) => ({ terminalProjects: new Set(s.terminalProjects).add(projectPath) })),
+  toggleTerminal: (projectPath) =>
+    set((s) => {
+      const terminalProjects = new Set(s.terminalProjects);
+      if (terminalProjects.has(projectPath)) terminalProjects.delete(projectPath);
+      else terminalProjects.add(projectPath);
+      return { terminalProjects };
+    }),
 });

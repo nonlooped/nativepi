@@ -9,10 +9,18 @@ import { useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu.tsx";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import { WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { withHint } from "../lib/shortcuts.ts";
 import DiffView from "./DiffView.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
+import FileContextMenu from "./FileContextMenu.tsx";
 import { ExtensionPanels } from "./ExtensionSlots.tsx";
 
 export default function ContextPane({ overlay = false, onClose }: { overlay?: boolean; onClose?: () => void }) {
@@ -21,6 +29,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const [selected, setSelected] = useState<GitChangedFile | null>(null);
+  const [branchesOpen, setBranchesOpen] = useState(false);
 
   useEffect(() => setSelected(null), [projectDir]);
 
@@ -56,11 +65,20 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
           <p className="px-3 py-4 text-xs text-muted-foreground">This folder is not a Git repository.</p>
         ) : (
           <>
-            <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground">
-              <GitBranchIcon className="shrink-0" />
-              <span className="truncate">{git.detached ? "detached HEAD" : (git.branch ?? "—")}</span>
-              <span className="ml-auto tabular-nums">{git.files.length} changed</span>
-            </div>
+            <ContextMenu>
+              <ContextMenuTrigger render={<div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground" />}>
+                <GitBranchIcon className="shrink-0" />
+                <span className="truncate">{git.detached ? "detached HEAD" : (git.branch ?? "—")}</span>
+                <span className="ml-auto tabular-nums">{git.files.length} changed</span>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem disabled={!git.branch} onClick={() => git.branch && void navigator.clipboard.writeText(git.branch)}>
+                  Copy branch name
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => setBranchesOpen(true)}>Switch branch…</ContextMenuItem>
+                <ContextMenuItem onClick={() => void refreshGit()}>Refresh status</ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
 
             {git.files.length === 0 ? (
               <p className="px-3 py-4 text-xs text-muted-foreground">Working tree clean.</p>
@@ -68,6 +86,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
               <div className="flex flex-col gap-1 px-2 pb-2">
                 {git.files.map((file) => (
                   <div key={file.path} className="overflow-hidden rounded-md border bg-background/35">
+                    {projectDir ? <FileContextMenu projectDir={projectDir} file={file.path} untracked={file.state === "untracked"}>
                     <button
                       type="button"
                       aria-expanded={selected?.path === file.path}
@@ -86,6 +105,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
                         {stateBadge(file.state)}
                       </span>
                     </button>
+                    </FileContextMenu> : null}
                     {selected?.path === file.path && projectDir ? (
                       <FileDiff key={`${projectDir}:${file.path}`} file={file} projectDir={projectDir} />
                     ) : null}
@@ -98,7 +118,57 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
 
         <ExtensionPanels />
       </div>
+      {branchesOpen && projectDir ? <BranchDialog projectDir={projectDir} onClose={() => setBranchesOpen(false)} /> : null}
     </aside>
+  );
+}
+
+function BranchDialog({ projectDir, onClose }: { projectDir: string; onClose: () => void }) {
+  const switchBranch = useAppStore((s) => s.switchBranch);
+  const running = useAppStore((s) => s.conversations[projectDir]?.running ?? false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const request = useRequest(() => rpc.request.gitBranches({ projectDir }), [projectDir]);
+
+  async function select(branch: string) {
+    setBusy(true);
+    setError(undefined);
+    try {
+      const result = await switchBranch(branch, false);
+      if (result.ok) onClose();
+      else setError(result.error ?? "Git refused this change.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="font-heading text-base font-semibold">Switch branch</DialogTitle>
+          <DialogDescription>Choose a local branch for this project.</DialogDescription>
+        </DialogHeader>
+        <div className="flex max-h-80 flex-col gap-1 overflow-y-auto">
+          {request.loading ? <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p> : null}
+          {request.data?.branches.map((branch) => (
+            <button
+              key={branch.name}
+              type="button"
+              disabled={busy || running || branch.current || !!branch.worktree}
+              onClick={() => void select(branch.name)}
+              className="flex items-center rounded-md px-3 py-2 text-left text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            >
+              <span className="min-w-0 flex-1 truncate">{branch.name}</span>
+              {branch.current ? <span className="text-xs text-muted-foreground">current</span> : null}
+              {branch.worktree ? <span className="text-xs text-muted-foreground">in worktree</span> : null}
+            </button>
+          ))}
+        </div>
+        {running ? <p className="text-xs text-muted-foreground">Stop the current run before switching branches.</p> : null}
+        {request.error || error ? <p className="text-xs text-destructive">{error ?? "Could not load branches."}</p> : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 

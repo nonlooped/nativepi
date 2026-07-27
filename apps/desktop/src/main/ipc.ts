@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { writeFile } from "node:fs/promises";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 import { PiProcess } from "./pi/client.ts";
@@ -12,7 +13,7 @@ import { listSkills } from "./skills.ts";
 import { listProjectFiles } from "./files.ts";
 import { prepareImages } from "./images.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
-import { listInstalledEditors, openProjectIn } from "./editors.ts";
+import { listInstalledEditors, openFileIn, openProjectIn } from "./editors.ts";
 import { liveSettingsFor, piPaths, queuePiSettings, readPiSettings, writePiSettings } from "./piSettings.ts";
 import { piSettingsPatchSchema, type PiSettingsPatch } from "../shared/pi-settings.ts";
 import {
@@ -215,6 +216,12 @@ function toSessionState(data: RpcSessionState): RpcSessionState {
 
 const THINKING_LEVELS = new Set<ThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 const openProjectInParamsSchema = z.object({ projectDir: z.string().min(1), editorId: z.string().min(1) });
+const openFileInParamsSchema = openProjectInParamsSchema.extend({ file: z.string().min(1) });
+const saveImageParamsSchema = z.object({
+  data: z.string().min(1).max(64 * 1024 * 1024),
+  mimeType: z.enum(["image/png", "image/jpeg", "image/gif", "image/webp"]),
+  suggestedName: z.string().min(1).max(255),
+});
 const gitMutationParamsSchema = z.object({
   projectDir: z.string().min(1),
   branch: z.string().min(1),
@@ -658,6 +665,15 @@ const handlers: HandlerMap = {
       return { ok: false, error: errorMessage(err) };
     }
   },
+  openFileIn: async (params) => {
+    try {
+      const { projectDir, file, editorId } = openFileInParamsSchema.parse(params);
+      await openFileIn(projectDir, file, editorId);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
 
   versions: () => ({ pi: auth.PI_VERSION_STRING, app: app.getVersion() }),
 
@@ -687,6 +703,20 @@ const handlers: HandlerMap = {
   showInFolder: ({ path }) => {
     shell.showItemInFolder(path);
     return { ok: true };
+  },
+  saveImage: async (params) => {
+    try {
+      const { data, mimeType, suggestedName } = saveImageParamsSchema.parse(params);
+      const extension = mimeType === "image/jpeg" ? "jpg" : mimeType.slice("image/".length);
+      const defaultPath = suggestedName.includes(".") ? suggestedName : `${suggestedName}.${extension}`;
+      const options = { defaultPath, filters: [{ name: "Image", extensions: [extension] }] };
+      const result = mainWindow ? await dialog.showSaveDialog(mainWindow, options) : await dialog.showSaveDialog(options);
+      if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+      await writeFile(result.filePath, Buffer.from(data, "base64"));
+      return { ok: true, path: result.filePath };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
   },
 
   terminalEnsure: (params) => {

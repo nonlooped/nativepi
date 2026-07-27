@@ -2,6 +2,9 @@ import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { XIcon } from "@phosphor-icons/react/X";
 import { draftKeyFor } from "../../shared/messages.ts";
 import { dataUrl } from "../lib/attachments.ts";
+import { copyDataImage } from "../lib/clipboard.ts";
+import type { ImageAttachment } from "../../shared/rpc-schema.ts";
+import { useState } from "react";
 import { useAppStore } from "../lib/store.ts";
 import {
   Attachment,
@@ -12,6 +15,13 @@ import {
   AttachmentMedia,
   AttachmentTitle,
 } from "@/components/ui/attachment.tsx";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu.tsx";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog.tsx";
 
 /**
  * The images this draft is carrying.
@@ -42,20 +52,44 @@ export default function ComposerAttachments() {
         </Attachment>
       )}
       {(images ?? []).map((image) => (
-        <Attachment key={image.id} size="sm">
+        <ComposerAttachment key={image.id} image={image} onRemove={() => detach(image.id)} />
+      ))}
+    </AttachmentGroup>
+  );
+}
+
+function ComposerAttachment({ image, onRemove }: { image: ImageAttachment; onRemove: () => void }) {
+  const [preview, setPreview] = useState(false);
+  const src = dataUrl(image);
+  return (
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger render={<Attachment size="sm" />}>
           <AttachmentMedia variant="image">
-            <img src={dataUrl(image)} alt="" />
+            <img src={src} alt="" />
           </AttachmentMedia>
           <AttachmentContent>
             <AttachmentTitle title={image.name}>{image.name}</AttachmentTitle>
           </AttachmentContent>
           <AttachmentActions>
-            <AttachmentAction onClick={() => detach(image.id)} aria-label={`Remove ${image.name}`}>
+            <AttachmentAction onClick={onRemove} aria-label={`Remove ${image.name}`}>
               <XIcon />
             </AttachmentAction>
           </AttachmentActions>
-        </Attachment>
-      ))}
-    </AttachmentGroup>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem onClick={onRemove}>Remove</ContextMenuItem>
+          <ContextMenuItem onClick={() => setPreview(true)}>Preview at full size</ContextMenuItem>
+          <ContextMenuItem onClick={() => void copyDataImage(src)}>Copy image</ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+      <Dialog open={preview} onOpenChange={setPreview}>
+        <DialogContent className="max-h-[90vh] max-w-[90vw] p-3">
+          <DialogTitle className="sr-only">{image.name}</DialogTitle>
+          <DialogDescription className="sr-only">Full-size image preview</DialogDescription>
+          <img src={src} alt={image.name} className="max-h-[calc(90vh-1.5rem)] w-full object-contain" />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

@@ -1,6 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { app, shell } from "electron";
 import type { InstalledEditor } from "../shared/rpc-schema.ts";
@@ -279,6 +279,29 @@ export async function openProjectIn(projectDir: string, editorId: string): Promi
       windowsHide: true,
     });
     child.once("spawn", resolve);
+    child.once("error", reject);
+    child.unref();
+  });
+}
+
+export async function openFileIn(projectDir: string, file: string, editorId: string): Promise<void> {
+  const targetPath = resolve(projectDir, file);
+  const relativePath = relative(projectDir, targetPath);
+  if (isAbsolute(relativePath) || relativePath.startsWith("..")) throw new Error("The file is outside this project.");
+  if (editorId === "explorer") {
+    shell.showItemInFolder(targetPath);
+    return;
+  }
+  const target = (await scanEditors()).get(editorId);
+  if (!target?.executable) throw new Error("That editor is no longer installed.");
+  const executable = target.executable;
+  await new Promise<void>((resolveSpawn, reject) => {
+    const child = spawn(executable, [targetPath], {
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    child.once("spawn", resolveSpawn);
     child.once("error", reject);
     child.unref();
   });

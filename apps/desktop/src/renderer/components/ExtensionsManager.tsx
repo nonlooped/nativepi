@@ -8,6 +8,13 @@ import { rpc } from "../lib/rpc.ts";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu.tsx";
 import { cn } from "@/lib/utils.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 
@@ -138,7 +145,8 @@ export default function ExtensionsManager() {
         ) : (
           <div className="flex flex-col">
             {packages.map((pkg) => (
-              <div key={`${pkg.scope}:${pkg.source}`} className="flex items-center gap-3 border-t py-3.5">
+              <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
+                <ContextMenuTrigger render={<div className="flex items-center gap-3 border-t py-3.5" />}>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="truncate text-sm font-medium">{pkg.source}</span>
@@ -162,7 +170,19 @@ export default function ExtensionsManager() {
                 >
                   <TrashIcon />
                 </Button>
-              </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-48">
+                  <ContextMenuItem disabled={busy !== null} onClick={() => void update(pkg)}>Update</ContextMenuItem>
+                  <ContextMenuItem onClick={() => void navigator.clipboard.writeText(pkg.source)}>Copy source</ContextMenuItem>
+                  <ContextMenuItem disabled={!pkg.installedPath} onClick={() => pkg.installedPath && void rpc.request.showInFolder({ path: pkg.installedPath })}>
+                    Reveal install folder
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem variant="destructive" disabled={busy !== null} onClick={() => setPendingRemoval(pkg)}>
+                    Remove
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
             ))}
           </div>
         )}

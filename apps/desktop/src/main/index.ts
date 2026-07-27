@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from "electron";
+import { app, BrowserWindow, Menu, shell, type MenuItemConstructorOptions } from "electron";
 import { join } from "node:path";
 import { quitBlocked, registerIpc, setMainWindow, stopAllPi } from "./ipc.ts";
 
@@ -103,6 +103,36 @@ function createWindow(): void {
   win.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url);
     return { action: "deny" };
+  });
+
+  // Chromium does not draw an editable-field menu for a frameless Electron
+  // window. Keep the platform edit and spellcheck behavior as a fallback; app
+  // surfaces with richer actions prevent the DOM contextmenu event themselves.
+  win.webContents.on("context-menu", (_event, params) => {
+    if (!params.isEditable && !params.selectionText) return;
+    const template: MenuItemConstructorOptions[] = [];
+    for (const suggestion of params.dictionarySuggestions) {
+      template.push({ label: suggestion, click: () => win.webContents.replaceMisspelling(suggestion) });
+    }
+    if (params.misspelledWord) {
+      template.push({
+        label: "Add to dictionary",
+        click: () => win.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord),
+      });
+    }
+    if (template.length > 0) template.push({ type: "separator" });
+    if (params.isEditable) {
+      template.push(
+        { role: "cut", enabled: params.editFlags.canCut },
+        { role: "copy", enabled: params.editFlags.canCopy },
+        { role: "paste", enabled: params.editFlags.canPaste },
+        { type: "separator" },
+        { role: "selectAll", enabled: params.editFlags.canSelectAll },
+      );
+    } else {
+      template.push({ role: "copy", enabled: params.editFlags.canCopy });
+    }
+    Menu.buildFromTemplate(template).popup({ window: win });
   });
 
   win.webContents.on("will-navigate", (event, url) => {

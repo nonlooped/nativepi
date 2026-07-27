@@ -21,7 +21,16 @@ import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu.tsx";
 import { NO_DRAG_REGION, cn } from "@/lib/utils.ts";
+import { editorName } from "@/lib/paths.ts";
+import { rpc } from "@/lib/rpc.ts";
 
 export default function Sidebar({ onClose, overlay = false }: { onClose: () => void; overlay?: boolean }) {
   const projects = useAppStore((s) => s.projects);
@@ -34,6 +43,8 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
     useShallow((s) => s.projects.map((project) => s.conversations[project.path]?.running ?? false)),
   );
   const importSession = useAppStore((s) => s.importSession);
+  const openTerminal = useAppStore((s) => s.openTerminal);
+  const editorId = useAppStore((s) => s.preferences.preferredEditorId);
   const searchFocusRequest = useAppStore((s) => s.searchFocusRequest);
   const [query, setQuery] = useState("");
   const [now, setNow] = useState(Date.now);
@@ -63,6 +74,18 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   async function startNewChat(path: string) {
     if (path !== activeProjectPath) await selectProject(path);
     useAppStore.getState().newChat();
+    if (overlay) onClose();
+  }
+
+  async function importChat(path: string) {
+    if (path !== activeProjectPath) await selectProject(path);
+    await importSession();
+    if (overlay) onClose();
+  }
+
+  async function showTerminal(path: string) {
+    if (path !== activeProjectPath) await selectProject(path);
+    openTerminal(path);
     if (overlay) onClose();
   }
 
@@ -132,7 +155,8 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
           const busy = projectBusyStates[index] ?? false;
           return (
           <div key={project.path} className="flex flex-col gap-0.5">
-            <div className="group flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent">
+            <ContextMenu>
+              <ContextMenuTrigger render={<div className="group flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent" />}>
               <button
                 type="button"
                 onClick={() => void selectProjectAndClose(project.path)}
@@ -184,7 +208,31 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                   </MenuItem>
                 </MenuPopup>
               </Menu>
-            </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="w-56">
+                <ContextMenuItem onClick={() => void startNewChat(project.path)} disabled={busy}>
+                  <NotePencilIcon /> New chat here
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => void importChat(project.path)}>
+                  <UploadSimpleIcon /> Import an existing chat
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem onClick={() => void rpc.request.openProjectIn({ projectDir: project.path, editorId })}>
+                  Open in {editorName(editorId)}
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => void rpc.request.showInFolder({ path: project.path })}>
+                  Reveal in Explorer
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => void showTerminal(project.path)}>Open terminal here</ContextMenuItem>
+                <ContextMenuItem onClick={() => void navigator.clipboard.writeText(project.path)}>Copy path</ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem onClick={() => setWorktreesFor(project.path)}>Worktrees…</ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem variant="destructive" onClick={() => setPendingRemoval(project)}>
+                  Remove from NativePi
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
             {project.path === activeProjectPath ? <ChatList projectPath={project.path} query={query} now={now} onNavigate={overlay ? onClose : undefined} /> : null}
           </div>
           );
@@ -242,23 +290,29 @@ function ChatList({
         <div className="rounded-lg bg-sidebar-accent px-3 py-2 text-sm font-semibold">New chat</div>
       )}
       {visibleSessions.map((session) => (
-        <div
+        <SessionMenu
           key={session.path}
-          className={cn(
-            "group/chat flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent",
-            session.path === activeSessionFile && !isNewChat && "bg-sidebar-accent",
+          session={session}
+          className="mr-1 opacity-0 group-hover/chat:opacity-100 group-focus-within/chat:opacity-100 data-[popup-open]:opacity-100"
+          renderRow={(menu) => (
+            <div
+              className={cn(
+                "group/chat flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent",
+                session.path === activeSessionFile && !isNewChat && "bg-sidebar-accent",
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => void selectChat(session.path).then(onNavigate).catch(() => undefined)}
+                className="flex min-w-0 flex-1 flex-row items-center gap-3 rounded-lg px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
+              >
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{chatTitle(session)}</span>
+                <span className="shrink-0 text-xs font-semibold text-muted-foreground">{hoursAgo(session.modified, now)}</span>
+              </button>
+              {menu}
+            </div>
           )}
-        >
-          <button
-            type="button"
-            onClick={() => void selectChat(session.path).then(onNavigate).catch(() => undefined)}
-            className="flex min-w-0 flex-1 flex-row items-center gap-3 rounded-lg px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
-          >
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">{chatTitle(session)}</span>
-            <span className="shrink-0 text-xs font-semibold text-muted-foreground">{hoursAgo(session.modified, now)}</span>
-          </button>
-          <SessionMenu session={session} className="mr-1 opacity-0 group-hover/chat:opacity-100 group-focus-within/chat:opacity-100 data-[popup-open]:opacity-100" />
-        </div>
+        />
       ))}
       {sessions.length === 0 && !isNewChat && (
         <p className="px-2.5 py-1.5 text-xs text-muted-foreground">No chats yet</p>
