@@ -60,6 +60,7 @@ export default function App() {
   const [sidebarSheetOpen, setSidebarSheetOpen] = useState(false);
   const [contextSheetOpen, setContextSheetOpen] = useState(false);
   const [layout, setLayout] = useState<WorkspaceLayout>(currentWorkspaceLayout);
+  const [startupError, setStartupError] = useState<string>();
   const terminalProjects = useAppStore((s) => s.terminalProjects);
   const toggleProjectTerminal = useAppStore((s) => s.toggleTerminal);
   const sidebarDocked = layout !== "compact" && sidebarOpen;
@@ -72,7 +73,9 @@ export default function App() {
   };
 
   useEffect(() => {
-    void init();
+    void init().catch((error: unknown) => {
+      setStartupError(error instanceof Error ? error.message : String(error));
+    });
   }, [init]);
 
   useTurnCompletionSignal();
@@ -100,9 +103,16 @@ export default function App() {
   if (!ready) {
     return (
       <div className="relative flex h-full items-center justify-center overflow-hidden bg-background text-foreground">
-        <div className="flex flex-col items-center gap-3" role="status">
+        <div className="flex max-w-md flex-col items-center gap-3 px-6 text-center" role={startupError ? "alert" : "status"}>
           <NativePiWordmark display />
-          <p className="text-sm text-muted-foreground">Starting NativePi…</p>
+          <p className="text-sm text-muted-foreground">
+            {startupError ?? "Starting NativePi…"}
+          </p>
+          {startupError ? (
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Try again
+            </Button>
+          ) : null}
         </div>
         <WindowControls />
       </div>

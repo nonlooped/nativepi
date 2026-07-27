@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 import { PiProcess } from "./pi/client.ts";
@@ -30,19 +31,27 @@ import {
 } from "./terminal.ts";
 import type { HostEvents, HostRequestName, HostRequests, PiStatus } from "../shared/rpc-schema.ts";
 import type { CommandInfo, ForkPoint, ModelInfo, RpcSessionState, SessionStats, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
+import { localServerStatus, startLocalServer, stopLocalServer } from "./localServer.ts";
 
 const pis = new Map<string, PiProcess>();
 const starting = new Map<string, Promise<PiProcess>>();
 
 let mainWindow: BrowserWindow | null = null;
+type HostEventListener = <K extends keyof HostEvents>(channel: K, payload: HostEvents[K]) => void;
+const hostEventListeners = new Set<HostEventListener>();
 
 export function setMainWindow(win: BrowserWindow | null): void {
   mainWindow = win;
 }
 
 function push<K extends keyof HostEvents>(channel: K, payload: HostEvents[K]): void {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send(channel, payload);
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload);
+  for (const listener of hostEventListeners) listener(channel, payload);
+}
+
+export function subscribeHostEvents(listener: HostEventListener): () => void {
+  hostEventListeners.add(listener);
+  return () => hostEventListeners.delete(listener);
 }
 
 const authPush: auth.AuthPush = {
@@ -677,6 +686,25 @@ const handlers: HandlerMap = {
   },
 
   versions: () => ({ pi: auth.PI_VERSION_STRING, app: app.getVersion() }),
+  localServerStatus: () => localServerStatus(),
+  startLocalServer: async () => {
+    try {
+      return await startLocalServer({
+        rendererDir: resolve(import.meta.dirname, "../renderer"),
+        rendererUrl: process.env["ELECTRON_RENDERER_URL"],
+        invoke: invokeHostRequest,
+        subscribe: subscribeHostEvents,
+      });
+    } catch (err) {
+      return { running: false, links: [], error: errorMessage(err) };
+    }
+  },
+  stopLocalServer: () => {
+    // Let a remote caller receive the acknowledgement before its own socket is
+    // closed. The desktop settings are the normal place this action is used.
+    setTimeout(() => void stopLocalServer(), 100);
+    return { ok: true };
+  },
 
   getPiSettings: () => {
     try {
@@ -867,16 +895,27 @@ const handlers: HandlerMap = {
   },
 };
 
+export async function invokeHostRequest<K extends HostRequestName>(
+  name: K,
+  params: HostRequests[K]["params"],
+): Promise<HostRequests[K]["response"]> {
+  if (!Object.hasOwn(handlers, name)) throw new Error(`Unknown host request: ${String(name)}`);
+  const handler = handlers[name] as (value: HostRequests[K]["params"]) =>
+    Promise<HostRequests[K]["response"]> | HostRequests[K]["response"];
+  return await handler(params ?? ({} as HostRequests[K]["params"]));
+}
+
 export function registerIpc(): void {
-  for (const [name, handler] of Object.entries(handlers) as [HostRequestName, HandlerMap[HostRequestName]][]) {
+  for (const name of Object.keys(handlers) as HostRequestName[]) {
     ipcMain.removeHandler(name);
-    ipcMain.handle(name, (_event, params) => (handler as (p: unknown) => unknown)(params ?? {}));
+    ipcMain.handle(name, (_event, params) => invokeHostRequest(name, params ?? {}));
   }
 }
 
 export async function stopAllPi(): Promise<void> {
   stopSessionWatch();
   stopAllTerminals();
+  await stopLocalServer();
   const all = [...pis.values()];
   pis.clear();
   starting.clear();
