@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { nativePiStateSchema } from "./rpc-schema.ts";
+import { DEFAULT_PREFERENCES, nativePiStateSchema } from "./rpc-schema.ts";
 
 test("an empty object yields the full set of defaults", () => {
   const state = nativePiStateSchema.parse({});
@@ -12,7 +12,17 @@ test("an empty object yields the full set of defaults", () => {
     favoriteModels: [],
     panes: undefined,
     reopenLastProject: true,
+    preferences: DEFAULT_PREFERENCES,
   });
+});
+
+test("a corrupt preference costs that preference, not the rest", () => {
+  const state = nativePiStateSchema.parse({
+    preferences: { diffStyle: "sideways", interfaceScale: 9, terminalFontSize: 18 },
+  });
+  expect(state.preferences.diffStyle).toBe("unified");
+  expect(state.preferences.interfaceScale).toBe(1.4);
+  expect(state.preferences.terminalFontSize).toBe(18);
 });
 
 test("a corrupt field costs that field, not the whole workspace", () => {

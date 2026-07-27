@@ -75,7 +75,7 @@ export function ComposerWidgets({ placement }: { placement: "aboveComposer" | "b
   if (serializable.length === 0 && graphical.length === 0) return null;
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-1">
+    <div className="mx-auto flex max-w-(--conversation-width) flex-col gap-1">
       {serializable.map(([key, w]) => (
         <div key={key} className="rounded-xl border bg-card/60 px-3 py-1.5 font-mono text-xs text-muted-foreground">
           {w.lines.map((line, i) => (

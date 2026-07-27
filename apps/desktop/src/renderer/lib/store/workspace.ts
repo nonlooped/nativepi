@@ -27,6 +27,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       favoriteModels: loaded.favoriteModels ?? [],
       activeProjectPath: restoreProject,
       reopenLastProject,
+      preferences: loaded.preferences,
       sidebarOpen: loaded.panes?.sidebarOpen ?? true,
       sidebarSize: loaded.panes?.sidebarSize ?? 18,
       contextPaneOpen: loaded.panes?.contextPaneOpen ?? false,

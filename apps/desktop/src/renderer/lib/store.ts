@@ -3,6 +3,7 @@ import { rpc } from "./rpc.ts";
 import { createAuthSlice } from "./store/auth.ts";
 import { createChatSlice } from "./store/chat.ts";
 import { createModelSlice } from "./store/models.ts";
+import { createPiSettingsSlice } from "./store/piSettings.ts";
 import { createProjectContextSlice } from "./store/projectContext.ts";
 import { createUiSlice } from "./store/ui.ts";
 import { createWorkspaceSlice } from "./store/workspace.ts";
@@ -22,6 +23,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   ...createModelSlice(set, get),
   ...createAuthSlice(set, get),
   ...createProjectContextSlice(set, get),
+  ...createPiSettingsSlice(set, get),
   ...createUiSlice(set, get),
 }));
 

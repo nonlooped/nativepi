@@ -71,6 +71,7 @@ export function persist(get: GetState): void {
         contextPaneOpen: s.contextPaneOpen,
       },
       reopenLastProject: s.reopenLastProject,
+      preferences: s.preferences,
     };
     void rpc.request.saveState({ state });
   }, 250);

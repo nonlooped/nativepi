@@ -12,6 +12,8 @@ import { listSkills } from "./skills.ts";
 import { listProjectFiles } from "./files.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
 import { listInstalledEditors, openProjectIn } from "./editors.ts";
+import { piPaths, readPiSettings, writePiSettings } from "./piSettings.ts";
+import { piSettingsPatchSchema, type PiSettingsPatch } from "../shared/pi-settings.ts";
 import {
   closeTerminal,
   closeProjectTerminals,
@@ -133,6 +135,24 @@ async function rebound(pi: PiProcess): Promise<string | undefined> {
   const state = await pi.request<RpcSessionState>({ type: "get_state" });
   pi.boundSessionFile = state.sessionFile;
   return state.sessionFile;
+}
+
+/**
+ * Push the settings a running Pi can adopt without restarting.
+ *
+ * Pi reads `settings.json` once at startup, so a saved setting normally waits
+ * for the next process. These four have RPC equivalents, and sending them to
+ * every live Pi means the modes the user just chose govern the run they are
+ * watching rather than the one after it. The RPC form is session-scoped and does
+ * not persist, which is why the file was written first.
+ */
+function applyLive(patch: PiSettingsPatch): void {
+  for (const pi of pis.values()) {
+    if (patch.steeringMode) pi.send({ type: "set_steering_mode", mode: patch.steeringMode });
+    if (patch.followUpMode) pi.send({ type: "set_follow_up_mode", mode: patch.followUpMode });
+    if (patch.autoCompaction !== undefined) pi.send({ type: "set_auto_compaction", enabled: patch.autoCompaction });
+    if (patch.autoRetry !== undefined) pi.send({ type: "set_auto_retry", enabled: patch.autoRetry });
+  }
 }
 
 function toModelInfo(model: unknown): ModelInfo {
@@ -536,6 +556,31 @@ const handlers: HandlerMap = {
   },
 
   versions: () => ({ pi: auth.PI_VERSION_STRING, app: app.getVersion() }),
+
+  getPiSettings: () => {
+    try {
+      return { settings: readPiSettings() };
+    } catch (err) {
+      return { error: errorMessage(err) };
+    }
+  },
+  setPiSettings: async ({ patch }) => {
+    try {
+      const parsed = piSettingsPatchSchema.parse(patch);
+      await writePiSettings(parsed);
+      applyLive(parsed);
+      // Read back rather than echo: this is what Pi now reports, including any
+      // value it normalized on the way in.
+      return { ok: true, settings: readPiSettings() };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  },
+  piPaths: () => ({ paths: piPaths() }),
+  showInFolder: ({ path }) => {
+    shell.showItemInFolder(path);
+    return { ok: true };
+  },
 
   terminalEnsure: (params) => {
     const { projectDir } = projectDirParamsSchema.parse(params);

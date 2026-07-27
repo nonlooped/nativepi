@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { PiPaths, PiSettings, PiSettingsPatch } from "./pi-settings.ts";
 import type {
   ExtensionUiResponse,
   FileEntry,
@@ -90,6 +91,39 @@ const paneStateSchema = z.object({
   contextPaneOpen: z.boolean().catch(false),
 });
 
+/**
+ * The preferences NativePi owns, as opposed to the ones Pi owns.
+ *
+ * Everything here changes how this window looks or behaves and means nothing to
+ * the Pi CLI; anything about how the agent runs belongs in Pi's own settings —
+ * see `shared/pi-settings.ts`. Numbers are clamped rather than rejected for the
+ * same reason `sidebarSize` is: a value outside the range would render something
+ * unusable, and dropping the whole object over one field loses the rest.
+ */
+const clamped = (fallback: number, min: number, max: number) =>
+  z
+    .number()
+    .finite()
+    .catch(fallback)
+    .pipe(z.transform((value) => Math.min(max, Math.max(min, value))));
+
+export const preferencesSchema = z.object({
+  notifyOnTurnEnd: z.boolean().catch(true),
+  notificationSound: z.boolean().catch(true),
+  conversationWidth: z.enum(["narrow", "medium", "wide", "full"]).catch("medium"),
+  interfaceScale: clamped(1, 0.8, 1.4),
+  diffStyle: z.enum(["unified", "split"]).catch("unified"),
+  reducedMotion: z.enum(["system", "always", "never"]).catch("system"),
+  terminalFontSize: clamped(13, 9, 24),
+  terminalScrollback: clamped(5000, 500, 100000),
+  terminalCursorBlink: z.boolean().catch(true),
+});
+
+export type Preferences = z.infer<typeof preferencesSchema>;
+
+/** Defaults, as the schema itself defines them. */
+export const DEFAULT_PREFERENCES: Preferences = preferencesSchema.parse({});
+
 export const nativePiStateSchema = z.object({
   version: z.literal(1).catch(1),
   // Filtered per element, not all-or-nothing: one unreadable entry should cost
@@ -111,6 +145,7 @@ export const nativePiStateSchema = z.object({
   favoriteModels: z.array(z.string()).catch([]),
   panes: paneStateSchema.optional().catch(undefined),
   reopenLastProject: z.boolean().catch(true),
+  preferences: preferencesSchema.catch(DEFAULT_PREFERENCES),
 });
 
 export type NativePiState = z.infer<typeof nativePiStateSchema>;
@@ -212,6 +247,15 @@ export type HostRequests = {
     response: { ok: boolean; error?: string };
   };
   versions: { params: Record<string, never>; response: { pi: string; app: string } };
+
+  getPiSettings: { params: Record<string, never>; response: { settings?: PiSettings; error?: string } };
+  setPiSettings: {
+    params: { patch: PiSettingsPatch };
+    response: { ok: boolean; settings?: PiSettings; error?: string };
+  };
+  piPaths: { params: Record<string, never>; response: { paths: PiPaths } };
+  /** Reveal a file or folder in Explorer. Used by About to point at Pi's own files. */
+  showInFolder: { params: { path: string }; response: { ok: boolean } };
 
   terminalEnsure: { params: { projectDir: string }; response: { terminals: TerminalSession[] } };
   terminalCreate: { params: { projectDir: string }; response: { terminal: TerminalSession } };

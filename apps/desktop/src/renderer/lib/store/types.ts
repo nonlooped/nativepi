@@ -3,6 +3,7 @@ import type {
   AuthProviderInfo,
   AuthPromptRequest,
   PiStatus,
+  Preferences,
   Project,
 } from "../../../shared/rpc-schema.ts";
 import type {
@@ -15,6 +16,7 @@ import type {
   SessionSummary,
   ThinkingLevel,
 } from "../../../shared/pi-types.ts";
+import type { PiSettings } from "../../../shared/pi-settings.ts";
 import type { LoadedExtension } from "../extensionHost.ts";
 
 /**
@@ -179,6 +181,23 @@ export interface ProjectContextSlice {
   respondExtension: (value: { value?: string; confirmed?: boolean; cancel?: boolean }) => void;
 }
 
+/**
+ * Pi's settings file, as the settings screen sees it.
+ *
+ * `null` until loaded. Never persisted with the workspace: Pi owns the file and
+ * anything else on the machine may have changed it since the last visit.
+ */
+export interface PiSettingsSlice {
+  piSettings: PiSettings | null;
+  piSettingsError?: string;
+  /** A saved setting is waiting on a Pi restart before it does anything. */
+  piRestartPending: boolean;
+
+  loadPiSettings: () => Promise<void>;
+  updatePiSetting: <K extends keyof PiSettings>(key: K, value: PiSettings[K]) => Promise<void>;
+  applyPiSettingsRestart: () => Promise<void>;
+}
+
 /** Chrome: what is open, how wide, and one-shot requests to the view. */
 export interface UiSlice {
   settingsOpen: boolean;
@@ -189,6 +208,8 @@ export interface UiSlice {
   contextPaneChosen: boolean;
   jumpRequest: number;
   searchFocusRequest: number;
+  /** NativePi's own appearance and behavior preferences. Pi's live elsewhere. */
+  preferences: Preferences;
 
   openSettings: () => void;
   closeSettings: () => void;
@@ -196,12 +217,19 @@ export interface UiSlice {
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setReopenLastProject: (value: boolean) => void;
+  setPreference: <K extends keyof Preferences>(key: K, value: Preferences[K]) => void;
   toggleContextPane: () => void;
   requestJumpToLatest: () => void;
   requestSearchFocus: () => void;
 }
 
-export type AppState = WorkspaceSlice & ChatSlice & ModelSlice & AuthSlice & ProjectContextSlice & UiSlice;
+export type AppState = WorkspaceSlice &
+  ChatSlice &
+  ModelSlice &
+  AuthSlice &
+  ProjectContextSlice &
+  PiSettingsSlice &
+  UiSlice;
 
 export type SetState = (partial: Partial<AppState> | ((s: AppState) => Partial<AppState>)) => void;
 export type GetState = () => AppState;

@@ -25,6 +25,12 @@ body,
   height: 100%;
 }
 
+/* The conversation column's width. Overwritten from the saved preference by
+   `lib/appearance.ts`; this value is what the first paint uses. */
+html {
+  --conversation-width: 48rem;
+}
+
 body {
   margin: 0;
   overflow: hidden;
@@ -279,13 +285,25 @@ body {
     inset 0 1px color-mix(in oklch, var(--foreground) 5%, transparent);
 }
 
+/* The OS preference, unless the user has overridden it in Settings. `data-motion`
+   is written by `lib/appearance.ts`: "reduced" forces this on, "full" forces it
+   off, and no attribute at all leaves the OS in charge. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  html:not([data-motion="full"]) *,
+  html:not([data-motion="full"]) *::before,
+  html:not([data-motion="full"]) *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }

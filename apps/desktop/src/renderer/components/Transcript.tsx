@@ -92,7 +92,7 @@ export default function Transcript() {
         aria-live="off"
         className="min-h-0 flex-1 overflow-y-auto px-4 py-5 [scrollbar-gutter:stable]"
       >
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+        <div className="mx-auto flex w-full max-w-(--conversation-width) flex-col gap-6">
           {items.map((item, index) =>
             item.type === "response" ? (
               // Keyed by position, not id: a response's id changes from the
