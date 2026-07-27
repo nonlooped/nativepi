@@ -200,6 +200,15 @@ export interface GitBranch {
 }
 
 
+/** One skill the composer's `$` menu can insert as a `/skill:name` command. */
+export interface SkillInfo {
+  name: string;
+  description: string;
+  /** Where it came from, which is the only thing the menu says about provenance. */
+  scope: "user" | "project";
+}
+
+
 export interface PackageInfo {
   source: string;
   scope: "user" | "project";
