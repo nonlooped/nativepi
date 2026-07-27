@@ -79,7 +79,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
 
   async function importChat(path: string) {
     if (path !== activeProjectPath) await selectProject(path);
-    await importSession();
+    await importSession(path);
     if (overlay) onClose();
   }
 

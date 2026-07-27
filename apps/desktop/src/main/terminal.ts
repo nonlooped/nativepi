@@ -113,6 +113,16 @@ export function terminalSnapshot(projectDir: string, terminalId: string): { outp
   return { output: terminal.output.join(""), sequence: terminal.sequence };
 }
 
+export function clearTerminal(projectDir: string, terminalId: string): void {
+  const terminal = terminals.get(terminalId);
+  if (!terminal || terminal.projectDir !== projectDir) return;
+  terminal.output = [];
+  terminal.outputSize = 0;
+  // PSReadLine redraws the current prompt and any typed input after clearing,
+  // so the fresh output remains replayable when the terminal surface remounts.
+  if (!terminal.exited) terminal.process.write("\x0c");
+}
+
 export function writeTerminal(projectDir: string, terminalId: string, data: string): void {
   const terminal = terminals.get(terminalId);
   if (!terminal || terminal.projectDir !== projectDir || terminal.exited) return;

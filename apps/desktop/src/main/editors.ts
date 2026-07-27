@@ -1,6 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { basename, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { app, shell } from "electron";
 import type { InstalledEditor } from "../shared/rpc-schema.ts";
@@ -287,7 +287,9 @@ export async function openProjectIn(projectDir: string, editorId: string): Promi
 export async function openFileIn(projectDir: string, file: string, editorId: string): Promise<void> {
   const targetPath = resolve(projectDir, file);
   const relativePath = relative(projectDir, targetPath);
-  if (isAbsolute(relativePath) || relativePath.startsWith("..")) throw new Error("The file is outside this project.");
+  if (isAbsolute(relativePath) || relativePath === ".." || relativePath.startsWith(`..${sep}`)) {
+    throw new Error("The file is outside this project.");
+  }
   if (editorId === "explorer") {
     shell.showItemInFolder(targetPath);
     return;

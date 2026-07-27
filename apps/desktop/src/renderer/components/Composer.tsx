@@ -1,6 +1,6 @@
 import { ArrowBendUpRightIcon, CaretDownIcon, CheckIcon, GitBranchIcon, PaperPlaneRightIcon, PlusIcon, TreeStructureIcon } from "../../shared/icons.ts"
 import { PaperclipIcon } from "@phosphor-icons/react/Paperclip";
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { AssistantMessage } from "../../shared/pi-types.ts";
 import { draftKeyFor } from "../../shared/messages.ts";
 import { ACCEPTED_IMAGE_TYPES, draggingImages, imageFilesIn } from "../lib/attachments.ts";
@@ -382,7 +382,15 @@ function BranchSelector() {
   const branch = useAppStore((s) => s.git?.branch);
   const detached = useAppStore((s) => s.git?.detached ?? false);
   const running = useAppStore((s) => activeConversation(s).running);
+  const branchMenuRequested = useAppStore((s) => s.branchMenuRequested);
+  const consumeBranchMenuRequest = useAppStore((s) => s.consumeBranchMenuRequest);
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!branchMenuRequested) return;
+    consumeBranchMenuRequest();
+    setOpen(true);
+  }, [branchMenuRequested, consumeBranchMenuRequest]);
 
   if (!isRepo) return null;
 

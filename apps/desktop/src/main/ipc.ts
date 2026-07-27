@@ -17,6 +17,7 @@ import { listInstalledEditors, openFileIn, openProjectIn } from "./editors.ts";
 import { liveSettingsFor, piPaths, queuePiSettings, readPiSettings, writePiSettings } from "./piSettings.ts";
 import { piSettingsPatchSchema, type PiSettingsPatch } from "../shared/pi-settings.ts";
 import {
+  clearTerminal,
   closeTerminal,
   closeProjectTerminals,
   createTerminal,
@@ -755,6 +756,11 @@ const handlers: HandlerMap = {
   terminalResize: (params) => {
     const { projectDir, terminalId, cols, rows } = terminalResizeParamsSchema.parse(params);
     resizeTerminal(projectDir, terminalId, cols, rows);
+    return { ok: true };
+  },
+  terminalClear: (params) => {
+    const { projectDir, terminalId } = terminalIdParamsSchema.parse(params);
+    clearTerminal(projectDir, terminalId);
     return { ok: true };
   },
   terminalClose: (params) => {

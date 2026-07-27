@@ -125,7 +125,7 @@ export interface ChatSlice {
   refreshSessions: (projectPath: string) => Promise<void>;
   selectChat: (sessionFile: string) => Promise<void>;
   newChat: () => void;
-  importSession: () => Promise<void>;
+  importSession: (projectDir?: string) => Promise<void>;
   setDraft: (text: string) => void;
   quoteInReply: (text: string) => void;
   askAbout: (text: string) => void;
@@ -227,6 +227,7 @@ export interface UiSlice {
   contextPaneChosen: boolean;
   jumpRequest: number;
   searchFocusRequest: number;
+  branchMenuRequested: boolean;
   terminalProjects: Set<string>;
   /** NativePi's own appearance and behavior preferences. Pi's live elsewhere. */
   preferences: Preferences;
@@ -241,6 +242,8 @@ export interface UiSlice {
   toggleContextPane: () => void;
   requestJumpToLatest: () => void;
   requestSearchFocus: () => void;
+  requestBranchMenu: () => void;
+  consumeBranchMenuRequest: () => void;
   openTerminal: (projectPath: string) => void;
   toggleTerminal: (projectPath: string) => void;
 }
