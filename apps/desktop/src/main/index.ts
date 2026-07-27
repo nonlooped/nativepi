@@ -1,6 +1,6 @@
 import { app, BrowserWindow, shell } from "electron";
 import { join } from "node:path";
-import { registerIpc, setMainWindow, stopAllPi } from "./ipc.ts";
+import { quitBlocked, registerIpc, setMainWindow, stopAllPi } from "./ipc.ts";
 
 // Not named `__dirname`: rolldown injects a CommonJS `__dirname` shim at the top
 // of the main bundle, and a same-named top-level const collides with it at load.
@@ -67,6 +67,28 @@ function createWindow(): void {
   });
 
   setMainWindow(win);
+
+  /**
+   * Closing is where an agent turn and a shell die, so it is where the user is
+   * asked. Held here rather than in `before-quit`, which on Windows only runs
+   * once the window is already gone and there is nothing left to show a dialog
+   * in. A quit that is already under way is let through: by then the answer has
+   * been given, or the OS is ending the session and is not waiting for one.
+   *
+   * A renderer that has crashed or hung is let through too: it can neither draw
+   * the confirmation nor answer it, and holding the close for one would leave
+   * the window, its Pi processes and its shells with no way out short of a
+   * force-kill. An unanswerable question is worse than no question.
+   */
+  let rendererAnswers = true;
+  win.on("unresponsive", () => (rendererAnswers = false));
+  win.on("responsive", () => (rendererAnswers = true));
+  win.webContents.on("render-process-gone", () => (rendererAnswers = false));
+
+  win.on("close", (event) => {
+    if (quitting || !rendererAnswers || win.webContents.isCrashed()) return;
+    if (quitBlocked()) event.preventDefault();
+  });
 
   win.on("closed", () => setMainWindow(null));
 

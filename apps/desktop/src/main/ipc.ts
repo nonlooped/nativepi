@@ -19,6 +19,7 @@ import {
   closeProjectTerminals,
   createTerminal,
   listTerminals,
+  liveTerminalProjects,
   resizeTerminal,
   stopAllTerminals,
   terminalSnapshot,
@@ -68,14 +69,38 @@ function markBusy(projectDir: string, until: number): void {
 
 function forwardEvent(projectDir: string, event: PiMessage): void {
   if (event["type"] === "agent_start") markBusy(projectDir, Number.POSITIVE_INFINITY);
-  else if (event["type"] === "agent_settled" || event["type"] === "agent_end") {
-    markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
-  }
+  // `agent_end` closes one low-level run, not the turn: Pi may still be waiting
+  // out an auto-retry delay, compacting, or holding a queued follow-up, and none
+  // of those emit anything while they wait. `agent_settled` is the event Pi
+  // documents as "nothing will start again on its own", so it is the only one
+  // that hands the project back.
+  else if (event["type"] === "agent_settled") markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
   // Any Pi message means Pi is alive and touching this project right now.
   else if (busyUntil.get(projectDir) !== Number.POSITIVE_INFINITY) {
     markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
   }
   push("piEvent", { projectDir, sessionFile: pis.get(projectDir)?.boundSessionFile, event });
+}
+
+/**
+ * Whether the close has to wait for an answer.
+ *
+ * Quitting kills every Pi and every shell, and neither gets a chance to finish
+ * what it was doing. `busyUntil` already knows which projects are mid-turn — the
+ * infinite value is set on `agent_start` and replaced when the turn settles — so
+ * the summary the window shows is the same reading the session watcher trusts.
+ * Only projects with a live process count: a Pi that died mid-turn leaves its
+ * marker behind, and nothing is running for the user to lose.
+ */
+let quitConfirmed = false;
+
+export function quitBlocked(): boolean {
+  if (quitConfirmed) return false;
+  const runs = [...pis.keys()].filter((projectDir) => busyUntil.get(projectDir) === Number.POSITIVE_INFINITY);
+  const terminals = liveTerminalProjects();
+  if (runs.length === 0 && terminals.length === 0) return false;
+  push("quitRequested", { work: { runs, terminals } });
+  return true;
 }
 
 function stopSessionWatch(): void {
@@ -100,6 +125,10 @@ function ensurePi(projectDir: string): Promise<PiProcess> {
       (msg) => forwardEvent(projectDir, msg),
       (code) => {
         pis.delete(projectDir);
+        // A Pi that dies mid-turn never reaches `agent_settled`, so drop the
+        // marker with the process rather than leaving this project looking
+        // permanently busy to the watcher.
+        busyUntil.delete(projectDir);
         status(projectDir, "exited", `exit ${code ?? "?"}`);
       },
     );
@@ -293,11 +322,13 @@ const handlers: HandlerMap = {
   },
 
   submit: async ({ projectDir, sessionFile, message }) => {
+    // Claim the write before Pi is even up, so our own append is never mistaken
+    // for a concurrent editor and a cold start counts as work in flight: the
+    // renderer has already cleared the draft, and a close that slipped through
+    // here would take the prompt with it.
+    markBusy(projectDir, Number.POSITIVE_INFINITY);
     try {
       const pi = await ensurePi(projectDir);
-      // Claim the write before Pi's first event arrives, so our own append is
-      // never mistaken for a concurrent editor.
-      markBusy(projectDir, Number.POSITIVE_INFINITY);
       if (sessionFile) {
         if (pi.boundSessionFile !== sessionFile) {
           await pi.request({ type: "switch_session", sessionPath: sessionFile });
@@ -553,6 +584,11 @@ const handlers: HandlerMap = {
     return { maximized: mainWindow.isMaximized() };
   },
   windowClose: () => {
+    mainWindow?.close();
+    return { ok: true };
+  },
+  confirmQuit: () => {
+    quitConfirmed = true;
     mainWindow?.close();
     return { ok: true };
   },

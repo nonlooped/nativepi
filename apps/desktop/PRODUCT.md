@@ -45,6 +45,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Normal Pi extension UI requests plus optional graphical tool, entry, composer-widget, and context-panel contributions through `@nativepi/extension-api`.
 - Responsive project and context panes, fixed keyboard shortcuts, reduced-motion handling, and standard accessible desktop controls.
 - Project-scoped integrated terminals with resizable splits that remain alive while hidden or while another project is active.
+- A quit confirmation that names the agent turns and terminals closing the window would stop, so a run is never ended by accident.
 - A settings screen covering NativePi's own appearance and notification preferences, a user-scope editor for the Pi settings that mean something in a desktop window, a shortcut reference, and the paths to Pi's own files.
 
 ## Boundaries and Constraints

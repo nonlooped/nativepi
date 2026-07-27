@@ -55,6 +55,11 @@ export function listTerminals(projectDir: string): TerminalSession[] {
     .map(publicSession);
 }
 
+/** The project of every terminal still holding a live shell, one entry each. */
+export function liveTerminalProjects(): string[] {
+  return [...terminals.values()].filter((terminal) => !terminal.exited).map((terminal) => terminal.projectDir);
+}
+
 export function createTerminal(
   projectDir: string,
   onData: (payload: { projectDir: string; terminalId: string; data: string; sequence: number }) => void,
