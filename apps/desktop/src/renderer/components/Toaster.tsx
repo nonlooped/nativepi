@@ -26,8 +26,10 @@ export default function Toaster() {
         classNames: {
           // Sized by content between bounds: a fixed width forced long
           // extension messages into a tall 320px ribbon of wrapped text.
+          // The 16rem floor is a comfortable minimum on a desktop window and
+          // most of a phone's width, so it yields to the viewport there.
           toast:
-            "pointer-events-auto flex w-auto min-w-64 max-w-96 items-start gap-2 rounded-lg border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg",
+            "pointer-events-auto flex w-auto min-w-[min(16rem,calc(100vw-2rem))] max-w-[min(24rem,calc(100vw-2rem))] items-start gap-2 rounded-lg border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg",
           title: "min-w-0 flex-1 whitespace-pre-wrap font-normal",
           description: "text-muted-foreground",
           icon: "mt-0.5 shrink-0",

@@ -28,7 +28,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
-import { NO_DRAG_REGION, cn } from "@/lib/utils.ts";
+import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import { editorName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { showHint } from "../lib/toast.ts";
@@ -195,7 +195,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                     ? "Stop the current run before starting a new chat"
                     : withHint(`New chat in ${project.name}`, "newChat")
                 }
-                className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                className={cn(HOVER_REVEAL, "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100")}
               >
                 <NotePencilIcon />
               </Button>
@@ -203,7 +203,10 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                 <MenuTrigger
                   aria-label={`Project actions for ${project.name}`}
                   title={`Project actions for ${project.name}`}
-                  className="mr-1 rounded-md p-1 text-muted-foreground opacity-0 outline-none group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                  className={cn(
+                    HOVER_REVEAL,
+                    "mr-1 rounded-md p-1 text-muted-foreground opacity-0 outline-none group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                  )}
                 >
                   <DotsThreeOutlineIcon weight="fill" />
                 </MenuTrigger>
@@ -303,7 +306,10 @@ function ChatList({
         <SessionMenu
           key={session.path}
           session={session}
-          className="mr-1 opacity-0 group-hover/chat:opacity-100 group-focus-within/chat:opacity-100 data-[popup-open]:opacity-100"
+          className={cn(
+            HOVER_REVEAL,
+            "mr-1 opacity-0 group-hover/chat:opacity-100 group-focus-within/chat:opacity-100 data-[popup-open]:opacity-100",
+          )}
           renderRow={(menu) => (
             <div
               className={cn(

@@ -39,7 +39,14 @@ export default function LeftSidebar({
 
       {children}
 
-      <div className={cn("shrink-0 border-t border-sidebar-border p-3", NO_DRAG_REGION)}>
+      {/* The bottom padding clears the iOS home indicator, which otherwise sits
+          over this button. `env()` is 0 on every other platform. */}
+      <div
+        className={cn(
+          "shrink-0 border-t border-sidebar-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+          NO_DRAG_REGION,
+        )}
+      >
         <Button variant="ghost" className="w-full justify-start" onClick={onAction}>
           {actionIcon}
           {actionLabel}

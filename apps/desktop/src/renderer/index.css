@@ -20,9 +20,16 @@
 @custom-variant dark (&:is(.dark *));
 
 html,
-body,
-#root {
+body {
   height: 100%;
+}
+
+/* `--app-height` is the visual viewport, written by `main.tsx`. On a phone the
+   layout viewport does not shrink when the soft keyboard opens, so a plain 100%
+   leaves the composer underneath it. `100dvh` is the fallback for the first
+   paint and for anything without a visual viewport. */
+#root {
+  height: var(--app-height, 100dvh);
 }
 
 /* The conversation column's width. Overwritten from the saved preference by
@@ -34,6 +41,82 @@ html {
 body {
   margin: 0;
   overflow: hidden;
+  /* iOS bounces the whole document when an inner scroller reaches its end,
+     dragging the fixed app shell away from the top of the screen. */
+  overscroll-behavior: none;
+}
+
+/* Header clearance for the frameless window's minimise/maximise/close buttons.
+   `data-shell` is written by `main.tsx`. Served over the network there is no
+   frameless window, and 132px of reserved space in a 390px header is most of
+   the header — so the rule applies only in the desktop shell, and each header
+   keeps its own padding otherwise. */
+html[data-shell="desktop"] .window-controls-clearance {
+  padding-right: 132px;
+}
+
+/* Keeps the composer optically centred under a transcript that reserves a
+   classic scrollbar gutter. Touch platforms overlay their scrollbars, so there
+   is no gutter to compensate for and the padding returns to matching the
+   left-hand `px-4` of every element that uses this. */
+.scrollbar-gutter-offset {
+  padding-right: 26px;
+}
+
+@media (pointer: coarse) {
+  .scrollbar-gutter-offset {
+    padding-right: 1rem;
+  }
+}
+
+/*
+  Marks a control that is otherwise revealed on hover.
+
+  The hover behaviour itself stays in the `group-hover:` utilities beside this
+  class, because each row names its own group. What this adds is the floor: on a
+  touch screen there is no hover, and the tap that would reveal the control is
+  the same tap that activates whatever sits underneath it — so a hover-only
+  control is one that does not exist. Marked controls are simply always visible
+  there.
+*/
+@media (hover: none) {
+  .hover-reveal {
+    opacity: 1 !important;
+  }
+}
+
+/*
+  Touch sizing.
+
+  The desktop density is deliberate and stays; what changes on a touch screen is
+  the floor. A 24px icon button is a comfortable mouse target and an unreliable
+  thumb target, so controls grow to 36px in both axes — enough to hit, small
+  enough that a toolbar of them still reads as one row.
+*/
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  [role="menuitem"],
+  [role="menuitemradio"],
+  [role="option"],
+  [role="tab"],
+  summary {
+    min-height: 2.25rem;
+    touch-action: manipulation;
+  }
+
+  [data-slot="button"] {
+    min-width: 2.25rem;
+  }
+
+  /* Anything under 16px makes iOS Safari zoom the page on focus, and it never
+     zooms back out. */
+  input,
+  textarea,
+  select,
+  [contenteditable="true"] {
+    font-size: max(1rem, 1em);
+  }
 }
 
 .app-drag {

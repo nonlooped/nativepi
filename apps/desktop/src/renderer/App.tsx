@@ -36,10 +36,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { DRAG_REGION, NO_DRAG_REGION, SCROLLBAR_GUTTER_OFFSET, WINDOW_CONTROLS_CLEARANCE } from "@/lib/utils.ts";
 import { useTurnCompletionSignal } from "./lib/completion.ts";
 import { useAppearance } from "./lib/appearance.ts";
-
-type WorkspaceLayout = "wide" | "narrow" | "compact";
-const COMPACT_MAX = 899;
-const NARROW_MAX = 1099;
+import { useWorkspaceLayout, type WorkspaceLayout } from "./lib/layout.ts";
 
 export default function App() {
   const init = useAppStore((s) => s.init);
@@ -59,7 +56,7 @@ export default function App() {
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
   const [sidebarSheetOpen, setSidebarSheetOpen] = useState(false);
   const [contextSheetOpen, setContextSheetOpen] = useState(false);
-  const [layout, setLayout] = useState<WorkspaceLayout>(currentWorkspaceLayout);
+  const layout = useWorkspaceLayout();
   const terminalProjects = useAppStore((s) => s.terminalProjects);
   const toggleProjectTerminal = useAppStore((s) => s.toggleTerminal);
   const sidebarDocked = layout !== "compact" && sidebarOpen;
@@ -77,18 +74,6 @@ export default function App() {
 
   useTurnCompletionSignal();
   useAppearance();
-
-  useEffect(() => {
-    const narrow = window.matchMedia(`(max-width: ${NARROW_MAX}px)`);
-    const compact = window.matchMedia(`(max-width: ${COMPACT_MAX}px)`);
-    const updateLayout = () => setLayout(compact.matches ? "compact" : narrow.matches ? "narrow" : "wide");
-    narrow.addEventListener("change", updateLayout);
-    compact.addEventListener("change", updateLayout);
-    return () => {
-      narrow.removeEventListener("change", updateLayout);
-      compact.removeEventListener("change", updateLayout);
-    };
-  }, []);
 
   useEffect(() => {
     setSidebarSheetOpen(false);
@@ -123,6 +108,7 @@ export default function App() {
           <ResizablePanel id="workspace" minSize="35%">
           <main className="conversation-shell flex h-full min-h-0 min-w-0 flex-col">
             <WorkspaceHeader
+              layout={layout}
               sidebarDocked={sidebarDocked}
               contextDocked={contextDocked}
               terminalOpen={terminalOpen}
@@ -136,7 +122,7 @@ export default function App() {
                 {hasConversation ? (
                   <Transcript key={activeSessionFile ?? "new"} />
                 ) : (
-                  <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-6 pb-8">
+                  <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-8 sm:px-6">
                     <div className="my-auto flex w-full max-w-(--conversation-width) flex-col items-center gap-6">
                       <div className="flex flex-col items-center gap-2 text-center">
                         <h1 className="font-heading text-2xl font-medium tracking-tight">What do you want to build?</h1>
@@ -283,6 +269,7 @@ function ExternalChangeNotice() {
 
 /** The drag-region title bar: project, chat title, and pane toggles. */
 function WorkspaceHeader({
+  layout,
   sidebarDocked,
   contextDocked,
   terminalOpen,
@@ -290,6 +277,7 @@ function WorkspaceHeader({
   onOpenContext,
   onToggleTerminal,
 }: {
+  layout: WorkspaceLayout;
   sidebarDocked: boolean;
   contextDocked: boolean;
   terminalOpen: boolean;
@@ -308,10 +296,11 @@ function WorkspaceHeader({
       : undefined,
   );
   const title = isNewChat ? "New chat" : activeSession ? chatTitle(activeSession) : "Untitled chat";
+  const compact = layout === "compact";
 
   return (
     <header
-      className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-2 pl-5 ${contextDocked ? "pr-2" : WINDOW_CONTROLS_CLEARANCE}`}
+      className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-2 pr-2 pl-2 sm:pl-5 ${contextDocked ? "" : WINDOW_CONTROLS_CLEARANCE}`}
     >
       {!sidebarDocked ? (
         <Button
@@ -327,12 +316,15 @@ function WorkspaceHeader({
       ) : null}
       <div className="min-w-0 flex-1 self-stretch">
         {activeProjectPath ? (
+          // The project half of the breadcrumb is the first thing to go when the
+          // header runs out of room: the sidebar the user just came from already
+          // says which project is open, and the chat title does not.
           <div className="flex h-full min-w-0 items-center gap-2 text-sm font-medium">
-            <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+            <span className="hidden min-w-0 items-center gap-1.5 text-muted-foreground sm:flex">
               <FolderIcon className="shrink-0" />
               <span className="truncate">{activeProjectName ?? activeProjectPath}</span>
             </span>
-            <span aria-hidden="true" className="shrink-0 text-muted-foreground/50">
+            <span aria-hidden="true" className="hidden shrink-0 text-muted-foreground/50 sm:inline">
               /
             </span>
             <span className="min-w-0 max-w-80 truncate" title={title}>
@@ -343,7 +335,10 @@ function WorkspaceHeader({
           <NativePiWordmark className="flex h-full items-center" />
         )}
       </div>
-      {activeProjectPath ? <OpenWith projectDir={activeProjectPath} /> : null}
+      {/* Opens an editor on the machine running Pi, which is not the machine
+          holding the phone — and it is the widest control in the header. It
+          stays in the sidebar's project menu. */}
+      {activeProjectPath && !compact ? <OpenWith projectDir={activeProjectPath} /> : null}
       {activeProjectPath ? <ProjectStatus className={NO_DRAG_REGION} /> : null}
       {activeProjectPath ? (
         <Button
@@ -569,7 +564,7 @@ function WelcomeScreen() {
   const openSettings = useAppStore((s) => s.openSettings);
 
   return (
-    <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-8 pb-12">
+    <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-5 pb-12 sm:px-8">
       <div className="my-auto flex max-w-md flex-col items-center gap-6 text-center">
         <NativePiWordmark display />
         <div className="flex flex-col gap-2">
@@ -598,7 +593,7 @@ function WelcomeScreen() {
             buttons read as "do step 1, do step 2" rather than contradicting
             them. Open folder keeps the primary treatment: existing Pi users
             arrive with a credential already stored. */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-center gap-2">
           <Button size="lg" variant="outline" onClick={openSettings}>
             <SlidersHorizontalIcon data-icon="inline-start" />
             Connect a provider
@@ -613,9 +608,3 @@ function WelcomeScreen() {
   );
 }
 
-function currentWorkspaceLayout(): WorkspaceLayout {
-  if (typeof window === "undefined") return "wide";
-  if (window.matchMedia(`(max-width: ${COMPACT_MAX}px)`).matches) return "compact";
-  if (window.matchMedia(`(max-width: ${NARROW_MAX}px)`).matches) return "narrow";
-  return "wide";
-}

@@ -22,7 +22,9 @@ function MenuPopup({
       <BaseMenu.Positioner side={side} sideOffset={sideOffset} align={align} className="z-50">
         <BaseMenu.Popup
           className={cn(
-            "max-h-80 min-w-44 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none",
+            // Several menus ask for a fixed width in rem — wider than a phone.
+            // The viewport cap keeps those from being positioned half off-screen.
+            "max-h-80 min-w-44 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none",
             className,
           )}
         >

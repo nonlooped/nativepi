@@ -29,7 +29,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog.tsx";
-import { cn } from "@/lib/utils.ts";
+import { HOVER_REVEAL, cn } from "@/lib/utils.ts";
 import { copyDataImage } from "@/lib/clipboard.ts";
 import { rpc } from "@/lib/rpc.ts";
 import DiffView from "./DiffView.tsx";
@@ -762,7 +762,12 @@ function MessageActions({ text, timestamp }: { text: string; timestamp: string }
   }, [copied]);
 
   return (
-    <div className="flex h-7 items-center gap-2 text-xs text-muted-foreground opacity-0 transition-opacity group-hover/message:opacity-100 group-focus-within/message:opacity-100">
+    <div
+      className={cn(
+        HOVER_REVEAL,
+        "flex min-h-7 items-center gap-2 text-xs text-muted-foreground opacity-0 transition-opacity group-hover/message:opacity-100 group-focus-within/message:opacity-100",
+      )}
+    >
       <Button
         variant="ghost"
         size="icon-xs"

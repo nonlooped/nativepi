@@ -244,7 +244,11 @@ Transcript and composer content share a centered 48rem maximum width, keeping me
 
 Spacing follows the quarter-rem Tailwind rhythm plus its half-steps: eighth-rem for tightly bound text pairs (a label above its description), five-eighths-rem as the standard inset for dense controls, half-rem and three-quarter-rem gaps for control clusters, and one- to one-and-a-half-rem spacing between content groups. Values off that ladder are drift, not intent. One-pixel resizable hairlines define persistent pane boundaries.
 
-The implementation collapses either side pane to protect conversation space and constrains large menus to the viewport. Below 1100px the context pane moves into a right sheet; below 900px project navigation also moves into a left sheet. These compact layouts preserve the conversation and composer rather than attempting to turn the desktop application into a separate mobile interface.
+The implementation collapses either side pane to protect conversation space and constrains large menus to the viewport. Below 1100px the context pane moves into a right sheet; below 900px project navigation and the settings category rail also move into left sheets. These compact layouts preserve the conversation and composer rather than attempting to turn the desktop application into a separate mobile interface.
+
+The same document is also served over the local network, so the compact layout has to survive a phone. Below 640px the composer toolbar wraps as a group so Send is never the control pushed off the end, the header drops the project half of its breadcrumb, and settings rows stack their control under the label instead of beside it. Diffs render unified regardless of the saved preference, because side-by-side is two columns of twenty characters at that width.
+
+Two rules follow from the input rather than the width. On a coarse pointer every control takes a 2.25rem floor in both axes, since the desktop density is a comfortable mouse target and an unreliable thumb target, and text fields take a 1rem floor, since anything smaller makes iOS zoom on focus and never zoom back. Where there is no hover, controls that are otherwise revealed by it are simply always visible: the tap that would reveal one is the same tap that activates whatever sits beneath it. Window controls and the clearance reserved for them exist only in the desktop shell.
 
 ## Elevation & Depth
 
