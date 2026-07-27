@@ -147,6 +147,7 @@ export const preferencesSchema = z.object({
   terminalFontSize: clamped(13, 9, 24),
   terminalScrollback: clamped(5000, 500, 100000),
   terminalCursorBlink: z.boolean().catch(true),
+  preferredEditorId: z.string().min(1).catch("explorer"),
 });
 
 export type Preferences = z.infer<typeof preferencesSchema>;
@@ -296,6 +297,10 @@ export type HostRequests = {
     params: { projectDir: string; editorId: string };
     response: { ok: boolean; error?: string };
   };
+  openFileIn: {
+    params: { projectDir: string; file: string; editorId: string };
+    response: { ok: boolean; error?: string };
+  };
   versions: { params: Record<string, never>; response: { pi: string; app: string } };
 
   getPiSettings: { params: Record<string, never>; response: { settings?: PiSettings; error?: string } };
@@ -306,6 +311,10 @@ export type HostRequests = {
   piPaths: { params: Record<string, never>; response: { paths: PiPaths } };
   /** Reveal a file or folder in Explorer. Used by About to point at Pi's own files. */
   showInFolder: { params: { path: string }; response: { ok: boolean } };
+  saveImage: {
+    params: { data: string; mimeType: string; suggestedName: string };
+    response: { ok: boolean; path?: string; canceled?: boolean; error?: string };
+  };
 
   terminalEnsure: { params: { projectDir: string }; response: { terminals: TerminalSession[] } };
   terminalCreate: { params: { projectDir: string }; response: { terminal: TerminalSession } };

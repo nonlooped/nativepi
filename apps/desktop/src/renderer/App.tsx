@@ -45,7 +45,6 @@ export default function App() {
   const init = useAppStore((s) => s.init);
   const ready = useAppStore((s) => s.ready);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
-  const projects = useAppStore((s) => s.projects);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const error = useAppStore((s) => activeConversation(s).error);
   const externalChange = useAppStore((s) => activeConversation(s).externalChange);
@@ -61,19 +60,15 @@ export default function App() {
   const [sidebarSheetOpen, setSidebarSheetOpen] = useState(false);
   const [contextSheetOpen, setContextSheetOpen] = useState(false);
   const [layout, setLayout] = useState<WorkspaceLayout>(currentWorkspaceLayout);
-  const [terminalProjects, setTerminalProjects] = useState<Set<string>>(() => new Set());
+  const terminalProjects = useAppStore((s) => s.terminalProjects);
+  const toggleProjectTerminal = useAppStore((s) => s.toggleTerminal);
   const sidebarDocked = layout !== "compact" && sidebarOpen;
   const contextDocked = layout === "wide" && contextPaneOpen;
   const terminalOpen = activeProjectPath ? terminalProjects.has(activeProjectPath) : false;
 
   const toggleTerminal = () => {
     if (!activeProjectPath) return;
-    setTerminalProjects((current) => {
-      const next = new Set(current);
-      if (next.has(activeProjectPath)) next.delete(activeProjectPath);
-      else next.add(activeProjectPath);
-      return next;
-    });
+    toggleProjectTerminal(activeProjectPath);
   };
 
   useEffect(() => {
@@ -99,14 +94,6 @@ export default function App() {
     setSidebarSheetOpen(false);
     setContextSheetOpen(false);
   }, [layout]);
-
-  useEffect(() => {
-    const paths = new Set(projects.map((project) => project.path));
-    setTerminalProjects((current) => {
-      const next = new Set([...current].filter((path) => paths.has(path)));
-      return next.size === current.size ? current : next;
-    });
-  }, [projects]);
 
   useWorkspaceShortcuts(layout, setSidebarSheetOpen, setContextSheetOpen, toggleTerminal);
 

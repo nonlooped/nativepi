@@ -127,6 +127,9 @@ export interface ChatSlice {
   newChat: () => void;
   importSession: () => Promise<void>;
   setDraft: (text: string) => void;
+  quoteInReply: (text: string) => void;
+  askAbout: (text: string) => void;
+  insertIntoComposer: (text: string) => void;
   attach: (files: File[]) => Promise<void>;
   detach: (id: string) => void;
   setSendBehavior: (behavior: "steer" | "followUp") => void;
@@ -224,6 +227,7 @@ export interface UiSlice {
   contextPaneChosen: boolean;
   jumpRequest: number;
   searchFocusRequest: number;
+  terminalProjects: Set<string>;
   /** NativePi's own appearance and behavior preferences. Pi's live elsewhere. */
   preferences: Preferences;
 
@@ -237,6 +241,8 @@ export interface UiSlice {
   toggleContextPane: () => void;
   requestJumpToLatest: () => void;
   requestSearchFocus: () => void;
+  openTerminal: (projectPath: string) => void;
+  toggleTerminal: (projectPath: string) => void;
 }
 
 export type AppState = WorkspaceSlice &

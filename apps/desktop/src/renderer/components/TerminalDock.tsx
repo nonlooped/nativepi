@@ -10,6 +10,13 @@ import { useAppStore } from "../lib/store.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.tsx";
 import { rpc } from "@/lib/rpc.ts";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu.tsx";
 
 export default function TerminalDock({
   projectDir,
@@ -87,7 +94,8 @@ export default function TerminalDock({
 
   return (
     <section aria-label="Integrated terminal" className="terminal-dock-enter flex h-full min-h-0 flex-col bg-background">
-      <header className="flex h-8 shrink-0 items-center gap-2 border-b bg-sidebar/40 px-2">
+      <ContextMenu>
+        <ContextMenuTrigger render={<header className="flex h-8 shrink-0 items-center gap-2 border-b bg-sidebar/40 px-2" />}>
         <TerminalWindowIcon aria-hidden="true" className="shrink-0 text-muted-foreground" />
         <span className="flex-1 text-xs font-medium">Terminal</span>
         <Button
@@ -112,7 +120,9 @@ export default function TerminalDock({
         <Button variant="ghost" size="icon-xs" onClick={onMinimize} title="Minimize terminal" aria-label="Minimize terminal">
           <XIcon />
         </Button>
-      </header>
+        </ContextMenuTrigger>
+        <TerminalChromeMenu addSplit={addSplit} closeAll={closeAll} closing={closing} />
+      </ContextMenu>
 
       {error ? (
         <div role="alert" className="flex min-h-0 flex-1 items-center justify-center px-4 text-sm text-destructive">
@@ -136,6 +146,8 @@ export default function TerminalDock({
               showChrome={terminals.length > 1}
               closing={closing}
               onClose={() => void closeSplit(terminal.id)}
+              onSplit={addSplit}
+              onCloseAll={closeAll}
             />
           ))}
         </ResizablePanelGroup>
@@ -152,6 +164,8 @@ function TerminalSplit({
   showChrome,
   closing,
   onClose,
+  onSplit,
+  onCloseAll,
 }: {
   session: TerminalSession;
   projectDir: string;
@@ -160,6 +174,8 @@ function TerminalSplit({
   showChrome: boolean;
   closing: boolean;
   onClose: () => void;
+  onSplit: () => Promise<void>;
+  onCloseAll: () => Promise<void>;
 }) {
   return (
     <>
@@ -167,21 +183,40 @@ function TerminalSplit({
       <ResizablePanel id={session.id} defaultSize={defaultSize}>
         <div className="flex h-full min-h-0 flex-col">
           {showChrome ? (
-            <div className="flex h-7 shrink-0 items-center justify-end border-b px-2">
+            <ContextMenu>
+              <ContextMenuTrigger render={<div className="flex h-7 shrink-0 items-center justify-end border-b px-2" />}>
               <Button variant="ghost" size="icon-xs" onClick={onClose} disabled={closing} title="Close terminal" aria-label="Close terminal">
                 <XIcon />
               </Button>
-            </div>
+              </ContextMenuTrigger>
+              <TerminalChromeMenu addSplit={onSplit} close={onClose} closeAll={onCloseAll} closing={closing} />
+            </ContextMenu>
           ) : null}
-          <TerminalSurface session={session} projectDir={projectDir} />
+          <TerminalSurface session={session} projectDir={projectDir} onSplit={onSplit} onClose={onClose} onCloseAll={onCloseAll} closing={closing} />
         </div>
       </ResizablePanel>
     </>
   );
 }
 
-function TerminalSurface({ session, projectDir }: { session: TerminalSession; projectDir: string }) {
+function TerminalSurface({
+  session,
+  projectDir,
+  onSplit,
+  onClose,
+  onCloseAll,
+  closing,
+}: {
+  session: TerminalSession;
+  projectDir: string;
+  onSplit: () => Promise<void>;
+  onClose: () => void;
+  onCloseAll: () => Promise<void>;
+  closing: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const terminalRef = useRef<Terminal | null>(null);
+  const [selection, setSelection] = useState("");
   const fontSize = useAppStore((s) => s.preferences.terminalFontSize);
   const scrollback = useAppStore((s) => s.preferences.terminalScrollback);
   const cursorBlink = useAppStore((s) => s.preferences.terminalCursorBlink);
@@ -206,6 +241,7 @@ function TerminalSurface({ session, projectDir }: { session: TerminalSession; pr
         selectionBackground: styles.getPropertyValue("--accent").trim(),
       },
     });
+    terminalRef.current = terminal;
     // xterm has no copy binding of its own: Ctrl+Shift+C always copies, and plain
     // Ctrl+C copies only when something is selected, otherwise it stays an interrupt.
     // Copying clears the selection so the next Ctrl+C interrupts as usual.
@@ -282,6 +318,7 @@ function TerminalSurface({ session, projectDir }: { session: TerminalSession; pr
       offData();
       offExit();
       terminal.dispose();
+      terminalRef.current = null;
     };
     // A preference change rebuilds the surface rather than mutating the live
     // terminal's options. The pty and its output live in the main process, and
@@ -289,5 +326,46 @@ function TerminalSurface({ session, projectDir }: { session: TerminalSession; pr
     // the same path a project switch already takes.
   }, [projectDir, session, fontSize, scrollback, cursorBlink]);
 
-  return <div ref={containerRef} className="terminal-surface min-h-0 flex-1 px-2 py-1.5" />;
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger
+        render={<div ref={containerRef} className="terminal-surface min-h-0 flex-1 px-2 py-1.5" />}
+        onContextMenuCapture={() => setSelection(terminalRef.current?.getSelection() ?? "")}
+      />
+      <ContextMenuContent className="w-48">
+        <ContextMenuItem disabled={!selection} onClick={() => void navigator.clipboard.writeText(selection).then(() => terminalRef.current?.clearSelection())}>
+          Copy
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => void navigator.clipboard.readText().then((text) => terminalRef.current?.paste(text))}>
+          Paste
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => terminalRef.current?.selectAll()}>Select all</ContextMenuItem>
+        <ContextMenuItem onClick={() => terminalRef.current?.clear()}>Clear terminal</ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => void onSplit()}>Split terminal</ContextMenuItem>
+        <ContextMenuItem disabled={closing} onClick={onClose}>Close this terminal</ContextMenuItem>
+        <ContextMenuItem disabled={closing} onClick={() => void onCloseAll()}>Kill all terminals</ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
+function TerminalChromeMenu({
+  addSplit,
+  close,
+  closeAll,
+  closing,
+}: {
+  addSplit: () => Promise<void>;
+  close?: () => void;
+  closeAll: () => Promise<void>;
+  closing: boolean;
+}) {
+  return (
+    <ContextMenuContent className="w-48">
+      <ContextMenuItem onClick={() => void addSplit()}>Split terminal</ContextMenuItem>
+      {close ? <ContextMenuItem disabled={closing} onClick={close}>Close this terminal</ContextMenuItem> : null}
+      <ContextMenuItem disabled={closing} onClick={() => void closeAll()}>Kill all terminals</ContextMenuItem>
+    </ContextMenuContent>
+  );
 }

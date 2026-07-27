@@ -135,6 +135,29 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     persist(get);
   },
 
+  insertIntoComposer: (text) => {
+    const current = get().drafts[draftKey(get)] ?? "";
+    get().setDraft(current ? `${current}\n${text}` : text);
+  },
+
+  quoteInReply: (text) => {
+    const quote = text
+      .trim()
+      .split(/\r?\n/)
+      .map((line) => `> ${line}`)
+      .join("\n");
+    if (quote) get().insertIntoComposer(`${quote}\n\n`);
+  },
+
+  askAbout: (text) => {
+    const quote = text
+      .trim()
+      .split(/\r?\n/)
+      .map((line) => `> ${line}`)
+      .join("\n");
+    if (quote) get().insertIntoComposer(`${quote}\n\nWhat should I know about this?`);
+  },
+
   /**
    * Hold images against the draft they were added to.
    *
