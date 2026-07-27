@@ -89,10 +89,7 @@ export default function TerminalDock({
     <section aria-label="Integrated terminal" className="terminal-dock-enter flex h-full min-h-0 flex-col bg-background">
       <header className="flex h-8 shrink-0 items-center gap-2 border-b bg-sidebar/40 px-2">
         <TerminalWindowIcon aria-hidden="true" className="shrink-0 text-muted-foreground" />
-        <span className="text-xs font-medium">Terminal</span>
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground" title={projectDir}>
-          {projectDir}
-        </span>
+        <span className="flex-1 text-xs font-medium">Terminal</span>
         <Button
           variant="ghost"
           size="icon-xs"
