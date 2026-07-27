@@ -39,8 +39,18 @@ function createWindow(): void {
    * in. A quit that is already under way is let through: by then the answer has
    * been given, or the OS is ending the session and is not waiting for one.
    */
+  // A renderer that has crashed or hung cannot draw the confirmation or send an
+  // answer back, and holding the close for one would leave the window, its Pi
+  // processes and its shells with no way out short of a force-kill. Let those
+  // closes through instead: an unanswerable question is worse than no question.
+  let rendererAnswers = true;
+  win.on("unresponsive", () => (rendererAnswers = false));
+  win.on("responsive", () => (rendererAnswers = true));
+  win.webContents.on("render-process-gone", () => (rendererAnswers = false));
+
   win.on("close", (event) => {
-    if (!quitting && quitBlocked()) event.preventDefault();
+    if (quitting || !rendererAnswers || win.webContents.isCrashed()) return;
+    if (quitBlocked()) event.preventDefault();
   });
 
   win.on("closed", () => setMainWindow(null));

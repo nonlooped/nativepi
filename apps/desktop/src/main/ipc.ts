@@ -69,9 +69,12 @@ function markBusy(projectDir: string, until: number): void {
 
 function forwardEvent(projectDir: string, event: PiMessage): void {
   if (event["type"] === "agent_start") markBusy(projectDir, Number.POSITIVE_INFINITY);
-  else if (event["type"] === "agent_settled" || event["type"] === "agent_end") {
-    markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
-  }
+  // `agent_end` closes one low-level run, not the turn: Pi may still be waiting
+  // out an auto-retry delay, compacting, or holding a queued follow-up, and none
+  // of those emit anything while they wait. `agent_settled` is the event Pi
+  // documents as "nothing will start again on its own", so it is the only one
+  // that hands the project back.
+  else if (event["type"] === "agent_settled") markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
   // Any Pi message means Pi is alive and touching this project right now.
   else if (busyUntil.get(projectDir) !== Number.POSITIVE_INFINITY) {
     markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
@@ -122,6 +125,10 @@ function ensurePi(projectDir: string): Promise<PiProcess> {
       (msg) => forwardEvent(projectDir, msg),
       (code) => {
         pis.delete(projectDir);
+        // A Pi that dies mid-turn never reaches `agent_settled`, so drop the
+        // marker with the process rather than leaving this project looking
+        // permanently busy to the watcher.
+        busyUntil.delete(projectDir);
         status(projectDir, "exited", `exit ${code ?? "?"}`);
       },
     );
@@ -315,11 +322,13 @@ const handlers: HandlerMap = {
   },
 
   submit: async ({ projectDir, sessionFile, message }) => {
+    // Claim the write before Pi is even up, so our own append is never mistaken
+    // for a concurrent editor and a cold start counts as work in flight: the
+    // renderer has already cleared the draft, and a close that slipped through
+    // here would take the prompt with it.
+    markBusy(projectDir, Number.POSITIVE_INFINITY);
     try {
       const pi = await ensurePi(projectDir);
-      // Claim the write before Pi's first event arrives, so our own append is
-      // never mistaken for a concurrent editor.
-      markBusy(projectDir, Number.POSITIVE_INFINITY);
       if (sessionFile) {
         if (pi.boundSessionFile !== sessionFile) {
           await pi.request({ type: "switch_session", sessionPath: sessionFile });
