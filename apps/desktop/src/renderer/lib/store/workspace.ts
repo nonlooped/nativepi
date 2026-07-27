@@ -58,6 +58,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     if (get().conversations[path]?.running) {
       await rpc.request.abort({ projectDir: path });
     }
+    await rpc.request.terminalCloseProject({ projectDir: path });
     set((s) => {
       const { [path]: _removed, ...conversations } = s.conversations;
       return { projects: s.projects.filter((p) => p.path !== path), conversations };

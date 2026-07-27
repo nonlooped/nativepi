@@ -33,6 +33,13 @@ export interface InstalledEditor {
   iconUrl?: string;
 }
 
+export interface TerminalSession {
+  id: string;
+  projectDir: string;
+  exited: boolean;
+  exitCode?: number;
+}
+
 export interface AuthProviderInfo {
   id: string;
   name: string;
@@ -206,6 +213,26 @@ export type HostRequests = {
   };
   versions: { params: Record<string, never>; response: { pi: string; app: string } };
 
+  terminalEnsure: { params: { projectDir: string }; response: { terminals: TerminalSession[] } };
+  terminalCreate: { params: { projectDir: string }; response: { terminal: TerminalSession } };
+  terminalSnapshot: {
+    params: { projectDir: string; terminalId: string };
+    response: { output: string; sequence: number };
+  };
+  terminalWrite: {
+    params: { projectDir: string; terminalId: string; data: string };
+    response: { ok: boolean };
+  };
+  terminalResize: {
+    params: { projectDir: string; terminalId: string; cols: number; rows: number };
+    response: { ok: boolean };
+  };
+  terminalClose: {
+    params: { projectDir: string; terminalId: string };
+    response: { ok: boolean };
+  };
+  terminalCloseProject: { params: { projectDir: string }; response: { ok: boolean } };
+
   gitStatus: { params: { projectDir: string }; response: { status: GitStatus } };
   gitDiff: {
     params: { projectDir: string; file: string; untracked: boolean };
@@ -264,6 +291,8 @@ export type HostEvents = {
   authPrompt: { id: string; prompt: AuthPromptRequest };
   authNotice: { notice: AuthNotice };
   windowMaximized: { maximized: boolean };
+  terminalData: { projectDir: string; terminalId: string; data: string; sequence: number };
+  terminalExit: { projectDir: string; terminalId: string; exitCode: number };
 };
 
 export type HostRequestName = keyof HostRequests;

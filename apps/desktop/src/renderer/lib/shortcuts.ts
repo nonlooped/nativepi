@@ -5,6 +5,7 @@ export type ShortcutId =
   | "stopTurn"
   | "toggleSidebar"
   | "toggleContextPane"
+  | "toggleTerminal"
   | "openSettings"
   | "cycleThinking"
   | "jumpToLatest"
@@ -93,6 +94,13 @@ export const SHORTCUTS: ShortcutDef[] = [
     binding: "$mod+KeyJ",
     label: "Toggle changes pane",
     description: "Show or hide the Git changes pane.",
+    group: "Navigation",
+  },
+  {
+    id: "toggleTerminal",
+    binding: "$mod+Backquote",
+    label: "Toggle terminal",
+    description: "Show or hide the active project's integrated terminal.",
     group: "Navigation",
   },
   {
