@@ -15,7 +15,7 @@ describe("local server", () => {
     let pushEvent: ((name: "piError", payload: { projectDir: string; message: string }) => void) | undefined;
     const status = await startLocalServer({
       rendererDir,
-      invoke: (async (name) => {
+      invoke: (async (name: string) => {
         if (name !== "versions") throw new Error(`Unexpected request: ${name}`);
         return { pi: "test-pi", app: "test-app" };
       }) as never,

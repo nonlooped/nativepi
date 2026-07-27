@@ -173,7 +173,7 @@ function createRemoteApi(): NativePiApi {
       // a LAN URL is intentionally plain HTTP. IDs only correlate responses on
       // this socket, so a monotonic per-page value is sufficient.
       const id = String(++nextRequestId);
-      return await new Promise((resolveRequest, rejectRequest) => {
+      return await new Promise<unknown>((resolveRequest, rejectRequest) => {
         pending.set(id, { resolve: resolveRequest, reject: rejectRequest });
         activeSocket.send(JSON.stringify({ type: "request", id, name: channel, params }));
       }) as never;
