@@ -255,9 +255,12 @@ before introducing it.
 ## Git And Releases
 
 - Use Conventional Commits for every commit, including release commits.
-- Before every commit, inspect all package versions and decide whether the change
-  requires a SemVer bump. Apply major, minor, and patch bumps according to SemVer;
-  never change a version incidentally or leave required package versions stale.
+- Feature, fix, docs, and maintenance commits/PRs do not bump versions. Leave
+  package versions unchanged until an explicit release.
+- Version bumps are a separate release step and may cover multiple merged PRs
+  since the last tag. Apply one SemVer bump for the whole batch (highest-impact
+  change wins). Never change a version incidentally or leave a bumped version
+  without its matching tag/release.
 - Every version-bump commit must be followed immediately by a matching `vX.Y.Z`
   Git tag and GitHub release. Do not leave bumped versions untagged or unpublished.
 - Commits must have `nonlooped` as their sole author. Never add `Co-authored-by`,

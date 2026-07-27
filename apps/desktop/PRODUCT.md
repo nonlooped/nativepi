@@ -45,12 +45,14 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Normal Pi extension UI requests plus optional graphical tool, entry, composer-widget, and context-panel contributions through `@nativepi/extension-api`.
 - Responsive project and context panes, fixed keyboard shortcuts, reduced-motion handling, and standard accessible desktop controls.
 - Project-scoped integrated terminals with resizable splits that remain alive while hidden or while another project is active.
+- A settings screen covering NativePi's own appearance and notification preferences, a user-scope editor for the Pi settings that mean something in a desktop window, a shortcut reference, and the paths to Pi's own files.
 
 ## Boundaries and Constraints
 
 - NativePi is currently Windows-only, local-only, single-window, and dark-only.
 - NativePi does not own an agent loop, make its own LLM requests, add agent tools, or support other harnesses.
-- Pi session files are the durable conversation source of truth. NativePi persists only pinned projects, the last project and chat, text drafts, favorite models, pane state, and the reopen-last-project preference.
+- Pi session files are the durable conversation source of truth. NativePi persists only pinned projects, the last project and chat, text drafts, favorite models, pane state, and its own interface preferences.
+- Agent configuration is Pi's. NativePi reads and writes it through Pi's own settings manager at user scope, so a change made here is a change the Pi command line sees; NativePi never writes Pi's configuration format itself, and exposes only the settings that have meaning in a desktop window. Project-scope overrides remain the Pi command line's business.
 - Authentication is Pi-backed. Credentials are never stored in NativePi renderer persistence or its state file.
 - Git mutation is deliberately narrow: branch checkout and creation require a clean worktree, and worktrees may be added. NativePi does not stage, commit, merge, rebase, discard changes, create checkpoints, roll back work, or rewrite history.
 - Normal Pi extensions run unchanged. Optional graphical extensions contribute only through controlled NativePi UI slots and are trusted code, not sandboxed code.
