@@ -234,8 +234,8 @@ function RunningAgentBadge() {
 
   return (
     <div className={cn("flex items-center gap-2 text-xs", NO_DRAG_REGION)}>
-      <span className="text-muted-foreground">An agent turn is running</span>
-      <Button variant="ghost" size="sm" onClick={closeSettings}>
+      <span className="hidden text-muted-foreground sm:inline">An agent turn is running</span>
+      <Button variant="ghost" size="sm" onClick={closeSettings} className="hidden sm:inline-flex">
         Back to chat
       </Button>
       <Button variant="destructive" size="sm" onClick={abort}>

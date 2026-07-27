@@ -12,6 +12,7 @@ export type WorkspaceLayout = "wide" | "narrow" | "compact";
 
 const COMPACT_MAX = 899;
 const NARROW_MAX = 1099;
+const PHONE_MAX = 639;
 
 function currentWorkspaceLayout(): WorkspaceLayout {
   if (typeof window === "undefined") return "wide";
@@ -37,4 +38,18 @@ export function useWorkspaceLayout(): WorkspaceLayout {
   }, []);
 
   return layout;
+}
+
+export function usePhoneLayout(): boolean {
+  const [phone, setPhone] = useState(() => typeof window !== "undefined" && window.matchMedia(`(max-width: ${PHONE_MAX}px)`).matches);
+
+  useEffect(() => {
+    const media = window.matchMedia(`(max-width: ${PHONE_MAX}px)`);
+    const update = () => setPhone(media.matches);
+    media.addEventListener("change", update);
+    update();
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  return phone;
 }

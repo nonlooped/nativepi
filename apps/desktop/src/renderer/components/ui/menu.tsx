@@ -24,7 +24,7 @@ function MenuPopup({
           className={cn(
             // Several menus ask for a fixed width in rem — wider than a phone.
             // The viewport cap keeps those from being positioned half off-screen.
-            "max-h-80 min-w-44 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none",
+            "max-h-[var(--available-height)] min-w-44 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none",
             className,
           )}
         >

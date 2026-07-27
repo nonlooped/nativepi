@@ -102,11 +102,8 @@ html[data-shell="desktop"] .window-controls-clearance {
   [role="tab"],
   summary {
     min-height: 2.25rem;
-    touch-action: manipulation;
-  }
-
-  [data-slot="button"] {
     min-width: 2.25rem;
+    touch-action: manipulation;
   }
 
   /* Anything under 16px makes iOS Safari zoom the page on focus, and it never
