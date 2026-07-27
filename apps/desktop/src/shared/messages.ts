@@ -8,6 +8,7 @@
 
 import type {
   AssistantMessage,
+  ImageContent,
   ModelInfo,
   TextContent,
   ToolResultMessage,
@@ -22,6 +23,12 @@ export function textOf(content: unknown): string {
     .filter((c): c is TextContent => c?.type === "text")
     .map((c) => c.text)
     .join("");
+}
+
+/** The image blocks of a message's content, in order. Plain-text content has none. */
+export function imagesOf(content: unknown): ImageContent[] {
+  if (!Array.isArray(content)) return [];
+  return content.filter((c): c is ImageContent => c?.type === "image");
 }
 
 function hasRole(message: unknown, role: string): boolean {

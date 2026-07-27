@@ -10,6 +10,7 @@ import { gitAddWorktree, gitBranches, gitCheckout, gitDiff, gitStatus } from "./
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
 import { listSkills } from "./skills.ts";
 import { listProjectFiles } from "./files.ts";
+import { prepareImages } from "./images.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
 import { listInstalledEditors, openProjectIn } from "./editors.ts";
 import { liveSettingsFor, piPaths, queuePiSettings, readPiSettings, writePiSettings } from "./piSettings.ts";
@@ -191,6 +192,13 @@ const gitMutationParamsSchema = z.object({
   create: z.boolean(),
 });
 const projectDirParamsSchema = z.object({ projectDir: z.string().min(1) });
+const prepareImagesParamsSchema = z.object({
+  // Shape only. Size and format are decided per file in `prepareImages`, so one
+  // image nobody can use does not cost the user the rest of the drop.
+  files: z
+    .array(z.object({ name: z.string(), mimeType: z.string(), data: z.string() }))
+    .max(20),
+});
 const terminalIdParamsSchema = projectDirParamsSchema.extend({ terminalId: z.string().min(1) });
 const terminalResizeParamsSchema = terminalIdParamsSchema.extend({
   cols: z.number().int().min(2).max(1000),
@@ -292,7 +300,7 @@ const handlers: HandlerMap = {
     }
   },
 
-  submit: async ({ projectDir, sessionFile, message }) => {
+  submit: async ({ projectDir, sessionFile, message, images }) => {
     try {
       const pi = await ensurePi(projectDir);
       // Claim the write before Pi's first event arrives, so our own append is
@@ -309,7 +317,7 @@ const handlers: HandlerMap = {
         pi.boundSessionFile = state.sessionFile;
         sessionFile = state.sessionFile ?? null;
       }
-      pi.send({ type: "prompt", message });
+      pi.send({ type: "prompt", message, images });
       return { ok: true, sessionFile: sessionFile ?? undefined };
     } catch (err) {
       markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
@@ -317,11 +325,20 @@ const handlers: HandlerMap = {
     }
   },
 
-  enqueue: ({ projectDir, behavior, message }) => {
+  enqueue: ({ projectDir, behavior, message, images }) => {
     const pi = pis.get(projectDir);
     if (!pi) return { ok: false, error: "Pi is not running" };
-    pi.send({ type: behavior === "steer" ? "steer" : "follow_up", message });
+    pi.send({ type: behavior === "steer" ? "steer" : "follow_up", message, images });
     return { ok: true };
+  },
+
+  prepareImages: async (params) => {
+    try {
+      const { files } = prepareImagesParamsSchema.parse(params);
+      return await prepareImages(files);
+    } catch {
+      return { images: [], rejected: [] };
+    }
   },
 
   abort: ({ projectDir }) => {

@@ -2,6 +2,7 @@ import type {
   AuthNotice,
   AuthProviderInfo,
   AuthPromptRequest,
+  ImageAttachment,
   PiStatus,
   Preferences,
   Project,
@@ -43,6 +44,7 @@ export type ErrorRecovery = "retrySend" | "restartPi";
 export interface PendingMessage {
   id: number;
   text: string;
+  images: ImageAttachment[];
 }
 
 export interface AuthFlow {
@@ -107,12 +109,20 @@ export interface ChatSlice {
   sendBehavior: "steer" | "followUp";
 
   drafts: Record<string, string>;
+  /**
+   * Images waiting to go out with the draft they were added to, under the same
+   * key. Memory only: base64 does not belong in the state file, and an image the
+   * user forgot they pasted last week is worse than one they have to re-add.
+   */
+  attachments: Record<string, ImageAttachment[]>;
 
   refreshSessions: (projectPath: string) => Promise<void>;
   selectChat: (sessionFile: string) => Promise<void>;
   newChat: () => void;
   importSession: () => Promise<void>;
   setDraft: (text: string) => void;
+  attach: (files: File[]) => Promise<void>;
+  detach: (id: string) => void;
   setSendBehavior: (behavior: "steer" | "followUp") => void;
   send: () => Promise<void>;
   enqueue: (behavior: "steer" | "followUp") => Promise<void>;
