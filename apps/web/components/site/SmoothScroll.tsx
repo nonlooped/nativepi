@@ -45,7 +45,7 @@ export function SmoothScroll() {
         : href.startsWith("/#") && window.location.pathname === "/"
           ? href.slice(1)
           : null;
-      if (!hash || hash === "#") return;
+      if (!hash || hash === "#" || hash === "#main") return;
 
       const target = document.getElementById(hash.slice(1));
       if (!target) return;
