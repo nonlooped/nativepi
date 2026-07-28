@@ -6,11 +6,12 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 import type {
+  AccessClient,
   HostEventName,
   HostEvents,
   HostRequestName,
   HostRequests,
-  LocalServerStatus,
+  LocalAccessStatus,
 } from "../shared/rpc-schema.ts";
 
 type Invoke = <K extends HostRequestName>(
@@ -49,12 +50,34 @@ const desktopOnlyResponses: Partial<Record<HostRequestName, unknown>> = {
   openFileIn: { ok: false, error: "This action is only available in the desktop app." },
   showInFolder: { ok: false },
   saveImage: { ok: false, error: "Save this image from the browser instead." },
-  startLocalServer: {
-    running: true,
-    links: [],
-    error: "The local server can only be managed from the desktop app.",
+  accessStatus: {
+    local: { running: true, clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
   },
-  stopLocalServer: { ok: false },
+  startLocalAccess: {
+    local: { running: true, clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
+  },
+  stopLocalAccess: {
+    local: { running: true, clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
+  },
+  replaceAccessLink: {
+    local: { running: true, clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
+  },
+  startRemoteAccess: {
+    local: { running: true, clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
+  },
+  stopRemoteAccess: {
+    local: { running: true, clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
+  },
+  refreshRemoteAccess: {
+    local: { running: true, clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
+  },
 };
 
 type RunningServer = {
@@ -62,22 +85,34 @@ type RunningServer = {
   rpcWebSockets: WebSocketServer;
   rpcSockets: Set<WebSocket>;
   authenticatedRpcSockets: Set<WebSocket>;
+  clients: Map<WebSocket, AccessClient>;
   unsubscribe: () => void;
-  links: string[];
+  link: string;
+  port: number;
+  token: string;
 };
 
 let running: RunningServer | undefined;
 
-export function localServerStatus(): LocalServerStatus {
-  return { running: Boolean(running), links: running?.links ?? [] };
+export function localServerStatus(): LocalAccessStatus {
+  return {
+    running: Boolean(running),
+    link: running?.link,
+    clients: running ? [...running.clients.values()] : [],
+  };
 }
 
-export async function startLocalServer(options: LocalServerOptions): Promise<LocalServerStatus> {
+export function localServerConnection(): { port: number; token: string } | undefined {
+  return running ? { port: running.port, token: running.token } : undefined;
+}
+
+export async function startLocalServer(options: LocalServerOptions): Promise<LocalAccessStatus> {
   if (running) return localServerStatus();
 
   const token = randomBytes(24).toString("base64url");
   const rpcSockets = new Set<WebSocket>();
   const authenticatedRpcSockets = new Set<WebSocket>();
+  const clients = new Map<WebSocket, AccessClient>();
   const rpcWebSockets = new WebSocketServer({ noServer: true, maxPayload: 70 * 1024 * 1024 });
   const http = createServer((request, response) => {
     void serveRenderer(request.url ?? "/", response, options).catch(() => {
@@ -97,7 +132,7 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
     socket.destroy();
   });
 
-  rpcWebSockets.on("connection", (socket) => {
+  rpcWebSockets.on("connection", (socket, request) => {
     rpcSockets.add(socket);
     let authenticated = false;
     const authTimer = setTimeout(() => socket.close(1008, "Authentication required"), 5000);
@@ -120,6 +155,7 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
           authenticated = true;
           clearTimeout(authTimer);
           authenticatedRpcSockets.add(socket);
+          clients.set(socket, clientFromRequest(request));
           socket.send(JSON.stringify({ type: "ready" }));
           return;
         }
@@ -142,6 +178,7 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
       clearTimeout(authTimer);
       rpcSockets.delete(socket);
       authenticatedRpcSockets.delete(socket);
+      clients.delete(socket);
     });
   });
 
@@ -163,7 +200,9 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
     http.close();
     throw new Error("NativePi could not determine the local server address.");
   }
-  const links = localAddresses().map((address) => `http://${formatAddress(address)}:${addressPort(http)}/#token=${token}`);
+  const port = addressPort(http);
+  const address = localAddresses()[0] ?? "127.0.0.1";
+  const link = `http://${formatAddress(address)}:${port}/#token=${token}`;
   const unsubscribe = options.subscribe((name, payload) => {
     const message = JSON.stringify({ type: "event", name, payload });
     for (const socket of authenticatedRpcSockets) {
@@ -176,8 +215,11 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
     rpcWebSockets,
     rpcSockets,
     authenticatedRpcSockets,
+    clients,
     unsubscribe,
-    links,
+    link,
+    port,
+    token,
   };
   return localServerStatus();
 }
@@ -222,6 +264,55 @@ function localAddresses(): string[] {
 
 function formatAddress(address: string): string {
   return address.includes(":") ? `[${address}]` : address;
+}
+
+function clientFromRequest(request: import("node:http").IncomingMessage): AccessClient {
+  const forwarded = request.headers["x-forwarded-for"];
+  const address = (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(",")[0])
+    ?.trim() || normalizeAddress(request.socket.remoteAddress);
+  const user = header(request, "tailscale-user-name") || header(request, "tailscale-user-login");
+  const remote = Boolean(user || request.headers.host?.includes(".ts.net"));
+  return {
+    id: randomBytes(8).toString("hex"),
+    address: remote && isLoopback(address) ? "Tailscale network" : address,
+    connectedAt: new Date().toISOString(),
+    device: describeUserAgent(request.headers["user-agent"]),
+    location: remote ? "remote" : "local",
+    user,
+  };
+}
+
+function header(request: import("node:http").IncomingMessage, name: string): string | undefined {
+  const value = request.headers[name];
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function normalizeAddress(address: string | undefined): string {
+  if (!address) return "Unknown address";
+  return address.startsWith("::ffff:") ? address.slice(7) : address;
+}
+
+function isLoopback(address: string): boolean {
+  return address === "::1" || address === "127.0.0.1";
+}
+
+function describeUserAgent(userAgent: string | undefined): string {
+  if (!userAgent) return "Browser";
+  const platform =
+    /iPhone/i.test(userAgent) ? "iPhone"
+      : /iPad/i.test(userAgent) ? "iPad"
+        : /Android/i.test(userAgent) ? "Android"
+          : /Windows/i.test(userAgent) ? "Windows"
+            : /Macintosh/i.test(userAgent) ? "Mac"
+              : /Linux/i.test(userAgent) ? "Linux"
+                : "device";
+  const browser =
+    /Edg\//i.test(userAgent) ? "Edge"
+      : /Firefox\//i.test(userAgent) ? "Firefox"
+        : /Chrome\//i.test(userAgent) ? "Chrome"
+          : /Safari\//i.test(userAgent) ? "Safari"
+            : "Browser";
+  return `${browser} on ${platform}`;
 }
 
 function privateAddressRank(address: string): number {

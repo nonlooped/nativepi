@@ -84,9 +84,32 @@ export interface AuthProviderInfo {
   authLabel?: string;
 }
 
-export interface LocalServerStatus {
+export interface AccessClient {
+  id: string;
+  address: string;
+  connectedAt: string;
+  device: string;
+  location: "local" | "remote";
+  user?: string;
+}
+
+export interface LocalAccessStatus {
   running: boolean;
-  links: string[];
+  link?: string;
+  clients: AccessClient[];
+  error?: string;
+}
+
+export interface RemoteAccessStatus {
+  state: "checking" | "not-installed" | "signed-out" | "available" | "starting" | "running" | "error";
+  link?: string;
+  error?: string;
+  setupUrl?: string;
+}
+
+export interface AccessStatus {
+  local: LocalAccessStatus;
+  remote: RemoteAccessStatus;
 }
 
 export type AuthPromptRequest =
@@ -307,12 +330,16 @@ export type HostRequests = {
     response: { ok: boolean; error?: string };
   };
   versions: { params: Record<string, never>; response: { pi: string; app: string } };
-  localServerStatus: { params: Record<string, never>; response: LocalServerStatus };
-  startLocalServer: {
+  accessStatus: { params: Record<string, never>; response: AccessStatus };
+  startLocalAccess: {
     params: Record<string, never>;
-    response: LocalServerStatus & { error?: string };
+    response: AccessStatus;
   };
-  stopLocalServer: { params: Record<string, never>; response: { ok: boolean } };
+  stopLocalAccess: { params: Record<string, never>; response: AccessStatus };
+  replaceAccessLink: { params: Record<string, never>; response: AccessStatus };
+  startRemoteAccess: { params: Record<string, never>; response: AccessStatus };
+  stopRemoteAccess: { params: Record<string, never>; response: AccessStatus };
+  refreshRemoteAccess: { params: Record<string, never>; response: AccessStatus };
 
   getPiSettings: { params: Record<string, never>; response: { settings?: PiSettings; error?: string } };
   setPiSettings: {

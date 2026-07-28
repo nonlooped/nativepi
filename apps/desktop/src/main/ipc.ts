@@ -29,9 +29,15 @@ import {
   terminalSnapshot,
   writeTerminal,
 } from "./terminal.ts";
-import type { HostEvents, HostRequestName, HostRequests, PiStatus } from "../shared/rpc-schema.ts";
+import type { AccessStatus, HostEvents, HostRequestName, HostRequests, PiStatus } from "../shared/rpc-schema.ts";
 import type { CommandInfo, ForkPoint, ModelInfo, RpcSessionState, SessionStats, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
-import { localServerStatus, startLocalServer, stopLocalServer } from "./localServer.ts";
+import { localServerConnection, localServerStatus, startLocalServer, stopLocalServer } from "./localServer.ts";
+import {
+  remoteAccessRunning,
+  remoteAccessStatus,
+  startRemoteAccess,
+  stopRemoteAccess,
+} from "./remoteAccess.ts";
 
 const pis = new Map<string, PiProcess>();
 const starting = new Map<string, Promise<PiProcess>>();
@@ -691,27 +697,51 @@ const handlers: HandlerMap = {
   },
 
   versions: () => ({ pi: auth.PI_VERSION_STRING, app: app.getVersion() }),
-  localServerStatus: () => localServerStatus(),
-  startLocalServer: async () => {
+  accessStatus: () => accessStatus(),
+  startLocalAccess: async () => {
     try {
-      if (process.env["ELECTRON_RENDERER_URL"]) {
-        return { running: false, links: [], error: "Local server access is available in packaged NativePi." };
-      }
-      return await startLocalServer({
-        rendererDir: resolve(import.meta.dirname, "../renderer"),
-        invoke: invokeHostRequest,
-        subscribe: subscribeHostEvents,
-      });
+      await ensureLocalAccess();
     } catch (err) {
-      return { running: false, links: [], error: errorMessage(err) };
+      return accessStatus(false, errorMessage(err));
+    }
+    return accessStatus();
+  },
+  stopLocalAccess: async () => {
+    await stopRemoteAccess();
+    await stopLocalServer();
+    return accessStatus();
+  },
+  replaceAccessLink: async () => {
+    const restoreRemote = remoteAccessRunning();
+    await stopRemoteAccess();
+    await stopLocalServer();
+    try {
+      await ensureLocalAccess();
+      if (restoreRemote) {
+        const connection = localServerConnection();
+        if (connection) await startRemoteAccess(connection.port, connection.token);
+      }
+      return accessStatus();
+    } catch (err) {
+      return accessStatus(false, errorMessage(err));
     }
   },
-  stopLocalServer: () => {
-    // Let a remote caller receive the acknowledgement before its own socket is
-    // closed. The desktop settings are the normal place this action is used.
-    setTimeout(() => void stopLocalServer(), 100);
-    return { ok: true };
+  startRemoteAccess: async () => {
+    try {
+      await ensureLocalAccess();
+      const connection = localServerConnection();
+      if (!connection) throw new Error("NativePi could not start its access server.");
+      await startRemoteAccess(connection.port, connection.token);
+      return accessStatus();
+    } catch (err) {
+      return accessStatus(false, errorMessage(err));
+    }
   },
+  stopRemoteAccess: async () => {
+    await stopRemoteAccess();
+    return accessStatus();
+  },
+  refreshRemoteAccess: () => accessStatus(true),
 
   getPiSettings: () => {
     try {
@@ -902,6 +932,25 @@ const handlers: HandlerMap = {
   },
 };
 
+async function ensureLocalAccess(): Promise<void> {
+  if (process.env["ELECTRON_RENDERER_URL"]) {
+    throw new Error("Access is available in packaged NativePi.");
+  }
+  await startLocalServer({
+    rendererDir: resolve(import.meta.dirname, "../renderer"),
+    invoke: invokeHostRequest,
+    subscribe: subscribeHostEvents,
+  });
+}
+
+async function accessStatus(refreshRemote = false, localError?: string): Promise<AccessStatus> {
+  const local = localServerStatus();
+  return {
+    local: localError ? { ...local, error: localError } : local,
+    remote: await remoteAccessStatus(refreshRemote),
+  };
+}
+
 export async function invokeHostRequest<K extends HostRequestName>(
   name: K,
   params: HostRequests[K]["params"],
@@ -922,6 +971,7 @@ export function registerIpc(): void {
 export async function stopAllPi(): Promise<void> {
   stopAllSessionWatches();
   stopAllTerminals();
+  await stopRemoteAccess();
   await stopLocalServer();
   const all = [...pis.values()];
   pis.clear();

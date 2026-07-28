@@ -3,7 +3,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
-import { startLocalServer, stopLocalServer } from "./localServer.ts";
+import { localServerStatus, startLocalServer, stopLocalServer } from "./localServer.ts";
 
 afterEach(() => stopLocalServer());
 
@@ -26,7 +26,7 @@ describe("local server", () => {
       },
     });
 
-    const link = new URL(status.links[0]!);
+    const link = new URL(status.link!);
     const token = new URLSearchParams(link.hash.slice(1)).get("token");
     const origin = `http://127.0.0.1:${link.port}`;
     expect(await (await fetch(origin)).text()).toContain("NativePi remote");
@@ -36,10 +36,23 @@ describe("local server", () => {
     rejected.send(JSON.stringify({ type: "auth", token: "wrong" }));
     expect((await closed(rejected)).code).toBe(1008);
 
-    const socket = new WebSocket(`ws://127.0.0.1:${link.port}/rpc`);
+    const socket = new WebSocket(`ws://127.0.0.1:${link.port}/rpc`, {
+      headers: {
+        "tailscale-user-name": "Alice",
+        "user-agent": "Mozilla/5.0 (iPhone) AppleWebKit Safari/605.1.15",
+      },
+    });
     await opened(socket);
     socket.send(JSON.stringify({ type: "auth", token }));
     expect(await message(socket)).toEqual({ type: "ready" });
+    expect(localServerStatus().clients).toEqual([
+      expect.objectContaining({
+        address: "Tailscale network",
+        device: "Safari on iPhone",
+        location: "remote",
+        user: "Alice",
+      }),
+    ]);
 
     socket.send(JSON.stringify({ type: "request", id: "1", name: "versions", params: {} }));
     expect(await message(socket)).toEqual({
@@ -54,6 +67,11 @@ describe("local server", () => {
       name: "piError",
       payload: { projectDir: "C:\\project", message: "failed" },
     });
+    const socketClosed = closed(socket);
+    socket.close();
+    await socketClosed;
+    await Bun.sleep(0);
+    expect(localServerStatus().clients).toHaveLength(0);
   });
 
   test("does not let a browser invoke desktop-only UI actions", async () => {
@@ -68,7 +86,7 @@ describe("local server", () => {
       }) as never,
       subscribe: () => () => {},
     });
-    const link = new URL(status.links[0]!);
+    const link = new URL(status.link!);
     const token = new URLSearchParams(link.hash.slice(1)).get("token");
     const socket = new WebSocket(`ws://127.0.0.1:${link.port}/rpc`);
     await opened(socket);
@@ -76,6 +94,15 @@ describe("local server", () => {
     await message(socket);
     socket.send(JSON.stringify({ type: "request", id: "2", name: "pickProject", params: {} }));
     expect(await message(socket)).toEqual({ type: "response", id: "2", result: { path: null } });
+    socket.send(JSON.stringify({ type: "request", id: "3", name: "startRemoteAccess", params: {} }));
+    expect(await message(socket)).toEqual({
+      type: "response",
+      id: "3",
+      result: {
+        local: { running: true, clients: [] },
+        remote: { state: "error", error: "Access can only be managed from the desktop app." },
+      },
+    });
     expect(invoked).toBeFalse();
   });
 });
