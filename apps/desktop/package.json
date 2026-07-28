@@ -1,7 +1,7 @@
 {
   "name": "@nativepi/desktop",
   "private": true,
-  "version": "0.8.2",
+  "version": "0.9.0",
   "description": "A Windows-first desktop interface for the Pi coding agent.",
   "author": "nonlooped",
   "type": "module",
