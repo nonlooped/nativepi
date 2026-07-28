@@ -10,7 +10,6 @@
 <p align="center">
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Platform: Windows" src="https://img.shields.io/badge/platform-Windows-0078D4.svg">
-  <img alt="Status: prerelease" src="https://img.shields.io/badge/status-prerelease-orange.svg">
   <img alt="Built with Electron + React" src="https://img.shields.io/badge/built%20with-Electron%20%2B%20React%2019-47848F.svg">
 </p>
 
@@ -29,10 +28,6 @@
 NativePi brings projects, conversations, model controls, tool activity, diffs,
 authentication, and extensions into one focused workspace, without replacing
 the agent that makes Pi powerful.
-
-> [!IMPORTANT]
-> NativePi is **prerelease software**. Releases may be incomplete, unstable, or
-> incompatible between versions. Keep backups and expect rough edges.
 
 ## Why NativePi
 
@@ -70,8 +65,7 @@ storage, their own login. NativePi takes the opposite approach.
 
 Download the latest Windows installer from
 [GitHub Releases](https://github.com/nonlooped/nativepi/releases). Releases are
-currently prerelease builds and the installer is unsigned, so Windows
-SmartScreen will warn on first launch.
+currently unsigned, so Windows SmartScreen will warn on first launch.
 
 NativePi bundles Pi. A separate Pi installation is not required, and existing
 Pi credentials, configuration, and sessions in `~/.pi/agent` are reused.
@@ -119,9 +113,10 @@ shadcn/ui, Zustand, and Zod. Bun manages the workspace.
 ```
 
 A pinned `@earendil-works/pi-coding-agent` is bundled with the app and started
-in RPC mode via `ELECTRON_RUN_AS_NODE`. The renderer talks to the host through
-Electron IPC and a constrained `contextBridge`; there is no local HTTP or
-WebSocket server.
+in RPC mode via `ELECTRON_RUN_AS_NODE`. The desktop renderer talks to the host
+through Electron IPC and a constrained `contextBridge`. When browser access is
+explicitly enabled, an access-token-protected HTTP and WebSocket server is
+opened on the local network until it is stopped or NativePi exits.
 
 ### Extensions
 
@@ -130,7 +125,7 @@ Pi packages at user or project scope. To reach the desktop surface, an extension
 imports `@nativepi/extension-api` and adds a `nativepi.renderer` entry to its
 manifest. NativePi compiles that browser entry with esbuild and loads its tool,
 entry, composer-widget, and context-panel contributions behind error boundaries.
-The API is unstable and may change before its first stable release.
+The graphical extension API is experimental and may change between releases.
 
 ## License
 
