@@ -699,28 +699,38 @@ const handlers: HandlerMap = {
   versions: () => ({ pi: auth.PI_VERSION_STRING, app: app.getVersion() }),
   accessStatus: () => accessStatus(),
   startLocalAccess: async () => {
+    const restoreRemote = remoteAccessRunning();
     try {
-      await ensureLocalAccess();
+      if (restoreRemote) await stopRemoteAccess();
+      await ensureLocalAccess(true);
+      if (restoreRemote) await startRemoteAccessForCurrentServer();
+      return accessStatus();
     } catch (err) {
       return accessStatus(false, errorMessage(err));
     }
-    return accessStatus();
   },
   stopLocalAccess: async () => {
-    await stopRemoteAccess();
-    await stopLocalServer();
-    return accessStatus();
-  },
-  replaceAccessLink: async () => {
     const restoreRemote = remoteAccessRunning();
     await stopRemoteAccess();
     await stopLocalServer();
     try {
-      await ensureLocalAccess();
       if (restoreRemote) {
-        const connection = localServerConnection();
-        if (connection) await startRemoteAccess(connection.port, connection.token);
+        await ensureLocalAccess(false);
+        await startRemoteAccessForCurrentServer();
       }
+      return accessStatus();
+    } catch (err) {
+      return accessStatus(false, errorMessage(err));
+    }
+  },
+  replaceAccessLink: async () => {
+    const localNetwork = localServerStatus().running;
+    const restoreRemote = remoteAccessRunning();
+    await stopRemoteAccess();
+    await stopLocalServer();
+    try {
+      await ensureLocalAccess(localNetwork);
+      if (restoreRemote) await startRemoteAccessForCurrentServer();
       return accessStatus();
     } catch (err) {
       return accessStatus(false, errorMessage(err));
@@ -728,10 +738,8 @@ const handlers: HandlerMap = {
   },
   startRemoteAccess: async () => {
     try {
-      await ensureLocalAccess();
-      const connection = localServerConnection();
-      if (!connection) throw new Error("NativePi could not start its access server.");
-      await startRemoteAccess(connection.port, connection.token);
+      await ensureLocalAccess(localServerStatus().running);
+      await startRemoteAccessForCurrentServer();
       return accessStatus();
     } catch (err) {
       return accessStatus(false, errorMessage(err));
@@ -739,6 +747,7 @@ const handlers: HandlerMap = {
   },
   stopRemoteAccess: async () => {
     await stopRemoteAccess();
+    if (!localServerStatus().running) await stopLocalServer();
     return accessStatus();
   },
   refreshRemoteAccess: () => accessStatus(true),
@@ -932,7 +941,7 @@ const handlers: HandlerMap = {
   },
 };
 
-async function ensureLocalAccess(): Promise<void> {
+async function ensureLocalAccess(localNetwork: boolean): Promise<void> {
   if (process.env["ELECTRON_RENDERER_URL"]) {
     throw new Error("Access is available in packaged NativePi.");
   }
@@ -940,7 +949,13 @@ async function ensureLocalAccess(): Promise<void> {
     rendererDir: resolve(import.meta.dirname, "../renderer"),
     invoke: invokeHostRequest,
     subscribe: subscribeHostEvents,
-  });
+  }, localNetwork);
+}
+
+async function startRemoteAccessForCurrentServer(): Promise<void> {
+  const connection = localServerConnection();
+  if (!connection) throw new Error("NativePi could not start its access server.");
+  await startRemoteAccess(connection.port, connection.token);
 }
 
 async function accessStatus(refreshRemote = false, localError?: string): Promise<AccessStatus> {
