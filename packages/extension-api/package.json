@@ -10,6 +10,28 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "keywords": [
+    "nativepi",
+    "pi-coding-agent",
+    "extension",
+    "react"
+  ],
+  "homepage": "https://github.com/nonlooped/nativepi/tree/main/packages/extension-api",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nonlooped/nativepi.git",
+    "directory": "packages/extension-api"
+  },
+  "bugs": {
+    "url": "https://github.com/nonlooped/nativepi/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
     "react": "^18.3.1 || ^19.0.0"
   },
