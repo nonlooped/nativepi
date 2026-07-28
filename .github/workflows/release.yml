@@ -5,6 +5,12 @@ on:
     workflows: [CI]
     types: [completed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag whose notes should be regenerated
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -12,23 +18,26 @@ permissions:
 jobs:
   release:
     name: Resolve release
-    if: github.event_name == 'push' || github.event.workflow_run.conclusion == 'success'
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       publish: ${{ steps.release.outputs.publish }}
       sha: ${{ steps.release.outputs.sha }}
       tag: ${{ steps.release.outputs.tag }}
+      previous_tag: ${{ steps.release.outputs.previous_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 2
 
       - name: Resolve release
         id: release
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           $version = (Get-Content package.json | ConvertFrom-Json).version
           $desktopVersion = (Get-Content apps/desktop/package.json | ConvertFrom-Json).version
@@ -37,28 +46,41 @@ jobs:
           }
 
           $tag = "v$version"
-          if ("${{ github.event_name }}" -eq "push") {
-            if ("${{ github.ref_name }}" -ne $tag) {
-              throw "Tag ${{ github.ref_name }} does not match package version $version"
-            }
-          } else {
-            $previousVersion = (git show HEAD^:package.json | ConvertFrom-Json).version
-            if ($version -eq $previousVersion) {
-              "publish=false" >> $env:GITHUB_OUTPUT
-              exit 0
-            }
+          $previousVersion = (git show HEAD^:package.json | ConvertFrom-Json).version
+          if ($version -eq $previousVersion) {
+            "publish=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
 
-            if (git ls-remote --exit-code --tags origin "refs/tags/$tag") {
-              git fetch origin "refs/tags/$tag:refs/tags/$tag"
-              if ((git rev-parse "$tag^{commit}") -ne (git rev-parse HEAD)) {
-                throw "Tag $tag already points to a different commit"
-              }
+          if (git ls-remote --exit-code --tags origin "refs/tags/$tag") {
+            git fetch origin "refs/tags/$tag:refs/tags/$tag"
+            if ((git rev-parse "$tag^{commit}") -ne (git rev-parse HEAD)) {
+              throw "Tag $tag already points to a different commit"
             }
+          }
+
+          $previousTag = ""
+          if ($version -notmatch '-') {
+            $currentCreatedAt = [datetime](git show -s --format=%cI HEAD)
+            $releases = gh api "repos/${{ github.repository }}/releases?per_page=100" | ConvertFrom-Json
+            $previousRelease = $releases |
+              Where-Object {
+                -not $_.draft -and -not $_.prerelease -and
+                [datetime]$_.created_at -lt $currentCreatedAt
+              } |
+              Select-Object -First 1
+            if (-not $previousRelease) {
+              $previousRelease = $releases |
+                Where-Object { [datetime]$_.created_at -lt $currentCreatedAt } |
+                Select-Object -Last 1
+            }
+            $previousTag = $previousRelease.tag_name
           }
 
           "publish=true" >> $env:GITHUB_OUTPUT
           "sha=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
           "tag=$tag" >> $env:GITHUB_OUTPUT
+          "previous_tag=$previousTag" >> $env:GITHUB_OUTPUT
 
   windows-installer:
     name: Build Windows Setup & Publish
@@ -113,5 +135,56 @@ jobs:
             apps/desktop/release/*.blockmap
             apps/desktop/release/latest.yml
           generate_release_notes: true
+          previous_tag: ${{ needs.release.outputs.previous_tag }}
           draft: false
           prerelease: ${{ contains(needs.release.outputs.tag, '-') }}
+
+  repair-release-notes:
+    name: Regenerate release notes
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Generate release notes
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ inputs.tag }}"
+          $release = gh api "repos/${{ github.repository }}/releases/tags/$tag" | ConvertFrom-Json
+          if ($release.draft -or $release.prerelease) {
+            throw "$tag is not a published stable release"
+          }
+
+          $releases = gh api "repos/${{ github.repository }}/releases?per_page=100" | ConvertFrom-Json
+          $currentCreatedAt = [datetime]$release.created_at
+          $previousRelease = $releases |
+            Where-Object {
+              -not $_.draft -and -not $_.prerelease -and
+              [datetime]$_.created_at -lt $currentCreatedAt
+            } |
+            Select-Object -First 1
+          if (-not $previousRelease) {
+            $previousRelease = $releases |
+              Where-Object { [datetime]$_.created_at -lt $currentCreatedAt } |
+              Select-Object -Last 1
+          }
+          if (-not $previousRelease) {
+            throw "No earlier release exists for $tag"
+          }
+
+          $request = @{
+            tag_name = $tag
+            target_commitish = $release.target_commitish
+            previous_tag_name = $previousRelease.tag_name
+          } | ConvertTo-Json
+          $notes = $request |
+            gh api "repos/${{ github.repository }}/releases/generate-notes" --method POST --input - |
+            ConvertFrom-Json
+          $notes.body | Set-Content release-notes.md
+
+      - name: Replace release notes
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ inputs.tag }}
+          body_path: release-notes.md
