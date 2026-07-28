@@ -181,10 +181,10 @@ jobs:
           $notes = $request |
             gh api "repos/${{ github.repository }}/releases/generate-notes" --method POST --input - |
             ConvertFrom-Json
-          $notes.body | Set-Content release-notes.md
 
-      - name: Replace release notes
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ inputs.tag }}
-          body_path: release-notes.md
+          # Patch the body alone. Sending tag_name or target_commitish makes the
+          # update endpoint treat the edit as a possible tag write, which the
+          # workflow token is never allowed to perform.
+          @{ body = $notes.body } |
+            ConvertTo-Json |
+            gh api "repos/${{ github.repository }}/releases/$($release.id)" --method PATCH --input - > $null
