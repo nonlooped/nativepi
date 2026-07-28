@@ -76,6 +76,12 @@ describe("local server", () => {
     await message(socket);
     socket.send(JSON.stringify({ type: "request", id: "2", name: "pickProject", params: {} }));
     expect(await message(socket)).toEqual({ type: "response", id: "2", result: { path: null } });
+    socket.send(JSON.stringify({ type: "request", id: "3", name: "installUpdate", params: {} }));
+    expect(await message(socket)).toEqual({
+      type: "response",
+      id: "3",
+      result: { ok: false, error: "Updates can only be managed from the desktop app." },
+    });
     expect(invoked).toBeFalse();
   });
 });
