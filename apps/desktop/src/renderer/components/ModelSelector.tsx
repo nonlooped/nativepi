@@ -8,7 +8,7 @@ import { providerIconName } from "../lib/providerIcons.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
-import { HOVER_REVEAL, cn } from "@/lib/utils.ts";
+import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import BrandIcon from "./BrandIcon.tsx";
 
 export default function ModelSelector() {
@@ -61,7 +61,13 @@ export default function ModelSelector() {
         <span className="truncate">{models.length === 0 ? "Loading models…" : label}</span>
         <CaretDownIcon className="shrink-0 text-muted-foreground" />
       </MenuTrigger>
-      <MenuPopup side="top" className="h-[min(30rem,70vh)] w-[min(31rem,calc(100vw-2rem))] overflow-hidden p-0">
+      <MenuPopup
+        side="top"
+        className={cn(
+          NO_DRAG_REGION,
+          "h-[min(30rem,70vh)] max-h-[calc(var(--available-height)_-_3rem)] w-[min(31rem,calc(100vw-2rem))] overflow-hidden p-0",
+        )}
+      >
         <div className="flex h-full min-h-0">
           <ProviderRail provider={provider} providers={authenticatedProviders} onSelect={setSelectedTab} />
           <div className="flex min-w-0 flex-1 flex-col p-2">
@@ -70,6 +76,11 @@ export default function ModelSelector() {
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  // Base UI's menu typeahead otherwise consumes printable keys
+                  // before the controlled input can update.
+                  if (event.key.length === 1) event.stopPropagation();
+                }}
                 placeholder="Search models…"
                 aria-label="Search models"
                 className="border-0 bg-muted pl-9 shadow-none"
