@@ -11,7 +11,7 @@ import { rpc } from "../../lib/rpc.ts";
 import { ReadonlyRow, SettingsSection } from "./rows.tsx";
 
 const STOPPED_STATUS: AccessStatus = {
-  local: { running: false, clients: [] },
+  local: { running: false, links: [], clients: [] },
   remote: { state: "checking" },
 };
 
@@ -25,15 +25,24 @@ export default function AccessSettings() {
   const [status, setStatus] = useState<AccessStatus>(STOPPED_STATUS);
   const [busy, setBusy] = useState<Action>();
   const [copied, setCopied] = useState<"local" | "remote">();
+  const [preferredLocalLink, setPreferredLocalLink] = useState<string>();
 
   useEffect(() => {
     let cancelled = false;
-    const read = () => {
-      void rpc.request.accessStatus({}).then((next) => {
+    const read = async () => {
+      try {
+        const next = await rpc.request.accessStatus({});
         if (!cancelled) setStatus(next);
-      });
+      } catch (error) {
+        if (!cancelled) {
+          setStatus((current) => ({
+            ...current,
+            local: { ...current.local, error: errorMessage(error) },
+          }));
+        }
+      }
     };
-    read();
+    void read();
     const interval = setInterval(read, 4_000);
     return () => {
       cancelled = true;
@@ -45,6 +54,10 @@ export default function AccessSettings() {
     setBusy(action);
     try {
       setStatus(await request);
+    } catch (error) {
+      setStatus((current) => action === "remote" || action === "refresh"
+        ? { ...current, remote: { state: "error", error: errorMessage(error) } }
+        : { ...current, local: { ...current.local, error: errorMessage(error) } });
     } finally {
       setBusy(undefined);
     }
@@ -55,6 +68,10 @@ export default function AccessSettings() {
     setCopied(target);
     setTimeout(() => setCopied((current) => current === target ? undefined : current), 1_500);
   };
+
+  const localLink = status.local.links.includes(preferredLocalLink ?? "")
+    ? preferredLocalLink
+    : status.local.link;
 
   return (
     <div className="flex flex-col gap-10">
@@ -88,13 +105,25 @@ export default function AccessSettings() {
             </Button>
           }
         />
-        {status.local.link ? (
+        {localLink ? (
           <ReadonlyRow
             label="Temporary link"
             description="Anyone with the complete link can control NativePi. Share it only with devices you trust."
-            value={status.local.link}
+            value={localLink}
             action={
               <div className="flex shrink-0 items-center gap-1">
+                {status.local.links.length > 1 ? (
+                  <select
+                    aria-label="Network address"
+                    className="h-8 max-w-40 rounded-md border bg-background px-2 text-xs"
+                    value={localLink}
+                    onChange={(event) => setPreferredLocalLink(event.target.value)}
+                  >
+                    {status.local.links.map((link) => (
+                      <option key={link} value={link}>{new URL(link).hostname}</option>
+                    ))}
+                  </select>
+                ) : null}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -104,7 +133,7 @@ export default function AccessSettings() {
                   <ArrowsClockwiseIcon data-icon="inline-start" />
                   {busy === "replace" ? "Replacing…" : "Replace"}
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => void copy("local", status.local.link!)}>
+                <Button variant="outline" size="sm" onClick={() => void copy("local", localLink)}>
                   <CopyIcon data-icon="inline-start" />
                   {copied === "local" ? "Copied" : "Copy"}
                 </Button>
@@ -293,4 +322,8 @@ function remoteDescription(status: RemoteAccessStatus): string {
 
 function formatTime(value: string): string {
   return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
