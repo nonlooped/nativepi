@@ -87,7 +87,8 @@ type RunningServer = {
   authenticatedRpcSockets: Set<WebSocket>;
   clients: Map<WebSocket, AccessClient>;
   unsubscribe: () => void;
-  link: string;
+  localNetwork: boolean;
+  links: string[];
   port: number;
   token: string;
 };
@@ -96,8 +97,9 @@ let running: RunningServer | undefined;
 
 export function localServerStatus(): LocalAccessStatus {
   return {
-    running: Boolean(running),
-    link: running?.link,
+    running: Boolean(running?.localNetwork),
+    link: running?.localNetwork ? running.links[0] : undefined,
+    links: running?.localNetwork ? running.links : [],
     clients: running ? [...running.clients.values()] : [],
   };
 }
@@ -106,8 +108,12 @@ export function localServerConnection(): { port: number; token: string } | undef
   return running ? { port: running.port, token: running.token } : undefined;
 }
 
-export async function startLocalServer(options: LocalServerOptions): Promise<LocalAccessStatus> {
-  if (running) return localServerStatus();
+export async function startLocalServer(
+  options: LocalServerOptions,
+  localNetwork = true,
+): Promise<LocalAccessStatus> {
+  if (running?.localNetwork === localNetwork) return localServerStatus();
+  if (running) await stopLocalServer();
 
   const token = randomBytes(24).toString("base64url");
   const rpcSockets = new Set<WebSocket>();
@@ -193,7 +199,7 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
     };
     http.once("error", onError);
     http.once("listening", onListening);
-    http.listen(0, "::");
+    http.listen(0, localNetwork ? "::" : "127.0.0.1");
   });
 
   if (!http.address() || typeof http.address() === "string") {
@@ -201,8 +207,9 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
     throw new Error("NativePi could not determine the local server address.");
   }
   const port = addressPort(http);
-  const address = localAddresses()[0] ?? "127.0.0.1";
-  const link = `http://${formatAddress(address)}:${port}/#token=${token}`;
+  const links = localNetwork
+    ? localAddresses().map((address) => `http://${formatAddress(address)}:${port}/#token=${token}`)
+    : [];
   const unsubscribe = options.subscribe((name, payload) => {
     const message = JSON.stringify({ type: "event", name, payload });
     for (const socket of authenticatedRpcSockets) {
@@ -217,7 +224,8 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
     authenticatedRpcSockets,
     clients,
     unsubscribe,
-    link,
+    localNetwork,
+    links,
     port,
     token,
   };
@@ -267,11 +275,14 @@ function formatAddress(address: string): string {
 }
 
 function clientFromRequest(request: import("node:http").IncomingMessage): AccessClient {
+  const socketAddress = normalizeAddress(request.socket.remoteAddress);
+  const remote = isLoopback(socketAddress) && isTailscaleHost(request.headers.host);
   const forwarded = request.headers["x-forwarded-for"];
-  const address = (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(",")[0])
-    ?.trim() || normalizeAddress(request.socket.remoteAddress);
-  const user = header(request, "tailscale-user-name") || header(request, "tailscale-user-login");
-  const remote = Boolean(user || request.headers.host?.includes(".ts.net"));
+  const forwardedAddress = (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(",")[0])?.trim();
+  const address = remote && forwardedAddress ? forwardedAddress : socketAddress;
+  const user = remote
+    ? header(request, "tailscale-user-name") || header(request, "tailscale-user-login")
+    : undefined;
   return {
     id: randomBytes(8).toString("hex"),
     address: remote && isLoopback(address) ? "Tailscale network" : address,
@@ -280,6 +291,15 @@ function clientFromRequest(request: import("node:http").IncomingMessage): Access
     location: remote ? "remote" : "local",
     user,
   };
+}
+
+function isTailscaleHost(host: string | undefined): boolean {
+  if (!host) return false;
+  try {
+    return new URL(`http://${host}`).hostname.toLowerCase().endsWith(".ts.net");
+  } catch {
+    return false;
+  }
 }
 
 function header(request: import("node:http").IncomingMessage, name: string): string | undefined {
