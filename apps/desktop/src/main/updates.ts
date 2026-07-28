@@ -45,6 +45,7 @@ export function startUpdates(onChange: (state: UpdateState) => void): void {
 
   state = { status: "idle" };
   autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
 
   autoUpdater.on("update-available", (info) => set({ status: "available", version: info.version }));
   autoUpdater.on("update-not-available", () => set({ status: "idle" }));
@@ -85,7 +86,9 @@ export async function downloadUpdate(): Promise<{ ok: boolean; error?: string }>
     await autoUpdater.downloadUpdate();
     return { ok: true };
   } catch (err) {
-    set({ status: "error", version: state.version, error: message(err) });
+    if (updateState().status === "downloading") {
+      set({ status: "error", version: state.version, error: message(err) });
+    }
     return { ok: false, error: message(err) };
   }
 }
