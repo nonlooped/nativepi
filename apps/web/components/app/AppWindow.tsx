@@ -18,6 +18,8 @@ export function AppWindow({ className }: { className?: string }) {
     <Image
       src="/app/window.png"
       alt="The NativePi window: a project sidebar with recent conversations, a new chat asking what you want to build, a composer with model and branch pickers, and a Changes pane listing modified files."
+      width={1917}
+      height={1016}
       priority
       sizes="(min-width: 900px) 78rem, 92vw"
       className={cn("h-full w-full object-cover object-left-top", className)}
