@@ -38,6 +38,7 @@ describe("local server", () => {
 
     const socket = new WebSocket(`ws://127.0.0.1:${link.port}/rpc`, {
       headers: {
+        host: "desktop.example.ts.net",
         "tailscale-user-name": "Alice",
         "user-agent": "Mozilla/5.0 (iPhone) AppleWebKit Safari/605.1.15",
       },
@@ -70,7 +71,7 @@ describe("local server", () => {
     const socketClosed = closed(socket);
     socket.close();
     await socketClosed;
-    await Bun.sleep(0);
+    await waitFor(() => localServerStatus().clients.length === 0);
     expect(localServerStatus().clients).toHaveLength(0);
   });
 
@@ -99,13 +100,19 @@ describe("local server", () => {
       type: "response",
       id: "3",
       result: {
-        local: { running: true, clients: [] },
+        local: { running: true, links: [], clients: [] },
         remote: { state: "error", error: "Access can only be managed from the desktop app." },
       },
     });
     expect(invoked).toBeFalse();
   });
 });
+
+async function waitFor(condition: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 100 && !condition(); attempt += 1) {
+    await Bun.sleep(5);
+  }
+}
 
 function opened(socket: WebSocket): Promise<void> {
   return new Promise((resolve) => socket.once("open", resolve));
