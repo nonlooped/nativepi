@@ -54,7 +54,7 @@ export default function ExtensionApiPage() {
       <div className="measure mt-4">
         <Code
           lang="json"
-          filename="pi-package.json"
+          filename="package.json"
           code={`{
   "name": "my-pi-package",
   "nativepi": {
@@ -89,8 +89,9 @@ interface NativePiRenderer {
         <p>
           Every field is optional. Extensions contribute to controlled slots
           only: they cannot replace the composer, the transcript, the sidebar, or
-          routing. Each contribution is mounted behind an error boundary, so a
-          component that throws takes down its own slot and nothing else.
+          routing. NativePi places extension output behind an error boundary,
+          but render functions should still avoid throwing because a failure can
+          prevent that slot from mounting.
         </p>
       </Prose>
 
@@ -113,7 +114,9 @@ interface NativePiRenderer {
       </div>
       <Prose className="mt-4">
         <p>
-          <code>session</code> is <code>null</code> when no conversation is open.
+          <code>session</code> is <code>null</code> when no project is active.
+          With a project open, <code>sessionFile</code> remains undefined until a
+          conversation is selected.
           <code>dark</code> reports the window&apos;s appearance; NativePi is
           currently dark only, so treat a future light value as something to
           handle rather than something to assume.
@@ -303,7 +306,7 @@ export default defineRenderer({
         ctx.session ? (
           <SchemaTree dir={ctx.session.projectDir} />
         ) : (
-          <p>Open a chat to inspect its schema.</p>
+          <p>Open a project to inspect its schema.</p>
         ),
     },
   ],
@@ -316,7 +319,8 @@ export default defineRenderer({
         <ul>
           <li>
             <strong>Handle the empty case.</strong> <code>ctx.session</code> is
-            null with no conversation open, and panels render regardless.
+            null with no project active; with an empty project,
+            <code>sessionFile</code> is undefined. Panels render regardless.
           </li>
           <li>
             <strong>Match the surrounding density.</strong> The window is compact
