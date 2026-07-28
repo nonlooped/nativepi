@@ -84,6 +84,11 @@ export interface AuthProviderInfo {
   authLabel?: string;
 }
 
+export interface LocalServerStatus {
+  running: boolean;
+  links: string[];
+}
+
 export type AuthPromptRequest =
   | { kind: "text"; message: string; placeholder?: string }
   | { kind: "secret"; message: string; placeholder?: string }
@@ -302,6 +307,12 @@ export type HostRequests = {
     response: { ok: boolean; error?: string };
   };
   versions: { params: Record<string, never>; response: { pi: string; app: string } };
+  localServerStatus: { params: Record<string, never>; response: LocalServerStatus };
+  startLocalServer: {
+    params: Record<string, never>;
+    response: LocalServerStatus & { error?: string };
+  };
+  stopLocalServer: { params: Record<string, never>; response: { ok: boolean } };
 
   getPiSettings: { params: Record<string, never>; response: { settings?: PiSettings; error?: string } };
   setPiSettings: {

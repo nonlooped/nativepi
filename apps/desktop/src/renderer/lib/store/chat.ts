@@ -1,6 +1,6 @@
 import type { SessionEntry, ThinkingLevel } from "../../../shared/pi-types.ts";
 import type { ExtensionUiRequest } from "../../../shared/pi-types.ts";
-import { rpc } from "../rpc.ts";
+import { isRemote, rpc } from "../rpc.ts";
 import { conversationFor, emptyConversation, patchConversation } from "./conversation.ts";
 import { applyExtensionUi, reduce, sessionInfoName } from "./events.ts";
 import {
@@ -18,6 +18,7 @@ import type { ImageAttachment } from "../../../shared/rpc-schema.ts";
 import type { ChatSlice, GetState, PendingMessage, SetState, SliceCreator } from "./types.ts";
 
 let pendingId = 1;
+const MAX_REMOTE_IMAGE_BATCH_BYTES = 48 * 1024 * 1024;
 
 /**
  * The draft as it would be sent, or null if there is nothing to send.
@@ -177,11 +178,15 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     const oversized = files.filter((file) => file.size > MAX_IMAGE_BYTES);
     const readable = files.filter((file) => file.size <= MAX_IMAGE_BYTES);
     if (oversized.length > 0) showAttachmentsRejected(oversized.map((file) => file.name || "Pasted image"));
-    if (readable.length === 0) return;
+    const accepted = isRemote && readable.reduce((size, file) => size + file.size, 0) > MAX_REMOTE_IMAGE_BATCH_BYTES
+      ? []
+      : readable;
+    if (accepted.length !== readable.length) showAttachmentsRejected(readable.map((file) => file.name || "Pasted image"));
+    if (accepted.length === 0) return;
 
     countPreparing(set, key, 1);
     try {
-      const read = await Promise.all(readable.map((file) => readAsBase64(file)));
+      const read = await Promise.all(accepted.map((file) => readAsBase64(file)));
       const result = await rpc.request.prepareImages({ files: read });
       if (result.rejected.length > 0) showAttachmentsRejected(result.rejected);
       addAttachments(set, key, result.images);

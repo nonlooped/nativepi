@@ -1,21 +1,19 @@
 import { useEffect, useState } from "react";
-import { rpc } from "../lib/rpc.ts";
-import { isDesktopShell } from "../lib/platform.ts";
+import { isRemote, rpc } from "../lib/rpc.ts";
 import { NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 
 export default function WindowControls() {
-  const [maximized, setMaximized] = useState(false);
+  if (isRemote) return null;
+  return <DesktopWindowControls />;
+}
 
-  // A browser tab has its own chrome and no window to minimise. `isDesktopShell`
-  // is a module constant, so this branch is stable for the life of the document
-  // and the hook below still runs unconditionally.
-  const enabled = isDesktopShell;
+function DesktopWindowControls() {
+  const [maximized, setMaximized] = useState(false);
 
   // Not a useRequest: the initial read is only the seed for a value the main
   // process then pushes on every maximize/unmaximize, so the subscription — not
   // the request — is what this effect exists for.
   useEffect(() => {
-    if (!enabled) return;
     let cancelled = false;
     void rpc.request.windowIsMaximized({}).then((r) => {
       if (!cancelled) setMaximized(r.maximized);
@@ -27,9 +25,7 @@ export default function WindowControls() {
       cancelled = true;
       off();
     };
-  }, [enabled]);
-
-  if (!enabled) return null;
+  }, []);
 
   return (
     // z-[60] deliberately clears the z-50 dialog/sheet/menu layer: in a
