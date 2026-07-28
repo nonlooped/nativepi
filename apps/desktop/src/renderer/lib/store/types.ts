@@ -6,6 +6,7 @@ import type {
   PiStatus,
   Preferences,
   Project,
+  UpdateState,
 } from "../../../shared/rpc-schema.ts";
 import type {
   AssistantMessage,
@@ -231,6 +232,8 @@ export interface UiSlice {
   terminalProjects: Set<string>;
   /** NativePi's own appearance and behavior preferences. Pi's live elsewhere. */
   preferences: Preferences;
+  /** How far NativePi has got with replacing itself, as main last reported it. */
+  update: UpdateState;
 
   openSettings: () => void;
   closeSettings: () => void;
@@ -246,6 +249,10 @@ export interface UiSlice {
   consumeBranchMenuRequest: () => void;
   openTerminal: (projectPath: string) => void;
   toggleTerminal: (projectPath: string) => void;
+  onUpdateState: (update: UpdateState) => void;
+  checkForUpdate: () => Promise<void>;
+  downloadUpdate: () => Promise<void>;
+  installUpdate: () => Promise<void>;
 }
 
 export type AppState = WorkspaceSlice &

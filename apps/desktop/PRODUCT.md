@@ -50,6 +50,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - A quit confirmation that names the agent turns and terminals closing the window would stop, so a run is never ended by accident.
 - A settings screen covering NativePi's own appearance and notification preferences, a user-scope editor for the Pi settings that mean something in a desktop window, a shortcut reference, and the paths to Pi's own files.
 - On-demand, access-token-protected browser access to the same projects, chats, changes, and terminals, either on the local network or privately through the user's Tailscale network while the desktop app remains open.
+- Self-updating from the published GitHub release: a notification when a newer version exists, a download the user starts, and an install that stops the running work before it restarts the app.
 
 ## Boundaries and Constraints
 

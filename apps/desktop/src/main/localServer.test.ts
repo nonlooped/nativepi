@@ -104,6 +104,12 @@ describe("local server", () => {
         remote: { state: "error", error: "Access can only be managed from the desktop app." },
       },
     });
+    socket.send(JSON.stringify({ type: "request", id: "4", name: "installUpdate", params: {} }));
+    expect(await message(socket)).toEqual({
+      type: "response",
+      id: "4",
+      result: { ok: false, error: "Updates can only be managed from the desktop app." },
+    });
     expect(invoked).toBeFalse();
   });
 });

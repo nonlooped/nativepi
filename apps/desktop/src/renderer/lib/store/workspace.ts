@@ -36,6 +36,9 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       contextPaneChosen: loaded.panes !== undefined,
     });
     void get().loadProviders();
+    // Read once as well as subscribing: the first check runs while the window
+    // is still loading, so its result may already have been pushed and missed.
+    void rpc.request.updateState({}).then((update) => get().onUpdateState(update));
     if (restoreProject) await get().selectProject(restoreProject);
   },
 

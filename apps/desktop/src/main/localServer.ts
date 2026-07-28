@@ -50,6 +50,10 @@ const desktopOnlyResponses: Partial<Record<HostRequestName, unknown>> = {
   openFileIn: { ok: false, error: "This action is only available in the desktop app." },
   showInFolder: { ok: false },
   saveImage: { ok: false, error: "Save this image from the browser instead." },
+  updateState: { status: "unsupported" },
+  checkForUpdate: { status: "unsupported" },
+  downloadUpdate: { ok: false, error: "Updates can only be managed from the desktop app." },
+  installUpdate: { ok: false, error: "Updates can only be managed from the desktop app." },
   accessStatus: {
     local: { running: true, links: [], clients: [] },
     remote: { state: "error", error: "Access can only be managed from the desktop app." },

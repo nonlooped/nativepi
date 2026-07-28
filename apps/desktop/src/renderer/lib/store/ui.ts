@@ -1,4 +1,6 @@
 import { DEFAULT_PREFERENCES } from "../../../shared/rpc-schema.ts";
+import { isRemote, rpc } from "../rpc.ts";
+import { showUpdateNotice } from "../toast.ts";
 import { persist } from "./internals.ts";
 import type { SliceCreator, UiSlice } from "./types.ts";
 
@@ -14,6 +16,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   branchMenuRequested: false,
   terminalProjects: new Set(),
   preferences: DEFAULT_PREFERENCES,
+  update: { status: "unsupported" },
 
   openSettings: () => set({ settingsOpen: true }),
   closeSettings: () => set({ settingsOpen: false }),
@@ -67,4 +70,30 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
       else terminalProjects.add(projectPath);
       return { terminalProjects };
     }),
+
+  onUpdateState: (update) => {
+    const previousStatus = get().update.status;
+    set({ update });
+    // A browser reaching NativePi over the local server is not the machine the
+    // installer would run on, and its user is not the one who should be asked
+    // to restart the desktop app. It hears nothing about updates.
+    if (isRemote) return;
+    showUpdateNotice(update, previousStatus, {
+      download: () => void get().downloadUpdate(),
+      install: () => void get().installUpdate(),
+    });
+  },
+
+  // Each of these reports its outcome through the `updateState` event rather
+  // than its return value, so a check started from Settings and one started by
+  // the timer land in exactly the same place.
+  checkForUpdate: async () => {
+    await rpc.request.checkForUpdate({});
+  },
+  downloadUpdate: async () => {
+    await rpc.request.downloadUpdate({});
+  },
+  installUpdate: async () => {
+    await rpc.request.installUpdate({});
+  },
 });

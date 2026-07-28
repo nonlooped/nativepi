@@ -113,6 +113,22 @@ export interface AccessStatus {
   remote: RemoteAccessStatus;
 }
 
+/**
+ * How far NativePi has got with replacing itself.
+ *
+ * `unsupported` is a development run: there is no packaged app to replace, and
+ * every surface that would offer one stays out of the way rather than showing a
+ * control that cannot work.
+ */
+export interface UpdateState {
+  status: "unsupported" | "idle" | "checking" | "available" | "downloading" | "ready" | "error";
+  /** The version being offered, downloaded, or waiting to be installed. */
+  version?: string;
+  /** Download progress, 0 to 100. */
+  percent?: number;
+  error?: string;
+}
+
 export type AuthPromptRequest =
   | { kind: "text"; message: string; placeholder?: string }
   | { kind: "secret"; message: string; placeholder?: string }
@@ -331,6 +347,11 @@ export type HostRequests = {
     response: { ok: boolean; error?: string };
   };
   versions: { params: Record<string, never>; response: { pi: string; app: string } };
+  updateState: { params: Record<string, never>; response: UpdateState };
+  checkForUpdate: { params: Record<string, never>; response: UpdateState };
+  downloadUpdate: { params: Record<string, never>; response: { ok: boolean; error?: string } };
+  /** Quit and run the installer that was downloaded. Nothing comes back if it works. */
+  installUpdate: { params: Record<string, never>; response: { ok: boolean; error?: string } };
   accessStatus: { params: Record<string, never>; response: AccessStatus };
   startLocalAccess: {
     params: Record<string, never>;
@@ -438,6 +459,7 @@ export type HostEvents = {
   authPrompt: { id: string; prompt: AuthPromptRequest };
   authNotice: { notice: AuthNotice };
   windowMaximized: { maximized: boolean };
+  updateState: UpdateState;
   /** The close was held back because work is in flight. The window decides. */
   quitRequested: { work: PendingWork };
   terminalData: { projectDir: string; terminalId: string; data: string; sequence: number };
