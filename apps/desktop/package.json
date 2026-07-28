@@ -19,6 +19,7 @@
     "@earendil-works/pi-coding-agent": "0.82.1",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
+    "electron-updater": "^6.8.9",
     "esbuild": "^0.28.1",
     "node-pty": "^1.1.0",
     "ws": "^8.21.1"
@@ -81,13 +82,22 @@
       "**/node_modules/@esbuild/**/*",
       "**/node_modules/node-pty/**/*"
     ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "nonlooped",
+        "repo": "nativepi"
+      }
+    ],
     "win": {
       "icon": "resources/icon.ico",
+      "verifyUpdateCodeSignature": false,
       "target": [
         "nsis"
       ]
     },
     "nsis": {
+      "artifactName": "${productName}-Setup-${version}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "installerSidebar": "resources/installer-sidebar.bmp"

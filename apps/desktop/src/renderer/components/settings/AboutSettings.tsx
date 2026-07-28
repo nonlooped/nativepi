@@ -1,11 +1,81 @@
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
-import { rpc } from "../../lib/rpc.ts";
+import type { UpdateState } from "../../../shared/rpc-schema.ts";
+import { isRemote, rpc } from "../../lib/rpc.ts";
+import { useAppStore } from "../../lib/store.ts";
 import { useRequest } from "../../lib/useRequest.ts";
 import NativePiWordmark from "../NativePiWordmark.tsx";
-import { ReadonlyRow, SettingsSection } from "./rows.tsx";
+import { ActionRow, ReadonlyRow, SettingsSection } from "./rows.tsx";
 import { Button } from "@/components/ui/button.tsx";
 
 const REPOSITORY_URL = "https://github.com/nonlooped/nativepi";
+
+/** What the update row says, in the order the stages happen. */
+function updateSummary(update: UpdateState, currentVersion: string | undefined): { headline: string; detail: string } {
+  const name = update.version ? `NativePi ${update.version}` : "A newer NativePi";
+  switch (update.status) {
+    case "checking":
+      return { headline: "Checking for updates", detail: "Asking GitHub what the latest release is." };
+    case "available":
+      return { headline: `${name} is available`, detail: "Downloading it does not interrupt anything you have running." };
+    case "downloading":
+      return { headline: `Downloading ${name}`, detail: `${update.percent ?? 0}% of the installer fetched.` };
+    case "ready":
+      return {
+        headline: `${name} is ready to install`,
+        detail: "NativePi stops the agent and your terminals, installs it, and starts again.",
+      };
+    case "error":
+      return { headline: "The update did not go through", detail: update.error ?? "NativePi could not reach the release feed." };
+    default:
+      return {
+        headline: "NativePi is up to date",
+        detail: currentVersion ? `You are running ${currentVersion}.` : "No newer release has been published.",
+      };
+  }
+}
+
+/**
+ * Updating NativePi from inside NativePi.
+ *
+ * The same three actions the notification offers, in the one place someone
+ * looks when they want to update on purpose rather than when asked. Left out
+ * entirely on a development run, where there is no packaged app to replace, and
+ * in a remote browser, which is not the machine the installer would run on.
+ */
+function Updates({ currentVersion }: { currentVersion: string | undefined }) {
+  const update = useAppStore((s) => s.update);
+  const checkForUpdate = useAppStore((s) => s.checkForUpdate);
+  const downloadUpdate = useAppStore((s) => s.downloadUpdate);
+  const installUpdate = useAppStore((s) => s.installUpdate);
+
+  if (isRemote || update.status === "unsupported") return null;
+
+  const { headline, detail } = updateSummary(update, currentVersion);
+  const busy = update.status === "checking" || update.status === "downloading";
+
+  return (
+    <SettingsSection
+      heading="Updates"
+      description="NativePi looks for a new release on GitHub when it starts and every few hours after that. Nothing is downloaded until you ask for it. The builds are not code signed, so the installer's signature is not checked."
+    >
+      <ActionRow label={headline} description={detail}>
+        {update.status === "available" ? (
+          <Button size="sm" onClick={() => void downloadUpdate()}>
+            Download update
+          </Button>
+        ) : update.status === "ready" ? (
+          <Button size="sm" onClick={() => void installUpdate()}>
+            Restart and install
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void checkForUpdate()}>
+            {update.status === "checking" ? "Checking…" : update.status === "downloading" ? "Downloading…" : "Check for updates"}
+          </Button>
+        )}
+      </ActionRow>
+    </SettingsSection>
+  );
+}
 
 /**
  * What this is, what it is built on, and where it keeps things.
@@ -32,6 +102,8 @@ export default function AboutSettings() {
         <ReadonlyRow label="NativePi" value={versions.data?.app ?? "…"} />
         <ReadonlyRow label="Pi" value={versions.data?.pi ?? "…"} />
       </SettingsSection>
+
+      <Updates currentVersion={versions.data?.app} />
 
       <SettingsSection
         heading="Where Pi keeps things"

@@ -254,6 +254,23 @@ export function TextRow({
   );
 }
 
+/** A setting whose control performs an action rather than holding a value. */
+export function ActionRow({
+  label,
+  description,
+  children,
+}: {
+  label: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Row label={label} description={description}>
+      {children}
+    </Row>
+  );
+}
+
 /** A value the user can read and copy but not edit, such as a path or a version. */
 export function ReadonlyRow({
   label,

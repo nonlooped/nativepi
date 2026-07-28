@@ -32,6 +32,7 @@ import {
 import type { HostEvents, HostRequestName, HostRequests, PiStatus } from "../shared/rpc-schema.ts";
 import type { CommandInfo, ForkPoint, ModelInfo, RpcSessionState, SessionStats, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
 import { localServerStatus, startLocalServer, stopLocalServer } from "./localServer.ts";
+import { checkForUpdate, downloadUpdate, installUpdate, startUpdates, updateState } from "./updates.ts";
 
 const pis = new Map<string, PiProcess>();
 const starting = new Map<string, Promise<PiProcess>>();
@@ -691,6 +692,18 @@ const handlers: HandlerMap = {
   },
 
   versions: () => ({ pi: auth.PI_VERSION_STRING, app: app.getVersion() }),
+  updateState: () => updateState(),
+  checkForUpdate: () => checkForUpdate(),
+  downloadUpdate: () => downloadUpdate(),
+  installUpdate: async () => {
+    if (updateState().status !== "ready") return { ok: false, error: "No update has finished downloading." };
+    // The installer replaces files this process holds open, and it restarts the
+    // app rather than closing it — a turn or a shell still running would be
+    // killed by that restart instead of shut down.
+    await stopAllPi();
+    installUpdate();
+    return { ok: true };
+  },
   localServerStatus: () => localServerStatus(),
   startLocalServer: async () => {
     try {
@@ -917,6 +930,9 @@ export function registerIpc(): void {
     ipcMain.removeHandler(name);
     ipcMain.handle(name, (_event, params) => invokeHostRequest(name, params ?? {}));
   }
+  // Started from here rather than from the window: `push` is what turns an
+  // update into something the renderer can see, and it lives in this module.
+  startUpdates((state) => push("updateState", state));
 }
 
 export async function stopAllPi(): Promise<void> {

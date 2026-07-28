@@ -70,6 +70,12 @@ currently unsigned, so Windows SmartScreen will warn on first launch.
 NativePi bundles Pi. A separate Pi installation is not required, and existing
 Pi credentials, configuration, and sessions in `~/.pi/agent` are reused.
 
+After that, NativePi keeps itself current. It checks GitHub for a new release on
+startup and every few hours, and tells you when one exists. Nothing is
+downloaded until you ask for it, and the update is installed when you choose to
+restart. Settings, About has the same controls if you would rather check
+yourself.
+
 ## Development
 
 To run from source, install [Bun](https://bun.sh/) and Git:

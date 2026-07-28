@@ -1,8 +1,9 @@
 import { toast } from "sonner";
+import type { UpdateState } from "../../shared/rpc-schema.ts";
 
 /**
- * The two transient messages NativePi raises, named rather than assembled at
- * each call site so their timing and placement stay consistent.
+ * The transient messages NativePi raises, named rather than assembled at each
+ * call site so their timing and placement stay consistent.
  */
 
 /** The hint pill: brief, compact, and visually distinct from a notification. */
@@ -48,4 +49,51 @@ export function showExtensionNotification(message: string, kind: "info" | "warni
   if (kind === "error") toast.error(message, { ...options, duration: Infinity });
   else if (kind === "warning") toast.warning(message, { ...options, duration: 10_000 });
   else toast(message, { ...options, duration: 6000 });
+}
+
+const UPDATE_TOAST = "nativepi-update";
+
+/**
+ * Offer the new version, and follow it through.
+ *
+ * One toast that changes rather than one per stage: the release, its download
+ * and the restart that finishes it are the same piece of news, and a stack of
+ * three would tell it three times. None of them time out — an update is not an
+ * announcement to catch or miss — and closing one is the user declining, which
+ * Settings › About leaves them a way back from.
+ */
+export function showUpdateNotice(
+  state: UpdateState,
+  previousStatus: UpdateState["status"],
+  actions: { download: () => void; install: () => void },
+): void {
+  const name = state.version ? `NativePi ${state.version}` : "A new NativePi";
+  const options = { id: UPDATE_TOAST, duration: Infinity, closeButton: true } as const;
+
+  switch (state.status) {
+    case "available":
+      return void toast(`${name} is available`, {
+        ...options,
+        action: { label: "Update", onClick: actions.download },
+      });
+    case "downloading":
+      // No close button: dismissing it would leave the download running with
+      // nothing on screen saying so.
+      return void toast.loading(`Downloading ${name}… ${state.percent ?? 0}%`, {
+        ...options,
+        closeButton: false,
+      });
+    case "ready":
+      return void toast.success(`${name} is ready to install`, {
+        ...options,
+        action: { label: "Restart", onClick: actions.install },
+      });
+    case "error":
+      // A background check that could not reach GitHub is not news. A download
+      // the user asked for and did not get is.
+      if (previousStatus !== "downloading") return void toast.dismiss(UPDATE_TOAST);
+      return void toast.error(state.error ?? `${name} could not be downloaded.`, options);
+    default:
+      return void toast.dismiss(UPDATE_TOAST);
+  }
 }
