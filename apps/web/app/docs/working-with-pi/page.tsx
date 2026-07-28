@@ -50,7 +50,7 @@ export default function WorkingWithPiPage() {
 ├── sessions/      # conversations, shared with the pi CLI
 ├── packages/      # installed Pi packages
 ├── settings.json  # agent configuration
-└── credentials    # provider auth, never held by NativePi`}
+└── auth.json      # provider auth, never held by NativePi`}
         />
       </div>
 
@@ -66,8 +66,9 @@ export default function WorkingWithPiPage() {
       <Prose>
         <p>
           Create, resume, rename, clone, fork, delete, import, export to HTML,
-          inspect the session tree and statistics, and compact. All of it is
-          performed by Pi.
+          inspect the session tree and statistics, and compact. These workflows
+          use Pi&apos;s session formats and APIs; NativePi performs the small
+          desktop-side file operations where Pi has no direct command.
         </p>
       </Prose>
 
@@ -157,9 +158,10 @@ export default function WorkingWithPiPage() {
       </Prose>
 
       <Note tone="warning">
-        The server is off until you start it, and it is only ever bound to your
-        local network. NativePi does not publish it to the internet, and there is
-        no NativePi server anywhere that your machine talks to.
+        The server is off until you start it. It listens on this computer&apos;s
+        network interfaces, so your firewall, VPN, and router determine which
+        devices can reach it. Use it only on networks you trust. NativePi does
+        not operate a hosted relay or send your workspace to a NativePi server.
       </Note>
     </>
   );
