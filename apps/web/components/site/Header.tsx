@@ -73,6 +73,7 @@ export function Header() {
             href={site.repo}
             target="_blank"
             rel="noreferrer noopener"
+            aria-label="NativePi on GitHub"
             className={cn(
               "ml-1 inline-flex h-11 items-center gap-2 rounded-md border border-input-hairline",
               "bg-white/[0.04] px-3 text-sm text-chalk transition-colors duration-150",
