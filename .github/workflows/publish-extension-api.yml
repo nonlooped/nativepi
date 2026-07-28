@@ -50,6 +50,10 @@ jobs:
             "publish=true" >> $env:GITHUB_OUTPUT
             "version=$version" >> $env:GITHUB_OUTPUT
           }
+          # A missing version makes `npm view` exit 1, and pwsh steps inherit the
+          # last native exit code. Without this the step fails on the one path
+          # that matters.
+          exit 0
 
       # Trusted publishing needs npm 11.5.1 or newer.
       - name: Update npm
