@@ -48,28 +48,28 @@ export async function startRemoteAccess(port: number, token: string): Promise<Re
       resolveStart(next);
     };
     const inspect = () => {
-      const remoteUrl = output.match(/https:\/\/[^\s|]+\.ts\.net(?::\d+)?/i)?.[0];
+      const remoteUrl = findUrl(output, true);
       if (remoteUrl) finish({ state: "running", link: `${remoteUrl}/#token=${token}` });
     };
     child.stdout.on("data", inspect);
     child.stderr.on("data", inspect);
     child.once("error", (error) => finish({ state: "error", error: error.message }));
     child.once("exit", (code) => {
-      const setupUrl = output.match(/https:\/\/[^\s]+/)?.[0];
+      const setupUrl = findUrl(output, false);
       finish({
         state: "error",
         error: cleanError(output) || `Tailscale Serve stopped with exit code ${code ?? "unknown"}.`,
-        setupUrl: setupUrl?.includes(".ts.net") ? undefined : setupUrl,
+        setupUrl,
       });
     });
     const timer = setTimeout(() => {
-      const setupUrl = output.match(/https:\/\/[^\s]+/)?.[0];
+      const setupUrl = findUrl(output, false);
       finish({
         state: "error",
         error: setupUrl
           ? "Tailscale needs permission to serve NativePi. Finish setup, then try again."
           : cleanError(output) || "Tailscale did not finish starting Remote Access.",
-        setupUrl: setupUrl?.includes(".ts.net") ? undefined : setupUrl,
+        setupUrl,
       });
     }, 10_000);
   });
@@ -159,6 +159,19 @@ function run(file: string, args: string[]): Promise<{ stdout: string; stderr: st
       });
     });
   });
+}
+
+function findUrl(output: string, tailscaleHost: boolean): string | undefined {
+  for (const value of output.match(/https:\/\/[^\s|]+/gi) ?? []) {
+    try {
+      const url = new URL(value);
+      const isTailscale = url.hostname.toLowerCase().endsWith(".ts.net");
+      if (isTailscale === tailscaleHost) return url.origin;
+    } catch {
+      // Ignore malformed CLI output.
+    }
+  }
+  return undefined;
 }
 
 function cleanError(output: string): string | undefined {
