@@ -69,9 +69,10 @@ export default function InstallPage() {
             Projects stay pinned between launches.
           </li>
           <li>
-            <strong>Trust it.</strong> The header shows the project&apos;s trust
-            state. Pi will not run tools in an untrusted directory, so confirm
-            this for folders you own.
+            <strong>Review project trust if prompted.</strong> NativePi asks only
+            when a project contains local extensions or skills. Trusting the
+            folder allows that project-local code to run, so approve only folders
+            whose contents you have reviewed.
           </li>
           <li>
             <strong>Sign in to a provider.</strong> Open Settings and
