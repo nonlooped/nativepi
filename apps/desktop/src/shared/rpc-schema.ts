@@ -96,6 +96,7 @@ export interface AccessClient {
 export interface LocalAccessStatus {
   running: boolean;
   link?: string;
+  links: string[];
   clients: AccessClient[];
   error?: string;
 }
