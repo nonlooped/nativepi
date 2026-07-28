@@ -266,7 +266,7 @@ export function ReadonlyRow({
   return (
     <Row label={label} description={description}>
       <div className="flex items-center gap-2">
-        <span className="select-all font-mono text-xs text-muted-foreground">{value}</span>
+        <span className="max-w-72 truncate select-all font-mono text-xs text-muted-foreground" title={value}>{value}</span>
         {action}
       </div>
     </Row>

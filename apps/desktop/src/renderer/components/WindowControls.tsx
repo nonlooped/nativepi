@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
-import { rpc } from "../lib/rpc.ts";
+import { isRemote, rpc } from "../lib/rpc.ts";
 import { NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 
 export default function WindowControls() {
+  if (isRemote) return null;
+  return <DesktopWindowControls />;
+}
+
+function DesktopWindowControls() {
   const [maximized, setMaximized] = useState(false);
 
   // Not a useRequest: the initial read is only the seed for a value the main
