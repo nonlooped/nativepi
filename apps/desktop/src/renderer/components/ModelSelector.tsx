@@ -8,7 +8,7 @@ import { providerIconName } from "../lib/providerIcons.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
-import { cn } from "@/lib/utils.ts";
+import { HOVER_REVEAL, cn } from "@/lib/utils.ts";
 import BrandIcon from "./BrandIcon.tsx";
 
 export default function ModelSelector() {
@@ -230,6 +230,7 @@ function ModelRow({
         // starred: a column of grey stars down every row reads as
         // ornament and competes with the model names being scanned.
         className={cn(
+          HOVER_REVEAL,
           "flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none group-hover/model:opacity-100 group-data-[highlighted]/model:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring",
           favorite && "opacity-100",
         )}

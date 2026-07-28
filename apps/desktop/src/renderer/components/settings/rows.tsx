@@ -79,10 +79,13 @@ function Row({
     );
   }
 
+  // Label and control sit side by side where there is room for both, and stack
+  // below it. A 14rem select next to a two-line explanation is what turns a
+  // settings list into two columns of four-character-wide text on a phone.
   return (
-    <div className="flex items-center justify-between gap-8 border-t py-5">
+    <div className="flex flex-col gap-3 border-t py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
       {text}
-      <div className="shrink-0">{children}</div>
+      <div className="sm:shrink-0">{children}</div>
     </div>
   );
 }
@@ -138,7 +141,7 @@ export function SelectRow<T extends string>({
       >
         {/* The trigger's own height is a `data-size` variant, so plain `h-9`
             would lose to it on specificity and the row would stay compact. */}
-        <SelectTrigger aria-label={label} className="min-w-44 px-3 text-sm data-[size=default]:h-9">
+        <SelectTrigger aria-label={label} className="w-full px-3 text-sm data-[size=default]:h-9 sm:w-auto sm:min-w-44">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -174,7 +177,7 @@ export function SliderRow({
 }) {
   return (
     <Row label={label} description={description}>
-      <div className="flex w-56 items-center gap-4">
+      <div className="flex w-full items-center gap-4 sm:w-56">
         <Slider
           value={[value]}
           min={min}
@@ -244,7 +247,7 @@ export function TextRow({
             if (event.key === "Enter") event.currentTarget.blur();
           }}
           spellCheck={false}
-          className="w-72 font-mono text-xs"
+          className="w-full font-mono text-xs sm:w-72"
         />
       )}
     </Row>
@@ -265,8 +268,10 @@ export function ReadonlyRow({
 }) {
   return (
     <Row label={label} description={description}>
-      <div className="flex items-center gap-2">
-        <span className="max-w-72 truncate select-all font-mono text-xs text-muted-foreground" title={value}>{value}</span>
+      <div className="flex min-w-0 items-center gap-2">
+        {/* A path or a version can be longer than a phone is wide, and it is the
+            one thing in the row the reader came to copy. */}
+        <span className="min-w-0 break-all select-all font-mono text-xs text-muted-foreground">{value}</span>
         {action}
       </div>
     </Row>

@@ -36,7 +36,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
 
   return (
     <aside className="context-pane flex h-full min-w-0 flex-col bg-sidebar text-sidebar-foreground">
-      <div className={cn("flex h-12 shrink-0 items-center gap-1 pl-3", !overlay && WINDOW_CONTROLS_CLEARANCE)}>
+      <div className={cn("flex h-12 shrink-0 items-center gap-1 pr-2 pl-3", !overlay && WINDOW_CONTROLS_CLEARANCE)}>
         <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Changes</span>
         <div className="flex-1" />
         <Button

@@ -19,7 +19,10 @@ export default function KeybindSettings() {
           </h2>
           <div className="mt-4 flex flex-col">
             {shortcuts.map((shortcut) => (
-              <div key={shortcut.id} className="flex items-center justify-between gap-8 border-t py-4">
+              <div
+                key={shortcut.id}
+                className="flex flex-col gap-2 border-t py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8"
+              >
                 <div className="flex min-w-0 flex-col gap-1">
                   <p className="text-sm font-medium">{shortcut.label}</p>
                   <p className="text-sm leading-5 text-muted-foreground">{shortcut.description}</p>

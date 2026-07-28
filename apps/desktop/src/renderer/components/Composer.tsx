@@ -62,7 +62,14 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
   };
 
   return (
-    <div className={cn("flex shrink-0 flex-col gap-2 px-4 pb-4", prominent ? "w-full p-0" : cn(SCROLLBAR_GUTTER_OFFSET, "pt-2"))}>
+    // pb clears the iOS home indicator, which sits over the send button
+    // otherwise. `env()` is 0 everywhere else.
+    <div
+      className={cn(
+        "flex shrink-0 flex-col gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
+        prominent ? "w-full p-0" : cn(SCROLLBAR_GUTTER_OFFSET, "pt-2"),
+      )}
+    >
       <ExtensionStatuses />
       <ComposerWidgets placement="aboveComposer" />
       <QueuedMessages />
@@ -111,15 +118,20 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
             its place only between groups — a divider after every control is
             just noise with a border. Stop is not here at all; it acts on the
             run and lives with the run status above the transcript. */}
-        <div className="flex items-center gap-1 px-1">
-          <AttachButton disabled={disabled} onPick={attach} />
-          <ModelSelector />
-          <ThinkingSelector />
-          <ContextWindow />
-          {isRepo ? <GroupRule /> : null}
-          <BranchSelector />
-          <WorktreeButton />
-          <div className="flex-1" />
+        {/* The groups wrap as a unit on a narrow screen rather than the row
+            scrolling sideways or squeezing every control past legibility: six
+            controls do not fit a phone in one line, and Send is the one that
+            must never be the one pushed off the end. */}
+        <div className="flex items-end gap-1 px-1">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+            <AttachButton disabled={disabled} onPick={attach} />
+            <ModelSelector />
+            <ThinkingSelector />
+            <ContextWindow />
+            {isRepo ? <GroupRule /> : null}
+            <BranchSelector />
+            <WorktreeButton />
+          </div>
           {running ? <BehaviorSelector behavior={behavior} setBehavior={setBehavior} /> : null}
           <Button
             size="icon-lg"
@@ -606,7 +618,10 @@ function ContextWindow() {
       <div
         id={panelId}
         className={cn(
-          "pointer-events-none absolute bottom-full right-0 mb-2 hidden w-72 rounded-xl border bg-popover p-4 text-popover-foreground shadow-lg group-hover:block group-focus-within:block",
+          // Anchored left on a phone, where this control has wrapped into the
+          // middle of the toolbar and a right-anchored 18rem panel would hang
+          // off the side of the screen.
+          "pointer-events-none absolute bottom-full left-0 mb-2 hidden w-72 max-w-[calc(100vw-2rem)] rounded-xl border bg-popover p-4 text-popover-foreground shadow-lg group-hover:block group-focus-within:block sm:left-auto sm:right-0",
           pinned && "block",
         )}
       >

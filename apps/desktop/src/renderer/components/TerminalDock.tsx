@@ -95,7 +95,9 @@ export default function TerminalDock({
   return (
     <section aria-label="Integrated terminal" className="terminal-dock-enter flex h-full min-h-0 flex-col bg-background">
       <ContextMenu>
-        <ContextMenuTrigger render={<header className="flex h-8 shrink-0 items-center gap-2 border-b bg-sidebar/40 px-2" />}>
+        {/* min-h rather than h: the buttons inside grow to a thumb-sized floor
+            on a touch screen, and a fixed bar height would clip them. */}
+        <ContextMenuTrigger render={<header className="flex min-h-8 shrink-0 items-center gap-2 border-b bg-sidebar/40 px-2" />}>
         <TerminalWindowIcon aria-hidden="true" className="shrink-0 text-muted-foreground" />
         <span className="flex-1 text-xs font-medium">Terminal</span>
         <Button
@@ -184,7 +186,7 @@ function TerminalSplit({
         <div className="flex h-full min-h-0 flex-col">
           {showChrome ? (
             <ContextMenu>
-              <ContextMenuTrigger render={<div className="flex h-7 shrink-0 items-center justify-end border-b px-2" />}>
+              <ContextMenuTrigger render={<div className="flex min-h-7 shrink-0 items-center justify-end border-b px-2" />}>
               <Button variant="ghost" size="icon-xs" onClick={onClose} disabled={closing} title="Close terminal" aria-label="Close terminal">
                 <XIcon />
               </Button>

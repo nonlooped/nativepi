@@ -212,7 +212,7 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
 
   if (flow?.busy && !flow.error) {
     return (
-      <p className="flex items-center gap-2 px-14 pb-6 pt-1 text-sm text-muted-foreground">
+      <p className="flex items-center gap-2 px-4 pb-6 pt-1 sm:px-14 text-sm text-muted-foreground">
         <CircleNotchIcon className="animate-spin" />
         Preparing secure sign-in…
       </p>
@@ -220,7 +220,7 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-14 pb-6 pt-1">
+    <div className="flex flex-col gap-4 px-4 pb-6 pt-1 sm:px-14">
       {/* The failure accompanies the orientation copy rather than replacing it:
           "Choose how you'd like to sign in" is exactly what you still need when
           a sign-in has just failed. */}
@@ -320,7 +320,7 @@ function AuthProgress({ provider, flow }: { provider: AuthProviderInfo; flow: Au
   const messages = flow.notices.filter((n) => n.kind === "progress" || n.kind === "info");
 
   return (
-    <div className="flex flex-col gap-4 px-14 pb-6 pt-1">
+    <div className="flex flex-col gap-4 px-4 pb-6 pt-1 sm:px-14">
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <CircleNotchIcon className="animate-spin" />
         Waiting for you to finish signing in to {provider.name} in your browser…
@@ -390,7 +390,7 @@ function AuthPromptForm({
 
   if (prompt.request.kind === "select") {
     return (
-      <div className="flex flex-col gap-3 px-14 pb-6 pt-1">
+      <div className="flex flex-col gap-3 px-4 pb-6 pt-1 sm:px-14">
         <p className="text-sm font-medium">{prompt.request.message}</p>
         <div className="flex flex-wrap gap-2">
           {prompt.request.options.map((option) => (
@@ -425,7 +425,7 @@ function AuthPromptForm({
 
   return (
     <form
-      className="px-14 pb-6 pt-1"
+      className="px-4 pb-6 pt-1 sm:px-14"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit(value.trim());
