@@ -36,3 +36,12 @@ jobs:
 
       - name: Build
         run: bun run build
+
+      - name: Web lint
+        run: cd apps/web && bun run lint
+
+      - name: Web typecheck
+        run: cd apps/web && bun run typecheck
+
+      - name: Web build
+        run: bun run web:build
