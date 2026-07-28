@@ -73,7 +73,7 @@ function status(projectDir: string, status: PiStatus, detail?: string): void {
  */
 const busyUntil = new Map<string, number>();
 const SETTLE_GRACE_MS = 3000;
-let sessionWatch: { projectDir: string; sessionFile: string; mtimeMs: number; stop: () => void } | null = null;
+const sessionWatches = new Map<string, { projectDir: string; mtimeMs: number; stop: () => void }>();
 
 function markBusy(projectDir: string, until: number): void {
   busyUntil.set(projectDir, until);
@@ -115,9 +115,15 @@ export function quitBlocked(): boolean {
   return true;
 }
 
-function stopSessionWatch(): void {
-  sessionWatch?.stop();
-  sessionWatch = null;
+function stopSessionWatch(sessionFile: string): void {
+  const watch = sessionWatches.get(sessionFile);
+  watch?.stop();
+  sessionWatches.delete(sessionFile);
+}
+
+function stopAllSessionWatches(): void {
+  for (const watch of sessionWatches.values()) watch.stop();
+  sessionWatches.clear();
 }
 
 function errorMessage(err: unknown): string {
@@ -496,7 +502,7 @@ const handlers: HandlerMap = {
         await pi.request({ type: "new_session" });
         pi.boundSessionFile = (await pi.request<RpcSessionState>({ type: "get_state" })).sessionFile;
       }
-      if (sessionWatch?.sessionFile === sessionFile) stopSessionWatch();
+      stopSessionWatch(sessionFile);
       await deleteSession(projectDir, sessionFile);
       return { ok: true };
     } catch (err) {
@@ -505,24 +511,23 @@ const handlers: HandlerMap = {
   },
 
   watchSession: async ({ projectDir, sessionFile }) => {
-    if (sessionWatch?.sessionFile === sessionFile && sessionWatch.projectDir === projectDir) return { ok: true };
-    stopSessionWatch();
     if (!sessionFile) return { ok: true };
+    if (sessionWatches.get(sessionFile)?.projectDir === projectDir) return { ok: true };
+    stopSessionWatch(sessionFile);
 
     const baseline = await sessionMtime(sessionFile);
     const entry = {
       projectDir,
-      sessionFile,
       mtimeMs: baseline,
       stop: () => {},
     };
     entry.stop = watchSessionFile(sessionFile, (mtimeMs) => {
-      if (sessionWatch !== entry || mtimeMs === entry.mtimeMs) return;
+      if (sessionWatches.get(sessionFile) !== entry || mtimeMs === entry.mtimeMs) return;
       entry.mtimeMs = mtimeMs;
       if (Date.now() < (busyUntil.get(projectDir) ?? 0)) return; // Our own Pi wrote it.
       push("sessionChangedExternally", { projectDir, sessionFile });
     });
-    sessionWatch = entry;
+    sessionWatches.set(sessionFile, entry);
     return { ok: true };
   },
 
@@ -915,7 +920,7 @@ export function registerIpc(): void {
 }
 
 export async function stopAllPi(): Promise<void> {
-  stopSessionWatch();
+  stopAllSessionWatches();
   stopAllTerminals();
   await stopLocalServer();
   const all = [...pis.values()];
