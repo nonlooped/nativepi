@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/nonlooped/nativepi/security/advisories/new
+    about: Report privately. Please do not open a public issue.
+  - name: Pi coding agent
+    url: https://pi.dev/
+    about: For issues with the agent itself rather than the NativePi interface.

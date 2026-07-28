@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest a change to the NativePi interface or workflow
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        NativePi is a wrapper around the Pi coding agent, not an agent harness.
+        Pi owns the agent loop, providers, models, authentication, tools,
+        prompts, skills, extensions, and sessions. Requests that ask NativePi to
+        own those things are usually out of scope. See
+        [CONTRIBUTING.md](https://github.com/nonlooped/nativepi/blob/main/CONTRIBUTING.md).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: Describe the workflow that is awkward today, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to see
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+      description: Including whether Pi or a Pi extension already covers this.

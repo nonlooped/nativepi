@@ -1,5 +1,9 @@
 # NativePi Agent Instructions
 
+These are the engineering guidelines for NativePi. They are written for coding
+agents and apply equally to human contributors. `CONTRIBUTING.md` covers setup
+and pull request mechanics.
+
 ## Project
 
 NativePi is a small, local, Windows-first desktop interface for the Pi coding
@@ -8,34 +12,26 @@ agent. It is a wrapper, not an agent harness.
 Read `apps/desktop/PRODUCT.md` before making product-scope decisions and
 `apps/desktop/DESIGN.md` before changing the interface's visual language.
 
-The stack is:
+The stack is Electron and electron-vite, Bun as the package manager (not the
+desktop runtime), React 19.2 with React Compiler, Vite 8, Tailwind CSS 4,
+shadcn/ui using preset `b1wXDkDqCm`, Zustand, and Zod 4 at process and
+external-data boundaries.
 
-- Electron and electron-vite.
-- Bun as the package manager (not the desktop runtime).
-- React 19.2 with React Compiler.
-- Vite 8.
-- Tailwind CSS 4.
-- shadcn/ui using preset `b1wXDkDqCm`.
-- Zustand.
-- Zod 4 at process and external-data boundaries.
+Do not introduce npm, pnpm, or Yarn lockfiles. Electron main and preload run on
+Node; spawn Pi with Electron's binary under `ELECTRON_RUN_AS_NODE`. Use Electron
+IPC (`ipcMain.handle` plus preload `contextBridge`), not a custom RPC framework.
 
-Use Bun as the package manager. Do not introduce npm, pnpm, or Yarn lockfiles.
-Electron main/preload run on Node; spawn Pi with Electron's binary under
-`ELECTRON_RUN_AS_NODE`. Use Electron IPC (`ipcMain.handle` + preload
-`contextBridge`), not a custom RPC framework.
-
-Do not be shy about using cutting-edge technology. Prefer functionality over
-stability when choosing tools, packages, APIs, and platform features. A young or
-rapidly evolving technology is acceptable when it materially improves the
-product or developer experience; do not reject it merely because an older option
-is more established. Still choose technology for a concrete benefit, not novelty
-alone.
+Prefer functionality over stability when choosing tools, packages, APIs, and
+platform features. A young or rapidly evolving technology is acceptable when it
+materially improves the product, but choose it for a concrete benefit rather
+than novelty.
 
 ## Product Boundary
 
 Pi owns the agent loop, providers, models, authentication data, tools, prompts,
 skills, extensions, queues, compaction, and sessions. NativePi presents those
-capabilities through a desktop UI.
+capabilities through a desktop UI. When Pi already provides a capability, call
+Pi and display its result instead of reimplementing it.
 
 Do not add:
 
@@ -45,21 +41,15 @@ Do not add:
 - Support for other agent harnesses.
 - Checkpoints, hidden commits, or anything that rewrites Git history.
 - A second durable conversation store or parallel Pi domain model.
-- Architecture copied from the previous `nonlooped/pi-wrapper` attempt.
-
-When Pi already provides a capability, call Pi and display its result instead of
-reimplementing it.
 
 ## Simplicity Is the Primary Engineering Value
 
 Prefer the smallest correct change. A successful change should normally leave
-the relevant area simpler than it was before.
+the relevant area simpler than it was before, and the preferred diff has more
+deletions than insertions whenever functionality can be retained. Reduce lines
+of code, indirection, state, and concepts without moving the complexity
+somewhere else.
 
-The preferred git diff has more deletions than insertions whenever functionality
-can be retained. Actively look for ways to reduce lines of code, indirection,
-state, and concepts without moving the complexity somewhere else.
-
-- Retain behavior while reducing LOC and complexity.
 - Delete obsolete code instead of preserving compatibility without a concrete
   need.
 - Keep logic in one function or module until reuse is real.
@@ -68,86 +58,65 @@ state, and concepts without moving the complexity somewhere else.
   buses, repositories, adapters, or generic wrappers for a single use case.
 - Do not add caching, batching, virtualization, pooling, background workers, or
   persistence layers before a measured problem requires them.
-- Do not add architecture merely to satisfy a linter, checker, test-count target,
-  or perceived future requirement.
+- Do not add architecture merely to satisfy a linter, checker, test-count
+  target, or perceived future requirement.
 - Do not trade visible complexity for hidden framework complexity.
-- Do not refactor unrelated code while completing a focused change.
 - Some local duplication is preferable to a premature abstraction.
 
 If two approaches are correct, choose the one with fewer concepts, files,
-dependencies between internal modules, and lines of project-owned code.
+internal dependencies, and lines of project-owned code.
 
 ## Prefer Maintained Packages
 
 Strictly prefer established public packages and platform libraries over
-hand-rolling generic, difficult, or maintenance-heavy behavior. Packages provide
-convenience, community testing, maintenance, and a familiar API.
+hand-rolling generic, difficult, or maintenance-heavy behavior. Diff rendering
+uses `@pierre/diffs` rather than a homegrown diff engine; UI primitives come
+from shadcn/ui; markdown, syntax highlighting, file search, and schema
+validation are package concerns.
 
-Examples include:
-
-- Authentication: use an established package such as `better-auth` when the
-  concern is not already owned by Pi.
-- Diff rendering: use `@pierre/diffs` rather than building a diff engine or view.
-- UI primitives: use shadcn/ui and its underlying maintained primitives.
-- Markdown, syntax highlighting, file search, schema validation, and similar
-  generic concerns: select a maintained package before writing custom machinery.
-
-Before hand-rolling a generic feature, search for an established package. Prefer
-a focused, actively maintained, license-compatible package with a public API.
-Use the package directly unless a wrapper solves a concrete project-specific
-problem. Do not recreate package behavior behind a homegrown abstraction.
-
-Native Bun, browser, and platform APIs count as maintained library APIs. Use them
-when they already solve the concern cleanly.
+Before hand-rolling a generic feature, search for a focused, actively
+maintained, license-compatible package. Use it directly unless a wrapper solves
+a concrete project-specific problem. Native Bun, browser, and platform APIs
+count as maintained library APIs.
 
 ## React and React Compiler
 
-Use React Compiler properly. Write idiomatic React that the compiler can analyze;
-do not trick, bypass, suppress, or work around it.
+Write idiomatic React that the compiler can analyze. Do not trick, bypass,
+suppress, or work around it.
 
 - Keep components and hooks pure during render.
 - Never mutate props, state, hook values, or values created outside the current
   render.
 - Call hooks unconditionally and only from React components or custom hooks.
 - Derive values during render instead of synchronizing derived state in effects.
-- Put interaction logic in event handlers rather than effects.
-- Use effects only to synchronize with external systems.
+- Put interaction logic in event handlers rather than effects; use effects only
+  to synchronize with external systems.
 - Use `useEffectEvent` when an effect needs the latest non-reactive callback or
   value.
 - Use `startTransition` for non-urgent updates and `useDeferredValue` when an
   expensive view should lag behind urgent input.
 - Do not add `useMemo`, `useCallback`, or `React.memo` by default. Let React
-  Compiler handle memoization. Add manual memoization only for a measured case or
-  an API that requires stable identity.
+  Compiler handle memoization; add manual memoization only for a measured case
+  or an API that requires stable identity.
 - Do not create fake stable references, ref-based callback indirection, empty
-  dependency arrays, eslint suppressions, or component boundaries merely to make
-  compiler diagnostics disappear.
-- Fix the code that violates compiler rules. Do not disable the compiler for the
-  component or file unless the user explicitly approves a documented external
-  incompatibility.
+  dependency arrays, eslint suppressions, or component boundaries merely to
+  silence compiler diagnostics. Fix the offending code instead of disabling the
+  compiler.
 - Do not define components inside other components.
-- Subscribe to the smallest useful Zustand state slice rather than entire stores.
-
-Follow the installed `vercel-react-best-practices` skill when writing or
-reviewing React code.
+- Subscribe to the smallest useful Zustand state slice rather than whole stores.
 
 ## UI
 
-Use the installed shadcn skill whenever working with shadcn components,
-registries, or the preset.
-
 - Use `bunx --bun shadcn@latest` for shadcn commands.
-- Check existing and registry components before writing custom UI primitives.
-- Prefer shadcn/base-ui components over hand-rolled equivalent components; they
-  are customizable by default.
-- Use preset `b1wXDkDqCm` and its semantic tokens.
+- Check existing and registry components before writing custom UI primitives,
+  and prefer shadcn/base-ui components over hand-rolled equivalents.
+- Use preset `b1wXDkDqCm` and its semantic tokens rather than raw Tailwind
+  colors.
 - Use Phosphor icons, as selected by the preset. Do not silently introduce a
   second icon library.
 - Use shadcn chat primitives for conversation scrolling, messages, attachments,
   and markers.
-- Use semantic color tokens instead of raw Tailwind colors.
-- Preserve accessibility requirements of dialogs, sheets, fields, menus, and
-  other primitives.
+- Preserve the accessibility requirements of dialogs, sheets, fields, and menus.
 - Keep the UI dark-only unless the product scope changes.
 
 Using shadcn does not require wrapping every element in a Card. Prefer a clear,
@@ -166,103 +135,74 @@ dense desktop interface over a generic dashboard appearance.
 
 ## Tests and Verification
 
-Do not add tests for useless, trivial, or unrealistic behavior. Test important
-behavior and realistic failure cases only.
+Test important behavior and realistic failure cases only. Good targets include
+parsing streamed Pi JSONL across arbitrary chunk boundaries, protecting drafts
+and pending messages from loss, session parsing and external-write conflicts,
+one-run-per-project enforcement, graphical extension compilation, and
+regressions for bugs that have actually occurred.
 
-Good test targets include:
+Do not test that static text renders, snapshot every component, test
+third-party library behavior, write one test per getter or schema field, mirror
+implementation details in mocks, or add tests whose only value is coverage.
+There is no coverage target and no required test-to-code ratio.
 
-- Parsing streamed Pi JSONL across arbitrary chunk boundaries.
-- Protecting drafts and pending messages from loss.
-- Session parsing and external-write conflict behavior.
-- One-run-per-project enforcement.
-- Graphical extension compilation and registration.
-- Regression tests for bugs that have actually occurred.
+After a change, run the narrowest check that exercises the changed behavior.
+Do not run project-wide tests, builds, or quality suites unless asked. If no
+focused automated verification exists, say so rather than inventing a low-value
+test. Report exactly what was and was not verified.
 
-Bad test targets include:
+## Running the App
 
-- Testing that static text renders.
-- Snapshotting every component.
-- Testing third-party library behavior.
-- One test per getter, setter, branch, or schema field for the sake of counts.
-- Mirroring implementation details in mocks.
-- Tests whose only value is increasing coverage.
+Do not start a dev server, `electron-vite dev`, preview server, or any
+long-lived app process on your own initiative.
 
-There is no coverage target and no required test-to-code ratio. Do not add a test
-merely because production code changed.
-
-After making a change:
-
-1. Run only the narrowest test, check, or command that directly exercises the
-   changed behavior.
-2. Do not run project-wide tests, type checks, builds, lint commands, quality
-   suites, or release checks unless the user explicitly asks.
-3. If no focused automated verification exists, ask the user to test the changed
-   behavior instead of creating a low-value test or running the whole project.
-4. Report exactly what was and was not verified.
-
-## Running the App and Dev Servers
-
-Never start a dev server, `electron-vite dev`, preview server, or any long-lived
-app process on your own initiative. The user runs the app themselves.
-
-- Before assuming nothing is running, check. A single NativePi window appears as
-  several OS processes (the vite dev server on port 5173 plus multiple
-  `electron.exe` helpers), so "I don't see it" is not proof it is stopped. Look
-  for a listener on port 5173 and for `electron`/`electron-vite`/`node` processes
-  whose command line references `nativepi`.
-- If you genuinely need the app running to verify something, first check whether
-  an instance is already running and use it, or ask the user to start it. Do not
-  launch one yourself without explicit approval in this session.
-- A silent startup failure (for example `Port 5173 is already in use`) can leave
-  a stale instance serving old state and masquerade as a data bug. When behavior
-  looks impossible, suspect a leftover process before suspecting the code.
-- Do not leave background processes running after a task. If you were explicitly
-  approved to start one, stop it when finished.
+A single NativePi window appears as several OS processes: the Vite dev server on
+port 5173 plus multiple `electron.exe` helpers. Not seeing a window is not proof
+that nothing is running. A silent startup failure such as `Port 5173 is already
+in use` can leave a stale instance serving old state, which looks convincingly
+like a data bug. When behavior seems impossible, suspect a leftover process
+before suspecting the code. Do not leave background processes running once a
+task is finished.
 
 ## Subagents
 
-Do not overuse subagents. Subagents are an optimization for genuinely independent
-work, not a required step and not a measure of task quality.
-
-- Handle focused work directly.
-- Use a subagent only when separate work can proceed independently and its result
-  will materially save time or context.
-- Do not spawn subagents for routine file discovery, one-file edits, simple
-  research, or to manufacture agreement.
-- Prefer one well-understood implementation over coordinating multiple speculative
-  approaches.
+Use a subagent only when separate work can genuinely proceed independently and
+its result will materially save time or context. Handle focused work directly.
+Do not spawn subagents for routine file discovery, one-file edits, simple
+research, or to manufacture agreement.
 
 ## Change Discipline
 
 - Read the relevant code before editing it.
-- Keep changes focused on the requested behavior.
-- Preserve user changes already present in the worktree.
-- Do not add backward-compatibility code without a concrete persisted or external
-  compatibility requirement.
+- Keep changes focused on the requested behavior, and preserve unrelated changes
+  already present in the worktree.
+- Do not add backward-compatibility code without a concrete persisted or
+  external compatibility requirement.
 - Use existing naming and patterns when they are simple and appropriate.
 - Replace a complex existing pattern rather than adding a second path beside it.
 - Remove dead code, stale comments, unused exports, and obsolete tests made
   unnecessary by the change.
 - Comments should explain non-obvious constraints, not narrate straightforward
   code.
-- Do not create documentation for self-evident implementation details.
+- Do not document self-evident implementation details.
 
-When a requested feature appears to require substantial infrastructure, first
-look for a maintained package or a smaller product behavior that meets the actual
-need. If complexity is genuinely unavoidable, explain the concrete constraint
-before introducing it.
+When a feature appears to require substantial infrastructure, first look for a
+maintained package or a smaller product behavior that meets the actual need. If
+complexity is genuinely unavoidable, explain the concrete constraint before
+introducing it.
 
-## Git And Releases
+## Git and Releases
 
 - Use Conventional Commits for every commit, including release commits.
-- Feature, fix, docs, and maintenance commits/PRs do not bump versions. Leave
+- Commit titles only, with no body.
+- Do not add `Co-authored-by`, generated-by, agent attribution, or any other
+  trailer.
+- Feature, fix, docs, and maintenance changes do not bump versions. Leave
   package versions unchanged until an explicit release.
-- Version bumps are a separate release step and may cover multiple merged PRs
-  since the last tag. Apply one SemVer bump for the whole batch (highest-impact
-  change wins). Never change a version incidentally or leave a bumped version
-  without its matching tag/release.
+- Version bumps are a separate release step covering all merged work since the
+  last tag. Apply one SemVer bump for the batch, highest-impact change wins.
 - Every version-bump commit must be followed immediately by a matching `vX.Y.Z`
-  Git tag and GitHub release. Do not leave bumped versions untagged or unpublished.
-- Commits must have `nonlooped` as their sole author. Never add `Co-authored-by`,
-  generated-by, agent attribution, or any other additional author or trailer.
-- Ensure that commits have no body, just a title.
+  tag and GitHub release. Never leave a bumped version untagged or unpublished.
+- `packages/extension-api` is versioned independently of the app. Bumping its
+  version on `main` publishes it to npm automatically once CI passes, so treat
+  that bump as the publish itself.
