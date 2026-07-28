@@ -89,3 +89,8 @@ core.*
 .impeccable
 skills-lock.json
 .fallow/
+
+# Next.js (apps/web)
+.next/
+next-env.d.ts
+.vercel/
