@@ -51,31 +51,31 @@ const desktopOnlyResponses: Partial<Record<HostRequestName, unknown>> = {
   showInFolder: { ok: false },
   saveImage: { ok: false, error: "Save this image from the browser instead." },
   accessStatus: {
-    local: { running: true, clients: [] },
+    local: { running: true, links: [], clients: [] },
     remote: { state: "error", error: "Access can only be managed from the desktop app." },
   },
   startLocalAccess: {
-    local: { running: true, clients: [] },
+    local: { running: true, links: [], clients: [] },
     remote: { state: "error", error: "Access can only be managed from the desktop app." },
   },
   stopLocalAccess: {
-    local: { running: true, clients: [] },
+    local: { running: true, links: [], clients: [] },
     remote: { state: "error", error: "Access can only be managed from the desktop app." },
   },
   replaceAccessLink: {
-    local: { running: true, clients: [] },
+    local: { running: true, links: [], clients: [] },
     remote: { state: "error", error: "Access can only be managed from the desktop app." },
   },
   startRemoteAccess: {
-    local: { running: true, clients: [] },
+    local: { running: true, links: [], clients: [] },
     remote: { state: "error", error: "Access can only be managed from the desktop app." },
   },
   stopRemoteAccess: {
-    local: { running: true, clients: [] },
+    local: { running: true, links: [], clients: [] },
     remote: { state: "error", error: "Access can only be managed from the desktop app." },
   },
   refreshRemoteAccess: {
-    local: { running: true, clients: [] },
+    local: { running: true, links: [], clients: [] },
     remote: { state: "error", error: "Access can only be managed from the desktop app." },
   },
 };
