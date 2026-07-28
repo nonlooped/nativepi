@@ -11,7 +11,10 @@
 
 import type { ReactNode } from "react";
 
-export const version = "0.1.0";
+import pkg from "../package.json" with { type: "json" };
+
+/** The published version of this package, as seen by extensions at runtime. */
+export const version: string = pkg.version;
 
 export interface ToolCall {
   id: string;

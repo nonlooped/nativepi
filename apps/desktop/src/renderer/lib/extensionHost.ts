@@ -1,14 +1,14 @@
 import * as React from "react";
 import * as JsxRuntime from "react/jsx-runtime";
 import * as JsxDevRuntime from "react/jsx-dev-runtime";
+import { defineRenderer, version } from "@nativepi/extension-api";
 import type { NativePiRenderer } from "@nativepi/extension-api";
 import { rpc } from "./rpc.ts";
 
 
-const extApi = {
-  version: "1.0.0",
-  defineRenderer: (renderer: NativePiRenderer): NativePiRenderer => renderer,
-};
+// Re-exported to extensions through `__NATIVEPI_HOST__`, so the values they see
+// are the package's own rather than a second copy that can drift from it.
+const extApi = { version, defineRenderer };
 
 declare global {
   // eslint-disable-next-line no-var
