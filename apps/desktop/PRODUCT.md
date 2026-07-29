@@ -49,12 +49,12 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Project-scoped integrated terminals with resizable splits that remain alive while hidden or while another project is active.
 - A quit confirmation that names the agent turns and terminals closing the window would stop, so a run is never ended by accident.
 - A settings screen covering NativePi's own appearance and notification preferences, a user-scope editor for the Pi settings that mean something in a desktop window, a shortcut reference, and the paths to Pi's own files.
-- On-demand, access-token-protected browser access to the same projects, chats, changes, and terminals, either on the local network or privately through the user's Tailscale network while the desktop app remains open.
+- On-demand, access-token-protected browser access to the same projects, chats, changes, and terminals, either on the local network or through a temporary public link the user creates in one click, while the desktop app remains open.
 - Self-updating from the published GitHub release: a notification when a newer version exists, a download the user starts, and an install that stops the running work before it restarts the app.
 
 ## Boundaries and Constraints
 
-- NativePi's host is currently Windows-only, single-window, and dark-only. Browser access requires an explicitly started server and remains tied to the running desktop app. Remote Access uses the user's installed Tailscale client and private tailnet; NativePi does not operate a public hosting service or store Tailscale credentials.
+- NativePi's host is currently Windows-only, single-window, and dark-only. Browser access requires an explicitly started server, the access token in the link, and the running desktop app. Remote Access is a throwaway Cloudflare quick tunnel created for one session and closed after twelve hours; NativePi does not operate a hosting service, register a permanent address, or hold an account of any kind.
 - NativePi does not own an agent loop, make its own LLM requests, add agent tools, or support other harnesses.
 - Pi session files are the durable conversation source of truth. NativePi persists only pinned projects, the last project and chat, text drafts, favorite models, pane state, and its own interface preferences.
 - Agent configuration is Pi's. NativePi reads and writes it through Pi's own settings manager at user scope, so a change made here is a change the Pi command line sees; NativePi never writes Pi's configuration format itself, and exposes only the settings that have meaning in a desktop window. Project-scope overrides remain the Pi command line's business.

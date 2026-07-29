@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { ArrowSquareOutIcon } from "@phosphor-icons/react/ArrowSquareOut";
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react/ArrowsClockwise";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
-import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
 import { PlayIcon } from "@phosphor-icons/react/Play";
 import { StopIcon } from "@phosphor-icons/react/Stop";
+import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button.tsx";
 import type { AccessStatus, RemoteAccessStatus } from "../../../shared/rpc-schema.ts";
 import { rpc } from "../../lib/rpc.ts";
@@ -12,14 +11,13 @@ import { ReadonlyRow, SettingsSection } from "./rows.tsx";
 
 const STOPPED_STATUS: AccessStatus = {
   local: { running: false, links: [], clients: [] },
-  remote: { state: "checking" },
+  remote: { state: "idle" },
 };
 
 type Action =
   | "local"
   | "remote"
-  | "replace"
-  | "refresh";
+  | "replace";
 
 export default function AccessSettings() {
   const [status, setStatus] = useState<AccessStatus>(STOPPED_STATUS);
@@ -55,7 +53,7 @@ export default function AccessSettings() {
     try {
       setStatus(await request);
     } catch (error) {
-      setStatus((current) => action === "remote" || action === "refresh"
+      setStatus((current) => action === "remote"
         ? { ...current, remote: { state: "error", error: errorMessage(error) } }
         : { ...current, local: { ...current.local, error: errorMessage(error) } });
     } finally {
@@ -145,26 +143,39 @@ export default function AccessSettings() {
 
       <SettingsSection
         heading="Remote access"
-        description="Use NativePi away from home through your private Tailscale network. NativePi never receives your Tailscale credentials."
+        description="Use NativePi away from home over a temporary public HTTPS link. Nothing needs to be installed on the device you connect from, and the access token in the link is what keeps it yours."
       >
         <AccessControl
           title={remoteTitle(status.remote)}
-          description={remoteDescription(status.remote)}
+          description={status.remote.preparing ?? remoteDescription(status.remote)}
           error={status.remote.error}
           action={<RemoteAction status={status.remote} busy={Boolean(busy)} onRun={run} />}
         />
         {status.remote.link ? (
-          <ReadonlyRow
-            label="Remote link"
-            description="Open this HTTPS link on a device signed in to the same Tailscale network."
-            value={status.remote.link}
-            action={
-              <Button variant="outline" size="sm" onClick={() => void copy("remote", status.remote.link!)}>
-                <CopyIcon data-icon="inline-start" />
-                {copied === "remote" ? "Copied" : "Copy"}
-              </Button>
-            }
-          />
+          <>
+            <ReadonlyRow
+              label="Public link"
+              description={`Anyone with the complete link can control NativePi. ${expiresIn(status.remote.expiresAt)}`}
+              value={status.remote.link}
+              action={
+                <Button variant="outline" size="sm" onClick={() => void copy("remote", status.remote.link!)}>
+                  <CopyIcon data-icon="inline-start" />
+                  {copied === "remote" ? "Copied" : "Copy"}
+                </Button>
+              }
+            />
+            <div className="flex items-center gap-4 border-t py-5">
+              {/* The QR needs a light quiet zone to scan against a dark app, and
+                  scanning is the point: the token is 32 characters nobody should
+                  be retyping on a phone. */}
+              <div className="shrink-0 rounded-md bg-white p-2">
+                <QRCodeSVG value={status.remote.link} size={112} />
+              </div>
+              <p className="text-sm leading-5 text-muted-foreground">
+                Point your phone's camera at this to open NativePi with the token already filled in.
+              </p>
+            </div>
+          </>
         ) : null}
       </SettingsSection>
 
@@ -185,7 +196,6 @@ export default function AccessSettings() {
           >
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{client.device}</p>
-              {client.user ? <p className="truncate text-sm text-muted-foreground">{client.user}</p> : null}
             </div>
             <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
               <span>{client.location === "remote" ? "Remote" : client.address}</span>
@@ -231,17 +241,6 @@ function RemoteAction({
   busy: boolean;
   onRun: (action: Action, request: Promise<AccessStatus>) => Promise<void>;
 }) {
-  if (status.state === "not-installed") {
-    return (
-      <Button
-        variant="outline"
-        onClick={() => void rpc.request.openExternal({ url: "https://tailscale.com/download/windows" })}
-      >
-        <DownloadSimpleIcon data-icon="inline-start" />
-        Get Tailscale
-      </Button>
-    );
-  }
   if (status.state === "running") {
     return (
       <Button
@@ -254,70 +253,58 @@ function RemoteAction({
       </Button>
     );
   }
-  if (status.setupUrl) {
-    return (
-      <div className="flex items-center gap-1">
-        <Button variant="outline" onClick={() => void rpc.request.openExternal({ url: status.setupUrl! })}>
-          Finish setup
-          <ArrowSquareOutIcon data-icon="inline-end" />
-        </Button>
-        <Button
-          variant="ghost"
-          disabled={busy}
-          onClick={() => void onRun("refresh", rpc.request.refreshRemoteAccess({}))}
-        >
-          Check again
-        </Button>
-      </div>
-    );
-  }
-  if (status.state === "available") {
+  if (status.state === "error") {
     return (
       <Button
+        variant="outline"
         disabled={busy}
         onClick={() => void onRun("remote", rpc.request.startRemoteAccess({}))}
       >
-        <PlayIcon weight="fill" data-icon="inline-start" />
-        {busy ? "Starting…" : "Start remote access"}
+        <ArrowsClockwiseIcon data-icon="inline-start" />
+        {busy ? "Working…" : "Try again"}
       </Button>
     );
   }
   return (
     <Button
-      variant="outline"
-      disabled={busy || status.state === "checking" || status.state === "starting"}
-      onClick={() => void onRun("refresh", rpc.request.refreshRemoteAccess({}))}
+      disabled={busy || status.state === "starting"}
+      onClick={() => void onRun("remote", rpc.request.startRemoteAccess({}))}
     >
-      <ArrowsClockwiseIcon data-icon="inline-start" />
-      {status.state === "checking" || status.state === "starting" ? "Checking…" : "Check again"}
+      <PlayIcon weight="fill" data-icon="inline-start" />
+      {busy || status.state === "starting" ? "Starting…" : "Start remote access"}
     </Button>
   );
 }
 
 function remoteTitle(status: RemoteAccessStatus): string {
   switch (status.state) {
-    case "not-installed": return "Tailscale is required";
-    case "signed-out": return "Sign in to Tailscale";
-    case "available": return "Ready to connect";
-    case "starting": return "Starting remote access";
-    case "running": return "Available remotely";
-    case "error": return status.setupUrl ? "Finish Tailscale setup" : "Remote access needs attention";
-    case "checking": return "Checking Tailscale";
+    case "idle": return "Not shared";
+    case "starting": return "Creating a public link";
+    case "running": return "Available anywhere";
+    case "error": return "Remote access needs attention";
   }
 }
 
 function remoteDescription(status: RemoteAccessStatus): string {
   switch (status.state) {
-    case "not-installed": return "Install Tailscale on this computer and the device you want to connect from.";
-    case "signed-out": return "Open Tailscale, sign in, then check again.";
-    case "available": return "Only devices in your Tailscale network will be able to connect.";
-    case "starting": return "Creating a private HTTPS link.";
-    case "running": return "Only devices in your Tailscale network can open the remote link.";
-    case "error": return status.setupUrl
-      ? "Approve HTTPS access in Tailscale, then start Remote Access again."
-      : "Check that Tailscale is running, then try again.";
-    case "checking": return "Looking for the Tailscale app on this computer.";
+    case "idle":
+      return "Creates a temporary Cloudflare address that reaches this computer. The first run downloads the tunnel client, which takes a moment.";
+    case "starting":
+      return "Asking Cloudflare for an address.";
+    case "running":
+      return "The link works from any network. Stop remote access when you are done.";
+    case "error":
+      return "The tunnel did not start. Check this computer's internet connection, then try again.";
   }
+}
+
+/** A sentence about when the public link closes itself. */
+function expiresIn(expiresAt?: number): string {
+  if (!expiresAt) return "";
+  const minutes = Math.max(0, Math.round((expiresAt - Date.now()) / 60_000));
+  if (minutes < 60) return `It stops working in ${minutes} minutes.`;
+  const hours = Math.round(minutes / 60);
+  return `It stops working in about ${hours} ${hours === 1 ? "hour" : "hours"}.`;
 }
 
 function formatTime(value: string): string {

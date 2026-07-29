@@ -78,10 +78,6 @@ const desktopOnlyResponses: Partial<Record<HostRequestName, unknown>> = {
     local: { running: true, links: [], clients: [] },
     remote: { state: "error", error: "Access can only be managed from the desktop app." },
   },
-  refreshRemoteAccess: {
-    local: { running: true, links: [], clients: [] },
-    remote: { state: "error", error: "Access can only be managed from the desktop app." },
-  },
 };
 
 type RunningServer = {
@@ -280,27 +276,29 @@ function formatAddress(address: string): string {
 
 function clientFromRequest(request: import("node:http").IncomingMessage): AccessClient {
   const socketAddress = normalizeAddress(request.socket.remoteAddress);
-  const remote = isLoopback(socketAddress) && isTailscaleHost(request.headers.host);
+  // Everything through the tunnel arrives from cloudflared on loopback, so the
+  // host header is what separates a browser on the sofa from one on the Wi-Fi.
+  const remote = isLoopback(socketAddress) && isTunnelHost(request.headers.host);
+  // Cloudflare sets `CF-Connecting-IP` to the real client and appends to
+  // `X-Forwarded-For`; neither is trustworthy on the local network, which is
+  // why they are only read for a request that came in over the tunnel.
   const forwarded = request.headers["x-forwarded-for"];
-  const forwardedAddress = (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(",")[0])?.trim();
+  const forwardedAddress = header(request, "cf-connecting-ip")
+    ?? (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(",")[0])?.trim();
   const address = remote && forwardedAddress ? forwardedAddress : socketAddress;
-  const user = remote
-    ? header(request, "tailscale-user-name") || header(request, "tailscale-user-login")
-    : undefined;
   return {
     id: randomBytes(8).toString("hex"),
-    address: remote && isLoopback(address) ? "Tailscale network" : address,
+    address: remote && isLoopback(address) ? "Public link" : address,
     connectedAt: new Date().toISOString(),
     device: describeUserAgent(request.headers["user-agent"]),
     location: remote ? "remote" : "local",
-    user,
   };
 }
 
-function isTailscaleHost(host: string | undefined): boolean {
+function isTunnelHost(host: string | undefined): boolean {
   if (!host) return false;
   try {
-    return new URL(`http://${host}`).hostname.toLowerCase().endsWith(".ts.net");
+    return new URL(`http://${host}`).hostname.toLowerCase().endsWith(".trycloudflare.com");
   } catch {
     return false;
   }

@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 import { PiProcess } from "./pi/client.ts";
@@ -719,7 +719,7 @@ const handlers: HandlerMap = {
       if (restoreRemote) await startRemoteAccessForCurrentServer();
       return accessStatus();
     } catch (err) {
-      return accessStatus(false, errorMessage(err));
+      return accessStatus(errorMessage(err));
     }
   },
   stopLocalAccess: async () => {
@@ -733,7 +733,7 @@ const handlers: HandlerMap = {
       }
       return accessStatus();
     } catch (err) {
-      return accessStatus(false, errorMessage(err));
+      return accessStatus(errorMessage(err));
     }
   },
   replaceAccessLink: async () => {
@@ -746,7 +746,7 @@ const handlers: HandlerMap = {
       if (restoreRemote) await startRemoteAccessForCurrentServer();
       return accessStatus();
     } catch (err) {
-      return accessStatus(false, errorMessage(err));
+      return accessStatus(errorMessage(err));
     }
   },
   startRemoteAccess: async () => {
@@ -755,7 +755,7 @@ const handlers: HandlerMap = {
       await startRemoteAccessForCurrentServer();
       return accessStatus();
     } catch (err) {
-      return accessStatus(false, errorMessage(err));
+      return accessStatus(errorMessage(err));
     }
   },
   stopRemoteAccess: async () => {
@@ -763,7 +763,6 @@ const handlers: HandlerMap = {
     if (!localServerStatus().running) await stopLocalServer();
     return accessStatus();
   },
-  refreshRemoteAccess: () => accessStatus(true),
 
   getPiSettings: () => {
     try {
@@ -968,14 +967,14 @@ async function ensureLocalAccess(localNetwork: boolean): Promise<void> {
 async function startRemoteAccessForCurrentServer(): Promise<void> {
   const connection = localServerConnection();
   if (!connection) throw new Error("NativePi could not start its access server.");
-  await startRemoteAccess(connection.port, connection.token);
+  await startRemoteAccess(connection.port, connection.token, join(app.getPath("userData"), "bin"));
 }
 
-async function accessStatus(refreshRemote = false, localError?: string): Promise<AccessStatus> {
+function accessStatus(localError?: string): AccessStatus {
   const local = localServerStatus();
   return {
     local: localError ? { ...local, error: localError } : local,
-    remote: await remoteAccessStatus(refreshRemote),
+    remote: remoteAccessStatus(),
   };
 }
 
