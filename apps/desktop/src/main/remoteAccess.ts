@@ -85,13 +85,14 @@ export async function startRemoteAccess(
     status = { state: "starting", preparing: "Asking Cloudflare for a public link…" };
 
     const url = await openTunnel(binary, port);
+    const child = tunnel;
     status = { state: "starting", preparing: "Waiting for the link to come online…" };
     await waitForReachable(url);
     // The client can die while that wait is in flight, and a request already
-    // forwarded can still come back 200 afterwards. Both the exit handler and
-    // `stopRemoteAccess` clear `tunnel`, so its absence is the one signal that
-    // the process behind this link is gone.
-    if (!tunnel) throw new Error("The tunnel client stopped before the link came online.");
+    // forwarded can still come back 200 afterwards. A replacement tunnel is
+    // no better: its address is different, so only the process that printed
+    // this URL may publish it.
+    if (!child || tunnel !== child) throw new Error("The tunnel client stopped before the link came online.");
     status = {
       state: "running",
       link: `${url}/#token=${token}`,
