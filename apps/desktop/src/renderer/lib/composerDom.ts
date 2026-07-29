@@ -1,5 +1,5 @@
 import { chipText, parseSegments, type ChipKind } from "./composerText.ts";
-import { fileIconUrl } from "./fileIcons.ts";
+import { fileIconSvg } from "./fileIcons.ts";
 
 /**
  * The bridge between a draft string and the editable element showing it.
@@ -37,11 +37,13 @@ function chipGlyph(document: Document, kind: ChipKind, value: string): Node {
     return glyph;
   }
 
-  const icon = document.createElement("img");
-  icon.src = fileIconUrl(value);
-  icon.alt = "";
-  icon.draggable = false;
-  icon.className = "size-4 shrink-0 select-none object-contain";
+  // The catalog is loaded on demand, so the glyph is an empty box that fills
+  // itself in. Its markup is the catalog's own SVG; `value` only picks an entry.
+  const icon = document.createElement("span");
+  icon.className = "inline-flex size-4 shrink-0 select-none [&>svg]:size-full";
+  void fileIconSvg(value).then((svg) => {
+    icon.innerHTML = svg;
+  });
   return icon;
 }
 

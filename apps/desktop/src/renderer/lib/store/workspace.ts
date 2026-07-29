@@ -98,6 +98,13 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     });
     persist(get);
 
+    // The trust check does not depend on the session list, and a round trip
+    // costs ~200ms over the public tunnel against nothing on the desktop, so it
+    // goes out alongside rather than after. Rejections are handled at the await
+    // below; the no-op catch only stops the gap counting as unhandled.
+    const trustCheck = rpc.request.checkTrust({ projectDir: path });
+    trustCheck.catch(() => {});
+
     await get().refreshSessions(path);
 
     // A chat still running in this project wins over the last-opened one: the
@@ -115,7 +122,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
 
     // A project with local extensions/skills needs a trust decision before Pi
     // loads them. Ask first; warm Pi only once the user has decided.
-    const trust = await rpc.request.checkTrust({ projectDir: path });
+    const trust = await trustCheck;
     if (get().activeProjectPath !== path) return;
     set({ trust });
     if (trust.required && !trust.trusted) {
