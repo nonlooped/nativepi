@@ -26,6 +26,15 @@ const RELEASE_URL =
 const STARTUP_TIMEOUT_MS = 45_000;
 
 /**
+ * How long the download may go without delivering a byte.
+ *
+ * A stall rather than a total budget: the file is over 50 MB and a slow line is
+ * not a failure, but a proxy that accepts the request and then goes quiet would
+ * otherwise leave the settings screen saying "Downloading" forever.
+ */
+const DOWNLOAD_STALL_MS = 30_000;
+
+/**
  * A public link is this machine's terminals and projects on the open internet,
  * guarded by the token in the URL fragment. The likeliest way that goes wrong
  * is not someone guessing a 192 bit token, it is the owner forgetting the link
@@ -93,11 +102,31 @@ export async function stopRemoteAccess(): Promise<void> {
   ]);
 }
 
+/**
+ * Drop a cached binary that cannot be run, and describe why.
+ *
+ * A spawn failure is the file's fault rather than the network's: missing, not
+ * executable, or not a real binary at all. Removing it means the next attempt
+ * fetches a fresh copy instead of failing on the same bad cache forever.
+ * Windows reports some of these by throwing from `spawn` and others by emitting
+ * `error`, so both paths come through here.
+ */
+function unusableBinary(binary: string, message: string): string {
+  void rm(binary, { force: true }).catch(() => {});
+  return `Could not run the tunnel client. ${message}`;
+}
+
 function openTunnel(binary: string, port: number): Promise<string> {
-  const child = spawn(binary, ["tunnel", "--no-autoupdate", "--url", `http://127.0.0.1:${port}`], {
-    windowsHide: true,
-    stdio: "pipe",
-  });
+  let child: ChildProcessWithoutNullStreams;
+  try {
+    child = spawn(binary, ["tunnel", "--no-autoupdate", "--url", `http://127.0.0.1:${port}`], {
+      windowsHide: true,
+      stdio: "pipe",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return Promise.reject(new Error(unusableBinary(binary, message)));
+  }
   tunnel = child;
 
   return new Promise<string>((resolveUrl, rejectUrl) => {
@@ -132,7 +161,7 @@ function openTunnel(binary: string, port: number): Promise<string> {
 
     child.stdout.on("data", read);
     child.stderr.on("data", read);
-    child.once("error", (error) => fail(`Could not run the tunnel client. ${error.message}`));
+    child.once("error", (error) => fail(unusableBinary(binary, error.message)));
     child.once("exit", (code) => {
       // `stopRemoteAccess` clears `tunnel` before it kills, so a child still
       // registered here died on its own rather than being asked to.
@@ -174,8 +203,11 @@ async function ensureCloudflared(binDir: string, onProgress: (message: string) =
   await mkdir(binDir, { recursive: true });
   const partial = `${binary}.partial`;
 
+  const abort = new AbortController();
+  let stall = setTimeout(() => abort.abort(), DOWNLOAD_STALL_MS);
+
   try {
-    const response = await fetch(RELEASE_URL);
+    const response = await fetch(RELEASE_URL, { signal: abort.signal });
     if (!response.ok || !response.body) {
       throw new Error(`Could not download the tunnel client (HTTP ${response.status}).`);
     }
@@ -187,6 +219,8 @@ async function ensureCloudflared(binDir: string, onProgress: (message: string) =
     // one from `node:stream/web`. They are the same object at runtime.
     const source = Readable.fromWeb(response.body as unknown as Parameters<typeof Readable.fromWeb>[0]);
     source.on("data", (chunk: Buffer) => {
+      clearTimeout(stall);
+      stall = setTimeout(() => abort.abort(), DOWNLOAD_STALL_MS);
       received += chunk.length;
       if (total <= 0) return;
       const percent = Math.round((received / total) * 100);
@@ -196,11 +230,21 @@ async function ensureCloudflared(binDir: string, onProgress: (message: string) =
     });
 
     await pipeline(source, createWriteStream(partial));
+    // A body that ends early still ends cleanly, so the length is the only
+    // thing separating a whole binary from a half of one.
+    if (total > 0 && received !== total) {
+      throw new Error("The tunnel client download ended before it was complete.");
+    }
     await rm(binary, { force: true });
     await rename(partial, binary);
     return binary;
   } catch (error) {
     await rm(partial, { force: true }).catch(() => {});
+    if (abort.signal.aborted) {
+      throw new Error("The tunnel client download stopped responding. Check this computer's connection and try again.");
+    }
     throw error;
+  } finally {
+    clearTimeout(stall);
   }
 }
