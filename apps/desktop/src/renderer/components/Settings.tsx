@@ -11,7 +11,9 @@ import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { SlidersHorizontalIcon } from "@phosphor-icons/react/SlidersHorizontal";
 import { StopIcon } from "@phosphor-icons/react/Stop";
 import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
+import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
 import { activeConversation, useAppStore } from "../lib/store.ts";
+import { isRemote } from "../lib/rpc.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.tsx";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet.tsx";
@@ -20,6 +22,7 @@ import { useWorkspaceLayout } from "../lib/layout.ts";
 import ExtensionsManager from "./ExtensionsManager.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
 import AboutSettings from "./settings/AboutSettings.tsx";
+import AccessSettings from "./settings/AccessSettings.tsx";
 import AdvancedSettings from "./settings/AdvancedSettings.tsx";
 import AgentSettings from "./settings/AgentSettings.tsx";
 import AppearanceSettings from "./settings/AppearanceSettings.tsx";
@@ -41,6 +44,7 @@ import TerminalSettings from "./settings/TerminalSettings.tsx";
  */
 const CATEGORIES = [
   { name: "General", icon: GearSixIcon, blurb: "How NativePi starts up and when it interrupts you." },
+  { name: "Access", icon: WifiHighIcon, blurb: "Use NativePi from another device, nearby or away from home." },
   { name: "Appearance", icon: PaintBrushIcon, blurb: "Layout, scale, diffs, and motion." },
   { name: "Agent", icon: BrainIcon, blurb: "How Pi runs a turn. Stored in Pi's settings and shared with the Pi command line." },
   { name: "Providers", icon: PlugsConnectedIcon, blurb: "Connect model providers with an API key or subscription sign-in. Credentials are stored by Pi." },
@@ -184,7 +188,7 @@ function CategoryNav({
       className={cn("flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-3 pt-3", NO_DRAG_REGION)}
     >
       <p className="px-2 pb-2 font-heading text-sm font-semibold">Settings</p>
-      {CATEGORIES.map(({ name, icon: Icon }) => (
+      {CATEGORIES.filter(({ name }) => !isRemote || name !== "Access").map(({ name, icon: Icon }) => (
         <button
           key={name}
           type="button"
@@ -207,6 +211,8 @@ function CategoryPanel({ category }: { category: Category }) {
   switch (category) {
     case "General":
       return <GeneralSettings />;
+    case "Access":
+      return <AccessSettings />;
     case "Appearance":
       return <AppearanceSettings />;
     case "Agent":

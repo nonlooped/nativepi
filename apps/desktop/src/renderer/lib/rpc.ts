@@ -92,10 +92,10 @@ const allowedEvents: Record<HostEventName, true> = {
   authPrompt: true,
   authNotice: true,
   windowMaximized: true,
+  updateState: true,
   quitRequested: true,
   terminalData: true,
   terminalExit: true,
-  localServerChanged: true,
 };
 
 function createRemoteApi(): NativePiApi {

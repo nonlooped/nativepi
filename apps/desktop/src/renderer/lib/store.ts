@@ -43,6 +43,7 @@ rpc.events.on("sessionChangedExternally", (payload) =>
 );
 rpc.events.on("authPrompt", (payload) => useAppStore.getState().onAuthPrompt(payload));
 rpc.events.on("authNotice", ({ notice }) => useAppStore.getState().onAuthNotice(notice));
+rpc.events.on("updateState", (state) => useAppStore.getState().onUpdateState(state));
 
 export { thinkingLabel } from "./store/models.ts";
 export { activeConversation } from "./store/conversation.ts";

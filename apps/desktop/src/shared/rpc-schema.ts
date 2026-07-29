@@ -84,16 +84,49 @@ export interface AuthProviderInfo {
   authLabel?: string;
 }
 
-export type LocalServerMode = "network" | "public";
+export interface AccessClient {
+  id: string;
+  address: string;
+  connectedAt: string;
+  device: string;
+  location: "local" | "remote";
+  user?: string;
+}
 
-export interface LocalServerStatus {
+export interface LocalAccessStatus {
   running: boolean;
-  /** Links reachable from the host's own network. */
+  link?: string;
   links: string[];
-  /** Throwaway `*.trycloudflare.com` link, present only in public mode. */
-  publicLink?: string;
-  /** Epoch ms at which NativePi closes a public link on its own. */
-  expiresAt?: number;
+  clients: AccessClient[];
+  error?: string;
+}
+
+export interface RemoteAccessStatus {
+  state: "checking" | "not-installed" | "signed-out" | "available" | "starting" | "running" | "error";
+  link?: string;
+  error?: string;
+  setupUrl?: string;
+}
+
+export interface AccessStatus {
+  local: LocalAccessStatus;
+  remote: RemoteAccessStatus;
+}
+
+/**
+ * How far NativePi has got with replacing itself.
+ *
+ * `unsupported` is a development run: there is no packaged app to replace, and
+ * every surface that would offer one stays out of the way rather than showing a
+ * control that cannot work.
+ */
+export interface UpdateState {
+  status: "unsupported" | "idle" | "checking" | "available" | "downloading" | "ready" | "error";
+  /** The version being offered, downloaded, or waiting to be installed. */
+  version?: string;
+  /** Download progress, 0 to 100. */
+  percent?: number;
+  error?: string;
 }
 
 export type AuthPromptRequest =
@@ -314,12 +347,21 @@ export type HostRequests = {
     response: { ok: boolean; error?: string };
   };
   versions: { params: Record<string, never>; response: { pi: string; app: string } };
-  localServerStatus: { params: Record<string, never>; response: LocalServerStatus };
-  startLocalServer: {
-    params: { mode: LocalServerMode };
-    response: LocalServerStatus & { error?: string };
+  updateState: { params: Record<string, never>; response: UpdateState };
+  checkForUpdate: { params: Record<string, never>; response: UpdateState };
+  downloadUpdate: { params: Record<string, never>; response: { ok: boolean; error?: string } };
+  /** Quit and run the installer that was downloaded. Nothing comes back if it works. */
+  installUpdate: { params: Record<string, never>; response: { ok: boolean; error?: string } };
+  accessStatus: { params: Record<string, never>; response: AccessStatus };
+  startLocalAccess: {
+    params: Record<string, never>;
+    response: AccessStatus;
   };
-  stopLocalServer: { params: Record<string, never>; response: { ok: boolean } };
+  stopLocalAccess: { params: Record<string, never>; response: AccessStatus };
+  replaceAccessLink: { params: Record<string, never>; response: AccessStatus };
+  startRemoteAccess: { params: Record<string, never>; response: AccessStatus };
+  stopRemoteAccess: { params: Record<string, never>; response: AccessStatus };
+  refreshRemoteAccess: { params: Record<string, never>; response: AccessStatus };
 
   getPiSettings: { params: Record<string, never>; response: { settings?: PiSettings; error?: string } };
   setPiSettings: {
@@ -417,16 +459,11 @@ export type HostEvents = {
   authPrompt: { id: string; prompt: AuthPromptRequest };
   authNotice: { notice: AuthNotice };
   windowMaximized: { maximized: boolean };
+  updateState: UpdateState;
   /** The close was held back because work is in flight. The window decides. */
   quitRequested: { work: PendingWork };
   terminalData: { projectDir: string; terminalId: string; data: string; sequence: number };
   terminalExit: { projectDir: string; terminalId: string; exitCode: number };
-  /**
-   * Progress while a link is being prepared, and the last word when a public
-   * link lapses on its own. `preparing` is a sentence to show in place of the
-   * status; its absence means the status is final.
-   */
-  localServerChanged: { status: LocalServerStatus; preparing?: string };
 };
 
 export type HostRequestName = keyof HostRequests;

@@ -1,0 +1,63 @@
+import { cn } from "@/lib/cn";
+
+/**
+ * The NativePi wordmark, set in Departure Mono and drawn as outlines so it never
+ * depends on the webfont having loaded. Paths are lifted verbatim from
+ * docs/assets/nativepi-wordmark.svg; only the fills change, because this surface
+ * is dark only and has no light mode to answer to.
+ *
+ * Per the Wordmark-Only Departure Rule, this is the single place Departure Mono
+ * letterforms appear on the site.
+ */
+export function Wordmark({
+  className,
+  title = "NativePi",
+}: {
+  className?: string;
+  title?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 270 66"
+      role="img"
+      aria-label={title}
+      className={cn("h-6 w-auto", className)}
+    >
+      <g transform="translate(0 48) scale(.1 -.1)">
+        <g className="fill-silver">
+          <path d="M50 300L50 0L100 0L100 200L150 200L150 250L100 250L100 300ZM150 300L150 250L250 250L250 300ZM250 250L250 0L300 0L300 250Z" />
+          <path
+            transform="translate(333.5)"
+            d="M50 150L50 50L100 50L100 150ZM100 50L100 0L200 0L200 50ZM200 100L200 50L250 50L250 0L300 0L300 250L250 250L250 200L100 200L100 150L250 150L250 100ZM100 300L100 250L250 250L250 300Z"
+          />
+          <path
+            transform="translate(667)"
+            d="M100 400L100 300L50 300L50 250L100 250L100 50L150 50L150 250L300 250L300 300L150 300L150 400ZM150 50L150 0L250 0L250 50ZM250 100L250 50L300 50L300 100Z"
+          />
+          <path
+            transform="translate(1000.5)"
+            d="M150 250L150 50L50 50L50 0L300 0L300 50L200 50L200 300L50 300L50 250ZM150 400L150 350L200 350L200 400Z"
+          />
+          <path
+            transform="translate(1334)"
+            d="M50 300L50 150L100 150L100 300ZM250 300L250 150L300 150L300 300ZM150 50L150 150L100 150L100 50ZM150 50L150 0L200 0L200 50ZM200 150L200 50L250 50L250 150Z"
+          />
+          <path
+            transform="translate(1667.5)"
+            d="M100 300L100 250L250 250L250 300ZM50 250L50 50L100 50L100 150L300 150L300 250L250 250L250 200L100 200L100 250ZM100 50L100 0L250 0L250 50ZM250 100L250 50L300 50L300 100Z"
+          />
+        </g>
+        <g className="fill-bright">
+          <path
+            transform="translate(2001)"
+            d="M50 300L50 -100L100 -100L100 50L150 50L150 100L100 100L100 200L150 200L150 250L100 250L100 300ZM150 300L150 250L250 250L250 300ZM250 250L250 50L300 50L300 250ZM150 50L150 0L250 0L250 50Z"
+          />
+          <path
+            transform="translate(2334.5)"
+            d="M150 250L150 50L50 50L50 0L300 0L300 50L200 50L200 300L50 300L50 250ZM150 400L150 350L200 350L200 400Z"
+          />
+        </g>
+      </g>
+    </svg>
+  );
+}

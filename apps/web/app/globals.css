@@ -1,0 +1,236 @@
+@import "tailwindcss";
+@import "@fontsource-variable/raleway/index.css";
+@import "@fontsource-variable/nunito-sans/index.css";
+
+/*
+  NativePi Web tokens.
+  The graphite ladder, radius scale, and status hues are inherited verbatim from
+  apps/desktop/DESIGN.md. Void and Slot Cyan are the only two additions, and both
+  are functional: Void is the space the window floats in, Slot Cyan marks the
+  parts of the app an extension owns.
+*/
+@theme {
+  --color-void: oklch(0.115 0.004 285);
+  --color-ink: oklch(0.155 0.004 285);
+  --color-sidebar: oklch(0.18 0.005 285.885);
+  --color-raised: oklch(0.19 0.005 285);
+  --color-popover: oklch(0.21 0.006 285.885);
+  --color-soft: oklch(0.225 0.006 286.033);
+  --color-interactive: oklch(0.235 0.006 286.033);
+  --color-accent-slate: oklch(0.274 0.006 286.033);
+
+  --color-chalk: oklch(0.94 0.004 285);
+  --color-bright: oklch(0.985 0 0);
+  --color-primary-chalk: oklch(0.92 0.004 286.32);
+  --color-silver: oklch(0.64 0.012 286.067);
+  /*
+    Dim is the lowest text tone the site has, and it is set exactly where it
+    still clears 4.5:1 against the lightest ground it is used on (Sidebar
+    Graphite). Anything darker reads as a nicer hierarchy and fails the people
+    who need the contrast.
+  */
+  --color-dim: oklch(0.6 0.012 286);
+
+  --color-coral: oklch(0.704 0.191 22.216);
+  --color-gold: oklch(0.82 0.16 85);
+  --color-green: oklch(0.72 0.17 145);
+  --color-amber: oklch(0.78 0.14 75);
+  --color-info: oklch(0.74 0.12 235);
+  --color-slot: oklch(0.78 0.11 205);
+  --color-field: oklch(0.28 0.035 225);
+
+  --color-hairline: oklch(1 0 0 / 9%);
+  --color-input-hairline: oklch(1 0 0 / 15%);
+  --color-focus: oklch(0.552 0.016 285.938);
+
+  --font-wordmark: "Departure Mono", ui-monospace, monospace;
+  --font-display: "Raleway Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Nunito Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.125rem;
+  --radius-3xl: 1.375rem;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@font-face {
+  font-family: "Departure Mono";
+  src: url("/fonts/DepartureMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-hairline);
+    min-width: 0;
+  }
+
+  html {
+    background-color: var(--color-void);
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-void);
+    color: var(--color-chalk);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: clip;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /*
+    Focus is visible against the dark ground at every size. The desktop app pairs
+    a border shift with a soft ring; the web surface keeps the ring alone because
+    most focusable elements here have no border to shift.
+  */
+  :focus-visible {
+    outline: 2px solid var(--color-chalk);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background-color: var(--color-accent-slate);
+    color: var(--color-bright);
+  }
+
+  /* Tabular numerals wherever a number changes or aligns, per the desktop rule. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .rail {
+    width: 100%;
+    max-width: 90rem;
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .rail {
+      padding-inline: 2rem;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .rail {
+      padding-inline: 4rem;
+    }
+  }
+
+  .measure {
+    max-width: 68ch;
+  }
+
+  /*
+    The display size answers to viewport height as well as width. The hero shares
+    a fixed 100vh stage with the window, so on a short, wide screen a width-only
+    clamp produces a headline that is technically responsive and still collides
+    with the thing it is introducing.
+  */
+  .display {
+    font-family: var(--font-display);
+    font-size: clamp(2.25rem, min(6vw, 8.5vh), 4.75rem);
+    font-weight: 600;
+    line-height: 0.98;
+    letter-spacing: -0.045em;
+  }
+
+  .section-head {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 3.6vw, 3rem);
+    font-weight: 600;
+    line-height: 1.06;
+    letter-spacing: -0.035em;
+  }
+
+  .lede {
+    font-size: clamp(1.0625rem, 1.5vw, 1.3125rem);
+    line-height: 1.55;
+    color: var(--color-silver);
+  }
+
+  .label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.625;
+    color: var(--color-silver);
+  }
+
+  /*
+    Plate Cast and Edge Light from DESIGN.md. A real offset and a real blur, so a
+    separated layer reads as a physical sheet rather than as a glowing rectangle.
+  */
+  .plate {
+    background-color: var(--color-raised);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-lg);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 6%),
+      0 24px 48px -12px oklch(0 0 0 / 55%),
+      0 8px 16px -8px oklch(0 0 0 / 40%);
+  }
+
+  .hairline-top {
+    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 6%);
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  @media (pointer: coarse) {
+    .touch-target {
+      min-height: 2.75rem;
+      min-width: 2.75rem;
+    }
+  }
+}
+
+/*
+  The Reduced-Motion Contract from DESIGN.md. Movement is removed; nothing else
+  is. Components read this same signal in JS to render the window pre-separated.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

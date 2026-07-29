@@ -5,14 +5,13 @@ import { readFile } from "node:fs/promises";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
-import { startTunnel, type Tunnel } from "./tunnel.ts";
 import type {
+  AccessClient,
   HostEventName,
   HostEvents,
   HostRequestName,
   HostRequests,
-  LocalServerMode,
-  LocalServerStatus,
+  LocalAccessStatus,
 } from "../shared/rpc-schema.ts";
 
 type Invoke = <K extends HostRequestName>(
@@ -25,20 +24,7 @@ export interface LocalServerOptions {
   rendererDir: string;
   invoke: Invoke;
   subscribe: Subscribe;
-  mode?: LocalServerMode;
-  /** Where the tunnel client is cached. Required for `mode: "public"`. */
-  binDir?: string;
-  /** Download progress, and the notification that a public link has lapsed. */
-  onUpdate?: (update: { status: LocalServerStatus; preparing?: string }) => void;
 }
-
-/**
- * A public link is the host's terminal and projects on the open internet,
- * guarded only by the token in the fragment. The most likely way that goes
- * wrong is not an attack, it is forgetting the link is up, so it lapses on its
- * own after half a day whether or not anyone remembers.
- */
-const PUBLIC_LINK_LIFETIME_MS = 12 * 60 * 60 * 1000;
 
 const clientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("auth"), token: z.string() }),
@@ -64,12 +50,38 @@ const desktopOnlyResponses: Partial<Record<HostRequestName, unknown>> = {
   openFileIn: { ok: false, error: "This action is only available in the desktop app." },
   showInFolder: { ok: false },
   saveImage: { ok: false, error: "Save this image from the browser instead." },
-  startLocalServer: {
-    running: true,
-    links: [],
-    error: "Sharing can only be started from the desktop app.",
+  updateState: { status: "unsupported" },
+  checkForUpdate: { status: "unsupported" },
+  downloadUpdate: { ok: false, error: "Updates can only be managed from the desktop app." },
+  installUpdate: { ok: false, error: "Updates can only be managed from the desktop app." },
+  accessStatus: {
+    local: { running: true, links: [], clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
   },
-  stopLocalServer: { ok: false },
+  startLocalAccess: {
+    local: { running: true, links: [], clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
+  },
+  stopLocalAccess: {
+    local: { running: true, links: [], clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
+  },
+  replaceAccessLink: {
+    local: { running: true, links: [], clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
+  },
+  startRemoteAccess: {
+    local: { running: true, links: [], clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
+  },
+  stopRemoteAccess: {
+    local: { running: true, links: [], clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
+  },
+  refreshRemoteAccess: {
+    local: { running: true, links: [], clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
+  },
 };
 
 type RunningServer = {
@@ -77,32 +89,40 @@ type RunningServer = {
   rpcWebSockets: WebSocketServer;
   rpcSockets: Set<WebSocket>;
   authenticatedRpcSockets: Set<WebSocket>;
+  clients: Map<WebSocket, AccessClient>;
   unsubscribe: () => void;
+  localNetwork: boolean;
   links: string[];
-  tunnel?: Tunnel;
-  publicLink?: string;
-  expiresAt?: number;
-  expiry?: NodeJS.Timeout;
+  port: number;
+  token: string;
 };
 
 let running: RunningServer | undefined;
 
-export function localServerStatus(): LocalServerStatus {
+export function localServerStatus(): LocalAccessStatus {
   return {
-    running: Boolean(running),
-    links: running?.links ?? [],
-    publicLink: running?.publicLink,
-    expiresAt: running?.expiresAt,
+    running: Boolean(running?.localNetwork),
+    link: running?.localNetwork ? running.links[0] : undefined,
+    links: running?.localNetwork ? running.links : [],
+    clients: running ? [...running.clients.values()] : [],
   };
 }
 
-export async function startLocalServer(options: LocalServerOptions): Promise<LocalServerStatus> {
-  if (running) return localServerStatus();
-  const { binDir } = options;
+export function localServerConnection(): { port: number; token: string } | undefined {
+  return running ? { port: running.port, token: running.token } : undefined;
+}
+
+export async function startLocalServer(
+  options: LocalServerOptions,
+  localNetwork = true,
+): Promise<LocalAccessStatus> {
+  if (running?.localNetwork === localNetwork) return localServerStatus();
+  if (running) await stopLocalServer();
 
   const token = randomBytes(24).toString("base64url");
   const rpcSockets = new Set<WebSocket>();
   const authenticatedRpcSockets = new Set<WebSocket>();
+  const clients = new Map<WebSocket, AccessClient>();
   const rpcWebSockets = new WebSocketServer({ noServer: true, maxPayload: 70 * 1024 * 1024 });
   const http = createServer((request, response) => {
     void serveRenderer(request.url ?? "/", response, options).catch(() => {
@@ -122,7 +142,7 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
     socket.destroy();
   });
 
-  rpcWebSockets.on("connection", (socket) => {
+  rpcWebSockets.on("connection", (socket, request) => {
     rpcSockets.add(socket);
     let authenticated = false;
     const authTimer = setTimeout(() => socket.close(1008, "Authentication required"), 5000);
@@ -145,6 +165,7 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
           authenticated = true;
           clearTimeout(authTimer);
           authenticatedRpcSockets.add(socket);
+          clients.set(socket, clientFromRequest(request));
           socket.send(JSON.stringify({ type: "ready" }));
           return;
         }
@@ -167,6 +188,7 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
       clearTimeout(authTimer);
       rpcSockets.delete(socket);
       authenticatedRpcSockets.delete(socket);
+      clients.delete(socket);
     });
   });
 
@@ -181,7 +203,7 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
     };
     http.once("error", onError);
     http.once("listening", onListening);
-    http.listen(0, "::");
+    http.listen(0, localNetwork ? "::" : "127.0.0.1");
   });
 
   if (!http.address() || typeof http.address() === "string") {
@@ -189,28 +211,9 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
     throw new Error("NativePi could not determine the local server address.");
   }
   const port = addressPort(http);
-  const links = localAddresses().map((address) => `http://${formatAddress(address)}:${port}/#token=${token}`);
-
-  // The tunnel is started before the server is recorded as running so that a
-  // failure leaves nothing behind: the listener closes and the caller sees the
-  // reason rather than a half-open server with no link to show for it.
-  let tunnel: Tunnel | undefined;
-  if (options.mode === "public") {
-    try {
-      if (!binDir) throw new Error("NativePi has nowhere to keep the tunnel client.");
-      tunnel = await startTunnel({
-        port,
-        binDir,
-        onProgress: (preparing) =>
-          options.onUpdate?.({ status: { running: false, links: [] }, preparing }),
-      });
-    } catch (error) {
-      http.closeAllConnections();
-      await new Promise<void>((resolveClose) => http.close(() => resolveClose()));
-      throw error;
-    }
-  }
-
+  const links = localNetwork
+    ? localAddresses().map((address) => `http://${formatAddress(address)}:${port}/#token=${token}`)
+    : [];
   const unsubscribe = options.subscribe((name, payload) => {
     const message = JSON.stringify({ type: "event", name, payload });
     for (const socket of authenticatedRpcSockets) {
@@ -223,19 +226,13 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
     rpcWebSockets,
     rpcSockets,
     authenticatedRpcSockets,
+    clients,
     unsubscribe,
+    localNetwork,
     links,
-    tunnel,
-    publicLink: tunnel ? `${tunnel.url}/#token=${token}` : undefined,
-    expiresAt: tunnel ? Date.now() + PUBLIC_LINK_LIFETIME_MS : undefined,
+    port,
+    token,
   };
-
-  if (tunnel) {
-    running.expiry = setTimeout(() => {
-      void stopLocalServer().then(() => options.onUpdate?.({ status: localServerStatus() }));
-    }, PUBLIC_LINK_LIFETIME_MS);
-  }
-
   return localServerStatus();
 }
 
@@ -243,8 +240,6 @@ export async function stopLocalServer(): Promise<void> {
   const server = running;
   running = undefined;
   if (!server) return;
-  if (server.expiry) clearTimeout(server.expiry);
-  server.tunnel?.stop();
   server.unsubscribe();
   for (const socket of server.rpcSockets) {
     socket.close(1001, "Server stopped");
@@ -283,6 +278,67 @@ function formatAddress(address: string): string {
   return address.includes(":") ? `[${address}]` : address;
 }
 
+function clientFromRequest(request: import("node:http").IncomingMessage): AccessClient {
+  const socketAddress = normalizeAddress(request.socket.remoteAddress);
+  const remote = isLoopback(socketAddress) && isTailscaleHost(request.headers.host);
+  const forwarded = request.headers["x-forwarded-for"];
+  const forwardedAddress = (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(",")[0])?.trim();
+  const address = remote && forwardedAddress ? forwardedAddress : socketAddress;
+  const user = remote
+    ? header(request, "tailscale-user-name") || header(request, "tailscale-user-login")
+    : undefined;
+  return {
+    id: randomBytes(8).toString("hex"),
+    address: remote && isLoopback(address) ? "Tailscale network" : address,
+    connectedAt: new Date().toISOString(),
+    device: describeUserAgent(request.headers["user-agent"]),
+    location: remote ? "remote" : "local",
+    user,
+  };
+}
+
+function isTailscaleHost(host: string | undefined): boolean {
+  if (!host) return false;
+  try {
+    return new URL(`http://${host}`).hostname.toLowerCase().endsWith(".ts.net");
+  } catch {
+    return false;
+  }
+}
+
+function header(request: import("node:http").IncomingMessage, name: string): string | undefined {
+  const value = request.headers[name];
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function normalizeAddress(address: string | undefined): string {
+  if (!address) return "Unknown address";
+  return address.startsWith("::ffff:") ? address.slice(7) : address;
+}
+
+function isLoopback(address: string): boolean {
+  return address === "::1" || address === "127.0.0.1";
+}
+
+function describeUserAgent(userAgent: string | undefined): string {
+  if (!userAgent) return "Browser";
+  const platform =
+    /iPhone/i.test(userAgent) ? "iPhone"
+      : /iPad/i.test(userAgent) ? "iPad"
+        : /Android/i.test(userAgent) ? "Android"
+          : /Windows/i.test(userAgent) ? "Windows"
+            : /Macintosh/i.test(userAgent) ? "Mac"
+              : /Linux/i.test(userAgent) ? "Linux"
+                : "device";
+  const browser =
+    /Edg\//i.test(userAgent) ? "Edge"
+      : /Firefox\//i.test(userAgent) ? "Firefox"
+        : /Chrome\//i.test(userAgent) ? "Chrome"
+          : /Safari\//i.test(userAgent) ? "Safari"
+            : "Browser";
+  return `${browser} on ${platform}`;
+}
+
 function privateAddressRank(address: string): number {
   if (address.startsWith("192.168.")) return 0;
   if (address.startsWith("10.")) return 1;
@@ -314,9 +370,6 @@ async function serveRenderer(
   }
   response.setHeader("Content-Type", contentType(file));
   response.setHeader("Cache-Control", extname(file) ? "no-cache" : "no-store");
-  // A public link is a real, reachable hostname. Nothing useful is served
-  // without the token, but the address itself should not end up in an index.
-  response.setHeader("X-Robots-Tag", "noindex, nofollow");
   response.writeHead(200);
   response.end(content);
 }
