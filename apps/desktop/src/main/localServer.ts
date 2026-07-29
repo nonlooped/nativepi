@@ -2,7 +2,9 @@ import { createServer, type Server as HttpServer } from "node:http";
 import { networkInterfaces } from "node:os";
 import { extname, resolve, sep } from "node:path";
 import { readFile } from "node:fs/promises";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { gzip } from "node:zlib";
+import { promisify } from "node:util";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 import type {
@@ -95,6 +97,8 @@ type RunningServer = {
 
 let running: RunningServer | undefined;
 
+const gzipAsync = promisify(gzip);
+
 export function localServerStatus(): LocalAccessStatus {
   return {
     running: Boolean(running?.localNetwork),
@@ -121,7 +125,7 @@ export async function startLocalServer(
   const clients = new Map<WebSocket, AccessClient>();
   const rpcWebSockets = new WebSocketServer({ noServer: true, maxPayload: 70 * 1024 * 1024 });
   const http = createServer((request, response) => {
-    void serveRenderer(request.url ?? "/", response, options).catch(() => {
+    void serveRenderer(request, response, options).catch(() => {
       if (!response.headersSent) response.writeHead(500);
       response.end("NativePi could not serve this page.");
     });
@@ -345,12 +349,27 @@ function privateAddressRank(address: string): number {
   return 3;
 }
 
+/**
+ * Serve the built renderer.
+ *
+ * Two things here exist because the public link runs over a Cloudflare quick
+ * tunnel, which measured at a few hundred KB/s regardless of how fast either
+ * end's connection is. Bytes on that hop are the scarce resource:
+ *
+ * Everything under `assets/` carries a content hash in its name, so it can be
+ * cached forever and a reload costs nothing. Only `index.html` is revalidated,
+ * and an ETag turns that into a 304.
+ *
+ * Compression happens here rather than being left to Cloudflare, because the
+ * edge only compresses what it sends onward to the browser. The origin hop is
+ * the slow one, and the entry chunk alone is over 5 MB uncompressed.
+ */
 async function serveRenderer(
-  urlValue: string,
+  request: import("node:http").IncomingMessage,
   response: import("node:http").ServerResponse,
   options: LocalServerOptions,
 ): Promise<void> {
-  const pathname = decodeURIComponent(new URL(urlValue, "http://nativepi.local").pathname);
+  const pathname = decodeURIComponent(new URL(request.url ?? "/", "http://nativepi.local").pathname);
   const relative = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
   let file = resolve(options.rendererDir, relative);
   const root = resolve(options.rendererDir);
@@ -366,10 +385,62 @@ async function serveRenderer(
     file = resolve(root, "index.html");
     content = await readFile(file);
   }
+
+  const hashed = file.startsWith(resolve(root, "assets") + sep);
+  const etag = `"${createHash("sha1").update(content).digest("base64url")}"`;
+  // A proxy that recompresses on the way through downgrades the tag to
+  // `W/"..."`, so the prefix is ignored rather than counted as a mismatch that
+  // would quietly make every revalidation a full download.
+  if (request.headers["if-none-match"]?.replace(/^W\//, "") === etag) {
+    response.writeHead(304).end();
+    return;
+  }
+
   response.setHeader("Content-Type", contentType(file));
-  response.setHeader("Cache-Control", extname(file) ? "no-cache" : "no-store");
+  response.setHeader("ETag", etag);
+  response.setHeader(
+    "Cache-Control",
+    hashed ? "public, max-age=31536000, immutable" : "no-cache",
+  );
+
+  if (compressible(file) && acceptsGzip(String(request.headers["accept-encoding"] ?? ""))) {
+    // Async: compressing the multi-megabyte entry chunk synchronously would
+    // stall the same event loop the RPC socket runs on.
+    content = await gzipAsync(content);
+    response.setHeader("Content-Encoding", "gzip");
+    response.setHeader("Vary", "Accept-Encoding");
+  }
+  // Explicit length rather than chunked: the tunnel and the browser both get to
+  // show real progress on the megabyte-scale entry chunk.
+  response.setHeader("Content-Length", content.byteLength);
   response.writeHead(200);
   response.end(content);
+}
+
+/**
+ * Whether the client will take gzip.
+ *
+ * `q=0` is a refusal rather than a preference, and a client that says so may be
+ * unable to decode the response at all, which would break every script and
+ * stylesheet the app needs. Presence of the word is therefore not enough.
+ */
+export function acceptsGzip(header: string): boolean {
+  for (const entry of header.split(",")) {
+    const [coding, ...parameters] = entry.trim().split(";");
+    if (coding.trim().toLowerCase() !== "gzip") continue;
+    const quality = parameters
+      .map((parameter) => parameter.trim())
+      .find((parameter) => parameter.toLowerCase().startsWith("q="));
+    return quality ? Number(quality.slice(2)) > 0 : true;
+  }
+  return false;
+}
+
+function compressible(file: string): boolean {
+  switch (extname(file)) {
+    case ".html": case ".js": case ".css": case ".json": case ".svg": return true;
+    default: return false;
+  }
 }
 
 function contentType(file: string): string {

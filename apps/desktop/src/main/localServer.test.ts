@@ -3,9 +3,22 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
-import { localServerStatus, startLocalServer, stopLocalServer } from "./localServer.ts";
+import { acceptsGzip, localServerStatus, startLocalServer, stopLocalServer } from "./localServer.ts";
 
 afterEach(() => stopLocalServer());
+
+describe("gzip negotiation", () => {
+  test("treats q=0 as the refusal it is, not as a mention of gzip", () => {
+    expect(acceptsGzip("gzip, deflate, br")).toBe(true);
+    expect(acceptsGzip("gzip;q=0.5")).toBe(true);
+    // A client that cannot decode gzip says so this way, and compressing anyway
+    // would leave it unable to read any script the app needs.
+    expect(acceptsGzip("gzip;q=0")).toBe(false);
+    expect(acceptsGzip("deflate, gzip;q=0.0")).toBe(false);
+    expect(acceptsGzip("identity")).toBe(false);
+    expect(acceptsGzip("")).toBe(false);
+  });
+});
 
 describe("local server", () => {
   test("requires the link token and forwards authenticated requests and events", async () => {

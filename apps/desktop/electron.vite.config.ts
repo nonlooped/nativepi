@@ -68,6 +68,24 @@ export default defineConfig({
         input: {
           index: resolve("src/renderer/index.html"),
         },
+        output: {
+          // The renderer is also served over a public tunnel that runs at a few
+          // hundred KB/s, where a single entry chunk means a blank page until
+          // the last byte lands. These four are the heavy, independently useful
+          // pieces: the terminal, the markdown/syntax stack, and the icon font
+          // are all worth deferring past first paint.
+          manualChunks(id) {
+            if (!id.includes("node_modules")) return;
+            // Anchored to the package root: an unanchored `react` also matches
+            // `@phosphor-icons/react` and every other `*.react` package.
+            if (/node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return "react";
+            if (id.includes("@xterm")) return "terminal";
+            // Deliberately not shiki: its ~600 language grammars are already
+            // dynamically imported one at a time, and naming them here would
+            // collapse the lot into a single 22 MB chunk.
+            if (/streamdown|@pierre[\\/]diffs/.test(id)) return "markdown";
+          },
+        },
       },
     },
     server: {

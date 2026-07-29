@@ -26,6 +26,22 @@ const RELEASE_URL =
 const STARTUP_TIMEOUT_MS = 45_000;
 
 /**
+ * How long to wait for a freshly minted hostname to start answering.
+ *
+ * Cloudflare hands out the name well before its edge will route it, and it
+ * warns as much on startup. A phone that scans during the gap gets a connection
+ * error, and mobile browsers cache that failure for long enough that the owner
+ * gives up and blames the app.
+ *
+ * The budget is generous because the delay is wildly variable: two measurements
+ * on the same machine came back at 7 seconds and 63 seconds. Waiting behind an
+ * honest "waiting" message costs nothing, whereas giving up early turns a link
+ * that was about to work into an error.
+ */
+const REACHABLE_TIMEOUT_MS = 180_000;
+const REACHABLE_POLL_MS = 1_000;
+
+/**
  * How long the download may go without delivering a byte.
  *
  * A stall rather than a total budget: the file is over 50 MB and a slow line is
@@ -69,6 +85,14 @@ export async function startRemoteAccess(
     status = { state: "starting", preparing: "Asking Cloudflare for a public link…" };
 
     const url = await openTunnel(binary, port);
+    const child = tunnel;
+    status = { state: "starting", preparing: "Waiting for the link to come online…" };
+    await waitForReachable(url);
+    // The client can die while that wait is in flight, and a request already
+    // forwarded can still come back 200 afterwards. A replacement tunnel is
+    // no better: its address is different, so only the process that printed
+    // this URL may publish it.
+    if (!child || tunnel !== child) throw new Error("The tunnel client stopped before the link came online.");
     status = {
       state: "running",
       link: `${url}/#token=${token}`,
@@ -116,13 +140,46 @@ function unusableBinary(binary: string, message: string): string {
   return `Could not run the tunnel client. ${message}`;
 }
 
+/**
+ * Block until the hostname actually serves the app.
+ *
+ * Only a successful status counts. Cloudflare registers the name before it has
+ * a working route to the connector, and in that window it answers with an error
+ * page of its own rather than refusing the connection: a tunnel aimed at a dead
+ * port returns 502 from the edge. Treating any completed exchange as proof of
+ * life would publish a link to precisely the broken state this wait exists to
+ * rule out.
+ */
+async function waitForReachable(url: string): Promise<void> {
+  const deadline = Date.now() + REACHABLE_TIMEOUT_MS;
+  for (;;) {
+    try {
+      const response = await fetch(url, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(REACHABLE_POLL_MS * 5),
+      });
+      if (response.ok) return;
+    } catch {
+      // Not routing yet; the retry below is the whole handler.
+    }
+    if (Date.now() >= deadline) {
+      throw new Error("Cloudflare created the link but it never came online. Try again.");
+    }
+    await new Promise((settle) => setTimeout(settle, REACHABLE_POLL_MS));
+  }
+}
+
 function openTunnel(binary: string, port: number): Promise<string> {
   let child: ChildProcessWithoutNullStreams;
   try {
-    child = spawn(binary, ["tunnel", "--no-autoupdate", "--url", `http://127.0.0.1:${port}`], {
-      windowsHide: true,
-      stdio: "pipe",
-    });
+    // `--protocol http2` rather than the default QUIC: measured at roughly
+    // 1.7x the throughput here (230 KB/s to 400 KB/s), and a quick tunnel gets
+    // a single connection either way, so the transport is the whole ceiling.
+    child = spawn(
+      binary,
+      ["tunnel", "--no-autoupdate", "--protocol", "http2", "--url", `http://127.0.0.1:${port}`],
+      { windowsHide: true, stdio: "pipe" },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return Promise.reject(new Error(unusableBinary(binary, message)));
