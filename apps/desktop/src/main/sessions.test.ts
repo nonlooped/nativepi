@@ -1,8 +1,8 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { deleteSession, listSessions, readSession } from "./sessions.ts";
+import { deleteSession, listSessions, readSession, watchProjectSessions } from "./sessions.ts";
 
 function jsonl(records: unknown[]): string {
   return records.map((r) => JSON.stringify(r)).join("\n") + "\n";
@@ -50,7 +50,6 @@ function sessionDirFor(projectDir: string): string {
 }
 
 async function writeSession(projectDir: string, name: string, records: unknown[]): Promise<string> {
-  const { mkdir } = await import("node:fs/promises");
   const dir = sessionDirFor(projectDir);
   await mkdir(dir, { recursive: true });
   const file = path.join(dir, name);
@@ -86,6 +85,30 @@ test("listSessions summarizes real sessions and hides empty ones", async () => {
   expect(sessions[0]!.firstMessage).toBe("first thing I asked");
   expect(sessions[0]!.messageCount).toBe(1);
   expect(sessions[0]!.created).toBe("2026-01-01T00:00:00.000Z");
+});
+
+test("watchProjectSessions detects chats created after the sidebar is open", async () => {
+  const projectDir = await mkdtemp(path.join(tmpdir(), "nativepi-project-"));
+  await mkdir(path.dirname(sessionDirFor(projectDir)), { recursive: true });
+  let changes = 0;
+  const stop = watchProjectSessions(projectDir, () => { changes += 1; });
+
+  await writeSession(projectDir, "new-chat.jsonl", [
+    { type: "session", version: 3, id: "new-chat", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
+    {
+      type: "message",
+      id: "1",
+      parentId: null,
+      timestamp: "2026-01-01T00:00:01Z",
+      message: { role: "user", content: "created somewhere else", timestamp: 1767225601000 },
+    },
+  ]);
+
+  for (let attempts = 0; changes === 0 && attempts < 20; attempts += 1) {
+    await Bun.sleep(25);
+  }
+  stop();
+  expect(changes).toBeGreaterThan(0);
 });
 
 test("deleteSession refuses a file belonging to another project", async () => {

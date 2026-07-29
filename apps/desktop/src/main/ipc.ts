@@ -5,7 +5,7 @@ import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 import { PiProcess } from "./pi/client.ts";
 import type { PiMessage } from "./pi/protocol.ts";
-import { deleteSession, listSessions, readSession, sessionMtime, watchSessionFile } from "./sessions.ts";
+import { deleteSession, listSessions, readSession, sessionMtime, watchProjectSessions, watchSessionFile } from "./sessions.ts";
 import { loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
 import { gitAddWorktree, gitBranches, gitCheckout, gitDiff, gitStatus } from "./git.ts";
@@ -81,6 +81,21 @@ function status(projectDir: string, status: PiStatus, detail?: string): void {
 const busyUntil = new Map<string, number>();
 const SETTLE_GRACE_MS = 3000;
 const sessionWatches = new Map<string, { projectDir: string; mtimeMs: number; stop: () => void }>();
+const projectSessionWatches = new Map<string, () => void>();
+const sessionNotificationTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function notifySessionsChanged(projectDir: string): void {
+  clearTimeout(sessionNotificationTimers.get(projectDir));
+  sessionNotificationTimers.set(projectDir, setTimeout(() => {
+    sessionNotificationTimers.delete(projectDir);
+    push("sessionsChanged", { projectDir });
+  }, 150));
+}
+
+function stopProjectSessionWatch(projectDir: string): void {
+  projectSessionWatches.get(projectDir)?.();
+  projectSessionWatches.delete(projectDir);
+}
 
 function markBusy(projectDir: string, until: number): void {
   busyUntil.set(projectDir, until);
@@ -98,6 +113,7 @@ function forwardEvent(projectDir: string, event: PiMessage): void {
   else if (busyUntil.get(projectDir) !== Number.POSITIVE_INFINITY) {
     markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
   }
+  if (event["type"] === "message_end" || event["type"] === "agent_settled") notifySessionsChanged(projectDir);
   push("piEvent", { projectDir, sessionFile: pis.get(projectDir)?.boundSessionFile, event });
 }
 
@@ -314,6 +330,12 @@ const handlers: HandlerMap = {
 
   listSessions: async ({ projectDir }) => ({ sessions: await listSessions(projectDir) }),
   readSession: async ({ sessionFile }) => ({ entries: await readSession(sessionFile) }),
+  watchProjectSessions: ({ projectDir }) => {
+    if (!projectSessionWatches.has(projectDir)) {
+      projectSessionWatches.set(projectDir, watchProjectSessions(projectDir, () => notifySessionsChanged(projectDir)));
+    }
+    return { ok: true };
+  },
 
   ensurePi: async ({ projectDir }) => {
     try {
@@ -511,6 +533,7 @@ const handlers: HandlerMap = {
       }
       stopSessionWatch(sessionFile);
       await deleteSession(projectDir, sessionFile);
+      notifySessionsChanged(projectDir);
       return { ok: true };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
@@ -1000,6 +1023,9 @@ export function registerIpc(): void {
 
 export async function stopAllPi(): Promise<void> {
   stopAllSessionWatches();
+  for (const projectDir of projectSessionWatches.keys()) stopProjectSessionWatch(projectDir);
+  for (const timer of sessionNotificationTimers.values()) clearTimeout(timer);
+  sessionNotificationTimers.clear();
   stopAllTerminals();
   await stopRemoteAccess();
   await stopLocalServer();

@@ -29,6 +29,7 @@ const allowedEvents: Record<HostEventName, true> = {
   piEvent: true,
   piError: true,
   sessionChangedExternally: true,
+  sessionsChanged: true,
   authPrompt: true,
   authNotice: true,
   windowMaximized: true,

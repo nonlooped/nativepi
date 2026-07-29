@@ -76,7 +76,6 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
 
   refreshSessions: async (projectPath) => {
     const { sessions } = await rpc.request.listSessions({ projectDir: projectPath });
-    if (get().activeProjectPath !== projectPath) return;
     set((s) => ({ sessionsByProject: { ...s.sessionsByProject, [projectPath]: sessions } }));
   },
 

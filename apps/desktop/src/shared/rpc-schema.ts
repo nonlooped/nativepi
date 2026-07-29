@@ -298,6 +298,10 @@ export type HostRequests = {
     params: { projectDir: string; sessionFile: string | null };
     response: { ok: boolean };
   };
+  watchProjectSessions: {
+    params: { projectDir: string };
+    response: { ok: boolean };
+  };
   getForkPoints: {
     params: { projectDir: string; sessionFile: string };
     response: { points: ForkPoint[]; error?: string };
@@ -457,6 +461,7 @@ export type HostEvents = {
   piEvent: { projectDir: string; sessionFile?: string; event: PiEvent };
   piError: { projectDir: string; message: string };
   sessionChangedExternally: { projectDir: string; sessionFile: string };
+  sessionsChanged: { projectDir: string };
   authPrompt: { id: string; prompt: AuthPromptRequest };
   authNotice: { notice: AuthNotice };
   windowMaximized: { maximized: boolean };
