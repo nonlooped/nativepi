@@ -1,7 +1,7 @@
 import type { ThinkingLevel } from "../../../shared/pi-types.ts";
 import { modelKey } from "../../../shared/messages.ts";
 import { rpc } from "../rpc.ts";
-import { showHint } from "../toast.ts";
+import { showHint } from "../toast.tsx";
 import { persist } from "./internals.ts";
 import type { ModelSlice, SliceCreator } from "./types.ts";
 

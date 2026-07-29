@@ -1,6 +1,6 @@
 import { DEFAULT_PREFERENCES } from "../../../shared/rpc-schema.ts";
 import { isRemote, rpc } from "../rpc.ts";
-import { showUpdateNotice } from "../toast.ts";
+import { showUpdateNotice } from "../toast.tsx";
 import { persist } from "./internals.ts";
 import type { SliceCreator, UiSlice } from "./types.ts";
 

@@ -48,6 +48,7 @@ function Row({
   description,
   htmlFor,
   wide,
+  shrinkable,
   children,
 }: {
   label: string;
@@ -55,6 +56,15 @@ function Row({
   htmlFor?: string;
   /** Put the control on its own line, for anything wider than a few characters. */
   wide?: boolean;
+  /**
+   * Let the control column give width back to the label when it is too wide.
+   *
+   * Controls are fixed-width by default so they keep their proportions, but a
+   * row holding a URL or a filesystem path has a max-content width wider than
+   * the panel, and a column that cannot shrink makes the label absorb the whole
+   * overflow — one word per line beside a full-width link.
+   */
+  shrinkable?: boolean;
   children: React.ReactNode;
 }) {
   const text = (
@@ -85,7 +95,7 @@ function Row({
   return (
     <div className="flex flex-col gap-3 border-t py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
       {text}
-      <div className="sm:shrink-0">{children}</div>
+      <div className={shrinkable ? "min-w-0" : "sm:shrink-0"}>{children}</div>
     </div>
   );
 }
@@ -284,12 +294,12 @@ export function ReadonlyRow({
   action?: React.ReactNode;
 }) {
   return (
-    <Row label={label} description={description}>
+    <Row label={label} description={description} shrinkable>
       <div className="flex min-w-0 items-center gap-2">
         {/* A path or a version can be longer than a phone is wide, and it is the
             one thing in the row the reader came to copy. */}
         <span className="min-w-0 break-all select-all font-mono text-xs text-muted-foreground">{value}</span>
-        {action}
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
     </Row>
   );

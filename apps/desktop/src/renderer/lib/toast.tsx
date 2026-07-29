@@ -52,6 +52,23 @@ export function showExtensionNotification(message: string, kind: "info" | "warni
 }
 
 const UPDATE_TOAST = "nativepi-update";
+const UPDATE_CLASSNAMES = {
+  toast: "w-[min(22rem,calc(100vw-2rem))]!",
+};
+
+function DownloadProgress({ percent }: { percent: number }) {
+  return (
+    <div className="mt-1 flex items-center gap-2">
+      <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+        <div
+          className="h-full rounded-full bg-info transition-[width] duration-300 motion-reduce:transition-none"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <span className="w-8 text-right font-medium tabular-nums text-popover-foreground">{percent}%</span>
+    </div>
+  );
+}
 
 /**
  * Offer the new version, and follow it through.
@@ -68,24 +85,34 @@ export function showUpdateNotice(
   actions: { download: () => void; install: () => void },
 ): void {
   const name = state.version ? `NativePi ${state.version}` : "A new NativePi";
-  const options = { id: UPDATE_TOAST, duration: Infinity, closeButton: true } as const;
+  const options = {
+    id: UPDATE_TOAST,
+    duration: Infinity,
+    closeButton: true,
+    classNames: UPDATE_CLASSNAMES,
+  } as const;
 
   switch (state.status) {
     case "available":
       return void toast(`${name} is available`, {
         ...options,
+        description: "Download the latest release when you're ready.",
         action: { label: "Update", onClick: actions.download },
       });
-    case "downloading":
+    case "downloading": {
+      const percent = Math.min(100, Math.max(0, Math.round(state.percent ?? 0)));
       // No close button: dismissing it would leave the download running with
       // nothing on screen saying so.
-      return void toast.loading(`Downloading ${name}… ${state.percent ?? 0}%`, {
+      return void toast.loading(`Downloading ${name}`, {
         ...options,
         closeButton: false,
+        description: <DownloadProgress percent={percent} />,
       });
+    }
     case "ready":
       return void toast.success(`${name} is ready to install`, {
         ...options,
+        description: "Restart NativePi to finish the update.",
         action: { label: "Restart", onClick: actions.install },
       });
     case "error":

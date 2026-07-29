@@ -16,7 +16,7 @@ import { chatTitle } from "../lib/transcript.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
-import { showHint } from "../lib/toast.ts";
+import { showHint } from "../lib/toast.tsx";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";

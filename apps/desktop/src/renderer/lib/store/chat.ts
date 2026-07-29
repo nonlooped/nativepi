@@ -12,7 +12,7 @@ import {
   setLastChat,
 } from "./internals.ts";
 import { readAsBase64, toImageContent } from "../attachments.ts";
-import { showAttachmentsRejected } from "../toast.ts";
+import { showAttachmentsRejected } from "../toast.tsx";
 import { MAX_IMAGE_BYTES } from "../../../shared/images.ts";
 import type { ImageAttachment } from "../../../shared/rpc-schema.ts";
 import type { ChatSlice, GetState, PendingMessage, SetState, SliceCreator } from "./types.ts";

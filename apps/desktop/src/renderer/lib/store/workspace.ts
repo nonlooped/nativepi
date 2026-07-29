@@ -1,5 +1,5 @@
 import { rpc } from "../rpc.ts";
-import { showHint } from "../toast.ts";
+import { showHint } from "../toast.tsx";
 import { patchConversation } from "./conversation.ts";
 import {
   getLastChat,

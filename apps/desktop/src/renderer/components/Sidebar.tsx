@@ -31,7 +31,7 @@ import {
 import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import { editorName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
-import { showHint } from "../lib/toast.ts";
+import { showHint } from "../lib/toast.tsx";
 
 export default function Sidebar({ onClose, overlay = false }: { onClose: () => void; overlay?: boolean }) {
   const projects = useAppStore((s) => s.projects);

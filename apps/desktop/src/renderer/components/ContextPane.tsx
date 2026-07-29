@@ -7,7 +7,7 @@ import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import type { GitChangedFile } from "../../shared/pi-types.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
-import { showHint } from "../lib/toast.ts";
+import { showHint } from "../lib/toast.tsx";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
 import {

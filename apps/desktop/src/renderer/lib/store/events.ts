@@ -6,7 +6,7 @@ import type {
   SessionEntry,
 } from "../../../shared/pi-types.ts";
 import { draftKeyFor, isAssistant } from "../../../shared/messages.ts";
-import { showExtensionNotification } from "../toast.ts";
+import { showExtensionNotification } from "../toast.tsx";
 import type { Conversation, GetState, SetState } from "./types.ts";
 
 /** Fold one Pi event into a conversation patch. Pure, so it can be read as a table. */
