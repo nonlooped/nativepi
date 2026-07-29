@@ -330,6 +330,7 @@ function ChatList({
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const isNewChat = useAppStore((s) => s.isNewChat);
+  const selectProject = useAppStore((s) => s.selectProject);
   const selectChat = useAppStore((s) => s.selectChat);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const visibleSessions = normalizedQuery
@@ -344,6 +345,7 @@ function ChatList({
       {visibleSessions.map((session) => (
         <SessionMenu
           key={session.path}
+          projectPath={projectPath}
           session={session}
           className={cn(
             HOVER_REVEAL,
@@ -358,7 +360,12 @@ function ChatList({
             >
               <button
                 type="button"
-                onClick={() => void selectChat(session.path).then(onNavigate).catch(() => undefined)}
+                onClick={() => {
+                  const select = projectPath === activeProjectPath
+                    ? Promise.resolve()
+                    : selectProject(projectPath);
+                  void select.then(() => selectChat(session.path)).then(onNavigate).catch(() => undefined);
+                }}
                 className="flex min-w-0 flex-1 flex-row items-center gap-3 rounded-lg px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
               >
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{chatTitle(session)}</span>

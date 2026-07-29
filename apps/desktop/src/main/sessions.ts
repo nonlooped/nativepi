@@ -1,4 +1,4 @@
-import { watch, type FSWatcher } from "node:fs";
+import { existsSync, watch, type FSWatcher } from "node:fs";
 import { readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { parseSessionEntries, SessionManager } from "@earendil-works/pi-coding-agent";
@@ -66,27 +66,24 @@ export function watchProjectSessions(projectDir: string, onChange: () => void): 
     timer = setTimeout(onChange, 150);
   };
   const watchDirectory = () => {
-    try {
-      watcher = watch(sessionDir, { persistent: false }, notify);
-      watcher.on("error", () => watcher?.close());
-      return;
-    } catch {
-      // A project with no chats has no directory yet. Its parent is created by
-      // Pi, so watching it catches the first chat without polling.
+    watcher?.close();
+    let directory = sessionDir;
+    while (!existsSync(directory)) {
+      const parent = path.dirname(directory);
+      if (parent === directory) return;
+      directory = parent;
     }
+    const watchingSessions = directory === sessionDir;
     try {
-      const parent = path.dirname(sessionDir);
-      const name = path.basename(sessionDir);
-      watcher = watch(parent, { persistent: false }, (_event, filename) => {
-        if (filename?.toString() !== name || stopped) return;
-        notify();
-        watcher?.close();
+      watcher = watch(directory, { persistent: false }, () => {
+        if (stopped) return;
         watchDirectory();
+        if (watchingSessions || existsSync(sessionDir)) notify();
       });
       watcher.on("error", () => watcher?.close());
     } catch {
-      // Pi has not created its session root yet. The submit path still sends a
-      // notification, and a later sidebar mount retries this watcher.
+      // The nearest existing ancestor disappeared between the existence check
+      // and installing its watcher. The next sidebar mount retries it.
     }
   };
   watchDirectory();

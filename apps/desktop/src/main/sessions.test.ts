@@ -89,7 +89,6 @@ test("listSessions summarizes real sessions and hides empty ones", async () => {
 
 test("watchProjectSessions detects chats created after the sidebar is open", async () => {
   const projectDir = await mkdtemp(path.join(tmpdir(), "nativepi-project-"));
-  await mkdir(path.dirname(sessionDirFor(projectDir)), { recursive: true });
   let changes = 0;
   const stop = watchProjectSessions(projectDir, () => { changes += 1; });
 

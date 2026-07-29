@@ -302,6 +302,10 @@ export type HostRequests = {
     params: { projectDir: string };
     response: { ok: boolean };
   };
+  unwatchProjectSessions: {
+    params: { projectDir: string };
+    response: { ok: boolean };
+  };
   getForkPoints: {
     params: { projectDir: string; sessionFile: string };
     response: { points: ForkPoint[]; error?: string };

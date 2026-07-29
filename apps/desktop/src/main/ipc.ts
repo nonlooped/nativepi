@@ -336,6 +336,12 @@ const handlers: HandlerMap = {
     }
     return { ok: true };
   },
+  unwatchProjectSessions: ({ projectDir }) => {
+    stopProjectSessionWatch(projectDir);
+    clearTimeout(sessionNotificationTimers.get(projectDir));
+    sessionNotificationTimers.delete(projectDir);
+    return { ok: true };
+  },
 
   ensurePi: async ({ projectDir }) => {
     try {
