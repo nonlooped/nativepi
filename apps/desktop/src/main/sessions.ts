@@ -1,4 +1,4 @@
-import { watch, type FSWatcher } from "node:fs";
+import { existsSync, watch, type FSWatcher } from "node:fs";
 import { readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { parseSessionEntries, SessionManager } from "@earendil-works/pi-coding-agent";
@@ -49,6 +49,49 @@ export async function deleteSession(projectDir: string, sessionFile: string): Pr
     throw new Error("That chat does not belong to this project.");
   }
   await rm(resolved, { force: true });
+}
+
+/**
+ * Watch a project's session directory, including the point where it is first
+ * created. Pi owns the directory layout; `SessionManager.create` gives us its
+ * computed default rather than duplicating its path encoding.
+ */
+export function watchProjectSessions(projectDir: string, onChange: () => void): () => void {
+  const sessionDir = SessionManager.create(projectDir).getSessionDir();
+  let watcher: FSWatcher | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let stopped = false;
+  const notify = () => {
+    clearTimeout(timer);
+    timer = setTimeout(onChange, 150);
+  };
+  const watchDirectory = () => {
+    watcher?.close();
+    let directory = sessionDir;
+    while (!existsSync(directory)) {
+      const parent = path.dirname(directory);
+      if (parent === directory) return;
+      directory = parent;
+    }
+    const watchingSessions = directory === sessionDir;
+    try {
+      watcher = watch(directory, { persistent: false }, () => {
+        if (stopped) return;
+        watchDirectory();
+        if (watchingSessions || existsSync(sessionDir)) notify();
+      });
+      watcher.on("error", () => watcher?.close());
+    } catch {
+      // The nearest existing ancestor disappeared between the existence check
+      // and installing its watcher. The next sidebar mount retries it.
+    }
+  };
+  watchDirectory();
+  return () => {
+    stopped = true;
+    clearTimeout(timer);
+    watcher?.close();
+  };
 }
 
 export async function sessionMtime(sessionFile: string): Promise<number> {

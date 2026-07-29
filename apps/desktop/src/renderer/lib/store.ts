@@ -41,6 +41,9 @@ rpc.events.on("piError", ({ projectDir, message }) => useAppStore.getState().onP
 rpc.events.on("sessionChangedExternally", (payload) =>
   useAppStore.getState().onSessionChangedExternally(payload),
 );
+rpc.events.on("sessionsChanged", ({ projectDir }) => {
+  void useAppStore.getState().refreshSessions(projectDir);
+});
 rpc.events.on("authPrompt", (payload) => useAppStore.getState().onAuthPrompt(payload));
 rpc.events.on("authNotice", ({ notice }) => useAppStore.getState().onAuthNotice(notice));
 rpc.events.on("updateState", (state) => useAppStore.getState().onUpdateState(state));

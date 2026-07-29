@@ -63,6 +63,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       await rpc.request.abort({ projectDir: path });
     }
     await rpc.request.terminalCloseProject({ projectDir: path });
+    await rpc.request.unwatchProjectSessions({ projectDir: path });
     set((s) => {
       const { [path]: _removed, ...conversations } = s.conversations;
       const terminalProjects = new Set(s.terminalProjects);

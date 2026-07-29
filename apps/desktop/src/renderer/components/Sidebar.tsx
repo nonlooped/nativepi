@@ -44,6 +44,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
     useShallow((s) => s.projects.map((project) => s.conversations[project.path]?.running ?? false)),
   );
   const importSession = useAppStore((s) => s.importSession);
+  const refreshSessions = useAppStore((s) => s.refreshSessions);
   const openTerminal = useAppStore((s) => s.openTerminal);
   const editorId = useAppStore((s) => s.preferences.preferredEditorId);
   const searchFocusRequest = useAppStore((s) => s.searchFocusRequest);
@@ -51,6 +52,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const [now, setNow] = useState(Date.now);
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
   const [worktreesFor, setWorktreesFor] = useState<string | null>(null);
+  const [expandedProjects, setExpandedProjects] = useState(() => new Set(activeProjectPath ? [activeProjectPath] : []));
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -62,7 +64,28 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    for (const project of projects) {
+      void rpc.request.watchProjectSessions({ projectDir: project.path });
+      void refreshSessions(project.path);
+    }
+  }, [projects, refreshSessions]);
+
+  function expandProject(path: string) {
+    setExpandedProjects((expanded) => new Set(expanded).add(path));
+  }
+
+  function toggleProject(path: string) {
+    setExpandedProjects((expanded) => {
+      const next = new Set(expanded);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }
+
   async function selectProjectAndClose(path: string) {
+    expandProject(path);
     await selectProject(path);
     if (overlay) onClose();
   }
@@ -73,12 +96,14 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   }
 
   async function startNewChat(path: string) {
+    expandProject(path);
     if (path !== activeProjectPath) await selectProject(path);
     useAppStore.getState().newChat();
     if (overlay) onClose();
   }
 
   async function importChat(path: string) {
+    expandProject(path);
     if (path !== activeProjectPath) await selectProject(path);
     await importSession(path);
     if (overlay) onClose();
@@ -163,6 +188,22 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
           <div key={project.path} className="flex flex-col gap-0.5">
             <ContextMenu>
               <ContextMenuTrigger render={<div className="group flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent" />}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleProject(project.path);
+                }}
+                aria-label={`${expandedProjects.has(project.path) ? "Collapse" : "Expand"} ${project.name}`}
+                aria-expanded={expandedProjects.has(project.path)}
+                className="shrink-0"
+              >
+                <CaretDownIcon
+                  className={cn("text-muted-foreground transition-transform", !expandedProjects.has(project.path) && "-rotate-90")}
+                  weight="bold"
+                />
+              </Button>
               <button
                 type="button"
                 onClick={() => void selectProjectAndClose(project.path)}
@@ -171,9 +212,6 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                 )}
                 title={busy ? `${project.path} — agent running` : project.path}
               >
-                {project.path === activeProjectPath ? (
-                  <CaretDownIcon className="shrink-0 text-muted-foreground" weight="bold" />
-                ) : null}
                 <FolderIcon className="shrink-0 text-muted-foreground" />
                 <span className="truncate">{project.name}</span>
                 {busy ? (
@@ -246,7 +284,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                 </ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
-            {project.path === activeProjectPath ? <ChatList projectPath={project.path} query={query} now={now} onNavigate={overlay ? onClose : undefined} /> : null}
+            {expandedProjects.has(project.path) ? <ChatList projectPath={project.path} query={query} now={now} onNavigate={overlay ? onClose : undefined} /> : null}
           </div>
           );
         })}
@@ -289,8 +327,10 @@ function ChatList({
   onNavigate?: () => void;
 }) {
   const sessions = useAppStore((s) => s.sessionsByProject[projectPath] ?? EMPTY);
+  const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const isNewChat = useAppStore((s) => s.isNewChat);
+  const selectProject = useAppStore((s) => s.selectProject);
   const selectChat = useAppStore((s) => s.selectChat);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const visibleSessions = normalizedQuery
@@ -299,12 +339,13 @@ function ChatList({
 
   return (
     <div className="flex flex-col gap-0.5">
-      {isNewChat && (
+      {isNewChat && projectPath === activeProjectPath && (
         <div className="rounded-lg bg-sidebar-accent px-3 py-2 text-sm font-semibold">New chat</div>
       )}
       {visibleSessions.map((session) => (
         <SessionMenu
           key={session.path}
+          projectPath={projectPath}
           session={session}
           className={cn(
             HOVER_REVEAL,
@@ -319,7 +360,12 @@ function ChatList({
             >
               <button
                 type="button"
-                onClick={() => void selectChat(session.path).then(onNavigate).catch(() => undefined)}
+                onClick={() => {
+                  const select = projectPath === activeProjectPath
+                    ? Promise.resolve()
+                    : selectProject(projectPath);
+                  void select.then(() => selectChat(session.path)).then(onNavigate).catch(() => undefined);
+                }}
                 className="flex min-w-0 flex-1 flex-row items-center gap-3 rounded-lg px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
               >
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{chatTitle(session)}</span>

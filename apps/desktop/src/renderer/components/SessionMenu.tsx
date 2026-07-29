@@ -41,10 +41,12 @@ import { cn } from "@/lib/utils.ts";
 type DialogKind = "rename" | "fork" | "tree" | "info" | "export" | "delete";
 
 export default function SessionMenu({
+  projectPath,
   session,
   className,
   renderRow,
 }: {
+  projectPath: string;
   session: SessionSummary;
   className?: string;
   renderRow: (menu: React.ReactNode) => React.ReactElement;
@@ -58,8 +60,12 @@ export default function SessionMenu({
   const cloneChat = useAppStore((s) => s.cloneChat);
   const deleteChat = useAppStore((s) => s.deleteChat);
   const compactActive = useAppStore((s) => s.compactActive);
+  const selectProject = useAppStore((s) => s.selectProject);
 
   const blocked = running && activeSessionFile === session.path;
+  const inProject = (action: () => void | Promise<void>) => () => {
+    void selectProject(projectPath).then(action);
+  };
 
   async function doClone() {
     setBusyAction(true);
@@ -88,13 +94,13 @@ export default function SessionMenu({
   const actions = {
     blocked,
     active: activeSessionFile === session.path,
-    rename: () => setDialog("rename" as const),
-    fork: () => setDialog("fork" as const),
-    clone: () => void doClone(),
-    compact: () => void compactActive(),
-    tree: () => setDialog("tree" as const),
-    info: () => setDialog("info" as const),
-    export: () => void doExport(),
+    rename: inProject(() => setDialog("rename")),
+    fork: inProject(() => setDialog("fork")),
+    clone: inProject(doClone),
+    compact: inProject(compactActive),
+    tree: inProject(() => setDialog("tree")),
+    info: inProject(() => setDialog("info")),
+    export: inProject(doExport),
     copyTitle: () => void navigator.clipboard.writeText(chatTitle(session)).then(() => showHint("Title copied")),
     reveal: () => void rpc.request.showInFolder({ path: session.path }),
     copyPath: () => void navigator.clipboard.writeText(session.path).then(() => showHint("Path copied")),
@@ -142,7 +148,9 @@ export default function SessionMenu({
         onConfirm={() => {
           setDialog(null);
           setBusyAction(true);
-          void deleteChat(session.path).finally(() => setBusyAction(false));
+          void selectProject(projectPath)
+            .then(() => deleteChat(session.path))
+            .finally(() => setBusyAction(false));
         }}
         onCancel={() => setDialog(null)}
       />
