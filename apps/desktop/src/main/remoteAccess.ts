@@ -1,99 +1,99 @@
-import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { existsSync } from "node:fs";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { createWriteStream } from "node:fs";
+import { mkdir, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { z } from "zod";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import type { RemoteAccessStatus } from "../shared/rpc-schema.ts";
 
-const tailscaleStatusSchema = z.object({
-  BackendState: z.string().optional(),
-  Self: z.object({ DNSName: z.string().optional() }).optional(),
-});
+/**
+ * Remote access, as a Cloudflare quick tunnel.
+ *
+ * `cloudflared tunnel --url` dials out to Cloudflare's edge and gets back a
+ * throwaway `*.trycloudflare.com` hostname. No account, no DNS record, no
+ * inbound firewall rule, and nothing to install on the phone or laptop at the
+ * other end. That last part is the whole reason this replaced a mesh VPN: the
+ * setup cost fell on every device someone wanted to connect from, which is far
+ * too much ceremony for reading a diff from the couch.
+ *
+ * The binary is not shipped in the installer. It is over 50 MB, Cloudflare
+ * ships it on their own schedule rather than ours, and most people never turn
+ * this on, so it is fetched on first use and cached under user data.
+ */
 
-let executable: string | undefined;
-let serveProcess: ChildProcessWithoutNullStreams | undefined;
-let status: RemoteAccessStatus = { state: "checking" };
+const RELEASE_URL =
+  "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe";
+const STARTUP_TIMEOUT_MS = 45_000;
 
-export async function remoteAccessStatus(refresh = false): Promise<RemoteAccessStatus> {
-  if (serveProcess) return status;
-  if (!refresh && status.state !== "checking") return status;
-  status = await detectTailscale();
+/**
+ * How long the download may go without delivering a byte.
+ *
+ * A stall rather than a total budget: the file is over 50 MB and a slow line is
+ * not a failure, but a proxy that accepts the request and then goes quiet would
+ * otherwise leave the settings screen saying "Downloading" forever.
+ */
+const DOWNLOAD_STALL_MS = 30_000;
+
+/**
+ * A public link is this machine's terminals and projects on the open internet,
+ * guarded by the token in the URL fragment. The likeliest way that goes wrong
+ * is not someone guessing a 192 bit token, it is the owner forgetting the link
+ * is up, so it closes itself after half a day either way.
+ */
+const LINK_LIFETIME_MS = 12 * 60 * 60 * 1000;
+
+let tunnel: ChildProcessWithoutNullStreams | undefined;
+let expiry: NodeJS.Timeout | undefined;
+let status: RemoteAccessStatus = { state: "idle" };
+
+export function remoteAccessStatus(): RemoteAccessStatus {
   return status;
 }
 
-export async function startRemoteAccess(port: number, token: string): Promise<RemoteAccessStatus> {
-  if (serveProcess) return status;
-  const detected = await remoteAccessStatus(true);
-  if (detected.state !== "available" || !executable) return detected;
+export function remoteAccessRunning(): boolean {
+  return Boolean(tunnel && status.state === "running");
+}
 
-  status = { state: "starting" };
-  const child = spawn(executable, ["serve", "--yes", `http://127.0.0.1:${port}`], {
-    windowsHide: true,
-    stdio: "pipe",
-  });
-  serveProcess = child;
+export async function startRemoteAccess(
+  port: number,
+  token: string,
+  binDir: string,
+): Promise<RemoteAccessStatus> {
+  if (tunnel) return status;
 
-  let output = "";
-  const collect = (chunk: Buffer) => {
-    output = `${output}${chunk.toString()}`.slice(-16_384);
-  };
-  child.stdout.on("data", collect);
-  child.stderr.on("data", collect);
-
-  const result = await new Promise<RemoteAccessStatus>((resolveStart) => {
-    let settled = false;
-    const finish = (next: RemoteAccessStatus) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolveStart(next);
-    };
-    const inspect = () => {
-      const remoteUrl = findUrl(output, true);
-      if (remoteUrl) finish({ state: "running", link: `${remoteUrl}/#token=${token}` });
-    };
-    child.stdout.on("data", inspect);
-    child.stderr.on("data", inspect);
-    child.once("error", (error) => finish({ state: "error", error: error.message }));
-    child.once("exit", (code) => {
-      const setupUrl = findUrl(output, false);
-      finish({
-        state: "error",
-        error: cleanError(output) || `Tailscale Serve stopped with exit code ${code ?? "unknown"}.`,
-        setupUrl,
-      });
+  try {
+    const binary = await ensureCloudflared(binDir, (preparing) => {
+      // Polled by the settings screen, so progress needs nowhere else to go.
+      status = { state: "starting", preparing };
     });
-    const timer = setTimeout(() => {
-      const setupUrl = findUrl(output, false);
-      finish({
-        state: "error",
-        error: setupUrl
-          ? "Tailscale needs permission to serve NativePi. Finish setup, then try again."
-          : cleanError(output) || "Tailscale did not finish starting Remote Access.",
-        setupUrl,
+    status = { state: "starting", preparing: "Asking Cloudflare for a public link…" };
+
+    const url = await openTunnel(binary, port);
+    status = {
+      state: "running",
+      link: `${url}/#token=${token}`,
+      expiresAt: Date.now() + LINK_LIFETIME_MS,
+    };
+    expiry = setTimeout(() => {
+      void stopRemoteAccess().then(() => {
+        status = { state: "idle", error: "The public link reached its twelve hour limit and was closed." };
       });
-    }, 10_000);
-  });
-
-  status = result;
-  if (result.state !== "running") {
-    child.kill();
-    if (serveProcess === child) serveProcess = undefined;
-    return status;
+    }, LINK_LIFETIME_MS);
+  } catch (error) {
+    await stopRemoteAccess();
+    status = { state: "error", error: error instanceof Error ? error.message : String(error) };
   }
-
-  child.once("exit", (code) => {
-    if (serveProcess !== child) return;
-    serveProcess = undefined;
-    status = { state: "error", error: `Tailscale Serve stopped with exit code ${code ?? "unknown"}.` };
-  });
   return status;
 }
 
 export async function stopRemoteAccess(): Promise<void> {
-  const child = serveProcess;
-  serveProcess = undefined;
-  status = executable ? { state: "available" } : { state: "checking" };
+  const child = tunnel;
+  tunnel = undefined;
+  if (expiry) clearTimeout(expiry);
+  expiry = undefined;
+  status = { state: "idle" };
   if (!child) return;
+
   const exited = new Promise<void>((resolveExit) => child.once("exit", () => resolveExit()));
   child.kill();
   await Promise.race([
@@ -102,82 +102,149 @@ export async function stopRemoteAccess(): Promise<void> {
   ]);
 }
 
-export function remoteAccessRunning(): boolean {
-  return Boolean(serveProcess && status.state === "running");
+/**
+ * Drop a cached binary that cannot be run, and describe why.
+ *
+ * A spawn failure is the file's fault rather than the network's: missing, not
+ * executable, or not a real binary at all. Removing it means the next attempt
+ * fetches a fresh copy instead of failing on the same bad cache forever.
+ * Windows reports some of these by throwing from `spawn` and others by emitting
+ * `error`, so both paths come through here.
+ */
+function unusableBinary(binary: string, message: string): string {
+  void rm(binary, { force: true }).catch(() => {});
+  return `Could not run the tunnel client. ${message}`;
 }
 
-async function detectTailscale(): Promise<RemoteAccessStatus> {
-  for (const candidate of tailscaleCandidates()) {
-    if (candidate.includes("\\") && !existsSync(candidate)) continue;
-    const result = await run(candidate, ["status", "--json"]);
-    if (result.notFound) continue;
-    executable = candidate;
-
-    const parsed = parseTailscaleStatus(result.stdout);
-    if (parsed?.BackendState === "Running" && parsed.Self?.DNSName) {
-      return { state: "available" };
-    }
-    if (parsed?.BackendState === "NeedsLogin" || parsed?.BackendState === "Stopped") {
-      return { state: "signed-out" };
-    }
-    return {
-      state: "error",
-      error: cleanError(result.stderr) || "Tailscale is installed but is not ready.",
-    };
-  }
-  executable = undefined;
-  return { state: "not-installed" };
-}
-
-export function parseTailscaleStatus(output: string): z.infer<typeof tailscaleStatusSchema> | undefined {
+function openTunnel(binary: string, port: number): Promise<string> {
+  let child: ChildProcessWithoutNullStreams;
   try {
-    return tailscaleStatusSchema.parse(JSON.parse(output));
-  } catch {
-    return undefined;
+    child = spawn(binary, ["tunnel", "--no-autoupdate", "--url", `http://127.0.0.1:${port}`], {
+      windowsHide: true,
+      stdio: "pipe",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return Promise.reject(new Error(unusableBinary(binary, message)));
   }
-}
+  tunnel = child;
 
-function tailscaleCandidates(): string[] {
-  const programFiles = processEnv("ProgramFiles");
-  return [
-    ...(programFiles ? [join(programFiles, "Tailscale", "tailscale.exe")] : []),
-    "tailscale.exe",
-  ];
-}
+  return new Promise<string>((resolveUrl, rejectUrl) => {
+    let settled = false;
+    // The hostname arrives inside an ASCII banner, and whether that lands on
+    // stdout or stderr depends on the build, so both are watched. Only the tail
+    // is kept: enough to match against, and enough to explain a failure.
+    let log = "";
 
-function processEnv(name: string): string | undefined {
-  return globalThis.process.env[name];
-}
+    const fail = (message: string) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const detail = log.trim().slice(-600);
+      rejectUrl(new Error(detail ? `${message}\n${detail}` : message));
+    };
 
-function run(file: string, args: string[]): Promise<{ stdout: string; stderr: string; notFound: boolean }> {
-  return new Promise((resolveRun) => {
-    execFile(file, args, { windowsHide: true, timeout: 5_000 }, (error, stdout, stderr) => {
-      resolveRun({
-        stdout,
-        stderr,
-        notFound: Boolean(error && "code" in error && error.code === "ENOENT"),
-      });
+    const timer = setTimeout(
+      () => fail("Cloudflare did not hand out a public link in time."),
+      STARTUP_TIMEOUT_MS,
+    );
+
+    const read = (chunk: Buffer) => {
+      if (settled) return;
+      log = (log + chunk.toString()).slice(-4000);
+      const url = findTunnelUrl(log);
+      if (!url) return;
+      settled = true;
+      clearTimeout(timer);
+      resolveUrl(url);
+    };
+
+    child.stdout.on("data", read);
+    child.stderr.on("data", read);
+    child.once("error", (error) => fail(unusableBinary(binary, error.message)));
+    child.once("exit", (code) => {
+      // `stopRemoteAccess` clears `tunnel` before it kills, so a child still
+      // registered here died on its own rather than being asked to.
+      const deliberate = tunnel !== child;
+      if (!deliberate) tunnel = undefined;
+      if (!settled) fail(`The tunnel client stopped with exit code ${code ?? "unknown"}.`);
+      // A tunnel that drops hours later leaves the link dead, and the settings
+      // screen is polling, so say so rather than keep advertising the address.
+      else if (!deliberate) {
+        status = { state: "error", error: `The tunnel stopped with exit code ${code ?? "unknown"}.` };
+      }
     });
   });
 }
 
-function findUrl(output: string, tailscaleHost: boolean): string | undefined {
-  for (const value of output.match(/https:\/\/[^\s|]+/gi) ?? []) {
-    try {
-      const url = new URL(value);
-      const isTailscale = url.hostname.toLowerCase().endsWith(".ts.net");
-      if (isTailscale === tailscaleHost) return url.origin;
-    } catch {
-      // Ignore malformed CLI output.
-    }
-  }
-  return undefined;
+/**
+ * Pull the hostname out of cloudflared's output.
+ *
+ * The surrounding banner is Cloudflare's to change at any time, so only the
+ * hostname is matched. It is the one part that cannot change without the
+ * feature changing with it.
+ */
+export function findTunnelUrl(log: string): string | undefined {
+  return /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i.exec(log)?.[0];
 }
 
-function cleanError(output: string): string | undefined {
-  const lines = output
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("https://"));
-  return lines.at(-1);
+/**
+ * GitHub publishes no checksum beside these assets, so HTTPS to github.com is
+ * the trust boundary. The download lands on a temporary name and is moved into
+ * place only once complete, so an interrupted download is never mistaken for a
+ * usable binary on the next attempt.
+ */
+async function ensureCloudflared(binDir: string, onProgress: (message: string) => void): Promise<string> {
+  const binary = join(binDir, "cloudflared.exe");
+  const cached = await stat(binary).catch(() => undefined);
+  if (cached?.isFile() && cached.size > 0) return binary;
+
+  onProgress("Downloading the tunnel client…");
+  await mkdir(binDir, { recursive: true });
+  const partial = `${binary}.partial`;
+
+  const abort = new AbortController();
+  let stall = setTimeout(() => abort.abort(), DOWNLOAD_STALL_MS);
+
+  try {
+    const response = await fetch(RELEASE_URL, { signal: abort.signal });
+    if (!response.ok || !response.body) {
+      throw new Error(`Could not download the tunnel client (HTTP ${response.status}).`);
+    }
+
+    const total = Number(response.headers.get("content-length") ?? 0);
+    let received = 0;
+    let shown = -1;
+    // `fetch` is typed with the DOM's ReadableStream while `fromWeb` wants the
+    // one from `node:stream/web`. They are the same object at runtime.
+    const source = Readable.fromWeb(response.body as unknown as Parameters<typeof Readable.fromWeb>[0]);
+    source.on("data", (chunk: Buffer) => {
+      clearTimeout(stall);
+      stall = setTimeout(() => abort.abort(), DOWNLOAD_STALL_MS);
+      received += chunk.length;
+      if (total <= 0) return;
+      const percent = Math.round((received / total) * 100);
+      if (percent === shown) return;
+      shown = percent;
+      onProgress(`Downloading the tunnel client… ${percent}%`);
+    });
+
+    await pipeline(source, createWriteStream(partial));
+    // A body that ends early still ends cleanly, so the length is the only
+    // thing separating a whole binary from a half of one.
+    if (total > 0 && received !== total) {
+      throw new Error("The tunnel client download ended before it was complete.");
+    }
+    await rm(binary, { force: true });
+    await rename(partial, binary);
+    return binary;
+  } catch (error) {
+    await rm(partial, { force: true }).catch(() => {});
+    if (abort.signal.aborted) {
+      throw new Error("The tunnel client download stopped responding. Check this computer's connection and try again.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(stall);
+  }
 }

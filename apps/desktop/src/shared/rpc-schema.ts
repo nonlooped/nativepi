@@ -90,7 +90,6 @@ export interface AccessClient {
   connectedAt: string;
   device: string;
   location: "local" | "remote";
-  user?: string;
 }
 
 export interface LocalAccessStatus {
@@ -102,10 +101,13 @@ export interface LocalAccessStatus {
 }
 
 export interface RemoteAccessStatus {
-  state: "checking" | "not-installed" | "signed-out" | "available" | "starting" | "running" | "error";
+  state: "idle" | "starting" | "running" | "error";
   link?: string;
   error?: string;
-  setupUrl?: string;
+  /** What the host is busy with while starting, such as download progress. */
+  preparing?: string;
+  /** Epoch ms at which NativePi closes the public link on its own. */
+  expiresAt?: number;
 }
 
 export interface AccessStatus {
@@ -361,7 +363,6 @@ export type HostRequests = {
   replaceAccessLink: { params: Record<string, never>; response: AccessStatus };
   startRemoteAccess: { params: Record<string, never>; response: AccessStatus };
   stopRemoteAccess: { params: Record<string, never>; response: AccessStatus };
-  refreshRemoteAccess: { params: Record<string, never>; response: AccessStatus };
 
   getPiSettings: { params: Record<string, never>; response: { settings?: PiSettings; error?: string } };
   setPiSettings: {

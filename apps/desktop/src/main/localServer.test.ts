@@ -38,8 +38,8 @@ describe("local server", () => {
 
     const socket = new WebSocket(`ws://127.0.0.1:${link.port}/rpc`, {
       headers: {
-        host: "desktop.example.ts.net",
-        "tailscale-user-name": "Alice",
+        host: "plants-yields-suspected-mailing.trycloudflare.com",
+        "cf-connecting-ip": "203.0.113.7",
         "user-agent": "Mozilla/5.0 (iPhone) AppleWebKit Safari/605.1.15",
       },
     });
@@ -48,10 +48,9 @@ describe("local server", () => {
     expect(await message(socket)).toEqual({ type: "ready" });
     expect(localServerStatus().clients).toEqual([
       expect.objectContaining({
-        address: "Tailscale network",
+        address: "203.0.113.7",
         device: "Safari on iPhone",
         location: "remote",
-        user: "Alice",
       }),
     ]);
 

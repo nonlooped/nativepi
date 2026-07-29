@@ -122,7 +122,10 @@ A pinned `@earendil-works/pi-coding-agent` is bundled with the app and started
 in RPC mode via `ELECTRON_RUN_AS_NODE`. The desktop renderer talks to the host
 through Electron IPC and a constrained `contextBridge`. When browser access is
 explicitly enabled, an access-token-protected HTTP and WebSocket server is
-opened on the local network until it is stopped or NativePi exits.
+opened on the local network until it is stopped or NativePi exits. Remote access
+points a throwaway Cloudflare quick tunnel at that same server, so a phone or a
+laptop can reach it over HTTPS without a VPN, an account, or an inbound firewall
+rule. The tunnel closes itself after twelve hours.
 
 ### Extensions
 
