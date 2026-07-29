@@ -35,6 +35,7 @@ const allowedEvents: Record<HostEventName, true> = {
   quitRequested: true,
   terminalData: true,
   terminalExit: true,
+  localServerChanged: true,
 };
 
 export type NativePiApi = {

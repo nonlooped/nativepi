@@ -84,9 +84,16 @@ export interface AuthProviderInfo {
   authLabel?: string;
 }
 
+export type LocalServerMode = "network" | "public";
+
 export interface LocalServerStatus {
   running: boolean;
+  /** Links reachable from the host's own network. */
   links: string[];
+  /** Throwaway `*.trycloudflare.com` link, present only in public mode. */
+  publicLink?: string;
+  /** Epoch ms at which NativePi closes a public link on its own. */
+  expiresAt?: number;
 }
 
 export type AuthPromptRequest =
@@ -309,7 +316,7 @@ export type HostRequests = {
   versions: { params: Record<string, never>; response: { pi: string; app: string } };
   localServerStatus: { params: Record<string, never>; response: LocalServerStatus };
   startLocalServer: {
-    params: Record<string, never>;
+    params: { mode: LocalServerMode };
     response: LocalServerStatus & { error?: string };
   };
   stopLocalServer: { params: Record<string, never>; response: { ok: boolean } };
@@ -414,6 +421,12 @@ export type HostEvents = {
   quitRequested: { work: PendingWork };
   terminalData: { projectDir: string; terminalId: string; data: string; sequence: number };
   terminalExit: { projectDir: string; terminalId: string; exitCode: number };
+  /**
+   * Progress while a link is being prepared, and the last word when a public
+   * link lapses on its own. `preparing` is a sentence to show in place of the
+   * status; its absence means the status is final.
+   */
+  localServerChanged: { status: LocalServerStatus; preparing?: string };
 };
 
 export type HostRequestName = keyof HostRequests;

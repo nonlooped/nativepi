@@ -5,11 +5,13 @@ import { readFile } from "node:fs/promises";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
+import { startTunnel, type Tunnel } from "./tunnel.ts";
 import type {
   HostEventName,
   HostEvents,
   HostRequestName,
   HostRequests,
+  LocalServerMode,
   LocalServerStatus,
 } from "../shared/rpc-schema.ts";
 
@@ -23,7 +25,20 @@ export interface LocalServerOptions {
   rendererDir: string;
   invoke: Invoke;
   subscribe: Subscribe;
+  mode?: LocalServerMode;
+  /** Where the tunnel client is cached. Required for `mode: "public"`. */
+  binDir?: string;
+  /** Download progress, and the notification that a public link has lapsed. */
+  onUpdate?: (update: { status: LocalServerStatus; preparing?: string }) => void;
 }
+
+/**
+ * A public link is the host's terminal and projects on the open internet,
+ * guarded only by the token in the fragment. The most likely way that goes
+ * wrong is not an attack, it is forgetting the link is up, so it lapses on its
+ * own after half a day whether or not anyone remembers.
+ */
+const PUBLIC_LINK_LIFETIME_MS = 12 * 60 * 60 * 1000;
 
 const clientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("auth"), token: z.string() }),
@@ -52,7 +67,7 @@ const desktopOnlyResponses: Partial<Record<HostRequestName, unknown>> = {
   startLocalServer: {
     running: true,
     links: [],
-    error: "The local server can only be managed from the desktop app.",
+    error: "Sharing can only be started from the desktop app.",
   },
   stopLocalServer: { ok: false },
 };
@@ -64,16 +79,26 @@ type RunningServer = {
   authenticatedRpcSockets: Set<WebSocket>;
   unsubscribe: () => void;
   links: string[];
+  tunnel?: Tunnel;
+  publicLink?: string;
+  expiresAt?: number;
+  expiry?: NodeJS.Timeout;
 };
 
 let running: RunningServer | undefined;
 
 export function localServerStatus(): LocalServerStatus {
-  return { running: Boolean(running), links: running?.links ?? [] };
+  return {
+    running: Boolean(running),
+    links: running?.links ?? [],
+    publicLink: running?.publicLink,
+    expiresAt: running?.expiresAt,
+  };
 }
 
 export async function startLocalServer(options: LocalServerOptions): Promise<LocalServerStatus> {
   if (running) return localServerStatus();
+  const { binDir } = options;
 
   const token = randomBytes(24).toString("base64url");
   const rpcSockets = new Set<WebSocket>();
@@ -163,7 +188,29 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
     http.close();
     throw new Error("NativePi could not determine the local server address.");
   }
-  const links = localAddresses().map((address) => `http://${formatAddress(address)}:${addressPort(http)}/#token=${token}`);
+  const port = addressPort(http);
+  const links = localAddresses().map((address) => `http://${formatAddress(address)}:${port}/#token=${token}`);
+
+  // The tunnel is started before the server is recorded as running so that a
+  // failure leaves nothing behind: the listener closes and the caller sees the
+  // reason rather than a half-open server with no link to show for it.
+  let tunnel: Tunnel | undefined;
+  if (options.mode === "public") {
+    try {
+      if (!binDir) throw new Error("NativePi has nowhere to keep the tunnel client.");
+      tunnel = await startTunnel({
+        port,
+        binDir,
+        onProgress: (preparing) =>
+          options.onUpdate?.({ status: { running: false, links: [] }, preparing }),
+      });
+    } catch (error) {
+      http.closeAllConnections();
+      await new Promise<void>((resolveClose) => http.close(() => resolveClose()));
+      throw error;
+    }
+  }
+
   const unsubscribe = options.subscribe((name, payload) => {
     const message = JSON.stringify({ type: "event", name, payload });
     for (const socket of authenticatedRpcSockets) {
@@ -178,7 +225,17 @@ export async function startLocalServer(options: LocalServerOptions): Promise<Loc
     authenticatedRpcSockets,
     unsubscribe,
     links,
+    tunnel,
+    publicLink: tunnel ? `${tunnel.url}/#token=${token}` : undefined,
+    expiresAt: tunnel ? Date.now() + PUBLIC_LINK_LIFETIME_MS : undefined,
   };
+
+  if (tunnel) {
+    running.expiry = setTimeout(() => {
+      void stopLocalServer().then(() => options.onUpdate?.({ status: localServerStatus() }));
+    }, PUBLIC_LINK_LIFETIME_MS);
+  }
+
   return localServerStatus();
 }
 
@@ -186,6 +243,8 @@ export async function stopLocalServer(): Promise<void> {
   const server = running;
   running = undefined;
   if (!server) return;
+  if (server.expiry) clearTimeout(server.expiry);
+  server.tunnel?.stop();
   server.unsubscribe();
   for (const socket of server.rpcSockets) {
     socket.close(1001, "Server stopped");
@@ -255,6 +314,9 @@ async function serveRenderer(
   }
   response.setHeader("Content-Type", contentType(file));
   response.setHeader("Cache-Control", extname(file) ? "no-cache" : "no-store");
+  // A public link is a real, reachable hostname. Nothing useful is served
+  // without the token, but the address itself should not end up in an index.
+  response.setHeader("X-Robots-Tag", "noindex, nofollow");
   response.writeHead(200);
   response.end(content);
 }

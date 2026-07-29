@@ -27,7 +27,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 
 ## Operating Context
 
-- NativePi is a Windows desktop application used alongside local code projects, Git repositories, and the existing Pi CLI ecosystem. Its workspace can be shared temporarily to browsers on the same local network.
+- NativePi is a Windows desktop application used alongside local code projects, Git repositories, and the existing Pi CLI ecosystem. Its workspace can be shared temporarily to browsers, either on the same local network or through a throwaway public link.
 - Users pin project folders; create, discover, import, and manage Pi sessions; inspect streamed messages and tool activity; and review Git state and diffs.
 - Existing Pi credentials, configuration, sessions, packages, skills, prompts, and extensions remain in Pi's normal storage and remain usable by the Pi CLI.
 - NativePi keeps at most one Pi process per project. Different projects may run concurrently.
@@ -49,11 +49,11 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Project-scoped integrated terminals with resizable splits that remain alive while hidden or while another project is active.
 - A quit confirmation that names the agent turns and terminals closing the window would stop, so a run is never ended by accident.
 - A settings screen covering NativePi's own appearance and notification preferences, a user-scope editor for the Pi settings that mean something in a desktop window, a shortcut reference, and the paths to Pi's own files.
-- An on-demand, access-token-protected local server that presents the same projects, chats, changes, and terminals in a browser while the desktop app remains open.
+- An on-demand, access-token-protected server that presents the same projects, chats, changes, and terminals in a browser while the desktop app remains open, reachable either on the host's network or over a public HTTPS link the user creates in one click.
 
 ## Boundaries and Constraints
 
-- NativePi's host is currently Windows-only, single-window, and dark-only. Browser access is limited to an explicitly started server on the host's local network; NativePi does not publish it to the internet.
+- NativePi's host is currently Windows-only, single-window, and dark-only. Browser access always requires an explicitly started server and the access token in the link. A public link is off by default, is created for one session at a time, and lapses on its own after twelve hours; NativePi does not keep a permanent address, an account, or a record of who connected.
 - NativePi does not own an agent loop, make its own LLM requests, add agent tools, or support other harnesses.
 - Pi session files are the durable conversation source of truth. NativePi persists only pinned projects, the last project and chat, text drafts, favorite models, pane state, and its own interface preferences.
 - Agent configuration is Pi's. NativePi reads and writes it through Pi's own settings manager at user scope, so a change made here is a change the Pi command line sees; NativePi never writes Pi's configuration format itself, and exposes only the settings that have meaning in a desktop window. Project-scope overrides remain the Pi command line's business.

@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 import { PiProcess } from "./pi/client.ts";
@@ -692,15 +692,18 @@ const handlers: HandlerMap = {
 
   versions: () => ({ pi: auth.PI_VERSION_STRING, app: app.getVersion() }),
   localServerStatus: () => localServerStatus(),
-  startLocalServer: async () => {
+  startLocalServer: async ({ mode }) => {
     try {
       if (process.env["ELECTRON_RENDERER_URL"]) {
-        return { running: false, links: [], error: "Local server access is available in packaged NativePi." };
+        return { running: false, links: [], error: "Sharing is available in packaged NativePi." };
       }
       return await startLocalServer({
         rendererDir: resolve(import.meta.dirname, "../renderer"),
+        binDir: join(app.getPath("userData"), "bin"),
+        mode,
         invoke: invokeHostRequest,
         subscribe: subscribeHostEvents,
+        onUpdate: (update) => push("localServerChanged", update),
       });
     } catch (err) {
       return { running: false, links: [], error: errorMessage(err) };

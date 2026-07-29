@@ -29,7 +29,10 @@ describe("local server", () => {
     const link = new URL(status.links[0]!);
     const token = new URLSearchParams(link.hash.slice(1)).get("token");
     const origin = `http://127.0.0.1:${link.port}`;
-    expect(await (await fetch(origin)).text()).toContain("NativePi remote");
+    const page = await fetch(origin);
+    expect(await page.text()).toContain("NativePi remote");
+    // A public link is a reachable hostname, so the page has to ask not to be indexed.
+    expect(page.headers.get("x-robots-tag")).toBe("noindex, nofollow");
 
     const rejected = new WebSocket(`ws://127.0.0.1:${link.port}/rpc`);
     await opened(rejected);
