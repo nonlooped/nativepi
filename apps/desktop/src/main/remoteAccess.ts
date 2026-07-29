@@ -87,6 +87,11 @@ export async function startRemoteAccess(
     const url = await openTunnel(binary, port);
     status = { state: "starting", preparing: "Waiting for the link to come online…" };
     await waitForReachable(url);
+    // The client can die while that wait is in flight, and a request already
+    // forwarded can still come back 200 afterwards. Both the exit handler and
+    // `stopRemoteAccess` clear `tunnel`, so its absence is the one signal that
+    // the process behind this link is gone.
+    if (!tunnel) throw new Error("The tunnel client stopped before the link came online.");
     status = {
       state: "running",
       link: `${url}/#token=${token}`,
@@ -137,22 +142,29 @@ function unusableBinary(binary: string, message: string): string {
 /**
  * Block until the hostname actually serves the app.
  *
- * Anything that comes back over HTTPS counts, including an error status: it
- * proves the edge is routing to this machine, which is the only thing the QR
- * code needs to be true. Only a transport failure means "not yet".
+ * Only a successful status counts. Cloudflare registers the name before it has
+ * a working route to the connector, and in that window it answers with an error
+ * page of its own rather than refusing the connection: a tunnel aimed at a dead
+ * port returns 502 from the edge. Treating any completed exchange as proof of
+ * life would publish a link to precisely the broken state this wait exists to
+ * rule out.
  */
 async function waitForReachable(url: string): Promise<void> {
   const deadline = Date.now() + REACHABLE_TIMEOUT_MS;
   for (;;) {
     try {
-      await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(REACHABLE_POLL_MS * 5) });
-      return;
+      const response = await fetch(url, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(REACHABLE_POLL_MS * 5),
+      });
+      if (response.ok) return;
     } catch {
-      if (Date.now() >= deadline) {
-        throw new Error("Cloudflare created the link but it never came online. Try again.");
-      }
-      await new Promise((settle) => setTimeout(settle, REACHABLE_POLL_MS));
+      // Not routing yet; the retry below is the whole handler.
     }
+    if (Date.now() >= deadline) {
+      throw new Error("Cloudflare created the link but it never came online. Try again.");
+    }
+    await new Promise((settle) => setTimeout(settle, REACHABLE_POLL_MS));
   }
 }
 

@@ -403,7 +403,7 @@ async function serveRenderer(
     hashed ? "public, max-age=31536000, immutable" : "no-cache",
   );
 
-  if (compressible(file) && /\bgzip\b/.test(String(request.headers["accept-encoding"] ?? ""))) {
+  if (compressible(file) && acceptsGzip(String(request.headers["accept-encoding"] ?? ""))) {
     // Async: compressing the multi-megabyte entry chunk synchronously would
     // stall the same event loop the RPC socket runs on.
     content = await gzipAsync(content);
@@ -415,6 +415,25 @@ async function serveRenderer(
   response.setHeader("Content-Length", content.byteLength);
   response.writeHead(200);
   response.end(content);
+}
+
+/**
+ * Whether the client will take gzip.
+ *
+ * `q=0` is a refusal rather than a preference, and a client that says so may be
+ * unable to decode the response at all, which would break every script and
+ * stylesheet the app needs. Presence of the word is therefore not enough.
+ */
+export function acceptsGzip(header: string): boolean {
+  for (const entry of header.split(",")) {
+    const [coding, ...parameters] = entry.trim().split(";");
+    if (coding.trim().toLowerCase() !== "gzip") continue;
+    const quality = parameters
+      .map((parameter) => parameter.trim())
+      .find((parameter) => parameter.toLowerCase().startsWith("q="));
+    return quality ? Number(quality.slice(2)) > 0 : true;
+  }
+  return false;
 }
 
 function compressible(file: string): boolean {
