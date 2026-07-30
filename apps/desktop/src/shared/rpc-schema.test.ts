@@ -10,6 +10,7 @@ test("an empty object yields the full set of defaults", () => {
     lastChatByProject: {},
     drafts: {},
     favoriteModels: [],
+    pinnedChats: [],
     panes: undefined,
     reopenLastProject: true,
     preferences: DEFAULT_PREFERENCES,
@@ -37,6 +38,14 @@ test("a corrupt field costs that field, not the whole workspace", () => {
   expect(state.drafts).toEqual({});
   expect(state.favoriteModels).toEqual([]);
   expect(state.reopenLastProject).toBe(true);
+});
+
+test("pinned chats keep valid unique paths", () => {
+  const state = nativePiStateSchema.parse({
+    pinnedChats: ["C:\\one.jsonl", 12, "C:\\one.jsonl", "", "C:\\two.jsonl"],
+  });
+
+  expect(state.pinnedChats).toEqual(["C:\\one.jsonl", "C:\\two.jsonl"]);
 });
 
 test("one unreadable project does not cost the others", () => {

@@ -7,6 +7,7 @@ import { GearSixIcon } from "@phosphor-icons/react/GearSix";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { DotsThreeOutlineIcon } from "@phosphor-icons/react/DotsThreeOutline";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
+import { PushPinIcon } from "@phosphor-icons/react/PushPin";
 import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
 import type { Project } from "../../shared/rpc-schema.ts";
 import type { SessionSummary } from "../../shared/pi-types.ts";
@@ -32,6 +33,7 @@ import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import { editorName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
+import { groupChats } from "../lib/chatOrganization.ts";
 
 export default function Sidebar({ onClose, overlay = false }: { onClose: () => void; overlay?: boolean }) {
   const projects = useAppStore((s) => s.projects);
@@ -332,56 +334,77 @@ function ChatList({
   const isNewChat = useAppStore((s) => s.isNewChat);
   const selectProject = useAppStore((s) => s.selectProject);
   const selectChat = useAppStore((s) => s.selectChat);
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  const visibleSessions = normalizedQuery
-    ? sessions.filter((session) => chatTitle(session).toLocaleLowerCase().includes(normalizedQuery))
-    : sessions;
+  const pinnedChats = useAppStore((s) => s.pinnedChats);
+  const groups = groupChats(sessions, pinnedChats, query, activeSessionFile, now);
+  const visibleCount = groups.reduce((count, group) => count + group.sessions.length, 0);
 
   return (
     <div className="flex flex-col gap-0.5">
       {isNewChat && projectPath === activeProjectPath && (
         <div className="rounded-lg bg-sidebar-accent px-3 py-2 text-sm font-semibold">New chat</div>
       )}
-      {visibleSessions.map((session) => (
-        <SessionMenu
-          key={session.path}
-          projectPath={projectPath}
-          session={session}
-          className={cn(
-            HOVER_REVEAL,
-            "mr-1 opacity-0 group-hover/chat:opacity-100 group-focus-within/chat:opacity-100 data-[popup-open]:opacity-100",
-          )}
-          renderRow={(menu) => (
-            <div
-              className={cn(
-                "group/chat flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent",
-                session.path === activeSessionFile && !isNewChat && "bg-sidebar-accent",
-              )}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  const select = projectPath === activeProjectPath
-                    ? Promise.resolve()
-                    : selectProject(projectPath);
-                  void select.then(() => selectChat(session.path)).then(onNavigate).catch(() => undefined);
-                }}
-                className="flex min-w-0 flex-1 flex-row items-center gap-3 rounded-lg px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
-              >
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{chatTitle(session)}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">{hoursAgo(session.modified, now)}</span>
-              </button>
-              {menu}
-            </div>
-          )}
-        />
+      {groups.map((group) => (
+        <section key={group.label} aria-label={group.label}>
+          <h3 className="px-3 pb-0.5 pt-2 text-xs font-medium text-muted-foreground">
+            {group.label}
+          </h3>
+          <div className="flex flex-col gap-0.5">
+            {group.sessions.map((session) => {
+              const pinned = pinnedChats.includes(session.path);
+              return (
+                <SessionMenu
+                  key={session.path}
+                  projectPath={projectPath}
+                  session={session}
+                  className={cn(
+                    HOVER_REVEAL,
+                    "mr-1 opacity-0 group-hover/chat:opacity-100 group-focus-within/chat:opacity-100 data-[popup-open]:opacity-100",
+                  )}
+                  renderRow={(menu) => (
+                    <div
+                      className={cn(
+                        "group/chat flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent",
+                        session.path === activeSessionFile && !isNewChat && "bg-sidebar-accent",
+                      )}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const select = projectPath === activeProjectPath
+                            ? Promise.resolve()
+                            : selectProject(projectPath);
+                          void select.then(() => selectChat(session.path)).then(onNavigate).catch(() => undefined);
+                        }}
+                        className="flex min-w-0 flex-1 items-start gap-2 rounded-lg px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
+                      >
+                        {pinned ? (
+                          <PushPinIcon className="mt-0.5 shrink-0 text-favorite" weight="fill" aria-hidden />
+                        ) : null}
+                        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                          <span className="truncate text-sm font-medium">{chatTitle(session)}</span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {session.lastPrompt || "No user prompt"}
+                          </span>
+                        </span>
+                        <span className="shrink-0 pt-0.5 text-xs text-muted-foreground">
+                          {hoursAgo(session.modified, now)}
+                        </span>
+                      </button>
+                      {menu}
+                    </div>
+                  )}
+                />
+              );
+            })}
+          </div>
+        </section>
       ))}
       {sessions.length === 0 && !isNewChat && (
         <p className="px-2.5 py-1.5 text-xs text-muted-foreground">
           No chats yet — press {hintFor("newChat")} to start one
         </p>
       )}
-      {sessions.length > 0 && visibleSessions.length === 0 && (
+      {sessions.length > 0 && visibleCount === 0 && (
         <p className="px-2.5 py-1.5 text-xs text-muted-foreground">No matching chats</p>
       )}
     </div>

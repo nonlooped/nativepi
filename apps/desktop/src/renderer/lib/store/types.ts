@@ -129,6 +129,7 @@ export interface ChatSlice {
   sessionsByProject: Record<string, SessionSummary[]>;
   activeSessionFile: string | null;
   isNewChat: boolean;
+  pinnedChats: string[];
 
   /** Conversation runtime per project path, active or not. */
   conversations: Record<string, Conversation>;
@@ -149,6 +150,7 @@ export interface ChatSlice {
   preparing: Record<string, number>;
 
   refreshSessions: (projectPath: string) => Promise<void>;
+  togglePinnedChat: (sessionFile: string) => void;
   selectChat: (sessionFile: string) => Promise<void>;
   newChat: () => void;
   importSession: (projectDir?: string, sourceFile?: string) => Promise<boolean>;

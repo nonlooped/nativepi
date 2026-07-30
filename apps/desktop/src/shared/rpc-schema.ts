@@ -228,6 +228,14 @@ export const nativePiStateSchema = z.object({
   lastChatByProject: z.record(z.string(), z.string()).catch({}),
   drafts: z.record(z.string(), z.string()).catch({}),
   favoriteModels: z.array(z.string()).catch([]),
+  pinnedChats: z
+    .array(z.unknown())
+    .catch([])
+    .pipe(
+      z.transform((entries) => [
+        ...new Set(entries.filter((entry): entry is string => typeof entry === "string" && entry.length > 0)),
+      ]),
+    ),
   panes: paneStateSchema.optional().catch(undefined),
   reopenLastProject: z.boolean().catch(true),
   preferences: preferencesSchema.catch(DEFAULT_PREFERENCES),
