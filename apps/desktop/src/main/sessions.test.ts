@@ -69,7 +69,25 @@ test("listSessions summarizes real sessions and hides empty ones", async () => {
       timestamp: "2026-01-01T00:00:01Z",
       message: { role: "user", content: "first thing I asked", timestamp: 1767225601000 },
     },
-    { type: "session_info", id: "2", parentId: "1", timestamp: "2026-01-01T00:00:02Z", name: "Renamed chat" },
+    {
+      type: "message",
+      id: "2",
+      parentId: "1",
+      timestamp: "2026-01-01T00:00:02Z",
+      message: { role: "assistant", content: [{ type: "text", text: "answer" }], timestamp: 1767225602000 },
+    },
+    {
+      type: "message",
+      id: "3",
+      parentId: "2",
+      timestamp: "2026-01-01T00:00:03Z",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: "latest thing I asked" }, { type: "image", data: "x", mimeType: "image/png" }],
+        timestamp: 1767225603000,
+      },
+    },
+    { type: "session_info", id: "4", parentId: "3", timestamp: "2026-01-01T00:00:04Z", name: "Renamed chat" },
   ]);
 
   await writeSession(projectDir, "empty.jsonl", [
@@ -83,8 +101,38 @@ test("listSessions summarizes real sessions and hides empty ones", async () => {
   expect(sessions[0]!.id).toBe("used");
   expect(sessions[0]!.name).toBe("Renamed chat");
   expect(sessions[0]!.firstMessage).toBe("first thing I asked");
-  expect(sessions[0]!.messageCount).toBe(1);
+  expect(sessions[0]!.lastPrompt).toBe("latest thing I asked");
+  expect(sessions[0]!.messageCount).toBe(3);
   expect(sessions[0]!.created).toBe("2026-01-01T00:00:00.000Z");
+});
+
+test("listSessions describes image-only prompts and bounds long sidebar previews", async () => {
+  const projectDir = await mkdtemp(path.join(tmpdir(), "nativepi-project-"));
+
+  await writeSession(projectDir, "image.jsonl", [
+    { type: "session", version: 3, id: "image", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
+    {
+      type: "message",
+      id: "1",
+      parentId: null,
+      timestamp: "2026-01-01T00:00:01Z",
+      message: { role: "user", content: [{ type: "image", data: "x", mimeType: "image/png" }], timestamp: 1 },
+    },
+  ]);
+  await writeSession(projectDir, "long.jsonl", [
+    { type: "session", version: 3, id: "long", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
+    {
+      type: "message",
+      id: "1",
+      parentId: null,
+      timestamp: "2026-01-01T00:00:02Z",
+      message: { role: "user", content: `  ${"a".repeat(200)}  `, timestamp: 2 },
+    },
+  ]);
+
+  const sessions = await listSessions(projectDir);
+  expect(sessions.find((session) => session.id === "image")?.lastPrompt).toBe("Image attachment");
+  expect(sessions.find((session) => session.id === "long")?.lastPrompt).toBe(`${"a".repeat(159)}…`);
 });
 
 test("watchProjectSessions detects chats created after the sidebar is open", async () => {

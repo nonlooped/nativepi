@@ -2,6 +2,7 @@ import { existsSync, watch, type FSWatcher } from "node:fs";
 import { readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { parseSessionEntries, SessionManager } from "@earendil-works/pi-coding-agent";
+import { isUser, textOf } from "../shared/messages.ts";
 import type { FileEntry, SessionSummary } from "../shared/pi-types.ts";
 
 /**
@@ -18,24 +19,66 @@ export async function readSession(sessionFile: string): Promise<FileEntry[]> {
   return parseSessionEntries(await readFile(sessionFile, "utf8")) as FileEntry[];
 }
 
+async function lastUserPrompt(sessionFile: string): Promise<string> {
+  try {
+    const contents = await readFile(sessionFile, "utf8");
+    let end = contents.length;
+    while (end > 0) {
+      while (end > 0 && (contents[end - 1] === "\n" || contents[end - 1] === "\r")) end -= 1;
+      if (end === 0) break;
+      const start = contents.lastIndexOf("\n", end - 1) + 1;
+      const line = contents.slice(start, end);
+      end = start;
+      try {
+        const entry = JSON.parse(line) as { type?: unknown; message?: unknown };
+        if (entry.type === "message" && isUser(entry.message)) return promptSummary(entry.message.content);
+      } catch {
+        // Pi's parser also skips malformed lines; keep looking for the latest
+        // valid user message instead of losing the whole sidebar row.
+      }
+    }
+    return "";
+  } catch {
+    // A session can disappear between Pi's directory scan and this read. Keep
+    // the remaining list usable; the watcher will remove this row momentarily.
+    return "";
+  }
+}
+
+function promptSummary(content: unknown): string {
+  const normalized = textOf(content).replace(/\s+/g, " ").trim();
+  if (normalized) {
+    const characters = [...normalized];
+    return characters.length <= 160 ? normalized : `${characters.slice(0, 159).join("")}…`;
+  }
+
+  const images = Array.isArray(content)
+    ? content.filter((item) => item && typeof item === "object" && (item as { type?: unknown }).type === "image").length
+    : 0;
+  return images === 1 ? "Image attachment" : images > 1 ? `${images} image attachments` : "Message without text";
+}
+
 export async function listSessions(projectDir: string): Promise<SessionSummary[]> {
   const sessions = await SessionManager.list(projectDir);
-  return sessions
-    // A session with no messages is a chat the user started and never used; it
-    // exists on disk the moment Pi binds to it, so listing it would put a stray
-    // entry in the sidebar for every abandoned one.
-    .filter((session) => session.messageCount > 0)
-    .map((session) => ({
-      path: session.path,
-      id: session.id,
-      name: session.name,
-      // Pi substitutes a placeholder when a session has no readable user text;
-      // an empty string is what lets `chatTitle` fall back to "Untitled chat".
-      firstMessage: session.firstMessage === "(no messages)" ? "" : session.firstMessage,
-      messageCount: session.messageCount,
-      created: session.created.toISOString(),
-      modified: session.modified.toISOString(),
-    }));
+  return await Promise.all(
+    sessions
+      // A session with no messages is a chat the user started and never used; it
+      // exists on disk the moment Pi binds to it, so listing it would put a stray
+      // entry in the sidebar for every abandoned one.
+      .filter((session) => session.messageCount > 0)
+      .map(async (session) => ({
+        path: session.path,
+        id: session.id,
+        name: session.name,
+        // Pi substitutes a placeholder when a session has no readable user text;
+        // an empty string is what lets `chatTitle` fall back to "Untitled chat".
+        firstMessage: session.firstMessage === "(no messages)" ? "" : session.firstMessage,
+        lastPrompt: await lastUserPrompt(session.path),
+        messageCount: session.messageCount,
+        created: session.created.toISOString(),
+        modified: session.modified.toISOString(),
+      })),
+  );
 }
 
 export async function deleteSession(projectDir: string, sessionFile: string): Promise<void> {
