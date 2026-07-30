@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
@@ -17,8 +17,8 @@ import ConfirmDialog from "./ConfirmDialog.tsx";
 import WorktreeDialog from "./WorktreeDialog.tsx";
 import SessionMenu from "./SessionMenu.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
+import ChatSearchDialog from "./ChatSearchDialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Input } from "@/components/ui/input.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
 import {
@@ -48,15 +48,14 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const openTerminal = useAppStore((s) => s.openTerminal);
   const editorId = useAppStore((s) => s.preferences.preferredEditorId);
   const searchFocusRequest = useAppStore((s) => s.searchFocusRequest);
-  const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [now, setNow] = useState(Date.now);
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
   const [worktreesFor, setWorktreesFor] = useState<string | null>(null);
   const [expandedProjects, setExpandedProjects] = useState(() => new Set(activeProjectPath ? [activeProjectPath] : []));
-  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (searchFocusRequest > 0) searchRef.current?.focus();
+    if (searchFocusRequest > 0) setSearchOpen(true);
   }, [searchFocusRequest]);
 
   useEffect(() => {
@@ -126,23 +125,17 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
       onClose={onClose}
       overlay={overlay}
     >
-      <div className={cn("relative px-3 pb-6 pt-2", NO_DRAG_REGION)}>
-        <MagnifyingGlassIcon className="pointer-events-none absolute left-5 top-5 text-muted-foreground" />
-        <Input
-          ref={searchRef}
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search"
-          aria-label="Search chats"
-          className={cn(
-            "border-0 bg-transparent pl-8 text-base shadow-none focus-visible:ring-2 focus-visible:ring-sidebar-ring md:text-base",
-            query ? "pr-3" : "pr-16",
-          )}
-        />
-        {/* The shortcut hint yields once there is text: on a narrow sidebar it
-            would otherwise sit on top of what the user is typing. */}
-        {query ? null : <Kbd className="pointer-events-none absolute right-5 top-4">{hintFor("search")}</Kbd>}
+      <div className={cn("px-3 pb-6 pt-2", NO_DRAG_REGION)}>
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          className="flex h-10 w-full items-center gap-2 rounded-md border border-input bg-input/20 px-2.5 text-left text-base text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:border-sidebar-ring focus-visible:ring-2 focus-visible:ring-sidebar-ring/30"
+          aria-label={withHint("Search chats and messages", "search")}
+        >
+          <MagnifyingGlassIcon className="shrink-0" />
+          <span className="truncate">Search chats</span>
+          <Kbd className="ml-auto shrink-0">{hintFor("search")}</Kbd>
+        </button>
       </div>
 
       <div className="flex items-center justify-between px-4 pb-2">
@@ -284,13 +277,18 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                 </ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
-            {expandedProjects.has(project.path) ? <ChatList projectPath={project.path} query={query} now={now} onNavigate={overlay ? onClose : undefined} /> : null}
+            {expandedProjects.has(project.path) ? <ChatList projectPath={project.path} now={now} onNavigate={overlay ? onClose : undefined} /> : null}
           </div>
           );
         })}
       </div>
 
       <WorktreeDialog projectPath={worktreesFor} onClose={() => setWorktreesFor(null)} />
+      <ChatSearchDialog
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onNavigate={overlay ? onClose : undefined}
+      />
 
       <ConfirmDialog
         open={pendingRemoval !== null}
@@ -317,12 +315,10 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
 
 function ChatList({
   projectPath,
-  query,
   now,
   onNavigate,
 }: {
   projectPath: string;
-  query: string;
   now: number;
   onNavigate?: () => void;
 }) {
@@ -332,17 +328,13 @@ function ChatList({
   const isNewChat = useAppStore((s) => s.isNewChat);
   const selectProject = useAppStore((s) => s.selectProject);
   const selectChat = useAppStore((s) => s.selectChat);
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  const visibleSessions = normalizedQuery
-    ? sessions.filter((session) => chatTitle(session).toLocaleLowerCase().includes(normalizedQuery))
-    : sessions;
 
   return (
     <div className="flex flex-col gap-0.5">
       {isNewChat && projectPath === activeProjectPath && (
         <div className="rounded-lg bg-sidebar-accent px-3 py-2 text-sm font-semibold">New chat</div>
       )}
-      {visibleSessions.map((session) => (
+      {sessions.map((session) => (
         <SessionMenu
           key={session.path}
           projectPath={projectPath}
@@ -380,9 +372,6 @@ function ChatList({
         <p className="px-2.5 py-1.5 text-xs text-muted-foreground">
           No chats yet — press {hintFor("newChat")} to start one
         </p>
-      )}
-      {sessions.length > 0 && visibleSessions.length === 0 && (
-        <p className="px-2.5 py-1.5 text-xs text-muted-foreground">No matching chats</p>
       )}
     </div>
   );

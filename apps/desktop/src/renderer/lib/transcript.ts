@@ -1,34 +1,9 @@
 import type {
   AgentMessage,
   SessionEntry,
-  SessionSummary,
   ToolResultMessage,
 } from "../../shared/pi-types.ts";
-
-export function chatTitle(session: SessionSummary): string {
-  if (session.name) return session.name;
-
-  const text = session.firstMessage.trim();
-  const skill = /^<skill name="([^"]+)" location="[^"]+">\r?\n[\s\S]*?\r?\n<\/skill>(?:\r?\n\r?\n([\s\S]+))?$/.exec(text);
-  if (skill) return skill[2]?.trim().split(/\r?\n/)[0] || skill[1] || "Untitled chat";
-
-  const file = /^<file name="([^"]+)">[\s\S]*?<\/file>\s*([\s\S]*)$/.exec(text);
-  if (file) {
-    const request = file[2]?.trim().split(/\r?\n/)[0];
-    if (request) return request;
-    return file[1]?.split(/[\\/]/).at(-1) || "Untitled chat";
-  }
-
-  let first = text.split(/\r?\n/)[0]?.trim() ?? "";
-  let fallback = "";
-  while (first) {
-    const token = /^(\/skill:|\/|@)(\S+)(?:\s+|$)/.exec(first);
-    if (!token) break;
-    fallback ||= token[1] === "@" ? token[2]!.split(/[\\/]/).at(-1)! : token[2]!;
-    first = first.slice(token[0].length).trimStart();
-  }
-  return first || fallback || "Untitled chat";
-}
+export { chatTitle } from "../../shared/messages.ts";
 
 export function toolResultsById(entries: SessionEntry[]): Map<string, ToolResultMessage> {
   const map = new Map<string, ToolResultMessage>();

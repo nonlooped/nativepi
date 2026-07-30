@@ -2,7 +2,7 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { deleteSession, listSessions, readSession, watchProjectSessions } from "./sessions.ts";
+import { deleteSession, listSessions, readSession, searchSessions, searchSnippet, watchProjectSessions } from "./sessions.ts";
 
 function jsonl(records: unknown[]): string {
   return records.map((r) => JSON.stringify(r)).join("\n") + "\n";
@@ -127,4 +127,62 @@ test("deleteSession refuses a file belonging to another project", async () => {
 
   await expect(deleteSession(mine, theirSession)).rejects.toThrow("does not belong to this project");
   expect(await readSession(theirSession)).toHaveLength(2);
+});
+
+test("searchSessions finds titles and user or assistant message text", async () => {
+  const projectDir = await mkdtemp(path.join(tmpdir(), "nativepi-search-"));
+
+  await writeSession(projectDir, "message-match.jsonl", [
+    { type: "session", version: 3, id: "message-match", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
+    {
+      type: "message",
+      id: "1",
+      parentId: null,
+      timestamp: "2026-01-01T00:00:01Z",
+      message: { role: "user", content: "Please inspect the payment flow", timestamp: 1767225601000 },
+    },
+    {
+      type: "message",
+      id: "2",
+      parentId: "1",
+      timestamp: "2026-01-01T00:00:02Z",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "The regression is in the webhook handler." }],
+        timestamp: 1767225602000,
+      },
+    },
+    { type: "session_info", id: "3", parentId: "2", timestamp: "2026-01-01T00:00:03Z", name: "Payment investigation" },
+  ]);
+  await writeSession(projectDir, "title-match.jsonl", [
+    { type: "session", version: 3, id: "title-match", timestamp: "2026-01-02T00:00:00Z", cwd: projectDir },
+    {
+      type: "message",
+      id: "1",
+      parentId: null,
+      timestamp: "2026-01-02T00:00:01Z",
+      message: { role: "user", content: "Unrelated opening message", timestamp: 1767312001000 },
+    },
+    { type: "session_info", id: "2", parentId: "1", timestamp: "2026-01-02T00:00:02Z", name: "Webhook investigation" },
+  ]);
+
+  const results = await searchSessions([projectDir], "webhook");
+
+  expect(results).toHaveLength(2);
+  expect(results[0]).toMatchObject({ title: "Webhook investigation", match: "title" });
+  expect(results[1]).toMatchObject({ match: "assistant", snippet: "The regression is in the webhook handler." });
+
+  const userResults = await searchSessions([projectDir], "inspect");
+  expect(userResults).toHaveLength(1);
+  expect(userResults[0]).toMatchObject({ title: "Payment investigation", match: "user" });
+});
+
+test("searchSnippet compacts whitespace and keeps context around long matches", () => {
+  const text = `${"start ".repeat(20)}needle\n\n${"end ".repeat(30)}`;
+  const snippet = searchSnippet(text, text.indexOf("needle"), "needle".length);
+
+  expect(snippet).toStartWith("…");
+  expect(snippet).toContain("needle end");
+  expect(snippet).toEndWith("…");
+  expect(snippet).not.toContain("\n");
 });

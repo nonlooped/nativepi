@@ -58,7 +58,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: "search",
     binding: "$mod+KeyK",
     label: "Search chats",
-    description: "Focus the sidebar search box, opening the sidebar if it is closed.",
+    description: "Search chat titles and messages across your projects.",
     group: "Navigation",
   },
   {
