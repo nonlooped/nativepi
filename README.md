@@ -125,7 +125,12 @@ explicitly enabled, an access-token-protected HTTP and WebSocket server is
 opened on the local network until it is stopped or NativePi exits. Remote access
 points a throwaway Cloudflare quick tunnel at that same server, so a phone or a
 laptop can reach it over HTTPS without a VPN, an account, or an inbound firewall
-rule. The tunnel closes itself after twelve hours.
+rule. The tunnel closes itself after twelve hours. While either kind of access
+is on, Settings reports how many devices are connected and over which link,
+re-checks that the public address still answers, and keeps a record of every
+link this window has copied or shown as a QR code. One token backs both links,
+so replacing it invalidates everything handed out so far, and revoking closes
+the tunnel and the server together.
 
 ### Extensions
 

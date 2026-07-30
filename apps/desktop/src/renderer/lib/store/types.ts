@@ -252,6 +252,23 @@ export interface PiSettingsSlice {
 }
 
 /** Chrome: what is open, how wide, and one-shot requests to the view. */
+/**
+ * One time a link was handed to another device.
+ *
+ * A token in a URL has no server-side record of who was given it, so the only
+ * account of where a link has gone is the one this window keeps as it hands it
+ * out. It lasts as long as the window does: the links themselves do not survive
+ * a restart, so a record of them would only ever describe links that are already
+ * dead.
+ */
+export interface AccessHandoff {
+  id: string;
+  kind: "copy" | "qr";
+  scope: "local" | "remote";
+  link: string;
+  at: number;
+}
+
 export interface UiSlice {
   settingsOpen: boolean;
   sidebarSize: number;
@@ -267,6 +284,8 @@ export interface UiSlice {
   preferences: Preferences;
   /** How far NativePi has got with replacing itself, as main last reported it. */
   update: UpdateState;
+  /** Links handed to another device since this window opened, newest first. */
+  accessHandoffs: AccessHandoff[];
 
   openSettings: () => void;
   closeSettings: () => void;
@@ -282,6 +301,7 @@ export interface UiSlice {
   consumeBranchMenuRequest: () => void;
   openTerminal: (projectPath: string) => void;
   toggleTerminal: (projectPath: string) => void;
+  recordAccessHandoff: (kind: AccessHandoff["kind"], scope: AccessHandoff["scope"], link: string) => void;
   onUpdateState: (update: UpdateState) => void;
   checkForUpdate: () => Promise<void>;
   downloadUpdate: () => Promise<void>;

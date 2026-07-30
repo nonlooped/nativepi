@@ -69,6 +69,14 @@ export interface PendingWork {
   runs: string[];
   /** Projects owning a terminal whose shell is still alive. */
   terminals: string[];
+  /**
+   * Browsers connected over a shared link.
+   *
+   * Not this window's work, but it ends with this window: closing NativePi takes
+   * the server down and every phone and laptop reading it goes blank, which the
+   * person holding one has no way of predicting.
+   */
+  viewers: number;
 }
 
 export interface TerminalSession {
@@ -115,6 +123,16 @@ export interface RemoteAccessStatus {
   preparing?: string;
   /** Epoch ms at which NativePi closes the public link on its own. */
   expiresAt?: number;
+  /**
+   * Whether the public address answered the last time NativePi asked.
+   *
+   * A quick tunnel can stop routing without its client exiting, which leaves a
+   * link that looks live in the app and is dead on the phone. The state alone
+   * cannot tell those apart, so the address is re-checked while it is up.
+   */
+  reachable?: boolean;
+  /** Epoch ms of that check. */
+  checkedAt?: number;
 }
 
 export interface AccessStatus {
@@ -391,7 +409,10 @@ export type HostRequests = {
     response: AccessStatus;
   };
   stopLocalAccess: { params: Record<string, never>; response: AccessStatus };
+  /** Mint a new token, which invalidates every link handed out so far. */
   replaceAccessLink: { params: Record<string, never>; response: AccessStatus };
+  /** Close local and remote access together and disconnect everyone. */
+  revokeAccess: { params: Record<string, never>; response: AccessStatus };
   startRemoteAccess: { params: Record<string, never>; response: AccessStatus };
   stopRemoteAccess: { params: Record<string, never>; response: AccessStatus };
 

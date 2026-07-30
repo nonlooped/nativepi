@@ -72,6 +72,10 @@ const desktopOnlyResponses: Partial<Record<HostRequestName, unknown>> = {
     local: { running: true, links: [], clients: [] },
     remote: { state: "error", error: "Access can only be managed from the desktop app." },
   },
+  revokeAccess: {
+    local: { running: true, links: [], clients: [] },
+    remote: { state: "error", error: "Access can only be managed from the desktop app." },
+  },
   startRemoteAccess: {
     local: { running: true, links: [], clients: [] },
     remote: { state: "error", error: "Access can only be managed from the desktop app." },

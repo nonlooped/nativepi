@@ -49,9 +49,10 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Pi's own slash commands — extension commands, prompt templates, and skills — offered by name in the composer and run through Pi, including while a turn is in flight.
 - Responsive project and context panes, fixed keyboard shortcuts, reduced-motion handling, and standard accessible desktop controls.
 - Project-scoped integrated terminals with resizable splits that remain alive while hidden or while another project is active.
-- A quit confirmation that names the agent turns and terminals closing the window would stop, so a run is never ended by accident.
+- A quit confirmation that names the agent turns, terminals, and connected browsers closing the window would end, so neither a run nor someone else's session is stopped by accident.
 - A settings screen covering NativePi's own appearance and notification preferences, a user-scope editor for the Pi settings that mean something in a desktop window, a shortcut reference, and the paths to Pi's own files.
 - On-demand, access-token-protected browser access to the same projects, chats, changes, and terminals, either on the local network or through a temporary public link the user creates in one click, while the desktop app remains open.
+- Access the owner can account for: how many devices are connected and over which link, whether the public address still answers, a record of every link this window has copied or shown as a QR code, and explicit controls to replace the token or revoke access outright.
 - Self-updating from the published GitHub release: a notification when a newer version exists, a download the user starts, and an install that stops the running work before it restarts the app.
 
 ## Boundaries and Constraints

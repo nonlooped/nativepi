@@ -42,6 +42,16 @@ const REACHABLE_TIMEOUT_MS = 180_000;
 const REACHABLE_POLL_MS = 1_000;
 
 /**
+ * How often a live link is re-checked.
+ *
+ * A quick tunnel can stop routing while its client keeps running, and the exit
+ * code that would otherwise report a dead link never arrives. Sixty seconds is
+ * slow enough to be free — one HEAD an hour of use — and fast enough that the
+ * settings screen is not the last to know.
+ */
+const HEALTH_POLL_MS = 60_000;
+
+/**
  * How long the download may go without delivering a byte.
  *
  * A stall rather than a total budget: the file is over 50 MB and a slow line is
@@ -60,6 +70,7 @@ const LINK_LIFETIME_MS = 12 * 60 * 60 * 1000;
 
 let tunnel: ChildProcessWithoutNullStreams | undefined;
 let expiry: NodeJS.Timeout | undefined;
+let health: NodeJS.Timeout | undefined;
 let status: RemoteAccessStatus = { state: "idle" };
 
 export function remoteAccessStatus(): RemoteAccessStatus {
@@ -97,7 +108,10 @@ export async function startRemoteAccess(
       state: "running",
       link: `${url}/#token=${token}`,
       expiresAt: Date.now() + LINK_LIFETIME_MS,
+      reachable: true,
+      checkedAt: Date.now(),
     };
+    health = setInterval(() => void checkHealth(url), HEALTH_POLL_MS);
     expiry = setTimeout(() => {
       void stopRemoteAccess().then(() => {
         status = { state: "idle", error: "The public link reached its twelve hour limit and was closed." };
@@ -115,6 +129,8 @@ export async function stopRemoteAccess(): Promise<void> {
   tunnel = undefined;
   if (expiry) clearTimeout(expiry);
   expiry = undefined;
+  if (health) clearInterval(health);
+  health = undefined;
   status = { state: "idle" };
   if (!child) return;
 
@@ -153,20 +169,41 @@ function unusableBinary(binary: string, message: string): string {
 async function waitForReachable(url: string): Promise<void> {
   const deadline = Date.now() + REACHABLE_TIMEOUT_MS;
   for (;;) {
-    try {
-      const response = await fetch(url, {
-        method: "HEAD",
-        signal: AbortSignal.timeout(REACHABLE_POLL_MS * 5),
-      });
-      if (response.ok) return;
-    } catch {
-      // Not routing yet; the retry below is the whole handler.
-    }
+    if (await responds(url)) return;
     if (Date.now() >= deadline) {
       throw new Error("Cloudflare created the link but it never came online. Try again.");
     }
     await new Promise((settle) => setTimeout(settle, REACHABLE_POLL_MS));
   }
+}
+
+async function responds(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url, {
+      method: "HEAD",
+      signal: AbortSignal.timeout(REACHABLE_POLL_MS * 5),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Re-check a live link and record the answer.
+ *
+ * The reading is reported rather than acted on: a tunnel that misses one probe
+ * is usually back on the next, and tearing the link down over a single failed
+ * request would replace a brief hiccup with a new address nobody has.
+ */
+async function checkHealth(url: string): Promise<void> {
+  if (status.state !== "running") return;
+  const link = status.link;
+  if (!link || !link.startsWith(`${url}/`)) return;
+  const reachable = await responds(url);
+  // The link may have been stopped or replaced while the request was in flight.
+  if (status.state !== "running" || status.link !== link) return;
+  status = { ...status, reachable, checkedAt: Date.now() };
 }
 
 function openTunnel(binary: string, port: number): Promise<string> {
@@ -228,6 +265,8 @@ function openTunnel(binary: string, port: number): Promise<string> {
       // A tunnel that drops hours later leaves the link dead, and the settings
       // screen is polling, so say so rather than keep advertising the address.
       else if (!deliberate) {
+        if (health) clearInterval(health);
+        health = undefined;
         status = { state: "error", error: `The tunnel stopped with exit code ${code ?? "unknown"}.` };
       }
     });

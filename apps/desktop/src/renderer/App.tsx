@@ -103,6 +103,7 @@ export default function App() {
           ) : null}
         </div>
         <WindowControls />
+        <QuitDialog />
       </div>
     );
   }
