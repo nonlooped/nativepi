@@ -141,20 +141,23 @@ export class PiProcess {
    * menu, where an extension provider that hangs would otherwise hold the menu
    * open on a promise that never settles while the user keeps typing.
    */
-  frameRequest<T>(build: (requestId: string) => TuiClientFrame): Promise<T> {
+  frameRequest<T>(build: (requestId: string) => TuiClientFrame, timeoutMs = FRAME_REQUEST_TIMEOUT_MS): Promise<T> {
     const requestId = `f-${nextRequestId++}`;
     return new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.frameWaiters.delete(requestId);
-        reject(new Error("The extension did not answer in time."));
-      }, FRAME_REQUEST_TIMEOUT_MS);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      if (timeoutMs > 0) {
+        timer = setTimeout(() => {
+          this.frameWaiters.delete(requestId);
+          reject(new Error("The extension did not answer in time."));
+        }, timeoutMs);
+      }
       this.frameWaiters.set(requestId, {
         resolve: (data) => {
-          clearTimeout(timer);
+          if (timer) clearTimeout(timer);
           resolve(data as T);
         },
         reject: (error) => {
-          clearTimeout(timer);
+          if (timer) clearTimeout(timer);
           reject(error);
         },
       });
@@ -171,6 +174,23 @@ export class PiProcess {
    */
   getProviders(): Promise<AuthProviderInfo[]> {
     return this.frameRequest<AuthProviderInfo[]>((requestId) => ({ type: "nativepi_tui_get_providers", requestId }));
+  }
+
+  loginProvider(providerId: string, authType: "api_key" | "oauth"): Promise<void> {
+    return this.frameRequest<true>(
+      (requestId) => ({ type: "nativepi_tui_login", requestId, providerId, authType }),
+      0,
+    ).then(() => undefined);
+  }
+
+  logoutProvider(providerId: string): Promise<void> {
+    return this.frameRequest<true>((requestId) => ({ type: "nativepi_tui_logout", requestId, providerId }), 0).then(
+      () => undefined,
+    );
+  }
+
+  respondAuthPrompt(id: string, result: { value?: string; cancel?: boolean }): void {
+    this.sendFrame({ type: "nativepi_tui_auth_respond", id, ...result });
   }
 
   request<T = unknown>(command: PiCommand): Promise<T> {

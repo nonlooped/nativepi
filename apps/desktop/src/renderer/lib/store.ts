@@ -45,7 +45,7 @@ rpc.events.on("sessionsChanged", ({ projectDir }) => {
   void useAppStore.getState().refreshSessions(projectDir);
 });
 rpc.events.on("authPrompt", (payload) => useAppStore.getState().onAuthPrompt(payload));
-rpc.events.on("authNotice", ({ notice }) => useAppStore.getState().onAuthNotice(notice));
+rpc.events.on("authNotice", (payload) => useAppStore.getState().onAuthNotice(payload));
 rpc.events.on("updateState", (state) => useAppStore.getState().onUpdateState(state));
 rpc.events.on("tuiFrame", (payload) => useAppStore.getState().onTuiFrame(payload));
 

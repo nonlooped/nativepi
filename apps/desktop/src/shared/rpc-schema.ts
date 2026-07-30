@@ -347,11 +347,11 @@ export type HostRequests = {
    */
   getSessionProviders: { params: { projectDir: string }; response: { providers: AuthProviderInfo[]; error?: string } };
   login: {
-    params: { providerId: string; type: "api_key" | "oauth" };
+    params: { projectDir?: string; providerId: string; type: "api_key" | "oauth" };
     response: { ok: boolean; error?: string };
   };
-  authRespond: { params: { id: string; value?: string; cancel?: boolean }; response: { ok: boolean } };
-  logout: { params: { providerId: string }; response: { ok: boolean; error?: string } };
+  authRespond: { params: { projectDir?: string; id: string; value?: string; cancel?: boolean }; response: { ok: boolean } };
+  logout: { params: { projectDir?: string; providerId: string }; response: { ok: boolean; error?: string } };
   checkTrust: { params: { projectDir: string }; response: { required: boolean; trusted: boolean } };
   setTrust: { params: { projectDir: string; trusted: boolean }; response: { ok: boolean } };
   windowMinimize: { params: Record<string, never>; response: { ok: boolean } };
@@ -500,8 +500,8 @@ export type HostEvents = {
   piError: { projectDir: string; message: string };
   sessionChangedExternally: { projectDir: string; sessionFile: string };
   sessionsChanged: { projectDir: string };
-  authPrompt: { id: string; prompt: AuthPromptRequest };
-  authNotice: { notice: AuthNotice };
+  authPrompt: { projectDir?: string; id: string; prompt: AuthPromptRequest };
+  authNotice: { projectDir?: string; notice: AuthNotice };
   windowMaximized: { maximized: boolean };
   updateState: UpdateState;
   /** The close was held back because work is in flight. The window decides. */

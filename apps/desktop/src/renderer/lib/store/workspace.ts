@@ -36,7 +36,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       // may open the pane itself once it knows the repo has changes.
       contextPaneChosen: loaded.panes !== undefined,
     });
-    void get().loadProviders();
+    if (!restoreProject) void get().loadProviders();
     // Read once as well as subscribing: the first check runs while the window
     // is still loading, so its result may already have been pushed and missed.
     void rpc.request.updateState({}).then((update) => get().onUpdateState(update));
@@ -100,6 +100,9 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       extSurfaces: [],
       extTriggers: [],
       extUiState: NO_EXTENSION_UI_STATE,
+      providers: [],
+      providersLoaded: false,
+      authFlow: null,
     });
     // The panes belonged to the project being left, and their components belong
     // to a Pi that is still running. Nothing about them arrives again on its own —

@@ -73,6 +73,7 @@ export interface PendingMessage {
 }
 
 export interface AuthFlow {
+  projectDir?: string;
   providerId: string;
   providerName: string;
   type: "api_key" | "oauth";
@@ -206,8 +207,8 @@ export interface AuthSlice {
   dismissTrust: () => void;
   revokeTrust: () => Promise<void>;
   promptTrust: () => void;
-  onAuthPrompt: (payload: { id: string; prompt: AuthPromptRequest }) => void;
-  onAuthNotice: (notice: AuthNotice) => void;
+  onAuthPrompt: (payload: { projectDir?: string; id: string; prompt: AuthPromptRequest }) => void;
+  onAuthNotice: (payload: { projectDir?: string; notice: AuthNotice }) => void;
 }
 
 /** What the project looks like right now: working tree, and loaded extensions. */
