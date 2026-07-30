@@ -52,8 +52,12 @@ export function setMainWindow(win: BrowserWindow | null): void {
   mainWindow = win;
 }
 
-function push<K extends keyof HostEvents>(channel: K, payload: HostEvents[K]): void {
+function pushDesktop<K extends keyof HostEvents>(channel: K, payload: HostEvents[K]): void {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload);
+}
+
+function push<K extends keyof HostEvents>(channel: K, payload: HostEvents[K]): void {
+  pushDesktop(channel, payload);
   for (const listener of hostEventListeners) listener(channel, payload);
 }
 
@@ -140,7 +144,7 @@ export function quitBlocked(): boolean {
   const terminals = liveTerminalProjects();
   const viewers = localServerStatus().clients.length;
   if (runs.length === 0 && terminals.length === 0 && viewers === 0) return false;
-  push("quitRequested", { work: { runs, terminals, viewers } });
+  pushDesktop("quitRequested", { work: { runs, terminals, viewers } });
   return true;
 }
 

@@ -235,7 +235,7 @@ export default function AccessSettings() {
             title="Replace the token"
             description="Both links are minted again and every connected device is signed out. Access itself stays on."
             action={
-              <Button variant="outline" disabled={Boolean(busy)} onClick={() => setPending("replace")}>
+              <Button variant="outline" disabled={Boolean(busy) || status.remote.state === "starting"} onClick={() => setPending("replace")}>
                 <ArrowsClockwiseIcon data-icon="inline-start" />
                 {busy === "replace" ? "Replacing…" : "Replace token"}
               </Button>
@@ -245,7 +245,7 @@ export default function AccessSettings() {
             title="Revoke all access"
             description="Closes the public link and the network server together. NativePi goes back to this window only."
             action={
-              <Button variant="destructive" disabled={Boolean(busy)} onClick={() => setPending("revoke")}>
+              <Button variant="destructive" disabled={Boolean(busy) || status.remote.state === "starting"} onClick={() => setPending("revoke")}>
                 <StopIcon weight="fill" data-icon="inline-start" />
                 {busy === "revoke" ? "Revoking…" : "Revoke access"}
               </Button>

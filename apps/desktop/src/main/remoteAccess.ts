@@ -198,9 +198,11 @@ async function responds(url: string): Promise<boolean> {
  */
 async function checkHealth(url: string): Promise<void> {
   if (status.state !== "running") return;
+  const link = status.link;
+  if (!link || !link.startsWith(`${url}/`)) return;
   const reachable = await responds(url);
   // The link may have been stopped or replaced while the request was in flight.
-  if (status.state !== "running") return;
+  if (status.state !== "running" || status.link !== link) return;
   status = { ...status, reachable, checkedAt: Date.now() };
 }
 
@@ -263,6 +265,8 @@ function openTunnel(binary: string, port: number): Promise<string> {
       // A tunnel that drops hours later leaves the link dead, and the settings
       // screen is polling, so say so rather than keep advertising the address.
       else if (!deliberate) {
+        if (health) clearInterval(health);
+        health = undefined;
         status = { state: "error", error: `The tunnel stopped with exit code ${code ?? "unknown"}.` };
       }
     });
