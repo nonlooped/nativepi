@@ -36,6 +36,7 @@ import DiffView from "./DiffView.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 import { ExtensionEntry, ExtensionToolResult, useHasEntryRenderer, useHasToolRenderer } from "./ExtensionSlots.tsx";
 import FileContextMenu from "./FileContextMenu.tsx";
+import { TuiPane } from "./TuiSurface.tsx";
 
 const streamdownPlugins = { code };
 
@@ -153,6 +154,7 @@ export default function Transcript() {
           className="min-h-0 flex-1 overflow-y-auto px-4 py-5 [scrollbar-gutter:stable]"
         >
         <div className="mx-auto flex w-full max-w-(--conversation-width) flex-col gap-6">
+          <ExtensionHeader />
           {items.map((item, index) =>
             item.type === "response" ? (
               // Keyed by position, not id: a response's id changes from the
@@ -241,6 +243,55 @@ export default function Transcript() {
   );
 }
 
+/**
+ * A header component an extension put above the conversation.
+ *
+ * Pi shows a custom header once, at the top of the chat, and this is the same
+ * place: inside the transcript's own column so it scrolls with the conversation
+ * rather than pinning itself over it.
+ */
+function ExtensionHeader() {
+  const header = useAppStore((s) => s.extSurfaces.find((surface) => surface.placement === "header"));
+  return header ? <TuiPane surface={header} rows={HEADER_ROWS} /> : null;
+}
+
+const HEADER_ROWS = 6;
+
+/**
+ * The current frame of an extension's working indicator, or `null` for ours.
+ *
+ * Frames arrive as the extension styled them, which for a terminal means ANSI
+ * colour around the glyph. The escape codes are stripped rather than translated:
+ * this pill has one foreground colour in the window's palette, and a spinner in
+ * an extension's idea of "accent" would be the one element on screen ignoring the
+ * theme. Reduced motion holds the first frame instead of cycling.
+ */
+function useIndicatorFrame(
+  indicator: { frames: string[]; intervalMs: number } | null,
+  reduced: boolean,
+): string | null {
+  const [index, setIndex] = useState(0);
+  const frames = indicator?.frames;
+  const interval = indicator?.intervalMs ?? 120;
+
+  useEffect(() => {
+    if (!frames || frames.length < 2 || reduced) return;
+    const timer = window.setInterval(() => setIndex((current) => current + 1), Math.max(30, interval));
+    return () => window.clearInterval(timer);
+  }, [frames, interval, reduced]);
+
+  if (!frames) return null;
+  if (frames.length === 0) return "";
+  return stripAnsi(frames[index % frames.length] ?? "");
+}
+
+/** Escape sequences, out. See `useIndicatorFrame` for why they are not honoured. */
+function stripAnsi(text: string): string {
+  // CSI (colour, cursor) and OSC (hyperlinks, titles), which is everything pi-tui
+  // puts around a glyph.
+  return text.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "");
+}
+
 function RunStatusBar({
   activeTool,
   compacting,
@@ -253,31 +304,57 @@ function RunStatusBar({
   const abort = useAppStore((s) => s.abort);
   const runStartedAt = useAppStore((s) => activeConversation(s).runStartedAt);
   const git = useAppStore((s) => s.git);
+  const ui = useAppStore((s) => s.extUiState);
   const elapsed = useElapsed(runStartedAt);
   const reduced = useReducedMotion();
   const changed = git?.isRepo ? git.files.length : 0;
+  const frame = useIndicatorFrame(ui.workingIndicator, reduced);
+
+  // `ctx.ui.setWorkingVisible(false)` hides the loader row: an extension that
+  // reports progress its own way should not have to compete with this pill. What
+  // it does not hide is Stop, which is the app's, not Pi's: this is the only way
+  // to cancel a turn with a pointer, and an extension turning off a progress
+  // indicator is not asking for that to go with it.
+  const progress = ui.workingVisible;
 
   return (
-    <div className="pointer-events-auto flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full border bg-popover py-1 pl-3 pr-1 text-xs text-popover-foreground shadow-lg">
-      {reduced ? (
-        <CircleIcon weight="fill" className="shrink-0 text-muted-foreground" />
-      ) : (
-        <CircleNotchIcon className="shrink-0 animate-spin text-muted-foreground" />
+    <div
+      className={cn(
+        "pointer-events-auto flex max-w-[calc(100%-2rem)] items-center rounded-full border bg-popover py-1 pr-1 text-xs text-popover-foreground shadow-lg",
+        progress ? "gap-2 pl-3" : "pl-1",
       )}
-      <span className="truncate font-medium">
-        {compacting ? "Compacting context" : activeTool ? `Running ${activeTool}` : "Working"}
-      </span>
-      {elapsed ? (
-        <span className="shrink-0 tabular-nums text-muted-foreground" aria-hidden="true">
-          {elapsed}
-        </span>
-      ) : null}
-      {changed > 0 ? (
+    >
+      {progress ? (
         <>
-          <span aria-hidden="true" className="text-muted-foreground/50">
-            ·
+          {frame === null ? (
+            reduced ? (
+              <CircleIcon weight="fill" className="shrink-0 text-muted-foreground" />
+            ) : (
+              <CircleNotchIcon className="shrink-0 animate-spin text-muted-foreground" />
+            )
+          ) : frame === "" ? null : (
+            <span aria-hidden="true" className="shrink-0 font-mono text-muted-foreground">
+              {frame}
+            </span>
+          )}
+          <span className="truncate font-medium">
+            {compacting
+              ? "Compacting context"
+              : (ui.workingMessage ?? (activeTool ? `Running ${activeTool}` : "Working"))}
           </span>
-          <span className="shrink-0 truncate text-muted-foreground">{pluralize(changed, "file")} changed</span>
+          {elapsed ? (
+            <span className="shrink-0 tabular-nums text-muted-foreground" aria-hidden="true">
+              {elapsed}
+            </span>
+          ) : null}
+          {changed > 0 ? (
+            <>
+              <span aria-hidden="true" className="text-muted-foreground/50">
+                ·
+              </span>
+              <span className="shrink-0 truncate text-muted-foreground">{pluralize(changed, "file")} changed</span>
+            </>
+          ) : null}
         </>
       ) : null}
       {/* A labelled rectangle, not another circle: geometry, not hue, is what
@@ -588,6 +665,15 @@ function AssistantResponse({
   const [workOpen, setWorkOpen] = useState(streaming);
   const responseRef = useRef<HTMLElement>(null);
   const changes = useMemo(() => turnChanges(messages, results), [messages, results]);
+  // `ctx.ui.setToolsExpanded()` is Pi's control over whether tool output shows
+  // expanded, and the work section is where NativePi keeps that output. Followed
+  // on change rather than read once, because an extension usually flips it around
+  // something it is about to do and then puts it back.
+  const toolsExpanded = useAppStore((s) => s.extUiState.toolsExpanded);
+  const hiddenThinkingLabel = useAppStore((s) => s.extUiState.hiddenThinkingLabel);
+  useEffect(() => {
+    setWorkOpen(toolsExpanded);
+  }, [toolsExpanded]);
   useEffect(() => {
     if (!streaming) setWorkOpen(false);
   }, [streaming]);
@@ -621,6 +707,16 @@ function AssistantResponse({
                 );
               }
               if (block.type === "thinking") {
+                // A thinking block with nothing in it is a hidden one: the model
+                // reasoned and the provider withheld the text. Pi lets an
+                // extension name that state through `setHiddenThinkingLabel`.
+                if (!block.thinking.trim()) {
+                  return (
+                    <p key={i} className="text-xs italic text-muted-foreground">
+                      {hiddenThinkingLabel ?? "Thought privately"}
+                    </p>
+                  );
+                }
                 return (
                   <Streamdown
                     key={i}

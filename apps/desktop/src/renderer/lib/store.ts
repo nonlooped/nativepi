@@ -47,6 +47,7 @@ rpc.events.on("sessionsChanged", ({ projectDir }) => {
 rpc.events.on("authPrompt", (payload) => useAppStore.getState().onAuthPrompt(payload));
 rpc.events.on("authNotice", ({ notice }) => useAppStore.getState().onAuthNotice(notice));
 rpc.events.on("updateState", (state) => useAppStore.getState().onUpdateState(state));
+rpc.events.on("tuiFrame", (payload) => useAppStore.getState().onTuiFrame(payload));
 
 export { thinkingLabel } from "./store/models.ts";
 export { activeConversation } from "./store/conversation.ts";

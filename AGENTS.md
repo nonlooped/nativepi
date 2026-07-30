@@ -42,6 +42,25 @@ Do not add:
 - Checkpoints, hidden commits, or anything that rewrites Git history.
 - A second durable conversation store or parallel Pi domain model.
 
+Pi is started from `main/pi/host/entry.ts`, not from Pi's `rpc-entry`. That entry
+is Pi's own `main(["--mode", "rpc"])` with one interception: `bindExtensions` is
+wrapped so the extension UI context gains the terminal half Pi's RPC mode stubs
+out, which is what makes `ctx.ui.custom()`, component widgets, footers and headers
+appear in the window. RPC mode itself is untouched and stays Pi's to maintain.
+
+That interception, and the pi-tui components it renders, are the one place
+NativePi depends on Pi surfaces the RPC protocol does not cover. Keep
+`@earendil-works/pi-tui` pinned to the exact `pi-coding-agent` version, and treat
+a Pi upgrade as needing a check that extension surfaces still draw.
+
+One component instance serves every connected client, so a surface has one size:
+the last client to report its width decides the layout for all of them. That is
+the same trade the integrated terminal already makes, and it is the price of the
+component running once in the Pi process rather than once per viewer. A project
+left in the background keeps its surfaces alive; returning to it sends
+`nativepi_tui_sync`, which is what makes the host say its `open`, `state` and
+`triggers` frames again to a window that dropped them.
+
 ## Simplicity Is the Primary Engineering Value
 
 Prefer the smallest correct change. A successful change should normally leave

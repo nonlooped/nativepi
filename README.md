@@ -129,12 +129,25 @@ rule. The tunnel closes itself after twelve hours.
 
 ### Extensions
 
-Normal Pi extensions run inside Pi, unchanged. NativePi can install and manage
-Pi packages at user or project scope. To reach the desktop surface, an extension
-imports `@nativepi/extension-api` and adds a `nativepi.renderer` entry to its
-manifest. NativePi compiles that browser entry with esbuild and loads its tool,
-entry, composer-widget, and context-panel contributions behind error boundaries.
-The graphical extension API is experimental and may change between releases.
+Normal Pi extensions run inside Pi, unchanged, and their interface arrives with
+them. An extension that opens a picker with `ctx.ui.custom()` gets a dialog here
+rather than nothing; component widgets, footers and headers take their matching
+place around the conversation; a working message or a custom spinner is redrawn
+in NativePi's own type; and an extension that registers autocomplete offers its
+suggestions in the composer next to commands, skills and files. The component is
+drawn by Pi and displayed here as its author wrote it, so an extension written
+for the terminal needs no desktop port to be usable.
+
+Two pieces of Pi's terminal interface have no equivalent in a window and keep
+Pi's documented no-op: reading raw terminal input, and replacing the input
+editor, which here is the composer.
+
+NativePi can also install and manage Pi packages at user or project scope. To
+draw with React instead, an extension imports `@nativepi/extension-api` and adds
+a `nativepi.renderer` entry to its manifest. NativePi compiles that browser entry
+with esbuild and loads its tool, entry, composer-widget, and context-panel
+contributions behind error boundaries. The graphical extension API is
+experimental and may change between releases.
 
 ## License
 

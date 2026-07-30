@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import { imageFilesIn } from "../lib/attachments.ts";
-import { completionText } from "../lib/autocomplete.ts";
-import { caretOffset, caretToEnd, render, replaceWithChip, replaceWithText, serialize } from "../lib/composerDom.ts";
+import { completionText, linesAt, offsetAt, type ExtensionCompletionOption } from "../lib/autocomplete.ts";
+import {
+  caretOffset,
+  caretTo,
+  caretToEnd,
+  render,
+  replaceWithChip,
+  replaceWithText,
+  serialize,
+} from "../lib/composerDom.ts";
+import { registerComposerInserter } from "../lib/composerInsert.ts";
 import { AutocompleteMenu, useComposerAutocomplete } from "./ComposerAutocomplete.tsx";
 import { cn } from "@/lib/utils.ts";
+import { rpc } from "@/lib/rpc.ts";
 
 /**
  * The message field: prose with skill and file chips in it.
@@ -48,15 +58,39 @@ export default function ComposerInput({
   const complete = useComposerAutocomplete(projectPath, (trigger, option) => {
     const element = root.current;
     if (!element) return;
+    // An extension's provider decides what accepting its own suggestion does to
+    // the text — that is the point of `applyCompletion` — so the edit is asked
+    // for rather than assumed. Everything else is inserted here.
+    if (option.kind === "extension") {
+      void applyExtensionCompletion(element, projectPath, option, emit);
+      return;
+    }
     // A command stays editable text — the user types its arguments next — where
     // a skill or a file becomes one atomic chip.
     if (trigger.kind === "command") {
       replaceWithText(element, trigger.start, trigger.end, completionText(trigger, option.value));
-    } else {
+    } else if (trigger.kind === "skill" || trigger.kind === "file") {
       replaceWithChip(element, trigger.start, trigger.end, trigger.kind, option.value);
     }
     emit();
   });
+
+  // An extension paste goes in at the caret, the way it would in the terminal
+  // editor. Declined when the caret is not in here, which leaves the store's
+  // append — the right answer for a paste aimed at a composer nobody is in.
+  useEffect(() => {
+    return registerComposerInserter((text) => {
+      const element = root.current;
+      if (!element) return false;
+      const caret = caretOffset(element);
+      if (caret === null) return false;
+      const draft = serialize(element);
+      render(element, draft.slice(0, caret) + text + draft.slice(caret));
+      emit();
+      caretTo(element, caret + text.length);
+      return true;
+    });
+  }, [emit]);
 
   const sync = useCallback(() => {
     const element = root.current;
@@ -146,4 +180,54 @@ export default function ComposerInput({
       ) : null}
     </div>
   );
+}
+
+/**
+ * Let the extension edit the draft, then put the result back in the editor.
+ *
+ * The provider is given the lines and the caret and returns both, so it can do
+ * whatever its syntax needs — replace a token, rewrite the line, move the caret
+ * past a closing bracket. That makes this a whole-content replacement rather
+ * than a range edit, which is why the caret has to be restored by offset
+ * afterwards; `render` would otherwise leave it at the top of the editor.
+ *
+ * If the host cannot answer, the draft is left exactly as the user typed it —
+ * including when the call itself fails, which is why nothing here throws: the
+ * caller cannot await this without blocking the keystroke that accepted the
+ * suggestion.
+ */
+async function applyExtensionCompletion(
+  element: HTMLElement,
+  projectPath: string | null,
+  option: ExtensionCompletionOption,
+  emit: () => void,
+): Promise<void> {
+  if (!projectPath) return;
+  const caret = caretOffset(element);
+  if (caret === null) return;
+  const before = serialize(element);
+  const { lines, cursorLine, cursorCol } = linesAt(before, caret);
+
+  const reply = await rpc.request
+    .tuiApply({
+      projectDir: projectPath,
+      lines,
+      cursorLine,
+      cursorCol,
+      item: { value: option.value, label: option.label, description: option.detail || undefined },
+      prefix: option.prefix,
+    })
+    .catch(() => null);
+  const edit = reply?.edit;
+  if (!edit) return;
+
+  // The provider was asked about the draft as it stood, and answers with the
+  // whole draft rewritten. A provider slow enough for the user to have typed in
+  // the meantime would have those keystrokes replaced by an edit that never saw
+  // them, so an answer to a question about text that has moved on is dropped.
+  if (serialize(element) !== before || caretOffset(element) !== caret) return;
+
+  render(element, edit.lines.join("\n"));
+  emit();
+  caretTo(element, offsetAt(edit.lines, edit.cursorLine, edit.cursorCol));
 }

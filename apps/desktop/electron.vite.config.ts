@@ -20,6 +20,10 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve("src/main/index.ts"),
+          // Pi runs in its own process, started from this second entry rather than
+          // from Pi's `rpc-entry`: it installs the extension UI context that makes
+          // pi-tui components render in the window. See `main/pi/host/entry.ts`.
+          "pi-host": resolve("src/main/pi/host/entry.ts"),
         },
         // Anything with native binaries or platform-specific binary lookups has to
         // stay external: bundling moves the module's relative require() paths to

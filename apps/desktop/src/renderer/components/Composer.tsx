@@ -20,6 +20,7 @@ import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
 import ComposerAttachments from "./ComposerAttachments.tsx";
 import ComposerInput from "./ComposerInput.tsx";
 import { ComposerWidgets } from "./ExtensionSlots.tsx";
+import { TuiPane } from "./TuiSurface.tsx";
 import ModelSelector from "./ModelSelector.tsx";
 import WorktreeDialog from "./WorktreeDialog.tsx";
 
@@ -227,9 +228,26 @@ function GroupRule() {
   return <div aria-hidden="true" className="mx-1.5 h-5 w-px shrink-0 bg-border" />;
 }
 
+/**
+ * The status row, or the footer an extension replaced it with.
+ *
+ * `ctx.ui.setFooter()` replaces Pi's whole footer, and Pi's footer is where the
+ * statuses from `setStatus()` appear — so a custom footer takes this row rather
+ * than stacking above it, exactly as it would in the terminal. The extension can
+ * still read those statuses: they are handed to its factory.
+ */
 function ExtensionStatuses() {
   const statuses = useAppStore((s) => s.extStatuses);
+  const footer = useAppStore((s) => s.extSurfaces.find((surface) => surface.placement === "footer"));
   const entries = Object.entries(statuses);
+
+  if (footer) {
+    return (
+      <div className="mx-auto w-full max-w-(--conversation-width) px-1">
+        <TuiPane surface={footer} rows={1} />
+      </div>
+    );
+  }
   if (entries.length === 0) return null;
   return (
     <div className="mx-auto flex w-full max-w-(--conversation-width) flex-wrap items-center gap-x-3 gap-y-1 px-1 text-xs text-muted-foreground">

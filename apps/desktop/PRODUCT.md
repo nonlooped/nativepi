@@ -44,6 +44,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Git status and working-tree diffs, clean-worktree branch switching or creation, and creation of worktrees that are added as NativePi projects.
 - User- and project-scoped Pi package installation, update, removal, reload, and load-error display.
 - Normal Pi extension UI requests plus optional graphical tool, entry, composer-widget, and context-panel contributions through `@nativepi/extension-api`.
+- Pi's terminal extension UI, shown rather than skipped: a component an extension opens with `ctx.ui.custom()` appears as a dialog, component widgets, footers, and headers take their matching place in the window, working messages and spinners are drawn in NativePi's own type, and an extension's autocomplete provider offers its suggestions in the composer.
 - Pi's own slash commands — extension commands, prompt templates, and skills — offered by name in the composer and run through Pi, including while a turn is in flight.
 - Responsive project and context panes, fixed keyboard shortcuts, reduced-motion handling, and standard accessible desktop controls.
 - Project-scoped integrated terminals with resizable splits that remain alive while hidden or while another project is active.
@@ -61,6 +62,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Authentication is Pi-backed. Credentials are never stored in NativePi renderer persistence or its state file.
 - Git mutation is deliberately narrow: branch checkout and creation require a clean worktree, and worktrees may be added. NativePi does not stage, commit, merge, rebase, discard changes, create checkpoints, roll back work, or rewrite history.
 - Normal Pi extensions run unchanged. Optional graphical extensions contribute only through controlled NativePi UI slots and are trusted code, not sandboxed code.
+- Terminal extension components are drawn by Pi and displayed, not reimplemented: NativePi runs the component in the Pi process and shows what it draws, so it looks as its author wrote it rather than as NativePi would have styled it. Two parts of Pi's terminal UI have no equivalent here and keep Pi's documented no-op: raw terminal input, and replacing the input editor, which in this window is the composer.
 - NativePi has no cloud sync, collaboration, remote projects, SSH launching, configurable keybindings, product accounts, paid features, or telemetry.
 - NativePi is MIT licensed. GitHub publishes Windows installers, currently without code signing, so SmartScreen warnings are expected.
 

@@ -21,6 +21,13 @@ import type {
   SkillInfo,
   ThinkingLevel,
 } from "./pi-types.ts";
+import type {
+  TuiClientFrame,
+  TuiCompletionEdit,
+  TuiCompletionItem,
+  TuiCompletions,
+  TuiHostFrame,
+} from "./tui-frames.ts";
 
 export type PiStatus = "idle" | "starting" | "ready" | "error" | "exited";
 
@@ -458,6 +465,26 @@ export type HostRequests = {
     params: { projectDir: string; response: ExtensionUiResponse };
     response: { ok: boolean };
   };
+
+  /** A keystroke, a size, or the composer state a pi-tui surface is waiting on. */
+  tuiSend: { params: { projectDir: string; frame: TuiClientFrame }; response: { ok: boolean } };
+  /** What an extension's autocomplete provider offers for the text being typed. */
+  tuiComplete: {
+    params: { projectDir: string; lines: string[]; cursorLine: number; cursorCol: number };
+    response: { completions: TuiCompletions | null; error?: string };
+  };
+  /** What accepting one of those completions does to the text. */
+  tuiApply: {
+    params: {
+      projectDir: string;
+      lines: string[];
+      cursorLine: number;
+      cursorCol: number;
+      item: TuiCompletionItem;
+      prefix: string;
+    };
+    response: { edit: TuiCompletionEdit | null; error?: string };
+  };
 };
 
 export type HostEvents = {
@@ -474,6 +501,8 @@ export type HostEvents = {
   quitRequested: { work: PendingWork };
   terminalData: { projectDir: string; terminalId: string; data: string; sequence: number };
   terminalExit: { projectDir: string; terminalId: string; exitCode: number };
+  /** A pi-tui surface opening, drawing, closing, or reporting extension UI state. */
+  tuiFrame: { projectDir: string; frame: TuiHostFrame };
 };
 
 export type HostRequestName = keyof HostRequests;

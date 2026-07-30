@@ -31,6 +31,7 @@ import {
 } from "./terminal.ts";
 import type { AccessStatus, HostEvents, HostRequestName, HostRequests, PiStatus } from "../shared/rpc-schema.ts";
 import type { CommandInfo, ForkPoint, ModelInfo, RpcSessionState, SessionStats, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
+import { tuiClientFrameSchema, tuiCompletionEditSchema, tuiCompletionsSchema } from "../shared/tui-frames.ts";
 import { localServerConnection, localServerStatus, startLocalServer, stopLocalServer } from "./localServer.ts";
 import {
   remoteAccessRunning,
@@ -165,6 +166,10 @@ function ensurePi(projectDir: string): Promise<PiProcess> {
       projectDir,
       (msg) => forwardEvent(projectDir, msg),
       (code) => {
+        // Panes belong to the process that drew them: a Pi that dies takes its
+        // surfaces with it, and the window has to be told or they stay on screen
+        // with nothing behind them.
+        push("tuiFrame", { projectDir, frame: { type: "nativepi_tui_reset" } });
         pis.delete(projectDir);
         // A Pi that dies mid-turn never reaches `agent_settled`, so drop the
         // marker with the process rather than leaving this project looking
@@ -172,6 +177,7 @@ function ensurePi(projectDir: string): Promise<PiProcess> {
         busyUntil.delete(projectDir);
         status(projectDir, "exited", `exit ${code ?? "?"}`);
       },
+      (frame) => push("tuiFrame", { projectDir, frame }),
     );
     pis.set(projectDir, pi);
     try {
@@ -295,6 +301,24 @@ const prepareImagesParamsSchema = z.object({
   // `prepareImages`, so one image nobody can use — or twenty past the limit —
   // does not cost the user the rest of the drop, or the toast naming them.
   files: z.array(z.object({ name: z.string(), mimeType: z.string(), data: z.string() })),
+});
+/**
+ * The extension UI channel, at the window boundary.
+ *
+ * These carry keystrokes and draft text into a component running in the Pi
+ * process, and the caret positions a third-party provider is about to be handed.
+ * The frame schema already bounds the shapes; this is the same check applied to
+ * what the window sends, so main is not the one place trusting either side.
+ */
+const tuiSendParamsSchema = projectDirParamsSchema.extend({ frame: tuiClientFrameSchema });
+const tuiCompleteParamsSchema = projectDirParamsSchema.extend({
+  lines: z.array(z.string()).max(1000),
+  cursorLine: z.number().int().min(0),
+  cursorCol: z.number().int().min(0),
+});
+const tuiApplyParamsSchema = tuiCompleteParamsSchema.extend({
+  item: z.object({ value: z.string(), label: z.string(), description: z.string().optional() }),
+  prefix: z.string().max(200),
 });
 const terminalIdParamsSchema = projectDirParamsSchema.extend({ terminalId: z.string().min(1) });
 const terminalResizeParamsSchema = terminalIdParamsSchema.extend({
@@ -979,6 +1003,49 @@ const handlers: HandlerMap = {
   extensionRespond: ({ projectDir, response }) => {
     pis.get(projectDir)?.sendRaw(response);
     return { ok: true };
+  },
+  tuiSend: (params) => {
+    const { projectDir, frame } = tuiSendParamsSchema.parse(params);
+    pis.get(projectDir)?.sendFrame(frame);
+    return { ok: true };
+  },
+  tuiComplete: async (params) => {
+    const { projectDir, lines, cursorLine, cursorCol } = tuiCompleteParamsSchema.parse(params);
+    const pi = pis.get(projectDir);
+    if (!pi) return { completions: null };
+    try {
+      const reply = await pi.frameRequest((requestId) => ({
+        type: "nativepi_tui_complete" as const,
+        requestId,
+        lines,
+        cursorLine,
+        cursorCol,
+      }));
+      // A provider is extension code, so its answer is checked before it becomes
+      // a menu. `null` is the documented "I have nothing for this line".
+      return { completions: reply === null ? null : tuiCompletionsSchema.parse(reply) };
+    } catch (err) {
+      return { completions: null, error: errorMessage(err) };
+    }
+  },
+  tuiApply: async (params) => {
+    const { projectDir, lines, cursorLine, cursorCol, item, prefix } = tuiApplyParamsSchema.parse(params);
+    const pi = pis.get(projectDir);
+    if (!pi) return { edit: null };
+    try {
+      const reply = await pi.frameRequest((requestId) => ({
+        type: "nativepi_tui_apply" as const,
+        requestId,
+        lines,
+        cursorLine,
+        cursorCol,
+        item,
+        prefix,
+      }));
+      return { edit: reply === null ? null : tuiCompletionEditSchema.parse(reply) };
+    } catch (err) {
+      return { edit: null, error: errorMessage(err) };
+    }
   },
 };
 

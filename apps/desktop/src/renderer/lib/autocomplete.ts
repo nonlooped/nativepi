@@ -9,7 +9,7 @@ import { chipText } from "./composerText.ts";
  * decided here so the component only has to render a list and move a highlight.
  */
 
-export type TriggerKind = "command" | "skill" | "file";
+export type TriggerKind = "command" | "skill" | "file" | "extension";
 
 export interface Trigger {
   kind: TriggerKind;
@@ -38,17 +38,36 @@ const BOUNDARY = new Set(["/", "\\", "-", "_", ".", " "]);
  * opens at the very start of the message, because that is the only place Pi
  * reads a command — offering one mid-sentence would promise an expansion that
  * never happens.
+ *
+ * `extensionTriggers` are the characters a loaded extension declared through
+ * `ctx.ui.addAutocompleteProvider()`, such as `#` for issue numbers. They are
+ * checked last, so an extension cannot take `@`, `$` or `/` away from the menus
+ * the composer already documents.
  */
-export function findTrigger(text: string, caret: number): Trigger | null {
+export function findTrigger(text: string, caret: number, extensionTriggers: readonly string[] = []): Trigger | null {
   let start = caret;
   while (start > 0 && !/\s/.test(text[start - 1] as string)) start--;
 
   const token = text.slice(start, caret);
-  const kind =
-    token.startsWith("@") ? "file" : token.startsWith("$") ? "skill" : start === 0 && token.startsWith("/") ? "command" : null;
+  // Longest first: an extension may declare both `#` and `##`, and the longer one
+  // is the more specific claim on the token.
+  const extension = [...extensionTriggers]
+    .sort((a, b) => b.length - a.length)
+    .find((character) => token.startsWith(character));
+  const kind = token.startsWith("@")
+    ? "file"
+    : token.startsWith("$")
+      ? "skill"
+      : start === 0 && token.startsWith("/")
+        ? "command"
+        : extension
+          ? "extension"
+          : null;
   if (!kind) return null;
 
-  const query = token.slice(1);
+  // A trigger is one character for the composer's own menus, but an extension
+  // declares whatever string it wants, so the query starts where its trigger ends.
+  const query = token.slice(kind === "extension" ? (extension as string).length : 1);
   if (query.length > MAX_QUERY) return null;
 
   return { kind, query, start, end: caret };
@@ -60,9 +79,39 @@ export function findTrigger(text: string, caret: number): Trigger | null {
  * `@` and `$` turn into a chip in the editor, so this is only the plain text
  * behind it; `composerText.ts` owns what that text has to look like. A command
  * is written literally, because the user goes on to type arguments after it.
+ *
+ * An extension trigger has no form of its own here: the provider that offered the
+ * suggestion decides what accepting it does, and the value it returns is used as
+ * written. See `applyExtensionCompletion` in `ComposerInput`.
  */
 export function completionText(trigger: Trigger, value: string): string {
-  return trigger.kind === "command" ? `/${value}` : chipText(trigger.kind, value);
+  if (trigger.kind === "command") return `/${value}`;
+  if (trigger.kind === "extension") return value;
+  return chipText(trigger.kind, value);
+}
+
+/**
+ * The draft as an extension's provider expects it: lines, and the caret as a row
+ * and column.
+ *
+ * pi-tui's editor is multi-line and providers are written against that shape, so
+ * a draft with a paragraph in it has to arrive the way it would from the terminal
+ * editor rather than as one long string with an offset.
+ */
+export function linesAt(text: string, caret: number): { lines: string[]; cursorLine: number; cursorCol: number } {
+  const lines = text.split("\n");
+  let remaining = caret;
+  for (const [index, line] of lines.entries()) {
+    if (remaining <= line.length) return { lines, cursorLine: index, cursorCol: remaining };
+    remaining -= line.length + 1;
+  }
+  return { lines, cursorLine: Math.max(0, lines.length - 1), cursorCol: (lines[lines.length - 1] ?? "").length };
+}
+
+/** The offset in the whole draft of a row and column, for putting the caret back. */
+export function offsetAt(lines: string[], cursorLine: number, cursorCol: number): number {
+  const before = lines.slice(0, cursorLine).reduce((total, line) => total + line.length + 1, 0);
+  return before + Math.min(cursorCol, (lines[cursorLine] ?? "").length);
 }
 
 export interface Match {
@@ -137,7 +186,25 @@ export interface FileOption {
   positions: number[];
 }
 
-export type Option = CommandOption | SkillOption | FileOption;
+/**
+ * A completion an extension's own provider offered.
+ *
+ * Not ranked or filtered here: the provider was given the whole line and the
+ * caret and answered with the list it wants shown, in its order. Re-scoring it
+ * locally would mean two opinions about the same query, and the extension's is
+ * the one that knows what the characters mean. `prefix` is the text the provider
+ * says it is replacing, and it goes back to the provider when one is accepted.
+ */
+export interface ExtensionCompletionOption {
+  kind: "extension";
+  value: string;
+  label: string;
+  detail: string;
+  prefix: string;
+  positions: number[];
+}
+
+export type Option = CommandOption | SkillOption | FileOption | ExtensionCompletionOption;
 
 const MAX_OPTIONS = 50;
 
