@@ -1,5 +1,6 @@
 import { rpc } from "../rpc.ts";
 import { showHint } from "../toast.tsx";
+import { dropAllSurfaces } from "../tuiSurfaces.ts";
 import { patchConversation } from "./conversation.ts";
 import {
   getLastChat,
@@ -7,7 +8,7 @@ import {
   replaceLastChats,
   warmProject,
 } from "./internals.ts";
-import type { SliceCreator, WorkspaceSlice } from "./types.ts";
+import { NO_EXTENSION_UI_STATE, type SliceCreator, type WorkspaceSlice } from "./types.ts";
 
 export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => ({
   ready: false,
@@ -96,7 +97,13 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       extWidgets: {},
       extRenderers: [],
       extLoadErrors: [],
+      extSurfaces: [],
+      extTriggers: [],
+      extUiState: NO_EXTENSION_UI_STATE,
     });
+    // The panes belonged to the project being left, and their components belong
+    // to a Pi that is still running: the surfaces reopen when it draws again.
+    dropAllSurfaces();
     persist(get);
 
     // The trust check does not depend on the session list, and a round trip

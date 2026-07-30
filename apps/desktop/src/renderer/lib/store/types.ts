@@ -19,6 +19,7 @@ import type {
   ThinkingLevel,
 } from "../../../shared/pi-types.ts";
 import type { PiSettings } from "../../../shared/pi-settings.ts";
+import type { TuiHostFrame, TuiSurface } from "../../../shared/tui-frames.ts";
 import type { LoadedExtension } from "../extensionHost.ts";
 
 /**
@@ -39,6 +40,29 @@ export interface ExtensionWidget {
   lines: string[];
   placement: "aboveEditor" | "belowEditor";
 }
+
+/**
+ * What an extension has done to the window's own chrome.
+ *
+ * These are the `ctx.ui` calls that carry data rather than a component, so they
+ * are rendered in NativePi's type and colour instead of an embedded terminal:
+ * a working message is a string, and a spinner is a list of frames.
+ */
+export interface ExtensionUiState {
+  workingMessage: string | null;
+  workingVisible: boolean;
+  workingIndicator: { frames: string[]; intervalMs: number } | null;
+  hiddenThinkingLabel: string | null;
+  toolsExpanded: boolean;
+}
+
+export const NO_EXTENSION_UI_STATE: ExtensionUiState = {
+  workingMessage: null,
+  workingVisible: true,
+  workingIndicator: null,
+  hiddenThinkingLabel: null,
+  toolsExpanded: false,
+};
 
 export type ErrorRecovery = "retrySend" | "restartPi";
 
@@ -194,11 +218,17 @@ export interface ProjectContextSlice {
   extWidgets: Record<string, ExtensionWidget>;
   extRenderers: LoadedExtension[];
   extLoadErrors: { name: string; error: string }[];
+  /** pi-tui components an extension is drawing, in the order they were opened. */
+  extSurfaces: TuiSurface[];
+  /** The characters an extension autocomplete provider answers on, if any. */
+  extTriggers: string[];
+  extUiState: ExtensionUiState;
 
   refreshGit: () => Promise<void>;
   switchBranch: (branch: string, create: boolean) => Promise<{ ok: boolean; error?: string }>;
   reloadExtensions: () => Promise<void>;
   respondExtension: (value: { value?: string; confirmed?: boolean; cancel?: boolean }) => void;
+  onTuiFrame: (payload: { projectDir: string; frame: TuiHostFrame }) => void;
 }
 
 /**

@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import { imageFilesIn } from "../lib/attachments.ts";
-import { completionText } from "../lib/autocomplete.ts";
-import { caretOffset, caretToEnd, render, replaceWithChip, replaceWithText, serialize } from "../lib/composerDom.ts";
+import { completionText, linesAt, offsetAt, type ExtensionCompletionOption } from "../lib/autocomplete.ts";
+import {
+  caretOffset,
+  caretTo,
+  caretToEnd,
+  render,
+  replaceWithChip,
+  replaceWithText,
+  serialize,
+} from "../lib/composerDom.ts";
 import { AutocompleteMenu, useComposerAutocomplete } from "./ComposerAutocomplete.tsx";
 import { cn } from "@/lib/utils.ts";
+import { rpc } from "@/lib/rpc.ts";
 
 /**
  * The message field: prose with skill and file chips in it.
@@ -48,11 +57,18 @@ export default function ComposerInput({
   const complete = useComposerAutocomplete(projectPath, (trigger, option) => {
     const element = root.current;
     if (!element) return;
+    // An extension's provider decides what accepting its own suggestion does to
+    // the text — that is the point of `applyCompletion` — so the edit is asked
+    // for rather than assumed. Everything else is inserted here.
+    if (option.kind === "extension") {
+      void applyExtensionCompletion(element, projectPath, option, emit);
+      return;
+    }
     // A command stays editable text — the user types its arguments next — where
     // a skill or a file becomes one atomic chip.
     if (trigger.kind === "command") {
       replaceWithText(element, trigger.start, trigger.end, completionText(trigger, option.value));
-    } else {
+    } else if (trigger.kind === "skill" || trigger.kind === "file") {
       replaceWithChip(element, trigger.start, trigger.end, trigger.kind, option.value);
     }
     emit();
@@ -146,4 +162,41 @@ export default function ComposerInput({
       ) : null}
     </div>
   );
+}
+
+/**
+ * Let the extension edit the draft, then put the result back in the editor.
+ *
+ * The provider is given the lines and the caret and returns both, so it can do
+ * whatever its syntax needs — replace a token, rewrite the line, move the caret
+ * past a closing bracket. That makes this a whole-content replacement rather
+ * than a range edit, which is why the caret has to be restored by offset
+ * afterwards; `render` would otherwise leave it at the top of the editor.
+ *
+ * If the host cannot answer, the draft is left exactly as the user typed it.
+ */
+async function applyExtensionCompletion(
+  element: HTMLElement,
+  projectPath: string | null,
+  option: ExtensionCompletionOption,
+  emit: () => void,
+): Promise<void> {
+  if (!projectPath) return;
+  const caret = caretOffset(element);
+  if (caret === null) return;
+  const { lines, cursorLine, cursorCol } = linesAt(serialize(element), caret);
+
+  const { edit } = await rpc.request.tuiApply({
+    projectDir: projectPath,
+    lines,
+    cursorLine,
+    cursorCol,
+    item: { value: option.value, label: option.label, description: option.detail || undefined },
+    prefix: option.prefix,
+  });
+  if (!edit) return;
+
+  render(element, edit.lines.join("\n"));
+  emit();
+  caretTo(element, offsetAt(edit.lines, edit.cursorLine, edit.cursorCol));
 }

@@ -241,3 +241,15 @@ function setCaret(root: HTMLElement, node: Node, offset: number): void {
 export function caretToEnd(root: HTMLElement): void {
   setCaret(root, root, root.childNodes.length);
 }
+
+/**
+ * Put the caret at a draft offset.
+ *
+ * The counterpart to `caretOffset`, for the one case that replaces the whole
+ * content but knows where the caret belongs: an extension's own completion, which
+ * hands back edited lines and the position it wants the caret left in.
+ */
+export function caretTo(root: HTMLElement, offset: number): void {
+  const { node, offset: within } = locate(root, offset);
+  setCaret(root, node, within);
+}

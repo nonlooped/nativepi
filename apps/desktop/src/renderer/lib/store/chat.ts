@@ -9,6 +9,7 @@ import {
   getLastChat,
   gitRefreshedWithin,
   persist,
+  reportDraft,
   setLastChat,
 } from "./internals.ts";
 import { readAsBase64, toImageContent } from "../attachments.ts";
@@ -133,6 +134,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     const key = draftKey(get);
     set((s) => ({ drafts: { ...s.drafts, [key]: text } }));
     persist(get);
+    reportDraft(get().activeProjectPath, text);
   },
 
   insertIntoComposer: (text) => {

@@ -14,6 +14,7 @@ import Transcript from "./components/Transcript.tsx";
 import Composer from "./components/Composer.tsx";
 import ContextPane from "./components/ContextPane.tsx";
 import ExtensionUi from "./components/ExtensionUi.tsx";
+import TuiOverlay from "./components/TuiSurface.tsx";
 import NativePiWordmark from "./components/NativePiWordmark.tsx";
 import ProjectStatus from "./components/ProjectStatus.tsx";
 import QuitDialog from "./components/QuitDialog.tsx";
@@ -215,6 +216,7 @@ export default function App() {
       <TrustDialog />
       <QuitDialog />
       <ExtensionUi />
+      <TuiOverlay />
     </div>
   );
 }

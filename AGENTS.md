@@ -42,6 +42,17 @@ Do not add:
 - Checkpoints, hidden commits, or anything that rewrites Git history.
 - A second durable conversation store or parallel Pi domain model.
 
+Pi is started from `main/pi/host/entry.ts`, not from Pi's `rpc-entry`. That entry
+is Pi's own `main(["--mode", "rpc"])` with one interception: `bindExtensions` is
+wrapped so the extension UI context gains the terminal half Pi's RPC mode stubs
+out, which is what makes `ctx.ui.custom()`, component widgets, footers and headers
+appear in the window. RPC mode itself is untouched and stays Pi's to maintain.
+
+That interception, and the pi-tui components it renders, are the one place
+NativePi depends on Pi surfaces the RPC protocol does not cover. Keep
+`@earendil-works/pi-tui` pinned to the exact `pi-coding-agent` version, and treat
+a Pi upgrade as needing a check that extension surfaces still draw.
+
 ## Simplicity Is the Primary Engineering Value
 
 Prefer the smallest correct change. A successful change should normally leave

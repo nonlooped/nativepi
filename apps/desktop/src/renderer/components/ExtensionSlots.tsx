@@ -3,6 +3,7 @@ import type { SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-
 import { textOf } from "../../shared/messages.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import ExtensionBoundary from "./ExtensionBoundary.tsx";
+import { TuiPane } from "./TuiSurface.tsx";
 
 
 function useNativePiContext(): NativePiContext {
@@ -62,6 +63,7 @@ export function useHasEntryRenderer(type: string): boolean {
 export function ComposerWidgets({ placement }: { placement: "aboveComposer" | "belowComposer" }) {
   const renderers = useAppStore((s) => s.extRenderers);
   const widgets = useAppStore((s) => s.extWidgets);
+  const surfaces = useAppStore((s) => s.extSurfaces);
   const ctx = useNativePiContext();
 
   const serializablePlacement = placement === "aboveComposer" ? "aboveEditor" : "belowEditor";
@@ -71,8 +73,11 @@ export function ComposerWidgets({ placement }: { placement: "aboveComposer" | "b
       .filter((w) => w.placement === placement)
       .map((w) => ({ ext, w })),
   );
+  // The third kind: a widget an extension passed to Pi as a pi-tui component
+  // rather than as lines. Same slot, same order, drawn by the component itself.
+  const terminal = surfaces.filter((surface) => surface.placement === serializablePlacement);
 
-  if (serializable.length === 0 && graphical.length === 0) return null;
+  if (serializable.length === 0 && graphical.length === 0 && terminal.length === 0) return null;
 
   return (
     <div className="mx-auto flex max-w-(--conversation-width) flex-col gap-1">
@@ -88,9 +93,24 @@ export function ComposerWidgets({ placement }: { placement: "aboveComposer" | "b
           {w.render(ctx)}
         </ExtensionBoundary>
       ))}
+      {terminal.map((surface) => (
+        <div key={surface.id} className="rounded-xl border bg-card/60 px-3 py-1.5">
+          <TuiPane surface={surface} rows={WIDGET_ROWS} />
+        </div>
+      ))}
     </div>
   );
 }
+
+/**
+ * How tall a widget gets before it has to scroll itself.
+ *
+ * A terminal component cannot be measured before it draws — it is asked for a
+ * width and answers with lines — so the pane has to name a height, and a widget
+ * sits between the transcript and the composer where three lines is already
+ * generous. Extensions with more to show have `panels`, or a `custom()` overlay.
+ */
+const WIDGET_ROWS = 3;
 
 export function ExtensionPanels() {
   const renderers = useAppStore((s) => s.extRenderers);

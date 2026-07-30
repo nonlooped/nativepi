@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { isTuiFrameType, tuiHostFrameSchema, type TuiClientFrame, type TuiHostFrame } from "../../shared/tui-frames.ts";
 import { drainLines, serializeCommand, type PiCommand, type PiMessage } from "./protocol.ts";
 
 /**
@@ -13,20 +14,26 @@ import { drainLines, serializeCommand, type PiCommand, type PiMessage } from "./
  * `ELECTRON_RUN_AS_NODE` — see the constructor.
  *
  * `RpcClient` also has no equivalent of `sendRaw`, which extension UI responses
- * need in order to reply outside the request/response envelope.
- *
- * If Pi ever accepts an executable override, most of this class can go.
+ * need in order to reply outside the request/response envelope — and neither it
+ * nor Pi's protocol knows about the pi-tui frames NativePi carries on the same
+ * pipe, which is the other half of what this class routes.
  */
 
+/**
+ * NativePi's Pi entry point, which sits beside this bundle in `out/main`.
+ *
+ * Pi's own `rpc-entry` is not used: it builds an extension UI context that drops
+ * every pi-tui component, and the context is not injectable. `pi-host` is that
+ * entry plus the context that renders them — see `pi/host/entry.ts`.
+ */
 function resolvePiEntry(): string {
-  // The package exposes "./rpc-entry" only under the `import` condition of its
-  // `exports` map. `require.resolve` resolves under the `require` condition and
-  // would report "not defined by exports", so resolve it as an ESM specifier via
-  // `import.meta.resolve` (which applies the `import` condition).
-  return fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent/rpc-entry"));
+  return fileURLToPath(new URL("./pi-host.js", import.meta.url));
 }
 
 let nextRequestId = 1;
+
+/** How long the composer waits for an extension's completions before giving up. */
+const FRAME_REQUEST_TIMEOUT_MS = 2000;
 
 export class PiProcess {
   readonly projectDir: string;
@@ -34,15 +41,23 @@ export class PiProcess {
 
   private proc: ChildProcessWithoutNullStreams;
   private onEvent: (msg: PiMessage) => void;
+  private onFrame: (frame: TuiHostFrame) => void;
   private pending = new Map<string, { resolve: (data: unknown) => void; reject: (err: Error) => void }>();
+  private frameWaiters = new Map<string, { resolve: (data: unknown) => void; reject: (err: Error) => void }>();
   private buffer = "";
 
-  constructor(projectDir: string, onEvent: (msg: PiMessage) => void, onExit: (code: number | null) => void) {
+  constructor(
+    projectDir: string,
+    onEvent: (msg: PiMessage) => void,
+    onExit: (code: number | null) => void,
+    onFrame: (frame: TuiHostFrame) => void = () => {},
+  ) {
     this.projectDir = projectDir;
     this.onEvent = onEvent;
+    this.onFrame = onFrame;
 
     // Electron's process.execPath is the Electron binary; ELECTRON_RUN_AS_NODE
-    // makes it behave as plain Node so Pi's rpc-entry.js runs correctly.
+    // makes it behave as plain Node so the Pi host entry runs correctly.
     this.proc = spawn(process.execPath, [resolvePiEntry()], {
       cwd: projectDir,
       env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
@@ -80,6 +95,29 @@ export class PiProcess {
       }
       return;
     }
+    // NativePi's own side channel, carrying the pi-tui surfaces Pi's protocol has
+    // no way to describe. Addressed to us either way, so it never reaches the
+    // reducer — but the contents were shaped by extension code, so a frame that
+    // does not parse is dropped rather than forwarded to the window.
+    if (isTuiFrameType(msg.type)) {
+      const frame = tuiHostFrameSchema.safeParse(msg);
+      if (!frame.success) {
+        console.error(`[pi ${this.projectDir}] unusable extension UI frame`, msg["type"]);
+        return;
+      }
+      if (frame.data.type === "nativepi_tui_reply") {
+        const { requestId, error, data } = frame.data;
+        const waiter = this.frameWaiters.get(requestId);
+        if (waiter) {
+          this.frameWaiters.delete(requestId);
+          if (error) waiter.reject(new Error(error));
+          else waiter.resolve(data);
+        }
+        return;
+      }
+      this.onFrame(frame.data);
+      return;
+    }
     this.onEvent(msg);
   }
 
@@ -89,6 +127,38 @@ export class PiProcess {
 
   sendRaw(payload: object): void {
     this.proc.stdin.write(JSON.stringify(payload) + "\n");
+  }
+
+  sendFrame(frame: TuiClientFrame): void {
+    this.sendRaw(frame);
+  }
+
+  /**
+   * Ask the host something and wait for the answer.
+   *
+   * Bounded rather than open-ended: the only caller is the composer's autocomplete
+   * menu, where an extension provider that hangs would otherwise hold the menu
+   * open on a promise that never settles while the user keeps typing.
+   */
+  frameRequest<T>(build: (requestId: string) => TuiClientFrame): Promise<T> {
+    const requestId = `f-${nextRequestId++}`;
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.frameWaiters.delete(requestId);
+        reject(new Error("The extension did not answer in time."));
+      }, FRAME_REQUEST_TIMEOUT_MS);
+      this.frameWaiters.set(requestId, {
+        resolve: (data) => {
+          clearTimeout(timer);
+          resolve(data as T);
+        },
+        reject: (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+      });
+      this.sendFrame(build(requestId));
+    });
   }
 
   request<T = unknown>(command: PiCommand): Promise<T> {
@@ -106,6 +176,8 @@ export class PiProcess {
   private rejectAll(err: Error): void {
     for (const waiter of this.pending.values()) waiter.reject(err);
     this.pending.clear();
+    for (const waiter of this.frameWaiters.values()) waiter.reject(err);
+    this.frameWaiters.clear();
   }
 
   async stop(): Promise<void> {

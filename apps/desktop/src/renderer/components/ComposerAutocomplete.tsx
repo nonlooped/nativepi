@@ -1,13 +1,16 @@
 import { LightningIcon } from "@phosphor-icons/react/Lightning";
+import { PuzzlePieceIcon } from "@phosphor-icons/react/PuzzlePiece";
 import { TerminalIcon } from "@phosphor-icons/react/Terminal";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { CommandInfo, SkillInfo } from "../../shared/pi-types.ts";
 import {
   findTrigger,
+  linesAt,
   rankCommands,
   rankFiles,
   rankSkills,
+  type ExtensionCompletionOption,
   type Option,
   type Trigger,
   type TriggerKind,
@@ -57,7 +60,11 @@ export function useComposerAutocomplete(
   // Escape closes the menu for the trigger being typed, not for the character
   // class: retyping `@` somewhere else is a fresh request for the list.
   const [dismissed, setDismissed] = useState<number | null>(null);
+  // The characters an extension asked for, and the line it needs to answer about.
+  const extensionTriggers = useAppStore((s) => s.extTriggers);
+  const [line, setLine] = useState<{ text: string; caret: number } | null>(null);
   const { commands, skills, files, loading } = useCompletionData(projectPath, trigger?.kind ?? null);
+  const extension = useExtensionCompletions(projectPath, trigger?.kind === "extension" ? line : null);
 
   const open = trigger !== null && dismissed !== trigger.start;
   const options = !open
@@ -66,14 +73,29 @@ export function useComposerAutocomplete(
       ? rankCommands(commands, trigger.query)
       : trigger.kind === "skill"
         ? rankSkills(skills, trigger.query)
-        : rankFiles(files, trigger.query);
+        : trigger.kind === "extension"
+          ? extension.options
+          : rankFiles(files, trigger.query);
 
-  const sync = useCallback((text: string, caret: number | null) => {
-    const next = caret === null ? null : findTrigger(text, caret);
-    setTrigger((current) => (sameTrigger(current, next) ? current : next));
-    setDismissed((current) => (next && current === next.start ? current : null));
-    setActive(0);
-  }, []);
+  const sync = useCallback(
+    (text: string, caret: number | null) => {
+      const next = caret === null ? null : findTrigger(text, caret, extensionTriggers);
+      setTrigger((current) => (sameTrigger(current, next) ? current : next));
+      setDismissed((current) => (next && current === next.start ? current : null));
+      // Replaced only when it really moved: `sync` also fires on selection changes
+      // that leave the caret where it was, and a fresh object each time would ask
+      // the extension again for an answer it has already given.
+      setLine((current) =>
+        caret === null
+          ? null
+          : current && current.caret === caret && current.text === text
+            ? current
+            : { text, caret },
+      );
+      setActive(0);
+    },
+    [extensionTriggers],
+  );
 
   const close = useCallback(() => setDismissed(trigger?.start ?? null), [trigger]);
 
@@ -87,7 +109,8 @@ export function useComposerAutocomplete(
     [options, trigger, onAccept],
   );
 
-  const shown = open && (options.length > 0 || loading);
+  const busy = trigger?.kind === "extension" ? extension.loading : loading;
+  const shown = open && (options.length > 0 || busy);
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLElement>) => {
@@ -124,7 +147,7 @@ export function useComposerAutocomplete(
     options,
     active: Math.min(active, Math.max(0, options.length - 1)),
     kind: trigger?.kind ?? "file",
-    loading,
+    loading: busy,
     onKeyDown,
     sync,
     accept,
@@ -202,11 +225,71 @@ function useCompletionData(projectPath: string | null, kind: TriggerKind | null)
   return { ...lists, loading: loading || (kind === "command" && awaitingTrust) };
 }
 
+/**
+ * What an extension's autocomplete provider offers for the line being typed.
+ *
+ * The provider runs in the Pi process and is asked per keystroke, so this is
+ * debounced and the answer is dropped if the line moved on while it was in
+ * flight. An error or a timeout is an empty list: the menu closes and the
+ * composer's own triggers carry on working, which is what happens in the
+ * terminal too when a provider declines to answer.
+ */
+function useExtensionCompletions(projectPath: string | null, line: { text: string; caret: number } | null) {
+  const [state, setState] = useState<{ options: ExtensionCompletionOption[]; loading: boolean }>(NO_EXTENSION_OPTIONS);
+
+  useEffect(() => {
+    if (!projectPath || !line) {
+      setState(NO_EXTENSION_OPTIONS);
+      return;
+    }
+    let cancelled = false;
+    setState((current) => ({ options: current.options, loading: true }));
+    const timer = window.setTimeout(() => {
+      const { lines, cursorLine, cursorCol } = linesAt(line.text, line.caret);
+      void rpc.request
+        .tuiComplete({ projectDir: projectPath, lines, cursorLine, cursorCol })
+        .then(({ completions }) => {
+          if (cancelled) return;
+          setState({
+            options: (completions?.items ?? []).map((item) => ({
+              kind: "extension" as const,
+              value: item.value,
+              label: item.label,
+              detail: item.description ?? "",
+              prefix: completions?.prefix ?? "",
+              positions: [],
+            })),
+            loading: false,
+          });
+        })
+        .catch(() => {
+          if (!cancelled) setState(NO_EXTENSION_OPTIONS);
+        });
+    }, EXTENSION_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [line, projectPath]);
+
+  return state;
+}
+
+const NO_EXTENSION_OPTIONS: { options: ExtensionCompletionOption[]; loading: boolean } = {
+  options: [],
+  loading: false,
+};
+
+/** Long enough that a provider shelling out to `gh` is not asked per character. */
+const EXTENSION_DEBOUNCE_MS = 120;
+
 /** What the menu calls itself, and what it says when nothing matches. */
 const MENU_LABELS: Record<TriggerKind, { title: string; empty: string }> = {
   command: { title: "Commands", empty: "No matching command." },
   skill: { title: "Skills", empty: "No matching skill." },
   file: { title: "Files in this project", empty: "No matching file." },
+  extension: { title: "From an extension", empty: "No matching suggestion." },
 };
 
 export function AutocompleteMenu({ state }: { state: ComposerAutocomplete }) {
@@ -275,7 +358,7 @@ function Row({
     if (activeRow) ref.current?.scrollIntoView({ block: "nearest" });
   }, [activeRow]);
 
-  const Icon = option.kind === "command" ? TerminalIcon : LightningIcon;
+  const Icon = option.kind === "command" ? TerminalIcon : option.kind === "extension" ? PuzzlePieceIcon : LightningIcon;
   const nameOffset = option.value.length - option.label.length;
   // What kind of thing runs, which is the only thing a command row can usefully
   // say about itself beyond its description: an extension command executes code,

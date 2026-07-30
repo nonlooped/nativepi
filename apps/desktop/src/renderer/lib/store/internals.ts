@@ -32,6 +32,26 @@ export function replaceLastChats(map: Record<string, string>): void {
   lastChatByProject = map;
 }
 
+/**
+ * Tell the Pi host what the composer holds.
+ *
+ * `ctx.ui.getEditorText()` is synchronous, so an extension asking what the user
+ * is writing cannot be answered with a round trip — the host has to already know.
+ * Coalesced to one message per idle moment: this fires on every keystroke, and
+ * the answer only has to be true by the time an extension asks for it.
+ */
+let draftReport: ReturnType<typeof setTimeout> | undefined;
+
+export function reportDraft(projectDir: string | null, text: string): void {
+  if (!projectDir) return;
+  clearTimeout(draftReport);
+  draftReport = setTimeout(() => {
+    void rpc.request
+      .tuiSend({ projectDir, frame: { type: "nativepi_tui_editor", text } })
+      .catch(() => {});
+  }, 150);
+}
+
 /** When git was last refreshed, so a busy turn cannot spam `git status`. */
 let lastGitRefresh = 0;
 
