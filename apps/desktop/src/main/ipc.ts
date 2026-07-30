@@ -425,19 +425,10 @@ const handlers: HandlerMap = {
     }
   },
 
-  importSession: async ({ projectDir }) => {
+  importSession: async ({ projectDir, sourceFile }) => {
     try {
-      const options = {
-        title: "Import chat",
-        properties: ["openFile" as const],
-        defaultPath: app.getPath("home"),
-        filters: [{ name: "Pi session", extensions: ["jsonl"] }],
-      };
-      const result = mainWindow
-        ? await dialog.showOpenDialog(mainWindow, options)
-        : await dialog.showOpenDialog(options);
-      const source = result.filePaths[0];
-      if (result.canceled || !source) return { ok: false, canceled: true };
+      const source = sourceFile ?? (await pickSessionFile());
+      if (!source) return { ok: false, canceled: true };
 
       const manager = SessionManager.forkFrom(source, projectDir);
       return { ok: true, sessionFile: manager.getSessionFile() };
@@ -1073,6 +1064,19 @@ const handlers: HandlerMap = {
     }
   },
 };
+
+async function pickSessionFile(): Promise<string | undefined> {
+  const options = {
+    title: "Import chat",
+    properties: ["openFile" as const],
+    defaultPath: app.getPath("home"),
+    filters: [{ name: "Pi session", extensions: ["jsonl"] }],
+  };
+  const result = mainWindow
+    ? await dialog.showOpenDialog(mainWindow, options)
+    : await dialog.showOpenDialog(options);
+  return result.canceled ? undefined : result.filePaths[0];
+}
 
 async function ensureLocalAccess(localNetwork: boolean): Promise<void> {
   if (process.env["ELECTRON_RENDERER_URL"]) {

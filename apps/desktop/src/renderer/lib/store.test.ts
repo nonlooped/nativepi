@@ -1,22 +1,13 @@
 import { expect, test } from "bun:test";
+import { stubInvoke } from "./store/testBridge.ts";
 
 const responses: Record<string, unknown> = {
   setModel: { ok: true },
   getThinkingLevels: { levels: ["low", "medium", "high"] },
 };
 
-// Mirrors the real bridge: a single `invoke` that the renderer's Proxy fans out
-// into per-channel calls.
-Object.assign(globalThis, {
-  window: {
-    nativepi: {
-      invoke: async (channel: string) => responses[channel] ?? {},
-      events: { on: () => () => {} },
-    },
-  },
-});
-
 test("selecting a model loads only its supported reasoning levels", async () => {
+  stubInvoke(async (channel) => responses[channel] ?? {});
   const { useAppStore } = await import("./store.ts");
   useAppStore.setState({ activeProjectPath: "C:\\project" });
 

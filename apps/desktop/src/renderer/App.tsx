@@ -13,6 +13,7 @@ import Sidebar from "./components/Sidebar.tsx";
 import Transcript from "./components/Transcript.tsx";
 import Composer from "./components/Composer.tsx";
 import ContextPane from "./components/ContextPane.tsx";
+import DropZone from "./components/DropZone.tsx";
 import ExtensionUi from "./components/ExtensionUi.tsx";
 import TuiOverlay from "./components/TuiSurface.tsx";
 import NativePiWordmark from "./components/NativePiWordmark.tsx";
@@ -25,6 +26,7 @@ import TrustDialog from "./components/TrustDialog.tsx";
 import WindowControls from "./components/WindowControls.tsx";
 import TerminalDock from "./components/TerminalDock.tsx";
 import { activeConversation, useAppStore } from "./lib/store.ts";
+import { isRemote } from "./lib/rpc.ts";
 import { chatTitle } from "./lib/transcript.ts";
 import { bindings, withHint } from "./lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -210,6 +212,7 @@ export default function App() {
         </div>
       ) : null}
 
+      <DropZone />
       <Toaster />
       <WindowControls />
 
@@ -615,6 +618,11 @@ function WelcomeScreen() {
             Open folder
           </Button>
         </div>
+        {/* The only place the window says it takes a drop before one is in the
+            air, and the screen with the most room to say it. */}
+        {isRemote ? null : (
+          <p className="text-xs text-muted-foreground">Or drag a folder onto this window.</p>
+        )}
       </div>
     </div>
   );

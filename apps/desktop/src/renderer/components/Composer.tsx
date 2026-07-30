@@ -4,14 +4,15 @@ import { PaperclipIcon } from "@phosphor-icons/react/Paperclip";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { AssistantMessage } from "../../shared/pi-types.ts";
 import { draftKeyFor } from "../../shared/messages.ts";
-import { ACCEPTED_IMAGE_TYPES, draggingImages, imageFilesIn } from "../lib/attachments.ts";
+import { ACCEPTED_IMAGE_TYPES } from "../lib/attachments.ts";
+import { classifyDrop, draggingFiles, mentionPath } from "../lib/drops.ts";
 import { activeConversation, thinkingLabel, useAppStore } from "../lib/store.ts";
 import { formatTokens } from "../lib/format.ts";
 import { rpc } from "../lib/rpc.ts";
 import { useRequest } from "../lib/useRequest.ts";
 import { filterBranches } from "../lib/branches.ts";
 import { withHint } from "../lib/shortcuts.ts";
-import { hoistSkill } from "../lib/composerText.ts";
+import { chipText, hoistSkill } from "../lib/composerText.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
@@ -46,11 +47,43 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
     (s) => (activeProjectPath ? (s.preparing[draftKeyFor(activeProjectPath, activeSessionFile)] ?? 0) : 0),
   );
 
+  const [dropTarget, setDropTarget] = useState(false);
+
   const disabled = !activeProjectPath;
   // Images being read hold the send: they belong to this message, and Enter a
   // moment too early would send the text alone and leave them for the next one.
   const canSend = (!!draft.trim() || attached > 0) && !disabled && !blocked && preparing === 0;
   const steering = running && behavior === "steer";
+
+  /**
+   * A drop onto the composer, which is a message about files rather than a way
+   * to open them.
+   *
+   * An image becomes an attachment because that is the only form Pi's prompt can
+   * carry a picture in; every other file becomes an `@` mention, because the
+   * agent reads it from disk and the composer's own file menu writes exactly the
+   * same token. Shift inverts the one case where both are possible: an image the
+   * user wants the agent to open rather than look at.
+   */
+  const drop = (event: React.DragEvent) => {
+    if (disabled || !activeProjectPath) return;
+    const { images, files } = classifyDrop(event.dataTransfer);
+    // A browser drop has no path to invert to, so Shift there leaves the image
+    // an attachment rather than losing it between the two forms.
+    const imagePaths = event.shiftKey ? images.map((image) => rpc.filePath(image)).filter(Boolean) : [];
+    const mentions = [...files, ...imagePaths];
+    const attaching = imagePaths.length > 0 ? [] : images;
+    // Nothing this box can carry: a folder or a chat file dropped here is left
+    // to the window, which opens it.
+    if (attaching.length === 0 && mentions.length === 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setDropTarget(false);
+    if (attaching.length > 0) void attach(attaching);
+    if (mentions.length === 0) return;
+    const text = mentions.map((path) => chipText("file", mentionPath(activeProjectPath, path))).join(" ");
+    setDraft(draft.trim() ? `${draft.replace(/\s+$/, "")} ${text} ` : `${text} `);
+  };
 
   const submit = () => {
     if (!canSend) return;
@@ -76,20 +109,31 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
       <QueuedMessages />
       {/* Drop anywhere on the composer, not only on the text: the target the
           user aims at is the box, and a drop that lands two pixels outside the
-          editable area would otherwise navigate the window to the file. */}
+          editable area would otherwise be caught by the window behind it and
+          treated as a project or a chat instead. */}
       <div
-        className="composer-surface mx-auto flex w-full max-w-(--conversation-width) flex-col rounded-3xl bg-card px-3 pb-3 pt-2"
+        className={cn(
+          "composer-surface relative mx-auto flex w-full max-w-(--conversation-width) flex-col rounded-3xl bg-card px-3 pb-3 pt-2",
+          dropTarget && "ring-2 ring-ring",
+        )}
         onDragOver={(event) => {
-          if (disabled || !draggingImages(event.dataTransfer)) return;
+          if (disabled || !draggingFiles(event.dataTransfer)) return;
           event.preventDefault();
+          setDropTarget(true);
         }}
-        onDrop={(event) => {
-          const files = imageFilesIn(event.dataTransfer);
-          if (disabled || files.length === 0) return;
-          event.preventDefault();
-          void attach(files);
+        onDragLeave={(event) => {
+          // Only the drag leaving the composer entirely, not the one crossing
+          // from the text area onto a button inside it.
+          if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+          setDropTarget(false);
         }}
+        onDrop={drop}
       >
+        {dropTarget ? (
+          <p className="pointer-events-none absolute inset-x-0 -top-7 text-center text-xs text-muted-foreground">
+            Images attach, other files become mentions · <Kbd>Shift</Kbd> mentions images too
+          </p>
+        ) : null}
         <ComposerAttachments />
         <ComposerInput
           value={draft}

@@ -151,7 +151,7 @@ export interface ChatSlice {
   refreshSessions: (projectPath: string) => Promise<void>;
   selectChat: (sessionFile: string) => Promise<void>;
   newChat: () => void;
-  importSession: (projectDir?: string) => Promise<void>;
+  importSession: (projectDir?: string, sourceFile?: string) => Promise<void>;
   setDraft: (text: string) => void;
   quoteInReply: (text: string) => void;
   askAbout: (text: string) => void;
