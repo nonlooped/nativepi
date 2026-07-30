@@ -22,7 +22,7 @@ export const layers: Layer[] = [
     owner: "Pi owns this",
     depth: -460,
     heading: "Pi keeps the agent loop.",
-    body: "A pinned build of Pi is bundled with the app and started in RPC mode. It owns the loop, the providers, authentication, tools, prompts, skills, extensions, queues, compaction, and sessions. NativePi never makes a model request of its own.",
+    body: "A pinned build of Pi ships with the app and runs in RPC mode. It owns the loop, the providers, auth, tools, and sessions. NativePi never makes a model request.",
     facts: [
       "Sessions live in Pi's own storage, in ~/.pi/agent",
       "Credentials are Pi's, never held in NativePi",
@@ -35,7 +35,7 @@ export const layers: Layer[] = [
     owner: "The host",
     depth: -230,
     heading: "One process per project, and a narrow bridge.",
-    body: "The Electron main process talks to Pi over JSON RPC on stdin and stdout, and exposes a constrained contextBridge to the window. Nothing else crosses. Different projects can run at the same time; a project never gets two Pi processes.",
+    body: "Electron main talks to Pi over JSON RPC on stdin and stdout, and exposes a narrow contextBridge. Nothing else crosses. A project never gets two Pi processes.",
     facts: [
       "JSON RPC over stdin and stdout",
       "A constrained contextBridge, not full Node access",
@@ -48,7 +48,7 @@ export const layers: Layer[] = [
     owner: "What you touch",
     depth: 0,
     heading: "The part you actually work in.",
-    body: "Projects, sessions, streamed responses, thinking, tool calls, file changes, and Git diffs, in one window. React 19 with the React Compiler, Tailwind, and shadcn/ui. It renders what Pi returns and adds no agent behavior of its own.",
+    body: "Projects, sessions, streamed responses, tool calls, and Git diffs in one window. React 19, Tailwind, shadcn/ui. It renders what Pi returns and adds no behavior.",
     facts: [
       "Resizable three-pane workspace",
       "Rich diffs and Git status beside the transcript",
@@ -61,7 +61,7 @@ export const layers: Layer[] = [
     owner: "This part is yours",
     depth: 210,
     heading: "The app itself is hackable.",
-    body: "Normal Pi extensions run inside Pi, unchanged. An extension that wants the desktop surface imports @nativepi/extension-api and adds a nativepi.renderer entry. NativePi compiles it with esbuild and mounts its contributions behind error boundaries.",
+    body: "Import @nativepi/extension-api, add a nativepi.renderer entry, and your extension draws in the window. esbuild compiles it; error boundaries contain it.",
     facts: [
       "Four contribution points, no core replacement",
       "Your components share NativePi's React instance",

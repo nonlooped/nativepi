@@ -31,14 +31,9 @@ export function Interchange() {
             you want.
           </h2>
           <p className="lede mt-6 max-w-lg">
-            Most agent frontends replace the agent they wrap: their own loop,
-            their own storage, their own login. NativePi does none of that.
-          </p>
-          <p className="mt-5 max-w-lg text-sm leading-relaxed text-silver">
-            Your sessions and credentials stay in Pi&apos;s normal storage. There
-            is no second conversation store to migrate out of, no account to
-            close, and no export step. The Pi command line reads and writes the
-            same files while NativePi is open.
+            Nothing to migrate out of. Your sessions and logins never leave
+            Pi&apos;s own storage, and the Pi CLI reads the same files while this
+            is open.
           </p>
 
           <div className="mt-10">
@@ -55,9 +50,8 @@ export function Interchange() {
                 </li>
               ))}
             </ul>
-            <p className="mt-4 max-w-lg text-sm leading-relaxed text-silver">
-              That is the complete list. No conversations, no credentials, no
-              telemetry, and nothing that leaves your machine.
+            <p className="mt-4 text-sm text-silver">
+              That is the whole list.
             </p>
           </div>
         </div>

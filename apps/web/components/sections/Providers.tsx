@@ -16,8 +16,7 @@ export function Providers() {
     >
       <div className="rail">
         <p className="text-center text-sm text-silver">
-          NativePi adds no providers of its own. It uses whatever Pi can
-          authenticate.
+          No providers of its own. Whatever Pi can authenticate.
         </p>
 
         <ul className="mt-9 flex flex-wrap items-center justify-center gap-x-10 gap-y-7">

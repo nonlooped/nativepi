@@ -52,9 +52,8 @@ export function Extensions() {
             The app itself is hackable.
           </h2>
           <p className="lede mt-6">
-            You already shape Pi with TypeScript extensions. NativePi extends
-            that same contract into a graphical one, so the desktop surface bends
-            to your workflow instead of the other way around.
+            You already shape Pi with TypeScript extensions. Add a renderer entry
+            and they can draw in the window too.
           </p>
         </div>
 
@@ -73,9 +72,7 @@ export function Extensions() {
               Four places to contribute
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-silver">
-              Extensions reach controlled slots. They cannot replace the
-              composer, the transcript, the sidebar, or routing, which is what
-              keeps a broken extension from taking the window with it.
+              Slots only. A broken extension cannot take the window with it.
             </p>
 
             <ul className="mt-6 divide-y divide-hairline border-y border-hairline">
@@ -98,10 +95,8 @@ export function Extensions() {
               How it loads
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-silver">
-              Point your Pi package manifest at a browser entry. NativePi
-              compiles it with esbuild, provides React and the API at runtime so
-              your components share its React instance, and mounts every
-              contribution behind an error boundary.
+              Point your manifest at a browser entry. esbuild compiles it, and
+              your components share NativePi&apos;s React instance.
             </p>
 
             <div className="mt-4">
@@ -109,8 +104,7 @@ export function Extensions() {
             </div>
 
             <p className="mt-5 text-xs text-silver">
-              The graphical extension API is experimental and may change between
-              releases.
+              Experimental. Slots may change between releases.
             </p>
 
             <Link
@@ -124,8 +118,7 @@ export function Extensions() {
         </div>
 
         <p className="mt-12 text-sm text-silver">
-          Normal Pi extensions keep working, unchanged, with no renderer entry at
-          all.{" "}
+          Extensions without a renderer entry keep working, unchanged.{" "}
           <a
             href={site.extensionApi}
             target="_blank"

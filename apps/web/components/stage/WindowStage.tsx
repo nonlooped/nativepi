@@ -304,16 +304,16 @@ export function WindowStage() {
     <LazyMotion features={domAnimation} strict>
       <section
         ref={sectionRef}
-        className="stage-section relative h-[460vh]"
+        className="stage-section relative h-[320vh]"
         aria-label="NativePi, and how it is put together"
       >
       {/*
         The section starts at the hero, so #layers cannot live on the section
         itself or the nav link would just scroll to the top of the page. This
         anchor sits at the scroll offset where separation actually begins:
-        OPEN_START of the 360vh of travel this 460vh section provides.
+        OPEN_START of the 220vh of travel this 320vh section provides.
       */}
-      <div id="layers" className="absolute top-[72vh] h-px w-px" aria-hidden />
+      <div id="layers" className="absolute top-[44vh] h-px w-px" aria-hidden />
       <div className="stage-sticky sticky top-0 flex h-screen flex-col justify-start overflow-hidden pt-[clamp(4rem,8vh,6rem)]">
         {/* Hero copy, occupying the space above the closed window. */}
         <m.div

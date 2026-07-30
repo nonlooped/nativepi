@@ -7,35 +7,16 @@ import { site } from "@/lib/site";
 /**
  * The costs, stated by the product rather than discovered by the visitor.
  *
- * This section exists because Product Principle 2 requires it, and because a
- * page that only lists strengths is the one thing a skeptical developer
- * reliably distrusts.
+ * One line each. These were paragraphs, and a paragraph invites the reader to
+ * skim past a limitation they should actually register.
  */
 const limits = [
-  {
-    title: "Windows only, for now",
-    body: "The host is Windows-first, single window, and dark only. There is no macOS or Linux build.",
-  },
-  {
-    title: "The installer is unsigned",
-    body: "Releases are not code signed yet, so Windows SmartScreen warns on first launch and you have to click through it.",
-  },
-  {
-    title: "Git access is deliberately narrow",
-    body: "Branch checkout and creation on a clean worktree, and adding worktrees. No staging, committing, merging, rebasing, discarding, or history rewriting.",
-  },
-  {
-    title: "The graphical API is experimental",
-    body: "Extension slots may change between releases. Graphical extensions are trusted code running in the window, not sandboxed code.",
-  },
-  {
-    title: "It is not its own agent",
-    body: "No agent loop, no model requests, no added tools, and no support for harnesses other than Pi. If Pi cannot do it, neither can this.",
-  },
-  {
-    title: "Nothing is synced",
-    body: "No cloud, no collaboration, no remote projects, no accounts, no paid tier, and no telemetry of any kind.",
-  },
+  ["Platform", "Windows only. Single window, dark only. No macOS or Linux."],
+  ["Installer", "Unsigned, so SmartScreen warns on first launch."],
+  ["Git", "Branches and worktrees. No commits, merges, or history rewriting."],
+  ["Extensions", "The graphical API is experimental and unsandboxed."],
+  ["Agent", "None of its own. If Pi cannot do it, neither can this."],
+  ["Sync", "No cloud, no accounts, no paid tier, no telemetry."],
 ];
 
 export function Boundaries() {
@@ -44,28 +25,23 @@ export function Boundaries() {
       id="boundaries"
       className="relative z-10 border-t border-hairline py-24 sm:py-32"
     >
-      <div className="rail">
-        <div className="max-w-3xl">
-          <h2 className="section-head text-bright">
-            What it does not do.
-          </h2>
-          <p className="lede mt-6">
-            Worth knowing before you download it rather than after.
-          </p>
-        </div>
+      <div className="rail grid gap-10 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:gap-20">
+        <h2 className="section-head text-bright">
+          What it
+          <br className="hidden lg:block" /> does not do.
+        </h2>
 
-        <ul className="mt-14 grid gap-x-12 gap-y-9 md:grid-cols-2 lg:grid-cols-3">
-          {limits.map((limit) => (
-            <li key={limit.title}>
-              <h3 className="text-sm font-semibold text-chalk">
-                {limit.title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-silver">
-                {limit.body}
-              </p>
-            </li>
+        <dl className="divide-y divide-hairline border-y border-hairline">
+          {limits.map(([term, detail]) => (
+            <div
+              key={term}
+              className="grid gap-x-8 gap-y-1 py-4 sm:grid-cols-[8rem_minmax(0,1fr)]"
+            >
+              <dt className="text-sm font-semibold text-chalk">{term}</dt>
+              <dd className="text-sm leading-relaxed text-silver">{detail}</dd>
+            </div>
           ))}
-        </ul>
+        </dl>
       </div>
     </section>
   );
@@ -76,10 +52,9 @@ export function Close() {
     <section className="relative z-10 overflow-hidden border-t border-hairline">
       <div className="rail py-28 text-center sm:py-36">
         <h2 className="display text-bright">Take it apart yourself.</h2>
-        <p className="lede mx-auto mt-6 max-w-xl text-balance">
-          The whole thing is MIT licensed, from the app down to the extension
-          contract. Read it, fork it, or bend it around the workflow you already
-          have.
+        <p className="lede mx-auto mt-6 max-w-lg text-balance">
+          MIT licensed, all the way down to the extension contract. Read it,
+          fork it, bend it.
         </p>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">

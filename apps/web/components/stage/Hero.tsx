@@ -25,10 +25,9 @@ export function Hero() {
         on your desktop.
       </h1>
 
-      <p className="lede mx-auto mt-6 max-w-2xl text-balance">
-        A free, open source Windows interface for Pi. It renders the agent you
-        already use, and it keeps every session, credential, and setting exactly
-        where Pi puts them.
+      <p className="lede mx-auto mt-6 max-w-xl text-balance">
+        A free, open source Windows app for the Pi coding agent. Same sessions,
+        same logins, same files.
       </p>
 
       <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
@@ -44,8 +43,7 @@ export function Hero() {
 
       {/* A caveat, not marginalia. It gets a readable tone. */}
       <p className="mt-4 text-xs text-silver">
-        MIT licensed. Windows only. Releases are unsigned, so SmartScreen warns
-        on first launch.
+        MIT licensed. Windows only. Unsigned, so SmartScreen warns once.
       </p>
     </div>
   );
