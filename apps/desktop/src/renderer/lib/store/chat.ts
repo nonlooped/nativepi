@@ -131,15 +131,16 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
 
   importSession: async (targetProjectDir, sourceFile) => {
     const projectDir = targetProjectDir ?? get().activeProjectPath;
-    if (!projectDir) return;
+    if (!projectDir) return false;
     const res = await rpc.request.importSession({ projectDir, sourceFile });
-    if (res.canceled) return;
+    if (res.canceled) return false;
     if (!res.ok || !res.sessionFile) {
       patchConversation(set, projectDir, { error: res.error ?? "Failed to import chat" });
-      return;
+      return false;
     }
     await get().refreshSessions(projectDir);
     if (get().activeProjectPath === projectDir) await get().selectChat(res.sessionFile);
+    return true;
   },
 
   setSendBehavior: (sendBehavior) => set({ sendBehavior }),

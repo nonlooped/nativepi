@@ -19,7 +19,8 @@ const SKILL = "/skill:";
 
 /** The text a chip stands for, which is exactly what the chip serializes back to. */
 export function chipText(kind: ChipKind, value: string): string {
-  return kind === "skill" ? `${SKILL}${value}` : `@${value}`;
+  if (kind === "skill") return `${SKILL}${value}`;
+  return /\s/.test(value) ? `@"${value}"` : `@${value}`;
 }
 
 function tokenAt(text: string, index: number): { kind: ChipKind; value: string; length: number } | null {
@@ -31,9 +32,11 @@ function tokenAt(text: string, index: number): { kind: ChipKind; value: string; 
   const prefix = rest.startsWith(SKILL) ? SKILL : rest.startsWith("@") ? "@" : null;
   if (!prefix) return null;
 
-  const value = /^\S*/.exec(rest.slice(prefix.length))?.[0] ?? "";
+  const source = rest.slice(prefix.length);
+  const quoted = prefix === "@" ? /^"([^"\n]+)"/.exec(source) : null;
+  const value = quoted?.[1] ?? /^\S*/.exec(source)?.[0] ?? "";
   if (!value) return null;
-  return { kind: prefix === SKILL ? "skill" : "file", value, length: prefix.length + value.length };
+  return { kind: prefix === SKILL ? "skill" : "file", value, length: prefix.length + (quoted?.[0].length ?? value.length) };
 }
 
 /** A draft split into the runs of prose and the tokens drawn as chips. */

@@ -13,6 +13,7 @@ import { useRequest } from "../lib/useRequest.ts";
 import { filterBranches } from "../lib/branches.ts";
 import { withHint } from "../lib/shortcuts.ts";
 import { chipText, hoistSkill } from "../lib/composerText.ts";
+import { showDropRejected, showHint } from "../lib/toast.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
@@ -43,6 +44,8 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
     (s) => (activeProjectPath ? (s.attachments[draftKeyFor(activeProjectPath, activeSessionFile)]?.length ?? 0) : 0),
   );
   const attach = useAppStore((s) => s.attach);
+  const openProjectPath = useAppStore((s) => s.openProjectPath);
+  const importSession = useAppStore((s) => s.importSession);
   const preparing = useAppStore(
     (s) => (activeProjectPath ? (s.preparing[draftKeyFor(activeProjectPath, activeSessionFile)] ?? 0) : 0),
   );
@@ -65,24 +68,35 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
    * same token. Shift inverts the one case where both are possible: an image the
    * user wants the agent to open rather than look at.
    */
-  const drop = (event: React.DragEvent) => {
+  const drop = async (event: React.DragEvent) => {
     if (disabled || !activeProjectPath) return;
-    const { images, files } = classifyDrop(event.dataTransfer);
+    const { folders, sessions, images, files } = classifyDrop(event.dataTransfer);
     // A browser drop has no path to invert to, so Shift there leaves the image
     // an attachment rather than losing it between the two forms.
     const imagePaths = event.shiftKey ? images.map((image) => rpc.filePath(image)).filter(Boolean) : [];
     const mentions = [...files, ...imagePaths];
     const attaching = imagePaths.length > 0 ? [] : images;
-    // Nothing this box can carry: a folder or a chat file dropped here is left
-    // to the window, which opens it.
-    if (attaching.length === 0 && mentions.length === 0) return;
+    // A folder or a chat file keeps its window action even when the same drop
+    // also contains something the message can carry.
+    if (attaching.length === 0 && mentions.length === 0 && folders.length === 0 && sessions.length === 0) return;
     event.preventDefault();
     event.stopPropagation();
     setDropTarget(false);
     if (attaching.length > 0) void attach(attaching);
-    if (mentions.length === 0) return;
-    const text = mentions.map((path) => chipText("file", mentionPath(activeProjectPath, path))).join(" ");
-    setDraft(draft.trim() ? `${draft.replace(/\s+$/, "")} ${text} ` : `${text} `);
+    if (mentions.length > 0) {
+      const text = mentions.map((path) => chipText("file", mentionPath(activeProjectPath, path))).join(" ");
+      setDraft(draft.trim() ? `${draft.replace(/\s+$/, "")} ${text} ` : `${text} `);
+    }
+    for (const folder of folders) await openProjectPath(folder);
+    if (folders.length > 0) showHint(folders.length === 1 ? "Project opened" : `${folders.length} projects opened`);
+    const target = folders.at(-1) ?? activeProjectPath;
+    if (sessions.length > 0 && !target) {
+      showDropRejected("Open a project before importing a chat into it.");
+      return;
+    }
+    let imported = 0;
+    for (const session of sessions) if (await importSession(target, session)) imported++;
+    if (imported > 0) showHint(imported === 1 ? "Chat imported" : `${imported} chats imported`);
   };
 
   const submit = () => {

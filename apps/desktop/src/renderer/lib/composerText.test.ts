@@ -28,6 +28,12 @@ test("chips round-trip through the text they serialize to", () => {
   expect(parseSegments(text).map((s) => (s.kind === "text" ? s.value : chipText(s.kind, s.value))).join("")).toBe(text);
 });
 
+test("a file chip quotes whitespace so its path remains one token", () => {
+  const text = chipText("file", "docs/design notes.md");
+  expect(text).toBe('@"docs/design notes.md"');
+  expect(parseSegments(text)).toEqual([{ kind: "file", value: "docs/design notes.md" }]);
+});
+
 test("a skill placed mid-sentence reaches Pi at the head, where it expands", () => {
   expect(hoistSkill("please /skill:review this diff")).toBe("/skill:review please this diff");
   expect(hoistSkill("/skill:review this diff")).toBe("/skill:review this diff");

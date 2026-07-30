@@ -57,8 +57,9 @@ export default function DropZone() {
         showDropRejected("Open a project before importing a chat into it.");
         return;
       }
-      for (const session of sessions) await importSession(target ?? undefined, session);
-      if (sessions.length > 0) showHint(sessions.length === 1 ? "Chat imported" : `${sessions.length} chats imported`);
+      let imported = 0;
+      for (const session of sessions) if (await importSession(target ?? undefined, session)) imported++;
+      if (imported > 0) showHint(imported === 1 ? "Chat imported" : `${imported} chats imported`);
 
       if (folders.length === 0 && sessions.length === 0 && images.length + files.length > 0) {
         showDropRejected("Drop files on the message box to add them to a message.");
