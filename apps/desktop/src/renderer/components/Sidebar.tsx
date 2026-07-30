@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
@@ -18,6 +18,7 @@ import ConfirmDialog from "./ConfirmDialog.tsx";
 import WorktreeDialog from "./WorktreeDialog.tsx";
 import SessionMenu from "./SessionMenu.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
+import ChatSearchDialog from "./ChatSearchDialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
@@ -50,15 +51,15 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const openTerminal = useAppStore((s) => s.openTerminal);
   const editorId = useAppStore((s) => s.preferences.preferredEditorId);
   const searchFocusRequest = useAppStore((s) => s.searchFocusRequest);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [now, setNow] = useState(Date.now);
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
   const [worktreesFor, setWorktreesFor] = useState<string | null>(null);
   const [expandedProjects, setExpandedProjects] = useState(() => new Set(activeProjectPath ? [activeProjectPath] : []));
-  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (searchFocusRequest > 0) searchRef.current?.focus();
+    if (searchFocusRequest > 0) setSearchOpen(true);
   }, [searchFocusRequest]);
 
   useEffect(() => {
@@ -131,19 +132,16 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
       <div className={cn("relative px-3 pb-6 pt-2", NO_DRAG_REGION)}>
         <MagnifyingGlassIcon className="pointer-events-none absolute left-5 top-5 text-muted-foreground" />
         <Input
-          ref={searchRef}
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search"
-          aria-label="Search chats"
+          aria-label="Filter chats"
           className={cn(
             "border-0 bg-transparent pl-8 text-base shadow-none focus-visible:ring-2 focus-visible:ring-sidebar-ring md:text-base",
             query ? "pr-3" : "pr-16",
           )}
         />
-        {/* The shortcut hint yields once there is text: on a narrow sidebar it
-            would otherwise sit on top of what the user is typing. */}
         {query ? null : <Kbd className="pointer-events-none absolute right-5 top-4">{hintFor("search")}</Kbd>}
       </div>
 
@@ -293,6 +291,11 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
       </div>
 
       <WorktreeDialog projectPath={worktreesFor} onClose={() => setWorktreesFor(null)} />
+      <ChatSearchDialog
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onNavigate={overlay ? onClose : undefined}
+      />
 
       <ConfirmDialog
         open={pendingRemoval !== null}

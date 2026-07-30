@@ -16,6 +16,7 @@ import type {
   ResolvedExtension,
   RpcSessionState,
   SessionStats,
+  SessionSearchResult,
   SessionSummary,
   SessionTreeNode,
   SkillInfo,
@@ -266,6 +267,10 @@ export type HostRequests = {
   loadState: { params: Record<string, never>; response: NativePiState };
   saveState: { params: { state: NativePiState }; response: { ok: boolean } };
   listSessions: { params: { projectDir: string }; response: { sessions: SessionSummary[] } };
+  searchSessions: {
+    params: { projectDirs: string[]; query: string };
+    response: { results: SessionSearchResult[] };
+  };
   readSession: { params: { sessionFile: string }; response: { entries: FileEntry[] } };
   ensurePi: { params: { projectDir: string }; response: { ok: boolean; error?: string } };
   restartPi: { params: { projectDir: string }; response: { ok: boolean } };

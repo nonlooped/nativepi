@@ -350,6 +350,7 @@ The component system is compact and restrained, with soft geometry and explicit 
 - Menus use compact padding, medium corners, a hairline border, and highlighted graphite rows.
 - Dialogs use Popover Graphite, a dim blurred backdrop, a larger ambient shadow, and subtle scale/fade entry and exit.
 - Titles and descriptions are mandatory; actions align to the lower right unless the task requires a vertical choice list.
+- Chat search uses a focused dialog with one persistent query field and speaker-labelled results; searching remains an explicit action rather than filtering the project sidebar in place.
 
 ## Do's and Don'ts
 

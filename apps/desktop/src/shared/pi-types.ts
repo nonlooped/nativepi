@@ -177,6 +177,15 @@ export interface SessionSummary {
   modified: string;
 }
 
+export interface SessionSearchResult {
+  projectDir: string;
+  sessionFile: string;
+  title: string;
+  modified: string;
+  match: "title" | "user" | "assistant";
+  snippet: string;
+}
+
 
 export interface GitChangedFile {
   path: string;

@@ -2,8 +2,8 @@ import { existsSync, watch, type FSWatcher } from "node:fs";
 import { readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { parseSessionEntries, SessionManager } from "@earendil-works/pi-coding-agent";
-import { isUser, textOf } from "../shared/messages.ts";
-import type { FileEntry, SessionSummary } from "../shared/pi-types.ts";
+import { chatTitle, isAssistant, isUser, textOf } from "../shared/messages.ts";
+import type { FileEntry, SessionSearchResult, SessionSummary } from "../shared/pi-types.ts";
 
 /**
  * Session discovery and file watching.
@@ -79,6 +79,60 @@ export async function listSessions(projectDir: string): Promise<SessionSummary[]
         modified: session.modified.toISOString(),
       })),
   );
+}
+
+export async function searchSessions(projectDirs: string[], rawQuery: string): Promise<SessionSearchResult[]> {
+  const query = rawQuery.trim().toLocaleLowerCase();
+  if (!query || projectDirs.length === 0) return [];
+
+  const summaries = (await Promise.all(projectDirs.map(async (projectDir) => {
+    const sessions = await listSessions(projectDir);
+    return sessions.map((session) => ({ projectDir, session, title: chatTitle(session) }));
+  }))).flat();
+  const results: SessionSearchResult[] = summaries.flatMap(({ projectDir, session, title }) =>
+    title.toLocaleLowerCase().includes(query)
+      ? [{
+          projectDir,
+          sessionFile: session.path,
+          title,
+          modified: session.modified,
+          match: "title" as const,
+          snippet: title,
+        }]
+      : [],
+  );
+
+  for (const { projectDir, session, title } of summaries) {
+    if (results.length >= 50 || title.toLocaleLowerCase().includes(query)) continue;
+    const entries = await readSession(session.path).catch(() => []);
+    for (const entry of entries) {
+      if (entry.type !== "message" || (!isUser(entry.message) && !isAssistant(entry.message))) continue;
+      const text = textOf(entry.message.content);
+      const index = text.toLocaleLowerCase().indexOf(query);
+      if (index === -1) continue;
+      results.push({
+        projectDir,
+        sessionFile: session.path,
+        title,
+        modified: session.modified,
+        match: entry.message.role,
+        snippet: searchSnippet(text, index, rawQuery.trim().length),
+      });
+      break;
+    }
+  }
+
+  return results
+    .toSorted((a, b) => Number(a.match !== "title") - Number(b.match !== "title") || b.modified.localeCompare(a.modified))
+    .slice(0, 50);
+}
+
+export function searchSnippet(text: string, matchIndex: number, matchLength: number): string {
+  const compact = text.replace(/\s+/g, " ").trim();
+  const prefixLength = text.slice(0, matchIndex).replace(/\s+/g, " ").trimStart().length;
+  const start = Math.max(0, prefixLength - 64);
+  const end = Math.min(compact.length, prefixLength + matchLength + 96);
+  return `${start > 0 ? "…" : ""}${compact.slice(start, end).trim()}${end < compact.length ? "…" : ""}`;
 }
 
 export async function deleteSession(projectDir: string, sessionFile: string): Promise<void> {

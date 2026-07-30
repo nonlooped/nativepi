@@ -36,7 +36,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 
 ## Current Capabilities
 
-- Project and chat pinning, date-grouped chat discovery, filtering, and direct opening in installed editors or Explorer.
+- Project and chat pinning, date-grouped chat discovery, filtering, title and transcript search, and direct opening in installed editors or Explorer.
 - New, resume, rename, clone, fork, delete, import, HTML export, session-tree, statistics, and compaction workflows backed by Pi.
 - Streaming text, thinking, tool activity, file-change summaries, rich diffs, retries, steering, follow-ups, queues, and abort controls.
 - Images attached to a message by paste, drag and drop, or the file picker, resized by Pi before they are sent and shown in the transcript alongside the message they went with.
