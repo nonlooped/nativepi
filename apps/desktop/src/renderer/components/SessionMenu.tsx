@@ -7,6 +7,8 @@ import { ExportIcon } from "@phosphor-icons/react/Export";
 import { GitForkIcon } from "@phosphor-icons/react/GitFork";
 import { InfoIcon } from "@phosphor-icons/react/Info";
 import { PencilSimpleIcon } from "@phosphor-icons/react/PencilSimple";
+import { PushPinIcon } from "@phosphor-icons/react/PushPin";
+import { PushPinSlashIcon } from "@phosphor-icons/react/PushPinSlash";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { TreeStructureIcon } from "@phosphor-icons/react/TreeStructure";
 import { useState } from "react";
@@ -61,6 +63,8 @@ export default function SessionMenu({
   const deleteChat = useAppStore((s) => s.deleteChat);
   const compactActive = useAppStore((s) => s.compactActive);
   const selectProject = useAppStore((s) => s.selectProject);
+  const pinned = useAppStore((s) => s.pinnedChats.includes(session.path));
+  const togglePinnedChat = useAppStore((s) => s.togglePinnedChat);
 
   const blocked = running && activeSessionFile === session.path;
   const inProject = (action: () => void | Promise<void>) => () => {
@@ -94,6 +98,8 @@ export default function SessionMenu({
   const actions = {
     blocked,
     active: activeSessionFile === session.path,
+    pinned,
+    togglePin: () => togglePinnedChat(session.path),
     rename: inProject(() => setDialog("rename")),
     fork: inProject(() => setDialog("fork")),
     clone: inProject(doClone),
@@ -169,6 +175,8 @@ export default function SessionMenu({
 type SessionActions = {
   blocked: boolean;
   active: boolean;
+  pinned: boolean;
+  togglePin: () => void;
   rename: () => void;
   fork: () => void;
   clone: () => void;
@@ -186,6 +194,11 @@ function SessionItems({ actions, context = false }: { actions: SessionActions; c
   const separator = context ? <ContextMenuSeparator /> : <div className="my-1 h-px bg-border" />;
   return (
     <>
+      <SessionItem context={context} onClick={actions.togglePin}>
+        {actions.pinned ? <PushPinSlashIcon /> : <PushPinIcon />}
+        {actions.pinned ? "Unpin chat" : "Pin chat"}
+      </SessionItem>
+      {separator}
       <SessionItem context={context} onClick={actions.rename}><PencilSimpleIcon /> Rename</SessionItem>
       <SessionItem context={context} onClick={actions.fork} disabled={actions.blocked}><GitForkIcon /> Fork from a message…</SessionItem>
       <SessionItem context={context} onClick={actions.clone} disabled={actions.blocked}><CopyIcon /> Duplicate</SessionItem>

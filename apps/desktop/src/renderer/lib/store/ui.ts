@@ -4,6 +4,10 @@ import { showUpdateNotice } from "../toast.tsx";
 import { persist } from "./internals.ts";
 import type { SliceCreator, UiSlice } from "./types.ts";
 
+// `crypto.randomUUID` is unavailable in a plain-HTTP context, which a LAN link
+// deliberately is; these ids only tell one list's rows apart.
+let handoffId = 0;
+
 export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   settingsOpen: false,
   sidebarSize: 18,
@@ -17,6 +21,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   terminalProjects: new Set(),
   preferences: DEFAULT_PREFERENCES,
   update: { status: "unsupported" },
+  accessHandoffs: [],
 
   openSettings: () => set({ settingsOpen: true }),
   closeSettings: () => set({ settingsOpen: false }),
@@ -70,6 +75,15 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
       else terminalProjects.add(projectPath);
       return { terminalProjects };
     }),
+
+  // Kept in the store rather than in the settings screen: closing Settings
+  // unmounts that screen, and the account of where a link has gone is about the
+  // window's whole session rather than one visit to a panel.
+  recordAccessHandoff: (kind, scope, link) => {
+    set((s) => ({
+      accessHandoffs: [{ id: String(++handoffId), kind, scope, link, at: Date.now() }, ...s.accessHandoffs],
+    }));
+  },
 
   onUpdateState: (update) => {
     const previousStatus = get().update.status;

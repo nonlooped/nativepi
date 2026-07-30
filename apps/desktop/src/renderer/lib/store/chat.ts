@@ -16,6 +16,7 @@ import { readAsBase64, toImageContent } from "../attachments.ts";
 import { showAttachmentsRejected } from "../toast.tsx";
 import { MAX_IMAGE_BYTES } from "../../../shared/images.ts";
 import type { ImageAttachment } from "../../../shared/rpc-schema.ts";
+import { togglePinnedPath } from "../chatOrganization.ts";
 import type { ChatSlice, GetState, PendingMessage, SetState, SliceCreator } from "./types.ts";
 
 let pendingId = 1;
@@ -81,6 +82,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   sessionsByProject: {},
   activeSessionFile: null,
   isNewChat: false,
+  pinnedChats: [],
   conversations: {},
   sendBehavior: "followUp",
   drafts: {},
@@ -90,6 +92,11 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   refreshSessions: async (projectPath) => {
     const { sessions } = await rpc.request.listSessions({ projectDir: projectPath });
     set((s) => ({ sessionsByProject: { ...s.sessionsByProject, [projectPath]: sessions } }));
+  },
+
+  togglePinnedChat: (sessionFile) => {
+    set((s) => ({ pinnedChats: togglePinnedPath(s.pinnedChats, sessionFile) }));
+    persist(get);
   },
 
   selectChat: async (sessionFile) => {
@@ -129,17 +136,18 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     reportActiveDraft(get);
   },
 
-  importSession: async (targetProjectDir) => {
+  importSession: async (targetProjectDir, sourceFile) => {
     const projectDir = targetProjectDir ?? get().activeProjectPath;
-    if (!projectDir) return;
-    const res = await rpc.request.importSession({ projectDir });
-    if (res.canceled) return;
+    if (!projectDir) return false;
+    const res = await rpc.request.importSession({ projectDir, sourceFile });
+    if (res.canceled) return false;
     if (!res.ok || !res.sessionFile) {
       patchConversation(set, projectDir, { error: res.error ?? "Failed to import chat" });
-      return;
+      return false;
     }
     await get().refreshSessions(projectDir);
     if (get().activeProjectPath === projectDir) await get().selectChat(res.sessionFile);
+    return true;
   },
 
   setSendBehavior: (sendBehavior) => set({ sendBehavior }),
@@ -363,7 +371,11 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     set((s) => {
       const { [sessionFile]: _draft, ...drafts } = s.drafts;
       const { [sessionFile]: _images, ...attachments } = s.attachments;
-      return { drafts, attachments };
+      return {
+        drafts,
+        attachments,
+        pinnedChats: s.pinnedChats.filter((path) => path !== sessionFile),
+      };
     });
     await get().refreshSessions(projectDir);
     if (get().activeSessionFile === sessionFile) {

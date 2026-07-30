@@ -24,6 +24,7 @@ export default function QuitDialog() {
 
   const rows = summarize(work);
   const runs = work.runs.length;
+  const viewers = work.viewers;
 
   return (
     <Dialog open onOpenChange={(next) => !next && setWork(null)}>
@@ -31,29 +32,42 @@ export default function QuitDialog() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 font-heading text-base font-semibold">
             <WarningCircleIcon weight="fill" className="size-5 text-warning" />
-            {runs > 0 ? "Pi is still working" : "Terminals are still open"}
+            {runs > 0
+              ? "Pi is still working"
+              : rows.length > 0 ? "Terminals are still open" : "Other devices are connected"}
           </DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
             {runs > 0
               ? "Quitting stops the turn where it is: the rest of the turn will not happen. Everything Pi has already written to the chat is saved."
-              : "Quitting closes these shells and ends whatever they are running."}
+              : rows.length > 0
+                ? "Quitting closes these shells and ends whatever they are running."
+                : `${devices(viewers)} reading NativePi over the shared link, which this window serves. Quitting ends their session.`}
           </DialogDescription>
         </DialogHeader>
 
-        <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border bg-muted/40 px-2.5 py-2">
-          {rows.map((row) => (
-            <li key={row.path} className="flex items-baseline gap-2 text-xs">
-              <span className="min-w-0 flex-1 truncate font-medium" title={row.path}>
-                {projects.find((project) => project.path === row.path)?.name ?? row.path}
-              </span>
-              <span className="shrink-0 text-muted-foreground">{describe(row)}</span>
-            </li>
-          ))}
-        </ul>
+        {rows.length > 0 ? (
+          <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border bg-muted/40 px-2.5 py-2">
+            {rows.map((row) => (
+              <li key={row.path} className="flex items-baseline gap-2 text-xs">
+                <span className="min-w-0 flex-1 truncate font-medium" title={row.path}>
+                  {projects.find((project) => project.path === row.path)?.name ?? row.path}
+                </span>
+                <span className="shrink-0 text-muted-foreground">{describe(row)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {/* Named separately from the project rows: a browser on someone else's
+            phone is not one of this machine's projects, and the person holding
+            it cannot see this dialog. */}
+        {viewers > 0 && rows.length > 0 ? (
+          <p className="text-sm text-muted-foreground">{devices(viewers)} also connected over the shared link, and will be disconnected.</p>
+        ) : null}
 
         <DialogFooter>
           <Button variant="destructive" onClick={() => void rpc.request.confirmQuit({})}>
-            Stop and quit
+            {rows.length > 0 ? "Stop and quit" : "Disconnect and quit"}
           </Button>
           <Button onClick={() => setWork(null)}>Keep working</Button>
         </DialogFooter>
@@ -79,6 +93,11 @@ function summarize(work: PendingWork): Row[] {
   for (const path of work.runs) row(path).running = true;
   for (const path of work.terminals) row(path).terminals += 1;
   return [...rows.values()].sort((a, b) => Number(b.running) - Number(a.running) || a.path.localeCompare(b.path));
+}
+
+/** "One device is" or "Three devices are", so the sentence around it reads. */
+function devices(count: number): string {
+  return count === 1 ? "One device is" : `${count} devices are`;
 }
 
 function describe(row: Row): string {

@@ -4,7 +4,16 @@ import { textOf } from "../../shared/messages.ts";
 import { chatTitle, toolArgSummary, toolResultsById } from "./transcript.ts";
 
 function session(firstMessage: string, name?: string): SessionSummary {
-  return { path: "s.jsonl", id: "s", name, firstMessage, messageCount: 1, created: "t", modified: "t" };
+  return {
+    path: "s.jsonl",
+    id: "s",
+    name,
+    firstMessage,
+    lastPrompt: firstMessage,
+    messageCount: 1,
+    created: "t",
+    modified: "t",
+  };
 }
 
 test("chatTitle hides leading composer metadata", () => {

@@ -26,6 +26,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       projects: loaded.projects,
       drafts: loaded.drafts ?? {},
       favoriteModels: loaded.favoriteModels ?? [],
+      pinnedChats: loaded.pinnedChats ?? [],
       activeProjectPath: restoreProject,
       reopenLastProject,
       preferences: loaded.preferences,

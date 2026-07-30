@@ -171,6 +171,7 @@ export interface SessionSummary {
   id: string;
   name?: string;
   firstMessage: string;
+  lastPrompt: string;
   messageCount: number;
   created: string;
   modified: string;

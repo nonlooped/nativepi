@@ -67,6 +67,7 @@ const request = new Proxy({} as RequestApi, {
 export const rpc = {
   request,
   events: api.events,
+  filePath: (file: File) => api.filePath(file),
 };
 
 const serverMessageSchema = z.discriminatedUnion("type", [
@@ -170,6 +171,9 @@ function createRemoteApi(): NativePiApi {
   };
 
   return {
+    // A browser hands over bytes, never a path, so every drop that depends on
+    // one is inert here and the callers fall back to what a `File` can do.
+    filePath: () => "",
     async invoke(channel, params) {
       const activeSocket = await connect();
       // `crypto.randomUUID` is restricted to secure contexts in Firefox, while

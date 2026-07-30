@@ -7,6 +7,7 @@ import { GearSixIcon } from "@phosphor-icons/react/GearSix";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { DotsThreeOutlineIcon } from "@phosphor-icons/react/DotsThreeOutline";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
+import { PushPinIcon } from "@phosphor-icons/react/PushPin";
 import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
 import type { Project } from "../../shared/rpc-schema.ts";
 import type { SessionSummary } from "../../shared/pi-types.ts";
@@ -19,6 +20,7 @@ import SessionMenu from "./SessionMenu.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
 import ChatSearchDialog from "./ChatSearchDialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { Input } from "@/components/ui/input.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
 import {
@@ -32,6 +34,7 @@ import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import { editorName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
+import { groupChats } from "../lib/chatOrganization.ts";
 
 export default function Sidebar({ onClose, overlay = false }: { onClose: () => void; overlay?: boolean }) {
   const projects = useAppStore((s) => s.projects);
@@ -49,6 +52,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const editorId = useAppStore((s) => s.preferences.preferredEditorId);
   const searchFocusRequest = useAppStore((s) => s.searchFocusRequest);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [now, setNow] = useState(Date.now);
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
   const [worktreesFor, setWorktreesFor] = useState<string | null>(null);
@@ -125,17 +129,20 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
       onClose={onClose}
       overlay={overlay}
     >
-      <div className={cn("px-3 pb-6 pt-2", NO_DRAG_REGION)}>
-        <button
-          type="button"
-          onClick={() => setSearchOpen(true)}
-          className="flex h-10 w-full items-center gap-2 rounded-md border border-input bg-input/20 px-2.5 text-left text-base text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:border-sidebar-ring focus-visible:ring-2 focus-visible:ring-sidebar-ring/30"
-          aria-label={withHint("Search chats and messages", "search")}
-        >
-          <MagnifyingGlassIcon className="shrink-0" />
-          <span className="truncate">Search chats</span>
-          <Kbd className="ml-auto shrink-0">{hintFor("search")}</Kbd>
-        </button>
+      <div className={cn("relative px-3 pb-6 pt-2", NO_DRAG_REGION)}>
+        <MagnifyingGlassIcon className="pointer-events-none absolute left-5 top-5 text-muted-foreground" />
+        <Input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search"
+          aria-label="Filter chats"
+          className={cn(
+            "border-0 bg-transparent pl-8 text-base shadow-none focus-visible:ring-2 focus-visible:ring-sidebar-ring md:text-base",
+            query ? "pr-3" : "pr-16",
+          )}
+        />
+        {query ? null : <Kbd className="pointer-events-none absolute right-5 top-4">{hintFor("search")}</Kbd>}
       </div>
 
       <div className="flex items-center justify-between px-4 pb-2">
@@ -277,7 +284,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                 </ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
-            {expandedProjects.has(project.path) ? <ChatList projectPath={project.path} now={now} onNavigate={overlay ? onClose : undefined} /> : null}
+            {expandedProjects.has(project.path) ? <ChatList projectPath={project.path} query={query} now={now} onNavigate={overlay ? onClose : undefined} /> : null}
           </div>
           );
         })}
@@ -315,10 +322,12 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
 
 function ChatList({
   projectPath,
+  query,
   now,
   onNavigate,
 }: {
   projectPath: string;
+  query: string;
   now: number;
   onNavigate?: () => void;
 }) {
@@ -328,50 +337,78 @@ function ChatList({
   const isNewChat = useAppStore((s) => s.isNewChat);
   const selectProject = useAppStore((s) => s.selectProject);
   const selectChat = useAppStore((s) => s.selectChat);
+  const pinnedChats = useAppStore((s) => s.pinnedChats);
+  const groups = groupChats(sessions, pinnedChats, query, activeSessionFile, now);
+  const visibleCount = groups.reduce((count, group) => count + group.sessions.length, 0);
 
   return (
     <div className="flex flex-col gap-0.5">
       {isNewChat && projectPath === activeProjectPath && (
         <div className="rounded-lg bg-sidebar-accent px-3 py-2 text-sm font-semibold">New chat</div>
       )}
-      {sessions.map((session) => (
-        <SessionMenu
-          key={session.path}
-          projectPath={projectPath}
-          session={session}
-          className={cn(
-            HOVER_REVEAL,
-            "mr-1 opacity-0 group-hover/chat:opacity-100 group-focus-within/chat:opacity-100 data-[popup-open]:opacity-100",
-          )}
-          renderRow={(menu) => (
-            <div
-              className={cn(
-                "group/chat flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent",
-                session.path === activeSessionFile && !isNewChat && "bg-sidebar-accent",
-              )}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  const select = projectPath === activeProjectPath
-                    ? Promise.resolve()
-                    : selectProject(projectPath);
-                  void select.then(() => selectChat(session.path)).then(onNavigate).catch(() => undefined);
-                }}
-                className="flex min-w-0 flex-1 flex-row items-center gap-3 rounded-lg px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
-              >
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{chatTitle(session)}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">{hoursAgo(session.modified, now)}</span>
-              </button>
-              {menu}
-            </div>
-          )}
-        />
+      {groups.map((group) => (
+        <section key={group.label} aria-label={group.label}>
+          <h3 className="px-3 pb-0.5 pt-2 text-xs font-medium text-muted-foreground">
+            {group.label}
+          </h3>
+          <div className="flex flex-col gap-0.5">
+            {group.sessions.map((session) => {
+              const pinned = pinnedChats.includes(session.path);
+              return (
+                <SessionMenu
+                  key={session.path}
+                  projectPath={projectPath}
+                  session={session}
+                  className={cn(
+                    HOVER_REVEAL,
+                    "mr-1 opacity-0 group-hover/chat:opacity-100 group-focus-within/chat:opacity-100 data-[popup-open]:opacity-100",
+                  )}
+                  renderRow={(menu) => (
+                    <div
+                      className={cn(
+                        "group/chat flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent",
+                        session.path === activeSessionFile && !isNewChat && "bg-sidebar-accent",
+                      )}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const select = projectPath === activeProjectPath
+                            ? Promise.resolve()
+                            : selectProject(projectPath);
+                          void select.then(() => selectChat(session.path)).then(onNavigate).catch(() => undefined);
+                        }}
+                        className="flex min-w-0 flex-1 items-start gap-2 rounded-lg px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
+                      >
+                        {pinned ? (
+                          <PushPinIcon className="mt-0.5 shrink-0 text-favorite" weight="fill" aria-hidden />
+                        ) : null}
+                        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                          <span className="truncate text-sm font-medium">{chatTitle(session)}</span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {session.lastPrompt || "No user prompt"}
+                          </span>
+                        </span>
+                        <span className="shrink-0 pt-0.5 text-xs text-muted-foreground">
+                          {hoursAgo(session.modified, now)}
+                        </span>
+                      </button>
+                      {menu}
+                    </div>
+                  )}
+                />
+              );
+            })}
+          </div>
+        </section>
       ))}
       {sessions.length === 0 && !isNewChat && (
         <p className="px-2.5 py-1.5 text-xs text-muted-foreground">
           No chats yet — press {hintFor("newChat")} to start one
         </p>
+      )}
+      {sessions.length > 0 && visibleCount === 0 && (
+        <p className="px-2.5 py-1.5 text-xs text-muted-foreground">No matching chats</p>
       )}
     </div>
   );

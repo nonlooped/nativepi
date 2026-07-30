@@ -86,6 +86,7 @@ export function persist(get: GetState): void {
       lastChatByProject: map,
       drafts: s.drafts,
       favoriteModels: s.favoriteModels ?? [],
+      pinnedChats: s.pinnedChats,
       panes: {
         sidebarOpen: s.sidebarOpen,
         sidebarSize: s.sidebarSize,

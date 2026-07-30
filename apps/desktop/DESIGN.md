@@ -187,7 +187,7 @@ The palette is a cool graphite ladder: close neutral values separate workspace l
 
 ### Tertiary
 
-- **Favorite Gold:** The favorite-model star and no other general emphasis.
+- **Favorite Gold:** Favorite-model stars and pinned-chat markers, and no other general emphasis.
 - Provider brand colors may appear inside provider marks; they do not recolor surrounding chrome.
 
 ### Neutral

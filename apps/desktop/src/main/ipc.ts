@@ -52,8 +52,12 @@ export function setMainWindow(win: BrowserWindow | null): void {
   mainWindow = win;
 }
 
-function push<K extends keyof HostEvents>(channel: K, payload: HostEvents[K]): void {
+function pushDesktop<K extends keyof HostEvents>(channel: K, payload: HostEvents[K]): void {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload);
+}
+
+function push<K extends keyof HostEvents>(channel: K, payload: HostEvents[K]): void {
+  pushDesktop(channel, payload);
   for (const listener of hostEventListeners) listener(channel, payload);
 }
 
@@ -127,6 +131,10 @@ function forwardEvent(projectDir: string, event: PiMessage): void {
  * the summary the window shows is the same reading the session watcher trusts.
  * Only projects with a live process count: a Pi that died mid-turn leaves its
  * marker behind, and nothing is running for the user to lose.
+ *
+ * Connected browsers are asked about for a different reason: nothing of theirs
+ * is lost, but the person holding the phone cannot see this window and has no
+ * way to know their session is about to end.
  */
 let quitConfirmed = false;
 
@@ -134,8 +142,9 @@ export function quitBlocked(): boolean {
   if (quitConfirmed) return false;
   const runs = [...pis.keys()].filter((projectDir) => busyUntil.get(projectDir) === Number.POSITIVE_INFINITY);
   const terminals = liveTerminalProjects();
-  if (runs.length === 0 && terminals.length === 0) return false;
-  push("quitRequested", { work: { runs, terminals } });
+  const viewers = localServerStatus().clients.length;
+  if (runs.length === 0 && terminals.length === 0 && viewers === 0) return false;
+  pushDesktop("quitRequested", { work: { runs, terminals, viewers } });
   return true;
 }
 
@@ -433,19 +442,10 @@ const handlers: HandlerMap = {
     }
   },
 
-  importSession: async ({ projectDir }) => {
+  importSession: async ({ projectDir, sourceFile }) => {
     try {
-      const options = {
-        title: "Import chat",
-        properties: ["openFile" as const],
-        defaultPath: app.getPath("home"),
-        filters: [{ name: "Pi session", extensions: ["jsonl"] }],
-      };
-      const result = mainWindow
-        ? await dialog.showOpenDialog(mainWindow, options)
-        : await dialog.showOpenDialog(options);
-      const source = result.filePaths[0];
-      if (result.canceled || !source) return { ok: false, canceled: true };
+      const source = sourceFile ?? (await pickSessionFile());
+      if (!source) return { ok: false, canceled: true };
 
       const manager = SessionManager.forkFrom(source, projectDir);
       return { ok: true, sessionFile: manager.getSessionFile() };
@@ -835,6 +835,11 @@ const handlers: HandlerMap = {
       return accessStatus(errorMessage(err));
     }
   },
+  revokeAccess: async () => {
+    await stopRemoteAccess();
+    await stopLocalServer();
+    return accessStatus();
+  },
   startRemoteAccess: async () => {
     try {
       await ensureLocalAccess(localServerStatus().running);
@@ -1081,6 +1086,19 @@ const handlers: HandlerMap = {
     }
   },
 };
+
+async function pickSessionFile(): Promise<string | undefined> {
+  const options = {
+    title: "Import chat",
+    properties: ["openFile" as const],
+    defaultPath: app.getPath("home"),
+    filters: [{ name: "Pi session", extensions: ["jsonl"] }],
+  };
+  const result = mainWindow
+    ? await dialog.showOpenDialog(mainWindow, options)
+    : await dialog.showOpenDialog(options);
+  return result.canceled ? undefined : result.filePaths[0];
+}
 
 async function ensureLocalAccess(localNetwork: boolean): Promise<void> {
   if (process.env["ELECTRON_RENDERER_URL"]) {
