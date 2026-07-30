@@ -31,6 +31,17 @@ test("an extension trigger opens at a word boundary like the others do", () => {
   expect(findTrigger("in C#", 5, ["#"])).toBeNull();
 });
 
+test("a multi-character trigger is not mistaken for a one-character one", () => {
+  // `triggerCharacters` is a list of strings, not of characters, so the query
+  // starts where the declared trigger ends rather than one character in.
+  expect(findTrigger("see ##12", 8, ["##"])).toEqual({ kind: "extension", query: "12", start: 4, end: 8 });
+});
+
+test("the longer of two overlapping triggers claims the token", () => {
+  expect(findTrigger("see ##12", 8, ["#", "##"])?.query).toBe("12");
+  expect(findTrigger("see #12", 7, ["#", "##"])?.query).toBe("12");
+});
+
 test("the draft reaches a provider as lines and a caret, and comes back", () => {
   // Providers are written against pi-tui's multi-line editor, so a draft with a
   // paragraph in it has to arrive the way it would from the terminal.

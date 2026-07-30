@@ -6,6 +6,7 @@ import type {
   TuiCompletions,
   TuiHostFrame,
   TuiPlacement,
+  TuiSurface as TuiSurfaceInfo,
   TuiUiState,
 } from "../../../shared/tui-frames.ts";
 import { Surface } from "./surface.ts";
@@ -73,28 +74,55 @@ async function adoptPiKeybindings(): Promise<void> {
 export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): ExtensionUIContext {
   void adoptPiKeybindings();
 
-  const surfaces = new Map<string, Surface>();
+  /** Live panes, with the `open` frame each one was announced by, so it can be re-sent. */
+  const surfaces = new Map<string, { surface: Surface; info: TuiSurfaceInfo }>();
   /** Component-backed widgets, footer and header, keyed to survive replacement. */
   const slots = new Map<string, string>();
   const statuses = new Map<string, string>();
   const providers: AutocompleteProvider[] = [];
   let editorText = "";
   let toolsExpanded = false;
+  /** Every chrome patch sent so far, folded, for the same replay. */
+  let uiState: TuiUiState = {};
 
   function open(placement: TuiPlacement, key: string): { id: string; surface: Surface } {
     const id = surfaceId();
     const surface = new Surface((data) => channel.send({ type: "nativepi_tui_write", surfaceId: id, data }));
-    surfaces.set(id, surface);
-    channel.send({ type: "nativepi_tui_open", surface: { id, placement, key } });
+    const info: TuiSurfaceInfo = { id, placement, key };
+    surfaces.set(id, { surface, info });
+    channel.send({ type: "nativepi_tui_open", surface: info });
     return { id, surface };
   }
 
   function close(id: string): void {
-    const surface = surfaces.get(id);
-    if (!surface) return;
+    const entry = surfaces.get(id);
+    if (!entry) return;
     surfaces.delete(id);
-    surface.dispose();
+    entry.surface.dispose();
     channel.send({ type: "nativepi_tui_close", surfaceId: id });
+  }
+
+  /** The characters every loaded provider declared, as one set. */
+  function triggerCharacters(): string[] {
+    return [...new Set(providers.flatMap((provider) => provider.triggerCharacters ?? []))];
+  }
+
+  /**
+   * Say everything again for a window that arrived without it.
+   *
+   * The window folds frames in only for the project it is showing, so a project
+   * worked on in the background has a live context whose `open`, `state` and
+   * `triggers` frames were sent to nobody. Coming back asks for them again, and
+   * each surface is forced to redraw so the pane has a complete picture to mount
+   * rather than the tail of a differential stream.
+   */
+  function resync(): void {
+    channel.send({ type: "nativepi_tui_triggers", characters: triggerCharacters() });
+    channel.send({ type: "nativepi_tui_state", state: uiState });
+    for (const { surface, info } of surfaces.values()) {
+      channel.send({ type: "nativepi_tui_open", surface: info });
+      surface.redraw();
+    }
   }
 
   /** Replace whatever occupies a named slot, closing the component that was there. */
@@ -118,6 +146,7 @@ export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): 
   }
 
   function patch(state: TuiUiState): void {
+    uiState = { ...uiState, ...state };
     channel.send({ type: "nativepi_tui_state", state });
   }
 
@@ -177,6 +206,11 @@ export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): 
       const placement = options?.placement ?? "aboveEditor";
       if (typeof content === "function") {
         const factory = content as (tui: unknown, theme: unknown) => Component & { dispose?(): void };
+        // A key holds one widget, whichever kind it is. If lines were set under
+        // this key first, Pi's context is still rendering them, and mounting the
+        // component without clearing them would show the extension's old widget
+        // above its new one rather than in place of it.
+        base.setWidget(key, undefined, options);
         fillSlot(`widget:${key}`, placement, key, (surface) => factory(surface.tui, base.theme));
         return;
       }
@@ -200,6 +234,11 @@ export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): 
       if (text === undefined) statuses.delete(key);
       else statuses.set(key, text);
       base.setStatus(key, text);
+      // Pi's own footer redraws when a status changes; a custom one reads the map
+      // above through `footerData` and has no way to know it moved, so it would
+      // otherwise hold its first values until an unrelated resize.
+      const footer = slots.get("footer");
+      if (footer) surfaces.get(footer)?.surface.render();
     },
 
     setWorkingMessage(message?: string): void {
@@ -260,10 +299,7 @@ export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): 
       // commands, skills and files. A provider that delegates instead of
       // answering returns nothing, and the composer's own menus take the turn.
       providers.push(factory(providers[providers.length - 1] ?? EMPTY_PROVIDER));
-      channel.send({
-        type: "nativepi_tui_triggers",
-        characters: [...new Set(providers.flatMap((provider) => provider.triggerCharacters ?? []))],
-      });
+      channel.send({ type: "nativepi_tui_triggers", characters: triggerCharacters() });
     },
   };
 
@@ -281,13 +317,16 @@ export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): 
   function handle(frame: TuiClientFrame): void {
     switch (frame.type) {
       case "nativepi_tui_input":
-        surfaces.get(frame.surfaceId)?.input(frame.data);
+        surfaces.get(frame.surfaceId)?.surface.input(frame.data);
         return;
       case "nativepi_tui_resize":
-        surfaces.get(frame.surfaceId)?.resize(frame.cols, frame.rows);
+        surfaces.get(frame.surfaceId)?.surface.resize(frame.cols, frame.rows);
         return;
       case "nativepi_tui_editor":
         editorText = frame.text;
+        return;
+      case "nativepi_tui_sync":
+        resync();
         return;
       case "nativepi_tui_complete":
         void reply(frame.requestId, async (): Promise<TuiCompletions | null> => {
@@ -325,8 +364,22 @@ export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): 
   function dispose(): void {
     for (const id of [...surfaces.keys()]) close(id);
     slots.clear();
+    statuses.clear();
     providers.length = 0;
+    toolsExpanded = false;
     channel.send({ type: "nativepi_tui_triggers", characters: [] });
+    // Chrome an extension changed belongs to it for as long as it is bound. The
+    // panes above go with the context, but a working message, a spinner or an
+    // expanded tool section is a value the window is merging and holding: left
+    // alone it survives the extension that set it, with nobody to restore it.
+    patch({
+      workingMessage: null,
+      workingVisible: true,
+      workingIndicator: null,
+      hiddenThinkingLabel: null,
+      toolsExpanded: false,
+    });
+    uiState = {};
   }
 
   /**

@@ -1,3 +1,4 @@
+import { insertAtComposerCaret } from "../composerInsert.ts";
 import { rpc } from "../rpc.ts";
 import { showHint } from "../toast.tsx";
 import { dropAllSurfaces, dropSurface, writeSurface } from "../tuiSurfaces.ts";
@@ -73,8 +74,12 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
   onTuiFrame: ({ projectDir, frame }) => {
     if (projectDir !== get().activeProjectPath) return;
     switch (frame.type) {
+      // Keyed by id rather than appended: a resync re-announces surfaces the
+      // window may still be holding, and the same pane twice is not two panes.
       case "nativepi_tui_open":
-        set((s) => ({ extSurfaces: [...s.extSurfaces, frame.surface] }));
+        set((s) => ({
+          extSurfaces: [...s.extSurfaces.filter((surface) => surface.id !== frame.surface.id), frame.surface],
+        }));
         return;
       case "nativepi_tui_write":
         writeSurface(frame.surfaceId, frame.data);
@@ -96,8 +101,11 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
       case "nativepi_tui_state":
         set((s) => ({ extUiState: { ...s.extUiState, ...frame.state } }));
         return;
+      // At the caret where there is one, which is what `pasteToEditor` means in
+      // the terminal: an extension completing a path mid-sentence is not asking
+      // for a new paragraph at the end of the draft.
       case "nativepi_tui_paste":
-        get().insertIntoComposer(frame.text);
+        if (!insertAtComposerCaret(frame.text)) get().insertIntoComposer(frame.text);
         return;
     }
   },

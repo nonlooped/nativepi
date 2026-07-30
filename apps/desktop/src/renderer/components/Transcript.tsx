@@ -311,38 +311,50 @@ function RunStatusBar({
   const frame = useIndicatorFrame(ui.workingIndicator, reduced);
 
   // `ctx.ui.setWorkingVisible(false)` hides the loader row: an extension that
-  // reports progress its own way should not have to compete with this pill.
-  if (!ui.workingVisible) return null;
+  // reports progress its own way should not have to compete with this pill. What
+  // it does not hide is Stop, which is the app's, not Pi's: this is the only way
+  // to cancel a turn with a pointer, and an extension turning off a progress
+  // indicator is not asking for that to go with it.
+  const progress = ui.workingVisible;
 
   return (
-    <div className="pointer-events-auto flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full border bg-popover py-1 pl-3 pr-1 text-xs text-popover-foreground shadow-lg">
-      {frame === null ? (
-        reduced ? (
-          <CircleIcon weight="fill" className="shrink-0 text-muted-foreground" />
-        ) : (
-          <CircleNotchIcon className="shrink-0 animate-spin text-muted-foreground" />
-        )
-      ) : frame === "" ? null : (
-        <span aria-hidden="true" className="shrink-0 font-mono text-muted-foreground">
-          {frame}
-        </span>
+    <div
+      className={cn(
+        "pointer-events-auto flex max-w-[calc(100%-2rem)] items-center rounded-full border bg-popover py-1 pr-1 text-xs text-popover-foreground shadow-lg",
+        progress ? "gap-2 pl-3" : "pl-1",
       )}
-      <span className="truncate font-medium">
-        {compacting
-          ? "Compacting context"
-          : (ui.workingMessage ?? (activeTool ? `Running ${activeTool}` : "Working"))}
-      </span>
-      {elapsed ? (
-        <span className="shrink-0 tabular-nums text-muted-foreground" aria-hidden="true">
-          {elapsed}
-        </span>
-      ) : null}
-      {changed > 0 ? (
+    >
+      {progress ? (
         <>
-          <span aria-hidden="true" className="text-muted-foreground/50">
-            ·
+          {frame === null ? (
+            reduced ? (
+              <CircleIcon weight="fill" className="shrink-0 text-muted-foreground" />
+            ) : (
+              <CircleNotchIcon className="shrink-0 animate-spin text-muted-foreground" />
+            )
+          ) : frame === "" ? null : (
+            <span aria-hidden="true" className="shrink-0 font-mono text-muted-foreground">
+              {frame}
+            </span>
+          )}
+          <span className="truncate font-medium">
+            {compacting
+              ? "Compacting context"
+              : (ui.workingMessage ?? (activeTool ? `Running ${activeTool}` : "Working"))}
           </span>
-          <span className="shrink-0 truncate text-muted-foreground">{pluralize(changed, "file")} changed</span>
+          {elapsed ? (
+            <span className="shrink-0 tabular-nums text-muted-foreground" aria-hidden="true">
+              {elapsed}
+            </span>
+          ) : null}
+          {changed > 0 ? (
+            <>
+              <span aria-hidden="true" className="text-muted-foreground/50">
+                ·
+              </span>
+              <span className="shrink-0 truncate text-muted-foreground">{pluralize(changed, "file")} changed</span>
+            </>
+          ) : null}
         </>
       ) : null}
       {/* A labelled rectangle, not another circle: geometry, not hue, is what

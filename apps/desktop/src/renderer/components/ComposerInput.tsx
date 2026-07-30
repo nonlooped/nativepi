@@ -11,6 +11,7 @@ import {
   replaceWithText,
   serialize,
 } from "../lib/composerDom.ts";
+import { registerComposerInserter } from "../lib/composerInsert.ts";
 import { AutocompleteMenu, useComposerAutocomplete } from "./ComposerAutocomplete.tsx";
 import { cn } from "@/lib/utils.ts";
 import { rpc } from "@/lib/rpc.ts";
@@ -73,6 +74,23 @@ export default function ComposerInput({
     }
     emit();
   });
+
+  // An extension paste goes in at the caret, the way it would in the terminal
+  // editor. Declined when the caret is not in here, which leaves the store's
+  // append — the right answer for a paste aimed at a composer nobody is in.
+  useEffect(() => {
+    return registerComposerInserter((text) => {
+      const element = root.current;
+      if (!element) return false;
+      const caret = caretOffset(element);
+      if (caret === null) return false;
+      const draft = serialize(element);
+      render(element, draft.slice(0, caret) + text + draft.slice(caret));
+      emit();
+      caretTo(element, caret + text.length);
+      return true;
+    });
+  }, [emit]);
 
   const sync = useCallback(() => {
     const element = root.current;
@@ -173,7 +191,10 @@ export default function ComposerInput({
  * than a range edit, which is why the caret has to be restored by offset
  * afterwards; `render` would otherwise leave it at the top of the editor.
  *
- * If the host cannot answer, the draft is left exactly as the user typed it.
+ * If the host cannot answer, the draft is left exactly as the user typed it —
+ * including when the call itself fails, which is why nothing here throws: the
+ * caller cannot await this without blocking the keystroke that accepted the
+ * suggestion.
  */
 async function applyExtensionCompletion(
   element: HTMLElement,
@@ -184,17 +205,27 @@ async function applyExtensionCompletion(
   if (!projectPath) return;
   const caret = caretOffset(element);
   if (caret === null) return;
-  const { lines, cursorLine, cursorCol } = linesAt(serialize(element), caret);
+  const before = serialize(element);
+  const { lines, cursorLine, cursorCol } = linesAt(before, caret);
 
-  const { edit } = await rpc.request.tuiApply({
-    projectDir: projectPath,
-    lines,
-    cursorLine,
-    cursorCol,
-    item: { value: option.value, label: option.label, description: option.detail || undefined },
-    prefix: option.prefix,
-  });
+  const reply = await rpc.request
+    .tuiApply({
+      projectDir: projectPath,
+      lines,
+      cursorLine,
+      cursorCol,
+      item: { value: option.value, label: option.label, description: option.detail || undefined },
+      prefix: option.prefix,
+    })
+    .catch(() => null);
+  const edit = reply?.edit;
   if (!edit) return;
+
+  // The provider was asked about the draft as it stood, and answers with the
+  // whole draft rewritten. A provider slow enough for the user to have typed in
+  // the meantime would have those keystrokes replaced by an edit that never saw
+  // them, so an answer to a question about text that has moved on is dropped.
+  if (serialize(element) !== before || caretOffset(element) !== caret) return;
 
   render(element, edit.lines.join("\n"));
   emit();

@@ -49,18 +49,25 @@ export function findTrigger(text: string, caret: number, extensionTriggers: read
   while (start > 0 && !/\s/.test(text[start - 1] as string)) start--;
 
   const token = text.slice(start, caret);
+  // Longest first: an extension may declare both `#` and `##`, and the longer one
+  // is the more specific claim on the token.
+  const extension = [...extensionTriggers]
+    .sort((a, b) => b.length - a.length)
+    .find((character) => token.startsWith(character));
   const kind = token.startsWith("@")
     ? "file"
     : token.startsWith("$")
       ? "skill"
       : start === 0 && token.startsWith("/")
         ? "command"
-        : extensionTriggers.some((character) => token.startsWith(character))
+        : extension
           ? "extension"
           : null;
   if (!kind) return null;
 
-  const query = token.slice(1);
+  // A trigger is one character for the composer's own menus, but an extension
+  // declares whatever string it wants, so the query starts where its trigger ends.
+  const query = token.slice(kind === "extension" ? (extension as string).length : 1);
   if (query.length > MAX_QUERY) return null;
 
   return { kind, query, start, end: caret };

@@ -102,8 +102,13 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       extUiState: NO_EXTENSION_UI_STATE,
     });
     // The panes belonged to the project being left, and their components belong
-    // to a Pi that is still running: the surfaces reopen when it draws again.
+    // to a Pi that is still running. Nothing about them arrives again on its own —
+    // the frame that opened each one was sent once, to a window that has now
+    // forgotten it — so the project being entered is asked to say it all again.
+    // A project whose Pi is not running yet has nothing to answer, and the
+    // surfaces open normally when it starts.
     dropAllSurfaces();
+    void rpc.request.tuiSend({ projectDir: path, frame: { type: "nativepi_tui_sync" } }).catch(() => {});
     persist(get);
 
     // The trust check does not depend on the session list, and a round trip

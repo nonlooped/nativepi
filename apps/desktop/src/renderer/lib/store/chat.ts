@@ -22,6 +22,18 @@ let pendingId = 1;
 const MAX_REMOTE_IMAGE_BATCH_BYTES = 48 * 1024 * 1024;
 
 /**
+ * Tell the host which draft the composer is showing now.
+ *
+ * `setDraft` reports every keystroke, which covers editing but not moving: a
+ * chat switch changes the composer's contents without anyone typing, and an
+ * extension calling the synchronous `ctx.ui.getEditorText()` would otherwise be
+ * answered with the chat the user just left until they touched the new one.
+ */
+function reportActiveDraft(get: GetState): void {
+  reportDraft(get().activeProjectPath, get().drafts[draftKey(get)] ?? "");
+}
+
+/**
  * The draft as it would be sent, or null if there is nothing to send.
  *
  * Images count: a screenshot with no words is a message, and refusing it would
@@ -83,6 +95,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   selectChat: async (sessionFile) => {
     const projectPath = get().activeProjectPath;
     set({ activeSessionFile: sessionFile, isNewChat: false });
+    reportActiveDraft(get);
     if (projectPath) {
       setLastChat(projectPath, sessionFile);
       persist(get);
@@ -113,6 +126,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       patchConversation(set, projectDir, () => emptyConversation());
     }
     set({ activeSessionFile: null, isNewChat: true });
+    reportActiveDraft(get);
   },
 
   importSession: async (targetProjectDir) => {

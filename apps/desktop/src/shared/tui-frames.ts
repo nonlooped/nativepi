@@ -154,6 +154,17 @@ export const tuiClientFrameSchema = z.discriminatedUnion("type", [
     item: completionItemSchema,
     prefix: z.string().max(200),
   }),
+  /**
+   * Draw it all again: this window has lost what the host already sent.
+   *
+   * Frames are folded in only for the project on screen, and a project left in
+   * the background keeps a live Pi whose surfaces go on existing. Nothing about
+   * them is re-sent on its own — the `open` frame happened once — so returning
+   * to a project asks the host to replay its side rather than waiting for a
+   * component to redraw of its own accord, which for a `custom()` dialog waiting
+   * on a keystroke would be never.
+   */
+  z.object({ type: z.literal("nativepi_tui_sync") }),
 ]);
 
 export type TuiClientFrame = z.infer<typeof tuiClientFrameSchema>;

@@ -5,6 +5,7 @@ import { stubInvoke } from "./testBridge.ts";
 
 const { useAppStore } = await import("../store.ts");
 const { surfaceBuffer } = await import("../tuiSurfaces.ts");
+const { registerComposerInserter } = await import("../composerInsert.ts");
 
 stubInvoke(async () => ({}));
 
@@ -57,6 +58,27 @@ test("a Pi that exits takes its panes with it", () => {
   const state = useAppStore.getState();
   expect(state.extSurfaces).toEqual([]);
   expect(state.extTriggers).toEqual([]);
+});
+
+test("an extension paste goes to the caret, and to the end when there is none", () => {
+  useAppStore.setState({ activeProjectPath: "A:\\proj-a", drafts: {} });
+  const store = useAppStore.getState();
+
+  // No composer mounted: the store's own append is the only place text can go.
+  store.onTuiFrame({ projectDir: "A:\\proj-a", frame: { type: "nativepi_tui_paste", text: "at the end" } });
+  expect(Object.values(useAppStore.getState().drafts)).toEqual(["at the end"]);
+
+  const seen: string[] = [];
+  const unregister = registerComposerInserter((text) => {
+    seen.push(text);
+    return true;
+  });
+  store.onTuiFrame({ projectDir: "A:\\proj-a", frame: { type: "nativepi_tui_paste", text: "#412" } });
+  unregister();
+
+  // `pasteToEditor` means where the user is writing, as it does in the terminal.
+  expect(seen).toEqual(["#412"]);
+  expect(Object.values(useAppStore.getState().drafts)).toEqual(["at the end"]);
 });
 
 test("a state patch changes only the fields it carries", () => {

@@ -142,6 +142,29 @@ export class Surface {
     if (!this.stopped) this.terminal.feed(data);
   }
 
+  /**
+   * Draw again, because something the component reads changed underneath it.
+   *
+   * A component asks for its own renders when its own state moves, but the data
+   * providers it is handed — extension statuses, most of all — are owned out
+   * here, so a change to one is invisible until something else happens to draw.
+   */
+  render(): void {
+    if (!this.stopped) this.tui.requestRender();
+  }
+
+  /**
+   * Draw everything from scratch, for a window that has nothing to diff against.
+   *
+   * pi-tui renders differentially, so a pane remounted with an empty buffer would
+   * show whatever the next partial frame happened to touch. Forcing the render
+   * makes the next frame a screen clear followed by the whole component, which is
+   * also the point the replay buffer prunes to.
+   */
+  redraw(): void {
+    if (!this.stopped) this.tui.requestRender(true);
+  }
+
   resize(cols: number, rows: number): void {
     if (this.stopped) return;
     this.terminal.resize(Math.max(2, cols), Math.max(1, rows));
