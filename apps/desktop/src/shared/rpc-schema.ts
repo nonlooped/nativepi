@@ -247,7 +247,8 @@ export type HostRequests = {
   restartAllPi: { params: Record<string, never>; response: { ok: boolean } };
   newChat: { params: { projectDir: string }; response: { ok: boolean; sessionFile?: string; error?: string } };
   importSession: {
-    params: { projectDir: string };
+    /** `sourceFile` is a session dropped on the window; without one the host asks. */
+    params: { projectDir: string; sourceFile?: string };
     response: { ok: boolean; sessionFile?: string; canceled?: boolean; error?: string };
   };
   submit: {

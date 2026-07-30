@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "electron";
 import type { HostEventName, HostEvents, HostRequestName, HostRequests } from "../shared/rpc-schema.ts";
 
 /**
@@ -45,6 +45,15 @@ export type NativePiApi = {
     channel: K,
     params: HostRequests[K]["params"],
   ) => Promise<HostRequests[K]["response"]>;
+  /**
+   * Where a dropped or picked `File` came from on disk.
+   *
+   * Chromium stopped exposing `File.path` and Electron replaced it with this,
+   * which only main and preload can reach. A drop is the one place the renderer
+   * needs a real path: a folder becomes a project and a `.jsonl` becomes an
+   * imported chat, and neither is anything the browser could hand over as bytes.
+   */
+  filePath: (file: File) => string;
   events: {
     on: <K extends HostEventName>(
       channel: K,
@@ -55,6 +64,7 @@ export type NativePiApi = {
 
 const api: NativePiApi = {
   invoke: (channel, params) => ipcRenderer.invoke(channel, params),
+  filePath: (file) => webUtils.getPathForFile(file),
   events: {
     on(channel, listener) {
       if (!Object.hasOwn(allowedEvents, channel)) {

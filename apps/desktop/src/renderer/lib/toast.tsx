@@ -39,6 +39,16 @@ export function showAttachmentsRejected(names: string[]): void {
 }
 
 /**
+ * Say why a drop did nothing.
+ *
+ * A window that silently ignores a drop is indistinguishable from one that is
+ * broken, and the user has already watched the file land where they aimed it.
+ */
+export function showDropRejected(message: string): void {
+  toast.warning(message, { closeButton: true, duration: 6000 });
+}
+
+/**
  * Surface a message from a Pi extension.
  *
  * An error stays until dismissed — it reports something that did not happen, and

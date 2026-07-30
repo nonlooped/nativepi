@@ -19,22 +19,6 @@ export function imageFilesIn(transfer: DataTransfer | null): File[] {
 }
 
 /**
- * Whether a drag that is still in the air is carrying images.
- *
- * `files` is empty until the drop: while the pointer is moving, Chromium
- * exposes only the kinds and mime types through `items`, so a dragover that
- * asked `imageFilesIn` would always say no and the composer would never become
- * a drop target. Some sources describe their payload as a bare `Files` entry
- * with no type, which is accepted here and sorted out on drop.
- */
-export function draggingImages(transfer: DataTransfer | null): boolean {
-  if (!transfer) return false;
-  const items = [...transfer.items].filter((item) => item.kind === "file");
-  if (items.length > 0) return items.some((item) => item.type === "" || item.type.startsWith("image/"));
-  return transfer.types.includes("Files");
-}
-
-/**
  * A file as base64, via the data URL the platform already builds.
  *
  * The prefix is dropped rather than sent: Pi wants the payload and its mime type

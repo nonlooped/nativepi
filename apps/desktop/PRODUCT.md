@@ -40,6 +40,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - New, resume, rename, clone, fork, delete, import, HTML export, session-tree, statistics, and compaction workflows backed by Pi.
 - Streaming text, thinking, tool activity, file-change summaries, rich diffs, retries, steering, follow-ups, queues, and abort controls.
 - Images attached to a message by paste, drag and drop, or the file picker, resized by Pi before they are sent and shown in the transcript alongside the message they went with.
+- Drag and drop as an entry point throughout the window: a folder dropped anywhere becomes a project, a Pi session file is imported as a chat, and files dropped on the composer attach as images or become `@` mentions of their path.
 - Pi-backed model and thinking-level selection, favorite models, provider authentication, and project trust controls.
 - Git status and working-tree diffs, clean-worktree branch switching or creation, and creation of worktrees that are added as NativePi projects.
 - User- and project-scoped Pi package installation, update, removal, reload, and load-error display.

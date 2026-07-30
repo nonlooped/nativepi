@@ -15,13 +15,17 @@
 type Invoke = (channel: string, params?: unknown) => Promise<unknown>;
 
 interface Bridge {
-  nativepi: { invoke: Invoke; events: { on: () => () => void } };
+  nativepi: {
+    invoke: Invoke;
+    filePath: (file: File) => string;
+    events: { on: () => () => void };
+  };
 }
 
 const host = globalThis as unknown as { window?: Bridge };
 
 host.window ??= {
-  nativepi: { invoke: async () => ({}), events: { on: () => () => {} } },
+  nativepi: { invoke: async () => ({}), filePath: () => "", events: { on: () => () => {} } },
 };
 
 const bridge = host.window;
@@ -29,4 +33,9 @@ const bridge = host.window;
 /** Route `rpc.request.*` to `handler` for the test that is running now. */
 export function stubInvoke(handler: Invoke): void {
   bridge.nativepi.invoke = handler;
+}
+
+/** Answer `rpc.filePath` with `handler`, standing in for Electron's `webUtils`. */
+export function stubFilePath(handler: (file: File) => string): void {
+  bridge.nativepi.filePath = handler;
 }
