@@ -1,5 +1,5 @@
 import { PassThrough } from "node:stream";
-import { AgentSession, main } from "@earendil-works/pi-coding-agent";
+import { AgentSession, main, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { isTuiFrameType, type TuiClientFrame, type TuiHostFrame } from "../../../shared/tui-frames.ts";
 import { toNotice, toPromptRequest } from "../../../shared/providerAuth.ts";
@@ -71,8 +71,15 @@ let lastEditorFrame: TuiClientFrame | undefined;
  * whose `modelRuntime` is the only runtime that has run extension `activate()`.
  */
 let currentSession: AgentSession | undefined;
+let runtimePromise: Promise<ModelRuntime> | undefined;
 let authPromptSeq = 1;
 const pendingAuthPrompts = new Map<string, (result: { value?: string; cancel?: boolean }) => void>();
+
+function providerRuntime(): Promise<ModelRuntime> {
+  if (currentSession) return Promise.resolve(currentSession.modelRuntime);
+  if (!runtimePromise) runtimePromise = ModelRuntime.create({ allowModelNetwork: true });
+  return runtimePromise;
+}
 
 function handleClientFrame(frame: TuiClientFrame): void {
   if (frame.type === "nativepi_tui_editor") lastEditorFrame = frame;
@@ -97,8 +104,7 @@ function handleClientFrame(frame: TuiClientFrame): void {
 
 async function respondProviders(requestId: string): Promise<void> {
   try {
-    if (!currentSession) throw new Error("No active Pi session");
-    const providers = await shapeProviders(currentSession.modelRuntime);
+    const providers = await shapeProviders(await providerRuntime());
     send({ type: "nativepi_tui_reply", requestId, data: providers });
   } catch (err) {
     send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });

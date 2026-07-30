@@ -4,6 +4,7 @@ import type { ModelInfo } from "../../shared/pi-types.ts";
 import type { AuthProviderInfo } from "../../shared/rpc-schema.ts";
 import { modelKey } from "../../shared/messages.ts";
 import { useAppStore } from "../lib/store.ts";
+import { modelProviders } from "../lib/modelProviders.ts";
 import { providerIconName } from "../lib/providerIcons.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -23,10 +24,10 @@ export default function ModelSelector() {
   const favoriteModelKeys = new Set(favoriteModels);
   const providerNames = new Map(providers.map((item) => [item.id, item.name]));
   const label = model ? (model.name ?? model.id) : "Model";
-  const authenticatedProviders = providers.filter((item) => item.configured && models.some((m) => m.provider === item.id));
+  const availableProviders = modelProviders(providers, models);
 
   const provider =
-    selectedTab ?? (favoriteModels.length > 0 ? "favorite" : (authenticatedProviders[0]?.id ?? "favorite"));
+    selectedTab ?? (favoriteModels.length > 0 ? "favorite" : (availableProviders[0]?.id ?? "favorite"));
 
   const visibleModels = models.filter((item) => {
     if (provider === "favorite" && !favoriteModelKeys.has(modelKey(item))) return false;
@@ -69,7 +70,7 @@ export default function ModelSelector() {
         )}
       >
         <div className="flex h-full min-h-0">
-          <ProviderRail provider={provider} providers={authenticatedProviders} onSelect={setSelectedTab} />
+          <ProviderRail provider={provider} providers={availableProviders} onSelect={setSelectedTab} />
           <div className="flex min-w-0 flex-1 flex-col p-2">
             <div className="relative mb-2">
               <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
