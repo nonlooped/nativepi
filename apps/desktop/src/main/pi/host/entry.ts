@@ -2,6 +2,8 @@ import { PassThrough } from "node:stream";
 import { AgentSession, main } from "@earendil-works/pi-coding-agent";
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { isTuiFrameType, type TuiClientFrame, type TuiHostFrame } from "../../../shared/tui-frames.ts";
+import { toNotice, toPromptRequest } from "../../../shared/providerAuth.ts";
+import { shapeProviders } from "../../../shared/providerShape.ts";
 import { hostInternals, withTerminalUi, type HostInternals } from "./uiContext.ts";
 
 /**
@@ -61,9 +63,82 @@ function send(frame: TuiHostFrame): void {
 let internals: HostInternals | undefined;
 let lastEditorFrame: TuiClientFrame | undefined;
 
+/**
+ * The session currently bound to `internals`, tracked alongside it.
+ *
+ * `bindExtensions` is the only hook every mode calls into, so it is also where
+ * this is captured — the only place that has `this: AgentSession` in hand,
+ * whose `modelRuntime` is the only runtime that has run extension `activate()`.
+ */
+let currentSession: AgentSession | undefined;
+let authPromptSeq = 1;
+const pendingAuthPrompts = new Map<string, (result: { value?: string; cancel?: boolean }) => void>();
+
 function handleClientFrame(frame: TuiClientFrame): void {
   if (frame.type === "nativepi_tui_editor") lastEditorFrame = frame;
+  if (frame.type === "nativepi_tui_auth_respond") {
+    pendingAuthPrompts.get(frame.id)?.(frame);
+    return;
+  }
+  if (frame.type === "nativepi_tui_get_providers") {
+    void respondProviders(frame.requestId);
+    return;
+  }
+  if (frame.type === "nativepi_tui_login") {
+    void respondLogin(frame.requestId, frame.providerId, frame.authType);
+    return;
+  }
+  if (frame.type === "nativepi_tui_logout") {
+    void respondLogout(frame.requestId, frame.providerId);
+    return;
+  }
   internals?.handle(frame);
+}
+
+async function respondProviders(requestId: string): Promise<void> {
+  try {
+    if (!currentSession) throw new Error("No active Pi session");
+    const providers = await shapeProviders(currentSession.modelRuntime);
+    send({ type: "nativepi_tui_reply", requestId, data: providers });
+  } catch (err) {
+    send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
+  }
+}
+
+async function respondLogin(requestId: string, providerId: string, authType: "api_key" | "oauth"): Promise<void> {
+  const promptIds = new Set<string>();
+  try {
+    if (!currentSession) throw new Error("No active Pi session");
+    await currentSession.modelRuntime.login(providerId, authType, {
+      prompt: (prompt) =>
+        new Promise<string>((resolve, reject) => {
+          const id = `auth-${authPromptSeq++}`;
+          promptIds.add(id);
+          pendingAuthPrompts.set(id, ({ value, cancel }) => {
+            pendingAuthPrompts.delete(id);
+            if (cancel || value === undefined) reject(new Error("Login cancelled"));
+            else resolve(value);
+          });
+          send({ type: "nativepi_tui_auth_prompt", id, prompt: toPromptRequest(prompt) });
+        }),
+      notify: (event) => send({ type: "nativepi_tui_auth_notice", notice: toNotice(event) }),
+    });
+    send({ type: "nativepi_tui_reply", requestId, data: true });
+  } catch (err) {
+    send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
+  } finally {
+    for (const id of promptIds) pendingAuthPrompts.delete(id);
+  }
+}
+
+async function respondLogout(requestId: string, providerId: string): Promise<void> {
+  try {
+    if (!currentSession) throw new Error("No active Pi session");
+    await currentSession.modelRuntime.logout(providerId);
+    send({ type: "nativepi_tui_reply", requestId, data: true });
+  } catch (err) {
+    send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
+  }
 }
 
 /**
@@ -118,6 +193,7 @@ function installUiContext(): void {
     // closed: their components belong to a session that no longer exists.
     internals?.dispose();
     internals = undefined;
+    currentSession = this;
     if (bindings.uiContext) {
       const wrapped = withTerminalUi(bindings.uiContext, { send });
       internals = hostInternals(wrapped);

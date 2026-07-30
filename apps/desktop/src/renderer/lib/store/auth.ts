@@ -17,16 +17,23 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
   trust: null,
 
   loadProviders: async () => {
+    const projectDir = get().activeProjectPath;
+    if (projectDir) {
+      const { providers, error } = await rpc.request.getSessionProviders({ projectDir });
+      if (get().activeProjectPath === projectDir) set({ providers: error ? [] : providers, providersLoaded: true });
+      return;
+    }
     const { providers } = await rpc.request.listProviders({});
-    set({ providers, providersLoaded: true });
+    if (!get().activeProjectPath) set({ providers, providersLoaded: true });
   },
 
   startLogin: async (providerId, type) => {
+    const projectDir = get().activeProjectPath ?? undefined;
     const provider = get().providers.find((p) => p.id === providerId);
-    set({ authFlow: { providerId, providerName: provider?.name ?? providerId, type, busy: true, notices: [] } });
+    set({ authFlow: { projectDir, providerId, providerName: provider?.name ?? providerId, type, busy: true, notices: [] } });
 
-    const res = await rpc.request.login({ providerId, type });
-    if (get().authFlow?.providerId !== providerId) return;
+    const res = await rpc.request.login({ projectDir, providerId, type });
+    if (get().authFlow?.providerId !== providerId || get().authFlow?.projectDir !== projectDir) return;
 
     if (res.ok) {
       set({ authFlow: null });
@@ -42,18 +49,18 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
   submitAuthPrompt: (value) => {
     const flow = get().authFlow;
     if (!flow?.prompt) return;
-    void rpc.request.authRespond({ id: flow.prompt.id, value });
+    void rpc.request.authRespond({ projectDir: flow.projectDir, id: flow.prompt.id, value });
     set({ authFlow: { ...flow, prompt: undefined, busy: true } });
   },
 
   cancelLogin: () => {
     const flow = get().authFlow;
-    if (flow?.prompt) void rpc.request.authRespond({ id: flow.prompt.id, cancel: true });
+    if (flow?.prompt) void rpc.request.authRespond({ projectDir: flow.projectDir, id: flow.prompt.id, cancel: true });
     set({ authFlow: null });
   },
 
   logoutProvider: async (providerId) => {
-    await rpc.request.logout({ providerId });
+    await rpc.request.logout({ projectDir: get().activeProjectPath ?? undefined, providerId });
     await get().loadProviders();
     // Restart Pi so its cached credentials drop the removed provider.
     await restartActiveProject(set, get);
@@ -93,11 +100,19 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
     if (path) set({ trustPrompt: { projectPath: path } });
   },
 
-  onAuthPrompt: ({ id, prompt }) => {
-    set((s) => (s.authFlow ? { authFlow: { ...s.authFlow, prompt: { id, request: prompt }, busy: false } } : {}));
+  onAuthPrompt: ({ projectDir, id, prompt }) => {
+    set((s) =>
+      s.authFlow && s.authFlow.projectDir === projectDir
+        ? { authFlow: { ...s.authFlow, prompt: { id, request: prompt }, busy: false } }
+        : {},
+    );
   },
 
-  onAuthNotice: (notice) => {
-    set((s) => (s.authFlow ? { authFlow: { ...s.authFlow, notices: [...s.authFlow.notices, notice] } } : {}));
+  onAuthNotice: ({ projectDir, notice }) => {
+    set((s) =>
+      s.authFlow && s.authFlow.projectDir === projectDir
+        ? { authFlow: { ...s.authFlow, notices: [...s.authFlow.notices, notice] } }
+        : {},
+    );
   },
 });

@@ -118,6 +118,15 @@ export function warmProject(set: SetState, get: GetState, path: string): void {
     if (get().activeProjectPath === path) set({ models: r.models });
   });
 
+  // The main process's provider list comes from a standalone `ModelRuntime`
+  // that never runs extension `activate()`, so a provider an extension
+  // registers (e.g. a custom-model bridge) is invisible until it's merged in
+  // from this project's own session, which did run activation.
+  void rpc.request.getSessionProviders({ projectDir: path }).then((r) => {
+    if (get().activeProjectPath !== path || r.error) return;
+    set({ providers: r.providers, providersLoaded: true });
+  });
+
   const currentModel = get().model;
   const modelBeforeLoad = currentModel ? modelKey(currentModel) : undefined;
   void rpc.request.getState({ projectDir: path }).then(async (r) => {

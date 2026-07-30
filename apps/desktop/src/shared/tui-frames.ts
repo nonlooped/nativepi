@@ -1,5 +1,33 @@
 import { z } from "zod";
 
+const authPromptSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("text"), message: z.string(), placeholder: z.string().optional() }),
+  z.object({ kind: z.literal("secret"), message: z.string(), placeholder: z.string().optional() }),
+  z.object({ kind: z.literal("manual_code"), message: z.string(), placeholder: z.string().optional() }),
+  z.object({
+    kind: z.literal("select"),
+    message: z.string(),
+    options: z.array(z.object({ id: z.string(), label: z.string(), description: z.string().optional() })),
+  }),
+]);
+
+const authNoticeSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("info"),
+    message: z.string(),
+    links: z.array(z.object({ url: z.string(), label: z.string().optional() })).optional(),
+  }),
+  z.object({ kind: z.literal("auth_url"), url: z.string(), instructions: z.string().optional() }),
+  z.object({
+    kind: z.literal("device_code"),
+    userCode: z.string(),
+    verificationUri: z.string(),
+    intervalSeconds: z.number().optional(),
+    expiresInSeconds: z.number().optional(),
+  }),
+  z.object({ kind: z.literal("progress"), message: z.string() }),
+]);
+
 /**
  * The side channel NativePi runs alongside Pi's RPC protocol.
  *
@@ -115,6 +143,8 @@ export const tuiHostFrameSchema = z.discriminatedUnion("type", [
     data: z.unknown().optional(),
     error: z.string().max(2000).optional(),
   }),
+  z.object({ type: z.literal("nativepi_tui_auth_prompt"), id: z.string().min(1).max(64), prompt: authPromptSchema }),
+  z.object({ type: z.literal("nativepi_tui_auth_notice"), notice: authNoticeSchema }),
   /**
    * Everything this project drew is gone.
    *
@@ -165,6 +195,30 @@ export const tuiClientFrameSchema = z.discriminatedUnion("type", [
    * on a keystroke would be never.
    */
   z.object({ type: z.literal("nativepi_tui_sync") }),
+  /**
+   * Ask the host for the active session's provider list.
+   *
+   * `ModelRuntime.getProviders()` only reflects extension-registered providers
+   * (e.g. a custom `activate()` calling `context.registerProvider()`) inside the
+   * Pi process that ran the extension. The main process keeps its own
+   * standalone `ModelRuntime` for login/logout orchestration outside any
+   * project, which never sees those registrations, so provider-bearing
+   * extensions need this round trip to reach the picker and Settings.
+   */
+  z.object({ type: z.literal("nativepi_tui_get_providers"), requestId: z.string().min(1).max(64) }),
+  z.object({
+    type: z.literal("nativepi_tui_login"),
+    requestId: z.string().min(1).max(64),
+    providerId: z.string().min(1),
+    authType: z.union([z.literal("api_key"), z.literal("oauth")]),
+  }),
+  z.object({ type: z.literal("nativepi_tui_logout"), requestId: z.string().min(1).max(64), providerId: z.string().min(1) }),
+  z.object({
+    type: z.literal("nativepi_tui_auth_respond"),
+    id: z.string().min(1).max(64),
+    value: z.string().optional(),
+    cancel: z.boolean().optional(),
+  }),
 ]);
 
 export type TuiClientFrame = z.infer<typeof tuiClientFrameSchema>;

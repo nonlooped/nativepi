@@ -31,7 +31,7 @@ import {
 } from "./terminal.ts";
 import type { AccessStatus, HostEvents, HostRequestName, HostRequests, PiStatus } from "../shared/rpc-schema.ts";
 import type { CommandInfo, ForkPoint, ModelInfo, RpcSessionState, SessionStats, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
-import { tuiClientFrameSchema, tuiCompletionEditSchema, tuiCompletionsSchema } from "../shared/tui-frames.ts";
+import { tuiClientFrameSchema, tuiCompletionEditSchema, tuiCompletionsSchema, type TuiHostFrame } from "../shared/tui-frames.ts";
 import { localServerConnection, localServerStatus, startLocalServer, stopLocalServer } from "./localServer.ts";
 import {
   remoteAccessRunning,
@@ -154,6 +154,19 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+function forwardPiFrame(projectDir: string, frame: TuiHostFrame): void {
+  if (frame.type === "nativepi_tui_auth_prompt") {
+    push("authPrompt", { projectDir, id: frame.id, prompt: frame.prompt });
+    return;
+  }
+  if (frame.type === "nativepi_tui_auth_notice") {
+    push("authNotice", { projectDir, notice: frame.notice });
+    if (frame.notice.kind === "auth_url") void shell.openExternal(frame.notice.url);
+    return;
+  }
+  push("tuiFrame", { projectDir, frame });
+}
+
 function ensurePi(projectDir: string): Promise<PiProcess> {
   const existing = pis.get(projectDir);
   if (existing) return Promise.resolve(existing);
@@ -177,7 +190,7 @@ function ensurePi(projectDir: string): Promise<PiProcess> {
         busyUntil.delete(projectDir);
         status(projectDir, "exited", `exit ${code ?? "?"}`);
       },
-      (frame) => push("tuiFrame", { projectDir, frame }),
+      (frame) => forwardPiFrame(projectDir, frame),
     );
     pis.set(projectDir, pi);
     try {
@@ -491,6 +504,15 @@ const handlers: HandlerMap = {
     }
   },
 
+  getSessionProviders: async ({ projectDir }) => {
+    try {
+      const pi = await ensurePi(projectDir);
+      return { providers: await pi.getProviders() };
+    } catch (err) {
+      return { providers: [], error: errorMessage(err) };
+    }
+  },
+
   getState: async ({ projectDir }) => {
     try {
       const pi = await ensurePi(projectDir);
@@ -665,23 +687,26 @@ const handlers: HandlerMap = {
     }
   },
 
-  login: async ({ providerId, type }) => {
+  login: async ({ projectDir, providerId, type }) => {
     try {
-      await auth.login(providerId, type, authPush);
+      if (projectDir) await (await ensurePi(projectDir)).loginProvider(providerId, type);
+      else await auth.login(providerId, type, authPush);
       return { ok: true };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
     }
   },
 
-  authRespond: ({ id, value, cancel }) => {
-    auth.respondPrompt(id, { value, cancel });
+  authRespond: ({ projectDir, id, value, cancel }) => {
+    if (projectDir) pis.get(projectDir)?.respondAuthPrompt(id, { value, cancel });
+    else auth.respondPrompt(id, { value, cancel });
     return { ok: true };
   },
 
-  logout: async ({ providerId }) => {
+  logout: async ({ projectDir, providerId }) => {
     try {
-      await auth.logout(providerId);
+      if (projectDir) await (await ensurePi(projectDir)).logoutProvider(providerId);
+      else await auth.logout(providerId);
       return { ok: true };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };

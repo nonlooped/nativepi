@@ -36,7 +36,7 @@ function useSurfaceTerminal(
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !projectDir) return;
+    if (!container) return;
 
     const styles = getComputedStyle(document.documentElement);
     const terminal = new Terminal({
@@ -70,6 +70,7 @@ function useSurfaceTerminal(
 
     const offWrite = onSurfaceWrite(surface.id, (data) => terminal.write(data));
     const input = terminal.onData((data) => {
+      if (!projectDir) return;
       void rpc.request.tuiSend({
         projectDir,
         frame: { type: "nativepi_tui_input", surfaceId: surface.id, data },
@@ -91,6 +92,7 @@ function useSurfaceTerminal(
         if (terminal.cols !== dimensions.cols || terminal.rows !== nextRows) {
           terminal.resize(dimensions.cols, Math.max(1, nextRows));
         }
+        if (!projectDir) return;
         void rpc.request.tuiSend({
           projectDir,
           frame: {
@@ -135,8 +137,6 @@ export default function TuiOverlay() {
 }
 
 function TuiOverlayDialog({ surface, projectDir }: { surface: TuiSurface; projectDir: string | null }) {
-  const containerRef = useSurfaceTerminal(surface, projectDir, { rows: 18, focus: true });
-
   return (
     // Held open deliberately: `open` is passed with no `onOpenChange`, so Escape
     // and a click outside cannot dismiss it. The component owns the keyboard and
@@ -151,10 +151,16 @@ function TuiOverlayDialog({ surface, projectDir }: { surface: TuiSurface; projec
             An extension is showing this and is waiting for you to answer it. Use the keys it names.
           </DialogDescription>
         </DialogHeader>
-        <div ref={containerRef} className="h-72 w-full" />
+        <TuiOverlayTerminal surface={surface} projectDir={projectDir} />
       </DialogContent>
     </Dialog>
   );
+}
+
+/** Mounted by the portal with its element, so the terminal effect always receives the ref. */
+function TuiOverlayTerminal({ surface, projectDir }: { surface: TuiSurface; projectDir: string | null }) {
+  const containerRef = useSurfaceTerminal(surface, projectDir, { rows: 18, focus: true });
+  return <div ref={containerRef} className="terminal-surface h-72 w-full" />;
 }
 
 /**
@@ -170,7 +176,7 @@ export function TuiPane({ surface, rows }: { surface: TuiSurface; rows: number }
     <div
       ref={containerRef}
       aria-label={`${surface.key} (extension)`}
-      className="w-full overflow-hidden"
+      className="terminal-surface w-full overflow-hidden"
       style={{ height: `calc(${rows} * 1.2em)` }}
     />
   );
