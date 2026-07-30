@@ -339,6 +339,13 @@ export type HostRequests = {
     response: { ok: boolean; path?: string; error?: string };
   };
   listProviders: { params: Record<string, never>; response: { providers: AuthProviderInfo[]; error?: string } };
+  /**
+   * The active project's providers, sourced from its Pi session rather than
+   * the main process's standalone `ModelRuntime` — the only one that has run
+   * extension `activate()` and so the only one that knows about providers an
+   * extension registered (e.g. `context.registerProvider()`).
+   */
+  getSessionProviders: { params: { projectDir: string }; response: { providers: AuthProviderInfo[]; error?: string } };
   login: {
     params: { providerId: string; type: "api_key" | "oauth" };
     response: { ok: boolean; error?: string };

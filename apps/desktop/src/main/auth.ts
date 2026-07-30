@@ -8,6 +8,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { isProjectTrusted } from "./pi/services.ts";
 import type { AuthNotice, AuthProviderInfo, AuthPromptRequest } from "../shared/rpc-schema.ts";
+import { shapeProviders } from "../shared/providerShape.ts";
 
 /**
  * Provider authentication and project trust are driven through Pi's exported
@@ -27,29 +28,7 @@ function getRuntime(): Promise<ModelRuntime> {
 
 export async function listProviders(): Promise<AuthProviderInfo[]> {
   const runtime = await getRuntime();
-  const stored = await runtime.listCredentials();
-  const storedType = new Map(stored.map((c) => [c.providerId, c.type]));
-
-  const providers = runtime
-    .getProviders()
-    .map((p): AuthProviderInfo => {
-      const status = runtime.getProviderAuthStatus(p.id);
-      return {
-        id: p.id,
-        name: p.name,
-        supportsApiKey: !!p.auth?.apiKey?.login,
-        supportsOAuth: !!p.auth?.oauth,
-        apiKeyLabel: p.auth?.apiKey?.name,
-        oauthLabel: p.auth?.oauth?.loginLabel ?? p.auth?.oauth?.name,
-        configured: status.configured,
-        storedType: storedType.get(p.id),
-        authSource: status.source,
-        authLabel: status.label,
-      };
-    });
-
-  providers.sort((a, b) => Number(b.configured) - Number(a.configured) || a.name.localeCompare(b.name));
-  return providers;
+  return shapeProviders(runtime);
 }
 
 type Interaction = Parameters<ModelRuntime["login"]>[2];

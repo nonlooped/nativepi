@@ -1,8 +1,26 @@
-import type { NativePiState } from "../../../shared/rpc-schema.ts";
+import type { AuthProviderInfo, NativePiState } from "../../../shared/rpc-schema.ts";
 import { draftKeyFor, modelKey } from "../../../shared/messages.ts";
 import { loadGraphicalExtensions } from "../extensionHost.ts";
 import { isRemote, rpc } from "../rpc.ts";
 import type { GetState, SetState } from "./types.ts";
+
+/**
+ * Combine two provider lists by id, favoring the newer values.
+ *
+ * Two independent sources feed `providers` — the main process's standalone
+ * `ModelRuntime` (`loadProviders`, which involves a network refresh and so is
+ * often the *slower* of the two) and each project's own session (`warmProject`,
+ * local and fast, and the only one that ran extension `activate()`). Whichever
+ * resolves second must not blow away what the other found, so every writer
+ * merges onto the current state rather than replacing it outright.
+ */
+export function mergeProviders(existing: AuthProviderInfo[], incoming: AuthProviderInfo[]): AuthProviderInfo[] {
+  const byId = new Map(existing.map((p) => [p.id, p]));
+  for (const p of incoming) byId.set(p.id, p);
+  return Array.from(byId.values()).sort(
+    (a, b) => Number(b.configured) - Number(a.configured) || a.name.localeCompare(b.name),
+  );
+}
 
 /**
  * State the store keeps but never renders.
@@ -116,6 +134,15 @@ export function warmProject(set: SetState, get: GetState, path: string): void {
 
   void rpc.request.getModels({ projectDir: path }).then((r) => {
     if (get().activeProjectPath === path) set({ models: r.models });
+  });
+
+  // The main process's provider list comes from a standalone `ModelRuntime`
+  // that never runs extension `activate()`, so a provider an extension
+  // registers (e.g. a custom-model bridge) is invisible until it's merged in
+  // from this project's own session, which did run activation.
+  void rpc.request.getSessionProviders({ projectDir: path }).then((r) => {
+    if (get().activeProjectPath !== path || r.error) return;
+    set((s) => ({ providers: mergeProviders(s.providers, r.providers) }));
   });
 
   const currentModel = get().model;

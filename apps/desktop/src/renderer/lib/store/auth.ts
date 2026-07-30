@@ -1,5 +1,5 @@
 import { rpc } from "../rpc.ts";
-import { warmProject } from "./internals.ts";
+import { mergeProviders, warmProject } from "./internals.ts";
 import type { AuthSlice, GetState, SetState, SliceCreator } from "./types.ts";
 
 async function restartActiveProject(set: SetState, get: GetState): Promise<void> {
@@ -18,7 +18,7 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => ({
 
   loadProviders: async () => {
     const { providers } = await rpc.request.listProviders({});
-    set({ providers, providersLoaded: true });
+    set((s) => ({ providers: mergeProviders(s.providers, providers), providersLoaded: true }));
   },
 
   startLogin: async (providerId, type) => {

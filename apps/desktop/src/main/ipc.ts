@@ -491,6 +491,15 @@ const handlers: HandlerMap = {
     }
   },
 
+  getSessionProviders: async ({ projectDir }) => {
+    try {
+      const pi = await ensurePi(projectDir);
+      return { providers: await pi.getProviders() };
+    } catch (err) {
+      return { providers: [], error: errorMessage(err) };
+    }
+  },
+
   getState: async ({ projectDir }) => {
     try {
       const pi = await ensurePi(projectDir);

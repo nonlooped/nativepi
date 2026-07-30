@@ -165,6 +165,17 @@ export const tuiClientFrameSchema = z.discriminatedUnion("type", [
    * on a keystroke would be never.
    */
   z.object({ type: z.literal("nativepi_tui_sync") }),
+  /**
+   * Ask the host for the active session's provider list.
+   *
+   * `ModelRuntime.getProviders()` only reflects extension-registered providers
+   * (e.g. a custom `activate()` calling `context.registerProvider()`) inside the
+   * Pi process that ran the extension. The main process keeps its own
+   * standalone `ModelRuntime` for login/logout orchestration outside any
+   * project, which never sees those registrations, so provider-bearing
+   * extensions need this round trip to reach the picker and Settings.
+   */
+  z.object({ type: z.literal("nativepi_tui_get_providers"), requestId: z.string().min(1).max(64) }),
 ]);
 
 export type TuiClientFrame = z.infer<typeof tuiClientFrameSchema>;

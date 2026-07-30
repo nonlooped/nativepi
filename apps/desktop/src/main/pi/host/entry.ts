@@ -2,6 +2,7 @@ import { PassThrough } from "node:stream";
 import { AgentSession, main } from "@earendil-works/pi-coding-agent";
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { isTuiFrameType, type TuiClientFrame, type TuiHostFrame } from "../../../shared/tui-frames.ts";
+import { shapeProviders } from "../../../shared/providerShape.ts";
 import { hostInternals, withTerminalUi, type HostInternals } from "./uiContext.ts";
 
 /**
@@ -61,9 +62,32 @@ function send(frame: TuiHostFrame): void {
 let internals: HostInternals | undefined;
 let lastEditorFrame: TuiClientFrame | undefined;
 
+/**
+ * The session currently bound to `internals`, tracked alongside it.
+ *
+ * `bindExtensions` is the only hook every mode calls into, so it is also where
+ * this is captured — the only place that has `this: AgentSession` in hand,
+ * whose `modelRuntime` is the only runtime that has run extension `activate()`.
+ */
+let currentSession: AgentSession | undefined;
+
 function handleClientFrame(frame: TuiClientFrame): void {
   if (frame.type === "nativepi_tui_editor") lastEditorFrame = frame;
+  if (frame.type === "nativepi_tui_get_providers") {
+    void respondProviders(frame.requestId);
+    return;
+  }
   internals?.handle(frame);
+}
+
+async function respondProviders(requestId: string): Promise<void> {
+  try {
+    if (!currentSession) throw new Error("No active Pi session");
+    const providers = await shapeProviders(currentSession.modelRuntime);
+    send({ type: "nativepi_tui_reply", requestId, data: providers });
+  } catch (err) {
+    send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
+  }
 }
 
 /**
@@ -118,6 +142,7 @@ function installUiContext(): void {
     // closed: their components belong to a session that no longer exists.
     internals?.dispose();
     internals = undefined;
+    currentSession = this;
     if (bindings.uiContext) {
       const wrapped = withTerminalUi(bindings.uiContext, { send });
       internals = hostInternals(wrapped);

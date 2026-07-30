@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { isTuiFrameType, tuiHostFrameSchema, type TuiClientFrame, type TuiHostFrame } from "../../shared/tui-frames.ts";
+import type { AuthProviderInfo } from "../../shared/rpc-schema.ts";
 import { drainLines, serializeCommand, type PiCommand, type PiMessage } from "./protocol.ts";
 
 /**
@@ -159,6 +160,17 @@ export class PiProcess {
       });
       this.sendFrame(build(requestId));
     });
+  }
+
+  /**
+   * The active session's providers, including any an extension registered.
+   *
+   * Not a `PiCommand`: Pi's own RPC protocol has no such command, and
+   * `session.modelRuntime` only lives inside the Pi process, so this goes over
+   * the same frame side channel as extension UI rather than `request()`.
+   */
+  getProviders(): Promise<AuthProviderInfo[]> {
+    return this.frameRequest<AuthProviderInfo[]>((requestId) => ({ type: "nativepi_tui_get_providers", requestId }));
   }
 
   request<T = unknown>(command: PiCommand): Promise<T> {
