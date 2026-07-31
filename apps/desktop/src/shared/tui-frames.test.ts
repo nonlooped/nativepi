@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { isTuiFrameType, tuiClientFrameSchema, tuiHostFrameSchema } from "./tui-frames.ts";
+import { contextInspectorSchema, isTuiFrameType, tuiClientFrameSchema, tuiHostFrameSchema } from "./tui-frames.ts";
 
 /**
  * What keeps the side channel and Pi's protocol apart, and what keeps extension
@@ -50,4 +50,14 @@ test("a resize from the window is bounded", () => {
   expect(
     tuiClientFrameSchema.safeParse({ type: "nativepi_tui_resize", surfaceId: "s1", cols: 0, rows: 24 }).success,
   ).toBe(false);
+});
+
+test("the context inspector accepts only a non-negative Pi measurement", () => {
+  const inspector = {
+    usedTokens: 42,
+    contextWindow: 200_000,
+  };
+
+  expect(contextInspectorSchema.safeParse(inspector).success).toBe(true);
+  expect(contextInspectorSchema.safeParse({ ...inspector, usedTokens: -1 }).success).toBe(false);
 });

@@ -244,11 +244,9 @@ function ensurePi(projectDir: string, sessionFile?: string, fresh = false): Prom
   return startup;
 }
 
-async function bindPi(projectDir: string, sessionFile: string): Promise<PiProcess> {
+async function bindPi(projectDir: string, sessionFile: string, mayWrite = true): Promise<PiProcess> {
   const pi = await ensurePi(projectDir, sessionFile);
-  // Everything reached through bindPi may write the session file (rename, fork,
-  // clone, compact), so claim the write before it happens.
-  markBusy(sessionFile, Date.now() + SETTLE_GRACE_MS);
+  if (mayWrite) markBusy(sessionFile, Date.now() + SETTLE_GRACE_MS);
   return pi;
 }
 
@@ -677,6 +675,15 @@ const handlers: HandlerMap = {
       const pi = await bindPi(projectDir, sessionFile);
       const stats = await pi.request<SessionStats>({ type: "get_session_stats" });
       return { stats };
+    } catch (err) {
+      return { error: errorMessage(err) };
+    }
+  },
+
+  getContextInspector: async ({ projectDir, sessionFile }) => {
+    try {
+      const pi = sessionFile ? await bindPi(projectDir, sessionFile, false) : await ensurePi(projectDir);
+      return { inspector: await pi.getContextInspector() };
     } catch (err) {
       return { error: errorMessage(err) };
     }

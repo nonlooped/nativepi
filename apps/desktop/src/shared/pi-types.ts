@@ -166,6 +166,12 @@ export interface SessionStats {
   cost: number;
 }
 
+/** Pi's latest read-only context-window measurement. */
+export interface ContextInspector {
+  usedTokens: number | null;
+  contextWindow: number;
+}
+
 export interface SessionSummary {
   path: string;
   id: string;

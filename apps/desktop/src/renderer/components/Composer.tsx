@@ -1,8 +1,8 @@
 import { ArrowBendUpRightIcon, CaretDownIcon, CheckIcon, GitBranchIcon, PaperPlaneRightIcon, PlusIcon, TreeStructureIcon } from "../../shared/icons.ts"
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { PaperclipIcon } from "@phosphor-icons/react/Paperclip";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { AssistantMessage } from "../../shared/pi-types.ts";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { AssistantMessage, ContextInspector as ContextInspectorData } from "../../shared/pi-types.ts";
 import { draftKeyFor } from "../../shared/messages.ts";
 import { ACCEPTED_IMAGE_TYPES } from "../lib/attachments.ts";
 import { classifyDrop, draggingFiles, mentionPath } from "../lib/drops.ts";
@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
 import ComposerAttachments from "./ComposerAttachments.tsx";
 import ComposerInput from "./ComposerInput.tsx";
@@ -625,8 +626,9 @@ function ContextWindow() {
   const entries = useAppStore((s) => activeConversation(s).entries);
   const streaming = useAppStore((s) => activeConversation(s).streaming);
   const model = useAppStore((s) => s.model);
-  const [pinned, setPinned] = useState(false);
-  const panelId = useId();
+  const projectDir = useAppStore((s) => s.activeProjectPath);
+  const sessionFile = useAppStore((s) => s.activeSessionFile);
+  const [open, setOpen] = useState(false);
 
   // Walking the whole transcript backwards on every keystroke in the composer is
   // what this used to do; the answer only changes when the transcript does.
@@ -646,7 +648,13 @@ function ContextWindow() {
   }, [entries, streaming]);
 
   const total = model?.contextWindow ?? 0;
-  const percent = total ? Math.min(100, Math.round((used / total) * 100)) : 0;
+  const inspection = useRequest(
+    async () => (open && projectDir ? await rpc.request.getContextInspector({ projectDir, sessionFile: sessionFile ?? undefined }) : null),
+    [open, projectDir, sessionFile, entries, streaming],
+  );
+  const inspectedUsed = inspection.data?.inspector?.usedTokens ?? used;
+  const inspectedTotal = inspection.data?.inspector?.contextWindow || total;
+  const percent = inspectedTotal ? Math.min(100, Math.round((inspectedUsed / inspectedTotal) * 100)) : 0;
 
   // A ring with nothing behind it is decoration. Until Pi reports a window for
   // this model there is no reading to give, so the control is not interactive —
@@ -668,12 +676,7 @@ function ContextWindow() {
         // The figure lives in the accessible name, so the ring is not a
         // visual-only readout for anyone who can't see it.
         aria-label={`Context window ${percent}% used, ${formatTokens(used)} of ${formatTokens(total)} tokens`}
-        aria-expanded={pinned}
-        aria-controls={panelId}
-        onClick={() => setPinned((current) => !current)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") setPinned(false);
-        }}
+        onClick={() => setOpen(true)}
         className={cn(
           "flex h-8 items-center gap-1.5 rounded-lg px-1.5 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
           tone,
@@ -685,37 +688,66 @@ function ContextWindow() {
         </svg>
         {tight ? <span className="text-sm tabular-nums" aria-hidden="true">{percent}%</span> : null}
       </button>
-      {/*
-        Not a live region: this panel is permanently mounted and its numbers
-        change on every token, so role="status" made screen readers narrate
-        token counts continuously. It is not aria-hidden either — the button
-        above claims to expand it, and it holds the only statement anywhere in
-        the app that Pi compacts before the model limit.
-      */}
-      <div
-        id={panelId}
-        className={cn(
-          // Anchored left on a phone, where this control has wrapped into the
-          // middle of the toolbar and a right-anchored 18rem panel would hang
-          // off the side of the screen.
-          "pointer-events-none absolute bottom-full left-0 mb-2 hidden w-72 max-w-[calc(100vw-2rem)] rounded-xl border bg-popover p-4 text-popover-foreground shadow-lg group-hover:block group-focus-within:block sm:left-auto sm:right-0",
-          pinned && "block",
-        )}
-      >
-        <div className="flex items-baseline justify-between gap-4">
-          <p className="text-sm font-semibold">Context window</p>
-          <p className={cn("text-xs tabular-nums", tone)}>
-            {percent}% · {formatTokens(used)}/{formatTokens(total)}
-          </p>
-        </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-          <div className={cn("h-full rounded-full bg-current transition-[width]", tone)} style={{ width: `${percent}%` }} />
-        </div>
-        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-          Pi automatically compacts the conversation before it reaches the model limit.
-        </p>
-      </div>
+      <ContextInspector
+        open={open}
+        onOpenChange={setOpen}
+        loading={inspection.loading}
+        inspector={inspection.data?.inspector}
+        error={inspection.data?.error ?? inspection.error ?? undefined}
+        used={inspectedUsed}
+        total={inspectedTotal}
+        percent={percent}
+      />
     </div>
+  );
+}
+
+function ContextInspector({
+  open,
+  onOpenChange,
+  loading,
+  inspector,
+  error,
+  used,
+  total,
+  percent,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  loading: boolean;
+  inspector?: ContextInspectorData;
+  error?: string;
+  used: number;
+  total: number;
+  percent: number;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl gap-5">
+        <DialogHeader>
+          <DialogTitle className="font-heading text-base font-semibold">Context window</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Pi’s latest context-window measurement for this conversation.
+          </DialogDescription>
+        </DialogHeader>
+
+        <section aria-label="Context usage">
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-sm font-medium">{percent}% used</p>
+            <p className="font-mono text-xs tabular-nums text-muted-foreground">
+              {formatTokens(used)} / {formatTokens(total)} tokens
+            </p>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+            <div className="h-full rounded-full bg-foreground transition-[width]" style={{ width: `${percent}%` }} />
+          </div>
+        </section>
+
+        {loading ? <p className="text-sm text-muted-foreground">Reading the active Pi session…</p> : null}
+        {error ? <p className="text-sm text-destructive">Could not inspect this context: {error}</p> : null}
+        {inspector?.usedTokens === null ? <p className="text-sm text-muted-foreground">Pi has not received a context measurement from this model yet.</p> : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 
