@@ -3,7 +3,7 @@ import { readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { parseSessionEntries, SessionManager } from "@earendil-works/pi-coding-agent";
 import { chatTitle, displayPromptText, isAssistant, isUser, textOf } from "../shared/messages.ts";
-import type { FileEntry, SessionSearchResult, SessionSummary } from "../shared/pi-types.ts";
+import type { FileEntry, SessionSearchResult, SessionSummary, UsageDashboard } from "../shared/pi-types.ts";
 
 /**
  * Session discovery and file watching.
@@ -145,6 +145,88 @@ export async function searchSessions(projectDirs: string[], rawQuery: string): P
   return results
     .toSorted((a, b) => Number(a.match !== "title") - Number(b.match !== "title") || b.modified.localeCompare(a.modified))
     .slice(0, 50);
+}
+
+/**
+ * Pi records the billed cost alongside every assistant message. Aggregate those
+ * records instead of asking a Pi process to open each session, which keeps this
+ * read-only and works for chats that are not currently running.
+ */
+export async function usageDashboard(projects: { path: string; name: string }[]): Promise<UsageDashboard> {
+  const daily = new Map<string, number>();
+  const perProject = new Map<string, { name: string; cost: number }>();
+  const models = new Map<string, number>();
+  const usedSessions = new Set<string>();
+  const billedEntries = new Set<string>();
+  const sessionRecords = (await Promise.all(projects.map(async (project) =>
+    Promise.all((await listSessions(project.path)).map(async (session) => ({ project, session, entries: await readSession(session.path) }))),
+  ))).flat();
+  const recordsByPath = new Map(sessionRecords.map((record) => [path.resolve(record.session.path), record]));
+
+  function lineageRoot(sessionFile: string, seen = new Set<string>()): string {
+    const resolved = path.resolve(sessionFile);
+    if (seen.has(resolved)) return resolved;
+    seen.add(resolved);
+    const header = recordsByPath.get(resolved)?.entries.find((entry) => entry.type === "session");
+    const parentSession = header?.type === "session" && typeof header.parentSession === "string" ? header.parentSession : undefined;
+    return parentSession && recordsByPath.has(path.resolve(parentSession))
+      ? lineageRoot(parentSession, seen)
+      : resolved;
+  }
+
+  for (const { project, session, entries } of sessionRecords) {
+    const root = lineageRoot(session.path);
+    for (const entry of entries) {
+      if (entry.type !== "message" || !isAssistant(entry.message)) continue;
+      const cost = entry.message.usage?.cost?.total;
+      if (typeof cost !== "number" || !Number.isFinite(cost) || cost < 0) continue;
+      const billedEntry = `${root}\0${entry.id}`;
+      if (billedEntries.has(billedEntry)) continue;
+
+      const date = usageDate(entry.message.timestamp, entry.timestamp);
+      if (!date) continue;
+      billedEntries.add(billedEntry);
+      usedSessions.add(session.path);
+      daily.set(date, (daily.get(date) ?? 0) + cost);
+      const projectTotal = perProject.get(project.path) ?? { name: project.name, cost: 0 };
+      projectTotal.cost += cost;
+      perProject.set(project.path, projectTotal);
+      const model = entry.message.provider && entry.message.model
+        ? `${entry.message.provider}/${entry.message.model}`
+        : entry.message.model ?? "Unknown model";
+      models.set(model, (models.get(model) ?? 0) + cost);
+    }
+  }
+
+  const byCost = <T extends { cost: number }>(a: T, b: T) => b.cost - a.cost;
+  const projectTotals = [...perProject.entries()]
+    .map(([path, value]) => ({ path, ...value }))
+    .toSorted(byCost);
+  const modelTotals = [...models.entries()]
+    .map(([name, cost]) => ({ name, cost }))
+    .toSorted(byCost);
+  const dailyTotals = [...daily.entries()]
+    .map(([date, cost]) => ({ date, cost }))
+    .toSorted((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    totalCost: projectTotals.reduce((total, project) => total + project.cost, 0),
+    sessions: usedSessions.size,
+    daily: dailyTotals,
+    projects: projectTotals,
+    models: modelTotals,
+  };
+}
+
+function usageDate(messageTimestamp: number | undefined, entryTimestamp: string): string | null {
+  const timestamp = typeof messageTimestamp === "number" ? messageTimestamp : Date.parse(entryTimestamp);
+  if (!Number.isFinite(timestamp)) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(timestamp);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value;
+  const year = part("year");
+  const month = part("month");
+  const day = part("day");
+  return year && month && day ? `${year}-${month}-${day}` : null;
 }
 
 export function searchSnippet(text: string, matchIndex: number, matchLength: number): string {

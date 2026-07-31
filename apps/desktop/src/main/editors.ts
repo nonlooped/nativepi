@@ -1,6 +1,7 @@
-import { execFile, spawn } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { homedir } from "node:os";
+import { basename, delimiter, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { app, shell } from "electron";
 import type { InstalledEditor } from "../shared/rpc-schema.ts";
@@ -14,7 +15,22 @@ type EditorSpec = InstalledEditor & {
 
 type ScannedEditor = { editor: InstalledEditor; executable?: string };
 
-const EXPLORER: InstalledEditor = { id: "explorer", name: "Explorer", icon: "explorer" };
+function fileArgs(targetPath: string, editorId: string, line: number | undefined, column?: number): string[] {
+  if (line && ["cursor", "vscode", "antigravity", "windsurf", "vscode-insiders", "vscodium"].includes(editorId)) {
+    return ["-g", `${targetPath}:${line}${column ? `:${column}` : ""}`];
+  }
+  if (line && jetBrainsEditors.some(([id]) => id === editorId)) return ["--line", String(line), targetPath];
+  return [targetPath];
+}
+
+/** The platform's own file manager, named the way its own users would name it. */
+export function fileManagerName(): string {
+  if (process.platform === "darwin") return "Finder";
+  if (process.platform === "linux") return "Files";
+  return "Explorer";
+}
+
+const FILE_MANAGER: InstalledEditor = { id: "explorer", name: fileManagerName(), icon: "explorer" };
 
 const local = process.env["LOCALAPPDATA"];
 const programFiles = process.env["ProgramFiles"];
@@ -24,7 +40,7 @@ function under(root: string | undefined, ...parts: string[]): string[] {
   return root ? [join(root, ...parts)] : [];
 }
 
-const editorSpecs: EditorSpec[] = [
+const windowsEditorSpecs: EditorSpec[] = [
   {
     id: "cursor",
     name: "Cursor",
@@ -123,7 +139,6 @@ const jetBrainsEditors = [
 ] as const;
 
 async function registeredExecutables(): Promise<Map<string, string>> {
-  if (process.platform !== "win32") return new Map();
   const roots = [
     "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths",
     "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths",
@@ -160,17 +175,17 @@ async function registeredExecutables(): Promise<Map<string, string>> {
   return registered;
 }
 
-function addJetBrainsInstallations(found: Map<string, ScannedEditor>): void {
+function addJetBrainsWindowsInstallations(found: Map<string, ScannedEditor>): void {
   const roots = [
     ...(programFiles ? [join(programFiles, "JetBrains")] : []),
     ...(local ? [join(local, "JetBrains", "Toolbox", "apps")] : []),
   ];
   for (const root of roots) {
-    scanJetBrainsDirectory(root, 3, found);
+    scanJetBrainsWindowsDirectory(root, 3, found);
   }
 }
 
-function scanJetBrainsDirectory(
+function scanJetBrainsWindowsDirectory(
   directory: string,
   depth: number,
   found: Map<string, ScannedEditor>,
@@ -188,22 +203,14 @@ function scanJetBrainsDirectory(
     return;
   }
   for (const child of children) {
-    if (child.isDirectory()) scanJetBrainsDirectory(join(directory, child.name), depth - 1, found);
+    if (child.isDirectory()) scanJetBrainsWindowsDirectory(join(directory, child.name), depth - 1, found);
   }
 }
 
-function explorerEntry(): ScannedEditor {
-  const path = process.env["WINDIR"] ? join(process.env["WINDIR"], "explorer.exe") : undefined;
-  return {
-    editor: EXPLORER,
-    executable: path && existsSync(path) ? path : undefined,
-  };
-}
-
-async function scanEditors(): Promise<Map<string, ScannedEditor>> {
+async function scanWindowsEditors(): Promise<Map<string, ScannedEditor>> {
   const found = new Map<string, ScannedEditor>();
   // Path checks first — registry scan is best-effort and must not block the list.
-  for (const spec of editorSpecs) {
+  for (const spec of windowsEditorSpecs) {
     const executable = spec.paths.find(existsSync);
     if (executable) {
       const { executables: _executables, paths: _paths, ...editor } = spec;
@@ -211,13 +218,13 @@ async function scanEditors(): Promise<Map<string, ScannedEditor>> {
     }
   }
   try {
-    addJetBrainsInstallations(found);
+    addJetBrainsWindowsInstallations(found);
   } catch {
     // ignore
   }
   try {
     const registered = await registeredExecutables();
-    for (const spec of editorSpecs) {
+    for (const spec of windowsEditorSpecs) {
       if (found.has(spec.id)) continue;
       const executable = spec.executables.map((name) => registered.get(name.toLowerCase())).find(Boolean);
       if (executable) {
@@ -233,6 +240,114 @@ async function scanEditors(): Promise<Map<string, ScannedEditor>> {
   } catch {
     // ignore
   }
+  return found;
+}
+
+type CrossPlatformSpec = { id: string; name: string; icon: InstalledEditor["icon"] };
+
+const crossPlatformEditors: CrossPlatformSpec[] = [
+  { id: "cursor", name: "Cursor", icon: "cursor" },
+  { id: "vscode", name: "Visual Studio Code", icon: "code" },
+  { id: "antigravity", name: "Google Antigravity", icon: "antigravity" },
+  { id: "windsurf", name: "Windsurf", icon: "windsurf" },
+  { id: "vscode-insiders", name: "Visual Studio Code Insiders", icon: "code" },
+  { id: "vscodium", name: "VSCodium", icon: "code" },
+  { id: "zed", name: "Zed", icon: "code" },
+  { id: "sublime-text", name: "Sublime Text", icon: "code" },
+  { id: "intellij-idea", name: "IntelliJ IDEA", icon: "code" },
+  { id: "webstorm", name: "WebStorm", icon: "code" },
+  { id: "rider", name: "JetBrains Rider", icon: "code" },
+  { id: "pycharm", name: "PyCharm", icon: "code" },
+  { id: "clion", name: "CLion", icon: "code" },
+  { id: "goland", name: "GoLand", icon: "code" },
+  { id: "phpstorm", name: "PhpStorm", icon: "code" },
+  { id: "rubymine", name: "RubyMine", icon: "code" },
+  { id: "rustrover", name: "RustRover", icon: "code" },
+];
+
+/** `.app` bundle names to look for under each editor's id, macOS only. */
+const macAppNames: Record<string, string[]> = {
+  cursor: ["Cursor.app"],
+  vscode: ["Visual Studio Code.app"],
+  antigravity: ["Antigravity.app"],
+  windsurf: ["Windsurf.app"],
+  "vscode-insiders": ["Visual Studio Code - Insiders.app"],
+  vscodium: ["VSCodium.app"],
+  zed: ["Zed.app"],
+  "sublime-text": ["Sublime Text.app"],
+  "intellij-idea": ["IntelliJ IDEA.app", "IntelliJ IDEA CE.app"],
+  webstorm: ["WebStorm.app"],
+  rider: ["Rider.app"],
+  pycharm: ["PyCharm.app", "PyCharm CE.app"],
+  clion: ["CLion.app"],
+  goland: ["GoLand.app"],
+  phpstorm: ["PhpStorm.app"],
+  rubymine: ["RubyMine.app"],
+  rustrover: ["RustRover.app"],
+};
+
+function scanMacEditors(): Map<string, ScannedEditor> {
+  const found = new Map<string, ScannedEditor>();
+  const roots = ["/Applications", join(homedir(), "Applications")];
+  for (const spec of crossPlatformEditors) {
+    const appNames = macAppNames[spec.id] ?? [];
+    const appPath = roots.flatMap((root) => appNames.map((name) => join(root, name))).find(existsSync);
+    if (appPath) found.set(spec.id, { editor: spec, executable: appPath });
+  }
+  return found;
+}
+
+/** Command-line launcher names to look for on `PATH`, Linux only. */
+const linuxExecutableNames: Record<string, string[]> = {
+  cursor: ["cursor"],
+  vscode: ["code"],
+  antigravity: ["antigravity"],
+  windsurf: ["windsurf"],
+  "vscode-insiders": ["code-insiders"],
+  vscodium: ["codium", "vscodium"],
+  zed: ["zed", "zeditor"],
+  "sublime-text": ["subl", "sublime_text"],
+  "intellij-idea": ["idea", "idea.sh"],
+  webstorm: ["webstorm", "webstorm.sh"],
+  rider: ["rider", "rider.sh"],
+  pycharm: ["pycharm", "pycharm.sh"],
+  clion: ["clion", "clion.sh"],
+  goland: ["goland", "goland.sh"],
+  phpstorm: ["phpstorm", "phpstorm.sh"],
+  rubymine: ["rubymine", "rubymine.sh"],
+  rustrover: ["rustrover", "rustrover.sh"],
+};
+
+function linuxSearchDirectories(): string[] {
+  const fromPath = (process.env["PATH"] ?? "").split(delimiter).filter(Boolean);
+  const extra = ["/usr/local/bin", "/usr/bin", "/snap/bin", join(homedir(), ".local", "bin")];
+  return [...new Set([...fromPath, ...extra])];
+}
+
+function scanLinuxEditors(): Map<string, ScannedEditor> {
+  const found = new Map<string, ScannedEditor>();
+  const dirs = linuxSearchDirectories();
+  for (const spec of crossPlatformEditors) {
+    const names = linuxExecutableNames[spec.id] ?? [];
+    const executable = dirs.flatMap((dir) => names.map((name) => join(dir, name))).find(existsSync);
+    if (executable) found.set(spec.id, { editor: spec, executable });
+  }
+  return found;
+}
+
+function explorerEntry(): ScannedEditor {
+  if (process.platform !== "win32") return { editor: FILE_MANAGER };
+  const path = process.env["WINDIR"] ? join(process.env["WINDIR"], "explorer.exe") : undefined;
+  return { editor: FILE_MANAGER, executable: path && existsSync(path) ? path : undefined };
+}
+
+async function scanEditors(): Promise<Map<string, ScannedEditor>> {
+  const found =
+    process.platform === "darwin"
+      ? scanMacEditors()
+      : process.platform === "linux"
+        ? scanLinuxEditors()
+        : await scanWindowsEditors();
   found.set("explorer", explorerEntry());
   return found;
 }
@@ -247,7 +362,7 @@ async function withIcon(editor: InstalledEditor, executable?: string): Promise<I
   }
 }
 
-/** Always includes Explorer first so the menu is never empty on Windows. */
+/** Always includes the platform's file manager first so the menu is never empty. */
 export async function listInstalledEditors(): Promise<InstalledEditor[]> {
   let scanned: Map<string, ScannedEditor>;
   try {
@@ -262,6 +377,18 @@ export async function listInstalledEditors(): Promise<InstalledEditor[]> {
   return Promise.all(ordered.map(({ editor, executable }) => withIcon(editor, executable)));
 }
 
+/**
+ * macOS app bundles are not directly executable, so they are launched through
+ * `open -a`, which also hands the app the target path the way double-clicking
+ * a file in Finder would. Windows and Linux executables are launched directly.
+ */
+function launchEditor(executable: string, target: string, args = [target]): ChildProcess {
+  if (process.platform === "darwin" && executable.endsWith(".app")) {
+    return spawn("open", ["-a", executable, target], { detached: true, stdio: "ignore" });
+  }
+  return spawn(executable, args, { detached: true, stdio: "ignore", windowsHide: true });
+}
+
 export async function openProjectIn(projectDir: string, editorId: string): Promise<void> {
   if (!statSync(projectDir).isDirectory()) throw new Error("The project folder no longer exists.");
   if (editorId === "explorer") {
@@ -273,18 +400,14 @@ export async function openProjectIn(projectDir: string, editorId: string): Promi
   if (!target?.executable) throw new Error("That editor is no longer installed.");
   const executable = target.executable;
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(executable, [projectDir], {
-      detached: true,
-      stdio: "ignore",
-      windowsHide: true,
-    });
+    const child = launchEditor(executable, projectDir);
     child.once("spawn", resolve);
     child.once("error", reject);
     child.unref();
   });
 }
 
-export async function openFileIn(projectDir: string, file: string, editorId: string): Promise<void> {
+export async function openFileIn(projectDir: string, file: string, editorId: string, line?: number, column?: number): Promise<void> {
   const targetPath = resolve(projectDir, file);
   const relativePath = relative(projectDir, targetPath);
   if (isAbsolute(relativePath) || relativePath === ".." || relativePath.startsWith(`..${sep}`)) {
@@ -298,11 +421,7 @@ export async function openFileIn(projectDir: string, file: string, editorId: str
   if (!target?.executable) throw new Error("That editor is no longer installed.");
   const executable = target.executable;
   await new Promise<void>((resolveSpawn, reject) => {
-    const child = spawn(executable, [targetPath], {
-      detached: true,
-      stdio: "ignore",
-      windowsHide: true,
-    });
+    const child = launchEditor(executable, targetPath, fileArgs(targetPath, target.editor.id, line, column));
     child.once("spawn", resolveSpawn);
     child.once("error", reject);
     child.unref();

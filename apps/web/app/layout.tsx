@@ -23,6 +23,8 @@ export const metadata: Metadata = {
     "coding agent",
     "desktop",
     "Windows",
+    "macOS",
+    "Linux",
     "Electron",
     "open source",
   ],

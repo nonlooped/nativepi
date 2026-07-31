@@ -17,7 +17,11 @@ import type { UpdateState } from "../shared/rpc-schema.ts";
  * NativePi's builds are unsigned, so the downloaded installer's Authenticode
  * signature is not verified; `verifyUpdateCodeSignature` in the desktop package
  * manifest says so explicitly rather than leaving it to electron-builder to
- * infer from the absence of a certificate.
+ * infer from the absence of a certificate. On an unsigned macOS build,
+ * Gatekeeper's own code-signature check on the downloaded update is stricter
+ * still and has no such override, so `update-downloaded` there can surface as
+ * an `error` instead — the same `checkForUpdate`/`downloadUpdate` failure path
+ * this module already reports through, not a case this module special-cases.
  */
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;

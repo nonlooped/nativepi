@@ -26,9 +26,15 @@ runs:
       if: inputs.electron-cache == 'true'
       uses: actions/cache@v6
       with:
+        # One list works for every runner OS: actions/cache silently skips
+        # whichever paths don't exist on the current platform.
         path: |
           ~/AppData/Local/electron/Cache
           ~/AppData/Local/electron-builder/Cache
+          ~/Library/Caches/electron
+          ~/Library/Caches/electron-builder
+          ~/.cache/electron
+          ~/.cache/electron-builder
         key: ${{ runner.os }}-electron-${{ hashFiles('bun.lock') }}
         restore-keys: ${{ runner.os }}-electron-
 

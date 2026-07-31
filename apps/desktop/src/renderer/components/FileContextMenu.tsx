@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { FileArrowUpIcon } from "@phosphor-icons/react/FileArrowUp";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
-import { absoluteProjectPath, editorName } from "@/lib/paths.ts";
+import { absoluteProjectPath, editorName, fileManagerName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { useAppStore } from "@/lib/store.ts";
 import {
@@ -42,7 +42,7 @@ export default function FileContextMenu({
           <FileArrowUpIcon /> Open in {editorName(editorId)}
         </ContextMenuItem>
         <ContextMenuItem onClick={() => void rpc.request.showInFolder({ path: absolutePath })}>
-          <FolderOpenIcon /> Reveal in Explorer
+          <FolderOpenIcon /> Reveal in {fileManagerName()}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => void navigator.clipboard.writeText(file)}>

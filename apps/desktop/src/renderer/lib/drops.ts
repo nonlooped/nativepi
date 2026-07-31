@@ -85,7 +85,9 @@ export function classifyDrop(transfer: DataTransfer | null): Dropped {
  */
 export function mentionPath(projectDir: string, path: string): string {
   const root = projectDir.replace(/[\\/]+$/, "");
-  const inside = path.toLowerCase().startsWith(`${root.toLowerCase()}\\`)
-    || path.toLowerCase().startsWith(`${root.toLowerCase()}/`);
+  const insensitive = /^[a-z]:[\\/]/i.test(root) || root.startsWith("\\\\");
+  const comparablePath = insensitive ? path.toLowerCase() : path;
+  const comparableRoot = insensitive ? root.toLowerCase() : root;
+  const inside = comparablePath.startsWith(`${comparableRoot}\\`) || comparablePath.startsWith(`${comparableRoot}/`);
   return (inside ? path.slice(root.length + 1) : path).replace(/\\/g, "/");
 }

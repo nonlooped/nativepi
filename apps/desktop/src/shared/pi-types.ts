@@ -166,6 +166,21 @@ export interface SessionStats {
   cost: number;
 }
 
+/** Cost totals derived from the usage records Pi writes to session files. */
+export interface UsageDashboard {
+  totalCost: number;
+  sessions: number;
+  daily: { date: string; cost: number }[];
+  projects: { path: string; name: string; cost: number }[];
+  models: { name: string; cost: number }[];
+}
+
+/** Pi's latest read-only context-window measurement. */
+export interface ContextInspector {
+  usedTokens: number | null;
+  contextWindow: number;
+}
+
 export interface SessionSummary {
   path: string;
   id: string;
@@ -193,6 +208,7 @@ export interface GitChangedFile {
   path: string;
   state: "modified" | "added" | "deleted" | "renamed" | "untracked";
   staged: boolean;
+  unstaged: boolean;
 }
 export interface GitStatus {
   isRepo: boolean;
@@ -204,6 +220,10 @@ export interface GitDiff {
   path: string;
   patch: string;
 }
+export interface GitHunk {
+  header: string;
+  patch: string;
+}
 export interface GitBranch {
   name: string;
   current: boolean;
@@ -211,6 +231,29 @@ export interface GitBranch {
   worktree?: string;
 }
 
+/**
+ * A read-only preview of one project file.
+ *
+ * `kind` decides how the renderer shows `content`: markdown and code get syntax
+ * highlighting, image gets an `<img>` from the data URL, and binary/too-large
+ * files show a message instead of file bytes.
+ */
+export interface FilePreview {
+  path: string;
+  size: number;
+  mtimeMs: number;
+  kind: "text" | "markdown" | "image" | "binary" | "too-large";
+  content?: string;
+  /** Present only when `kind` is `"image"`. */
+  dataUrl?: string;
+}
+
+/** One project file the user opened from the explorer, recency- and count-tracked. */
+export interface RecentFile {
+  path: string;
+  lastOpenedAt: number;
+  openCount: number;
+}
 
 /** One skill the composer's `$` menu can insert as a `/skill:name` command. */
 export interface SkillInfo {

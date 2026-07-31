@@ -8,13 +8,20 @@ test("an empty object yields the full set of defaults", () => {
     projects: [],
     lastProjectPath: undefined,
     lastChatByProject: {},
+    recentFilesByProject: {},
     drafts: {},
     favoriteModels: [],
     pinnedChats: [],
     panes: undefined,
     reopenLastProject: true,
     preferences: DEFAULT_PREFERENCES,
+    keybindingOverrides: {},
   });
+});
+
+test("a corrupt keybinding overrides value costs the whole map, not the workspace", () => {
+  const state = nativePiStateSchema.parse({ keybindingOverrides: "not an object" });
+  expect(state.keybindingOverrides).toEqual({});
 });
 
 test("a corrupt preference costs that preference, not the rest", () => {

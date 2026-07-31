@@ -6,8 +6,8 @@ and pull request mechanics.
 
 ## Project
 
-NativePi is a small, local, Windows-first desktop interface for the Pi coding
-agent. It is a wrapper, not an agent harness.
+NativePi is a small, local desktop interface for the Pi coding agent, for
+Windows, macOS, and Linux. It is a wrapper, not an agent harness.
 
 Read `apps/desktop/PRODUCT.md` before making product-scope decisions and
 `apps/desktop/DESIGN.md` before changing the interface's visual language.

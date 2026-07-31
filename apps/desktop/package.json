@@ -1,8 +1,8 @@
 {
   "name": "@nativepi/desktop",
   "private": true,
-  "version": "0.11.0",
-  "description": "A Windows-first desktop interface for the Pi coding agent.",
+  "version": "0.12.1",
+  "description": "A desktop interface for the Pi coding agent.",
   "author": "nonlooped",
   "type": "module",
   "main": "./out/main/index.js",
@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "pack": "electron-vite build && electron-builder --dir",
     "dist": "electron-vite build && electron-builder",
-    "dist:win": "electron-vite build && electron-builder --win"
+    "dist:win": "electron-vite build && electron-builder --win",
+    "dist:mac": "electron-vite build && electron-builder --mac",
+    "dist:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "0.82.1",
@@ -22,6 +24,7 @@
     "@xterm/xterm": "^6.0.0",
     "electron-updater": "^6.8.9",
     "esbuild": "^0.28.1",
+    "file-type": "^22.0.1",
     "node-pty": "^1.1.0",
     "ws": "^8.21.1"
   },
@@ -70,6 +73,7 @@
   "build": {
     "appId": "dev.nativepi.app",
     "productName": "NativePi",
+    "executableName": "nativepi",
     "npmRebuild": false,
     "directories": {
       "output": "release"
@@ -103,6 +107,24 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "installerSidebar": "resources/installer-sidebar.bmp"
+    },
+    "mac": {
+      "icon": "resources/icon.png",
+      "identity": null,
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "dmg": {
+      "artifactName": "${productName}-${version}.${ext}"
+    },
+    "linux": {
+      "icon": "resources/icon.png",
+      "category": "Development",
+      "target": [
+        "AppImage"
+      ]
     }
   }
 }

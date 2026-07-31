@@ -13,6 +13,7 @@ import { TreeStructureIcon } from "@phosphor-icons/react/TreeStructure";
 import { useState } from "react";
 import type { ForkPoint, SessionStats, SessionSummary, SessionTreeNode } from "../../shared/pi-types.ts";
 import { textOf } from "../../shared/messages.ts";
+import { fileManagerName } from "../lib/paths.ts";
 import { chatTitle } from "../lib/transcript.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 import { activeConversation, useAppStore } from "../lib/store.ts";
@@ -482,9 +483,9 @@ function ExportDialog({ path, onClose }: { path: string; onClose: () => void }) 
           </Button>
           {/* The file is often the destination's neighbour, not the destination:
               an export usually gets attached or moved next, which starts in
-              Explorer rather than a browser tab. */}
+              the file manager rather than a browser tab. */}
           <Button variant="outline" onClick={() => void rpc.request.showInFolder({ path })}>
-            Reveal in Explorer
+            Reveal in {fileManagerName()}
           </Button>
           <Button onClick={() => void rpc.request.openExternal({ url: fileUrl(path) })}>
             <ArrowSquareOutIcon data-icon="inline-start" /> Open

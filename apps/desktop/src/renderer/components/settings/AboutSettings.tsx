@@ -1,5 +1,6 @@
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import type { UpdateState } from "../../../shared/rpc-schema.ts";
+import { fileManagerName } from "../../lib/paths.ts";
 import { isRemote, rpc } from "../../lib/rpc.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { useRequest } from "../../lib/useRequest.ts";
@@ -117,8 +118,8 @@ export default function AboutSettings() {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                title="Show in Explorer"
-                aria-label="Show the configuration folder in Explorer"
+                title={`Show in ${fileManagerName()}`}
+                aria-label={`Show the configuration folder in ${fileManagerName()}`}
                 onClick={() => void rpc.request.showInFolder({ path: paths.data!.paths.agentDir })}
               >
                 <FolderOpenIcon />
@@ -135,8 +136,8 @@ export default function AboutSettings() {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                title="Show in Explorer"
-                aria-label="Show the settings file in Explorer"
+                title={`Show in ${fileManagerName()}`}
+                aria-label={`Show the settings file in ${fileManagerName()}`}
                 onClick={() => void rpc.request.showInFolder({ path: paths.data!.paths.settingsFile })}
               >
                 <FolderOpenIcon />

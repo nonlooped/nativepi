@@ -4,9 +4,11 @@ import type {
   CommandInfo,
   ExtensionUiResponse,
   FileEntry,
+  FilePreview,
   ForkPoint,
   GitBranch,
   GitDiff,
+  GitHunk,
   GitStatus,
   GraphicalExtension,
   ImageContent,
@@ -16,12 +18,15 @@ import type {
   ResolvedExtension,
   RpcSessionState,
   SessionStats,
+  ContextInspector,
   SessionSearchResult,
   SessionSummary,
   SessionTreeNode,
   SkillInfo,
   ThinkingLevel,
+  UsageDashboard,
 } from "./pi-types.ts";
+import type { RepoHostContext } from "./repo-host-types.ts";
 import type {
   TuiClientFrame,
   TuiCompletionEdit,
@@ -83,8 +88,16 @@ export interface PendingWork {
 export interface TerminalSession {
   id: string;
   projectDir: string;
+  name: string;
+  shellId: string;
   exited: boolean;
   exitCode?: number;
+}
+
+/** A shell executable NativePi found on this machine, offered as a profile when opening a terminal. */
+export interface ShellProfile {
+  id: string;
+  name: string;
 }
 
 export interface AuthProviderInfo {
@@ -221,6 +234,7 @@ export const preferencesSchema = z.object({
   terminalScrollback: clamped(5000, 500, 100000),
   terminalCursorBlink: z.boolean().catch(true),
   preferredEditorId: z.string().min(1).catch("explorer"),
+  preferredShellId: z.string().catch(""),
 });
 
 export type Preferences = z.infer<typeof preferencesSchema>;
@@ -245,6 +259,12 @@ export const nativePiStateSchema = z.object({
     ),
   lastProjectPath: z.string().optional().catch(undefined),
   lastChatByProject: z.record(z.string(), z.string()).catch({}),
+  recentFilesByProject: z
+    .record(
+      z.string(),
+      z.array(z.object({ path: z.string(), lastOpenedAt: z.number(), openCount: z.number() })).catch([]),
+    )
+    .catch({}),
   drafts: z.record(z.string(), z.string()).catch({}),
   favoriteModels: z.array(z.string()).catch([]),
   pinnedChats: z
@@ -258,6 +278,10 @@ export const nativePiStateSchema = z.object({
   panes: paneStateSchema.optional().catch(undefined),
   reopenLastProject: z.boolean().catch(true),
   preferences: preferencesSchema.catch(DEFAULT_PREFERENCES),
+  // Kept as a loose string record here: the shortcut registry itself is a
+  // renderer-only concept, and the renderer filters this down to known ids and
+  // valid bindings on load.
+  keybindingOverrides: z.record(z.string(), z.string()).catch({}),
 });
 
 export type NativePiState = z.infer<typeof nativePiStateSchema>;
@@ -298,7 +322,7 @@ export type HostRequests = {
     response: { ok: boolean; sessionFile?: string; error?: string };
   };
   enqueue: {
-    params: { projectDir: string; behavior: "steer" | "followUp"; message: string; images?: ImageContent[] };
+    params: { projectDir: string; sessionFile: string; behavior: "steer" | "followUp"; message: string; images?: ImageContent[] };
     response: { ok: boolean; error?: string };
   };
   /** Resize dropped, pasted or picked images through Pi before they wait in the composer. */
@@ -306,19 +330,19 @@ export type HostRequests = {
     params: { files: { name: string; mimeType: string; data: string }[] };
     response: { images: ImageAttachment[]; rejected: string[] };
   };
-  abort: { params: { projectDir: string }; response: { ok: boolean } };
-  getModels: { params: { projectDir: string }; response: { models: ModelInfo[]; error?: string } };
-  getState: { params: { projectDir: string }; response: { state?: RpcSessionState; error?: string } };
+  abort: { params: { projectDir: string; sessionFile: string }; response: { ok: boolean } };
+  getModels: { params: { projectDir: string; sessionFile?: string | null }; response: { models: ModelInfo[]; error?: string } };
+  getState: { params: { projectDir: string; sessionFile?: string | null }; response: { state?: RpcSessionState; error?: string } };
   getThinkingLevels: {
-    params: { projectDir: string };
+    params: { projectDir: string; sessionFile?: string | null };
     response: { levels: ThinkingLevel[]; error?: string };
   };
   setModel: {
-    params: { projectDir: string; provider: string; modelId: string };
+    params: { projectDir: string; sessionFile?: string | null; provider: string; modelId: string };
     response: { ok: boolean; error?: string };
   };
   setThinkingLevel: {
-    params: { projectDir: string; level: ThinkingLevel };
+    params: { projectDir: string; sessionFile?: string | null; level: ThinkingLevel };
     response: { ok: boolean; error?: string };
   };
   renameChat: {
@@ -361,11 +385,20 @@ export type HostRequests = {
     params: { projectDir: string; sessionFile: string };
     response: { stats?: SessionStats; error?: string };
   };
+  getUsageDashboard: {
+    params: { projects: Project[] };
+    response: { dashboard?: UsageDashboard; error?: string };
+  };
+
+  getContextInspector: {
+    params: { projectDir: string; sessionFile?: string };
+    response: { inspector?: ContextInspector; error?: string };
+  };
   compact: {
     params: { projectDir: string; sessionFile: string };
     response: { ok: boolean; error?: string };
   };
-  abortRetry: { params: { projectDir: string }; response: { ok: boolean } };
+  abortRetry: { params: { projectDir: string; sessionFile: string }; response: { ok: boolean } };
   exportHtml: {
     params: { projectDir: string; sessionFile: string };
     response: { ok: boolean; path?: string; error?: string };
@@ -377,7 +410,7 @@ export type HostRequests = {
    * extension `activate()` and so the only one that knows about providers an
    * extension registered (e.g. `context.registerProvider()`).
    */
-  getSessionProviders: { params: { projectDir: string }; response: { providers: AuthProviderInfo[]; error?: string } };
+  getSessionProviders: { params: { projectDir: string; sessionFile?: string | null }; response: { providers: AuthProviderInfo[]; error?: string } };
   login: {
     params: { projectDir?: string; providerId: string; type: "api_key" | "oauth" };
     response: { ok: boolean; error?: string };
@@ -399,7 +432,7 @@ export type HostRequests = {
     response: { ok: boolean; error?: string };
   };
   openFileIn: {
-    params: { projectDir: string; file: string; editorId: string };
+    params: { projectDir: string; file: string; editorId: string; line?: number; column?: number };
     response: { ok: boolean; error?: string };
   };
   versions: { params: Record<string, never>; response: { pi: string; app: string } };
@@ -434,8 +467,20 @@ export type HostRequests = {
     response: { ok: boolean; path?: string; canceled?: boolean; error?: string };
   };
 
-  terminalEnsure: { params: { projectDir: string }; response: { terminals: TerminalSession[] } };
-  terminalCreate: { params: { projectDir: string }; response: { terminal: TerminalSession } };
+  terminalEnsure: { params: { projectDir: string; shellId?: string }; response: { terminals: TerminalSession[] } };
+  terminalCreate: {
+    params: { projectDir: string; shellId?: string; name?: string };
+    response: { terminal: TerminalSession };
+  };
+  terminalListShells: { params: Record<string, never>; response: { shells: ShellProfile[] } };
+  terminalRename: {
+    params: { projectDir: string; terminalId: string; name: string };
+    response: { ok: boolean };
+  };
+  terminalRestart: {
+    params: { projectDir: string; terminalId: string };
+    response: { terminal: TerminalSession };
+  };
   terminalSnapshot: {
     params: { projectDir: string; terminalId: string };
     response: { output: string; sequence: number };
@@ -463,6 +508,14 @@ export type HostRequests = {
     params: { projectDir: string; file: string; untracked: boolean };
     response: { diff: GitDiff };
   };
+  gitHunks: { params: { projectDir: string; file: string; untracked: boolean }; response: { hunks: GitHunk[] } };
+  gitStageHunk: { params: { projectDir: string; file: string; untracked: boolean; patch: string }; response: { ok: boolean; error?: string } };
+  gitStageFile: { params: { projectDir: string; file: string }; response: { ok: boolean; error?: string } };
+  gitCommit: { params: { projectDir: string; message: string }; response: { ok: boolean; error?: string } };
+  gitPushAndCreatePr: {
+    params: { projectDir: string; title: string; body: string };
+    response: { ok: boolean; url?: string; error?: string };
+  };
   gitBranches: { params: { projectDir: string }; response: { branches: GitBranch[] } };
   gitCheckout: {
     params: { projectDir: string; branch: string; create: boolean };
@@ -473,10 +526,18 @@ export type HostRequests = {
     response: { ok: boolean; path?: string; error?: string };
   };
 
+  repoHostContext: { params: { projectDir: string }; response: { context: RepoHostContext | null } };
+
   /** What the composer's `/`, `$` and `@` menus offer. Read on demand, never cached in main. */
   listCommands: { params: { projectDir: string }; response: { commands: CommandInfo[] } };
   listSkills: { params: { projectDir: string }; response: { skills: SkillInfo[] } };
   listProjectFiles: { params: { projectDir: string }; response: { files: string[] } };
+  listExplorerFiles: { params: { projectDir: string }; response: { files: string[] } };
+  /** A read-only preview of one project file, for the file explorer's preview pane. */
+  readFilePreview: {
+    params: { projectDir: string; path: string };
+    response: { preview?: FilePreview; error?: string };
+  };
 
   listPackages: {
     params: { projectDir: string };
@@ -504,21 +565,22 @@ export type HostRequests = {
     response: { extensions: GraphicalExtension[] };
   };
   extensionRespond: {
-    params: { projectDir: string; response: ExtensionUiResponse };
+    params: { projectDir: string; sessionFile?: string | null; response: ExtensionUiResponse };
     response: { ok: boolean };
   };
 
   /** A keystroke, a size, or the composer state a pi-tui surface is waiting on. */
-  tuiSend: { params: { projectDir: string; frame: TuiClientFrame }; response: { ok: boolean } };
+  tuiSend: { params: { projectDir: string; sessionFile?: string | null; frame: TuiClientFrame }; response: { ok: boolean } };
   /** What an extension's autocomplete provider offers for the text being typed. */
   tuiComplete: {
-    params: { projectDir: string; lines: string[]; cursorLine: number; cursorCol: number };
+    params: { projectDir: string; sessionFile?: string | null; lines: string[]; cursorLine: number; cursorCol: number };
     response: { completions: TuiCompletions | null; error?: string };
   };
   /** What accepting one of those completions does to the text. */
   tuiApply: {
     params: {
       projectDir: string;
+      sessionFile?: string | null;
       lines: string[];
       cursorLine: number;
       cursorCol: number;
@@ -543,8 +605,9 @@ export type HostEvents = {
   quitRequested: { work: PendingWork };
   terminalData: { projectDir: string; terminalId: string; data: string; sequence: number };
   terminalExit: { projectDir: string; terminalId: string; exitCode: number };
+  terminalRestart: { projectDir: string; terminal: TerminalSession };
   /** A pi-tui surface opening, drawing, closing, or reporting extension UI state. */
-  tuiFrame: { projectDir: string; frame: TuiHostFrame };
+  tuiFrame: { projectDir: string; sessionFile?: string; frame: TuiHostFrame };
 };
 
 export type HostRequestName = keyof HostRequests;
