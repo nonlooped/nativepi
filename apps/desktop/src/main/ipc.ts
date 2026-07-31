@@ -22,9 +22,12 @@ import {
   closeTerminal,
   closeProjectTerminals,
   createTerminal,
+  listShellProfiles,
   listTerminals,
   liveTerminalProjects,
+  renameTerminal,
   resizeTerminal,
+  restartTerminal,
   stopAllTerminals,
   terminalSnapshot,
   writeTerminal,
@@ -283,7 +286,7 @@ function toSessionState(data: RpcSessionState): RpcSessionState {
 
 const THINKING_LEVELS = new Set<ThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 const openProjectInParamsSchema = z.object({ projectDir: z.string().min(1), editorId: z.string().min(1) });
-const openFileInParamsSchema = openProjectInParamsSchema.extend({ file: z.string().min(1) });
+const openFileInParamsSchema = openProjectInParamsSchema.extend({ file: z.string().min(1), line: z.number().int().positive().optional() });
 const saveImageParamsSchema = z.object({
   data: z.string().min(1).max(64 * 1024 * 1024),
   mimeType: z.enum(["image/png", "image/jpeg", "image/gif", "image/webp"]),
@@ -343,6 +346,11 @@ const tuiApplyParamsSchema = tuiCompleteParamsSchema.extend({
   prefix: z.string().max(200),
 });
 const terminalIdParamsSchema = projectDirParamsSchema.extend({ terminalId: z.string().min(1) });
+const terminalCreateParamsSchema = projectDirParamsSchema.extend({
+  shellId: z.string().optional(),
+  name: z.string().optional(),
+});
+const terminalRenameParamsSchema = terminalIdParamsSchema.extend({ name: z.string().min(1).max(64) });
 const terminalResizeParamsSchema = terminalIdParamsSchema.extend({
   cols: z.number().int().min(2).max(1000),
   rows: z.number().int().min(1).max(1000),
@@ -775,8 +783,8 @@ const handlers: HandlerMap = {
   },
   openFileIn: async (params) => {
     try {
-      const { projectDir, file, editorId } = openFileInParamsSchema.parse(params);
-      await openFileIn(projectDir, file, editorId);
+      const { projectDir, file, editorId, line } = openFileInParamsSchema.parse(params);
+      await openFileIn(projectDir, file, editorId, line);
       return { ok: true };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
@@ -905,6 +913,8 @@ const handlers: HandlerMap = {
       terminals: [
         createTerminal(
           projectDir,
+          undefined,
+          undefined,
           (payload) => push("terminalData", payload),
           (payload) => push("terminalExit", payload),
         ),
@@ -912,10 +922,29 @@ const handlers: HandlerMap = {
     };
   },
   terminalCreate: (params) => {
-    const { projectDir } = projectDirParamsSchema.parse(params);
+    const { projectDir, shellId, name } = terminalCreateParamsSchema.parse(params);
     return {
       terminal: createTerminal(
         projectDir,
+        shellId,
+        name,
+        (payload) => push("terminalData", payload),
+        (payload) => push("terminalExit", payload),
+      ),
+    };
+  },
+  terminalListShells: () => ({ shells: listShellProfiles() }),
+  terminalRename: (params) => {
+    const { projectDir, terminalId, name } = terminalRenameParamsSchema.parse(params);
+    renameTerminal(projectDir, terminalId, name);
+    return { ok: true };
+  },
+  terminalRestart: (params) => {
+    const { projectDir, terminalId } = terminalIdParamsSchema.parse(params);
+    return {
+      terminal: restartTerminal(
+        projectDir,
+        terminalId,
         (payload) => push("terminalData", payload),
         (payload) => push("terminalExit", payload),
       ),

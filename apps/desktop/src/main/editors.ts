@@ -7,12 +7,22 @@ import type { InstalledEditor } from "../shared/rpc-schema.ts";
 
 const execFileAsync = promisify(execFile);
 
+/** Editors whose CLI accepts a line to jump to. Anything else just opens the file. */
+type EditorFamily = "vscode" | "jetbrains";
+
 type EditorSpec = InstalledEditor & {
   executables: string[];
   paths: string[];
+  family?: EditorFamily;
 };
 
-type ScannedEditor = { editor: InstalledEditor; executable?: string };
+type ScannedEditor = { editor: InstalledEditor; executable?: string; family?: EditorFamily };
+
+function fileArgs(targetPath: string, family: EditorFamily | undefined, line: number | undefined): string[] {
+  if (line && family === "vscode") return ["-g", `${targetPath}:${line}`];
+  if (line && family === "jetbrains") return ["--line", String(line), targetPath];
+  return [targetPath];
+}
 
 const EXPLORER: InstalledEditor = { id: "explorer", name: "Explorer", icon: "explorer" };
 
@@ -31,6 +41,7 @@ const editorSpecs: EditorSpec[] = [
     icon: "cursor",
     executables: ["Cursor.exe"],
     paths: under(local, "Programs", "Cursor", "Cursor.exe"),
+    family: "vscode",
   },
   {
     id: "vscode",
@@ -42,6 +53,7 @@ const editorSpecs: EditorSpec[] = [
       ...under(programFiles, "Microsoft VS Code", "Code.exe"),
       ...under(programFilesX86, "Microsoft VS Code", "Code.exe"),
     ],
+    family: "vscode",
   },
   {
     id: "antigravity",
@@ -52,6 +64,7 @@ const editorSpecs: EditorSpec[] = [
       ...under(local, "Programs", "Antigravity IDE", "Antigravity IDE.exe"),
       ...under(local, "Programs", "Antigravity", "Antigravity.exe"),
     ],
+    family: "vscode",
   },
   {
     id: "windsurf",
@@ -59,6 +72,7 @@ const editorSpecs: EditorSpec[] = [
     icon: "windsurf",
     executables: ["Windsurf.exe"],
     paths: under(local, "Programs", "Windsurf", "Windsurf.exe"),
+    family: "vscode",
   },
   {
     id: "vscode-insiders",
@@ -66,6 +80,7 @@ const editorSpecs: EditorSpec[] = [
     icon: "code",
     executables: ["Code - Insiders.exe"],
     paths: under(local, "Programs", "Microsoft VS Code Insiders", "Code - Insiders.exe"),
+    family: "vscode",
   },
   {
     id: "vscodium",
@@ -76,6 +91,7 @@ const editorSpecs: EditorSpec[] = [
       ...under(local, "Programs", "VSCodium", "VSCodium.exe"),
       ...under(programFiles, "VSCodium", "VSCodium.exe"),
     ],
+    family: "vscode",
   },
   {
     id: "zed",
@@ -178,7 +194,7 @@ function scanJetBrainsDirectory(
   if (!existsSync(directory)) return;
   for (const [id, name, filename] of jetBrainsEditors) {
     const executable = join(directory, "bin", filename);
-    if (existsSync(executable) && !found.has(id)) found.set(id, { editor: { id, name, icon: "code" }, executable });
+    if (existsSync(executable) && !found.has(id)) found.set(id, { editor: { id, name, icon: "code" }, executable, family: "jetbrains" });
   }
   if (depth === 0 || jetBrainsEditors.every(([id]) => found.has(id))) return;
   let children;
@@ -206,8 +222,8 @@ async function scanEditors(): Promise<Map<string, ScannedEditor>> {
   for (const spec of editorSpecs) {
     const executable = spec.paths.find(existsSync);
     if (executable) {
-      const { executables: _executables, paths: _paths, ...editor } = spec;
-      found.set(spec.id, { editor, executable });
+      const { executables: _executables, paths: _paths, family, ...editor } = spec;
+      found.set(spec.id, { editor, executable, family });
     }
   }
   try {
@@ -221,14 +237,14 @@ async function scanEditors(): Promise<Map<string, ScannedEditor>> {
       if (found.has(spec.id)) continue;
       const executable = spec.executables.map((name) => registered.get(name.toLowerCase())).find(Boolean);
       if (executable) {
-        const { executables: _executables, paths: _paths, ...editor } = spec;
-        found.set(spec.id, { editor, executable });
+        const { executables: _executables, paths: _paths, family, ...editor } = spec;
+        found.set(spec.id, { editor, executable, family });
       }
     }
     for (const [id, name, filename] of jetBrainsEditors) {
       if (found.has(id)) continue;
       const executable = registered.get(filename.toLowerCase());
-      if (executable) found.set(id, { editor: { id, name, icon: "code" }, executable });
+      if (executable) found.set(id, { editor: { id, name, icon: "code" }, executable, family: "jetbrains" });
     }
   } catch {
     // ignore
@@ -284,7 +300,7 @@ export async function openProjectIn(projectDir: string, editorId: string): Promi
   });
 }
 
-export async function openFileIn(projectDir: string, file: string, editorId: string): Promise<void> {
+export async function openFileIn(projectDir: string, file: string, editorId: string, line?: number): Promise<void> {
   const targetPath = resolve(projectDir, file);
   const relativePath = relative(projectDir, targetPath);
   if (isAbsolute(relativePath) || relativePath === ".." || relativePath.startsWith(`..${sep}`)) {
@@ -298,7 +314,7 @@ export async function openFileIn(projectDir: string, file: string, editorId: str
   if (!target?.executable) throw new Error("That editor is no longer installed.");
   const executable = target.executable;
   await new Promise<void>((resolveSpawn, reject) => {
-    const child = spawn(executable, [targetPath], {
+    const child = spawn(executable, fileArgs(targetPath, target.family, line), {
       detached: true,
       stdio: "ignore",
       windowsHide: true,
