@@ -15,6 +15,14 @@ type EditorSpec = InstalledEditor & {
 
 type ScannedEditor = { editor: InstalledEditor; executable?: string };
 
+function fileArgs(targetPath: string, editorId: string, line: number | undefined, column?: number): string[] {
+  if (line && ["cursor", "vscode", "antigravity", "windsurf", "vscode-insiders", "vscodium"].includes(editorId)) {
+    return ["-g", `${targetPath}:${line}${column ? `:${column}` : ""}`];
+  }
+  if (line && jetBrainsEditors.some(([id]) => id === editorId)) return ["--line", String(line), targetPath];
+  return [targetPath];
+}
+
 /** The platform's own file manager, named the way its own users would name it. */
 export function fileManagerName(): string {
   if (process.platform === "darwin") return "Finder";
@@ -374,11 +382,11 @@ export async function listInstalledEditors(): Promise<InstalledEditor[]> {
  * `open -a`, which also hands the app the target path the way double-clicking
  * a file in Finder would. Windows and Linux executables are launched directly.
  */
-function launchEditor(executable: string, target: string): ChildProcess {
+function launchEditor(executable: string, target: string, args = [target]): ChildProcess {
   if (process.platform === "darwin" && executable.endsWith(".app")) {
     return spawn("open", ["-a", executable, target], { detached: true, stdio: "ignore" });
   }
-  return spawn(executable, [target], { detached: true, stdio: "ignore", windowsHide: true });
+  return spawn(executable, args, { detached: true, stdio: "ignore", windowsHide: true });
 }
 
 export async function openProjectIn(projectDir: string, editorId: string): Promise<void> {
@@ -399,7 +407,7 @@ export async function openProjectIn(projectDir: string, editorId: string): Promi
   });
 }
 
-export async function openFileIn(projectDir: string, file: string, editorId: string): Promise<void> {
+export async function openFileIn(projectDir: string, file: string, editorId: string, line?: number, column?: number): Promise<void> {
   const targetPath = resolve(projectDir, file);
   const relativePath = relative(projectDir, targetPath);
   if (isAbsolute(relativePath) || relativePath === ".." || relativePath.startsWith(`..${sep}`)) {
@@ -413,7 +421,7 @@ export async function openFileIn(projectDir: string, file: string, editorId: str
   if (!target?.executable) throw new Error("That editor is no longer installed.");
   const executable = target.executable;
   await new Promise<void>((resolveSpawn, reject) => {
-    const child = launchEditor(executable, targetPath);
+    const child = launchEditor(executable, targetPath, fileArgs(targetPath, target.editor.id, line, column));
     child.once("spawn", resolveSpawn);
     child.once("error", reject);
     child.unref();

@@ -98,6 +98,7 @@ const allowedEvents: Record<HostEventName, true> = {
   quitRequested: true,
   terminalData: true,
   terminalExit: true,
+  terminalRestart: true,
   tuiFrame: true,
 };
 

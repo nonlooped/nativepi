@@ -88,8 +88,16 @@ export interface PendingWork {
 export interface TerminalSession {
   id: string;
   projectDir: string;
+  name: string;
+  shellId: string;
   exited: boolean;
   exitCode?: number;
+}
+
+/** A shell executable NativePi found on this machine, offered as a profile when opening a terminal. */
+export interface ShellProfile {
+  id: string;
+  name: string;
 }
 
 export interface AuthProviderInfo {
@@ -226,6 +234,7 @@ export const preferencesSchema = z.object({
   terminalScrollback: clamped(5000, 500, 100000),
   terminalCursorBlink: z.boolean().catch(true),
   preferredEditorId: z.string().min(1).catch("explorer"),
+  preferredShellId: z.string().catch(""),
 });
 
 export type Preferences = z.infer<typeof preferencesSchema>;
@@ -423,7 +432,7 @@ export type HostRequests = {
     response: { ok: boolean; error?: string };
   };
   openFileIn: {
-    params: { projectDir: string; file: string; editorId: string };
+    params: { projectDir: string; file: string; editorId: string; line?: number; column?: number };
     response: { ok: boolean; error?: string };
   };
   versions: { params: Record<string, never>; response: { pi: string; app: string } };
@@ -458,8 +467,20 @@ export type HostRequests = {
     response: { ok: boolean; path?: string; canceled?: boolean; error?: string };
   };
 
-  terminalEnsure: { params: { projectDir: string }; response: { terminals: TerminalSession[] } };
-  terminalCreate: { params: { projectDir: string }; response: { terminal: TerminalSession } };
+  terminalEnsure: { params: { projectDir: string; shellId?: string }; response: { terminals: TerminalSession[] } };
+  terminalCreate: {
+    params: { projectDir: string; shellId?: string; name?: string };
+    response: { terminal: TerminalSession };
+  };
+  terminalListShells: { params: Record<string, never>; response: { shells: ShellProfile[] } };
+  terminalRename: {
+    params: { projectDir: string; terminalId: string; name: string };
+    response: { ok: boolean };
+  };
+  terminalRestart: {
+    params: { projectDir: string; terminalId: string };
+    response: { terminal: TerminalSession };
+  };
   terminalSnapshot: {
     params: { projectDir: string; terminalId: string };
     response: { output: string; sequence: number };
@@ -584,6 +605,7 @@ export type HostEvents = {
   quitRequested: { work: PendingWork };
   terminalData: { projectDir: string; terminalId: string; data: string; sequence: number };
   terminalExit: { projectDir: string; terminalId: string; exitCode: number };
+  terminalRestart: { projectDir: string; terminal: TerminalSession };
   /** A pi-tui surface opening, drawing, closing, or reporting extension UI state. */
   tuiFrame: { projectDir: string; sessionFile?: string; frame: TuiHostFrame };
 };
