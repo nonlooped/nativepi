@@ -941,14 +941,14 @@ const handlers: HandlerMap = {
   },
   terminalRestart: (params) => {
     const { projectDir, terminalId } = terminalIdParamsSchema.parse(params);
-    return {
-      terminal: restartTerminal(
-        projectDir,
-        terminalId,
-        (payload) => push("terminalData", payload),
-        (payload) => push("terminalExit", payload),
-      ),
-    };
+    const terminal = restartTerminal(
+      projectDir,
+      terminalId,
+      (payload) => push("terminalData", payload),
+      (payload) => push("terminalExit", payload),
+    );
+    push("terminalRestart", { projectDir, terminal });
+    return { terminal };
   },
   terminalSnapshot: (params) => {
     const { projectDir, terminalId } = terminalIdParamsSchema.parse(params);

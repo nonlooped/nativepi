@@ -564,6 +564,7 @@ export type HostEvents = {
   quitRequested: { work: PendingWork };
   terminalData: { projectDir: string; terminalId: string; data: string; sequence: number };
   terminalExit: { projectDir: string; terminalId: string; exitCode: number };
+  terminalRestart: { projectDir: string; terminal: TerminalSession };
   /** A pi-tui surface opening, drawing, closing, or reporting extension UI state. */
   tuiFrame: { projectDir: string; frame: TuiHostFrame };
 };

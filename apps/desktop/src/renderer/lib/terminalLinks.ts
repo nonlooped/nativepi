@@ -51,18 +51,20 @@ export function findTerminalLinks(text: string): TerminalLinkMatch[] {
   let fileMatch: RegExpExecArray | null;
   while ((fileMatch = FILE_LINE_RE.exec(text))) {
     const [full, file = "", lineStr = "", colStr] = fileMatch;
-    const start = fileMatch.index;
-    const end = start + full.length;
+    const stackPrefix = file.match(/^\s*at\s+/)?.[0] ?? "";
+    const linkedFile = file.slice(stackPrefix.length);
+    const start = fileMatch.index + stackPrefix.length;
+    const end = fileMatch.index + full.length;
     // A URL's port already matched above; don't double-link the digits inside it.
     if (urlRanges.some(([urlStart, urlEnd]) => start < urlEnd && end > urlStart)) continue;
-    const hasSeparator = /[\\/]/.test(file);
-    const extension = file.slice(file.lastIndexOf(".") + 1).toLowerCase();
+    const hasSeparator = /[\\/]/.test(linkedFile);
+    const extension = linkedFile.slice(linkedFile.lastIndexOf(".") + 1).toLowerCase();
     if (!hasSeparator && !CODE_EXTENSIONS.has(extension)) continue;
     matches.push({
       start,
       end,
       kind: "file",
-      file,
+      file: linkedFile,
       line: Number(lineStr),
       column: colStr ? Number(colStr) : undefined,
     });

@@ -24,6 +24,29 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
 
+function columnForTextOffset(line: { length: number; getCell(index: number): { getChars(): string; getWidth(): number } | undefined }, offset: number) {
+  let textOffset = 0;
+  for (let index = 0; index < line.length; index += 1) {
+    const cell = line.getCell(index);
+    const chars = cell?.getChars() ?? "";
+    if (!chars) continue;
+    if (textOffset >= offset) return index + 1;
+    textOffset += chars.length;
+    if (textOffset >= offset) return index + cell!.getWidth();
+  }
+  return line.length;
+}
+
+function updateWorkingDirectory(cwdRef: { current: string }, controlRef: { current: string }, data: string) {
+  const control = `${controlRef.current}${data}`;
+  for (const match of control.matchAll(/\x1b]7;file:\/\/[^/]*([^\x07\x1b]*)(?:\x07|\x1b\\)/g)) {
+    try {
+      cwdRef.current = decodeURIComponent(match[1]).replace(/^\/([A-Za-z]:)/, "$1");
+    } catch {}
+  }
+  controlRef.current = control.slice(-4096);
+}
+
 export default function TerminalDock({
   projectDir,
   onMinimize,
@@ -62,9 +85,14 @@ export default function TerminalDock({
         ),
       );
     });
+    const offRestart = rpc.events.on("terminalRestart", ({ projectDir: restartedProject, terminal }) => {
+      if (restartedProject !== projectDir) return;
+      setTerminals((current) => current.map((session) => (session.id === terminal.id ? terminal : session)));
+    });
     return () => {
       cancelled = true;
       offExit();
+      offRestart();
     };
   }, [projectDir, preferredShellId]);
 
@@ -378,6 +406,8 @@ function TerminalSurface({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
+  const cwdRef = useRef(projectDir);
+  const controlRef = useRef("");
   const [selection, setSelection] = useState("");
   const fontSize = useAppStore((s) => s.preferences.terminalFontSize);
   const scrollback = useAppStore((s) => s.preferences.terminalScrollback);
@@ -387,6 +417,8 @@ function TerminalSurface({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    cwdRef.current = projectDir;
+    controlRef.current = "";
 
     const styles = getComputedStyle(document.documentElement);
     const terminal = new Terminal({
@@ -434,8 +466,8 @@ function TerminalSurface({
           found.map((match) => ({
             text: text.slice(match.start, match.end),
             range: {
-              start: { x: match.start + 1, y: bufferLineNumber },
-              end: { x: match.end, y: bufferLineNumber },
+              start: { x: columnForTextOffset(line, match.start), y: bufferLineNumber },
+              end: { x: columnForTextOffset(line, match.end), y: bufferLineNumber },
             },
             activate: () => {
               if (match.kind === "url") {
@@ -443,7 +475,7 @@ function TerminalSurface({
                 return;
               }
               void rpc.request
-                .openFileIn({ projectDir, file: match.file, editorId: preferredEditorId, line: match.line, column: match.column })
+                .openFileIn({ projectDir: cwdRef.current, file: match.file, editorId: preferredEditorId, line: match.line, column: match.column })
                 .then((result) => {
                   if (!result.ok) toast.error(result.error ?? `Could not open ${match.file}.`);
                 });
@@ -459,6 +491,7 @@ function TerminalSurface({
     const pending: { data: string; sequence: number }[] = [];
     const offData = rpc.events.on("terminalData", (payload) => {
       if (payload.projectDir !== projectDir || payload.terminalId !== session.id) return;
+      updateWorkingDirectory(cwdRef, controlRef, payload.data);
       if (live) terminal.write(payload.data);
       else pending.push(payload);
     });
@@ -474,9 +507,13 @@ function TerminalSurface({
       ({ output, sequence }) => {
         if (disposed) return;
         snapshotSequence = sequence;
+        updateWorkingDirectory(cwdRef, controlRef, output);
         terminal.write(output);
         for (const item of pending) {
-          if (item.sequence > snapshotSequence) terminal.write(item.data);
+          if (item.sequence > snapshotSequence) {
+            updateWorkingDirectory(cwdRef, controlRef, item.data);
+            terminal.write(item.data);
+          }
         }
         live = true;
         if (session.exited) terminal.write(`\r\n[Process exited with code ${session.exitCode ?? "unknown"}]\r\n`);
