@@ -21,6 +21,7 @@ import type {
   SessionTreeNode,
   SkillInfo,
   ThinkingLevel,
+  UsageDashboard,
 } from "./pi-types.ts";
 import type {
   TuiClientFrame,
@@ -360,6 +361,10 @@ export type HostRequests = {
   getStats: {
     params: { projectDir: string; sessionFile: string };
     response: { stats?: SessionStats; error?: string };
+  };
+  getUsageDashboard: {
+    params: { projects: Project[] };
+    response: { dashboard?: UsageDashboard; error?: string };
   };
   compact: {
     params: { projectDir: string; sessionFile: string };

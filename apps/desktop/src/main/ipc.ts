@@ -5,7 +5,7 @@ import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 import { PiProcess } from "./pi/client.ts";
 import type { PiMessage } from "./pi/protocol.ts";
-import { deleteSession, listSessions, readSession, searchSessions, sessionMtime, watchProjectSessions, watchSessionFile } from "./sessions.ts";
+import { deleteSession, listSessions, readSession, searchSessions, sessionMtime, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
 import { loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
 import { gitAddWorktree, gitBranches, gitCheckout, gitDiff, gitStatus } from "./git.ts";
@@ -657,6 +657,14 @@ const handlers: HandlerMap = {
       const pi = await bindPi(projectDir, sessionFile);
       const stats = await pi.request<SessionStats>({ type: "get_session_stats" });
       return { stats };
+    } catch (err) {
+      return { error: errorMessage(err) };
+    }
+  },
+
+  getUsageDashboard: async ({ projects }) => {
+    try {
+      return { dashboard: await usageDashboard(projects) };
     } catch (err) {
       return { error: errorMessage(err) };
     }

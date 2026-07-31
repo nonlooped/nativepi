@@ -2,7 +2,7 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { deleteSession, listSessions, readSession, searchSessions, searchSnippet, watchProjectSessions } from "./sessions.ts";
+import { deleteSession, listSessions, readSession, searchSessions, searchSnippet, usageDashboard, watchProjectSessions } from "./sessions.ts";
 
 function jsonl(records: unknown[]): string {
   return records.map((r) => JSON.stringify(r)).join("\n") + "\n";
@@ -133,6 +133,31 @@ test("listSessions describes image-only prompts and bounds long sidebar previews
   const sessions = await listSessions(projectDir);
   expect(sessions.find((session) => session.id === "image")?.lastPrompt).toBe("Image attachment");
   expect(sessions.find((session) => session.id === "long")?.lastPrompt).toBe(`${"a".repeat(159)}…`);
+});
+
+test("usageDashboard groups Pi-recorded cost by day, project, and model", async () => {
+  const alpha = await mkdtemp(path.join(tmpdir(), "nativepi-usage-alpha-"));
+  const beta = await mkdtemp(path.join(tmpdir(), "nativepi-usage-beta-"));
+
+  await writeSession(alpha, "alpha.jsonl", [
+    { type: "session", version: 3, id: "alpha", timestamp: "2026-01-02T12:00:00Z", cwd: alpha },
+    { type: "message", id: "1", parentId: null, timestamp: "2026-01-02T12:00:01Z", message: { role: "user", content: "hello", timestamp: 1767355201000 } },
+    { type: "message", id: "2", parentId: "1", timestamp: "2026-01-02T12:00:02Z", message: { role: "assistant", content: [], provider: "openai", model: "gpt-5", timestamp: 1767355202000, usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { total: 0.12 } } } },
+    { type: "message", id: "3", parentId: "2", timestamp: "2026-01-03T12:00:02Z", message: { role: "assistant", content: [], provider: "openai", model: "gpt-5", timestamp: 1767441602000, usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { total: 0.03 } } } },
+  ]);
+  await writeSession(beta, "beta.jsonl", [
+    { type: "session", version: 3, id: "beta", timestamp: "2026-01-03T12:00:00Z", cwd: beta },
+    { type: "message", id: "1", parentId: null, timestamp: "2026-01-03T12:00:01Z", message: { role: "user", content: "hello", timestamp: 1767441601000 } },
+    { type: "message", id: "2", parentId: "1", timestamp: "2026-01-03T12:00:02Z", message: { role: "assistant", content: [], model: "claude", timestamp: 1767441602000, usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { total: 0.2 } } } },
+  ]);
+
+  const dashboard = await usageDashboard([{ path: alpha, name: "Alpha" }, { path: beta, name: "Beta" }]);
+
+  expect(dashboard.totalCost).toBeCloseTo(0.35);
+  expect(dashboard.sessions).toBe(2);
+  expect(dashboard.daily).toEqual([{ date: "2026-01-02", cost: 0.12 }, { date: "2026-01-03", cost: 0.23 }]);
+  expect(dashboard.projects).toEqual([{ path: beta, name: "Beta", cost: 0.2 }, { path: alpha, name: "Alpha", cost: 0.15 }]);
+  expect(dashboard.models).toEqual([{ name: "claude", cost: 0.2 }, { name: "openai/gpt-5", cost: 0.15 }]);
 });
 
 test("watchProjectSessions detects chats created after the sidebar is open", async () => {
