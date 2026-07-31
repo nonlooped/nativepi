@@ -18,10 +18,7 @@ export function absoluteProjectPath(projectDir: string, relativePath: string): s
  * Detected the same way `shortcuts.ts` detects macOS, so the two never disagree.
  */
 export function fileManagerName(): string {
-  if (typeof navigator !== "object") return "Explorer";
-  if (/Mac|iPod|iPhone|iPad/.test(navigator.platform)) return "Finder";
-  if (/Linux/.test(navigator.platform)) return "Files";
-  return "Explorer";
+  return "file manager";
 }
 
 export function editorName(id: string): string {

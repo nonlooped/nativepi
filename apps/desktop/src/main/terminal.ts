@@ -28,7 +28,7 @@ function resolveShell(): string {
 }
 
 function shellArgs(): string[] {
-  return process.platform === "win32" ? ["-NoLogo"] : [];
+  return process.platform === "win32" ? ["-NoLogo"] : process.platform === "darwin" ? ["-l"] : [];
 }
 
 function shellEnv(): Record<string, string> {

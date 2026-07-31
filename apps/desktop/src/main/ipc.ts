@@ -743,7 +743,7 @@ const handlers: HandlerMap = {
   },
   confirmQuit: () => {
     quitConfirmed = true;
-    mainWindow?.close();
+    app.quit();
     return { ok: true };
   },
   windowIsMaximized: () => ({ maximized: mainWindow?.isMaximized() ?? false }),

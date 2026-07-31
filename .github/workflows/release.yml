@@ -125,6 +125,7 @@ jobs:
           "title=NativePi $version ($shortSha)" >> $env:GITHUB_OUTPUT
 
       - name: Publish GitHub Release
+        if: false
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.release.outputs.tag }}
@@ -184,6 +185,7 @@ jobs:
           echo "title=NativePi $version ($short_sha)" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
+        if: false
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.release.outputs.tag }}
@@ -240,6 +242,7 @@ jobs:
           echo "title=NativePi $version ($short_sha)" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
+        if: false
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.release.outputs.tag }}
@@ -249,6 +252,27 @@ jobs:
             apps/desktop/release/*.AppImage
             apps/desktop/release/*.blockmap
             apps/desktop/release/latest-linux.yml
+          generate_release_notes: true
+          previous_tag: ${{ needs.release.outputs.previous_tag }}
+          draft: false
+          prerelease: ${{ contains(needs.release.outputs.tag, '-') }}
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [release, windows-installer, macos-installer, linux-installer]
+    if: needs.release.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: release
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.release.outputs.tag }}
+          target_commitish: ${{ needs.release.outputs.sha }}
+          name: NativePi ${{ needs.release.outputs.tag }}
+          files: release/*
           generate_release_notes: true
           previous_tag: ${{ needs.release.outputs.previous_tag }}
           draft: false

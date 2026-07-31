@@ -43,8 +43,9 @@ export default function InstallPage() {
             GitHub Releases
           </a>
           : a <code>.exe</code> for Windows, a <code>.dmg</code> for macOS, or
-          an <code>.AppImage</code> for Linux. Run it and pick an installation
-          directory when prompted.
+          an <code>.AppImage</code> for Linux. On Windows, run the installer and
+          pick an installation directory. On macOS, open the disk image and drag
+          NativePi to Applications. On Linux, make the AppImage executable and run it.
         </p>
       </Prose>
 
