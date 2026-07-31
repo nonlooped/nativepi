@@ -8,7 +8,7 @@ export const site = {
   name: "NativePi",
   tagline: "Pi, at home on your desktop.",
   description:
-    "A free, open-source Windows desktop interface for the Pi coding agent. Pi keeps the agent loop. Your sessions stay yours.",
+    "A free, open-source desktop interface for the Pi coding agent, for Windows, macOS, and Linux. Pi keeps the agent loop. Your sessions stay yours.",
   url: "https://nativepi.vercel.app",
   repo: "https://github.com/nonlooped/nativepi",
   releases: "https://github.com/nonlooped/nativepi/releases",

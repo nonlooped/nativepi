@@ -26,7 +26,8 @@ seen many agent wrappers.
 
 The site exists to make NativePi legible and credible in under a minute, and to
 send the visitor to the GitHub repository. It is the public face of a free,
-MIT-licensed Windows desktop interface for the Pi coding agent.
+MIT-licensed desktop interface for the Pi coding agent, for Windows, macOS,
+and Linux.
 
 Success means a visitor can state what NativePi is, why its relationship to Pi
 is different from other agent frontends, and what it costs them to try, then
@@ -50,11 +51,13 @@ shape Pi.
 
 ## Operating Context
 
-- The visitor is on the web, evaluating. The product itself is a Windows-only
-  Electron desktop application; the site never pretends otherwise.
-- Distribution is GitHub Releases. Installers are currently unsigned, so
-  Windows SmartScreen warns on first launch. The site states this plainly
-  rather than letting the visitor discover it after downloading.
+- The visitor is on the web, evaluating. The product itself is an Electron
+  desktop application for Windows, macOS, and Linux; the site never pretends
+  otherwise.
+- Distribution is GitHub Releases. Installers are currently unsigned and, on
+  macOS, not notarized, so Windows SmartScreen and macOS Gatekeeper warn on
+  first launch. The site states this plainly rather than letting the visitor
+  discover it after downloading.
 - NativePi bundles a pinned Pi version, so a separate Pi installation is not
   required, and existing Pi credentials, configuration, and sessions are reused.
 - The graphical extension API is published as `@nativepi/extension-api` and is
@@ -92,7 +95,7 @@ README:
 
 Boundaries the site must not blur:
 
-- Windows only, single window, dark only.
+- Windows, macOS, and Linux; single window, dark only.
 - No agent loop of its own, no LLM requests of its own, no added agent tools,
   no support for other harnesses.
 - Git mutation is narrow: branch checkout and creation on a clean worktree, and
@@ -111,8 +114,9 @@ Boundaries the site must not blur:
 - Voice is direct and calm. It does not assume Pi or terminal expertise, and it
   does not oversell. No emoji. No em dashes in prose.
 - Third-party marks appear only for things NativePi genuinely uses or supports:
-  model providers Pi can authenticate, the Windows platform, GitHub, and Pi
-  itself. They indicate compatibility, never endorsement or partnership.
+  model providers Pi can authenticate, the Windows, macOS, and Linux platforms,
+  GitHub, and Pi itself. They indicate compatibility, never endorsement or
+  partnership.
 
 ## Evidence on Hand
 
@@ -134,8 +138,8 @@ of the running app, and it is the only depiction of the product the site makes.
 
 1. Credibility comes from demonstration, not adjectives. Show the interface
    doing the work rather than describing how good it is.
-2. State the costs where a visitor would otherwise find them later: Windows
-   only, unsigned installer, experimental extension API.
+2. State the costs where a visitor would otherwise find them later: unsigned
+   installers, experimental extension API.
 3. Pi is the product core. Never imply NativePi replaces, competes with, or
    reimplements it.
 4. Respect the visitor's autonomy the way the product respects their machine:
