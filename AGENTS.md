@@ -41,6 +41,28 @@ Do not add:
 - Support for other agent harnesses.
 - Checkpoints, hidden commits, or anything that rewrites Git history.
 - A second durable conversation store or parallel Pi domain model.
+- Agent capabilities Pi does not have, such as subagents, built-in MCP support,
+  or per-tool permission rules.
+
+The line is the agent, not the app. NativePi may add features Pi does not have,
+so long as they do not change what reaches the model or how turns are sequenced.
+Integrated terminals, browser and remote access, drag and drop, and the
+self-updater are all NativePi functionality Pi lacks, and none of them cross the
+boundary. The invariant is that the same prompt, under the same Pi configuration,
+produces similar results in Pi's terminal interface and in this window.
+
+Apply that test rather than asking whether Pi has a UI for something. Deciding
+when an ordinary turn starts is fine: a schedule, a file watcher, or launching
+several ordinary sessions at once all leave the turn itself untouched. Deciding
+anything inside a run is not: refusing a tool call, editing what sits in context,
+sequencing work between runs, or answering on the user's behalf a question the
+terminal would have put to them.
+
+Configuration is Pi's, and it may legitimately change output. The model picker,
+thinking levels, enabled skills, and a containerization extension all change what
+a run produces, and each is acceptable because Pi owns the mechanism and the
+command line can reach the same state. A NativePi-side setting Pi never learns
+about is not.
 
 Pi is started from `main/pi/host/entry.ts`, not from Pi's `rpc-entry`. That entry
 is Pi's own `main(["--mode", "rpc"])` with one interception: `bindExtensions` is
