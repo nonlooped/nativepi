@@ -1,7 +1,8 @@
 import { execFile } from "node:child_process";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import path from "node:path";
+import { fileTypeFromBuffer } from "file-type";
 import type { FilePreview } from "../shared/pi-types.ts";
 
 /**
@@ -39,13 +40,27 @@ const SKIP_DIRS = new Set([
  * list of directories that are noise everywhere.
  */
 export async function listProjectFiles(projectDir: string): Promise<string[]> {
-  const tracked = await gitFiles(projectDir);
+  const tracked = await gitFiles(projectDir, MAX_FILES);
   if (tracked) return tracked;
-  const walked = await walk(projectDir);
+  const walked = await walk(projectDir, MAX_FILES);
   return walked.sort((a, b) => a.localeCompare(b));
 }
 
-function gitFiles(projectDir: string): Promise<string[] | null> {
+/** The file explorer is complete and omits Git entries that are absent on disk. */
+export async function listExplorerFiles(projectDir: string): Promise<string[]> {
+  const files = await gitFiles(projectDir, Number.POSITIVE_INFINITY) ?? await walk(projectDir, Number.POSITIVE_INFINITY);
+  return (await Promise.all(files.map(async (file) => {
+    const target = await containedPath(projectDir, file);
+    if (!target) return null;
+    try {
+      return (await stat(target)).isFile() ? file : null;
+    } catch {
+      return null;
+    }
+  }))).filter((file): file is string => file !== null).toSorted((a, b) => a.localeCompare(b));
+}
+
+function gitFiles(projectDir: string, maxFiles: number): Promise<string[] | null> {
   return new Promise((resolve) => {
     execFile(
       "git",
@@ -54,17 +69,17 @@ function gitFiles(projectDir: string): Promise<string[] | null> {
       (err, stdout) => {
         // Not a repository, or no git at all: both mean "walk it yourself".
         if (err) return resolve(null);
-        resolve(stdout.split("\0").filter(Boolean).slice(0, MAX_FILES));
+        resolve(stdout.split("\0").filter(Boolean).slice(0, maxFiles));
       },
     );
   });
 }
 
-async function walk(root: string): Promise<string[]> {
+async function walk(root: string, maxFiles: number): Promise<string[]> {
   const files: string[] = [];
   const queue = [root];
 
-  while (queue.length > 0 && files.length < MAX_FILES) {
+  while (queue.length > 0 && files.length < maxFiles) {
     const dir = queue.shift() as string;
     let entries;
     try {
@@ -79,7 +94,7 @@ async function walk(root: string): Promise<string[]> {
         continue;
       }
       if (!entry.isFile()) continue;
-      if (files.length >= MAX_FILES) break;
+      if (files.length >= maxFiles) break;
       files.push(path.relative(root, path.join(dir, entry.name)).split(path.sep).join("/"));
     }
   }
@@ -104,11 +119,18 @@ const IMAGE_MIME_BY_EXT: Record<string, string> = {
 const MARKDOWN_EXTS = new Set([".md", ".markdown", ".mdx"]);
 
 /** A path resolved and confirmed to stay inside `projectDir`, or `null` if it doesn't. */
-function containedPath(projectDir: string, file: string): string | null {
+async function containedPath(projectDir: string, file: string): Promise<string | null> {
   const target = resolve(projectDir, file);
-  const rel = relative(projectDir, target);
+  let root: string;
+  let resolvedTarget: string;
+  try {
+    [root, resolvedTarget] = await Promise.all([realpath(projectDir), realpath(target)]);
+  } catch {
+    return null;
+  }
+  const rel = relative(root, resolvedTarget);
   if (isAbsolute(rel) || rel === ".." || rel.startsWith(`..${sep}`)) return null;
-  return target;
+  return resolvedTarget;
 }
 
 /**
@@ -119,7 +141,7 @@ function containedPath(projectDir: string, file: string): string | null {
  * from the compiled and media files a project also contains.
  */
 export async function readFilePreview(projectDir: string, file: string): Promise<FilePreview | { error: string }> {
-  const targetPath = containedPath(projectDir, file);
+  const targetPath = await containedPath(projectDir, file);
   if (!targetPath) return { error: "The file is outside this project." };
 
   let info;
@@ -143,7 +165,8 @@ export async function readFilePreview(projectDir: string, file: string): Promise
   if (info.size > MAX_TEXT_BYTES) return { ...base, kind: "too-large" };
 
   const bytes = await readFile(targetPath);
-  if (bytes.subarray(0, 8000).includes(0)) return { ...base, kind: "binary" };
-
-  return { ...base, kind: MARKDOWN_EXTS.has(ext) ? "markdown" : "text", content: bytes.toString("utf8") };
+  if (await fileTypeFromBuffer(bytes)) return { ...base, kind: "binary" };
+  const encoding = bytes[0] === 0xff && bytes[1] === 0xfe ? "utf-16le" : bytes[0] === 0xfe && bytes[1] === 0xff ? "utf-16be" : "utf-8";
+  const content = new TextDecoder(encoding).decode(bytes);
+  return { ...base, kind: MARKDOWN_EXTS.has(ext) ? "markdown" : "text", content };
 }

@@ -187,8 +187,9 @@ function QuickList({
 
 export default function FileTree({ projectDir, onSelect }: { projectDir: string; onSelect: (path: string) => void }) {
   const git = useAppStore((s) => s.git);
+  const refreshGit = useAppStore((s) => s.refreshGit);
   const recent = useAppStore((s) => s.recentFilesByProject[projectDir] ?? []);
-  const { data, error, reload } = useRequest(() => rpc.request.listProjectFiles({ projectDir }), [projectDir]);
+  const { data, error, reload } = useRequest(() => rpc.request.listExplorerFiles({ projectDir }), [projectDir, git]);
   const tree = useMemo(() => buildTree(data?.files ?? []), [data]);
   const gitByPath = useMemo(() => new Map((git?.files ?? []).map((f) => [f.path, f])), [git]);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
@@ -237,6 +238,9 @@ export default function FileTree({ projectDir, onSelect }: { projectDir: string;
 
   return (
     <div className="flex flex-col gap-2 px-2 pt-1 pb-2">
+      <Button size="sm" variant="ghost" className="h-7 self-end px-2" onClick={() => { void refreshGit(); reload(); }}>
+        <ArrowClockwiseIcon data-icon="inline-start" /> Refresh
+      </Button>
       {recentTop.length > 0 ? (
         <QuickList
           icon={<ClockCounterClockwiseIcon />}

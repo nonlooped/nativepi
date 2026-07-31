@@ -484,6 +484,7 @@ export type HostRequests = {
   listCommands: { params: { projectDir: string }; response: { commands: CommandInfo[] } };
   listSkills: { params: { projectDir: string }; response: { skills: SkillInfo[] } };
   listProjectFiles: { params: { projectDir: string }; response: { files: string[] } };
+  listExplorerFiles: { params: { projectDir: string }; response: { files: string[] } };
   /** A read-only preview of one project file, for the file explorer's preview pane. */
   readFilePreview: {
     params: { projectDir: string; path: string };

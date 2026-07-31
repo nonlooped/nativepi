@@ -11,7 +11,7 @@ import * as auth from "./auth.ts";
 import { gitAddWorktree, gitBranches, gitCheckout, gitDiff, gitStatus } from "./git.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
 import { listSkills } from "./skills.ts";
-import { listProjectFiles, readFilePreview } from "./files.ts";
+import { listExplorerFiles, listProjectFiles, readFilePreview } from "./files.ts";
 import { prepareImages } from "./images.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
 import { listInstalledEditors, openFileIn, openProjectIn } from "./editors.ts";
@@ -351,6 +351,12 @@ const searchSessionsParamsSchema = z.object({
   projectDirs: z.array(z.string().min(1).max(32_767)).max(100),
   query: z.string().min(1).max(500),
 });
+const projectFileParamsSchema = z.object({ projectDir: z.string().min(1).max(32_767), path: z.string().min(1).max(32_767) });
+
+async function knownProject(projectDir: string): Promise<boolean> {
+  const project = resolve(projectDir);
+  return (await loadState()).projects.some((entry) => resolve(entry.path) === project);
+}
 
 function isThinkingLevel(level: unknown): level is ThinkingLevel {
   return typeof level === "string" && THINKING_LEVELS.has(level as ThinkingLevel);
@@ -999,7 +1005,17 @@ const handlers: HandlerMap = {
       return { files: [] };
     }
   },
-  readFilePreview: async ({ projectDir, path: file }) => {
+  listExplorerFiles: async ({ projectDir }) => {
+    try {
+      if (!await knownProject(projectDir)) return { files: [] };
+      return { files: await listExplorerFiles(projectDir) };
+    } catch {
+      return { files: [] };
+    }
+  },
+  readFilePreview: async (params) => {
+    const { projectDir, path: file } = projectFileParamsSchema.parse(params);
+    if (!await knownProject(projectDir)) return { error: "That project is not available." };
     const result = await readFilePreview(projectDir, file);
     return "error" in result ? { error: result.error } : { preview: result };
   },
