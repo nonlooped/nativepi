@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
+import { ChartLineUpIcon } from "@phosphor-icons/react/ChartLineUp";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderPlusIcon } from "@phosphor-icons/react/FolderPlus";
 import { GearSixIcon } from "@phosphor-icons/react/GearSix";
@@ -20,6 +21,7 @@ import WorktreeDialog from "./WorktreeDialog.tsx";
 import SessionMenu from "./SessionMenu.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
 import ChatSearchDialog from "./ChatSearchDialog.tsx";
+import UsageDashboardDialog from "./UsageDashboardDialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
@@ -55,6 +57,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const searchFocusRequest = useAppStore((s) => s.searchFocusRequest);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [now, setNow] = useState(Date.now);
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
@@ -153,6 +156,15 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
         <div className="flex items-center justify-between px-4 pb-2">
         <span className="text-sm font-medium text-muted-foreground">Projects</span>
         <div className="flex items-center">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setUsageOpen(true)}
+            title="Usage and costs"
+            aria-label="Usage and costs"
+          >
+            <ChartLineUpIcon />
+          </Button>
           {activeProjectPath ? (
             <Button
               variant="ghost"
@@ -341,6 +353,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
         }}
         onCancel={() => setPendingRemoval(null)}
       />
+      {usageOpen ? <UsageDashboardDialog onClose={() => setUsageOpen(false)} /> : null}
     </LeftSidebar>
   );
 }
