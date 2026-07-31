@@ -8,11 +8,12 @@ import { currentTool, runModel, runTokens } from "../lib/runBoard.ts";
 import { formatElapsed, formatTokens } from "../lib/format.ts";
 import { chatTitle } from "../lib/transcript.ts";
 import { Button } from "@/components/ui/button.tsx";
-import { DRAG_REGION, NO_DRAG_REGION } from "@/lib/utils.ts";
+import { DRAG_REGION, NO_DRAG_REGION, WINDOW_CONTROLS_CLEARANCE } from "@/lib/utils.ts";
 
 export default function RunBoard() {
   const close = useAppStore((s) => s.closeRunBoard);
   const selectProject = useAppStore((s) => s.selectProject);
+  const selectChat = useAppStore((s) => s.selectChat);
   const projects = useAppStore((s) => s.projects);
   const conversations = useAppStore((s) => s.conversations);
   const settledRuns = useAppStore((s) => s.settledRuns);
@@ -42,6 +43,7 @@ export default function RunBoard() {
           blocked: blocked ? (blocked.method === "confirm" ? "Confirmation" : "Extension dialog") : undefined,
           active: true,
           at: conversation.runStartedAt,
+          sessionFile: conversation.sessionFile,
         }];
       }
       const settled = settledRuns[project.path];
@@ -57,13 +59,14 @@ export default function RunBoard() {
         blocked: undefined,
         active: false,
         at: settled.settledAt,
+        sessionFile: settled.sessionFile,
       }];
     })
     .sort((a, b) => Number(b.active) - Number(a.active) || b.at - a.at);
 
   return (
     <main className="flex h-full min-w-0 flex-col bg-background text-foreground">
-      <header className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-3 border-b px-4 sm:px-10`}>
+      <header className={`${DRAG_REGION} ${WINDOW_CONTROLS_CLEARANCE} flex h-12 shrink-0 items-center gap-3 border-b px-4 sm:px-10`}>
         <div className="min-w-0 flex-1">
           <h1 className="font-heading text-base font-semibold">Run board</h1>
         </div>
@@ -77,12 +80,23 @@ export default function RunBoard() {
             <p className="text-sm text-muted-foreground">Every active run, plus the most recently settled run in each project for this app session.</p>
           </div>
           {rows.length ? (
-            <div className="overflow-hidden rounded-lg border">
+            <div className="overflow-x-auto rounded-lg border">
               <div className="grid grid-cols-[minmax(12rem,1.35fr)_minmax(10rem,1.1fr)_minmax(7rem,.8fr)] gap-x-4 border-b bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground sm:grid-cols-[minmax(10rem,1.1fr)_minmax(10rem,1.1fr)_minmax(10rem,1fr)_5rem_7rem_6rem]">
                 <span>Project / chat</span><span>Model</span><span>Current work</span><span>Elapsed</span><span>Tokens</span><span>Status</span>
               </div>
               {rows.map((row) => (
-                <button key={row.project.path} type="button" onClick={() => void selectProject(row.project.path)} className="grid w-full grid-cols-[minmax(12rem,1.35fr)_minmax(10rem,1.1fr)_minmax(7rem,.8fr)] gap-x-4 border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none sm:grid-cols-[minmax(10rem,1.1fr)_minmax(10rem,1.1fr)_minmax(10rem,1fr)_5rem_7rem_6rem]">
+                <button
+                  key={row.project.path}
+                  type="button"
+                  onClick={() => {
+                    void (async () => {
+                      await selectProject(row.project.path);
+                      if (row.sessionFile) await selectChat(row.sessionFile);
+                      close();
+                    })();
+                  }}
+                  className="grid w-full grid-cols-[minmax(12rem,1.35fr)_minmax(10rem,1.1fr)_minmax(7rem,.8fr)] gap-x-4 border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none sm:grid-cols-[minmax(10rem,1.1fr)_minmax(10rem,1.1fr)_minmax(10rem,1fr)_5rem_7rem_6rem]"
+                >
                   <span className="min-w-0"><span className="block truncate text-sm font-medium">{row.project.name}</span><span className="block truncate text-xs text-muted-foreground">{row.chat}</span></span>
                   <span className="truncate font-mono text-xs leading-9 text-muted-foreground">{row.model}</span>
                   <span className="truncate text-sm leading-9">{row.tool}</span>

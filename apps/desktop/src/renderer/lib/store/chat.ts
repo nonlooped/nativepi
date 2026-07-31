@@ -424,7 +424,9 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   onEvent: ({ projectDir, sessionFile, event }) => {
     const s = get();
     if (event.type === "extension_ui_request") {
-      applyExtensionUi(set, get, projectDir, event as ExtensionUiRequest);
+      const request = event as ExtensionUiRequest;
+      const isPrompt = request.method === "select" || request.method === "confirm" || request.method === "input" || request.method === "editor";
+      if (projectDir === s.activeProjectPath || isPrompt) applyExtensionUi(set, get, projectDir, request);
       return;
     }
     if (event.type === "thinking_level_changed") {

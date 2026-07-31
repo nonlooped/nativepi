@@ -34,7 +34,7 @@ export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
         };
       return { running: false, runStartedAt: null, runEntryStart: null, streaming: null, retry: null };
     case "agent_end":
-      return { running: false, runStartedAt: null, runEntryStart: null };
+      return {};
     case "message_start":
     case "message_update": {
       const message = (event as { message?: unknown }).message;
