@@ -9,6 +9,7 @@ import { deleteSession, listSessions, readSession, searchSessions, sessionMtime,
 import { loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
 import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitPushAndCreatePr, gitStageFile, gitStageHunk, gitStatus } from "./git.ts";
+import { getRepoHostContext } from "./repoHost.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
 import { listSkills } from "./skills.ts";
 import { listProjectFiles } from "./files.ts";
@@ -1016,6 +1017,14 @@ const handlers: HandlerMap = {
       return await gitAddWorktree(projectDir, branch, create);
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
+    }
+  },
+
+  repoHostContext: async ({ projectDir }) => {
+    try {
+      return { context: await getRepoHostContext(projectDir) };
+    } catch {
+      return { context: null };
     }
   },
 

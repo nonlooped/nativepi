@@ -7,6 +7,7 @@ import { NO_EXTENSION_UI_STATE, type ProjectContextSlice, type SliceCreator } fr
 
 export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set, get) => ({
   git: null,
+  repoHost: undefined,
   extPrompts: [],
   extensionPromptsByProject: {},
   extStatuses: {},
@@ -30,6 +31,14 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
       set({ contextPaneOpen: true, contextPaneChosen: true });
       persist(get);
     }
+  },
+
+  refreshRepoHost: async () => {
+    const path = get().activeProjectPath;
+    if (!path) return;
+    const { context } = await rpc.request.repoHostContext({ projectDir: path });
+    if (get().activeProjectPath !== path) return;
+    set({ repoHost: context });
   },
 
   switchBranch: async (branch, create) => {
