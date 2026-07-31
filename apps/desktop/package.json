@@ -73,6 +73,7 @@
   "build": {
     "appId": "dev.nativepi.app",
     "productName": "NativePi",
+    "executableName": "nativepi",
     "npmRebuild": false,
     "directories": {
       "output": "release"
