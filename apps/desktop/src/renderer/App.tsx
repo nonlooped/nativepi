@@ -21,6 +21,7 @@ import ProjectStatus from "./components/ProjectStatus.tsx";
 import QuitDialog from "./components/QuitDialog.tsx";
 import OpenWith from "./components/OpenWith.tsx";
 import Settings from "./components/Settings.tsx";
+import RunBoard from "./components/RunBoard.tsx";
 import Toaster from "./components/Toaster.tsx";
 import TrustDialog from "./components/TrustDialog.tsx";
 import WindowControls from "./components/WindowControls.tsx";
@@ -53,6 +54,7 @@ export default function App() {
     return c.entries.length > 0 || !!c.streaming || c.pending.length > 0 || c.running;
   });
   const settingsOpen = useAppStore((s) => s.settingsOpen);
+  const runBoardOpen = useAppStore((s) => s.runBoardOpen);
   const contextPaneOpen = useAppStore((s) => s.contextPaneOpen);
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
@@ -114,7 +116,7 @@ export default function App() {
           the whole app, unmounting the transcript, composer and run status while
           an agent was mid-edit — and its most likely entry point is the
           composer's own "Connect a provider" button. */}
-      <div className="h-full" inert={settingsOpen || undefined}>
+      <div className="h-full" inert={settingsOpen || runBoardOpen || undefined}>
       <ResizablePanelGroup orientation="horizontal">
         {sidebarDocked ? <Sidebar onClose={() => setSidebarOpen(false)} /> : null}
         <ResizablePanel id="conversation" minSize="35%">
@@ -210,6 +212,12 @@ export default function App() {
       {settingsOpen ? (
         <div className="absolute inset-0 z-40 bg-background">
           <Settings />
+        </div>
+      ) : null}
+
+      {runBoardOpen ? (
+        <div className="absolute inset-0 z-40 bg-background">
+          <RunBoard />
         </div>
       ) : null}
 

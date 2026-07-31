@@ -11,6 +11,7 @@ let handoffId = 0;
 
 export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   settingsOpen: false,
+  runBoardOpen: false,
   sidebarSize: 18,
   sidebarOpen: true,
   reopenLastProject: true,
@@ -27,6 +28,8 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
 
   openSettings: () => set({ settingsOpen: true }),
   closeSettings: () => set({ settingsOpen: false }),
+  openRunBoard: () => set({ runBoardOpen: true }),
+  closeRunBoard: () => set({ runBoardOpen: false }),
 
   setSidebarSize: (sidebarSize) => {
     set({ sidebarSize });
