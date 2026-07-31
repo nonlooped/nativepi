@@ -32,6 +32,7 @@ function useSurfaceTerminal(
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fontSize = useAppStore((s) => s.preferences.terminalFontSize);
+  const sessionFile = useAppStore((s) => s.activeSessionFile);
   const { rows, focus } = options;
 
   useEffect(() => {
@@ -73,6 +74,7 @@ function useSurfaceTerminal(
       if (!projectDir) return;
       void rpc.request.tuiSend({
         projectDir,
+        sessionFile,
         frame: { type: "nativepi_tui_input", surfaceId: surface.id, data },
       });
     });
@@ -95,6 +97,7 @@ function useSurfaceTerminal(
         if (!projectDir) return;
         void rpc.request.tuiSend({
           projectDir,
+          sessionFile,
           frame: {
             type: "nativepi_tui_resize",
             surfaceId: surface.id,
@@ -117,7 +120,7 @@ function useSurfaceTerminal(
       offWrite();
       terminal.dispose();
     };
-  }, [focus, fontSize, projectDir, rows, surface.id]);
+  }, [focus, fontSize, projectDir, rows, sessionFile, surface.id]);
 
   return containerRef;
 }

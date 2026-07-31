@@ -85,7 +85,7 @@ test("agent_end keeps a turn running until it settles", () => {
   expect(conversation?.runStartedAt).toBe(startedAt);
 });
 
-test("events for a chat other than the conversation's own are still dropped", () => {
+test("events from parallel chats keep their own runtime state", () => {
   useAppStore.setState({
     activeProjectPath: "A:\\proj-a",
     conversations: {},
@@ -95,20 +95,14 @@ test("events for a chat other than the conversation's own are still dropped", ()
     sessionFile: "one.jsonl",
     event: event("agent_start"),
   });
-  useAppStore.setState((s) => ({
-    conversations: {
-      ...s.conversations,
-      "A:\\proj-a": { ...s.conversations["A:\\proj-a"]!, sessionFile: "one.jsonl" },
-    },
-  }));
-
   useAppStore.getState().onEvent({
     projectDir: "A:\\proj-a",
     sessionFile: "other.jsonl",
-    event: event("agent_settled"),
+    event: event("agent_start"),
   });
 
-  expect(useAppStore.getState().conversations["A:\\proj-a"]?.running).toBe(true);
+  expect(useAppStore.getState().conversations["one.jsonl"]?.running).toBe(true);
+  expect(useAppStore.getState().conversations["other.jsonl"]?.running).toBe(true);
 });
 
 test("a new session is remembered when submit returns after switching projects", async () => {
@@ -143,7 +137,7 @@ test("reopening the same session preserves a background failure", async () => {
     activeProjectPath: "A:\\failed-run",
     activeSessionFile: null,
     conversations: {
-      "A:\\failed-run": {
+      "failed.jsonl": {
         ...emptyConversation(),
         sessionFile: "failed.jsonl",
         error: "Pi crashed",
@@ -154,7 +148,7 @@ test("reopening the same session preserves a background failure", async () => {
 
   await useAppStore.getState().selectChat("failed.jsonl");
 
-  const conv = useAppStore.getState().conversations["A:\\failed-run"];
+  const conv = useAppStore.getState().conversations["failed.jsonl"];
   expect(conv?.error).toBe("Pi crashed");
   expect(conv?.errorRecovery).toBe("restartPi");
 });

@@ -21,6 +21,7 @@ import type {
 import type { PiSettings } from "../../../shared/pi-settings.ts";
 import type { TuiHostFrame, TuiSurface } from "../../../shared/tui-frames.ts";
 import type { LoadedExtension } from "../extensionHost.ts";
+import type { KeybindingOverrides, ShortcutId } from "../shortcuts.ts";
 
 /**
  * The store's shape, split by what each group of state is *about*.
@@ -104,11 +105,11 @@ export interface WorkspaceSlice {
  * One project's conversation runtime: the transcript being streamed, whether a
  * turn is running, its queue, retries, and errors.
  *
- * Keyed per project in `ChatSlice.conversations` so a run in one project keeps
- * receiving events — and keeps its state — while another project is on screen.
- * `sessionFile` records which chat this runtime belongs to.
+ * Keyed per session file in `ChatSlice.conversations` so multiple chats in one
+ * project can keep receiving events while another chat or project is on screen.
  */
 export interface Conversation {
+  projectDir: string | null;
   sessionFile: string | null;
   sessionName?: string;
   entries: SessionEntry[];
@@ -127,6 +128,7 @@ export interface Conversation {
 
 /** A completed run kept for this window only, so activity remains visible after changing chats. */
 export interface SettledRun {
+  projectDir: string;
   sessionFile: string | null;
   sessionName?: string;
   startedAt: number;
@@ -142,7 +144,7 @@ export interface ChatSlice {
   isNewChat: boolean;
   pinnedChats: string[];
 
-  /** Conversation runtime per project path, active or not. */
+  /** Conversation runtime per session file, active or not. */
   conversations: Record<string, Conversation>;
   settledRuns: Record<string, SettledRun>;
   sendBehavior: "steer" | "followUp";
@@ -245,7 +247,7 @@ export interface ProjectContextSlice {
   switchBranch: (branch: string, create: boolean) => Promise<{ ok: boolean; error?: string }>;
   reloadExtensions: () => Promise<void>;
   respondExtension: (value: { value?: string; confirmed?: boolean; cancel?: boolean }) => void;
-  onTuiFrame: (payload: { projectDir: string; frame: TuiHostFrame }) => void;
+  onTuiFrame: (payload: { projectDir: string; sessionFile?: string; frame: TuiHostFrame }) => void;
 }
 
 /**
@@ -297,6 +299,8 @@ export interface UiSlice {
   terminalProjects: Set<string>;
   /** NativePi's own appearance and behavior preferences. Pi's live elsewhere. */
   preferences: Preferences;
+  /** The user's shortcut rebindings, keyed by shortcut id. */
+  keybindingOverrides: KeybindingOverrides;
   /** How far NativePi has got with replacing itself, as main last reported it. */
   update: UpdateState;
   /** Links handed to another device since this window opened, newest first. */
@@ -311,6 +315,9 @@ export interface UiSlice {
   toggleSidebar: () => void;
   setReopenLastProject: (value: boolean) => void;
   setPreference: <K extends keyof Preferences>(key: K, value: Preferences[K]) => void;
+  setKeybinding: (id: ShortcutId, binding: string) => void;
+  resetKeybinding: (id: ShortcutId) => void;
+  resetAllKeybindings: () => void;
   toggleContextPane: () => void;
   requestJumpToLatest: () => void;
   requestSearchFocus: () => void;

@@ -1,6 +1,7 @@
 import { DEFAULT_PREFERENCES } from "../../../shared/rpc-schema.ts";
 import { isRemote, rpc } from "../rpc.ts";
-import { showUpdateNotice } from "../toast.tsx";
+import { conflictFor, defaultBindingFor, SHORTCUTS, type KeybindingOverrides } from "../shortcuts.ts";
+import { showHint, showUpdateNotice } from "../toast.tsx";
 import { persist } from "./internals.ts";
 import type { SliceCreator, UiSlice } from "./types.ts";
 
@@ -21,6 +22,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   branchMenuRequested: false,
   terminalProjects: new Set(),
   preferences: DEFAULT_PREFERENCES,
+  keybindingOverrides: {},
   update: { status: "unsupported" },
   accessHandoffs: [],
 
@@ -51,6 +53,45 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
 
   setPreference: (key, value) => {
     set((s) => ({ preferences: { ...s.preferences, [key]: value } }));
+    persist(get);
+  },
+
+  // Assigning a combo already in use steals it from whoever held it, the same
+  // way most editors handle a rebinding collision: two shortcuts on one
+  // combo would leave tinykeys to silently pick one, and that choice should be
+  // visible rather than arbitrary.
+  setKeybinding: (id, binding) => {
+    const stolenFrom = conflictFor(id, binding, get().keybindingOverrides);
+    set((s) => {
+      const next = { ...s.keybindingOverrides, [id]: binding };
+      if (stolenFrom) next[stolenFrom] = "";
+      return { keybindingOverrides: next };
+    });
+    persist(get);
+    if (stolenFrom) {
+      const label = SHORTCUTS.find((shortcut) => shortcut.id === stolenFrom)?.label ?? stolenFrom;
+      showHint(`${label} was unbound`);
+    }
+  },
+
+  resetKeybinding: (id) => {
+    const binding = defaultBindingFor(id);
+    const stolenFrom = conflictFor(id, binding, get().keybindingOverrides);
+    set((s) => {
+      const rest: KeybindingOverrides = { ...s.keybindingOverrides };
+      delete rest[id];
+      if (stolenFrom) rest[stolenFrom] = "";
+      return { keybindingOverrides: rest };
+    });
+    persist(get);
+    if (stolenFrom) {
+      const label = SHORTCUTS.find((shortcut) => shortcut.id === stolenFrom)?.label ?? stolenFrom;
+      showHint(`${label} was unbound`);
+    }
+  },
+
+  resetAllKeybindings: () => {
+    set({ keybindingOverrides: {} });
     persist(get);
   },
 

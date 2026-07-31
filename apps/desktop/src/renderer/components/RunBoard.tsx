@@ -28,9 +28,9 @@ export default function RunBoard() {
 
   const rows = projects
     .flatMap((project) => {
-      const conversation = conversations[project.path];
       const blocked = prompts[project.path]?.[0];
-      if (conversation?.running && conversation.runStartedAt !== null) {
+      const activeRows = Object.values(conversations).flatMap((conversation) => {
+        if (conversation.projectDir !== project.path || !conversation.running || conversation.runStartedAt === null) return [];
         const entries = conversation.entries.slice(conversation.runEntryStart ?? 0);
         const session = sessions[project.path]?.find((item) => item.path === conversation.sessionFile);
         return [{
@@ -45,11 +45,13 @@ export default function RunBoard() {
           at: conversation.runStartedAt,
           sessionFile: conversation.sessionFile,
         }];
-      }
-      const settled = settledRuns[project.path];
-      if (!settled) return [];
-      const session = sessions[project.path]?.find((item) => item.path === settled.sessionFile);
-      return [{
+      });
+      if (activeRows.length > 0) return activeRows;
+      return Object.values(settledRuns)
+        .filter((settled) => settled.projectDir === project.path)
+        .map((settled) => {
+          const session = sessions[project.path]?.find((item) => item.path === settled.sessionFile);
+          return {
         project,
         chat: settled.sessionName ?? (session ? chatTitle(session) : "Untitled chat"),
         model: settled.model ?? "Unknown model",
@@ -60,7 +62,8 @@ export default function RunBoard() {
         active: false,
         at: settled.settledAt,
         sessionFile: settled.sessionFile,
-      }];
+          };
+        });
     })
     .sort((a, b) => Number(b.active) - Number(a.active) || b.at - a.at);
 
@@ -86,7 +89,7 @@ export default function RunBoard() {
               </div>
               {rows.map((row) => (
                 <button
-                  key={row.project.path}
+                  key={`${row.project.path}:${row.sessionFile ?? "new"}`}
                   type="button"
                   onClick={() => {
                     void (async () => {
