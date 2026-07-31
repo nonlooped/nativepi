@@ -363,7 +363,7 @@ export type HostRequests = {
     response: { stats?: SessionStats; error?: string };
   };
   getContextInspector: {
-    params: { projectDir: string; sessionFile: string };
+    params: { projectDir: string; sessionFile?: string };
     response: { inspector?: ContextInspector; error?: string };
   };
   compact: {

@@ -647,11 +647,13 @@ function ContextWindow() {
   }, [entries, streaming]);
 
   const total = model?.contextWindow ?? 0;
-  const percent = total ? Math.min(100, Math.round((used / total) * 100)) : 0;
   const inspection = useRequest(
-    async () => (open && projectDir && sessionFile ? await rpc.request.getContextInspector({ projectDir, sessionFile }) : null),
-    [open, projectDir, sessionFile],
+    async () => (open && projectDir ? await rpc.request.getContextInspector({ projectDir, sessionFile: sessionFile ?? undefined }) : null),
+    [open, projectDir, sessionFile, entries, streaming],
   );
+  const inspectedUsed = inspection.data?.inspector?.usedTokens ?? used;
+  const inspectedTotal = inspection.data?.inspector?.contextWindow || total;
+  const percent = inspectedTotal ? Math.min(100, Math.round((inspectedUsed / inspectedTotal) * 100)) : 0;
 
   // A ring with nothing behind it is decoration. Until Pi reports a window for
   // this model there is no reading to give, so the control is not interactive —
@@ -688,11 +690,11 @@ function ContextWindow() {
       <ContextInspector
         open={open}
         onOpenChange={setOpen}
-        loading={inspection.data === undefined}
+        loading={inspection.loading}
         inspector={inspection.data?.inspector}
         error={inspection.data?.error ?? inspection.error ?? undefined}
-        used={used}
-        total={total}
+        used={inspectedUsed}
+        total={inspectedTotal}
         percent={percent}
       />
     </div>
@@ -718,15 +720,13 @@ function ContextInspector({
   total: number;
   percent: number;
 }) {
-  const estimated = inspector?.categories.reduce((sum, category) => sum + category.tokens, 0) ?? 0;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl gap-5">
         <DialogHeader>
           <DialogTitle className="font-heading text-base font-semibold">Context window</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            What Pi will include in the next model request, and what it will summarize when space runs low.
+            Pi’s latest context-window measurement for this conversation.
           </DialogDescription>
         </DialogHeader>
 
@@ -734,7 +734,7 @@ function ContextInspector({
           <div className="flex items-baseline justify-between gap-4">
             <p className="text-sm font-medium">{percent}% used</p>
             <p className="font-mono text-xs tabular-nums text-muted-foreground">
-              {formatTokens(inspector?.usedTokens ?? used)} / {formatTokens(inspector?.contextWindow || total)} tokens
+              {formatTokens(used)} / {formatTokens(total)} tokens
             </p>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
@@ -744,97 +744,9 @@ function ContextInspector({
 
         {loading ? <p className="text-sm text-muted-foreground">Reading the active Pi session…</p> : null}
         {error ? <p className="text-sm text-destructive">Could not inspect this context: {error}</p> : null}
-        {inspector ? (
-          <>
-            <section aria-label="Context breakdown" className="border-t pt-4">
-              <div className="mb-3 flex items-baseline justify-between gap-4">
-                <p className="text-sm font-medium">Context breakdown</p>
-                <p className="text-xs text-muted-foreground">{formatTokens(estimated)} estimated</p>
-              </div>
-              <div className="space-y-2.5">
-                {inspector.categories.map((category) => (
-                  <ContextCategory key={category.kind} category={category} total={Math.max(estimated, 1)} />
-                ))}
-              </div>
-              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                Category values use Pi’s own estimator. The usage above is the latest total Pi received from the model.
-              </p>
-            </section>
-
-            <section aria-label="Next compaction" className="border-t pt-4">
-              <p className="text-sm font-medium">Next compaction</p>
-              {inspector.compaction ? (
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  Pi will summarize {inspector.compaction.messages} earlier message{inspector.compaction.messages === 1 ? "" : "s"}
-                  {inspector.compaction.turnPrefixMessages > 0
-                    ? ` and the opening ${inspector.compaction.turnPrefixMessages} message${inspector.compaction.turnPrefixMessages === 1 ? "" : "s"} of the kept turn`
-                    : ""}
-                  {" "}({formatTokens(inspector.compaction.tokens)} estimated), then keep the newest {formatTokens(inspector.compaction.keepRecentTokens)} tokens.
-                </p>
-              ) : (
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  Pi does not have enough message history to plan a compaction yet.
-                </p>
-              )}
-            </section>
-
-            <ContextDetails label="Context files" items={inspector.contextFiles.map((file) => ({ label: file.path, tokens: file.tokens }))} />
-            <ContextDetails label="Skill definitions" items={inspector.skills.map((skill) => ({ label: skill.name, tokens: skill.tokens }))} />
-            <ContextDetails label="Tool schemas" items={inspector.tools.map((tool) => ({ label: tool.name, tokens: tool.tokens }))} />
-          </>
-        ) : null}
+        {inspector?.usedTokens === null ? <p className="text-sm text-muted-foreground">Pi has not received a context measurement from this model yet.</p> : null}
       </DialogContent>
     </Dialog>
-  );
-}
-
-function ContextCategory({
-  category,
-  total,
-}: {
-  category: ContextInspectorData["categories"][number];
-  total: number;
-}) {
-  const labels = {
-    system: "System prompt",
-    context: "Context files",
-    skills: "Skill definitions",
-    tools: "Tool schemas",
-    history: "Message history",
-  };
-  const width = Math.max(category.tokens > 0 ? 2 : 0, Math.round((category.tokens / total) * 100));
-  return (
-    <div>
-      <div className="flex items-baseline justify-between gap-4 text-xs">
-        <p className="text-muted-foreground">
-          {labels[category.kind]}{category.count !== undefined ? ` · ${category.count}` : ""}
-        </p>
-        <p className="font-mono tabular-nums">{formatTokens(category.tokens)}</p>
-      </div>
-      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-        <div className="h-full rounded-full bg-muted-foreground/70" style={{ width: `${width}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function ContextDetails({ label, items }: { label: string; items: { label: string; tokens: number }[] }) {
-  return (
-    <details className="border-t pt-4">
-      <summary className="cursor-pointer text-sm font-medium">{label} ({items.length})</summary>
-      {items.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">None loaded.</p>
-      ) : (
-        <div className="mt-2 divide-y rounded-md border">
-          {items.map((item) => (
-            <div key={item.label} className="flex items-baseline justify-between gap-4 px-3 py-2">
-              <span className="min-w-0 truncate font-mono text-xs" title={item.label}>{item.label}</span>
-              <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{formatTokens(item.tokens)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </details>
   );
 }
 

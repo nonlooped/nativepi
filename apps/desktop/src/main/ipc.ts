@@ -216,11 +216,9 @@ function ensurePi(projectDir: string): Promise<PiProcess> {
   return startup;
 }
 
-async function bindPi(projectDir: string, sessionFile: string): Promise<PiProcess> {
+async function bindPi(projectDir: string, sessionFile: string, mayWrite = true): Promise<PiProcess> {
   const pi = await ensurePi(projectDir);
-  // Everything reached through bindPi may write the session file (rename, fork,
-  // clone, compact), so claim the write before it happens.
-  markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
+  if (mayWrite) markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
   if (pi.boundSessionFile !== sessionFile) {
     const res = await pi.request<{ cancelled: boolean }>({ type: "switch_session", sessionPath: sessionFile });
     if (res.cancelled) throw new Error("The session is busy. Try again once the current run finishes.");
@@ -664,7 +662,7 @@ const handlers: HandlerMap = {
 
   getContextInspector: async ({ projectDir, sessionFile }) => {
     try {
-      const pi = await bindPi(projectDir, sessionFile);
+      const pi = sessionFile ? await bindPi(projectDir, sessionFile, false) : await ensurePi(projectDir);
       return { inspector: await pi.getContextInspector() };
     } catch (err) {
       return { error: errorMessage(err) };

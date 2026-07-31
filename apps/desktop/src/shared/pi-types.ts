@@ -166,20 +166,10 @@ export interface SessionStats {
   cost: number;
 }
 
-/** Pi's read-only view of what makes up the next model request. */
+/** Pi's latest read-only context-window measurement. */
 export interface ContextInspector {
   usedTokens: number | null;
   contextWindow: number;
-  categories: { kind: "system" | "context" | "skills" | "tools" | "history"; tokens: number; count?: number }[];
-  contextFiles: { path: string; tokens: number }[];
-  skills: { name: string; tokens: number }[];
-  tools: { name: string; tokens: number }[];
-  compaction?: {
-    tokens: number;
-    messages: number;
-    turnPrefixMessages: number;
-    keepRecentTokens: number;
-  };
 }
 
 export interface SessionSummary {

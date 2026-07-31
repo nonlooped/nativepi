@@ -52,23 +52,12 @@ test("a resize from the window is bounded", () => {
   ).toBe(false);
 });
 
-test("the context inspector accepts only a complete, non-negative Pi breakdown", () => {
+test("the context inspector accepts only a non-negative Pi measurement", () => {
   const inspector = {
     usedTokens: 42,
     contextWindow: 200_000,
-    categories: [
-      { kind: "system" as const, tokens: 10 },
-      { kind: "context" as const, tokens: 12, count: 1 },
-      { kind: "skills" as const, tokens: 4, count: 1 },
-      { kind: "tools" as const, tokens: 8, count: 2 },
-      { kind: "history" as const, tokens: 8, count: 1 },
-    ],
-    contextFiles: [{ path: "AGENTS.md", tokens: 12 }],
-    skills: [{ name: "release", tokens: 4 }],
-    tools: [{ name: "read", tokens: 8 }],
-    compaction: { tokens: 20, messages: 2, turnPrefixMessages: 0, keepRecentTokens: 20_000 },
   };
 
   expect(contextInspectorSchema.safeParse(inspector).success).toBe(true);
-  expect(contextInspectorSchema.safeParse({ ...inspector, categories: [{ kind: "history", tokens: -1 }] }).success).toBe(false);
+  expect(contextInspectorSchema.safeParse({ ...inspector, usedTokens: -1 }).success).toBe(false);
 });

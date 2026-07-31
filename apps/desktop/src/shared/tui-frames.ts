@@ -108,20 +108,6 @@ const completionItemSchema = z.object({
 export const contextInspectorSchema = z.object({
   usedTokens: z.number().int().nonnegative().nullable(),
   contextWindow: z.number().int().nonnegative(),
-  categories: z.array(z.object({
-    kind: z.enum(["system", "context", "skills", "tools", "history"]),
-    tokens: z.number().int().nonnegative(),
-    count: z.number().int().nonnegative().optional(),
-  })),
-  contextFiles: z.array(z.object({ path: z.string(), tokens: z.number().int().nonnegative() })),
-  skills: z.array(z.object({ name: z.string(), tokens: z.number().int().nonnegative() })),
-  tools: z.array(z.object({ name: z.string(), tokens: z.number().int().nonnegative() })),
-  compaction: z.object({
-    tokens: z.number().int().nonnegative(),
-    messages: z.number().int().nonnegative(),
-    turnPrefixMessages: z.number().int().nonnegative(),
-    keepRecentTokens: z.number().int().nonnegative(),
-  }).optional(),
 }) satisfies z.ZodType<ContextInspector>;
 
 export type TuiCompletionItem = z.infer<typeof completionItemSchema>;
