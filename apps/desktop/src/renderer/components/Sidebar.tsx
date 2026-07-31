@@ -34,7 +34,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
 import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
-import { editorName } from "@/lib/paths.ts";
+import { editorName, fileManagerName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
 import { groupChats } from "../lib/chatOrganization.ts";
@@ -297,7 +297,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                   Open in {editorName(editorId)}
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => void rpc.request.showInFolder({ path: project.path })}>
-                  Reveal in Explorer
+                  Reveal in {fileManagerName()}
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => void showTerminal(project.path)}>Open terminal here</ContextMenuItem>
                 <ContextMenuItem

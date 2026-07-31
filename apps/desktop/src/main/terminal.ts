@@ -17,6 +17,7 @@ type ManagedTerminal = TerminalSession & {
 const terminals = new Map<string, ManagedTerminal>();
 
 function resolveShell(): string {
+  if (process.platform !== "win32") return process.env["SHELL"] || "/bin/bash";
   const path = process.env["PATH"] ?? "";
   for (const dir of path.split(delimiter)) {
     if (!dir) continue;
@@ -24,6 +25,10 @@ function resolveShell(): string {
     if (existsSync(candidate)) return candidate;
   }
   return "powershell.exe";
+}
+
+function shellArgs(): string[] {
+  return process.platform === "win32" ? ["-NoLogo"] : process.platform === "darwin" ? ["-l"] : [];
 }
 
 function shellEnv(): Record<string, string> {
@@ -66,7 +71,7 @@ export function createTerminal(
   onExit: (payload: { projectDir: string; terminalId: string; exitCode: number }) => void,
 ): TerminalSession {
   const id = randomUUID();
-  const pty = spawn(resolveShell(), ["-NoLogo"], {
+  const pty = spawn(resolveShell(), shellArgs(), {
     name: "xterm-256color",
     cols: 100,
     rows: 24,

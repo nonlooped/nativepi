@@ -15,7 +15,7 @@ const pages = [
   {
     href: "/docs/install",
     title: "Install and first run",
-    body: "Download, get past SmartScreen, open a project, and sign in to a provider.",
+    body: "Download, get past your OS's unsigned-app warning, open a project, and sign in to a provider.",
   },
   {
     href: "/docs/working-with-pi",

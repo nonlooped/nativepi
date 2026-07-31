@@ -4,7 +4,7 @@
 
 ## Platform
 
-Windows desktop (Electron)
+Windows, macOS, and Linux desktop (Electron)
 
 ## Users
 
@@ -27,7 +27,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 
 ## Operating Context
 
-- NativePi is a Windows desktop application used alongside local code projects, Git repositories, and the existing Pi CLI ecosystem. Its workspace can be shared temporarily to browsers on the same local network.
+- NativePi is a Windows, macOS, or Linux desktop application used alongside local code projects, Git repositories, and the existing Pi CLI ecosystem. Its workspace can be shared temporarily to browsers on the same local network.
 - Users pin project folders; create, discover, import, and manage Pi sessions; inspect streamed messages and tool activity; and review Git state and diffs.
 - Existing Pi credentials, configuration, sessions, packages, skills, prompts, and extensions remain in Pi's normal storage and remain usable by the Pi CLI.
 - NativePi keeps one Pi process per active chat, so chats in the same project and different projects may run concurrently.
@@ -36,7 +36,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 
 ## Current Capabilities
 
-- Project and chat pinning, date-grouped chat discovery, filtering, title and transcript search, and direct opening in installed editors or Explorer.
+- Project and chat pinning, date-grouped chat discovery, filtering, title and transcript search, and direct opening in installed editors or the system file manager.
 - New, resume, rename, clone, fork, delete, import, HTML export, session-tree, statistics, and compaction workflows backed by Pi.
 - Streaming text, thinking, tool activity, file-change summaries, rich diffs, retries, steering, follow-ups, queues, and abort controls.
 - Images attached to a message by paste, drag and drop, or the file picker, resized by Pi before they are sent and shown in the transcript alongside the message they went with.
@@ -57,7 +57,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 
 ## Boundaries and Constraints
 
-- NativePi's host is currently Windows-only, single-window, and dark-only. Browser access requires an explicitly started server, the access token in the link, and the running desktop app. Remote Access is a throwaway Cloudflare quick tunnel created for one session and closed after twelve hours; NativePi does not operate a hosting service, register a permanent address, or hold an account of any kind.
+- NativePi's host is currently single-window and dark-only. Browser access requires an explicitly started server, the access token in the link, and the running desktop app. Remote Access is a throwaway Cloudflare quick tunnel created for one session and closed after twelve hours; NativePi does not operate a hosting service, register a permanent address, or hold an account of any kind.
 - NativePi does not own an agent loop, make its own LLM requests, add agent tools, or support other harnesses.
 - Pi session files are the durable conversation source of truth. NativePi persists only pinned projects and chats, the last project and chat, text drafts, favorite models, pane state, and its own interface preferences.
 - Agent configuration is Pi's. NativePi reads and writes it through Pi's own settings manager at user scope, so a change made here is a change the Pi command line sees; NativePi never writes Pi's configuration format itself, and exposes only the settings that have meaning in a desktop window. Project-scope overrides remain the Pi command line's business.
@@ -66,7 +66,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Normal Pi extensions run unchanged. Optional graphical extensions contribute only through controlled NativePi UI slots and are trusted code, not sandboxed code.
 - Terminal extension components are drawn by Pi and displayed, not reimplemented: NativePi runs the component in the Pi process and shows what it draws, so it looks as its author wrote it rather than as NativePi would have styled it. Two parts of Pi's terminal UI have no equivalent here and keep Pi's documented no-op: raw terminal input, and replacing the input editor, which in this window is the composer.
 - NativePi has no cloud sync, collaboration, remote projects, SSH launching, configurable keybindings, product accounts, paid features, or telemetry.
-- NativePi is MIT licensed. GitHub publishes Windows installers, currently without code signing, so SmartScreen warnings are expected.
+- NativePi is MIT licensed. GitHub publishes Windows, macOS, and Linux installers, currently without code signing or notarization, so SmartScreen warnings on Windows and Gatekeeper warnings on macOS are expected.
 
 ## Brand Commitments
 

@@ -1,7 +1,7 @@
 import { StarIcon } from "@phosphor-icons/react/dist/ssr";
 
 import { Button } from "@/components/site/Button";
-import { GitHubMark, WindowsMark } from "@/components/site/Marks";
+import { AppleMark, GitHubMark, LinuxMark, WindowsMark } from "@/components/site/Marks";
 import { site } from "@/lib/site";
 
 /**
@@ -11,8 +11,8 @@ import { site } from "@/lib/site";
  * skim past a limitation they should actually register.
  */
 const limits = [
-  ["Platform", "Windows only. Single window, dark only. No macOS or Linux."],
-  ["Installer", "Unsigned, so SmartScreen warns on first launch."],
+  ["Platform", "Windows, macOS, and Linux. Single window, dark only."],
+  ["Installer", "Unsigned, so your OS warns on first launch."],
   ["Git", "Branches and worktrees. No commits, merges, or history rewriting."],
   ["Extensions", "The graphical API is experimental and unsandboxed."],
   ["Agent", "None of its own. If Pi cannot do it, neither can this."],
@@ -64,7 +64,9 @@ export function Close() {
           </Button>
           <Button href={site.releasesLatest} variant="outline">
             <WindowsMark className="size-4" />
-            Download for Windows
+            <AppleMark className="size-4" />
+            <LinuxMark className="size-4" />
+            Download
           </Button>
         </div>
 
