@@ -3,6 +3,7 @@ import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
 import { GitBranchIcon } from "@phosphor-icons/react/GitBranch";
+import { GitCommitIcon } from "@phosphor-icons/react/GitCommit";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import type { GitChangedFile } from "../../shared/pi-types.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
@@ -22,6 +23,7 @@ import DiffView from "./DiffView.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 import FileContextMenu from "./FileContextMenu.tsx";
 import { ExtensionPanels } from "./ExtensionSlots.tsx";
+import CommitDialog from "./CommitDialog.tsx";
 
 export default function ContextPane({ overlay = false, onClose }: { overlay?: boolean; onClose?: () => void }) {
   const git = useAppStore((s) => s.git);
@@ -31,6 +33,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const running = useAppStore((s) => activeConversation(s).running);
   const [selected, setSelected] = useState<GitChangedFile | null>(null);
+  const [committing, setCommitting] = useState(false);
 
   useEffect(() => setSelected(null), [projectDir]);
 
@@ -47,6 +50,9 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
           aria-label="Refresh Git status"
         >
           <ArrowClockwiseIcon />
+        </Button>
+        <Button variant="ghost" size="icon-sm" onClick={() => setCommitting(true)} disabled={!git?.isRepo} title="Commit changes" aria-label="Commit changes">
+          <GitCommitIcon />
         </Button>
         <Button
           variant="ghost"
@@ -136,6 +142,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
 
         <ExtensionPanels />
       </div>
+      <CommitDialog projectDir={committing ? projectDir : null} onClose={() => setCommitting(false)} />
     </aside>
   );
 }
@@ -165,8 +172,37 @@ function FileDiff({ file, projectDir }: { file: GitChangedFile; projectDir: stri
       ) : patch === null ? (
         <p className="px-3 py-2 text-xs text-muted-foreground">Loading diff…</p>
       ) : (
-        <DiffView patch={patch} />
+        <>
+          {file.unstaged ? <HunkActions projectDir={projectDir} file={file} /> : null}
+          <DiffView patch={patch} />
+        </>
       )}
+    </div>
+  );
+}
+
+function HunkActions({ projectDir, file }: { projectDir: string; file: GitChangedFile }) {
+  const refreshGit = useAppStore((s) => s.refreshGit);
+  const { data, loading, error } = useRequest(
+    () => rpc.request.gitHunks({ projectDir, file: file.path, untracked: file.state === "untracked" }),
+    [projectDir, file.path, file.state],
+  );
+  const [busy, setBusy] = useState<number | null>(null);
+  if (loading || error || !data?.hunks.length) return null;
+  async function stage(hunk: number) {
+    setBusy(hunk);
+    const result = await rpc.request.gitStageHunk({ projectDir, file: file.path, untracked: file.state === "untracked", hunk });
+    setBusy(null);
+    if (result.ok) await refreshGit();
+  }
+  return (
+    <div className="flex flex-col gap-1 border-b px-2 py-2">
+      {data.hunks.map((hunk, index) => (
+        <Button key={hunk.patch} size="sm" variant="ghost" className="justify-start" disabled={busy !== null} onClick={() => void stage(index)}>
+          {busy === index ? "Staging…" : `Stage hunk ${index + 1}`}
+          <span className="ml-auto truncate font-mono text-xs text-muted-foreground">{hunk.header}</span>
+        </Button>
+      ))}
     </div>
   );
 }

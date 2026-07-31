@@ -191,6 +191,7 @@ export interface GitChangedFile {
   path: string;
   state: "modified" | "added" | "deleted" | "renamed" | "untracked";
   staged: boolean;
+  unstaged: boolean;
 }
 export interface GitStatus {
   isRepo: boolean;
@@ -200,6 +201,10 @@ export interface GitStatus {
 }
 export interface GitDiff {
   path: string;
+  patch: string;
+}
+export interface GitHunk {
+  header: string;
   patch: string;
 }
 export interface GitBranch {
