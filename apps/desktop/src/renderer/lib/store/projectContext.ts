@@ -56,7 +56,7 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
       : current.method === "confirm"
         ? ({ type: "extension_ui_response", id: current.id, confirmed: confirmed ?? false } as const)
         : ({ type: "extension_ui_response", id: current.id, value: value ?? "" } as const);
-    void rpc.request.extensionRespond({ projectDir, response });
+    void rpc.request.extensionRespond({ projectDir, sessionFile: s.activeSessionFile, response });
     set({ extPrompts: s.extPrompts.slice(1) });
   },
 
@@ -71,8 +71,8 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
    * Only the project on screen is folded in, for the reason the extension prompts
    * are: a background project's footer has nothing to attach to.
    */
-  onTuiFrame: ({ projectDir, frame }) => {
-    if (projectDir !== get().activeProjectPath) return;
+  onTuiFrame: ({ projectDir, sessionFile, frame }) => {
+    if (projectDir !== get().activeProjectPath || (sessionFile && sessionFile !== get().activeSessionFile)) return;
     switch (frame.type) {
       // Keyed by id rather than appended: a resync re-announces surfaces the
       // window may still be holding, and the same pane twice is not two panes.

@@ -31,7 +31,7 @@ const MAX_REMOTE_IMAGE_BATCH_BYTES = 48 * 1024 * 1024;
  * answered with the chat the user just left until they touched the new one.
  */
 function reportActiveDraft(get: GetState): void {
-  reportDraft(get().activeProjectPath, get().drafts[draftKey(get)] ?? "");
+  reportDraft(get().activeProjectPath, get().activeSessionFile, get().drafts[draftKey(get)] ?? "");
 }
 
 /**
@@ -112,14 +112,14 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       // A run already streaming into this chat keeps its live state — this is
       // the path back into a project that kept working in the background, and
       // its conversation has been fed every event in the meantime.
-      const conv = get().conversations[projectPath];
-      if (conv && conv.sessionFile === sessionFile && (conv.running || conv.error !== undefined)) return;
-      patchConversation(set, projectPath, () => ({ ...emptyConversation(), sessionFile }));
+      const conv = get().conversations[sessionFile];
+      if (conv && (conv.running || conv.error !== undefined)) return;
+      patchConversation(set, projectPath, sessionFile, () => ({ ...emptyConversation(), projectDir: projectPath, sessionFile }));
     }
     const { entries } = await rpc.request.readSession({ sessionFile });
     if (get().activeSessionFile !== sessionFile || get().activeProjectPath !== projectPath) return;
     if (projectPath) {
-      patchConversation(set, projectPath, {
+      patchConversation(set, projectPath, sessionFile, {
         entries: entries.filter((e): e is SessionEntry => e.type !== "session"),
         sessionName: sessionInfoName(entries),
       });
@@ -130,7 +130,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     const projectDir = get().activeProjectPath;
     if (projectDir) {
       void rpc.request.watchSession({ projectDir, sessionFile: null });
-      patchConversation(set, projectDir, () => emptyConversation());
+      patchConversation(set, projectDir, null, () => ({ ...emptyConversation(), projectDir }));
     }
     set({ activeSessionFile: null, isNewChat: true });
     reportActiveDraft(get);
@@ -139,10 +139,11 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   importSession: async (targetProjectDir, sourceFile) => {
     const projectDir = targetProjectDir ?? get().activeProjectPath;
     if (!projectDir) return false;
+    const targetSessionFile = get().activeProjectPath === projectDir ? get().activeSessionFile : null;
     const res = await rpc.request.importSession({ projectDir, sourceFile });
     if (res.canceled) return false;
     if (!res.ok || !res.sessionFile) {
-      patchConversation(set, projectDir, { error: res.error ?? "Failed to import chat" });
+      patchConversation(set, projectDir, targetSessionFile, { error: res.error ?? "Failed to import chat" });
       return false;
     }
     await get().refreshSessions(projectDir);
@@ -156,7 +157,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     const key = draftKey(get);
     set((s) => ({ drafts: { ...s.drafts, [key]: text } }));
     persist(get);
-    reportDraft(get().activeProjectPath, text);
+    reportDraft(get().activeProjectPath, get().activeSessionFile, text);
   },
 
   insertIntoComposer: (text) => {
@@ -246,7 +247,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
      * whatever it does show up as arrives as events, a moment later.
      */
     const pendingEntry: PendingMessage | null = text.startsWith("/") ? null : { id: pendingId++, text, images };
-    patchConversation(set, projectDir, (c) => ({
+    patchConversation(set, projectDir, s.activeSessionFile, (c) => ({
       pending: pendingEntry ? [...c.pending, pendingEntry] : c.pending,
       error: undefined,
       errorRecovery: undefined,
@@ -262,7 +263,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       images: images.map(toImageContent),
     });
     if (!res.ok) {
-      patchConversation(set, projectDir, (c) => ({
+      patchConversation(set, projectDir, s.activeSessionFile, (c) => ({
         pending: c.pending.filter((p) => p.id !== pendingEntry?.id),
         error: res.error ?? "Failed to send",
         errorRecovery: "retrySend",
@@ -277,7 +278,13 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       return;
     }
     if (res.sessionFile) {
-      patchConversation(set, projectDir, { sessionFile: res.sessionFile });
+      patchConversation(set, projectDir, res.sessionFile, { projectDir, sessionFile: res.sessionFile });
+      if (!s.activeSessionFile) {
+        set((state) => {
+          const { [projectDir]: draft, ...conversations } = state.conversations;
+          return { conversations: { ...conversations, [res.sessionFile!]: { ...(draft ?? emptyConversation()), projectDir, sessionFile: res.sessionFile! } } };
+        });
+      }
       setLastChat(projectDir, res.sessionFile);
       persist(get);
       if (get().activeProjectPath === projectDir && get().activeSessionFile !== res.sessionFile) {
@@ -291,11 +298,12 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   enqueue: async (behavior) => {
     const draft = currentDraft(get);
     if (!draft) return;
-    const { projectDir, key, text, images } = draft;
+    const { state: sendState, projectDir, key, text, images } = draft;
+    const sessionFile = sendState.activeSessionFile;
 
     // No optimistic entry: Pi echoes the queued message back via queue_update,
     // which is the source of truth for what's pending.
-    patchConversation(set, projectDir, { error: undefined });
+    patchConversation(set, projectDir, sessionFile, { error: undefined });
     get().setDraft("");
     clearAttachments(set, key);
 
@@ -311,14 +319,14 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     const res = text.startsWith("/")
       ? await rpc.request.submit({
           projectDir,
-          sessionFile: get().activeSessionFile,
+          sessionFile,
           message: text,
           images: images.map(toImageContent),
           streamingBehavior: behavior,
         })
-      : await rpc.request.enqueue({ projectDir, behavior, message: text, images: images.map(toImageContent) });
+      : await rpc.request.enqueue({ projectDir, sessionFile: sessionFile!, behavior, message: text, images: images.map(toImageContent) });
     if (!res.ok) {
-      patchConversation(set, projectDir, {
+      patchConversation(set, projectDir, sessionFile, {
         error: res.error ?? "Failed to queue message",
         errorRecovery: "retrySend",
       });
@@ -329,12 +337,14 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
 
   abort: () => {
     const projectDir = get().activeProjectPath;
-    if (projectDir) void rpc.request.abort({ projectDir });
+    const sessionFile = get().activeSessionFile;
+    if (projectDir && sessionFile) void rpc.request.abort({ projectDir, sessionFile });
   },
 
   abortRetry: () => {
     const projectDir = get().activeProjectPath;
-    if (projectDir) void rpc.request.abortRetry({ projectDir });
+    const sessionFile = get().activeSessionFile;
+    if (projectDir && sessionFile) void rpc.request.abortRetry({ projectDir, sessionFile });
   },
 
   renameChat: async (sessionFile, name) => {
@@ -344,7 +354,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     if (res.ok) {
       await get().refreshSessions(projectDir);
       if (get().activeSessionFile === sessionFile) {
-        patchConversation(set, projectDir, { sessionName: name });
+        patchConversation(set, projectDir, sessionFile, { sessionName: name });
       }
     }
     return res;
@@ -409,14 +419,14 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     const sessionFile = get().activeSessionFile;
     const projectDir = get().activeProjectPath;
     if (!sessionFile) return;
-    if (projectDir) patchConversation(set, projectDir, { externalChange: null });
+    if (projectDir) patchConversation(set, projectDir, sessionFile, { externalChange: null });
     await get().selectChat(sessionFile);
     if (projectDir && get().activeProjectPath === projectDir) await get().refreshSessions(projectDir);
   },
 
   clearError: () => {
     const projectDir = get().activeProjectPath;
-    if (projectDir) patchConversation(set, projectDir, { error: undefined, errorRecovery: undefined });
+    if (projectDir) patchConversation(set, projectDir, get().activeSessionFile, { error: undefined, errorRecovery: undefined });
   },
 
   onEvent: ({ projectDir, sessionFile, event }) => {
@@ -437,8 +447,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     // a run keeps its state — and its transcript — while another project is on
     // screen. Events for a chat other than the one this runtime belongs to are
     // still dropped, exactly as before.
-    const conv = conversationFor(s, projectDir);
-    if (sessionFile && conv.sessionFile && sessionFile !== conv.sessionFile) return;
+    const conv = conversationFor(s, projectDir, sessionFile ?? null);
     if (projectDir === s.activeProjectPath) {
       // Files change throughout a turn, not only at its end: refresh as messages
       // land, so the changes pane is live rather than stale for the whole
@@ -447,13 +456,13 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       if (event.type === "agent_settled") void get().refreshGit();
       else if (event.type === "message_end" && !gitRefreshedWithin(1000)) void get().refreshGit();
     }
-    patchConversation(set, projectDir, reduce(conv, event));
+    patchConversation(set, projectDir, sessionFile ?? null, { ...reduce(conv, event), projectDir, sessionFile: sessionFile ?? conv.sessionFile });
   },
 
   onPiError: (projectDir, message) => {
     // The draft was cleared by the submit that succeeded, so there is nothing
     // to re-send; restarting Pi is the recovery that actually applies.
-    patchConversation(set, projectDir, {
+    patchConversation(set, projectDir, get().activeProjectPath === projectDir ? get().activeSessionFile : null, {
       error: message,
       errorRecovery: "restartPi",
       running: false,
@@ -462,9 +471,9 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   },
 
   onSessionChangedExternally: ({ projectDir, sessionFile }) => {
-    const conv = get().conversations[projectDir];
+    const conv = get().conversations[sessionFile];
     if (!conv || sessionFile !== conv.sessionFile) return;
     if (conv.running || conv.externalChange) return;
-    patchConversation(set, projectDir, { externalChange: { sessionFile } });
+    patchConversation(set, projectDir, sessionFile, { externalChange: { sessionFile } });
   },
 });
