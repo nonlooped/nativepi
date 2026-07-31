@@ -11,7 +11,7 @@ import * as auth from "./auth.ts";
 import { gitAddWorktree, gitBranches, gitCheckout, gitDiff, gitStatus } from "./git.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
 import { listSkills } from "./skills.ts";
-import { listProjectFiles } from "./files.ts";
+import { listProjectFiles, readFilePreview } from "./files.ts";
 import { prepareImages } from "./images.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
 import { listInstalledEditors, openFileIn, openProjectIn } from "./editors.ts";
@@ -998,6 +998,10 @@ const handlers: HandlerMap = {
     } catch {
       return { files: [] };
     }
+  },
+  readFilePreview: async ({ projectDir, path: file }) => {
+    const result = await readFilePreview(projectDir, file);
+    return "error" in result ? { error: result.error } : { preview: result };
   },
 
   listPackages: async ({ projectDir }) => {

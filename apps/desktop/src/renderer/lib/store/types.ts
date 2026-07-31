@@ -14,6 +14,7 @@ import type {
   GitStatus,
   ModelInfo,
   PiEvent,
+  RecentFile,
   SessionEntry,
   SessionSummary,
   ThinkingLevel,
@@ -226,12 +227,15 @@ export interface ProjectContextSlice {
   /** The characters an extension autocomplete provider answers on, if any. */
   extTriggers: string[];
   extUiState: ExtensionUiState;
+  /** Files opened from the file explorer, per project, most-recent first. */
+  recentFilesByProject: Record<string, RecentFile[]>;
 
   refreshGit: () => Promise<void>;
   switchBranch: (branch: string, create: boolean) => Promise<{ ok: boolean; error?: string }>;
   reloadExtensions: () => Promise<void>;
   respondExtension: (value: { value?: string; confirmed?: boolean; cancel?: boolean }) => void;
   onTuiFrame: (payload: { projectDir: string; frame: TuiHostFrame }) => void;
+  recordFileOpened: (projectPath: string, path: string) => void;
 }
 
 /**

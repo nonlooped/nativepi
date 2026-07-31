@@ -4,6 +4,7 @@ import type {
   CommandInfo,
   ExtensionUiResponse,
   FileEntry,
+  FilePreview,
   ForkPoint,
   GitBranch,
   GitDiff,
@@ -245,6 +246,12 @@ export const nativePiStateSchema = z.object({
     ),
   lastProjectPath: z.string().optional().catch(undefined),
   lastChatByProject: z.record(z.string(), z.string()).catch({}),
+  recentFilesByProject: z
+    .record(
+      z.string(),
+      z.array(z.object({ path: z.string(), lastOpenedAt: z.number(), openCount: z.number() })).catch([]),
+    )
+    .catch({}),
   drafts: z.record(z.string(), z.string()).catch({}),
   favoriteModels: z.array(z.string()).catch([]),
   pinnedChats: z
@@ -477,6 +484,11 @@ export type HostRequests = {
   listCommands: { params: { projectDir: string }; response: { commands: CommandInfo[] } };
   listSkills: { params: { projectDir: string }; response: { skills: SkillInfo[] } };
   listProjectFiles: { params: { projectDir: string }; response: { files: string[] } };
+  /** A read-only preview of one project file, for the file explorer's preview pane. */
+  readFilePreview: {
+    params: { projectDir: string; path: string };
+    response: { preview?: FilePreview; error?: string };
+  };
 
   listPackages: {
     params: { projectDir: string };

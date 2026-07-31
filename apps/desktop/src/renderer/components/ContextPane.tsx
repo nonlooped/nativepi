@@ -6,6 +6,7 @@ import { GitBranchIcon } from "@phosphor-icons/react/GitBranch";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import type { GitChangedFile } from "../../shared/pi-types.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
+import { gitStateBadge, gitStateColor, gitStateLabel } from "../lib/gitFileState.ts";
 import { rpc } from "../lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
 import { useRequest } from "../lib/useRequest.ts";
@@ -18,7 +19,9 @@ import {
 } from "@/components/ui/context-menu.tsx";
 import { WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { withHint } from "../lib/shortcuts.ts";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
 import DiffView from "./DiffView.tsx";
+import FileExplorer from "./FileExplorer.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 import FileContextMenu from "./FileContextMenu.tsx";
 import { ExtensionPanels } from "./ExtensionSlots.tsx";
@@ -31,111 +34,127 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const running = useAppStore((s) => activeConversation(s).running);
   const [selected, setSelected] = useState<GitChangedFile | null>(null);
+  const [tab, setTab] = useState("changes");
 
   useEffect(() => setSelected(null), [projectDir]);
 
   return (
     <aside className="context-pane flex h-full min-w-0 flex-col bg-sidebar text-sidebar-foreground">
-      <div className={cn("flex h-12 shrink-0 items-center gap-1 pr-2 pl-3", !overlay && WINDOW_CONTROLS_CLEARANCE)}>
-        <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Changes</span>
-        <div className="flex-1" />
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => void refreshGit()}
-          title="Refresh Git status"
-          aria-label="Refresh Git status"
-        >
-          <ArrowClockwiseIcon />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onClose ?? toggleContextPane}
-          title={withHint("Hide changes pane", "toggleContextPane")}
-          aria-label="Hide changes pane"
-        >
-          <SidebarSimpleIcon className="-scale-x-100" />
-        </Button>
-      </div>
+      <Tabs value={tab} onValueChange={(value) => setTab(value as string)} className="flex h-full min-w-0 flex-col">
+        <div className={cn("flex h-12 shrink-0 items-center gap-1 pr-2 pl-3", !overlay && WINDOW_CONTROLS_CLEARANCE)}>
+          <TabsList>
+            <TabsTrigger value="changes">Changes</TabsTrigger>
+            <TabsTrigger value="files">Files</TabsTrigger>
+          </TabsList>
+          <div className="flex-1" />
+          {tab === "changes" ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => void refreshGit()}
+              title="Refresh Git status"
+              aria-label="Refresh Git status"
+            >
+              <ArrowClockwiseIcon />
+            </Button>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onClose ?? toggleContextPane}
+            title={withHint("Hide changes pane", "toggleContextPane")}
+            aria-label="Hide changes pane"
+          >
+            <SidebarSimpleIcon className="-scale-x-100" />
+          </Button>
+        </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {!git ? (
-          <p className="px-3 py-4 text-xs text-muted-foreground">Loading…</p>
-        ) : !git.isRepo ? (
-          <p className="px-3 py-4 text-xs text-muted-foreground">This folder is not a Git repository.</p>
-        ) : (
-          <>
-            <ContextMenu>
-              <ContextMenuTrigger render={<div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground" />}>
-                <GitBranchIcon className="shrink-0" />
-                <span className="truncate">{git.detached ? "No branch (detached)" : (git.branch ?? "—")}</span>
-                <span className="ml-auto tabular-nums">{git.files.length} changed</span>
-              </ContextMenuTrigger>
-              <ContextMenuContent>
-                <ContextMenuItem
-                  disabled={!git.branch}
-                  onClick={() =>
-                    git.branch && void navigator.clipboard.writeText(git.branch).then(() => showHint("Branch name copied"))
-                  }
-                >
-                  Copy branch name
-                </ContextMenuItem>
-                <ContextMenuItem
-                  disabled={running}
-                  onClick={() => {
-                    onClose?.();
-                    requestBranchMenu();
-                  }}
-                >
-                  Switch branch…
-                </ContextMenuItem>
-                <ContextMenuItem onClick={() => void refreshGit()}>Refresh status</ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
+        <TabsContent value="changes" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          {!git ? (
+            <p className="px-3 py-4 text-xs text-muted-foreground">Loading…</p>
+          ) : !git.isRepo ? (
+            <p className="px-3 py-4 text-xs text-muted-foreground">This folder is not a Git repository.</p>
+          ) : (
+            <>
+              <ContextMenu>
+                <ContextMenuTrigger render={<div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground" />}>
+                  <GitBranchIcon className="shrink-0" />
+                  <span className="truncate">{git.detached ? "No branch (detached)" : (git.branch ?? "—")}</span>
+                  <span className="ml-auto tabular-nums">{git.files.length} changed</span>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem
+                    disabled={!git.branch}
+                    onClick={() =>
+                      git.branch && void navigator.clipboard.writeText(git.branch).then(() => showHint("Branch name copied"))
+                    }
+                  >
+                    Copy branch name
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    disabled={running}
+                    onClick={() => {
+                      onClose?.();
+                      requestBranchMenu();
+                    }}
+                  >
+                    Switch branch…
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => void refreshGit()}>Refresh status</ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
 
-            {git.files.length === 0 ? (
-              <p className="px-3 py-4 text-xs text-muted-foreground">Working tree clean.</p>
-            ) : (
-              <div className="flex flex-col gap-1 px-2 pb-2">
-                {git.files.map((file) => (
-                  <div key={file.path} className="overflow-hidden rounded-md border bg-background/35">
-                    {projectDir ? <FileContextMenu projectDir={projectDir} file={file.path} untracked={file.state === "untracked"}>
-                    <button
-                      type="button"
-                      aria-expanded={selected?.path === file.path}
-                      onClick={() => setSelected(selected?.path === file.path ? null : file)}
-                      className={cn(
-                        "flex min-h-10 w-full items-center gap-2 px-2.5 text-left text-xs outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
-                        selected?.path === file.path && "bg-sidebar-accent",
-                      )}
-                      title={file.path}
-                    >
-                      {selected?.path === file.path ? <CaretDownIcon /> : <CaretRightIcon />}
-                      <FileTypeIcon path={file.path} />
-                      <span className="min-w-0 flex-1 truncate font-medium">{file.path}</span>
-                      {file.staged ? <span className="shrink-0 text-xs text-muted-foreground">staged</span> : null}
-                      <span
-                        className={cn("w-4 shrink-0 text-center font-mono text-xs font-semibold", stateColor(file.state))}
-                        title={stateLabel(file.state)}
+              {git.files.length === 0 ? (
+                <p className="px-3 py-4 text-xs text-muted-foreground">Working tree clean.</p>
+              ) : (
+                <div className="flex flex-col gap-1 px-2 pb-2">
+                  {git.files.map((file) => (
+                    <div key={file.path} className="overflow-hidden rounded-md border bg-background/35">
+                      {projectDir ? <FileContextMenu projectDir={projectDir} file={file.path} untracked={file.state === "untracked"}>
+                      <button
+                        type="button"
+                        aria-expanded={selected?.path === file.path}
+                        onClick={() => setSelected(selected?.path === file.path ? null : file)}
+                        className={cn(
+                          "flex min-h-10 w-full items-center gap-2 px-2.5 text-left text-xs outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
+                          selected?.path === file.path && "bg-sidebar-accent",
+                        )}
+                        title={file.path}
                       >
-                        <span aria-hidden="true">{stateBadge(file.state)}</span>
-                        <span className="sr-only">{stateLabel(file.state)}</span>
-                      </span>
-                    </button>
-                    </FileContextMenu> : null}
-                    {selected?.path === file.path && projectDir ? (
-                      <FileDiff key={`${projectDir}:${file.path}`} file={file} projectDir={projectDir} />
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+                        {selected?.path === file.path ? <CaretDownIcon /> : <CaretRightIcon />}
+                        <FileTypeIcon path={file.path} />
+                        <span className="min-w-0 flex-1 truncate font-medium">{file.path}</span>
+                        {file.staged ? <span className="shrink-0 text-xs text-muted-foreground">staged</span> : null}
+                        <span
+                          className={cn("w-4 shrink-0 text-center font-mono text-xs font-semibold", gitStateColor(file.state))}
+                          title={gitStateLabel(file.state)}
+                        >
+                          <span aria-hidden="true">{gitStateBadge(file.state)}</span>
+                          <span className="sr-only">{gitStateLabel(file.state)}</span>
+                        </span>
+                      </button>
+                      </FileContextMenu> : null}
+                      {selected?.path === file.path && projectDir ? (
+                        <FileDiff key={`${projectDir}:${file.path}`} file={file} projectDir={projectDir} />
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
 
-        <ExtensionPanels />
-      </div>
+          <ExtensionPanels />
+        </TabsContent>
+
+        <TabsContent value="files" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          {projectDir ? (
+            <FileExplorer projectDir={projectDir} />
+          ) : (
+            <p className="px-3 py-4 text-xs text-muted-foreground">No project is open.</p>
+          )}
+        </TabsContent>
+      </Tabs>
     </aside>
   );
 }
@@ -169,26 +188,4 @@ function FileDiff({ file, projectDir }: { file: GitChangedFile; projectDir: stri
       )}
     </div>
   );
-}
-
-function stateBadge(state: GitChangedFile["state"]): string {
-  return state === "added" ? "A" : state === "deleted" ? "D" : state === "renamed" ? "R" : state === "untracked" ? "U" : "M";
-}
-/** The badge letter's full word, for hover and assistive tech. */
-function stateLabel(state: GitChangedFile["state"]): string {
-  return state === "added"
-    ? "Added"
-    : state === "deleted"
-      ? "Deleted"
-      : state === "renamed"
-        ? "Renamed"
-        : state === "untracked"
-          ? "Untracked"
-          : "Modified";
-}
-function stateColor(state: GitChangedFile["state"]): string {
-  if (state === "added") return "text-success";
-  if (state === "deleted") return "text-destructive";
-  if (state === "untracked") return "text-info";
-  return "text-warning";
 }
