@@ -14,7 +14,7 @@ import { listSkills } from "./skills.ts";
 import { listProjectFiles } from "./files.ts";
 import { prepareImages } from "./images.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
-import { listInstalledEditors, openFileIn, openProjectIn } from "./editors.ts";
+import { fileManagerName, listInstalledEditors, openFileIn, openProjectIn } from "./editors.ts";
 import { liveSettingsFor, piPaths, queuePiSettings, readPiSettings, writePiSettings } from "./piSettings.ts";
 import { piSettingsPatchSchema, type PiSettingsPatch } from "../shared/pi-settings.ts";
 import {
@@ -761,7 +761,7 @@ const handlers: HandlerMap = {
     try {
       return { editors: await listInstalledEditors() };
     } catch {
-      return { editors: [{ id: "explorer", name: "Explorer", icon: "explorer" }] };
+      return { editors: [{ id: "explorer", name: fileManagerName(), icon: "explorer" }] };
     }
   },
   openProjectIn: async (params) => {

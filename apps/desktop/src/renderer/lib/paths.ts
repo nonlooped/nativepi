@@ -1,6 +1,27 @@
+/**
+ * `projectDir` always carries the host platform's own path style (Windows
+ * paths on Windows, POSIX paths elsewhere), so that is what decides the
+ * separator here rather than the renderer's own platform.
+ */
 export function absoluteProjectPath(projectDir: string, relativePath: string): string {
-  if (/^(?:[a-z]:[\\/]|[\\/]{2})/i.test(relativePath)) return relativePath.replace(/\//g, "\\");
-  return `${projectDir.replace(/[\\/]+$/, "")}\\${relativePath.replace(/^[/\\]+/, "").replace(/\//g, "\\")}`;
+  const windowsStyle = /^[a-z]:[\\/]/i.test(projectDir) || projectDir.startsWith("\\\\");
+  if (windowsStyle) {
+    if (/^(?:[a-z]:[\\/]|[\\/]{2})/i.test(relativePath)) return relativePath.replace(/\//g, "\\");
+    return `${projectDir.replace(/[\\/]+$/, "")}\\${relativePath.replace(/^[/\\]+/, "").replace(/\//g, "\\")}`;
+  }
+  if (relativePath.startsWith("/")) return relativePath;
+  return `${projectDir.replace(/\/+$/, "")}/${relativePath.replace(/^\/+/, "")}`;
+}
+
+/**
+ * The platform's own file manager, named the way its own users would name it.
+ * Detected the same way `shortcuts.ts` detects macOS, so the two never disagree.
+ */
+export function fileManagerName(): string {
+  if (typeof navigator !== "object") return "Explorer";
+  if (/Mac|iPod|iPhone|iPad/.test(navigator.platform)) return "Finder";
+  if (/Linux/.test(navigator.platform)) return "Files";
+  return "Explorer";
 }
 
 export function editorName(id: string): string {
@@ -24,7 +45,7 @@ export function editorName(id: string): string {
     phpstorm: "PhpStorm",
     rubymine: "RubyMine",
     rustrover: "RustRover",
-    explorer: "Explorer",
+    explorer: fileManagerName(),
   };
   return names[id] ?? "editor";
 }

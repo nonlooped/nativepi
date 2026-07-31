@@ -7,12 +7,13 @@ import { toast } from "sonner";
 import type { InstalledEditor } from "../../shared/rpc-schema.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
+import { fileManagerName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { useAppStore } from "@/lib/store.ts";
 import { cn, NO_DRAG_REGION } from "@/lib/utils.ts";
 import BrandIcon from "./BrandIcon.tsx";
 
-const EXPLORER: InstalledEditor = { id: "explorer", name: "Explorer", icon: "explorer" };
+const EXPLORER: InstalledEditor = { id: "explorer", name: fileManagerName(), icon: "explorer" };
 
 export default function OpenWith({ projectDir }: { projectDir: string }) {
   const [editors, setEditors] = useState<InstalledEditor[]>([EXPLORER]);

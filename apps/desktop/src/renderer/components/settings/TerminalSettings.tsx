@@ -52,7 +52,7 @@ export default function TerminalSettings() {
           >
             <TextRow
               label="Shell"
-              description="Leave empty to let Pi choose. On Windows this is usually a path to pwsh.exe or powershell.exe."
+              description="Leave empty to let Pi choose. On Windows this is usually a path to pwsh.exe or powershell.exe; elsewhere it is usually your default shell."
               value={settings.shellPath}
               placeholder="Chosen by Pi"
               onCommit={(value) => void update("shellPath", value)}

@@ -1,10 +1,13 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { mkdir, rename, rm, stat } from "node:fs/promises";
+import { chmod, mkdir, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { promisify } from "node:util";
 import type { RemoteAccessStatus } from "../shared/rpc-schema.ts";
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Remote access, as a Cloudflare quick tunnel.
@@ -21,9 +24,23 @@ import type { RemoteAccessStatus } from "../shared/rpc-schema.ts";
  * this on, so it is fetched on first use and cached under user data.
  */
 
-const RELEASE_URL =
-  "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe";
+const RELEASE_BASE = "https://github.com/cloudflare/cloudflared/releases/latest/download";
 const STARTUP_TIMEOUT_MS = 45_000;
+
+/**
+ * cloudflared's release assets differ per platform: Windows and Linux publish
+ * a directly runnable binary, macOS only publishes one wrapped in a `.tgz`.
+ */
+function cloudflaredAsset(): { url: string; archive: "raw" | "tgz" } {
+  const arch = process.arch === "arm64" ? "arm64" : "amd64";
+  if (process.platform === "darwin") return { url: `${RELEASE_BASE}/cloudflared-darwin-${arch}.tgz`, archive: "tgz" };
+  if (process.platform === "linux") return { url: `${RELEASE_BASE}/cloudflared-linux-${arch}`, archive: "raw" };
+  return { url: `${RELEASE_BASE}/cloudflared-windows-amd64.exe`, archive: "raw" };
+}
+
+function cloudflaredBinaryName(): string {
+  return process.platform === "win32" ? "cloudflared.exe" : "cloudflared";
+}
 
 /**
  * How long to wait for a freshly minted hostname to start answering.
@@ -291,19 +308,20 @@ export function findTunnelUrl(log: string): string | undefined {
  * usable binary on the next attempt.
  */
 async function ensureCloudflared(binDir: string, onProgress: (message: string) => void): Promise<string> {
-  const binary = join(binDir, "cloudflared.exe");
+  const binary = join(binDir, cloudflaredBinaryName());
   const cached = await stat(binary).catch(() => undefined);
   if (cached?.isFile() && cached.size > 0) return binary;
 
   onProgress("Downloading the tunnel client…");
   await mkdir(binDir, { recursive: true });
-  const partial = `${binary}.partial`;
+  const { url, archive } = cloudflaredAsset();
+  const downloaded = archive === "tgz" ? `${binary}.tgz.partial` : `${binary}.partial`;
 
   const abort = new AbortController();
   let stall = setTimeout(() => abort.abort(), DOWNLOAD_STALL_MS);
 
   try {
-    const response = await fetch(RELEASE_URL, { signal: abort.signal });
+    const response = await fetch(url, { signal: abort.signal });
     if (!response.ok || !response.body) {
       throw new Error(`Could not download the tunnel client (HTTP ${response.status}).`);
     }
@@ -325,17 +343,27 @@ async function ensureCloudflared(binDir: string, onProgress: (message: string) =
       onProgress(`Downloading the tunnel client… ${percent}%`);
     });
 
-    await pipeline(source, createWriteStream(partial));
+    await pipeline(source, createWriteStream(downloaded));
     // A body that ends early still ends cleanly, so the length is the only
     // thing separating a whole binary from a half of one.
     if (total > 0 && received !== total) {
       throw new Error("The tunnel client download ended before it was complete.");
     }
     await rm(binary, { force: true });
-    await rename(partial, binary);
+    if (archive === "tgz") {
+      // macOS ships no raw binary, so extract straight into place with the
+      // system `tar` rather than adding a tar-parsing dependency.
+      await execFileAsync("tar", ["-xzf", downloaded, "-C", binDir, "cloudflared"]);
+      await rm(downloaded, { force: true });
+    } else {
+      await rename(downloaded, binary);
+    }
+    // Extracted and downloaded files do not carry the executable bit; Windows
+    // has no such concept, so this is a no-op there.
+    if (process.platform !== "win32") await chmod(binary, 0o755);
     return binary;
   } catch (error) {
-    await rm(partial, { force: true }).catch(() => {});
+    await rm(downloaded, { force: true }).catch(() => {});
     if (abort.signal.aborted) {
       throw new Error("The tunnel client download stopped responding. Check this computer's connection and try again.");
     }
