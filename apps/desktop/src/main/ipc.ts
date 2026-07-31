@@ -13,7 +13,7 @@ import { getRepoHostContext } from "./repoHost.ts";
 import { repoHostContextSchema } from "../shared/repo-host-types.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
 import { listSkills } from "./skills.ts";
-import { listProjectFiles } from "./files.ts";
+import { listExplorerFiles, listProjectFiles, readFilePreview } from "./files.ts";
 import { prepareImages } from "./images.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
 import { fileManagerName, listInstalledEditors, openFileIn, openProjectIn } from "./editors.ts";
@@ -379,6 +379,12 @@ const searchSessionsParamsSchema = z.object({
   projectDirs: z.array(z.string().min(1).max(32_767)).max(100),
   query: z.string().min(1).max(500),
 });
+const projectFileParamsSchema = z.object({ projectDir: z.string().min(1).max(32_767), path: z.string().min(1).max(32_767) });
+
+async function knownProject(projectDir: string): Promise<boolean> {
+  const project = resolve(projectDir);
+  return (await loadState()).projects.some((entry) => resolve(entry.path) === project);
+}
 const usageDashboardParamsSchema = z.object({
   projects: z.array(z.object({ path: z.string().min(1).max(32_767), name: z.string().min(1).max(200) })).max(100),
 });
@@ -1069,6 +1075,20 @@ const handlers: HandlerMap = {
     } catch {
       return { files: [] };
     }
+  },
+  listExplorerFiles: async ({ projectDir }) => {
+    try {
+      if (!await knownProject(projectDir)) return { files: [] };
+      return { files: await listExplorerFiles(projectDir) };
+    } catch {
+      return { files: [] };
+    }
+  },
+  readFilePreview: async (params) => {
+    const { projectDir, path: file } = projectFileParamsSchema.parse(params);
+    if (!await knownProject(projectDir)) return { error: "That project is not available." };
+    const result = await readFilePreview(projectDir, file);
+    return "error" in result ? { error: result.error } : { preview: result };
   },
 
   listPackages: async ({ projectDir }) => {

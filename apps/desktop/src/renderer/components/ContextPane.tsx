@@ -25,6 +25,7 @@ import FileContextMenu from "./FileContextMenu.tsx";
 import { ExtensionPanels } from "./ExtensionSlots.tsx";
 import CommitDialog from "./CommitDialog.tsx";
 import RepoHostPanel from "./RepoHostPanel.tsx";
+import FileExplorer from "./FileExplorer.tsx";
 
 export default function ContextPane({ overlay = false, onClose }: { overlay?: boolean; onClose?: () => void }) {
   const git = useAppStore((s) => s.git);
@@ -36,13 +37,14 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const [selected, setSelected] = useState<GitChangedFile | null>(null);
   const [committing, setCommitting] = useState(false);
+  const [files, setFiles] = useState(false);
 
   useEffect(() => setSelected(null), [projectDir]);
 
   return (
     <aside className="context-pane flex h-full min-w-0 flex-col bg-sidebar text-sidebar-foreground">
       <div className={cn("flex h-12 shrink-0 items-center gap-1 pr-2 pl-3", !overlay && WINDOW_CONTROLS_CLEARANCE)}>
-        <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Changes</span>
+        <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{files ? "Files" : "Changes"}</span>
         <div className="flex-1" />
         <Button
           variant="ghost"
@@ -56,6 +58,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
         <Button variant="ghost" size="icon-sm" onClick={() => setCommitting(true)} disabled={!git?.isRepo} title="Commit changes" aria-label="Commit changes">
           <GitCommitIcon />
         </Button>
+        <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setFiles((open) => !open)}>{files ? "Changes" : "Files"}</Button>
         <Button
           variant="ghost"
           size="icon-sm"
@@ -68,6 +71,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {files ? (projectDir ? <FileExplorer projectDir={projectDir} /> : <p className="px-3 py-4 text-xs text-muted-foreground">No project is open.</p>) : <>
         {!git ? (
           <p className="px-3 py-4 text-xs text-muted-foreground">Loading…</p>
         ) : !git.isRepo ? (
@@ -145,6 +149,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
         )}
 
         <ExtensionPanels />
+        </>}
       </div>
       <CommitDialog projectDir={committing ? projectDir : null} onClose={() => setCommitting(false)} />
     </aside>
