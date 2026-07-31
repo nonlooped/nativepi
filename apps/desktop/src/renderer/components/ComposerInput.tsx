@@ -15,6 +15,7 @@ import { registerComposerInserter } from "../lib/composerInsert.ts";
 import { AutocompleteMenu, useComposerAutocomplete } from "./ComposerAutocomplete.tsx";
 import { cn } from "@/lib/utils.ts";
 import { rpc } from "@/lib/rpc.ts";
+import { useAppStore } from "../lib/store.ts";
 
 /**
  * The message field: prose with skill and file chips in it.
@@ -62,7 +63,7 @@ export default function ComposerInput({
     // the text — that is the point of `applyCompletion` — so the edit is asked
     // for rather than assumed. Everything else is inserted here.
     if (option.kind === "extension") {
-      void applyExtensionCompletion(element, projectPath, option, emit);
+      void applyExtensionCompletion(element, projectPath, useAppStore.getState().activeSessionFile, option, emit);
       return;
     }
     // A command stays editable text — the user types its arguments next — where
@@ -199,6 +200,7 @@ export default function ComposerInput({
 async function applyExtensionCompletion(
   element: HTMLElement,
   projectPath: string | null,
+  sessionFile: string | null,
   option: ExtensionCompletionOption,
   emit: () => void,
 ): Promise<void> {
@@ -211,6 +213,7 @@ async function applyExtensionCompletion(
   const reply = await rpc.request
     .tuiApply({
       projectDir: projectPath,
+      sessionFile,
       lines,
       cursorLine,
       cursorCol,

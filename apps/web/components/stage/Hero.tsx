@@ -1,14 +1,14 @@
 import { ArrowDownIcon, StarIcon } from "@phosphor-icons/react/dist/ssr";
 
 import { Button } from "@/components/site/Button";
-import { PiMark, WindowsMark } from "@/components/site/Marks";
+import { AppleMark, LinuxMark, PiMark, WindowsMark } from "@/components/site/Marks";
 import { site } from "@/lib/site";
 
 /**
  * The opening statement.
  *
  * The primary action is the repository, so it is the only filled button on the
- * page. The Windows and unsigned-installer costs are stated here rather than
+ * page. The platform and unsigned-installer costs are stated here rather than
  * discovered later, which is Product Principle 2 applied to the first viewport.
  */
 export function Hero() {
@@ -26,7 +26,7 @@ export function Hero() {
       </h1>
 
       <p className="lede mx-auto mt-6 max-w-xl text-balance">
-        A free, open source Windows app for the Pi coding agent. Same sessions,
+        A free, open source app for the Pi coding agent. Same sessions,
         same logins, same files.
       </p>
 
@@ -37,13 +37,15 @@ export function Hero() {
         </Button>
         <Button href={site.releasesLatest} variant="outline">
           <WindowsMark className="size-4" />
-          Download for Windows
+          <AppleMark className="size-4" />
+          <LinuxMark className="size-4" />
+          Download
         </Button>
       </div>
 
       {/* A caveat, not marginalia. It gets a readable tone. */}
       <p className="mt-4 text-xs text-silver">
-        MIT licensed. Windows only. Unsigned, so SmartScreen warns once.
+        MIT licensed. Windows, macOS, and Linux. Unsigned, so your OS warns once.
       </p>
     </div>
   );

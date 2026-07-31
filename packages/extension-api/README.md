@@ -1,8 +1,8 @@
 # @nativepi/extension-api
 
 Types and helpers for building graphical extensions for
-[NativePi](https://github.com/nonlooped/nativepi), a Windows desktop interface
-for the Pi coding agent.
+[NativePi](https://github.com/nonlooped/nativepi), a desktop interface for the
+Pi coding agent, for Windows, macOS, and Linux.
 
 Normal Pi extensions run inside Pi, unchanged. This package is only needed when
 an extension wants to contribute to the NativePi desktop surface.

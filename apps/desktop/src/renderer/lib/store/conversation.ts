@@ -9,12 +9,14 @@ import type { AppState, Conversation, SetState } from "./types.ts";
  */
 export function emptyConversation(): Conversation {
   return {
+    projectDir: null,
     sessionFile: null,
     sessionName: undefined,
     entries: [],
     streaming: null,
     running: false,
     runStartedAt: null,
+    runEntryStart: null,
     compacting: false,
     retry: null,
     pending: [],
@@ -31,8 +33,8 @@ export function emptyConversation(): Conversation {
  */
 const EMPTY_CONVERSATION: Conversation = Object.freeze(emptyConversation());
 
-export function conversationFor(s: AppState, projectPath: string | null): Conversation {
-  return (projectPath ? s.conversations[projectPath] : undefined) ?? EMPTY_CONVERSATION;
+export function conversationFor(s: AppState, projectPath: string | null, sessionFile: string | null = s.activeSessionFile): Conversation {
+  return (projectPath ? s.conversations[sessionFile ?? projectPath] : undefined) ?? EMPTY_CONVERSATION;
 }
 
 /** The conversation the UI is looking at. Components select through this. */
@@ -44,11 +46,13 @@ export function activeConversation(s: AppState): Conversation {
 export function patchConversation(
   set: SetState,
   projectDir: string,
+  sessionFile: string | null,
   patch: Partial<Conversation> | ((c: Conversation) => Partial<Conversation>),
 ): void {
   set((s) => {
-    const current = s.conversations[projectDir] ?? emptyConversation();
+    const key = sessionFile ?? projectDir;
+    const current = s.conversations[key] ?? emptyConversation();
     const resolved = typeof patch === "function" ? patch(current) : patch;
-    return { conversations: { ...s.conversations, [projectDir]: { ...current, ...resolved } } };
+    return { conversations: { ...s.conversations, [key]: { ...current, ...resolved } } };
   });
 }

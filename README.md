@@ -4,12 +4,12 @@
 
 <p align="center">
   <strong>Pi, at home on your desktop.</strong><br>
-  A free, open-source Windows desktop interface for the <a href="https://pi.dev/">Pi coding agent</a>.
+  A free, open-source desktop interface for the <a href="https://pi.dev/">Pi coding agent</a>, for Windows, macOS, and Linux.
 </p>
 
 <p align="center">
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="Platform: Windows" src="https://img.shields.io/badge/platform-Windows-0078D4.svg">
+  <img alt="Platform: Windows, macOS, Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078D4.svg">
   <img alt="Built with Electron + React" src="https://img.shields.io/badge/built%20with-Electron%20%2B%20React%2019-47848F.svg">
 </p>
 
@@ -63,9 +63,11 @@ storage, their own login. NativePi takes the opposite approach.
 
 ## Install
 
-Download the latest Windows installer from
-[GitHub Releases](https://github.com/nonlooped/nativepi/releases). Releases are
-currently unsigned, so Windows SmartScreen will warn on first launch.
+Download the latest installer for your platform from
+[GitHub Releases](https://github.com/nonlooped/nativepi/releases): an `.exe`
+for Windows, a `.dmg` for macOS, or an `.AppImage` for Linux. Releases are
+currently unsigned (and, on macOS, not notarized), so Windows SmartScreen and
+macOS Gatekeeper will warn on first launch.
 
 NativePi bundles Pi. A separate Pi installation is not required, and existing
 Pi credentials, configuration, and sessions in `~/.pi/agent` are reused.
@@ -97,6 +99,8 @@ cd apps/desktop && bun test   # run the test suite
 cd ../.. && bun run build     # build the app
 bun run pack                  # package without installer
 bun run dist:win              # build the Windows installer
+bun run dist:mac              # build the macOS installer
+bun run dist:linux            # build the Linux installer
 ```
 
 ## Architecture

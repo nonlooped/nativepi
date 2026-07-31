@@ -62,9 +62,10 @@ export function useComposerAutocomplete(
   const [dismissed, setDismissed] = useState<number | null>(null);
   // The characters an extension asked for, and the line it needs to answer about.
   const extensionTriggers = useAppStore((s) => s.extTriggers);
+  const sessionFile = useAppStore((s) => s.activeSessionFile);
   const [line, setLine] = useState<{ text: string; caret: number } | null>(null);
   const { commands, skills, files, loading } = useCompletionData(projectPath, trigger?.kind ?? null);
-  const extension = useExtensionCompletions(projectPath, trigger?.kind === "extension" ? line : null);
+  const extension = useExtensionCompletions(projectPath, sessionFile, trigger?.kind === "extension" ? line : null);
 
   const open = trigger !== null && dismissed !== trigger.start;
   const options = !open
@@ -234,7 +235,7 @@ function useCompletionData(projectPath: string | null, kind: TriggerKind | null)
  * composer's own triggers carry on working, which is what happens in the
  * terminal too when a provider declines to answer.
  */
-function useExtensionCompletions(projectPath: string | null, line: { text: string; caret: number } | null) {
+function useExtensionCompletions(projectPath: string | null, sessionFile: string | null, line: { text: string; caret: number } | null) {
   const [state, setState] = useState<{ options: ExtensionCompletionOption[]; loading: boolean }>(NO_EXTENSION_OPTIONS);
 
   useEffect(() => {
@@ -247,7 +248,7 @@ function useExtensionCompletions(projectPath: string | null, line: { text: strin
     const timer = window.setTimeout(() => {
       const { lines, cursorLine, cursorCol } = linesAt(line.text, line.caret);
       void rpc.request
-        .tuiComplete({ projectDir: projectPath, lines, cursorLine, cursorCol })
+        .tuiComplete({ projectDir: projectPath, sessionFile, lines, cursorLine, cursorCol })
         .then(({ completions }) => {
           if (cancelled) return;
           setState({
@@ -271,7 +272,7 @@ function useExtensionCompletions(projectPath: string | null, line: { text: strin
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [line, projectPath]);
+  }, [line, projectPath, sessionFile]);
 
   return state;
 }

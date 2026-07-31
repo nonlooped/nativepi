@@ -41,8 +41,8 @@ export function Footer() {
           <div>
             <Wordmark className="h-6" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-silver">
-              A Windows desktop interface for the Pi coding agent. Free, open
-              source, and local to your machine.
+              A desktop interface for the Pi coding agent. Free, open source,
+              and local to your machine.
             </p>
             <div className="mt-6 flex items-center gap-3">
               <a

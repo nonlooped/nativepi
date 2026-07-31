@@ -3,6 +3,7 @@ import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
 import { GitBranchIcon } from "@phosphor-icons/react/GitBranch";
+import { GitCommitIcon } from "@phosphor-icons/react/GitCommit";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import type { GitChangedFile } from "../../shared/pi-types.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
@@ -22,6 +23,9 @@ import DiffView from "./DiffView.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 import FileContextMenu from "./FileContextMenu.tsx";
 import { ExtensionPanels } from "./ExtensionSlots.tsx";
+import CommitDialog from "./CommitDialog.tsx";
+import RepoHostPanel from "./RepoHostPanel.tsx";
+import FileExplorer from "./FileExplorer.tsx";
 
 export default function ContextPane({ overlay = false, onClose }: { overlay?: boolean; onClose?: () => void }) {
   const git = useAppStore((s) => s.git);
@@ -30,14 +34,17 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const running = useAppStore((s) => activeConversation(s).running);
+  const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const [selected, setSelected] = useState<GitChangedFile | null>(null);
+  const [committing, setCommitting] = useState(false);
+  const [files, setFiles] = useState(false);
 
   useEffect(() => setSelected(null), [projectDir]);
 
   return (
     <aside className="context-pane flex h-full min-w-0 flex-col bg-sidebar text-sidebar-foreground">
       <div className={cn("flex h-12 shrink-0 items-center gap-1 pr-2 pl-3", !overlay && WINDOW_CONTROLS_CLEARANCE)}>
-        <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Changes</span>
+        <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{files ? "Files" : "Changes"}</span>
         <div className="flex-1" />
         <Button
           variant="ghost"
@@ -48,11 +55,15 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
         >
           <ArrowClockwiseIcon />
         </Button>
+        <Button variant="ghost" size="icon-sm" onClick={() => setCommitting(true)} disabled={!git?.isRepo} title="Commit changes" aria-label="Commit changes">
+          <GitCommitIcon />
+        </Button>
+        <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setFiles((open) => !open)}>{files ? "Changes" : "Files"}</Button>
         <Button
           variant="ghost"
           size="icon-sm"
           onClick={onClose ?? toggleContextPane}
-          title={withHint("Hide changes pane", "toggleContextPane")}
+          title={withHint("Hide changes pane", "toggleContextPane", keybindingOverrides)}
           aria-label="Hide changes pane"
         >
           <SidebarSimpleIcon className="-scale-x-100" />
@@ -60,6 +71,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {files ? (projectDir ? <FileExplorer projectDir={projectDir} /> : <p className="px-3 py-4 text-xs text-muted-foreground">No project is open.</p>) : <>
         {!git ? (
           <p className="px-3 py-4 text-xs text-muted-foreground">Loading…</p>
         ) : !git.isRepo ? (
@@ -93,6 +105,8 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
                 <ContextMenuItem onClick={() => void refreshGit()}>Refresh status</ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
+
+            <RepoHostPanel />
 
             {git.files.length === 0 ? (
               <p className="px-3 py-4 text-xs text-muted-foreground">Working tree clean.</p>
@@ -135,7 +149,9 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
         )}
 
         <ExtensionPanels />
+        </>}
       </div>
+      <CommitDialog projectDir={committing ? projectDir : null} onClose={() => setCommitting(false)} />
     </aside>
   );
 }
@@ -165,8 +181,47 @@ function FileDiff({ file, projectDir }: { file: GitChangedFile; projectDir: stri
       ) : patch === null ? (
         <p className="px-3 py-2 text-xs text-muted-foreground">Loading diff…</p>
       ) : (
-        <DiffView patch={patch} />
+        <>
+          {file.unstaged ? <HunkActions projectDir={projectDir} file={file} /> : null}
+          <DiffView patch={patch} />
+        </>
       )}
+    </div>
+  );
+}
+
+function HunkActions({ projectDir, file }: { projectDir: string; file: GitChangedFile }) {
+  const refreshGit = useAppStore((s) => s.refreshGit);
+  const { data, loading, error } = useRequest(
+    () => rpc.request.gitHunks({ projectDir, file: file.path, untracked: file.state === "untracked" }),
+    [projectDir, file.path, file.state],
+  );
+  const [busy, setBusy] = useState<number | null>(null);
+  if (loading || error || !data) return null;
+  async function stage(patch: string, index: number) {
+    setBusy(index);
+    const result = await rpc.request.gitStageHunk({ projectDir, file: file.path, untracked: file.state === "untracked", patch });
+    setBusy(null);
+    if (result.ok) await refreshGit();
+  }
+  async function stageFile() {
+    setBusy(-1);
+    const result = await rpc.request.gitStageFile({ projectDir, file: file.path });
+    setBusy(null);
+    if (result.ok) await refreshGit();
+  }
+  return (
+    <div className="flex flex-col gap-1 border-b px-2 py-2">
+      {data.hunks.length === 0 ? (
+        <Button size="sm" variant="ghost" className="justify-start" disabled={busy !== null} onClick={() => void stageFile()}>
+          {busy === -1 ? "Staging…" : "Stage file"}
+        </Button>
+      ) : data.hunks.map((hunk, index) => (
+        <Button key={hunk.patch} size="sm" variant="ghost" className="justify-start" disabled={busy !== null} onClick={() => void stage(hunk.patch, index)}>
+          {busy === index ? "Staging…" : `Stage hunk ${index + 1}`}
+          <span className="ml-auto truncate font-mono text-xs text-muted-foreground">{hunk.header}</span>
+        </Button>
+      ))}
     </div>
   );
 }

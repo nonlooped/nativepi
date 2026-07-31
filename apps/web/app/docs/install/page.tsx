@@ -7,7 +7,7 @@ import { site } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Install and first run",
   description:
-    "Download NativePi, get past the SmartScreen warning, open your first project, and sign in to a provider.",
+    "Download NativePi for Windows, macOS, or Linux, get past your OS's unsigned-app warning, open your first project, and sign in to a provider.",
 };
 
 export default function InstallPage() {
@@ -16,15 +16,15 @@ export default function InstallPage() {
       <PageTitle
         eyebrow="Getting started"
         title="Install and first run"
-        lede="NativePi is a Windows desktop application distributed through GitHub Releases. It bundles Pi, so this is the only thing you need to install."
+        lede="NativePi is a Windows, macOS, or Linux desktop application distributed through GitHub Releases. It bundles Pi, so this is the only thing you need to install."
       />
 
       <H2 id="requirements">Requirements</H2>
       <Prose>
         <ul>
           <li>
-            <strong>Windows.</strong> The host is currently Windows only. There
-            is no macOS or Linux build.
+            <strong>Windows, macOS, or Linux.</strong> Windows ships an NSIS
+            installer, macOS a DMG, and Linux an AppImage.
           </li>
           <li>
             <strong>Nothing else.</strong> A pinned build of Pi ships inside the
@@ -38,22 +38,28 @@ export default function InstallPage() {
       <H2 id="download">Download</H2>
       <Prose>
         <p>
-          Grab the latest installer from{" "}
+          Grab the installer for your platform from{" "}
           <a href={site.releases} target="_blank" rel="noreferrer noopener">
             GitHub Releases
           </a>
-          . Run it and pick an installation directory when prompted.
+          : a <code>.exe</code> for Windows, a <code>.dmg</code> for macOS, or
+          an <code>.AppImage</code> for Linux. On Windows, run the installer and
+          pick an installation directory. On macOS, open the disk image and drag
+          NativePi to Applications. On Linux, make the AppImage executable and run it.
         </p>
       </Prose>
 
       <Note tone="warning">
         <strong className="font-semibold text-chalk">
-          Windows will warn you on first launch.
+          Your OS will warn you on first launch.
         </strong>{" "}
-        Releases are not code signed yet, so SmartScreen shows an
-        &ldquo;unrecognized app&rdquo; dialog. Choose <em>More info</em>, then{" "}
-        <em>Run anyway</em>. If you would rather not click through that, build
-        from source instead.
+        Releases are not code signed or notarized yet. Windows SmartScreen shows
+        an &ldquo;unrecognized app&rdquo; dialog — choose <em>More info</em>,
+        then <em>Run anyway</em>. macOS Gatekeeper blocks the app outright the
+        first time — open <em>System Settings &gt; Privacy &amp; Security</em>{" "}
+        and choose <em>Open Anyway</em>. Linux AppImages need their executable
+        bit set (<code>chmod +x</code>) before they will run at all. If you
+        would rather not do any of that, build from source instead.
       </Note>
 
       <H2 id="first-run">First run</H2>
@@ -114,7 +120,9 @@ bun run dev`}
           code={`cd apps/desktop && bun test   # run the test suite
 cd ../.. && bun run build     # build the app
 bun run pack                  # package without an installer
-bun run dist:win              # build the Windows installer`}
+bun run dist:win              # build the Windows installer
+bun run dist:mac              # build the macOS installer
+bun run dist:linux            # build the Linux installer`}
         />
       </div>
 
@@ -129,10 +137,13 @@ bun run dist:win              # build the Windows installer`}
       <H2 id="uninstalling">Uninstalling</H2>
       <Prose>
         <p>
-          Remove it like any other Windows application. Nothing of yours goes
-          with it: your sessions, credentials, packages, and settings are
-          Pi&apos;s and stay in <code>~/.pi/agent</code>, ready for the Pi
-          command line or a future install.
+          Remove it like any other application for your platform: through
+          Windows&apos; &ldquo;Add or remove programs,&rdquo; by dragging it out
+          of <code>/Applications</code> on macOS, or by deleting the AppImage on
+          Linux. Nothing of yours goes with it: your sessions, credentials,
+          packages, and settings are Pi&apos;s and stay in{" "}
+          <code>~/.pi/agent</code>, ready for the Pi command line or a future
+          install.
         </p>
       </Prose>
     </>

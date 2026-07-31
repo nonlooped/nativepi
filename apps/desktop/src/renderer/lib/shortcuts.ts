@@ -114,8 +114,70 @@ export const SHORTCUTS: ShortcutDef[] = [
 
 const BY_ID = new Map(SHORTCUTS.map((shortcut) => [shortcut.id, shortcut]));
 
-export function bindingFor(id: ShortcutId): string {
+/** A user's rebindings, keyed by shortcut id. An empty string means "disabled". */
+export type KeybindingOverrides = Partial<Record<ShortcutId, string>>;
+
+export function defaultBindingFor(id: ShortcutId): string {
   return BY_ID.get(id)?.binding ?? "";
+}
+
+/** The binding actually in effect: the user's override if they set one, else the default. */
+export function bindingFor(id: ShortcutId, overrides: KeybindingOverrides = {}): string {
+  const override = overrides[id];
+  return override !== undefined ? override : defaultBindingFor(id);
+}
+
+export function isCustomized(id: ShortcutId, overrides: KeybindingOverrides = {}): boolean {
+  return overrides[id] !== undefined;
+}
+
+/** Drop entries for ids the current registry no longer declares. */
+export function sanitizeOverrides(raw: Record<string, string>): KeybindingOverrides {
+  const overrides: KeybindingOverrides = {};
+  for (const shortcut of SHORTCUTS) {
+    const value = raw[shortcut.id];
+    if (typeof value === "string") overrides[shortcut.id] = value;
+  }
+  return overrides;
+}
+
+/** The other shortcut currently holding this binding, if any. */
+export function conflictFor(
+  id: ShortcutId,
+  binding: string,
+  overrides: KeybindingOverrides = {},
+): ShortcutId | undefined {
+  if (!binding) return undefined;
+  return SHORTCUTS.find((shortcut) => shortcut.id !== id && bindingFor(shortcut.id, overrides) === binding)?.id;
+}
+
+const MODIFIER_CODES = new Set([
+  "ControlLeft",
+  "ControlRight",
+  "ShiftLeft",
+  "ShiftRight",
+  "AltLeft",
+  "AltRight",
+  "MetaLeft",
+  "MetaRight",
+]);
+
+/**
+ * Turn a captured keydown into a tinykeys binding string, or `null` if the key
+ * pressed was only a modifier (nothing to bind yet).
+ *
+ * `$mod` covers Ctrl and Cmd. On Windows, Meta is the Windows key and must stay
+ * distinct so recording it produces a shortcut that can actually fire.
+ */
+export function parseKeyEvent(event: KeyboardEvent): string | null {
+  if (MODIFIER_CODES.has(event.code)) return null;
+  const parts: string[] = [];
+  if (event.ctrlKey) parts.push("$mod");
+  if (event.metaKey) parts.push(IS_MAC ? "$mod" : "Meta");
+  if (event.altKey) parts.push("Alt");
+  if (event.shiftKey) parts.push("Shift");
+  parts.push(event.code);
+  return parts.join("+");
 }
 
 /**
@@ -148,14 +210,14 @@ function partLabel(part: string): string {
 }
 
 /** The combo as a person reads it, derived from the binding rather than restated. */
-export function hintFor(id: ShortcutId): string {
-  const binding = bindingFor(id);
+export function hintFor(id: ShortcutId, overrides: KeybindingOverrides = {}): string {
+  const binding = bindingFor(id, overrides);
   if (!binding) return "";
   return binding.split("+").map(partLabel).join("+");
 }
 
-export function withHint(text: string, id: ShortcutId): string {
-  const combo = hintFor(id);
+export function withHint(text: string, id: ShortcutId, overrides: KeybindingOverrides = {}): string {
+  const combo = hintFor(id, overrides);
   return combo ? `${text} (${combo})` : text;
 }
 
@@ -175,10 +237,13 @@ export type ShortcutHandlers = Partial<Record<ShortcutId, (event: KeyboardEvent)
  * Call sites name the shortcut they mean rather than restating its keys, so a
  * rebinding happens in the registry above and nowhere else.
  */
-export function bindings(handlers: ShortcutHandlers): Record<string, (event: KeyboardEvent) => void> {
+export function bindings(
+  handlers: ShortcutHandlers,
+  overrides: KeybindingOverrides = {},
+): Record<string, (event: KeyboardEvent) => void> {
   const map: Record<string, (event: KeyboardEvent) => void> = {};
   for (const [id, handler] of Object.entries(handlers) as [ShortcutId, (event: KeyboardEvent) => void][]) {
-    const binding = bindingFor(id);
+    const binding = bindingFor(id, overrides);
     if (binding) map[binding] = handler;
   }
   return map;

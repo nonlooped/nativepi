@@ -205,9 +205,9 @@ to Muted Silver rather than well below it. A prettier hierarchy here costs the
 people who need the contrast, and the step is small on purpose.
 
 **The Caveats-Are-Not-Marginalia Rule.** Text a visitor needs in order to decide
-never uses Dim Silver. The Windows-only note, the unsigned-installer warning,
-the experimental-API note, and the provider disclaimer are Muted Silver or
-above. They are the least decorative copy on the site.
+never uses Dim Silver. The platform-and-signing note, the experimental-API
+note, and the provider disclaimer are Muted Silver or above. They are the
+least decorative copy on the site.
 
 ### Named Rules
 
@@ -397,8 +397,8 @@ follow the reader into the docs. Only the wordmark does.
   page. It is the one structural commitment the design has.
 - **Do** show the interface as a screenshot of the running app, replaced when
   the app changes rather than touched up.
-- **Do** state the costs plainly: Windows only, unsigned installer, experimental
-  extension API.
+- **Do** state the costs plainly: unsigned installers, experimental extension
+  API.
 - **Do** make every layer, label, and annotation survive with motion removed.
 - **Do** use Phosphor icons, matching the desktop app.
 

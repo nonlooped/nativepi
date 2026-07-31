@@ -125,6 +125,7 @@ jobs:
           "title=NativePi $version ($shortSha)" >> $env:GITHUB_OUTPUT
 
       - name: Publish GitHub Release
+        if: false
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.release.outputs.tag }}
@@ -134,6 +135,144 @@ jobs:
             apps/desktop/release/*.exe
             apps/desktop/release/*.blockmap
             apps/desktop/release/latest.yml
+          generate_release_notes: true
+          previous_tag: ${{ needs.release.outputs.previous_tag }}
+          draft: false
+          prerelease: ${{ contains(needs.release.outputs.tag, '-') }}
+
+  macos-installer:
+    name: Build macOS Installer & Publish
+    needs: release
+    if: needs.release.outputs.publish == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      # No Apple Developer ID configured; skip signing and notarization.
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          electron-cache: "true"
+
+      - name: Build macOS installer
+        run: bun run dist:mac --publish never
+        working-directory: apps/desktop
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: nativepi-macos-installer
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/latest-mac.yml
+          if-no-files-found: error
+
+      - name: Prepare release title
+        id: release
+        run: |
+          version="${{ needs.release.outputs.tag }}"
+          version="${version#v}"
+          short_sha="${{ needs.release.outputs.sha }}"
+          short_sha="${short_sha:0:12}"
+          echo "title=NativePi $version ($short_sha)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        if: false
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.release.outputs.tag }}
+          target_commitish: ${{ needs.release.outputs.sha }}
+          name: ${{ steps.release.outputs.title }}
+          files: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/latest-mac.yml
+          generate_release_notes: true
+          previous_tag: ${{ needs.release.outputs.previous_tag }}
+          draft: false
+          prerelease: ${{ contains(needs.release.outputs.tag, '-') }}
+
+  linux-installer:
+    name: Build Linux Installer & Publish
+    needs: release
+    if: needs.release.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          electron-cache: "true"
+
+      - name: Build Linux installer
+        run: bun run dist:linux --publish never
+        working-directory: apps/desktop
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: nativepi-linux-installer
+          path: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/latest-linux.yml
+          if-no-files-found: error
+
+      - name: Prepare release title
+        id: release
+        run: |
+          version="${{ needs.release.outputs.tag }}"
+          version="${version#v}"
+          short_sha="${{ needs.release.outputs.sha }}"
+          short_sha="${short_sha:0:12}"
+          echo "title=NativePi $version ($short_sha)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        if: false
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.release.outputs.tag }}
+          target_commitish: ${{ needs.release.outputs.sha }}
+          name: ${{ steps.release.outputs.title }}
+          files: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/latest-linux.yml
+          generate_release_notes: true
+          previous_tag: ${{ needs.release.outputs.previous_tag }}
+          draft: false
+          prerelease: ${{ contains(needs.release.outputs.tag, '-') }}
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [release, windows-installer, macos-installer, linux-installer]
+    if: needs.release.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: release
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.release.outputs.tag }}
+          target_commitish: ${{ needs.release.outputs.sha }}
+          name: NativePi ${{ needs.release.outputs.tag }}
+          files: release/*
           generate_release_notes: true
           previous_tag: ${{ needs.release.outputs.previous_tag }}
           draft: false

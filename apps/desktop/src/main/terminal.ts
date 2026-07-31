@@ -54,12 +54,20 @@ function resolveCandidate(candidate: { executable: string; paths: string[] }): s
 }
 
 export function listShellProfiles(): ShellProfile[] {
+  if (process.platform !== "win32") return [{ id: "default", name: process.env["SHELL"] || "Shell" }];
   return SHELL_CANDIDATES.filter((candidate) => resolveCandidate(candidate) !== undefined).map(
     ({ id, name }) => ({ id, name }),
   );
 }
 
 function resolveShell(shellId: string | undefined): { id: string; path: string; args: string[] } {
+  if (process.platform !== "win32") {
+    return {
+      id: "default",
+      path: process.env["SHELL"] || "/bin/bash",
+      args: process.platform === "darwin" ? ["-l"] : [],
+    };
+  }
   const candidate = SHELL_CANDIDATES.find((entry) => entry.id === shellId);
   const resolved = candidate ? resolveCandidate(candidate) : undefined;
   if (candidate && resolved) return { id: candidate.id, path: resolved, args: candidate.args };
