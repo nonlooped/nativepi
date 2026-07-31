@@ -585,6 +585,10 @@ const handlers: HandlerMap = {
   setModel: async ({ projectDir, sessionFile, provider, modelId }) => {
     try {
       const pi = await ensurePi(projectDir, sessionFile ?? undefined);
+      // Pi persists the model onto the session, and a request carries no event
+      // for `forwardEvent` to attribute the write by, so claim it here or the
+      // watcher reads our own mtime bump as a concurrent editor.
+      if (sessionFile) markBusy(sessionFile, Date.now() + SETTLE_GRACE_MS);
       await pi.request({ type: "set_model", provider, modelId });
       return { ok: true };
     } catch (err) {
@@ -595,6 +599,7 @@ const handlers: HandlerMap = {
   setThinkingLevel: async ({ projectDir, sessionFile, level }) => {
     try {
       const pi = await ensurePi(projectDir, sessionFile ?? undefined);
+      if (sessionFile) markBusy(sessionFile, Date.now() + SETTLE_GRACE_MS);
       await pi.request({ type: "set_thinking_level", level });
       return { ok: true };
     } catch (err) {
