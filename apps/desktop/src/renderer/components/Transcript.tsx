@@ -305,6 +305,7 @@ function RunStatusBar({
   const runStartedAt = useAppStore((s) => activeConversation(s).runStartedAt);
   const git = useAppStore((s) => s.git);
   const ui = useAppStore((s) => s.extUiState);
+  const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const elapsed = useElapsed(runStartedAt);
   const reduced = useReducedMotion();
   const changed = git?.isRepo ? git.files.length : 0;
@@ -366,7 +367,7 @@ function RunStatusBar({
           onAbort?.();
           abort();
         }}
-        title={withHint("Stop this turn", "stopTurn")}
+        title={withHint("Stop this turn", "stopTurn", keybindingOverrides)}
         className="ml-1 h-6 shrink-0 rounded-full px-2.5"
       >
         <StopIcon weight="fill" data-icon="inline-start" />

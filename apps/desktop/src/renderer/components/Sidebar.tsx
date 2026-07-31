@@ -13,7 +13,7 @@ import type { Project } from "../../shared/rpc-schema.ts";
 import type { SessionSummary } from "../../shared/pi-types.ts";
 import { useAppStore } from "../lib/store.ts";
 import { chatTitle } from "../lib/transcript.ts";
-import { hintFor, withHint } from "../lib/shortcuts.ts";
+import { hintFor, withHint, type KeybindingOverrides } from "../lib/shortcuts.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 import WorktreeDialog from "./WorktreeDialog.tsx";
 import SessionMenu from "./SessionMenu.tsx";
@@ -51,6 +51,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const openTerminal = useAppStore((s) => s.openTerminal);
   const editorId = useAppStore((s) => s.preferences.preferredEditorId);
   const searchFocusRequest = useAppStore((s) => s.searchFocusRequest);
+  const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [now, setNow] = useState(Date.now);
@@ -142,7 +143,9 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
             query ? "pr-3" : "pr-16",
           )}
         />
-        {query ? null : <Kbd className="pointer-events-none absolute right-5 top-4">{hintFor("search")}</Kbd>}
+        {query ? null : (
+          <Kbd className="pointer-events-none absolute right-5 top-4">{hintFor("search", keybindingOverrides)}</Kbd>
+        )}
       </div>
 
       <div className="flex items-center justify-between px-4 pb-2">
@@ -153,7 +156,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
               variant="ghost"
               size="icon-sm"
               onClick={() => void importSession().then(() => overlay && onClose())}
-              title={withHint("Import an existing chat", "importChat")}
+              title={withHint("Import an existing chat", "importChat", keybindingOverrides)}
               aria-label="Import an existing chat"
             >
               <UploadSimpleIcon />
@@ -231,7 +234,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                 title={
                   busy
                     ? "Stop the current run before starting a new chat"
-                    : withHint(`New chat in ${project.name}`, "newChat")
+                    : withHint(`New chat in ${project.name}`, "newChat", keybindingOverrides)
                 }
                 className={cn(HOVER_REVEAL, "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100")}
               >
@@ -284,7 +287,15 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                 </ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
-            {expandedProjects.has(project.path) ? <ChatList projectPath={project.path} query={query} now={now} onNavigate={overlay ? onClose : undefined} /> : null}
+            {expandedProjects.has(project.path) ? (
+              <ChatList
+                projectPath={project.path}
+                query={query}
+                now={now}
+                overrides={keybindingOverrides}
+                onNavigate={overlay ? onClose : undefined}
+              />
+            ) : null}
           </div>
           );
         })}
@@ -324,11 +335,13 @@ function ChatList({
   projectPath,
   query,
   now,
+  overrides,
   onNavigate,
 }: {
   projectPath: string;
   query: string;
   now: number;
+  overrides: KeybindingOverrides;
   onNavigate?: () => void;
 }) {
   const sessions = useAppStore((s) => s.sessionsByProject[projectPath] ?? EMPTY);
@@ -404,7 +417,7 @@ function ChatList({
       ))}
       {sessions.length === 0 && !isNewChat && (
         <p className="px-2.5 py-1.5 text-xs text-muted-foreground">
-          No chats yet — press {hintFor("newChat")} to start one
+          No chats yet — press {hintFor("newChat", overrides)} to start one
         </p>
       )}
       {sessions.length > 0 && visibleCount === 0 && (

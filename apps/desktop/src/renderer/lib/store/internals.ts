@@ -94,6 +94,7 @@ export function persist(get: GetState): void {
       },
       reopenLastProject: s.reopenLastProject,
       preferences: s.preferences,
+      keybindingOverrides: s.keybindingOverrides,
     };
     void rpc.request.saveState({ state });
   }, 250);
