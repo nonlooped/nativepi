@@ -175,6 +175,12 @@ export interface UsageDashboard {
   models: { name: string; cost: number }[];
 }
 
+/** Pi's latest read-only context-window measurement. */
+export interface ContextInspector {
+  usedTokens: number | null;
+  contextWindow: number;
+}
+
 export interface SessionSummary {
   path: string;
   id: string;
@@ -200,6 +206,7 @@ export interface GitChangedFile {
   path: string;
   state: "modified" | "added" | "deleted" | "renamed" | "untracked";
   staged: boolean;
+  unstaged: boolean;
 }
 export interface GitStatus {
   isRepo: boolean;
@@ -209,6 +216,10 @@ export interface GitStatus {
 }
 export interface GitDiff {
   path: string;
+  patch: string;
+}
+export interface GitHunk {
+  header: string;
   patch: string;
 }
 export interface GitBranch {

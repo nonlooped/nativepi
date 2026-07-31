@@ -7,6 +7,7 @@ import type {
   ForkPoint,
   GitBranch,
   GitDiff,
+  GitHunk,
   GitStatus,
   GraphicalExtension,
   ImageContent,
@@ -16,6 +17,7 @@ import type {
   ResolvedExtension,
   RpcSessionState,
   SessionStats,
+  ContextInspector,
   SessionSearchResult,
   SessionSummary,
   SessionTreeNode,
@@ -259,6 +261,10 @@ export const nativePiStateSchema = z.object({
   panes: paneStateSchema.optional().catch(undefined),
   reopenLastProject: z.boolean().catch(true),
   preferences: preferencesSchema.catch(DEFAULT_PREFERENCES),
+  // Kept as a loose string record here: the shortcut registry itself is a
+  // renderer-only concept, and the renderer filters this down to known ids and
+  // valid bindings on load.
+  keybindingOverrides: z.record(z.string(), z.string()).catch({}),
 });
 
 export type NativePiState = z.infer<typeof nativePiStateSchema>;
@@ -299,7 +305,7 @@ export type HostRequests = {
     response: { ok: boolean; sessionFile?: string; error?: string };
   };
   enqueue: {
-    params: { projectDir: string; behavior: "steer" | "followUp"; message: string; images?: ImageContent[] };
+    params: { projectDir: string; sessionFile: string; behavior: "steer" | "followUp"; message: string; images?: ImageContent[] };
     response: { ok: boolean; error?: string };
   };
   /** Resize dropped, pasted or picked images through Pi before they wait in the composer. */
@@ -307,19 +313,19 @@ export type HostRequests = {
     params: { files: { name: string; mimeType: string; data: string }[] };
     response: { images: ImageAttachment[]; rejected: string[] };
   };
-  abort: { params: { projectDir: string }; response: { ok: boolean } };
-  getModels: { params: { projectDir: string }; response: { models: ModelInfo[]; error?: string } };
-  getState: { params: { projectDir: string }; response: { state?: RpcSessionState; error?: string } };
+  abort: { params: { projectDir: string; sessionFile: string }; response: { ok: boolean } };
+  getModels: { params: { projectDir: string; sessionFile?: string | null }; response: { models: ModelInfo[]; error?: string } };
+  getState: { params: { projectDir: string; sessionFile?: string | null }; response: { state?: RpcSessionState; error?: string } };
   getThinkingLevels: {
-    params: { projectDir: string };
+    params: { projectDir: string; sessionFile?: string | null };
     response: { levels: ThinkingLevel[]; error?: string };
   };
   setModel: {
-    params: { projectDir: string; provider: string; modelId: string };
+    params: { projectDir: string; sessionFile?: string | null; provider: string; modelId: string };
     response: { ok: boolean; error?: string };
   };
   setThinkingLevel: {
-    params: { projectDir: string; level: ThinkingLevel };
+    params: { projectDir: string; sessionFile?: string | null; level: ThinkingLevel };
     response: { ok: boolean; error?: string };
   };
   renameChat: {
@@ -366,11 +372,16 @@ export type HostRequests = {
     params: { projects: Project[] };
     response: { dashboard?: UsageDashboard; error?: string };
   };
+
+  getContextInspector: {
+    params: { projectDir: string; sessionFile?: string };
+    response: { inspector?: ContextInspector; error?: string };
+  };
   compact: {
     params: { projectDir: string; sessionFile: string };
     response: { ok: boolean; error?: string };
   };
-  abortRetry: { params: { projectDir: string }; response: { ok: boolean } };
+  abortRetry: { params: { projectDir: string; sessionFile: string }; response: { ok: boolean } };
   exportHtml: {
     params: { projectDir: string; sessionFile: string };
     response: { ok: boolean; path?: string; error?: string };
@@ -382,7 +393,7 @@ export type HostRequests = {
    * extension `activate()` and so the only one that knows about providers an
    * extension registered (e.g. `context.registerProvider()`).
    */
-  getSessionProviders: { params: { projectDir: string }; response: { providers: AuthProviderInfo[]; error?: string } };
+  getSessionProviders: { params: { projectDir: string; sessionFile?: string | null }; response: { providers: AuthProviderInfo[]; error?: string } };
   login: {
     params: { projectDir?: string; providerId: string; type: "api_key" | "oauth" };
     response: { ok: boolean; error?: string };
@@ -468,6 +479,14 @@ export type HostRequests = {
     params: { projectDir: string; file: string; untracked: boolean };
     response: { diff: GitDiff };
   };
+  gitHunks: { params: { projectDir: string; file: string; untracked: boolean }; response: { hunks: GitHunk[] } };
+  gitStageHunk: { params: { projectDir: string; file: string; untracked: boolean; patch: string }; response: { ok: boolean; error?: string } };
+  gitStageFile: { params: { projectDir: string; file: string }; response: { ok: boolean; error?: string } };
+  gitCommit: { params: { projectDir: string; message: string }; response: { ok: boolean; error?: string } };
+  gitPushAndCreatePr: {
+    params: { projectDir: string; title: string; body: string };
+    response: { ok: boolean; url?: string; error?: string };
+  };
   gitBranches: { params: { projectDir: string }; response: { branches: GitBranch[] } };
   gitCheckout: {
     params: { projectDir: string; branch: string; create: boolean };
@@ -509,21 +528,22 @@ export type HostRequests = {
     response: { extensions: GraphicalExtension[] };
   };
   extensionRespond: {
-    params: { projectDir: string; response: ExtensionUiResponse };
+    params: { projectDir: string; sessionFile?: string | null; response: ExtensionUiResponse };
     response: { ok: boolean };
   };
 
   /** A keystroke, a size, or the composer state a pi-tui surface is waiting on. */
-  tuiSend: { params: { projectDir: string; frame: TuiClientFrame }; response: { ok: boolean } };
+  tuiSend: { params: { projectDir: string; sessionFile?: string | null; frame: TuiClientFrame }; response: { ok: boolean } };
   /** What an extension's autocomplete provider offers for the text being typed. */
   tuiComplete: {
-    params: { projectDir: string; lines: string[]; cursorLine: number; cursorCol: number };
+    params: { projectDir: string; sessionFile?: string | null; lines: string[]; cursorLine: number; cursorCol: number };
     response: { completions: TuiCompletions | null; error?: string };
   };
   /** What accepting one of those completions does to the text. */
   tuiApply: {
     params: {
       projectDir: string;
+      sessionFile?: string | null;
       lines: string[];
       cursorLine: number;
       cursorCol: number;
@@ -549,7 +569,7 @@ export type HostEvents = {
   terminalData: { projectDir: string; terminalId: string; data: string; sequence: number };
   terminalExit: { projectDir: string; terminalId: string; exitCode: number };
   /** A pi-tui surface opening, drawing, closing, or reporting extension UI state. */
-  tuiFrame: { projectDir: string; frame: TuiHostFrame };
+  tuiFrame: { projectDir: string; sessionFile?: string; frame: TuiHostFrame };
 };
 
 export type HostRequestName = keyof HostRequests;

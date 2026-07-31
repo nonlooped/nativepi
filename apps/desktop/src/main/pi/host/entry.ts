@@ -4,6 +4,7 @@ import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { isTuiFrameType, type TuiClientFrame, type TuiHostFrame } from "../../../shared/tui-frames.ts";
 import { toNotice, toPromptRequest } from "../../../shared/providerAuth.ts";
 import { shapeProviders } from "../../../shared/providerShape.ts";
+import type { ContextInspector } from "../../../shared/pi-types.ts";
 import { hostInternals, withTerminalUi, type HostInternals } from "./uiContext.ts";
 
 /**
@@ -91,6 +92,10 @@ function handleClientFrame(frame: TuiClientFrame): void {
     void respondProviders(frame.requestId);
     return;
   }
+  if (frame.type === "nativepi_tui_get_context_inspector") {
+    void respondContextInspector(frame.requestId);
+    return;
+  }
   if (frame.type === "nativepi_tui_login") {
     void respondLogin(frame.requestId, frame.providerId, frame.authType);
     return;
@@ -100,6 +105,21 @@ function handleClientFrame(frame: TuiClientFrame): void {
     return;
   }
   internals?.handle(frame);
+}
+
+async function respondContextInspector(requestId: string): Promise<void> {
+  try {
+    if (!currentSession) throw new Error("No active Pi session");
+    const session = currentSession;
+    const usage = session.getContextUsage();
+    const inspector: ContextInspector = {
+      usedTokens: usage?.tokens ?? null,
+      contextWindow: usage?.contextWindow ?? session.model?.contextWindow ?? 0,
+    };
+    send({ type: "nativepi_tui_reply", requestId, data: inspector });
+  } catch (err) {
+    send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
+  }
 }
 
 async function respondProviders(requestId: string): Promise<void> {
