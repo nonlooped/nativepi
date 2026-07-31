@@ -7,6 +7,7 @@ import type {
   ForkPoint,
   GitBranch,
   GitDiff,
+  GitHunk,
   GitStatus,
   GraphicalExtension,
   ImageContent,
@@ -471,6 +472,14 @@ export type HostRequests = {
   gitDiff: {
     params: { projectDir: string; file: string; untracked: boolean };
     response: { diff: GitDiff };
+  };
+  gitHunks: { params: { projectDir: string; file: string; untracked: boolean }; response: { hunks: GitHunk[] } };
+  gitStageHunk: { params: { projectDir: string; file: string; untracked: boolean; patch: string }; response: { ok: boolean; error?: string } };
+  gitStageFile: { params: { projectDir: string; file: string }; response: { ok: boolean; error?: string } };
+  gitCommit: { params: { projectDir: string; message: string }; response: { ok: boolean; error?: string } };
+  gitPushAndCreatePr: {
+    params: { projectDir: string; title: string; body: string };
+    response: { ok: boolean; url?: string; error?: string };
   };
   gitBranches: { params: { projectDir: string }; response: { branches: GitBranch[] } };
   gitCheckout: {

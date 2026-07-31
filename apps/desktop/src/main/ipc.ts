@@ -8,7 +8,7 @@ import type { PiMessage } from "./pi/protocol.ts";
 import { deleteSession, listSessions, readSession, searchSessions, sessionMtime, watchProjectSessions, watchSessionFile } from "./sessions.ts";
 import { loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
-import { gitAddWorktree, gitBranches, gitCheckout, gitDiff, gitStatus } from "./git.ts";
+import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitPushAndCreatePr, gitStageFile, gitStageHunk, gitStatus } from "./git.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
 import { listSkills } from "./skills.ts";
 import { listProjectFiles } from "./files.ts";
@@ -315,6 +315,10 @@ const gitMutationParamsSchema = z.object({
   branch: z.string().min(1),
   create: z.boolean(),
 });
+const gitHunkParamsSchema = z.object({ projectDir: z.string().min(1), file: z.string().min(1), untracked: z.boolean(), patch: z.string().min(1) });
+const gitFileParamsSchema = z.object({ projectDir: z.string().min(1), file: z.string().min(1) });
+const gitCommitParamsSchema = z.object({ projectDir: z.string().min(1), message: z.string().trim().min(1).max(10_000) });
+const gitPrParamsSchema = z.object({ projectDir: z.string().min(1), title: z.string().trim().min(1).max(256), body: z.string().max(50_000) });
 const projectDirParamsSchema = z.object({ projectDir: z.string().min(1) });
 /**
  * `get_commands` as the composer needs it, checked at the Pi boundary.
@@ -980,6 +984,23 @@ const handlers: HandlerMap = {
 
   gitStatus: async ({ projectDir }) => ({ status: await gitStatus(projectDir) }),
   gitDiff: async ({ projectDir, file, untracked }) => ({ diff: await gitDiff(projectDir, file, untracked) }),
+  gitHunks: async ({ projectDir, file, untracked }) => ({ hunks: await gitHunks(projectDir, file, untracked) }),
+  gitStageHunk: async (params) => {
+    try { const { projectDir, file, untracked, patch } = gitHunkParamsSchema.parse(params); return await gitStageHunk(projectDir, file, untracked, patch); }
+    catch (err) { return { ok: false, error: errorMessage(err) }; }
+  },
+  gitStageFile: async (params) => {
+    try { const { projectDir, file } = gitFileParamsSchema.parse(params); return await gitStageFile(projectDir, file); }
+    catch (err) { return { ok: false, error: errorMessage(err) }; }
+  },
+  gitCommit: async (params) => {
+    try { const { projectDir, message } = gitCommitParamsSchema.parse(params); return await gitCommit(projectDir, message); }
+    catch (err) { return { ok: false, error: errorMessage(err) }; }
+  },
+  gitPushAndCreatePr: async (params) => {
+    try { const { projectDir, title, body } = gitPrParamsSchema.parse(params); return await gitPushAndCreatePr(projectDir, title, body); }
+    catch (err) { return { ok: false, error: errorMessage(err) }; }
+  },
   gitBranches: async ({ projectDir }) => ({ branches: await gitBranches(projectDir) }),
   gitCheckout: async (params) => {
     try {

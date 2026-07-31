@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import type { GitBranch, GitDiff, GitStatus } from "../shared/pi-types.ts";
+import type { GitBranch, GitDiff, GitHunk, GitStatus } from "../shared/pi-types.ts";
 
 
 function run(args: string[], cwd: string): Promise<{ stdout: string; stderr: string; code: number }> {
@@ -15,6 +15,15 @@ function run(args: string[], cwd: string): Promise<{ stdout: string; stderr: str
         resolve({ stdout, stderr, code });
       },
     );
+  });
+}
+
+function runGh(args: string[], cwd: string): Promise<{ stdout: string; stderr: string; code: number }> {
+  return new Promise((resolve) => {
+    execFile("gh", args, { cwd, maxBuffer: 32 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
+      const code = err && typeof (err as { code?: unknown }).code === "number" ? (err as { code: number }).code : err ? 1 : 0;
+      resolve({ stdout, stderr, code });
+    });
   });
 }
 
@@ -49,7 +58,7 @@ export async function gitStatus(projectDir: string): Promise<GitStatus> {
     // A rename entry is followed by its original path in the next NUL field.
     if (x === "R" || y === "R") i++;
     if (!path) continue;
-    files.push({ path, state: labelFor(x, y), staged: x !== " " && x !== "?" });
+    files.push({ path, state: labelFor(x, y), staged: x !== " " && x !== "?", unstaged: y !== " " || x === "?" });
   }
 
   return {
@@ -68,6 +77,73 @@ export async function gitDiff(projectDir: string, file: string, untracked: boole
     : ["diff", "--no-color", "HEAD", "--", file];
   const res = await run(args, projectDir);
   return { path: file, patch: res.stdout };
+}
+
+export async function gitHunks(projectDir: string, file: string, untracked: boolean): Promise<GitHunk[]> {
+  const res = await run(
+    untracked
+      ? ["diff", "--no-color", "--unified=0", "--no-index", "--", "/dev/null", file]
+      : ["diff", "--no-color", "--unified=0", "--", file],
+    projectDir,
+  );
+  const starts = [...res.stdout.matchAll(/^@@/gm)].map((match) => match.index ?? 0);
+  if (starts.length === 0) return [];
+  const prefix = res.stdout.slice(0, starts[0]);
+  return starts.map((start, index) => ({
+    header: res.stdout.slice(start, res.stdout.indexOf("\n", start)).trim(),
+    patch: prefix + res.stdout.slice(start, starts[index + 1]),
+  }));
+}
+
+export async function gitStageHunk(
+  projectDir: string,
+  file: string,
+  untracked: boolean,
+  patch: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const hunks = await gitHunks(projectDir, file, untracked);
+  const selected = hunks.find((hunk) => hunk.patch === patch);
+  if (!selected) return { ok: false, error: "That change is no longer available. Refresh and try again." };
+  const result = await new Promise<{ stdout: string; stderr: string; code: number }>((resolve) => {
+    const child = execFile("git", ["apply", "--cached", "--unidiff-zero", "-"], {
+      cwd: projectDir,
+      maxBuffer: 32 * 1024 * 1024,
+      windowsHide: true,
+    }, (err, stdout, stderr) => {
+      const code = err && typeof (err as { code?: unknown }).code === "number" ? (err as { code: number }).code : err ? 1 : 0;
+      resolve({ stdout, stderr, code });
+    });
+    child.stdin?.end(selected.patch);
+  });
+  return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
+}
+
+export async function gitStageFile(projectDir: string, file: string): Promise<{ ok: boolean; error?: string }> {
+  const result = await run(["add", "--", file], projectDir);
+  return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
+}
+
+export async function gitCommit(projectDir: string, message: string): Promise<{ ok: boolean; error?: string }> {
+  const staged = await run(["diff", "--cached", "--quiet"], projectDir);
+  if (staged.code === 0) return { ok: false, error: "Stage at least one change before committing." };
+  const result = await run(["commit", "-m", message], projectDir);
+  return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
+}
+
+export async function gitPushAndCreatePr(
+  projectDir: string,
+  title: string,
+  body: string,
+): Promise<{ ok: boolean; url?: string; error?: string }> {
+  const base = await runGh(["repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"], projectDir);
+  if (base.code !== 0 || !base.stdout.trim()) return { ok: false, error: failure(base) };
+  const current = await run(["branch", "--show-current"], projectDir);
+  if (current.code !== 0 || !current.stdout.trim()) return { ok: false, error: "Check out a branch before opening a pull request." };
+  if (current.stdout.trim() === base.stdout.trim()) return { ok: false, error: "Create a branch before opening a pull request." };
+  const push = await run(["push", "-u", "origin", "HEAD"], projectDir);
+  if (push.code !== 0) return { ok: false, error: failure(push) };
+  const pr = await runGh(["pr", "create", "--base", base.stdout.trim(), "--title", title, "--body", body], projectDir);
+  return pr.code === 0 ? { ok: true, url: pr.stdout.trim() } : { ok: false, error: failure(pr) };
 }
 
 /** Git's own message is the useful one; ours would only be vaguer. */
