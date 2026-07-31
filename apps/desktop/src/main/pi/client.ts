@@ -2,6 +2,8 @@ import { fileURLToPath } from "node:url";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { isTuiFrameType, tuiHostFrameSchema, type TuiClientFrame, type TuiHostFrame } from "../../shared/tui-frames.ts";
 import type { AuthProviderInfo } from "../../shared/rpc-schema.ts";
+import type { ContextInspector } from "../../shared/pi-types.ts";
+import { contextInspectorSchema } from "../../shared/tui-frames.ts";
 import { drainLines, serializeCommand, type PiCommand, type PiMessage } from "./protocol.ts";
 
 /**
@@ -174,6 +176,12 @@ export class PiProcess {
    */
   getProviders(): Promise<AuthProviderInfo[]> {
     return this.frameRequest<AuthProviderInfo[]>((requestId) => ({ type: "nativepi_tui_get_providers", requestId }));
+  }
+
+  getContextInspector(): Promise<ContextInspector> {
+    return this.frameRequest<unknown>((requestId) => ({ type: "nativepi_tui_get_context_inspector", requestId })).then(
+      (data) => contextInspectorSchema.parse(data),
+    );
   }
 
   loginProvider(providerId: string, authType: "api_key" | "oauth"): Promise<void> {

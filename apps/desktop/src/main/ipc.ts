@@ -662,6 +662,15 @@ const handlers: HandlerMap = {
     }
   },
 
+  getContextInspector: async ({ projectDir, sessionFile }) => {
+    try {
+      const pi = await bindPi(projectDir, sessionFile);
+      return { inspector: await pi.getContextInspector() };
+    } catch (err) {
+      return { error: errorMessage(err) };
+    }
+  },
+
   compact: async ({ projectDir, sessionFile }) => {
     try {
       const pi = await bindPi(projectDir, sessionFile);

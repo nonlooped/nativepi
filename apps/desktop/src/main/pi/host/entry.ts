@@ -1,9 +1,11 @@
 import { PassThrough } from "node:stream";
-import { AgentSession, main, ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { AgentSession, estimateTokens, formatSkillsForPrompt, main, ModelRuntime } from "@earendil-works/pi-coding-agent";
+import type { Skill } from "@earendil-works/pi-coding-agent";
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { isTuiFrameType, type TuiClientFrame, type TuiHostFrame } from "../../../shared/tui-frames.ts";
 import { toNotice, toPromptRequest } from "../../../shared/providerAuth.ts";
 import { shapeProviders } from "../../../shared/providerShape.ts";
+import type { ContextInspector } from "../../../shared/pi-types.ts";
 import { hostInternals, withTerminalUi, type HostInternals } from "./uiContext.ts";
 
 /**
@@ -91,6 +93,10 @@ function handleClientFrame(frame: TuiClientFrame): void {
     void respondProviders(frame.requestId);
     return;
   }
+  if (frame.type === "nativepi_tui_get_context_inspector") {
+    void respondContextInspector(frame.requestId);
+    return;
+  }
   if (frame.type === "nativepi_tui_login") {
     void respondLogin(frame.requestId, frame.providerId, frame.authType);
     return;
@@ -100,6 +106,86 @@ function handleClientFrame(frame: TuiClientFrame): void {
     return;
   }
   internals?.handle(frame);
+}
+
+function textTokens(text: string): number {
+  return estimateTokens({ role: "user", content: [{ type: "text", text }], timestamp: 0 });
+}
+
+async function respondContextInspector(requestId: string): Promise<void> {
+  try {
+    if (!currentSession) throw new Error("No active Pi session");
+    const session = currentSession;
+    // These are the prompt inputs Pi assembled for this session. They remain
+    // private in Pi's API, so read them defensively and keep the inspector
+    // unavailable rather than presenting a made-up breakdown after an upgrade.
+    const options = (session as unknown as {
+      _baseSystemPromptOptions?: {
+        contextFiles?: { path: string; content: string }[];
+        skills?: Skill[];
+      };
+    })._baseSystemPromptOptions;
+    if (!options) throw new Error("Pi has not prepared this session's prompt yet");
+
+    const contextFiles = options.contextFiles ?? [];
+    const skills = options.skills ?? [];
+    const contextFileTokens = contextFiles.map((file) => ({ path: file.path, tokens: textTokens(file.content) }));
+    const skillsPrompt = formatSkillsForPrompt(skills);
+    const skillTokens = skills.map((skill) => ({
+      name: skill.name,
+      tokens: textTokens(formatSkillsForPrompt([skill])),
+    }));
+    const activeNames = new Set(session.getActiveToolNames());
+    const tools = session.getAllTools()
+      .filter((tool) => activeNames.has(tool.name))
+      .map((tool) => ({ name: tool.name, tokens: textTokens(JSON.stringify(tool.parameters)) }));
+    const contextTokens = contextFileTokens.reduce((sum, file) => sum + file.tokens, 0);
+    const skillTotal = textTokens(skillsPrompt);
+    const systemTokens = Math.max(0, textTokens(session.systemPrompt) - contextTokens - skillTotal);
+    const historyTokens = session.messages.reduce((sum, message) => sum + estimateTokens(message), 0);
+    // Pi does not export this helper, but it is the same internal module its
+    // session uses to decide the boundary. Resolving it beside the published
+    // entry mirrors the existing host integrations above without duplicating
+    // compaction logic in NativePi.
+    const index = import.meta.resolve("@earendil-works/pi-coding-agent");
+    const compactionModule = (await import(new URL("./core/compaction/index.js", index).href)) as {
+      prepareCompaction?: (
+        entries: unknown[],
+        settings: { enabled: boolean; reserveTokens: number; keepRecentTokens: number },
+      ) => {
+        messagesToSummarize: Parameters<typeof estimateTokens>[0][];
+        turnPrefixMessages: Parameters<typeof estimateTokens>[0][];
+        settings: { keepRecentTokens: number };
+      } | undefined;
+    };
+    if (!compactionModule.prepareCompaction) throw new Error("This Pi version cannot inspect the next compaction");
+    const plan = compactionModule.prepareCompaction(session.sessionManager.getBranch(), session.settingsManager.getCompactionSettings());
+    const compacted = plan ? [...plan.messagesToSummarize, ...plan.turnPrefixMessages] : [];
+    const usage = session.getContextUsage();
+    const inspector: ContextInspector = {
+      usedTokens: usage?.tokens ?? null,
+      contextWindow: usage?.contextWindow ?? session.model?.contextWindow ?? 0,
+      categories: [
+        { kind: "system", tokens: systemTokens },
+        { kind: "context", tokens: contextTokens, count: contextFiles.length },
+        { kind: "skills", tokens: skillTotal, count: skillTokens.length },
+        { kind: "tools", tokens: tools.reduce((sum, tool) => sum + tool.tokens, 0), count: tools.length },
+        { kind: "history", tokens: historyTokens, count: session.messages.length },
+      ],
+      contextFiles: contextFileTokens,
+      skills: skillTokens,
+      tools,
+      compaction: plan ? {
+        tokens: compacted.reduce((sum, message) => sum + estimateTokens(message), 0),
+        messages: plan.messagesToSummarize.length,
+        turnPrefixMessages: plan.turnPrefixMessages.length,
+        keepRecentTokens: plan.settings.keepRecentTokens,
+      } : undefined,
+    };
+    send({ type: "nativepi_tui_reply", requestId, data: inspector });
+  } catch (err) {
+    send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
+  }
 }
 
 async function respondProviders(requestId: string): Promise<void> {

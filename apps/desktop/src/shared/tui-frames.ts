@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ContextInspector } from "./pi-types.ts";
 
 const authPromptSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), message: z.string(), placeholder: z.string().optional() }),
@@ -104,6 +105,25 @@ const completionItemSchema = z.object({
   description: z.string().max(500).optional(),
 });
 
+export const contextInspectorSchema = z.object({
+  usedTokens: z.number().int().nonnegative().nullable(),
+  contextWindow: z.number().int().nonnegative(),
+  categories: z.array(z.object({
+    kind: z.enum(["system", "context", "skills", "tools", "history"]),
+    tokens: z.number().int().nonnegative(),
+    count: z.number().int().nonnegative().optional(),
+  })),
+  contextFiles: z.array(z.object({ path: z.string(), tokens: z.number().int().nonnegative() })),
+  skills: z.array(z.object({ name: z.string(), tokens: z.number().int().nonnegative() })),
+  tools: z.array(z.object({ name: z.string(), tokens: z.number().int().nonnegative() })),
+  compaction: z.object({
+    tokens: z.number().int().nonnegative(),
+    messages: z.number().int().nonnegative(),
+    turnPrefixMessages: z.number().int().nonnegative(),
+    keepRecentTokens: z.number().int().nonnegative(),
+  }).optional(),
+}) satisfies z.ZodType<ContextInspector>;
+
 export type TuiCompletionItem = z.infer<typeof completionItemSchema>;
 
 /** An extension autocomplete provider's answer, as `AutocompleteSuggestions`. */
@@ -206,6 +226,7 @@ export const tuiClientFrameSchema = z.discriminatedUnion("type", [
    * extensions need this round trip to reach the picker and Settings.
    */
   z.object({ type: z.literal("nativepi_tui_get_providers"), requestId: z.string().min(1).max(64) }),
+  z.object({ type: z.literal("nativepi_tui_get_context_inspector"), requestId: z.string().min(1).max(64) }),
   z.object({
     type: z.literal("nativepi_tui_login"),
     requestId: z.string().min(1).max(64),

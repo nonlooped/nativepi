@@ -16,6 +16,7 @@ import type {
   ResolvedExtension,
   RpcSessionState,
   SessionStats,
+  ContextInspector,
   SessionSearchResult,
   SessionSummary,
   SessionTreeNode,
@@ -360,6 +361,10 @@ export type HostRequests = {
   getStats: {
     params: { projectDir: string; sessionFile: string };
     response: { stats?: SessionStats; error?: string };
+  };
+  getContextInspector: {
+    params: { projectDir: string; sessionFile: string };
+    response: { inspector?: ContextInspector; error?: string };
   };
   compact: {
     params: { projectDir: string; sessionFile: string };
