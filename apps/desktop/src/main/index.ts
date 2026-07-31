@@ -70,10 +70,10 @@ function createWindow(): void {
 
   /**
    * Closing is where an agent turn and a shell die, so it is where the user is
-   * asked. Held here rather than in `before-quit`, which on Windows only runs
-   * once the window is already gone and there is nothing left to show a dialog
-   * in. A quit that is already under way is let through: by then the answer has
-   * been given, or the OS is ending the session and is not waiting for one.
+   * asked. Held here rather than in `before-quit`, which can run after the
+   * window is already gone and leave nothing left to show a dialog in. A quit
+   * that is already under way is let through: by then the answer has been
+   * given, or the OS is ending the session and is not waiting for one.
    *
    * A renderer that has crashed or hung is let through too: it can neither draw
    * the confirmation nor answer it, and holding the close for one would leave

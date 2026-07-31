@@ -2,9 +2,21 @@
   "name": "nativepi",
   "private": true,
   "version": "0.12.2",
-  "description": "A desktop interface for the Pi coding agent.",
+  "description": "A free, open-source desktop interface for the Pi coding agent on Windows, macOS, and Linux.",
   "author": "nonlooped",
   "license": "MIT",
+  "keywords": [
+    "nativepi",
+    "pi-coding-agent",
+    "coding-agent",
+    "desktop",
+    "cross-platform",
+    "windows",
+    "macos",
+    "linux",
+    "electron",
+    "open-source"
+  ],
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "postinstall": "cd apps/desktop && bun run install-electron",

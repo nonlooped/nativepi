@@ -1,7 +1,7 @@
 # Contributing to NativePi
 
 Thanks for your interest in the project. NativePi is a small desktop interface
-for the Pi coding agent, for Windows, macOS, and Linux, and it is deliberately
+for the Pi coding agent on Windows, macOS, and Linux, and it is deliberately
 narrow in scope. Reading this page before you start will save you a rewrite.
 
 ## Scope

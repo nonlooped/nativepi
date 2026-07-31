@@ -22,6 +22,7 @@ export const metadata: Metadata = {
     "Pi coding agent",
     "coding agent",
     "desktop",
+    "cross-platform desktop",
     "Windows",
     "macOS",
     "Linux",

@@ -4,13 +4,21 @@
 
 <p align="center">
   <strong>Pi, at home on your desktop.</strong><br>
-  A free, open-source desktop interface for the <a href="https://pi.dev/">Pi coding agent</a>, for Windows, macOS, and Linux.
+  A free, open-source desktop interface for the <a href="https://pi.dev/">Pi coding agent</a> on Windows, macOS, and Linux.
 </p>
 
 <p align="center">
-  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="Platform: Windows, macOS, Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078D4.svg">
-  <img alt="Built with Electron + React" src="https://img.shields.io/badge/built%20with-Electron%20%2B%20React%2019-47848F.svg">
+  <a href="./LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/-MIT-4c1?style=flat-square&amp;logo=opensourceinitiative&amp;logoColor=white"></a>
+  <a href="https://www.microsoft.com/windows"><img alt="Windows" src="https://img.shields.io/badge/-Windows-0078D4?style=flat-square&amp;logo=windows&amp;logoColor=white"></a>
+  <a href="https://www.apple.com/macos/"><img alt="macOS" src="https://img.shields.io/badge/-macOS-000000?style=flat-square&amp;logo=apple&amp;logoColor=white"></a>
+  <a href="https://www.kernel.org/"><img alt="Linux" src="https://img.shields.io/badge/-Linux-FCC624?style=flat-square&amp;logo=linux&amp;logoColor=111111"></a>
+</p>
+
+<p align="center">
+  <a href="https://www.electronjs.org/"><img alt="Electron" src="https://img.shields.io/badge/-Electron-47848F?style=flat-square&amp;logo=electron&amp;logoColor=white"></a>
+  <a href="https://react.dev/"><img alt="React" src="https://img.shields.io/badge/-React-61DAFB?style=flat-square&amp;logo=react&amp;logoColor=111111"></a>
+  <a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/-TypeScript-3178C6?style=flat-square&amp;logo=typescript&amp;logoColor=white"></a>
+  <a href="https://bun.sh/"><img alt="Bun" src="https://img.shields.io/badge/-Bun-000000?style=flat-square&amp;logo=bun&amp;logoColor=white"></a>
 </p>
 
 <p align="center">

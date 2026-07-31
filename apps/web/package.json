@@ -2,8 +2,17 @@
   "name": "@nativepi/web",
   "private": true,
   "version": "0.1.0",
-  "description": "Marketing and documentation site for NativePi.",
+  "description": "Marketing and documentation site for NativePi, a cross-platform desktop interface for the Pi coding agent.",
   "author": "nonlooped",
+  "keywords": [
+    "nativepi",
+    "pi-coding-agent",
+    "desktop",
+    "cross-platform",
+    "windows",
+    "macos",
+    "linux"
+  ],
   "type": "module",
   "scripts": {
     "dev": "next dev",

@@ -26,8 +26,8 @@ seen many agent wrappers.
 
 The site exists to make NativePi legible and credible in under a minute, and to
 send the visitor to the GitHub repository. It is the public face of a free,
-MIT-licensed desktop interface for the Pi coding agent, for Windows, macOS,
-and Linux.
+MIT-licensed desktop interface for the Pi coding agent on Windows, macOS, and
+Linux.
 
 Success means a visitor can state what NativePi is, why its relationship to Pi
 is different from other agent frontends, and what it costs them to try, then
@@ -52,7 +52,7 @@ shape Pi.
 ## Operating Context
 
 - The visitor is on the web, evaluating. The product itself is an Electron
-  desktop application for Windows, macOS, and Linux; the site never pretends
+  desktop application on Windows, macOS, and Linux; the site never pretends
   otherwise.
 - Distribution is GitHub Releases. Installers are currently unsigned and, on
   macOS, not notarized, so Windows SmartScreen and macOS Gatekeeper warn on

@@ -21,7 +21,7 @@ export function GitHubMark({ className }: { className?: string }) {
   );
 }
 
-/** The Windows logo. NativePi is a Windows desktop application. */
+/** The Windows logo. NativePi runs on Windows, macOS, and Linux. */
 export function WindowsMark({ className }: { className?: string }) {
   return (
     <svg
@@ -36,7 +36,7 @@ export function WindowsMark({ className }: { className?: string }) {
 }
 
 /**
- * Apple and Linux, unlike the hand-drawn Windows mark above, are Phosphor's
+ * Apple and Linux, alongside the hand-drawn Windows mark above, are Phosphor's
  * own logo glyphs rather than raw brand SVGs: a stylized outline rather than
  * exact brand geometry, chosen to avoid hand-transcribing brand paths from
  * memory. Same purpose either way — stating what NativePi runs on.
