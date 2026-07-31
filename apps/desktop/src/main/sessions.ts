@@ -137,30 +137,46 @@ export async function usageDashboard(projects: { path: string; name: string }[])
   const perProject = new Map<string, { name: string; cost: number }>();
   const models = new Map<string, number>();
   const usedSessions = new Set<string>();
+  const billedEntries = new Set<string>();
+  const sessionRecords = (await Promise.all(projects.map(async (project) =>
+    Promise.all((await listSessions(project.path)).map(async (session) => ({ project, session, entries: await readSession(session.path) }))),
+  ))).flat();
+  const recordsByPath = new Map(sessionRecords.map((record) => [path.resolve(record.session.path), record]));
 
-  await Promise.all(projects.map(async (project) => {
-    const sessions = await listSessions(project.path).catch(() => []);
-    await Promise.all(sessions.map(async (session) => {
-      const entries = await readSession(session.path).catch(() => []);
-      for (const entry of entries) {
-        if (entry.type !== "message" || !isAssistant(entry.message)) continue;
-        const cost = entry.message.usage?.cost?.total;
-        if (typeof cost !== "number" || !Number.isFinite(cost) || cost < 0) continue;
+  function lineageRoot(sessionFile: string, seen = new Set<string>()): string {
+    const resolved = path.resolve(sessionFile);
+    if (seen.has(resolved)) return resolved;
+    seen.add(resolved);
+    const header = recordsByPath.get(resolved)?.entries.find((entry) => entry.type === "session");
+    const parentSession = header?.type === "session" && typeof header.parentSession === "string" ? header.parentSession : undefined;
+    return parentSession && recordsByPath.has(path.resolve(parentSession))
+      ? lineageRoot(parentSession, seen)
+      : resolved;
+  }
 
-        const date = usageDate(entry.message.timestamp, entry.timestamp);
-        if (!date) continue;
-        usedSessions.add(session.path);
-        daily.set(date, (daily.get(date) ?? 0) + cost);
-        const projectTotal = perProject.get(project.path) ?? { name: project.name, cost: 0 };
-        projectTotal.cost += cost;
-        perProject.set(project.path, projectTotal);
-        const model = entry.message.provider && entry.message.model
-          ? `${entry.message.provider}/${entry.message.model}`
-          : entry.message.model ?? "Unknown model";
-        models.set(model, (models.get(model) ?? 0) + cost);
-      }
-    }));
-  }));
+  for (const { project, session, entries } of sessionRecords) {
+    const root = lineageRoot(session.path);
+    for (const entry of entries) {
+      if (entry.type !== "message" || !isAssistant(entry.message)) continue;
+      const cost = entry.message.usage?.cost?.total;
+      if (typeof cost !== "number" || !Number.isFinite(cost) || cost < 0) continue;
+      const billedEntry = `${root}\0${entry.id}`;
+      if (billedEntries.has(billedEntry)) continue;
+
+      const date = usageDate(entry.message.timestamp, entry.timestamp);
+      if (!date) continue;
+      billedEntries.add(billedEntry);
+      usedSessions.add(session.path);
+      daily.set(date, (daily.get(date) ?? 0) + cost);
+      const projectTotal = perProject.get(project.path) ?? { name: project.name, cost: 0 };
+      projectTotal.cost += cost;
+      perProject.set(project.path, projectTotal);
+      const model = entry.message.provider && entry.message.model
+        ? `${entry.message.provider}/${entry.message.model}`
+        : entry.message.model ?? "Unknown model";
+      models.set(model, (models.get(model) ?? 0) + cost);
+    }
+  }
 
   const byCost = <T extends { cost: number }>(a: T, b: T) => b.cost - a.cost;
   const projectTotals = [...perProject.entries()]

@@ -72,7 +72,7 @@ export default function UsageDashboardDialog({ onClose }: { onClose: () => void 
         </div>
 
         {error ? <p className="text-sm text-destructive">Unable to load usage. {error}</p> : null}
-        {dashboard === null ? <Loading /> : <Dashboard dashboard={dashboard} allProjects={projectPath === ALL_PROJECTS} />}
+        {request.loading ? <Loading /> : dashboard ? <Dashboard dashboard={dashboard} allProjects={projectPath === ALL_PROJECTS} /> : null}
       </DialogContent>
     </Dialog>
   );
@@ -106,10 +106,10 @@ function Dashboard({ dashboard, allProjects }: { dashboard: UsageDashboard; allP
       </section>
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <CostList heading="By model" values={dashboard.models.map((model) => ({ label: model.name, cost: model.cost }))} />
+        <CostList heading="By model" values={dashboard.models.map((model) => ({ id: model.name, label: model.name, cost: model.cost }))} />
         <CostList
           heading={allProjects ? "By project" : "Selected project"}
-          values={dashboard.projects.map((project) => ({ label: project.name, cost: project.cost }))}
+          values={dashboard.projects.map((project) => ({ id: project.path, label: project.name, cost: project.cost }))}
         />
       </div>
     </div>
@@ -136,13 +136,13 @@ function Trend({ daily }: { daily: UsageDashboard["daily"] }) {
   );
 }
 
-function CostList({ heading, values }: { heading: string; values: { label: string; cost: number }[] }) {
+function CostList({ heading, values }: { heading: string; values: { id: string; label: string; cost: number }[] }) {
   return (
     <section aria-label={heading}>
       <h3 className="font-heading text-sm font-semibold">{heading}</h3>
       <div className="mt-2 flex flex-col gap-1">
         {values.map((value) => (
-          <div key={value.label} className="flex items-baseline justify-between gap-4 py-1">
+          <div key={value.id} className="flex items-baseline justify-between gap-4 py-1">
             <span className="min-w-0 truncate text-sm text-muted-foreground" title={value.label}>{value.label}</span>
             <span className="shrink-0 font-mono text-xs tabular-nums">{cost(value.cost)}</span>
           </div>
@@ -164,9 +164,8 @@ function TrendLabel({ trend }: { trend: { amount: number; direction: "up" | "dow
 
 function recentDays(daily: UsageDashboard["daily"]): { date: string; label: string; cost: number }[] {
   const costs = new Map(daily.map((point) => [point.date, point.cost]));
-  const lastDate = daily.at(-1)?.date;
-  if (!lastDate) return [];
-  const end = new Date(`${lastDate}T12:00:00`);
+  const end = new Date();
+  end.setHours(12, 0, 0, 0);
   return Array.from({ length: 14 }, (_, index) => {
     const date = new Date(end);
     date.setDate(end.getDate() - (13 - index));
@@ -181,7 +180,7 @@ function recentTrend(daily: UsageDashboard["daily"]): { amount: number; directio
   const previous = days.slice(0, 7).reduce((total, day) => total + day.cost, 0);
   const current = days.slice(7).reduce((total, day) => total + day.cost, 0);
   const amount = current - previous;
-  return { amount, direction: amount === 0 ? "flat" : amount > 0 ? "up" : "down" };
+  return { amount, direction: Math.abs(amount) < 0.00005 ? "flat" : amount > 0 ? "up" : "down" };
 }
 
 function Loading() {

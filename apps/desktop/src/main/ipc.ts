@@ -351,6 +351,9 @@ const searchSessionsParamsSchema = z.object({
   projectDirs: z.array(z.string().min(1).max(32_767)).max(100),
   query: z.string().min(1).max(500),
 });
+const usageDashboardParamsSchema = z.object({
+  projects: z.array(z.object({ path: z.string().min(1).max(32_767), name: z.string().min(1).max(200) })).max(100),
+});
 
 function isThinkingLevel(level: unknown): level is ThinkingLevel {
   return typeof level === "string" && THINKING_LEVELS.has(level as ThinkingLevel);
@@ -662,8 +665,9 @@ const handlers: HandlerMap = {
     }
   },
 
-  getUsageDashboard: async ({ projects }) => {
+  getUsageDashboard: async (params) => {
     try {
+      const { projects } = usageDashboardParamsSchema.parse(params);
       return { dashboard: await usageDashboard(projects) };
     } catch (err) {
       return { error: errorMessage(err) };

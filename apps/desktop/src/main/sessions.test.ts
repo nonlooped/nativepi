@@ -160,6 +160,24 @@ test("usageDashboard groups Pi-recorded cost by day, project, and model", async 
   expect(dashboard.models).toEqual([{ name: "claude", cost: 0.2 }, { name: "openai/gpt-5", cost: 0.15 }]);
 });
 
+test("usageDashboard counts inherited billed entries once", async () => {
+  const project = await mkdtemp(path.join(tmpdir(), "nativepi-usage-fork-"));
+  const entry = { type: "message", id: "billed", parentId: null, timestamp: "2026-01-02T12:00:02Z", message: { role: "assistant", content: [], model: "gpt-5", timestamp: 1767355202000, usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { total: 0.12 } } } };
+  const original = await writeSession(project, "original.jsonl", [
+    { type: "session", version: 3, id: "original", timestamp: "2026-01-02T12:00:00Z", cwd: project },
+    entry,
+  ]);
+  await writeSession(project, "fork.jsonl", [
+    { type: "session", version: 3, id: "fork", timestamp: "2026-01-02T12:01:00Z", cwd: project, parentSession: original },
+    entry,
+  ]);
+
+  const dashboard = await usageDashboard([{ path: project, name: "Project" }]);
+
+  expect(dashboard.totalCost).toBe(0.12);
+  expect(dashboard.sessions).toBe(1);
+});
+
 test("watchProjectSessions detects chats created after the sidebar is open", async () => {
   const projectDir = await mkdtemp(path.join(tmpdir(), "nativepi-project-"));
   let changes = 0;
