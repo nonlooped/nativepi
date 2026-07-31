@@ -10,6 +10,7 @@ import { loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
 import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitPushAndCreatePr, gitStageFile, gitStageHunk, gitStatus } from "./git.ts";
 import { getRepoHostContext } from "./repoHost.ts";
+import { repoHostContextSchema } from "../shared/repo-host-types.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
 import { listSkills } from "./skills.ts";
 import { listProjectFiles } from "./files.ts";
@@ -1022,7 +1023,8 @@ const handlers: HandlerMap = {
 
   repoHostContext: async ({ projectDir }) => {
     try {
-      return { context: await getRepoHostContext(projectDir) };
+      const context = await getRepoHostContext(projectDir);
+      return { context: context ? repoHostContextSchema.safeParse(context).data ?? null : null };
     } catch {
       return { context: null };
     }

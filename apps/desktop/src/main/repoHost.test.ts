@@ -15,6 +15,11 @@ test("detectHostFromRemoteUrl returns null for an unrecognized host", () => {
   expect(detectHostFromRemoteUrl("https://git.sr.ht/~owner/repo")).toBeNull();
 });
 
+test("detectHostFromRemoteUrl uses only the hostname", () => {
+  expect(detectHostFromRemoteUrl("git@gitlab.com:team/github-tools.git")).toBe("gitlab");
+  expect(detectHostFromRemoteUrl("https://github.com/team/gitlab-tools.git")).toBe("github");
+});
+
 test("issueNumberFromBranch finds a leading issue number", () => {
   expect(issueNumberFromBranch("123-fix-thing")).toBe(123);
 });

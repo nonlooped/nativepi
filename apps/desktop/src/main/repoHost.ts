@@ -8,6 +8,7 @@ import type {
   RepoHostContext,
   RepoHostLinkedIssue,
 } from "../shared/repo-host-types.ts";
+import { repoHostContextSchema } from "../shared/repo-host-types.ts";
 
 function run(cmd: string, args: string[], cwd: string): Promise<{ stdout: string; code: number }> {
   return new Promise((resolve) => {
@@ -20,9 +21,10 @@ function run(cmd: string, args: string[], cwd: string): Promise<{ stdout: string
 
 /** github.com and self-hosted GitHub Enterprise both surface "github" somewhere in the remote host name; same idea for GitLab. */
 export function detectHostFromRemoteUrl(remoteUrl: string): RepoHost | null {
-  const url = remoteUrl.toLowerCase();
-  if (url.includes("github")) return "github";
-  if (url.includes("gitlab")) return "gitlab";
+  const remote = remoteUrl.trim();
+  const host = (remote.match(/^[^@\s]+@([^:/\s]+)[:/]/)?.[1] ?? remote.match(/^[a-z]+:\/\/([^/:\s]+)/i)?.[1] ?? "").toLowerCase();
+  if (host.includes("github")) return "github";
+  if (host.includes("gitlab")) return "gitlab";
   return null;
 }
 
@@ -90,7 +92,7 @@ async function compareToBase(projectDir: string, baseBranch: string): Promise<Re
   if (!baseRef) return undefined;
   const [counts, diff] = await Promise.all([
     run("git", ["rev-list", "--left-right", "--count", `${baseRef}...HEAD`], projectDir),
-    run("git", ["diff", "--no-color", "--name-status", baseRef, "HEAD"], projectDir),
+    run("git", ["diff", "--no-color", "--name-status", `${baseRef}...HEAD`], projectDir),
   ]);
   const aheadBehind = counts.code === 0 ? parseAheadBehind(counts.stdout) : null;
   if (!aheadBehind) return undefined;
@@ -133,7 +135,7 @@ function ghComments(pr: GhPr): RepoHostComment[] {
   const reviews: RepoHostComment[] = (pr.reviews ?? [])
     .filter((r) => r.body || r.state)
     .map((r) => ({ author: r.author?.login, body: r.body ?? "", createdAt: r.submittedAt, reviewState: r.state }));
-  return [...reviews, ...comments];
+  return [...reviews, ...comments].sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
 }
 
 async function githubPr(projectDir: string): Promise<RepoHostContext | null> {
@@ -141,7 +143,7 @@ async function githubPr(projectDir: string): Promise<RepoHostContext | null> {
   if (res.code !== 0) return null;
   const pr = safeJson<GhPr>(res.stdout);
   if (!pr) return null;
-  return {
+  return repoHostContextSchema.safeParse({
     host: "github",
     kind: "pr",
     number: pr.number,
@@ -155,7 +157,7 @@ async function githubPr(projectDir: string): Promise<RepoHostContext | null> {
     checks: ghChecks(pr),
     linkedIssues: (pr.closingIssuesReferences ?? []) as RepoHostLinkedIssue[],
     compare: pr.baseRefName ? await compareToBase(projectDir, pr.baseRefName) : undefined,
-  };
+  }).data ?? null;
 }
 
 interface GhIssue {
@@ -173,7 +175,7 @@ async function githubIssue(projectDir: string, number: number): Promise<RepoHost
   if (res.code !== 0) return null;
   const issue = safeJson<GhIssue>(res.stdout);
   if (!issue) return null;
-  return {
+  return repoHostContextSchema.safeParse({
     host: "github",
     kind: "issue",
     number: issue.number,
@@ -185,7 +187,7 @@ async function githubIssue(projectDir: string, number: number): Promise<RepoHost
     comments: (issue.comments ?? []).map((c) => ({ author: c.author?.login, body: c.body, createdAt: c.createdAt, url: c.url })),
     checks: [],
     linkedIssues: [],
-  };
+  }).data ?? null;
 }
 
 interface GlabMr {
@@ -212,10 +214,10 @@ async function gitlabMr(projectDir: string): Promise<RepoHostContext | null> {
   const mr = safeJson<GlabMr>(res.stdout);
   if (!mr) return null;
 
-  const notes = await run("glab", ["mr", "note", "list", String(mr.iid), "--output", "json"], projectDir);
+  const notes = await run("glab", ["api", `projects/:id/merge_requests/${mr.iid}/notes`], projectDir);
   const rawNotes = notes.code === 0 ? (safeJson<GlabNote[]>(notes.stdout) ?? []) : [];
 
-  return {
+  return repoHostContextSchema.safeParse({
     host: "gitlab",
     kind: "pr",
     number: mr.iid,
@@ -227,11 +229,11 @@ async function gitlabMr(projectDir: string): Promise<RepoHostContext | null> {
     author: mr.author?.username,
     comments: rawNotes.map((n) => ({ author: n.author?.username, body: n.body, createdAt: n.created_at })),
     checks: mr.head_pipeline
-      ? [{ name: "pipeline", status: mr.head_pipeline.detailed_status?.text ?? mr.head_pipeline.status ?? "pending", url: mr.head_pipeline.web_url }]
+      ? [{ name: "pipeline", status: mr.head_pipeline.status ?? mr.head_pipeline.detailed_status?.text ?? "pending", url: mr.head_pipeline.web_url }]
       : [],
     linkedIssues: [],
     compare: mr.target_branch ? await compareToBase(projectDir, mr.target_branch) : undefined,
-  };
+  }).data ?? null;
 }
 
 interface GlabIssue {
@@ -248,7 +250,7 @@ async function gitlabIssue(projectDir: string, number: number): Promise<RepoHost
   if (res.code !== 0) return null;
   const issue = safeJson<GlabIssue>(res.stdout);
   if (!issue) return null;
-  return {
+  return repoHostContextSchema.safeParse({
     host: "gitlab",
     kind: "issue",
     number: issue.iid,
@@ -260,7 +262,7 @@ async function gitlabIssue(projectDir: string, number: number): Promise<RepoHost
     comments: [],
     checks: [],
     linkedIssues: [],
-  };
+  }).data ?? null;
 }
 
 /**

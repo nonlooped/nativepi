@@ -48,6 +48,7 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
     if (!res.ok) return res;
     if (get().activeProjectPath === path) {
       await get().refreshGit();
+      await get().refreshRepoHost();
       showHint(branch);
     }
     return res;

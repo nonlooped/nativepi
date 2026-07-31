@@ -191,6 +191,7 @@ function CheckRow({ check }: { check: RepoHostCheck }) {
       <button
         type="button"
         disabled={!check.url}
+        aria-label={`${check.name}: ${status}`}
         onClick={() => check.url && void rpc.request.openExternal({ url: check.url })}
         className="flex w-full items-center gap-1.5 rounded px-1 py-1 text-left text-xs enabled:hover:bg-sidebar-accent disabled:cursor-default"
       >
