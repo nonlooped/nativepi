@@ -40,7 +40,7 @@ export default function TerminalDock({
 
   useEffect(() => {
     let cancelled = false;
-    void rpc.request.terminalEnsure({ projectDir }).then(
+    void rpc.request.terminalEnsure({ projectDir, shellId: preferredShellId || undefined }).then(
       ({ terminals: next }) => {
         if (!cancelled) setTerminals(next);
       },
@@ -66,7 +66,7 @@ export default function TerminalDock({
       cancelled = true;
       offExit();
     };
-  }, [projectDir]);
+  }, [projectDir, preferredShellId]);
 
   async function addSplit(shellId?: string, name?: string) {
     try {
@@ -306,7 +306,7 @@ function TerminalSplit({
                 <button
                   type="button"
                   className="min-w-0 flex-1 truncate text-left text-xs font-medium"
-                  onDoubleClick={() => setEditingName(true)}
+                  onClick={() => setEditingName(true)}
                   title={session.exited ? `${session.name} — exited (code ${session.exitCode ?? "unknown"})` : session.name}
                 >
                   {session.name}
@@ -344,7 +344,7 @@ function TerminalSplit({
 
 function StatusDot({ session }: { session: TerminalSession }) {
   if (!session.exited) {
-    return <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />;
+    return <span className="size-1.5 shrink-0 rounded-full bg-success" aria-hidden="true" />;
   }
   const failed = (session.exitCode ?? 0) !== 0;
   return (
@@ -443,7 +443,7 @@ function TerminalSurface({
                 return;
               }
               void rpc.request
-                .openFileIn({ projectDir, file: match.file, editorId: preferredEditorId, line: match.line })
+                .openFileIn({ projectDir, file: match.file, editorId: preferredEditorId, line: match.line, column: match.column })
                 .then((result) => {
                   if (!result.ok) toast.error(result.error ?? `Could not open ${match.file}.`);
                 });

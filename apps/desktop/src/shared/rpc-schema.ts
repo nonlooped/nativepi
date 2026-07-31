@@ -408,7 +408,7 @@ export type HostRequests = {
     response: { ok: boolean; error?: string };
   };
   openFileIn: {
-    params: { projectDir: string; file: string; editorId: string; line?: number };
+    params: { projectDir: string; file: string; editorId: string; line?: number; column?: number };
     response: { ok: boolean; error?: string };
   };
   versions: { params: Record<string, never>; response: { pi: string; app: string } };
@@ -443,7 +443,7 @@ export type HostRequests = {
     response: { ok: boolean; path?: string; canceled?: boolean; error?: string };
   };
 
-  terminalEnsure: { params: { projectDir: string }; response: { terminals: TerminalSession[] } };
+  terminalEnsure: { params: { projectDir: string; shellId?: string }; response: { terminals: TerminalSession[] } };
   terminalCreate: {
     params: { projectDir: string; shellId?: string; name?: string };
     response: { terminal: TerminalSession };

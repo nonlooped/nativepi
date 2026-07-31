@@ -132,9 +132,10 @@ function attachHandlers(
 ): void {
   const terminal = terminals.get(id);
   if (!terminal) return;
-  terminal.process.onData((data) => {
+  const process = terminal.process;
+  process.onData((data) => {
     const current = terminals.get(id);
-    if (!current) return;
+    if (!current || current.process !== process) return;
     current.output.push(data);
     current.outputSize += data.length;
     while (current.outputSize > MAX_BUFFER_SIZE && current.output.length > 1) {
@@ -144,9 +145,9 @@ function attachHandlers(
     onData({ projectDir, terminalId: id, data, sequence: current.sequence });
   });
 
-  terminal.process.onExit(({ exitCode }) => {
+  process.onExit(({ exitCode }) => {
     const current = terminals.get(id);
-    if (!current) return;
+    if (!current || current.process !== process) return;
     current.exited = true;
     current.exitCode = exitCode;
     onExit({ projectDir, terminalId: id, exitCode });

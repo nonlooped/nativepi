@@ -13,7 +13,7 @@ const CODE_EXTENSIONS = new Set([
   "ps1", "psm1", "sql", "xml", "vue", "svelte",
 ]);
 
-const FILE_LINE_RE = /((?:[A-Za-z]:)?(?:[\w.-]+[\\/])*[\w.-]+\.[A-Za-z0-9]+):(\d+)(?::(\d+))?/g;
+const FILE_LINE_RE = /((?:(?:[A-Za-z]:)?[\\/]|\/)?(?:[\w .-]+[\\/])*[\w .-]+\.[A-Za-z0-9]+):(\d+)(?::(\d+))?/g;
 const LOCALHOST_RE = /https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/[^\s"'<>)\]]*)?/g;
 
 export interface FileLinkMatch {

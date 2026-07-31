@@ -18,8 +18,8 @@ type EditorSpec = InstalledEditor & {
 
 type ScannedEditor = { editor: InstalledEditor; executable?: string; family?: EditorFamily };
 
-function fileArgs(targetPath: string, family: EditorFamily | undefined, line: number | undefined): string[] {
-  if (line && family === "vscode") return ["-g", `${targetPath}:${line}`];
+function fileArgs(targetPath: string, family: EditorFamily | undefined, line: number | undefined, column?: number): string[] {
+  if (line && family === "vscode") return ["-g", `${targetPath}:${line}${column ? `:${column}` : ""}`];
   if (line && family === "jetbrains") return ["--line", String(line), targetPath];
   return [targetPath];
 }
@@ -300,7 +300,7 @@ export async function openProjectIn(projectDir: string, editorId: string): Promi
   });
 }
 
-export async function openFileIn(projectDir: string, file: string, editorId: string, line?: number): Promise<void> {
+export async function openFileIn(projectDir: string, file: string, editorId: string, line?: number, column?: number): Promise<void> {
   const targetPath = resolve(projectDir, file);
   const relativePath = relative(projectDir, targetPath);
   if (isAbsolute(relativePath) || relativePath === ".." || relativePath.startsWith(`..${sep}`)) {
@@ -314,7 +314,7 @@ export async function openFileIn(projectDir: string, file: string, editorId: str
   if (!target?.executable) throw new Error("That editor is no longer installed.");
   const executable = target.executable;
   await new Promise<void>((resolveSpawn, reject) => {
-    const child = spawn(executable, fileArgs(targetPath, target.family, line), {
+    const child = spawn(executable, fileArgs(targetPath, target.family, line, column), {
       detached: true,
       stdio: "ignore",
       windowsHide: true,

@@ -286,7 +286,7 @@ function toSessionState(data: RpcSessionState): RpcSessionState {
 
 const THINKING_LEVELS = new Set<ThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 const openProjectInParamsSchema = z.object({ projectDir: z.string().min(1), editorId: z.string().min(1) });
-const openFileInParamsSchema = openProjectInParamsSchema.extend({ file: z.string().min(1), line: z.number().int().positive().optional() });
+const openFileInParamsSchema = openProjectInParamsSchema.extend({ file: z.string().min(1), line: z.number().int().positive().optional(), column: z.number().int().positive().optional() });
 const saveImageParamsSchema = z.object({
   data: z.string().min(1).max(64 * 1024 * 1024),
   mimeType: z.enum(["image/png", "image/jpeg", "image/gif", "image/webp"]),
@@ -783,8 +783,8 @@ const handlers: HandlerMap = {
   },
   openFileIn: async (params) => {
     try {
-      const { projectDir, file, editorId, line } = openFileInParamsSchema.parse(params);
-      await openFileIn(projectDir, file, editorId, line);
+      const { projectDir, file, editorId, line, column } = openFileInParamsSchema.parse(params);
+      await openFileIn(projectDir, file, editorId, line, column);
       return { ok: true };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
@@ -906,14 +906,14 @@ const handlers: HandlerMap = {
   },
 
   terminalEnsure: (params) => {
-    const { projectDir } = projectDirParamsSchema.parse(params);
+    const { projectDir, shellId } = projectDirParamsSchema.extend({ shellId: z.string().optional() }).parse(params);
     const existing = listTerminals(projectDir);
     if (existing.length > 0) return { terminals: existing };
     return {
       terminals: [
         createTerminal(
           projectDir,
-          undefined,
+          shellId,
           undefined,
           (payload) => push("terminalData", payload),
           (payload) => push("terminalExit", payload),
