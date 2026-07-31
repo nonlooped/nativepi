@@ -41,6 +41,7 @@ import {
 } from "./remoteAccess.ts";
 import { checkForUpdate, downloadUpdate, installUpdate, startUpdates, updateState } from "./updates.ts";
 
+/** One Pi process per session: Pi already permits concurrent sessions in a project. */
 const pis = new Map<string, PiProcess>();
 const starting = new Map<string, Promise<PiProcess>>();
 
@@ -106,20 +107,21 @@ function markBusy(projectDir: string, until: number): void {
   busyUntil.set(projectDir, until);
 }
 
-function forwardEvent(projectDir: string, event: PiMessage): void {
-  if (event["type"] === "agent_start") markBusy(projectDir, Number.POSITIVE_INFINITY);
+function forwardEvent(projectDir: string, pi: PiProcess, event: PiMessage): void {
+  const sessionFile = pi.boundSessionFile ?? projectDir;
+  if (event["type"] === "agent_start") markBusy(sessionFile, Number.POSITIVE_INFINITY);
   // `agent_end` closes one low-level run, not the turn: Pi may still be waiting
   // out an auto-retry delay, compacting, or holding a queued follow-up, and none
   // of those emit anything while they wait. `agent_settled` is the event Pi
   // documents as "nothing will start again on its own", so it is the only one
   // that hands the project back.
-  else if (event["type"] === "agent_settled") markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
+  else if (event["type"] === "agent_settled") markBusy(sessionFile, Date.now() + SETTLE_GRACE_MS);
   // Any Pi message means Pi is alive and touching this project right now.
-  else if (busyUntil.get(projectDir) !== Number.POSITIVE_INFINITY) {
-    markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
+  else if (busyUntil.get(sessionFile) !== Number.POSITIVE_INFINITY) {
+    markBusy(sessionFile, Date.now() + SETTLE_GRACE_MS);
   }
   if (event["type"] === "message_end" || event["type"] === "agent_settled") notifySessionsChanged(projectDir);
-  push("piEvent", { projectDir, sessionFile: pis.get(projectDir)?.boundSessionFile, event });
+  push("piEvent", { projectDir, sessionFile: pi.boundSessionFile, event });
 }
 
 /**
@@ -140,7 +142,9 @@ let quitConfirmed = false;
 
 export function quitBlocked(): boolean {
   if (quitConfirmed) return false;
-  const runs = [...pis.keys()].filter((projectDir) => busyUntil.get(projectDir) === Number.POSITIVE_INFINITY);
+  const runs = [...pis.entries()]
+    .filter(([sessionFile]) => busyUntil.get(sessionFile) === Number.POSITIVE_INFINITY)
+    .map(([, pi]) => pi.projectDir);
   const terminals = liveTerminalProjects();
   const viewers = localServerStatus().clients.length;
   if (runs.length === 0 && terminals.length === 0 && viewers === 0) return false;
@@ -176,62 +180,74 @@ function forwardPiFrame(projectDir: string, frame: TuiHostFrame): void {
   push("tuiFrame", { projectDir, frame });
 }
 
-function ensurePi(projectDir: string): Promise<PiProcess> {
-  const existing = pis.get(projectDir);
+function rememberPi(pi: PiProcess, sessionFile: string | undefined): void {
+  const previous = pi.boundSessionFile;
+  if (previous && pis.get(previous) === pi) pis.delete(previous);
+  pi.boundSessionFile = sessionFile;
+  if (sessionFile) pis.set(sessionFile, pi);
+}
+
+function projectPi(projectDir: string): PiProcess | undefined {
+  return [...pis.values()].find((pi) => pi.projectDir === projectDir);
+}
+
+function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> {
+  const existing = sessionFile ? pis.get(sessionFile) : projectPi(projectDir);
   if (existing) return Promise.resolve(existing);
-  const inflight = starting.get(projectDir);
+  const key = sessionFile ?? `new:${projectDir}`;
+  const inflight = starting.get(key);
   if (inflight) return inflight;
 
   const startup = (async () => {
     status(projectDir, "starting", projectDir);
-    const pi = new PiProcess(
+    let pi!: PiProcess;
+    pi = new PiProcess(
       projectDir,
-      (msg) => forwardEvent(projectDir, msg),
+      (msg) => forwardEvent(projectDir, pi, msg),
       (code) => {
         // Panes belong to the process that drew them: a Pi that dies takes its
         // surfaces with it, and the window has to be told or they stay on screen
         // with nothing behind them.
         push("tuiFrame", { projectDir, frame: { type: "nativepi_tui_reset" } });
-        pis.delete(projectDir);
+        if (pi.boundSessionFile && pis.get(pi.boundSessionFile) === pi) pis.delete(pi.boundSessionFile);
         // A Pi that dies mid-turn never reaches `agent_settled`, so drop the
         // marker with the process rather than leaving this project looking
         // permanently busy to the watcher.
-        busyUntil.delete(projectDir);
+        if (pi.boundSessionFile) busyUntil.delete(pi.boundSessionFile);
         status(projectDir, "exited", `exit ${code ?? "?"}`);
       },
       (frame) => forwardPiFrame(projectDir, frame),
     );
-    pis.set(projectDir, pi);
     try {
       const state = await pi.request<RpcSessionState>({ type: "get_state" });
-      pi.boundSessionFile = state.sessionFile;
+      if (sessionFile && state.sessionFile !== sessionFile) {
+        await pi.request({ type: "switch_session", sessionPath: sessionFile });
+        rememberPi(pi, sessionFile);
+      } else {
+        rememberPi(pi, state.sessionFile);
+      }
     } catch {
     }
     status(projectDir, "ready");
-    starting.delete(projectDir);
+    starting.delete(key);
     return pi;
   })();
 
-  starting.set(projectDir, startup);
+  starting.set(key, startup);
   return startup;
 }
 
 async function bindPi(projectDir: string, sessionFile: string): Promise<PiProcess> {
-  const pi = await ensurePi(projectDir);
+  const pi = await ensurePi(projectDir, sessionFile);
   // Everything reached through bindPi may write the session file (rename, fork,
   // clone, compact), so claim the write before it happens.
-  markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
-  if (pi.boundSessionFile !== sessionFile) {
-    const res = await pi.request<{ cancelled: boolean }>({ type: "switch_session", sessionPath: sessionFile });
-    if (res.cancelled) throw new Error("The session is busy. Try again once the current run finishes.");
-    pi.boundSessionFile = sessionFile;
-  }
+  markBusy(sessionFile, Date.now() + SETTLE_GRACE_MS);
   return pi;
 }
 
 async function rebound(pi: PiProcess): Promise<string | undefined> {
   const state = await pi.request<RpcSessionState>({ type: "get_state" });
-  pi.boundSessionFile = state.sessionFile;
+  rememberPi(pi, state.sessionFile);
   return state.sessionFile;
 }
 
@@ -407,10 +423,9 @@ const handlers: HandlerMap = {
   },
 
   restartPi: async ({ projectDir }) => {
-    const pi = pis.get(projectDir);
-    pis.delete(projectDir);
-    starting.delete(projectDir);
-    if (pi) await pi.stop();
+    const all = [...new Set([...pis.values()].filter((pi) => pi.projectDir === projectDir))];
+    for (const pi of all) if (pi.boundSessionFile) pis.delete(pi.boundSessionFile);
+    await Promise.all(all.map((pi) => pi.stop()));
     return { ok: true };
   },
 
@@ -435,7 +450,7 @@ const handlers: HandlerMap = {
       const pi = await ensurePi(projectDir);
       await pi.request({ type: "new_session" });
       const state = await pi.request<RpcSessionState>({ type: "get_state" });
-      pi.boundSessionFile = state.sessionFile;
+      rememberPi(pi, state.sessionFile);
       return { ok: true, sessionFile: state.sessionFile };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
@@ -459,30 +474,26 @@ const handlers: HandlerMap = {
     // for a concurrent editor and a cold start counts as work in flight: the
     // renderer has already cleared the draft, and a close that slipped through
     // here would take the prompt with it.
-    markBusy(projectDir, Number.POSITIVE_INFINITY);
+    markBusy(sessionFile ?? projectDir, Number.POSITIVE_INFINITY);
     try {
-      const pi = await ensurePi(projectDir);
-      if (sessionFile) {
-        if (pi.boundSessionFile !== sessionFile) {
-          await pi.request({ type: "switch_session", sessionPath: sessionFile });
-          pi.boundSessionFile = sessionFile;
-        }
-      } else {
+      const pi = await ensurePi(projectDir, sessionFile ?? undefined);
+      if (!sessionFile) {
         await pi.request({ type: "new_session" });
         const state = await pi.request<RpcSessionState>({ type: "get_state" });
-        pi.boundSessionFile = state.sessionFile;
+        rememberPi(pi, state.sessionFile);
         sessionFile = state.sessionFile ?? null;
       }
+      if (sessionFile) markBusy(sessionFile, Number.POSITIVE_INFINITY);
       pi.send({ type: "prompt", message, images, streamingBehavior });
       return { ok: true, sessionFile: sessionFile ?? undefined };
     } catch (err) {
-      markBusy(projectDir, Date.now() + SETTLE_GRACE_MS);
+      markBusy(sessionFile ?? projectDir, Date.now() + SETTLE_GRACE_MS);
       return { ok: false, error: errorMessage(err) };
     }
   },
 
-  enqueue: ({ projectDir, behavior, message, images }) => {
-    const pi = pis.get(projectDir);
+  enqueue: ({ projectDir, sessionFile, behavior, message, images }) => {
+    const pi = pis.get(sessionFile);
     if (!pi) return { ok: false, error: "Pi is not running" };
     pi.send({ type: behavior === "steer" ? "steer" : "follow_up", message, images });
     return { ok: true };
@@ -497,8 +508,8 @@ const handlers: HandlerMap = {
     }
   },
 
-  abort: ({ projectDir }) => {
-    pis.get(projectDir)?.send({ type: "abort" });
+  abort: ({ sessionFile }) => {
+    pis.get(sessionFile)?.send({ type: "abort" });
     return { ok: true };
   },
 
@@ -586,10 +597,10 @@ const handlers: HandlerMap = {
     try {
       // Pi keeps the file open while bound to it; move it off this chat first so
       // the delete cannot race a write, and so Pi isn't left pointing at nothing.
-      const pi = pis.get(projectDir);
+      const pi = pis.get(sessionFile);
       if (pi?.boundSessionFile === sessionFile) {
-        await pi.request({ type: "new_session" });
-        pi.boundSessionFile = (await pi.request<RpcSessionState>({ type: "get_state" })).sessionFile;
+        if (pis.get(sessionFile) === pi) pis.delete(sessionFile);
+        await pi.stop();
       }
       stopSessionWatch(sessionFile);
       await deleteSession(projectDir, sessionFile);
@@ -614,7 +625,7 @@ const handlers: HandlerMap = {
     entry.stop = watchSessionFile(sessionFile, (mtimeMs) => {
       if (sessionWatches.get(sessionFile) !== entry || mtimeMs === entry.mtimeMs) return;
       entry.mtimeMs = mtimeMs;
-      if (Date.now() < (busyUntil.get(projectDir) ?? 0)) return; // Our own Pi wrote it.
+      if (Date.now() < (busyUntil.get(sessionFile) ?? 0)) return; // Our own Pi wrote it.
       push("sessionChangedExternally", { projectDir, sessionFile });
     });
     sessionWatches.set(sessionFile, entry);
@@ -672,8 +683,8 @@ const handlers: HandlerMap = {
     }
   },
 
-  abortRetry: ({ projectDir }) => {
-    pis.get(projectDir)?.send({ type: "abort_retry" });
+  abortRetry: ({ sessionFile }) => {
+    pis.get(sessionFile)?.send({ type: "abort_retry" });
     return { ok: true };
   },
 
@@ -706,7 +717,7 @@ const handlers: HandlerMap = {
   },
 
   authRespond: ({ projectDir, id, value, cancel }) => {
-    if (projectDir) pis.get(projectDir)?.respondAuthPrompt(id, { value, cancel });
+    if (projectDir) projectPi(projectDir)?.respondAuthPrompt(id, { value, cancel });
     else auth.respondPrompt(id, { value, cancel });
     return { ok: true };
   },
@@ -1039,17 +1050,17 @@ const handlers: HandlerMap = {
     }
   },
   extensionRespond: ({ projectDir, response }) => {
-    pis.get(projectDir)?.sendRaw(response);
+    projectPi(projectDir)?.sendRaw(response);
     return { ok: true };
   },
   tuiSend: (params) => {
     const { projectDir, frame } = tuiSendParamsSchema.parse(params);
-    pis.get(projectDir)?.sendFrame(frame);
+    projectPi(projectDir)?.sendFrame(frame);
     return { ok: true };
   },
   tuiComplete: async (params) => {
     const { projectDir, lines, cursorLine, cursorCol } = tuiCompleteParamsSchema.parse(params);
-    const pi = pis.get(projectDir);
+    const pi = projectPi(projectDir);
     if (!pi) return { completions: null };
     try {
       const reply = await pi.frameRequest((requestId) => ({
@@ -1068,7 +1079,7 @@ const handlers: HandlerMap = {
   },
   tuiApply: async (params) => {
     const { projectDir, lines, cursorLine, cursorCol, item, prefix } = tuiApplyParamsSchema.parse(params);
-    const pi = pis.get(projectDir);
+    const pi = projectPi(projectDir);
     if (!pi) return { edit: null };
     try {
       const reply = await pi.frameRequest((requestId) => ({

@@ -298,7 +298,7 @@ export type HostRequests = {
     response: { ok: boolean; sessionFile?: string; error?: string };
   };
   enqueue: {
-    params: { projectDir: string; behavior: "steer" | "followUp"; message: string; images?: ImageContent[] };
+    params: { projectDir: string; sessionFile: string; behavior: "steer" | "followUp"; message: string; images?: ImageContent[] };
     response: { ok: boolean; error?: string };
   };
   /** Resize dropped, pasted or picked images through Pi before they wait in the composer. */
@@ -306,7 +306,7 @@ export type HostRequests = {
     params: { files: { name: string; mimeType: string; data: string }[] };
     response: { images: ImageAttachment[]; rejected: string[] };
   };
-  abort: { params: { projectDir: string }; response: { ok: boolean } };
+  abort: { params: { projectDir: string; sessionFile: string }; response: { ok: boolean } };
   getModels: { params: { projectDir: string }; response: { models: ModelInfo[]; error?: string } };
   getState: { params: { projectDir: string }; response: { state?: RpcSessionState; error?: string } };
   getThinkingLevels: {
@@ -365,7 +365,7 @@ export type HostRequests = {
     params: { projectDir: string; sessionFile: string };
     response: { ok: boolean; error?: string };
   };
-  abortRetry: { params: { projectDir: string }; response: { ok: boolean } };
+  abortRetry: { params: { projectDir: string; sessionFile: string }; response: { ok: boolean } };
   exportHtml: {
     params: { projectDir: string; sessionFile: string };
     response: { ok: boolean; path?: string; error?: string };

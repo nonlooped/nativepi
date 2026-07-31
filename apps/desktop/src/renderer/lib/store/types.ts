@@ -104,11 +104,11 @@ export interface WorkspaceSlice {
  * One project's conversation runtime: the transcript being streamed, whether a
  * turn is running, its queue, retries, and errors.
  *
- * Keyed per project in `ChatSlice.conversations` so a run in one project keeps
- * receiving events — and keeps its state — while another project is on screen.
- * `sessionFile` records which chat this runtime belongs to.
+ * Keyed per session file in `ChatSlice.conversations` so multiple chats in one
+ * project can keep receiving events while another chat or project is on screen.
  */
 export interface Conversation {
+  projectDir: string | null;
   sessionFile: string | null;
   sessionName?: string;
   entries: SessionEntry[];
@@ -131,7 +131,7 @@ export interface ChatSlice {
   isNewChat: boolean;
   pinnedChats: string[];
 
-  /** Conversation runtime per project path, active or not. */
+  /** Conversation runtime per session file, active or not. */
   conversations: Record<string, Conversation>;
   sendBehavior: "steer" | "followUp";
 
