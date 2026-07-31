@@ -166,6 +166,21 @@ export interface SessionStats {
   cost: number;
 }
 
+/** Cost totals derived from the usage records Pi writes to session files. */
+export interface UsageDashboard {
+  totalCost: number;
+  sessions: number;
+  daily: { date: string; cost: number }[];
+  projects: { path: string; name: string; cost: number }[];
+  models: { name: string; cost: number }[];
+}
+
+/** Pi's latest read-only context-window measurement. */
+export interface ContextInspector {
+  usedTokens: number | null;
+  contextWindow: number;
+}
+
 export interface SessionSummary {
   path: string;
   id: string;
@@ -191,6 +206,7 @@ export interface GitChangedFile {
   path: string;
   state: "modified" | "added" | "deleted" | "renamed" | "untracked";
   staged: boolean;
+  unstaged: boolean;
 }
 export interface GitStatus {
   isRepo: boolean;
@@ -200,6 +216,10 @@ export interface GitStatus {
 }
 export interface GitDiff {
   path: string;
+  patch: string;
+}
+export interface GitHunk {
+  header: string;
   patch: string;
 }
 export interface GitBranch {

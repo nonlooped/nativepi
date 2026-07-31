@@ -21,6 +21,7 @@ import ProjectStatus from "./components/ProjectStatus.tsx";
 import QuitDialog from "./components/QuitDialog.tsx";
 import OpenWith from "./components/OpenWith.tsx";
 import Settings from "./components/Settings.tsx";
+import RunBoard from "./components/RunBoard.tsx";
 import Toaster from "./components/Toaster.tsx";
 import TrustDialog from "./components/TrustDialog.tsx";
 import WindowControls from "./components/WindowControls.tsx";
@@ -28,7 +29,7 @@ import TerminalDock from "./components/TerminalDock.tsx";
 import { activeConversation, useAppStore } from "./lib/store.ts";
 import { isRemote } from "./lib/rpc.ts";
 import { chatTitle } from "./lib/transcript.ts";
-import { bindings, withHint } from "./lib/shortcuts.ts";
+import { bindingFor, bindings, withHint } from "./lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
 import {
   ResizableHandle,
@@ -53,6 +54,7 @@ export default function App() {
     return c.entries.length > 0 || !!c.streaming || c.pending.length > 0 || c.running;
   });
   const settingsOpen = useAppStore((s) => s.settingsOpen);
+  const runBoardOpen = useAppStore((s) => s.runBoardOpen);
   const contextPaneOpen = useAppStore((s) => s.contextPaneOpen);
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
@@ -114,7 +116,7 @@ export default function App() {
           the whole app, unmounting the transcript, composer and run status while
           an agent was mid-edit — and its most likely entry point is the
           composer's own "Connect a provider" button. */}
-      <div className="h-full" inert={settingsOpen || undefined}>
+      <div className="h-full" inert={settingsOpen || runBoardOpen || undefined}>
       <ResizablePanelGroup orientation="horizontal">
         {sidebarDocked ? <Sidebar onClose={() => setSidebarOpen(false)} /> : null}
         <ResizablePanel id="conversation" minSize="35%">
@@ -213,6 +215,12 @@ export default function App() {
         </div>
       ) : null}
 
+      {runBoardOpen ? (
+        <div className="absolute inset-0 z-40 bg-background">
+          <RunBoard />
+        </div>
+      ) : null}
+
       <DropZone />
       <Toaster />
       <WindowControls />
@@ -303,6 +311,7 @@ function WorkspaceHeader({
 }) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const isNewChat = useAppStore((s) => s.isNewChat);
+  const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const activeProjectName = useAppStore(
     (s) => s.projects.find((project) => project.path === s.activeProjectPath)?.name,
   );
@@ -323,7 +332,7 @@ function WorkspaceHeader({
           variant="ghost"
           size="icon-sm"
           onClick={onOpenSidebar}
-          title={withHint("Open sidebar", "toggleSidebar")}
+          title={withHint("Open sidebar", "toggleSidebar", keybindingOverrides)}
           aria-label="Open sidebar"
           className={NO_DRAG_REGION}
         >
@@ -361,7 +370,7 @@ function WorkspaceHeader({
           variant="ghost"
           size="icon-sm"
           onClick={onToggleTerminal}
-          title={withHint(terminalOpen ? "Hide terminal" : "Show terminal", "toggleTerminal")}
+          title={withHint(terminalOpen ? "Hide terminal" : "Show terminal", "toggleTerminal", keybindingOverrides)}
           aria-label={terminalOpen ? "Hide terminal" : "Show terminal"}
           aria-pressed={terminalOpen}
           className={NO_DRAG_REGION}
@@ -374,7 +383,7 @@ function WorkspaceHeader({
           variant="ghost"
           size="icon-sm"
           onClick={onOpenContext}
-          title={withHint("Show changes pane", "toggleContextPane")}
+          title={withHint("Show changes pane", "toggleContextPane", keybindingOverrides)}
           aria-label="Show changes pane"
           // Always false while rendered — the button leaves the header once the
           // pane is docked — but the attribute still tells assistive tech this
@@ -411,6 +420,8 @@ function useWorkspaceShortcuts(
   const requestJumpToLatest = useAppStore((s) => s.requestJumpToLatest);
   const requestSearchFocus = useAppStore((s) => s.requestSearchFocus);
   const cycleThinkingLevel = useAppStore((s) => s.cycleThinkingLevel);
+  const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
+  const stopTurnBinding = bindingFor("stopTurn", keybindingOverrides);
 
   useEffect(() => {
     /** Shortcuts that need a project open do nothing without one. */
@@ -438,7 +449,7 @@ function useWorkspaceShortcuts(
           // Escape belongs to a single-line field first — it clears or closes
           // whatever the user is typing in. The composer is a textarea, so
           // stopping a run while writing the next message still works.
-          if (running && !(event.target instanceof HTMLInputElement)) {
+          if (running && (stopTurnBinding !== "Escape" || !(event.target instanceof HTMLInputElement))) {
             event.preventDefault();
             abort();
           }
@@ -478,7 +489,7 @@ function useWorkspaceShortcuts(
         }),
 
         cycleThinking: withProject(() => void cycleThinkingLevel()),
-      }),
+      }, keybindingOverrides),
       // tinykeys otherwise ignores keystrokes originating in inputs and
       // textareas, which would silence every one of these inside the composer.
       // Only IME composition is filtered: mid-composition keys belong to the
@@ -491,6 +502,7 @@ function useWorkspaceShortcuts(
     closeSettings,
     cycleThinkingLevel,
     importSession,
+    keybindingOverrides,
     layout,
     newChat,
     openSettings,
@@ -502,6 +514,7 @@ function useWorkspaceShortcuts(
     setSidebarSheetOpen,
     setContextSheetOpen,
     settingsOpen,
+    stopTurnBinding,
     toggleContextPane,
     toggleTerminal,
     toggleSidebar,

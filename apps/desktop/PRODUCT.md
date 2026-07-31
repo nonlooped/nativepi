@@ -30,7 +30,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - NativePi is a Windows desktop application used alongside local code projects, Git repositories, and the existing Pi CLI ecosystem. Its workspace can be shared temporarily to browsers on the same local network.
 - Users pin project folders; create, discover, import, and manage Pi sessions; inspect streamed messages and tool activity; and review Git state and diffs.
 - Existing Pi credentials, configuration, sessions, packages, skills, prompts, and extensions remain in Pi's normal storage and remain usable by the Pi CLI.
-- NativePi keeps at most one Pi process per project. Different projects may run concurrently.
+- NativePi keeps one Pi process per active chat, so chats in the same project and different projects may run concurrently.
 - Conversations open directly from Pi session files without waiting for a Pi process to start. Drafts remain editable and are restored if a cold send fails.
 - Narrow windows move project navigation and project context into sheets so the conversation and composer remain usable.
 
@@ -62,7 +62,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Pi session files are the durable conversation source of truth. NativePi persists only pinned projects and chats, the last project and chat, text drafts, favorite models, pane state, and its own interface preferences.
 - Agent configuration is Pi's. NativePi reads and writes it through Pi's own settings manager at user scope, so a change made here is a change the Pi command line sees; NativePi never writes Pi's configuration format itself, and exposes only the settings that have meaning in a desktop window. Project-scope overrides remain the Pi command line's business.
 - Authentication is Pi-backed. Credentials are never stored in NativePi renderer persistence or its state file.
-- Git mutation is deliberately narrow: branch checkout and creation require a clean worktree, and worktrees may be added. NativePi does not stage, commit, merge, rebase, discard changes, create checkpoints, roll back work, or rewrite history.
+- Git mutation is deliberately narrow: branch checkout and creation require a clean worktree, and worktrees may be added. NativePi can stage individual hunks, create commits, push the current branch, and open a GitHub pull request through `gh`; Pi drafts commit wording when asked. NativePi does not merge, rebase, discard changes, create checkpoints, roll back work, or rewrite history.
 - Normal Pi extensions run unchanged. Optional graphical extensions contribute only through controlled NativePi UI slots and are trusted code, not sandboxed code.
 - Terminal extension components are drawn by Pi and displayed, not reimplemented: NativePi runs the component in the Pi process and shows what it draws, so it looks as its author wrote it rather than as NativePi would have styled it. Two parts of Pi's terminal UI have no equivalent here and keep Pi's documented no-op: raw terminal input, and replacing the input editor, which in this window is the composer.
 - NativePi has no cloud sync, collaboration, remote projects, SSH launching, configurable keybindings, product accounts, paid features, or telemetry.

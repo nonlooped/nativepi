@@ -20,8 +20,10 @@ import type {
   ThinkingLevel,
 } from "../../../shared/pi-types.ts";
 import type { PiSettings } from "../../../shared/pi-settings.ts";
+import type { RepoHostContext } from "../../../shared/repo-host-types.ts";
 import type { TuiHostFrame, TuiSurface } from "../../../shared/tui-frames.ts";
 import type { LoadedExtension } from "../extensionHost.ts";
+import type { KeybindingOverrides, ShortcutId } from "../shortcuts.ts";
 
 /**
  * The store's shape, split by what each group of state is *about*.
@@ -105,17 +107,18 @@ export interface WorkspaceSlice {
  * One project's conversation runtime: the transcript being streamed, whether a
  * turn is running, its queue, retries, and errors.
  *
- * Keyed per project in `ChatSlice.conversations` so a run in one project keeps
- * receiving events — and keeps its state — while another project is on screen.
- * `sessionFile` records which chat this runtime belongs to.
+ * Keyed per session file in `ChatSlice.conversations` so multiple chats in one
+ * project can keep receiving events while another chat or project is on screen.
  */
 export interface Conversation {
+  projectDir: string | null;
   sessionFile: string | null;
   sessionName?: string;
   entries: SessionEntry[];
   streaming: AssistantMessage | null;
   running: boolean;
   runStartedAt: number | null;
+  runEntryStart: number | null;
   compacting: boolean;
   retry: { attempt: number; maxAttempts: number; error: string } | null;
   queue: { steering: string[]; followUp: string[] };
@@ -125,6 +128,17 @@ export interface Conversation {
   externalChange: { sessionFile: string } | null;
 }
 
+/** A completed run kept for this window only, so activity remains visible after changing chats. */
+export interface SettledRun {
+  projectDir: string;
+  sessionFile: string | null;
+  sessionName?: string;
+  startedAt: number;
+  settledAt: number;
+  model?: string;
+  tokens: number;
+}
+
 /** The conversation: which chat, its transcript, and everything sent into it. */
 export interface ChatSlice {
   sessionsByProject: Record<string, SessionSummary[]>;
@@ -132,8 +146,9 @@ export interface ChatSlice {
   isNewChat: boolean;
   pinnedChats: string[];
 
-  /** Conversation runtime per project path, active or not. */
+  /** Conversation runtime per session file, active or not. */
   conversations: Record<string, Conversation>;
+  settledRuns: Record<string, SettledRun>;
   sendBehavior: "steer" | "followUp";
 
   drafts: Record<string, string>;
@@ -217,7 +232,11 @@ export interface AuthSlice {
 /** What the project looks like right now: working tree, and loaded extensions. */
 export interface ProjectContextSlice {
   git: GitStatus | null;
+  /** The PR/MR (or, failing that, issue) for the current branch. `undefined` while loading. */
+  repoHost: RepoHostContext | null | undefined;
   extPrompts: ExtensionPrompt[];
+  /** Pending Pi extension requests, retained only until their project is opened or the run settles. */
+  extensionPromptsByProject: Record<string, ExtensionPrompt[]>;
   extStatuses: Record<string, string>;
   extWidgets: Record<string, ExtensionWidget>;
   extRenderers: LoadedExtension[];
@@ -227,14 +246,14 @@ export interface ProjectContextSlice {
   /** The characters an extension autocomplete provider answers on, if any. */
   extTriggers: string[];
   extUiState: ExtensionUiState;
-  /** Files opened from the file explorer, per project, most-recent first. */
   recentFilesByProject: Record<string, RecentFile[]>;
 
   refreshGit: () => Promise<void>;
+  refreshRepoHost: () => Promise<void>;
   switchBranch: (branch: string, create: boolean) => Promise<{ ok: boolean; error?: string }>;
   reloadExtensions: () => Promise<void>;
   respondExtension: (value: { value?: string; confirmed?: boolean; cancel?: boolean }) => void;
-  onTuiFrame: (payload: { projectDir: string; frame: TuiHostFrame }) => void;
+  onTuiFrame: (payload: { projectDir: string; sessionFile?: string; frame: TuiHostFrame }) => void;
   recordFileOpened: (projectPath: string, path: string) => void;
 }
 
@@ -275,6 +294,7 @@ export interface AccessHandoff {
 
 export interface UiSlice {
   settingsOpen: boolean;
+  runBoardOpen: boolean;
   sidebarSize: number;
   sidebarOpen: boolean;
   reopenLastProject: boolean;
@@ -286,6 +306,8 @@ export interface UiSlice {
   terminalProjects: Set<string>;
   /** NativePi's own appearance and behavior preferences. Pi's live elsewhere. */
   preferences: Preferences;
+  /** The user's shortcut rebindings, keyed by shortcut id. */
+  keybindingOverrides: KeybindingOverrides;
   /** How far NativePi has got with replacing itself, as main last reported it. */
   update: UpdateState;
   /** Links handed to another device since this window opened, newest first. */
@@ -293,11 +315,16 @@ export interface UiSlice {
 
   openSettings: () => void;
   closeSettings: () => void;
+  openRunBoard: () => void;
+  closeRunBoard: () => void;
   setSidebarSize: (size: number) => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setReopenLastProject: (value: boolean) => void;
   setPreference: <K extends keyof Preferences>(key: K, value: Preferences[K]) => void;
+  setKeybinding: (id: ShortcutId, binding: string) => void;
+  resetKeybinding: (id: ShortcutId) => void;
+  resetAllKeybindings: () => void;
   toggleContextPane: () => void;
   requestJumpToLatest: () => void;
   requestSearchFocus: () => void;
