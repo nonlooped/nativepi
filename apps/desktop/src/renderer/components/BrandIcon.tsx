@@ -95,8 +95,8 @@ export default function BrandIcon({
 
   return (
     <span
-      className={["inline-flex shrink-0", className].filter(Boolean).join(" ")}
-      style={{ width: size, height: size, fontSize: size }}
+      className={["inline-flex shrink-0 [&>svg]:size-full", className].filter(Boolean).join(" ")}
+      style={{ width: size, height: size }}
       aria-hidden
       // These SVG strings are compile-time assets from the pinned icon package.
       dangerouslySetInnerHTML={{ __html: color && icon.color ? icon.color : icon.mono }}

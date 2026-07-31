@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { SessionEntry, SessionSummary } from "../../shared/pi-types.ts";
-import { textOf } from "../../shared/messages.ts";
+import { displayPromptText, textOf } from "../../shared/messages.ts";
 import { chatTitle, toolArgSummary, toolResultsById } from "./transcript.ts";
 
 function session(firstMessage: string, name?: string): SessionSummary {
@@ -10,6 +10,7 @@ function session(firstMessage: string, name?: string): SessionSummary {
     name,
     firstMessage,
     lastPrompt: firstMessage,
+    providers: [],
     messageCount: 1,
     created: "t",
     modified: "t",
@@ -39,6 +40,22 @@ test("chatTitle uses the leading item name when there is no request text", () =>
 
 test("chatTitle preserves an explicit session name", () => {
   expect(chatTitle(session('/review check this diff', "Release review"))).toBe("Release review");
+});
+
+test("displayPromptText strips skill and file markup for sidebar previews", () => {
+  expect(
+    displayPromptText(
+      '<skill name="releasing" location="C:\\skills\\releasing\\SKILL.md">\nReferences are relative.\n\nRelease instructions\n</skill>\n\npublish the app',
+    ),
+  ).toBe("publish the app");
+  expect(
+    displayPromptText('<file name="C:\\project\\App.tsx">\nfile contents\n</file>\nexplain this'),
+  ).toBe("explain this");
+  expect(displayPromptText("/skill:releasing publish the app")).toBe("publish the app");
+  expect(displayPromptText('@src/renderer/App.tsx explain this')).toBe("explain this");
+  expect(displayPromptText('<skill name="releasing" location="C:\\skills\\releasing\\SKILL.md">\nRelease…')).toBe(
+    "releasing",
+  );
 });
 
 test("textOf flattens string and block content, ignoring non-text blocks", () => {

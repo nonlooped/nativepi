@@ -2,7 +2,7 @@ import { existsSync, watch, type FSWatcher } from "node:fs";
 import { readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { parseSessionEntries, SessionManager } from "@earendil-works/pi-coding-agent";
-import { chatTitle, isAssistant, isUser, textOf } from "../shared/messages.ts";
+import { chatTitle, displayPromptText, isAssistant, isUser, textOf } from "../shared/messages.ts";
 import type { FileEntry, SessionSearchResult, SessionSummary } from "../shared/pi-types.ts";
 
 /**
@@ -19,9 +19,12 @@ export async function readSession(sessionFile: string): Promise<FileEntry[]> {
   return parseSessionEntries(await readFile(sessionFile, "utf8")) as FileEntry[];
 }
 
-async function lastUserPrompt(sessionFile: string): Promise<string> {
+async function sessionSidebarFields(sessionFile: string): Promise<{ lastPrompt: string; providers: string[] }> {
   try {
     const contents = await readFile(sessionFile, "utf8");
+    let lastPrompt = "";
+    const providers: string[] = [];
+    const seen = new Set<string>();
     let end = contents.length;
     while (end > 0) {
       while (end > 0 && (contents[end - 1] === "\n" || contents[end - 1] === "\r")) end -= 1;
@@ -30,23 +33,36 @@ async function lastUserPrompt(sessionFile: string): Promise<string> {
       const line = contents.slice(start, end);
       end = start;
       try {
-        const entry = JSON.parse(line) as { type?: unknown; message?: unknown };
-        if (entry.type === "message" && isUser(entry.message)) return promptSummary(entry.message.content);
+        const entry = JSON.parse(line) as { type?: unknown; message?: unknown; provider?: unknown };
+        if (entry.type === "message") {
+          if (!lastPrompt && isUser(entry.message)) lastPrompt = promptSummary(entry.message.content);
+          if (isAssistant(entry.message) && typeof entry.message.provider === "string") {
+            rememberProvider(entry.message.provider, providers, seen);
+          }
+        } else if (entry.type === "model_change" && typeof entry.provider === "string") {
+          rememberProvider(entry.provider, providers, seen);
+        }
       } catch {
         // Pi's parser also skips malformed lines; keep looking for the latest
         // valid user message instead of losing the whole sidebar row.
       }
     }
-    return "";
+    return { lastPrompt, providers };
   } catch {
     // A session can disappear between Pi's directory scan and this read. Keep
     // the remaining list usable; the watcher will remove this row momentarily.
-    return "";
+    return { lastPrompt: "", providers: [] };
   }
 }
 
+function rememberProvider(provider: string, providers: string[], seen: Set<string>) {
+  if (!provider || seen.has(provider)) return;
+  seen.add(provider);
+  providers.push(provider);
+}
+
 function promptSummary(content: unknown): string {
-  const normalized = textOf(content).replace(/\s+/g, " ").trim();
+  const normalized = displayPromptText(textOf(content)).replace(/\s+/g, " ").trim();
   if (normalized) {
     const characters = [...normalized];
     return characters.length <= 160 ? normalized : `${characters.slice(0, 159).join("")}…`;
@@ -66,18 +82,22 @@ export async function listSessions(projectDir: string): Promise<SessionSummary[]
       // exists on disk the moment Pi binds to it, so listing it would put a stray
       // entry in the sidebar for every abandoned one.
       .filter((session) => session.messageCount > 0)
-      .map(async (session) => ({
-        path: session.path,
-        id: session.id,
-        name: session.name,
-        // Pi substitutes a placeholder when a session has no readable user text;
-        // an empty string is what lets `chatTitle` fall back to "Untitled chat".
-        firstMessage: session.firstMessage === "(no messages)" ? "" : session.firstMessage,
-        lastPrompt: await lastUserPrompt(session.path),
-        messageCount: session.messageCount,
-        created: session.created.toISOString(),
-        modified: session.modified.toISOString(),
-      })),
+      .map(async (session) => {
+        const { lastPrompt, providers } = await sessionSidebarFields(session.path);
+        return {
+          path: session.path,
+          id: session.id,
+          name: session.name,
+          // Pi substitutes a placeholder when a session has no readable user text;
+          // an empty string is what lets `chatTitle` fall back to "Untitled chat".
+          firstMessage: session.firstMessage === "(no messages)" ? "" : session.firstMessage,
+          lastPrompt,
+          providers,
+          messageCount: session.messageCount,
+          created: session.created.toISOString(),
+          modified: session.modified.toISOString(),
+        };
+      }),
   );
 }
 

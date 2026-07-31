@@ -13,7 +13,9 @@ import type { Project } from "../../shared/rpc-schema.ts";
 import type { SessionSummary } from "../../shared/pi-types.ts";
 import { useAppStore } from "../lib/store.ts";
 import { chatTitle } from "../lib/transcript.ts";
+import { providerIconName } from "../lib/providerIcons.ts";
 import { hintFor, withHint } from "../lib/shortcuts.ts";
+import BrandIcon from "./BrandIcon.tsx";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 import WorktreeDialog from "./WorktreeDialog.tsx";
 import SessionMenu from "./SessionMenu.tsx";
@@ -355,48 +357,35 @@ function ChatList({
             {group.sessions.map((session) => {
               const pinned = pinnedChats.includes(session.path);
               return (
-                <SessionMenu
-                  key={session.path}
-                  projectPath={projectPath}
-                  session={session}
-                  className={cn(
-                    HOVER_REVEAL,
-                    "mr-1 opacity-0 group-hover/chat:opacity-100 group-focus-within/chat:opacity-100 data-[popup-open]:opacity-100",
-                  )}
-                  renderRow={(menu) => (
-                    <div
-                      className={cn(
-                        "group/chat flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent",
-                        session.path === activeSessionFile && !isNewChat && "bg-sidebar-accent",
-                      )}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const select = projectPath === activeProjectPath
-                            ? Promise.resolve()
-                            : selectProject(projectPath);
-                          void select.then(() => selectChat(session.path)).then(onNavigate).catch(() => undefined);
-                        }}
-                        className="flex min-w-0 flex-1 items-start gap-2 rounded-lg px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
-                      >
-                        {pinned ? (
-                          <PushPinIcon className="mt-0.5 shrink-0 text-favorite" weight="fill" aria-hidden />
-                        ) : null}
-                        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                          <span className="truncate text-sm font-medium">{chatTitle(session)}</span>
-                          <span className="truncate text-xs text-muted-foreground">
-                            {session.lastPrompt || "No user prompt"}
-                          </span>
-                        </span>
-                        <span className="shrink-0 pt-0.5 text-xs text-muted-foreground">
-                          {hoursAgo(session.modified, now)}
-                        </span>
-                      </button>
-                      {menu}
-                    </div>
-                  )}
-                />
+                <SessionMenu key={session.path} projectPath={projectPath} session={session}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const select = projectPath === activeProjectPath
+                        ? Promise.resolve()
+                        : selectProject(projectPath);
+                      void select.then(() => selectChat(session.path)).then(onNavigate).catch(() => undefined);
+                    }}
+                    className={cn(
+                      "flex w-full min-w-0 items-start gap-2 rounded-lg px-3 py-2 text-left outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
+                      session.path === activeSessionFile && !isNewChat && "bg-sidebar-accent",
+                    )}
+                  >
+                    {pinned ? (
+                      <PushPinIcon className="mt-0.5 shrink-0 text-favorite" weight="fill" aria-hidden />
+                    ) : null}
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="truncate text-sm font-medium">{chatTitle(session)}</span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {session.lastPrompt || "No user prompt"}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end gap-1 pt-0.5">
+                      <span className="text-xs text-muted-foreground">{hoursAgo(session.modified, now)}</span>
+                      <ProviderStack providers={session.providers} />
+                    </span>
+                  </button>
+                </SessionMenu>
               );
             })}
           </div>
@@ -415,6 +404,41 @@ function ChatList({
 }
 
 const EMPTY: SessionSummary[] = [];
+
+/** Up to two provider marks, most recent first; a third+ collapses to a count badge. */
+function ProviderStack({ providers }: { providers: string[] }) {
+  if (providers.length === 0) return null;
+  const shown = providers.slice(0, 2);
+  const overflow = providers.length > 2;
+  return (
+    <span
+      className="flex items-center"
+      title={providers.join(", ")}
+      aria-label={`Providers: ${providers.join(", ")}`}
+    >
+      {shown.map((provider, index) => (
+        <span
+          key={provider}
+          className={cn(
+            "relative flex size-3.5 items-center justify-center rounded-full bg-sidebar text-muted-foreground ring-1 ring-sidebar",
+            index > 0 && "-ml-1",
+          )}
+          style={{ zIndex: shown.length - index + (overflow ? 1 : 0) }}
+        >
+          <BrandIcon name={providerIconName(provider)} size={10} />
+        </span>
+      ))}
+      {overflow ? (
+        <span
+          className="relative -ml-1 flex size-3.5 items-center justify-center rounded-full bg-muted text-[8px] font-semibold leading-none tabular-nums text-muted-foreground ring-1 ring-sidebar"
+          style={{ zIndex: 0 }}
+        >
+          {providers.length}
+        </span>
+      ) : null}
+    </span>
+  );
+}
 
 function hoursAgo(timestamp: string, now: number): string {
   const minutes = Math.max(0, Math.floor((now - new Date(timestamp).getTime()) / 60_000));

@@ -102,8 +102,57 @@ test("listSessions summarizes real sessions and hides empty ones", async () => {
   expect(sessions[0]!.name).toBe("Renamed chat");
   expect(sessions[0]!.firstMessage).toBe("first thing I asked");
   expect(sessions[0]!.lastPrompt).toBe("latest thing I asked");
+  expect(sessions[0]!.providers).toEqual([]);
   expect(sessions[0]!.messageCount).toBe(3);
   expect(sessions[0]!.created).toBe("2026-01-01T00:00:00.000Z");
+});
+
+test("listSessions collects distinct providers most-recent first", async () => {
+  const projectDir = await mkdtemp(path.join(tmpdir(), "nativepi-project-"));
+
+  await writeSession(projectDir, "multi.jsonl", [
+    { type: "session", version: 3, id: "multi", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
+    { type: "model_change", id: "m1", parentId: null, timestamp: "2026-01-01T00:00:01Z", provider: "openai", modelId: "gpt-5" },
+    {
+      type: "message",
+      id: "1",
+      parentId: "m1",
+      timestamp: "2026-01-01T00:00:02Z",
+      message: { role: "user", content: "hi", timestamp: 1 },
+    },
+    {
+      type: "message",
+      id: "2",
+      parentId: "1",
+      timestamp: "2026-01-01T00:00:03Z",
+      message: { role: "assistant", content: [{ type: "text", text: "a" }], provider: "openai", model: "gpt-5", timestamp: 2 },
+    },
+    { type: "model_change", id: "m2", parentId: "2", timestamp: "2026-01-01T00:00:04Z", provider: "anthropic", modelId: "claude" },
+    {
+      type: "message",
+      id: "3",
+      parentId: "m2",
+      timestamp: "2026-01-01T00:00:05Z",
+      message: { role: "user", content: "again", timestamp: 3 },
+    },
+    {
+      type: "message",
+      id: "4",
+      parentId: "3",
+      timestamp: "2026-01-01T00:00:06Z",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "b" }],
+        provider: "anthropic",
+        model: "claude",
+        timestamp: 4,
+      },
+    },
+    { type: "model_change", id: "m3", parentId: "4", timestamp: "2026-01-01T00:00:07Z", provider: "google", modelId: "gemini" },
+  ]);
+
+  const sessions = await listSessions(projectDir);
+  expect(sessions[0]!.providers).toEqual(["google", "anthropic", "openai"]);
 });
 
 test("listSessions describes image-only prompts and bounds long sidebar previews", async () => {
@@ -129,10 +178,41 @@ test("listSessions describes image-only prompts and bounds long sidebar previews
       message: { role: "user", content: `  ${"a".repeat(200)}  `, timestamp: 2 },
     },
   ]);
+  await writeSession(projectDir, "skill.jsonl", [
+    { type: "session", version: 3, id: "skill", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
+    {
+      type: "message",
+      id: "1",
+      parentId: null,
+      timestamp: "2026-01-01T00:00:03Z",
+      message: {
+        role: "user",
+        content:
+          '<skill name="releasing" location="C:\\skills\\releasing\\SKILL.md">\nReferences are relative.\n\nRelease instructions\n</skill>\n\npublish the app',
+        timestamp: 3,
+      },
+    },
+  ]);
+  await writeSession(projectDir, "skill-only.jsonl", [
+    { type: "session", version: 3, id: "skill-only", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
+    {
+      type: "message",
+      id: "1",
+      parentId: null,
+      timestamp: "2026-01-01T00:00:04Z",
+      message: {
+        role: "user",
+        content: '<skill name="releasing" location="C:\\skills\\releasing\\SKILL.md">\nRelease instructions\n</skill>',
+        timestamp: 4,
+      },
+    },
+  ]);
 
   const sessions = await listSessions(projectDir);
   expect(sessions.find((session) => session.id === "image")?.lastPrompt).toBe("Image attachment");
   expect(sessions.find((session) => session.id === "long")?.lastPrompt).toBe(`${"a".repeat(159)}…`);
+  expect(sessions.find((session) => session.id === "skill")?.lastPrompt).toBe("publish the app");
+  expect(sessions.find((session) => session.id === "skill-only")?.lastPrompt).toBe("releasing");
 });
 
 test("watchProjectSessions detects chats created after the sidebar is open", async () => {

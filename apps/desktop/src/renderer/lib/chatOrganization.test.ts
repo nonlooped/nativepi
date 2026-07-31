@@ -10,6 +10,7 @@ function session(path: string, title: string, modified: Date): SessionSummary {
     id: path,
     firstMessage: title,
     lastPrompt: `Latest prompt in ${title}`,
+    providers: [],
     messageCount: 2,
     created: modified.toISOString(),
     modified: modified.toISOString(),

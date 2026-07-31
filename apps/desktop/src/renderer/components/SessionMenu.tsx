@@ -2,7 +2,6 @@ import { ArrowSquareOutIcon } from "@phosphor-icons/react/ArrowSquareOut";
 import { ArrowsInSimpleIcon } from "@phosphor-icons/react/ArrowsInSimple";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
-import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
 import { ExportIcon } from "@phosphor-icons/react/Export";
 import { GitForkIcon } from "@phosphor-icons/react/GitFork";
 import { InfoIcon } from "@phosphor-icons/react/Info";
@@ -22,7 +21,6 @@ import { showHint } from "../lib/toast.tsx";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -45,17 +43,14 @@ type DialogKind = "rename" | "fork" | "tree" | "info" | "export" | "delete";
 export default function SessionMenu({
   projectPath,
   session,
-  className,
-  renderRow,
+  children,
 }: {
   projectPath: string;
   session: SessionSummary;
-  className?: string;
-  renderRow: (menu: React.ReactNode) => React.ReactElement;
+  children: React.ReactElement;
 }) {
   const [dialog, setDialog] = useState<DialogKind | null>(null);
   const [exportPath, setExportPath] = useState<string>("");
-  const [busyAction, setBusyAction] = useState(false);
 
   const running = useAppStore((s) => activeConversation(s).running);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
@@ -72,26 +67,16 @@ export default function SessionMenu({
   };
 
   async function doClone() {
-    setBusyAction(true);
-    try {
-      await cloneChat(session.path);
-    } finally {
-      setBusyAction(false);
-    }
+    await cloneChat(session.path);
   }
 
   async function doExport() {
     const projectDir = useAppStore.getState().activeProjectPath;
     if (!projectDir) return;
-    setBusyAction(true);
-    try {
-      const res = await rpc.request.exportHtml({ projectDir, sessionFile: session.path });
-      if (res.ok && res.path) {
-        setExportPath(res.path);
-        setDialog("export");
-      }
-    } finally {
-      setBusyAction(false);
+    const res = await rpc.request.exportHtml({ projectDir, sessionFile: session.path });
+    if (res.ok && res.path) {
+      setExportPath(res.path);
+      setDialog("export");
     }
   }
 
@@ -113,29 +98,12 @@ export default function SessionMenu({
     delete: () => setDialog("delete" as const),
   };
 
-  const menu = (
-    <Menu>
-        <MenuTrigger
-          aria-label="Chat actions"
-          className={cn(
-            "rounded-md p-1 text-muted-foreground outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-            className,
-          )}
-        >
-          {busyAction ? <CircleNotchIcon className="animate-spin" /> : <DotsThreeIcon weight="bold" />}
-        </MenuTrigger>
-        <MenuPopup align="end" className="w-52">
-          <SessionItems actions={actions} />
-        </MenuPopup>
-      </Menu>
-  );
-
   return (
     <>
       <ContextMenu>
-        <ContextMenuTrigger render={renderRow(menu)} />
+        <ContextMenuTrigger render={children} />
         <ContextMenuContent className="w-56">
-          <SessionItems actions={actions} context />
+          <SessionItems actions={actions} />
         </ContextMenuContent>
       </ContextMenu>
 
@@ -153,10 +121,7 @@ export default function SessionMenu({
         destructive
         onConfirm={() => {
           setDialog(null);
-          setBusyAction(true);
-          void selectProject(projectPath)
-            .then(() => deleteChat(session.path))
-            .finally(() => setBusyAction(false));
+          void selectProject(projectPath).then(() => deleteChat(session.path));
         }}
         onCancel={() => setDialog(null)}
       />
@@ -190,52 +155,36 @@ type SessionActions = {
   delete: () => void;
 };
 
-function SessionItems({ actions, context = false }: { actions: SessionActions; context?: boolean }) {
-  const separator = context ? <ContextMenuSeparator /> : <div className="my-1 h-px bg-border" />;
+function SessionItems({ actions }: { actions: SessionActions }) {
   return (
     <>
-      <SessionItem context={context} onClick={actions.togglePin}>
+      <ContextMenuItem onClick={actions.togglePin}>
         {actions.pinned ? <PushPinSlashIcon /> : <PushPinIcon />}
         {actions.pinned ? "Unpin chat" : "Pin chat"}
-      </SessionItem>
-      {separator}
-      <SessionItem context={context} onClick={actions.rename}><PencilSimpleIcon /> Rename</SessionItem>
-      <SessionItem context={context} onClick={actions.fork} disabled={actions.blocked}><GitForkIcon /> Fork from a message…</SessionItem>
-      <SessionItem context={context} onClick={actions.clone} disabled={actions.blocked}><CopyIcon /> Duplicate</SessionItem>
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={actions.rename}><PencilSimpleIcon /> Rename</ContextMenuItem>
+      <ContextMenuItem onClick={actions.fork} disabled={actions.blocked}><GitForkIcon /> Fork from a message…</ContextMenuItem>
+      <ContextMenuItem onClick={actions.clone} disabled={actions.blocked}><CopyIcon /> Duplicate</ContextMenuItem>
       {actions.active ? (
-        <SessionItem context={context} onClick={actions.compact} disabled={actions.blocked} title="Summarize earlier messages so a long chat keeps fitting in the model's context window">
+        <ContextMenuItem onClick={actions.compact} disabled={actions.blocked} title="Summarize earlier messages so a long chat keeps fitting in the model's context window">
           <ArrowsInSimpleIcon /> Compact context
-        </SessionItem>
+        </ContextMenuItem>
       ) : null}
-      {separator}
-      <SessionItem context={context} onClick={actions.copyTitle}><CopyIcon /> Copy title</SessionItem>
-      <SessionItem context={context} onClick={actions.reveal}><ArrowSquareOutIcon /> Reveal session file</SessionItem>
-      <SessionItem context={context} onClick={actions.copyPath}><CopyIcon /> Copy session file path</SessionItem>
-      {separator}
-      <SessionItem context={context} onClick={actions.tree}><TreeStructureIcon /> Session tree…</SessionItem>
-      <SessionItem context={context} onClick={actions.info}><InfoIcon /> Session info…</SessionItem>
-      <SessionItem context={context} onClick={actions.export}><ExportIcon /> Export to HTML</SessionItem>
-      {separator}
-      <SessionItem context={context} onClick={actions.delete} disabled={actions.blocked} className="text-destructive">
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={actions.copyTitle}><CopyIcon /> Copy title</ContextMenuItem>
+      <ContextMenuItem onClick={actions.reveal}><ArrowSquareOutIcon /> Reveal session file</ContextMenuItem>
+      <ContextMenuItem onClick={actions.copyPath}><CopyIcon /> Copy session file path</ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={actions.tree}><TreeStructureIcon /> Session tree…</ContextMenuItem>
+      <ContextMenuItem onClick={actions.info}><InfoIcon /> Session info…</ContextMenuItem>
+      <ContextMenuItem onClick={actions.export}><ExportIcon /> Export to HTML</ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={actions.delete} disabled={actions.blocked} className="text-destructive">
         <TrashIcon /> Delete chat…
-      </SessionItem>
+      </ContextMenuItem>
     </>
   );
-}
-
-function SessionItem({
-  context,
-  children,
-  ...props
-}: {
-  context: boolean;
-  children: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-  title?: string;
-  className?: string;
-}) {
-  return context ? <ContextMenuItem {...props}>{children}</ContextMenuItem> : <MenuItem {...props}>{children}</MenuItem>;
 }
 
 function RenameDialog({ session, onClose }: { session: SessionSummary; onClose: () => void }) {

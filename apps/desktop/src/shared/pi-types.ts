@@ -172,6 +172,8 @@ export interface SessionSummary {
   name?: string;
   firstMessage: string;
   lastPrompt: string;
+  /** Distinct providers used in the chat, most recent first. */
+  providers: string[];
   messageCount: number;
   created: string;
   modified: string;
