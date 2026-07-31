@@ -4,7 +4,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitHunks, gitStageHunk, gitStatus } from "./git.ts";
+import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitHunks, gitStageFile, gitStageHunk, gitStatus } from "./git.ts";
 
 /**
  * These run against a real repository rather than a mocked `git`.
@@ -113,12 +113,30 @@ test("a selected hunk stages without staging its neighbour", async () => {
 
   const hunks = await gitHunks(dir, "a.txt", false);
   expect(hunks.length).toBe(2);
-  expect(await gitStageHunk(dir, "a.txt", false, 0)).toEqual({ ok: true });
+  expect(await gitStageHunk(dir, "a.txt", false, hunks[0]!.patch)).toEqual({ ok: true });
 
   const status = await gitStatus(dir);
   expect(status.files).toEqual([{ path: "a.txt", state: "modified", staged: true, unstaged: true }]);
   expect(execFileSync("git", ["diff", "--cached"], { cwd: dir, encoding: "utf8" })).toContain("first");
   expect(execFileSync("git", ["diff"], { cwd: dir, encoding: "utf8" })).toContain("b");
+});
+
+test("a hunk that changed after display is not staged by a stale selection", async () => {
+  const dir = await repo();
+  await writeFile(path.join(dir, "a.txt"), "first\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\nb\n", "utf8");
+  const [first] = await gitHunks(dir, "a.txt", false);
+  await writeFile(path.join(dir, "a.txt"), "one\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\nb\n", "utf8");
+
+  expect(await gitStageHunk(dir, "a.txt", false, first!.patch)).toEqual({ ok: false, error: "That change is no longer available. Refresh and try again." });
+});
+
+test("a file without textual hunks can still be staged", async () => {
+  const dir = await repo();
+  await writeFile(path.join(dir, "image.bin"), Buffer.from([0, 1, 2, 3]));
+
+  expect(await gitHunks(dir, "image.bin", false)).toEqual([]);
+  expect(await gitStageFile(dir, "image.bin")).toEqual({ ok: true });
+  expect((await gitStatus(dir)).files).toEqual([{ path: "image.bin", state: "added", staged: true, unstaged: false }]);
 });
 
 test("committing without staged changes is refused", async () => {

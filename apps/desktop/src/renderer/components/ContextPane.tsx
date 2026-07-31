@@ -188,17 +188,27 @@ function HunkActions({ projectDir, file }: { projectDir: string; file: GitChange
     [projectDir, file.path, file.state],
   );
   const [busy, setBusy] = useState<number | null>(null);
-  if (loading || error || !data?.hunks.length) return null;
-  async function stage(hunk: number) {
-    setBusy(hunk);
-    const result = await rpc.request.gitStageHunk({ projectDir, file: file.path, untracked: file.state === "untracked", hunk });
+  if (loading || error || !data) return null;
+  async function stage(patch: string, index: number) {
+    setBusy(index);
+    const result = await rpc.request.gitStageHunk({ projectDir, file: file.path, untracked: file.state === "untracked", patch });
+    setBusy(null);
+    if (result.ok) await refreshGit();
+  }
+  async function stageFile() {
+    setBusy(-1);
+    const result = await rpc.request.gitStageFile({ projectDir, file: file.path });
     setBusy(null);
     if (result.ok) await refreshGit();
   }
   return (
     <div className="flex flex-col gap-1 border-b px-2 py-2">
-      {data.hunks.map((hunk, index) => (
-        <Button key={hunk.patch} size="sm" variant="ghost" className="justify-start" disabled={busy !== null} onClick={() => void stage(index)}>
+      {data.hunks.length === 0 ? (
+        <Button size="sm" variant="ghost" className="justify-start" disabled={busy !== null} onClick={() => void stageFile()}>
+          {busy === -1 ? "Staging…" : "Stage file"}
+        </Button>
+      ) : data.hunks.map((hunk, index) => (
+        <Button key={hunk.patch} size="sm" variant="ghost" className="justify-start" disabled={busy !== null} onClick={() => void stage(hunk.patch, index)}>
           {busy === index ? "Staging…" : `Stage hunk ${index + 1}`}
           <span className="ml-auto truncate font-mono text-xs text-muted-foreground">{hunk.header}</span>
         </Button>

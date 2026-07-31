@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SparkleIcon } from "@phosphor-icons/react/Sparkle";
 import type { AssistantMessage, SessionEntry } from "../../shared/pi-types.ts";
 import { rpc } from "../lib/rpc.ts";
@@ -35,31 +35,41 @@ export default function CommitDialog({ projectDir, onClose }: { projectDir: stri
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [draftingSince, setDraftingSince] = useState<number | null>(null);
+  const sawDraftRun = useRef(false);
   const [busy, setBusy] = useState<"commit" | "pr" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!draftingSince) return;
     const draft = assistantText(conversation.entries, draftingSince);
-    if (!draft) return;
-    setMessage(draft);
-    setTitle(draft.split("\n")[0].slice(0, 256));
-    setDraftingSince(null);
-  }, [conversation.entries, draftingSince]);
+    if (draft) {
+      setMessage(draft);
+      setTitle(draft.split("\n")[0].slice(0, 256));
+      setDraftingSince(null);
+      return;
+    }
+    if (conversation.running) {
+      sawDraftRun.current = true;
+    } else if (sawDraftRun.current) {
+      setDraftingSince(null);
+      setError("Pi finished without a usable commit-message draft.");
+    }
+  }, [conversation.entries, conversation.running, draftingSince]);
 
   useEffect(() => {
-    if (projectDir) return;
     setMessage("");
     setTitle("");
     setBody("");
     setError(null);
     setDraftingSince(null);
+    sawDraftRun.current = false;
   }, [projectDir]);
 
   async function askPi() {
     if (!projectDir || !conversation.sessionFile || conversation.running) return;
     setError(null);
     const since = Date.now();
+    sawDraftRun.current = false;
     setDraftingSince(since);
     const result = await rpc.request.submit({
       projectDir,

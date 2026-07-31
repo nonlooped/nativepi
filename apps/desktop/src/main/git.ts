@@ -99,10 +99,10 @@ export async function gitStageHunk(
   projectDir: string,
   file: string,
   untracked: boolean,
-  hunk: number,
+  patch: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const hunks = await gitHunks(projectDir, file, untracked);
-  const selected = hunks[hunk];
+  const selected = hunks.find((hunk) => hunk.patch === patch);
   if (!selected) return { ok: false, error: "That change is no longer available. Refresh and try again." };
   const result = await new Promise<{ stdout: string; stderr: string; code: number }>((resolve) => {
     const child = execFile("git", ["apply", "--cached", "--unidiff-zero", "-"], {
@@ -118,6 +118,11 @@ export async function gitStageHunk(
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
 }
 
+export async function gitStageFile(projectDir: string, file: string): Promise<{ ok: boolean; error?: string }> {
+  const result = await run(["add", "--", file], projectDir);
+  return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
+}
+
 export async function gitCommit(projectDir: string, message: string): Promise<{ ok: boolean; error?: string }> {
   const staged = await run(["diff", "--cached", "--quiet"], projectDir);
   if (staged.code === 0) return { ok: false, error: "Stage at least one change before committing." };
@@ -130,10 +135,13 @@ export async function gitPushAndCreatePr(
   title: string,
   body: string,
 ): Promise<{ ok: boolean; url?: string; error?: string }> {
-  const push = await run(["push", "-u", "origin", "HEAD"], projectDir);
-  if (push.code !== 0) return { ok: false, error: failure(push) };
   const base = await runGh(["repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"], projectDir);
   if (base.code !== 0 || !base.stdout.trim()) return { ok: false, error: failure(base) };
+  const current = await run(["branch", "--show-current"], projectDir);
+  if (current.code !== 0 || !current.stdout.trim()) return { ok: false, error: "Check out a branch before opening a pull request." };
+  if (current.stdout.trim() === base.stdout.trim()) return { ok: false, error: "Create a branch before opening a pull request." };
+  const push = await run(["push", "-u", "origin", "HEAD"], projectDir);
+  if (push.code !== 0) return { ok: false, error: failure(push) };
   const pr = await runGh(["pr", "create", "--base", base.stdout.trim(), "--title", title, "--body", body], projectDir);
   return pr.code === 0 ? { ok: true, url: pr.stdout.trim() } : { ok: false, error: failure(pr) };
 }
