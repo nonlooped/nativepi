@@ -303,6 +303,7 @@ function WorkspaceHeader({
 }) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const isNewChat = useAppStore((s) => s.isNewChat);
+  const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const activeProjectName = useAppStore(
     (s) => s.projects.find((project) => project.path === s.activeProjectPath)?.name,
   );
@@ -323,7 +324,7 @@ function WorkspaceHeader({
           variant="ghost"
           size="icon-sm"
           onClick={onOpenSidebar}
-          title={withHint("Open sidebar", "toggleSidebar")}
+          title={withHint("Open sidebar", "toggleSidebar", keybindingOverrides)}
           aria-label="Open sidebar"
           className={NO_DRAG_REGION}
         >
@@ -361,7 +362,7 @@ function WorkspaceHeader({
           variant="ghost"
           size="icon-sm"
           onClick={onToggleTerminal}
-          title={withHint(terminalOpen ? "Hide terminal" : "Show terminal", "toggleTerminal")}
+          title={withHint(terminalOpen ? "Hide terminal" : "Show terminal", "toggleTerminal", keybindingOverrides)}
           aria-label={terminalOpen ? "Hide terminal" : "Show terminal"}
           aria-pressed={terminalOpen}
           className={NO_DRAG_REGION}
@@ -374,7 +375,7 @@ function WorkspaceHeader({
           variant="ghost"
           size="icon-sm"
           onClick={onOpenContext}
-          title={withHint("Show changes pane", "toggleContextPane")}
+          title={withHint("Show changes pane", "toggleContextPane", keybindingOverrides)}
           aria-label="Show changes pane"
           // Always false while rendered — the button leaves the header once the
           // pane is docked — but the attribute still tells assistive tech this
@@ -411,6 +412,7 @@ function useWorkspaceShortcuts(
   const requestJumpToLatest = useAppStore((s) => s.requestJumpToLatest);
   const requestSearchFocus = useAppStore((s) => s.requestSearchFocus);
   const cycleThinkingLevel = useAppStore((s) => s.cycleThinkingLevel);
+  const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
 
   useEffect(() => {
     /** Shortcuts that need a project open do nothing without one. */
@@ -478,7 +480,7 @@ function useWorkspaceShortcuts(
         }),
 
         cycleThinking: withProject(() => void cycleThinkingLevel()),
-      }),
+      }, keybindingOverrides),
       // tinykeys otherwise ignores keystrokes originating in inputs and
       // textareas, which would silence every one of these inside the composer.
       // Only IME composition is filtered: mid-composition keys belong to the
@@ -491,6 +493,7 @@ function useWorkspaceShortcuts(
     closeSettings,
     cycleThinkingLevel,
     importSession,
+    keybindingOverrides,
     layout,
     newChat,
     openSettings,

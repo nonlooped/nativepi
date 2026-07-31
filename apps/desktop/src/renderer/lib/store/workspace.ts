@@ -1,4 +1,5 @@
 import { rpc } from "../rpc.ts";
+import { sanitizeOverrides } from "../shortcuts.ts";
 import { showHint } from "../toast.tsx";
 import { dropAllSurfaces } from "../tuiSurfaces.ts";
 import { patchConversation } from "./conversation.ts";
@@ -30,6 +31,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       activeProjectPath: restoreProject,
       reopenLastProject,
       preferences: loaded.preferences,
+      keybindingOverrides: sanitizeOverrides(loaded.keybindingOverrides ?? {}),
       sidebarOpen: loaded.panes?.sidebarOpen ?? true,
       sidebarSize: loaded.panes?.sidebarSize ?? 18,
       contextPaneOpen: loaded.panes?.contextPaneOpen ?? false,

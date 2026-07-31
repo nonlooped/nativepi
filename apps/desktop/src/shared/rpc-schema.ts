@@ -258,6 +258,10 @@ export const nativePiStateSchema = z.object({
   panes: paneStateSchema.optional().catch(undefined),
   reopenLastProject: z.boolean().catch(true),
   preferences: preferencesSchema.catch(DEFAULT_PREFERENCES),
+  // Kept as a loose string record here: the shortcut registry itself is a
+  // renderer-only concept, and the renderer filters this down to known ids and
+  // valid bindings on load.
+  keybindingOverrides: z.record(z.string(), z.string()).catch({}),
 });
 
 export type NativePiState = z.infer<typeof nativePiStateSchema>;

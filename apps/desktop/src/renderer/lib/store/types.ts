@@ -21,6 +21,7 @@ import type {
 import type { PiSettings } from "../../../shared/pi-settings.ts";
 import type { TuiHostFrame, TuiSurface } from "../../../shared/tui-frames.ts";
 import type { LoadedExtension } from "../extensionHost.ts";
+import type { KeybindingOverrides, ShortcutId } from "../shortcuts.ts";
 
 /**
  * The store's shape, split by what each group of state is *about*.
@@ -282,6 +283,8 @@ export interface UiSlice {
   terminalProjects: Set<string>;
   /** NativePi's own appearance and behavior preferences. Pi's live elsewhere. */
   preferences: Preferences;
+  /** The user's shortcut rebindings, keyed by shortcut id. */
+  keybindingOverrides: KeybindingOverrides;
   /** How far NativePi has got with replacing itself, as main last reported it. */
   update: UpdateState;
   /** Links handed to another device since this window opened, newest first. */
@@ -294,6 +297,9 @@ export interface UiSlice {
   toggleSidebar: () => void;
   setReopenLastProject: (value: boolean) => void;
   setPreference: <K extends keyof Preferences>(key: K, value: Preferences[K]) => void;
+  setKeybinding: (id: ShortcutId, binding: string) => void;
+  resetKeybinding: (id: ShortcutId) => void;
+  resetAllKeybindings: () => void;
   toggleContextPane: () => void;
   requestJumpToLatest: () => void;
   requestSearchFocus: () => void;

@@ -51,6 +51,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const openTerminal = useAppStore((s) => s.openTerminal);
   const editorId = useAppStore((s) => s.preferences.preferredEditorId);
   const searchFocusRequest = useAppStore((s) => s.searchFocusRequest);
+  const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [now, setNow] = useState(Date.now);
@@ -142,7 +143,9 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
             query ? "pr-3" : "pr-16",
           )}
         />
-        {query ? null : <Kbd className="pointer-events-none absolute right-5 top-4">{hintFor("search")}</Kbd>}
+        {query ? null : (
+          <Kbd className="pointer-events-none absolute right-5 top-4">{hintFor("search", keybindingOverrides)}</Kbd>
+        )}
       </div>
 
       <div className="flex items-center justify-between px-4 pb-2">
@@ -153,7 +156,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
               variant="ghost"
               size="icon-sm"
               onClick={() => void importSession().then(() => overlay && onClose())}
-              title={withHint("Import an existing chat", "importChat")}
+              title={withHint("Import an existing chat", "importChat", keybindingOverrides)}
               aria-label="Import an existing chat"
             >
               <UploadSimpleIcon />
@@ -231,7 +234,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                 title={
                   busy
                     ? "Stop the current run before starting a new chat"
-                    : withHint(`New chat in ${project.name}`, "newChat")
+                    : withHint(`New chat in ${project.name}`, "newChat", keybindingOverrides)
                 }
                 className={cn(HOVER_REVEAL, "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100")}
               >

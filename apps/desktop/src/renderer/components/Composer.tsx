@@ -397,11 +397,12 @@ function ThinkingSelector() {
   const thinkingLevel = useAppStore((s) => s.thinkingLevel);
   const thinkingLevels = useAppStore((s) => s.thinkingLevels);
   const setThinkingLevel = useAppStore((s) => s.setThinkingLevel);
+  const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
 
   return (
     <Menu>
       <MenuTrigger
-        title={withHint("How much the model reasons before answering", "cycleThinking")}
+        title={withHint("How much the model reasons before answering", "cycleThinking", keybindingOverrides)}
         aria-label={`Reasoning level: ${thinkingLabel(thinkingLevel)}`}
         className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >

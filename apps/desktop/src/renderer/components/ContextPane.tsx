@@ -30,6 +30,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const running = useAppStore((s) => activeConversation(s).running);
+  const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const [selected, setSelected] = useState<GitChangedFile | null>(null);
 
   useEffect(() => setSelected(null), [projectDir]);
@@ -52,7 +53,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
           variant="ghost"
           size="icon-sm"
           onClick={onClose ?? toggleContextPane}
-          title={withHint("Hide changes pane", "toggleContextPane")}
+          title={withHint("Hide changes pane", "toggleContextPane", keybindingOverrides)}
           aria-label="Hide changes pane"
         >
           <SidebarSimpleIcon className="-scale-x-100" />
