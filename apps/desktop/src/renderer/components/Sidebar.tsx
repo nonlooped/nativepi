@@ -5,6 +5,7 @@ import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderPlusIcon } from "@phosphor-icons/react/FolderPlus";
 import { GearSixIcon } from "@phosphor-icons/react/GearSix";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
+import { ListBulletsIcon } from "@phosphor-icons/react/ListBullets";
 import { DotsThreeOutlineIcon } from "@phosphor-icons/react/DotsThreeOutline";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
 import { PushPinIcon } from "@phosphor-icons/react/PushPin";
@@ -41,6 +42,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const addProject = useAppStore((s) => s.addProject);
   const openSettings = useAppStore((s) => s.openSettings);
+  const openRunBoard = useAppStore((s) => s.openRunBoard);
   const selectProject = useAppStore((s) => s.selectProject);
   const removeProject = useAppStore((s) => s.removeProject);
   const projectBusyStates = useAppStore(
@@ -145,7 +147,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
         {query ? null : <Kbd className="pointer-events-none absolute right-5 top-4">{hintFor("search")}</Kbd>}
       </div>
 
-      <div className="flex items-center justify-between px-4 pb-2">
+        <div className="flex items-center justify-between px-4 pb-2">
         <span className="text-sm font-medium text-muted-foreground">Projects</span>
         <div className="flex items-center">
           {activeProjectPath ? (
@@ -169,7 +171,19 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
             <FolderPlusIcon />
           </Button>
         </div>
-      </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            openRunBoard();
+            if (overlay) onClose();
+          }}
+          className="mx-3 mb-2 justify-start text-muted-foreground"
+        >
+          <ListBulletsIcon data-icon="inline-start" />
+          Run board
+        </Button>
 
       <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-3">
         {projects.length === 0 && (

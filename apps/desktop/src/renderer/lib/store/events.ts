@@ -13,7 +13,13 @@ import type { Conversation, GetState, SetState } from "./types.ts";
 export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
   switch (event.type) {
     case "agent_start":
-      return { running: true, error: undefined, errorRecovery: undefined, runStartedAt: s.runStartedAt ?? Date.now() };
+      return {
+        running: true,
+        error: undefined,
+        errorRecovery: undefined,
+        runStartedAt: s.runStartedAt ?? Date.now(),
+        runEntryStart: s.runEntryStart ?? s.entries.length,
+      };
     case "agent_settled":
       // Safety net: commit a partial (e.g. aborted) assistant message that Pi
       // never finalized with message_end, so it isn't lost when the preview clears.
@@ -21,13 +27,14 @@ export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
         return {
           running: false,
           runStartedAt: null,
+          runEntryStart: null,
           streaming: null,
           retry: null,
           entries: [...s.entries, liveEntry(s.streaming)],
         };
-      return { running: false, runStartedAt: null, streaming: null, retry: null };
+      return { running: false, runStartedAt: null, runEntryStart: null, streaming: null, retry: null };
     case "agent_end":
-      return { running: false, runStartedAt: null };
+      return { running: false, runStartedAt: null, runEntryStart: null };
     case "message_start":
     case "message_update": {
       const message = (event as { message?: unknown }).message;
@@ -106,13 +113,19 @@ export function sessionInfoName(entries: FileEntry[]): string | undefined {
 }
 
 /** Apply an extension's UI request — a dialog, a status line, a widget, a toast. */
-export function applyExtensionUi(set: SetState, get: GetState, req: ExtensionUiRequest): void {
+export function applyExtensionUi(set: SetState, get: GetState, projectDir: string, req: ExtensionUiRequest): void {
   switch (req.method) {
     case "select":
     case "confirm":
     case "input":
     case "editor":
-      set((s) => ({ extPrompts: [...s.extPrompts, req] }));
+      set((s) => {
+        const prompts = [...(s.extensionPromptsByProject[projectDir] ?? []), req];
+        return {
+          extensionPromptsByProject: { ...s.extensionPromptsByProject, [projectDir]: prompts },
+          ...(projectDir === s.activeProjectPath ? { extPrompts: prompts } : {}),
+        };
+      });
       return;
     case "notify":
       // Straight to the toast layer: a notification is not state anything reads

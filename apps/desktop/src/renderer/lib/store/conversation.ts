@@ -15,6 +15,7 @@ export function emptyConversation(): Conversation {
     streaming: null,
     running: false,
     runStartedAt: null,
+    runEntryStart: null,
     compacting: false,
     retry: null,
     pending: [],

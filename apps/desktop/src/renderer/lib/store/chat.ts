@@ -3,6 +3,7 @@ import type { ExtensionUiRequest } from "../../../shared/pi-types.ts";
 import { isRemote, rpc } from "../rpc.ts";
 import { conversationFor, emptyConversation, patchConversation } from "./conversation.ts";
 import { applyExtensionUi, reduce, sessionInfoName } from "./events.ts";
+import { runModel, runTokens } from "../runBoard.ts";
 import {
   draftKey,
   forgetLastChat,
@@ -84,6 +85,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   isNewChat: false,
   pinnedChats: [],
   conversations: {},
+  settledRuns: {},
   sendBehavior: "followUp",
   drafts: {},
   attachments: {},
@@ -422,9 +424,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   onEvent: ({ projectDir, sessionFile, event }) => {
     const s = get();
     if (event.type === "extension_ui_request") {
-      // Extension UI (dialogs, statuses, widgets) is chrome for the project on
-      // screen; an inactive project's prompts would have nothing to attach to.
-      if (projectDir === s.activeProjectPath) applyExtensionUi(set, get, event as ExtensionUiRequest);
+      applyExtensionUi(set, get, projectDir, event as ExtensionUiRequest);
       return;
     }
     if (event.type === "thinking_level_changed") {
@@ -447,7 +447,30 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       if (event.type === "agent_settled") void get().refreshGit();
       else if (event.type === "message_end" && !gitRefreshedWithin(1000)) void get().refreshGit();
     }
-    patchConversation(set, projectDir, reduce(conv, event));
+    const patch = reduce(conv, event);
+    const next = { ...conv, ...patch };
+    patchConversation(set, projectDir, patch);
+    if (event.type === "agent_settled") {
+      const startedAt = conv.runStartedAt;
+      if (startedAt !== null) {
+        const entries = next.entries.slice(conv.runEntryStart ?? 0);
+        set((state) => ({
+          settledRuns: {
+            ...state.settledRuns,
+            [projectDir]: {
+              sessionFile: next.sessionFile,
+              sessionName: next.sessionName,
+              startedAt,
+              settledAt: Date.now(),
+              model: runModel(entries),
+              tokens: runTokens(entries),
+            },
+          },
+          extensionPromptsByProject: { ...state.extensionPromptsByProject, [projectDir]: [] },
+          ...(projectDir === state.activeProjectPath ? { extPrompts: [] } : {}),
+        }));
+      }
+    }
   },
 
   onPiError: (projectDir, message) => {

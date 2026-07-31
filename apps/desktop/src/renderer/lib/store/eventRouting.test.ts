@@ -40,6 +40,18 @@ test("a Pi error in an inactive project lands on that project's conversation", (
   expect(conv?.errorRecovery).toBe("restartPi");
 });
 
+test("an extension confirmation from an inactive project remains visible to the run board", () => {
+  useAppStore.setState({ activeProjectPath: "B:\\proj-b", extensionPromptsByProject: {}, extPrompts: [] });
+
+  useAppStore.getState().onEvent({
+    projectDir: "A:\\proj-a",
+    event: { type: "extension_ui_request", id: "confirm-1", method: "confirm", title: "Deploy?", message: "Proceed?" },
+  });
+
+  expect(useAppStore.getState().extensionPromptsByProject["A:\\proj-a"]?.[0]?.method).toBe("confirm");
+  expect(useAppStore.getState().extPrompts).toEqual([]);
+});
+
 test("events for a chat other than the conversation's own are still dropped", () => {
   useAppStore.setState({
     activeProjectPath: "A:\\proj-a",

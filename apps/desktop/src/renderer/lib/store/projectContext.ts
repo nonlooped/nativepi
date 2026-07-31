@@ -8,6 +8,7 @@ import { NO_EXTENSION_UI_STATE, type ProjectContextSlice, type SliceCreator } fr
 export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set, get) => ({
   git: null,
   extPrompts: [],
+  extensionPromptsByProject: {},
   extStatuses: {},
   extWidgets: {},
   extRenderers: [],
@@ -57,7 +58,11 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
         ? ({ type: "extension_ui_response", id: current.id, confirmed: confirmed ?? false } as const)
         : ({ type: "extension_ui_response", id: current.id, value: value ?? "" } as const);
     void rpc.request.extensionRespond({ projectDir, response });
-    set({ extPrompts: s.extPrompts.slice(1) });
+    const prompts = s.extPrompts.slice(1);
+    set({
+      extPrompts: prompts,
+      extensionPromptsByProject: { ...s.extensionPromptsByProject, [projectDir]: prompts },
+    });
   },
 
   /**

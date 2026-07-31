@@ -115,6 +115,7 @@ export interface Conversation {
   streaming: AssistantMessage | null;
   running: boolean;
   runStartedAt: number | null;
+  runEntryStart: number | null;
   compacting: boolean;
   retry: { attempt: number; maxAttempts: number; error: string } | null;
   queue: { steering: string[]; followUp: string[] };
@@ -122,6 +123,16 @@ export interface Conversation {
   error?: string;
   errorRecovery?: ErrorRecovery;
   externalChange: { sessionFile: string } | null;
+}
+
+/** A completed run kept for this window only, so activity remains visible after changing chats. */
+export interface SettledRun {
+  sessionFile: string | null;
+  sessionName?: string;
+  startedAt: number;
+  settledAt: number;
+  model?: string;
+  tokens: number;
 }
 
 /** The conversation: which chat, its transcript, and everything sent into it. */
@@ -133,6 +144,7 @@ export interface ChatSlice {
 
   /** Conversation runtime per project path, active or not. */
   conversations: Record<string, Conversation>;
+  settledRuns: Record<string, SettledRun>;
   sendBehavior: "steer" | "followUp";
 
   drafts: Record<string, string>;
@@ -217,6 +229,8 @@ export interface AuthSlice {
 export interface ProjectContextSlice {
   git: GitStatus | null;
   extPrompts: ExtensionPrompt[];
+  /** Pending Pi extension requests, retained only until their project is opened or the run settles. */
+  extensionPromptsByProject: Record<string, ExtensionPrompt[]>;
   extStatuses: Record<string, string>;
   extWidgets: Record<string, ExtensionWidget>;
   extRenderers: LoadedExtension[];
@@ -271,6 +285,7 @@ export interface AccessHandoff {
 
 export interface UiSlice {
   settingsOpen: boolean;
+  runBoardOpen: boolean;
   sidebarSize: number;
   sidebarOpen: boolean;
   reopenLastProject: boolean;
@@ -289,6 +304,8 @@ export interface UiSlice {
 
   openSettings: () => void;
   closeSettings: () => void;
+  openRunBoard: () => void;
+  closeRunBoard: () => void;
   setSidebarSize: (size: number) => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;

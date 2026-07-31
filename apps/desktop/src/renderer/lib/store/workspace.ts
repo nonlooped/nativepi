@@ -83,6 +83,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
   selectProject: async (path) => {
     // The previous project's conversation is left alone: it keeps folding in
     // events while off screen, and is picked back up on return.
+    const extPrompts = get().extensionPromptsByProject[path] ?? [];
     set({
       activeProjectPath: path,
       activeSessionFile: null,
@@ -93,7 +94,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       trustPrompt: null,
       trust: null,
       git: null,
-      extPrompts: [],
+      extPrompts,
       extStatuses: {},
       extWidgets: {},
       extRenderers: [],
