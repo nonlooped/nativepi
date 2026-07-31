@@ -2,7 +2,6 @@ import { rpc } from "../rpc.ts";
 import { sanitizeOverrides } from "../shortcuts.ts";
 import { showHint } from "../toast.tsx";
 import { dropAllSurfaces } from "../tuiSurfaces.ts";
-import { patchConversation } from "./conversation.ts";
 import {
   getLastChat,
   persist,
@@ -63,13 +62,17 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
   removeProject: async (path) => {
     // Stop any turn still running in this project before its state goes away,
     // whether or not the project is the one on screen.
-    if (get().conversations[path]?.running) {
-      await rpc.request.abort({ projectDir: path });
+    for (const conversation of Object.values(get().conversations)) {
+      if (conversation.projectDir === path && conversation.running && conversation.sessionFile) {
+        await rpc.request.abort({ projectDir: path, sessionFile: conversation.sessionFile });
+      }
     }
     await rpc.request.terminalCloseProject({ projectDir: path });
     await rpc.request.unwatchProjectSessions({ projectDir: path });
     set((s) => {
-      const { [path]: _removed, ...conversations } = s.conversations;
+      const conversations = Object.fromEntries(
+        Object.entries(s.conversations).filter(([, conversation]) => conversation.projectDir !== path),
+      );
       const terminalProjects = new Set(s.terminalProjects);
       terminalProjects.delete(path);
       return { projects: s.projects.filter((p) => p.path !== path), conversations, terminalProjects };
@@ -114,7 +117,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     // A project whose Pi is not running yet has nothing to answer, and the
     // surfaces open normally when it starts.
     dropAllSurfaces();
-    void rpc.request.tuiSend({ projectDir: path, frame: { type: "nativepi_tui_sync" } }).catch(() => {});
+    void rpc.request.tuiSend({ projectDir: path, sessionFile: get().activeSessionFile, frame: { type: "nativepi_tui_sync" } }).catch(() => {});
     persist(get);
 
     // The trust check does not depend on the session list, and a round trip
@@ -128,8 +131,10 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
 
     // A chat still running in this project wins over the last-opened one: the
     // user coming back mid-run should land on the run, not beside it.
-    const runningConv = get().conversations[path];
-    const last = (runningConv?.running && runningConv.sessionFile) || getLastChat(path);
+    const runningConv = Object.values(get().conversations).find(
+      (conversation) => conversation.projectDir === path && conversation.running && conversation.sessionFile,
+    );
+    const last = runningConv?.sessionFile || getLastChat(path);
     const sessions = get().sessionsByProject[path] ?? [];
     if (last && sessions.some((s) => s.path === last)) {
       await get().selectChat(last);
@@ -165,7 +170,15 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
   restartPi: async () => {
     const path = get().activeProjectPath;
     if (!path) return;
-    patchConversation(set, path, { error: undefined, errorRecovery: undefined });
+    set((s) => ({
+      conversations: Object.fromEntries(
+        Object.entries(s.conversations).map(([key, conversation]) =>
+          conversation.projectDir === path
+            ? [key, { ...conversation, running: false, runStartedAt: null, error: undefined, errorRecovery: undefined }]
+            : [key, conversation],
+        ),
+      ),
+    }));
     await rpc.request.restartPi({ projectDir: path });
     if (get().activeProjectPath === path) warmProject(set, get, path);
   },

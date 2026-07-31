@@ -44,7 +44,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const selectProject = useAppStore((s) => s.selectProject);
   const removeProject = useAppStore((s) => s.removeProject);
   const projectBusyStates = useAppStore(
-    useShallow((s) => s.projects.map((project) => s.conversations[project.path]?.running ?? false)),
+    useShallow((s) => s.projects.map((project) => Object.values(s.conversations).some((conversation) => conversation.projectDir === project.path && conversation.running))),
   );
   const importSession = useAppStore((s) => s.importSession);
   const refreshSessions = useAppStore((s) => s.refreshSessions);
