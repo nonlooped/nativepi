@@ -1,8 +1,8 @@
 # Contributing to NativePi
 
-Thanks for your interest in the project. NativePi is a small Windows-first
-desktop interface for the Pi coding agent, and it is deliberately narrow in
-scope. Reading this page before you start will save you a rewrite.
+Thanks for your interest in the project. NativePi is a small desktop interface
+for the Pi coding agent, for Windows, macOS, and Linux, and it is deliberately
+narrow in scope. Reading this page before you start will save you a rewrite.
 
 ## Scope
 
@@ -28,8 +28,8 @@ people.
 
 ## Getting set up
 
-You need [Bun](https://bun.sh/) and Git. Windows is the supported platform; the
-app builds elsewhere but is neither tested nor released for other systems.
+You need [Bun](https://bun.sh/) and Git. Windows, macOS, and Linux are all
+supported and released platforms.
 
 ```sh
 git clone https://github.com/nonlooped/nativepi.git
@@ -70,9 +70,9 @@ They are not expected for static rendering, getters, or coverage counts.
 
 ## Reporting bugs
 
-Open an issue with the NativePi version, your Windows version, and the steps
-that reproduce the problem. Logs and screenshots help. If the problem involves
-a specific model or provider, say which one.
+Open an issue with the NativePi version, your operating system and its
+version, and the steps that reproduce the problem. Logs and screenshots help.
+If the problem involves a specific model or provider, say which one.
 
 ## Reporting vulnerabilities
 
