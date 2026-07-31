@@ -134,9 +134,9 @@ describe("parseKeyEvent", () => {
     expect(parseKeyEvent(keydown({ code: "ShiftRight", shiftKey: true }))).toBeNull();
   });
 
-  test("modifiers plus a key become a binding, Ctrl and Cmd both as $mod", () => {
+  test("modifiers plus a key become a binding", () => {
     expect(parseKeyEvent(keydown({ code: "KeyG", ctrlKey: true, shiftKey: true }))).toBe("$mod+Shift+KeyG");
-    expect(parseKeyEvent(keydown({ code: "KeyG", metaKey: true }))).toBe("$mod+KeyG");
+    expect(parseKeyEvent(keydown({ code: "KeyG", metaKey: true }))).toBe("Meta+KeyG");
   });
 
   test("a plain key with no modifiers binds on its own", () => {

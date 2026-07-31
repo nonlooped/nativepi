@@ -69,6 +69,11 @@ export default function KeybindSettings() {
             {shortcuts.map((shortcut) => {
               const recording = recordingId === shortcut.id;
               const hint = hintFor(shortcut.id, overrides);
+              const bindingDescription = recording
+                ? "Recording shortcut"
+                : hint
+                  ? `Current shortcut: ${hint}`
+                  : "Shortcut unassigned";
               return (
                 <div
                   key={shortcut.id}
@@ -82,7 +87,7 @@ export default function KeybindSettings() {
                     <button
                       type="button"
                       onClick={() => setRecordingId(recording ? null : shortcut.id)}
-                      aria-label={`Change shortcut for ${shortcut.label}`}
+                      aria-label={`Change shortcut for ${shortcut.label}. ${bindingDescription}.`}
                       className={cn(
                         "flex min-h-6 items-center gap-1 rounded-md border border-transparent px-1 outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30",
                         recording && "border-ring ring-2 ring-ring/30",

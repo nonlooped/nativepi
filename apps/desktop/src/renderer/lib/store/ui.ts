@@ -1,6 +1,6 @@
 import { DEFAULT_PREFERENCES } from "../../../shared/rpc-schema.ts";
 import { isRemote, rpc } from "../rpc.ts";
-import { conflictFor, SHORTCUTS } from "../shortcuts.ts";
+import { conflictFor, defaultBindingFor, SHORTCUTS, type KeybindingOverrides } from "../shortcuts.ts";
 import { showHint, showUpdateNotice } from "../toast.tsx";
 import { persist } from "./internals.ts";
 import type { SliceCreator, UiSlice } from "./types.ts";
@@ -72,11 +72,19 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   },
 
   resetKeybinding: (id) => {
+    const binding = defaultBindingFor(id);
+    const stolenFrom = conflictFor(id, binding, get().keybindingOverrides);
     set((s) => {
-      const { [id]: _removed, ...rest } = s.keybindingOverrides;
+      const rest: KeybindingOverrides = { ...s.keybindingOverrides };
+      delete rest[id];
+      if (stolenFrom) rest[stolenFrom] = "";
       return { keybindingOverrides: rest };
     });
     persist(get);
+    if (stolenFrom) {
+      const label = SHORTCUTS.find((shortcut) => shortcut.id === stolenFrom)?.label ?? stolenFrom;
+      showHint(`${label} was unbound`);
+    }
   },
 
   resetAllKeybindings: () => {

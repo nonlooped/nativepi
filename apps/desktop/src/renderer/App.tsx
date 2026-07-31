@@ -28,7 +28,7 @@ import TerminalDock from "./components/TerminalDock.tsx";
 import { activeConversation, useAppStore } from "./lib/store.ts";
 import { isRemote } from "./lib/rpc.ts";
 import { chatTitle } from "./lib/transcript.ts";
-import { bindings, withHint } from "./lib/shortcuts.ts";
+import { bindingFor, bindings, withHint } from "./lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
 import {
   ResizableHandle,
@@ -413,6 +413,7 @@ function useWorkspaceShortcuts(
   const requestSearchFocus = useAppStore((s) => s.requestSearchFocus);
   const cycleThinkingLevel = useAppStore((s) => s.cycleThinkingLevel);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
+  const stopTurnBinding = bindingFor("stopTurn", keybindingOverrides);
 
   useEffect(() => {
     /** Shortcuts that need a project open do nothing without one. */
@@ -440,7 +441,7 @@ function useWorkspaceShortcuts(
           // Escape belongs to a single-line field first — it clears or closes
           // whatever the user is typing in. The composer is a textarea, so
           // stopping a run while writing the next message still works.
-          if (running && !(event.target instanceof HTMLInputElement)) {
+          if (running && (stopTurnBinding !== "Escape" || !(event.target instanceof HTMLInputElement))) {
             event.preventDefault();
             abort();
           }
@@ -505,6 +506,7 @@ function useWorkspaceShortcuts(
     setSidebarSheetOpen,
     setContextSheetOpen,
     settingsOpen,
+    stopTurnBinding,
     toggleContextPane,
     toggleTerminal,
     toggleSidebar,

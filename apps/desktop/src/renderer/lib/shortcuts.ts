@@ -166,13 +166,14 @@ const MODIFIER_CODES = new Set([
  * Turn a captured keydown into a tinykeys binding string, or `null` if the key
  * pressed was only a modifier (nothing to bind yet).
  *
- * `$mod` covers both Ctrl and Cmd so a rebinding recorded on one platform still
- * reads correctly on the other, matching how the registry's own bindings work.
+ * `$mod` covers Ctrl and Cmd. On Windows, Meta is the Windows key and must stay
+ * distinct so recording it produces a shortcut that can actually fire.
  */
 export function parseKeyEvent(event: KeyboardEvent): string | null {
   if (MODIFIER_CODES.has(event.code)) return null;
   const parts: string[] = [];
-  if (event.ctrlKey || event.metaKey) parts.push("$mod");
+  if (event.ctrlKey) parts.push("$mod");
+  if (event.metaKey) parts.push(IS_MAC ? "$mod" : "Meta");
   if (event.altKey) parts.push("Alt");
   if (event.shiftKey) parts.push("Shift");
   parts.push(event.code);

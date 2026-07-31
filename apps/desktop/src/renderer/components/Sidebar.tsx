@@ -13,7 +13,7 @@ import type { Project } from "../../shared/rpc-schema.ts";
 import type { SessionSummary } from "../../shared/pi-types.ts";
 import { useAppStore } from "../lib/store.ts";
 import { chatTitle } from "../lib/transcript.ts";
-import { hintFor, withHint } from "../lib/shortcuts.ts";
+import { hintFor, withHint, type KeybindingOverrides } from "../lib/shortcuts.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 import WorktreeDialog from "./WorktreeDialog.tsx";
 import SessionMenu from "./SessionMenu.tsx";
@@ -287,7 +287,15 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                 </ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
-            {expandedProjects.has(project.path) ? <ChatList projectPath={project.path} query={query} now={now} onNavigate={overlay ? onClose : undefined} /> : null}
+            {expandedProjects.has(project.path) ? (
+              <ChatList
+                projectPath={project.path}
+                query={query}
+                now={now}
+                overrides={keybindingOverrides}
+                onNavigate={overlay ? onClose : undefined}
+              />
+            ) : null}
           </div>
           );
         })}
@@ -327,11 +335,13 @@ function ChatList({
   projectPath,
   query,
   now,
+  overrides,
   onNavigate,
 }: {
   projectPath: string;
   query: string;
   now: number;
+  overrides: KeybindingOverrides;
   onNavigate?: () => void;
 }) {
   const sessions = useAppStore((s) => s.sessionsByProject[projectPath] ?? EMPTY);
@@ -407,7 +417,7 @@ function ChatList({
       ))}
       {sessions.length === 0 && !isNewChat && (
         <p className="px-2.5 py-1.5 text-xs text-muted-foreground">
-          No chats yet — press {hintFor("newChat")} to start one
+          No chats yet — press {hintFor("newChat", overrides)} to start one
         </p>
       )}
       {sessions.length > 0 && visibleCount === 0 && (
