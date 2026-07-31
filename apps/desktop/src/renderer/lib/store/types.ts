@@ -231,7 +231,7 @@ export interface ProjectContextSlice {
   switchBranch: (branch: string, create: boolean) => Promise<{ ok: boolean; error?: string }>;
   reloadExtensions: () => Promise<void>;
   respondExtension: (value: { value?: string; confirmed?: boolean; cancel?: boolean }) => void;
-  onTuiFrame: (payload: { projectDir: string; frame: TuiHostFrame }) => void;
+  onTuiFrame: (payload: { projectDir: string; sessionFile?: string; frame: TuiHostFrame }) => void;
 }
 
 /**

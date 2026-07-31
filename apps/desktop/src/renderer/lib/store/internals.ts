@@ -42,12 +42,12 @@ export function replaceLastChats(map: Record<string, string>): void {
  */
 let draftReport: ReturnType<typeof setTimeout> | undefined;
 
-export function reportDraft(projectDir: string | null, text: string): void {
+export function reportDraft(projectDir: string | null, sessionFile: string | null, text: string): void {
   if (!projectDir) return;
   clearTimeout(draftReport);
   draftReport = setTimeout(() => {
     void rpc.request
-      .tuiSend({ projectDir, frame: { type: "nativepi_tui_editor", text } })
+      .tuiSend({ projectDir, sessionFile, frame: { type: "nativepi_tui_editor", text } })
       .catch(() => {});
   }, 150);
 }
@@ -113,9 +113,10 @@ export function draftKey(get: GetState): string {
  * overwriting a model the user picked while it was in flight.
  */
 export function warmProject(set: SetState, get: GetState, path: string): void {
+  const sessionFile = get().activeSessionFile;
   void rpc.request.ensurePi({ projectDir: path });
 
-  void rpc.request.getModels({ projectDir: path }).then((r) => {
+  void rpc.request.getModels({ projectDir: path, sessionFile }).then((r) => {
     if (get().activeProjectPath === path) set({ models: r.models });
   });
 
@@ -123,14 +124,14 @@ export function warmProject(set: SetState, get: GetState, path: string): void {
   // that never runs extension `activate()`, so a provider an extension
   // registers (e.g. a custom-model bridge) is invisible until it's merged in
   // from this project's own session, which did run activation.
-  void rpc.request.getSessionProviders({ projectDir: path }).then((r) => {
+  void rpc.request.getSessionProviders({ projectDir: path, sessionFile }).then((r) => {
     if (get().activeProjectPath !== path || r.error) return;
     set({ providers: r.providers, providersLoaded: true });
   });
 
   const currentModel = get().model;
   const modelBeforeLoad = currentModel ? modelKey(currentModel) : undefined;
-  void rpc.request.getState({ projectDir: path }).then(async (r) => {
+  void rpc.request.getState({ projectDir: path, sessionFile }).then(async (r) => {
     const selectedModel = get().model;
     if (
       get().activeProjectPath !== path ||
@@ -141,7 +142,7 @@ export function warmProject(set: SetState, get: GetState, path: string): void {
     }
     set({ model: r.state.model, thinkingLevel: r.state.thinkingLevel });
     const loadedModel = r.state.model ? modelKey(r.state.model) : undefined;
-    const levels = await rpc.request.getThinkingLevels({ projectDir: path });
+    const levels = await rpc.request.getThinkingLevels({ projectDir: path, sessionFile });
     const activeModel = get().model;
     if (
       get().activeProjectPath === path &&

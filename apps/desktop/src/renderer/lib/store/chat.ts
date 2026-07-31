@@ -31,7 +31,7 @@ const MAX_REMOTE_IMAGE_BATCH_BYTES = 48 * 1024 * 1024;
  * answered with the chat the user just left until they touched the new one.
  */
 function reportActiveDraft(get: GetState): void {
-  reportDraft(get().activeProjectPath, get().drafts[draftKey(get)] ?? "");
+  reportDraft(get().activeProjectPath, get().activeSessionFile, get().drafts[draftKey(get)] ?? "");
 }
 
 /**
@@ -139,10 +139,11 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   importSession: async (targetProjectDir, sourceFile) => {
     const projectDir = targetProjectDir ?? get().activeProjectPath;
     if (!projectDir) return false;
+    const targetSessionFile = get().activeProjectPath === projectDir ? get().activeSessionFile : null;
     const res = await rpc.request.importSession({ projectDir, sourceFile });
     if (res.canceled) return false;
     if (!res.ok || !res.sessionFile) {
-      patchConversation(set, projectDir, get().activeSessionFile, { error: res.error ?? "Failed to import chat" });
+      patchConversation(set, projectDir, targetSessionFile, { error: res.error ?? "Failed to import chat" });
       return false;
     }
     await get().refreshSessions(projectDir);
@@ -156,7 +157,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     const key = draftKey(get);
     set((s) => ({ drafts: { ...s.drafts, [key]: text } }));
     persist(get);
-    reportDraft(get().activeProjectPath, text);
+    reportDraft(get().activeProjectPath, get().activeSessionFile, text);
   },
 
   insertIntoComposer: (text) => {
@@ -297,11 +298,12 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   enqueue: async (behavior) => {
     const draft = currentDraft(get);
     if (!draft) return;
-    const { projectDir, key, text, images } = draft;
+    const { state: sendState, projectDir, key, text, images } = draft;
+    const sessionFile = sendState.activeSessionFile;
 
     // No optimistic entry: Pi echoes the queued message back via queue_update,
     // which is the source of truth for what's pending.
-    patchConversation(set, projectDir, get().activeSessionFile, { error: undefined });
+    patchConversation(set, projectDir, sessionFile, { error: undefined });
     get().setDraft("");
     clearAttachments(set, key);
 
@@ -317,14 +319,14 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     const res = text.startsWith("/")
       ? await rpc.request.submit({
           projectDir,
-          sessionFile: get().activeSessionFile,
+          sessionFile,
           message: text,
           images: images.map(toImageContent),
           streamingBehavior: behavior,
         })
-      : await rpc.request.enqueue({ projectDir, sessionFile: get().activeSessionFile!, behavior, message: text, images: images.map(toImageContent) });
+      : await rpc.request.enqueue({ projectDir, sessionFile: sessionFile!, behavior, message: text, images: images.map(toImageContent) });
     if (!res.ok) {
-      patchConversation(set, projectDir, get().activeSessionFile, {
+      patchConversation(set, projectDir, sessionFile, {
         error: res.error ?? "Failed to queue message",
         errorRecovery: "retrySend",
       });

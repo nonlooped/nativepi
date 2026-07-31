@@ -20,11 +20,12 @@ export const createModelSlice: SliceCreator<ModelSlice> = (set, get) => ({
   setModel: async (model) => {
     const projectDir = get().activeProjectPath;
     if (!projectDir) return;
+    const sessionFile = get().activeSessionFile;
     // Levels are emptied first: the ones on screen belong to the old model, and
     // showing them against the new name would offer a level it may not support.
     set({ model, thinkingLevels: [] });
-    await rpc.request.setModel({ projectDir, provider: model.provider, modelId: model.id });
-    const result = await rpc.request.getThinkingLevels({ projectDir });
+    await rpc.request.setModel({ projectDir, sessionFile, provider: model.provider, modelId: model.id });
+    const result = await rpc.request.getThinkingLevels({ projectDir, sessionFile });
     if (
       get().activeProjectPath === projectDir &&
       get().model?.provider === model.provider &&
@@ -50,8 +51,9 @@ export const createModelSlice: SliceCreator<ModelSlice> = (set, get) => ({
   setThinkingLevel: async (level) => {
     const projectDir = get().activeProjectPath;
     if (!projectDir) return;
+    const sessionFile = get().activeSessionFile;
     set({ thinkingLevel: level });
-    await rpc.request.setThinkingLevel({ projectDir, level });
+    await rpc.request.setThinkingLevel({ projectDir, sessionFile, level });
   },
 
   cycleThinkingLevel: async () => {

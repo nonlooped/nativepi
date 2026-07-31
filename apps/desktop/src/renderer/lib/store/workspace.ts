@@ -1,7 +1,6 @@
 import { rpc } from "../rpc.ts";
 import { showHint } from "../toast.tsx";
 import { dropAllSurfaces } from "../tuiSurfaces.ts";
-import { patchConversation } from "./conversation.ts";
 import {
   getLastChat,
   persist,
@@ -116,7 +115,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     // A project whose Pi is not running yet has nothing to answer, and the
     // surfaces open normally when it starts.
     dropAllSurfaces();
-    void rpc.request.tuiSend({ projectDir: path, frame: { type: "nativepi_tui_sync" } }).catch(() => {});
+    void rpc.request.tuiSend({ projectDir: path, sessionFile: get().activeSessionFile, frame: { type: "nativepi_tui_sync" } }).catch(() => {});
     persist(get);
 
     // The trust check does not depend on the session list, and a round trip
@@ -169,7 +168,15 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
   restartPi: async () => {
     const path = get().activeProjectPath;
     if (!path) return;
-    patchConversation(set, path, get().activeSessionFile, { error: undefined, errorRecovery: undefined });
+    set((s) => ({
+      conversations: Object.fromEntries(
+        Object.entries(s.conversations).map(([key, conversation]) =>
+          conversation.projectDir === path
+            ? [key, { ...conversation, running: false, runStartedAt: null, error: undefined, errorRecovery: undefined }]
+            : [key, conversation],
+        ),
+      ),
+    }));
     await rpc.request.restartPi({ projectDir: path });
     if (get().activeProjectPath === path) warmProject(set, get, path);
   },
