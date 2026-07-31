@@ -7,6 +7,7 @@ import { NO_EXTENSION_UI_STATE, type ProjectContextSlice, type SliceCreator } fr
 
 export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set, get) => ({
   git: null,
+  repoHost: undefined,
   extPrompts: [],
   extensionPromptsByProject: {},
   extStatuses: {},
@@ -32,6 +33,14 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
     }
   },
 
+  refreshRepoHost: async () => {
+    const path = get().activeProjectPath;
+    if (!path) return;
+    const { context } = await rpc.request.repoHostContext({ projectDir: path });
+    if (get().activeProjectPath !== path) return;
+    set({ repoHost: context });
+  },
+
   switchBranch: async (branch, create) => {
     const path = get().activeProjectPath;
     if (!path) return { ok: false, error: "No project is open." };
@@ -39,6 +48,7 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
     if (!res.ok) return res;
     if (get().activeProjectPath === path) {
       await get().refreshGit();
+      await get().refreshRepoHost();
       showHint(branch);
     }
     return res;

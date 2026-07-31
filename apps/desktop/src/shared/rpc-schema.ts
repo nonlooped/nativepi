@@ -25,6 +25,7 @@ import type {
   ThinkingLevel,
   UsageDashboard,
 } from "./pi-types.ts";
+import type { RepoHostContext } from "./repo-host-types.ts";
 import type {
   TuiClientFrame,
   TuiCompletionEdit,
@@ -496,6 +497,8 @@ export type HostRequests = {
     params: { projectDir: string; branch: string; create: boolean };
     response: { ok: boolean; path?: string; error?: string };
   };
+
+  repoHostContext: { params: { projectDir: string }; response: { context: RepoHostContext | null } };
 
   /** What the composer's `/`, `$` and `@` menus offer. Read on demand, never cached in main. */
   listCommands: { params: { projectDir: string }; response: { commands: CommandInfo[] } };

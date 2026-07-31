@@ -99,6 +99,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       trustPrompt: null,
       trust: null,
       git: null,
+      repoHost: undefined,
       extPrompts,
       extStatuses: {},
       extWidgets: {},

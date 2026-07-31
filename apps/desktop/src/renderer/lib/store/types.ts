@@ -19,6 +19,7 @@ import type {
   ThinkingLevel,
 } from "../../../shared/pi-types.ts";
 import type { PiSettings } from "../../../shared/pi-settings.ts";
+import type { RepoHostContext } from "../../../shared/repo-host-types.ts";
 import type { TuiHostFrame, TuiSurface } from "../../../shared/tui-frames.ts";
 import type { LoadedExtension } from "../extensionHost.ts";
 import type { KeybindingOverrides, ShortcutId } from "../shortcuts.ts";
@@ -230,6 +231,8 @@ export interface AuthSlice {
 /** What the project looks like right now: working tree, and loaded extensions. */
 export interface ProjectContextSlice {
   git: GitStatus | null;
+  /** The PR/MR (or, failing that, issue) for the current branch. `undefined` while loading. */
+  repoHost: RepoHostContext | null | undefined;
   extPrompts: ExtensionPrompt[];
   /** Pending Pi extension requests, retained only until their project is opened or the run settles. */
   extensionPromptsByProject: Record<string, ExtensionPrompt[]>;
@@ -244,6 +247,7 @@ export interface ProjectContextSlice {
   extUiState: ExtensionUiState;
 
   refreshGit: () => Promise<void>;
+  refreshRepoHost: () => Promise<void>;
   switchBranch: (branch: string, create: boolean) => Promise<{ ok: boolean; error?: string }>;
   reloadExtensions: () => Promise<void>;
   respondExtension: (value: { value?: string; confirmed?: boolean; cancel?: boolean }) => void;

@@ -24,6 +24,7 @@ import FileTypeIcon from "./FileTypeIcon.tsx";
 import FileContextMenu from "./FileContextMenu.tsx";
 import { ExtensionPanels } from "./ExtensionSlots.tsx";
 import CommitDialog from "./CommitDialog.tsx";
+import RepoHostPanel from "./RepoHostPanel.tsx";
 
 export default function ContextPane({ overlay = false, onClose }: { overlay?: boolean; onClose?: () => void }) {
   const git = useAppStore((s) => s.git);
@@ -100,6 +101,8 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
                 <ContextMenuItem onClick={() => void refreshGit()}>Refresh status</ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
+
+            <RepoHostPanel />
 
             {git.files.length === 0 ? (
               <p className="px-3 py-4 text-xs text-muted-foreground">Working tree clean.</p>
