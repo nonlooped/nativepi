@@ -139,6 +139,14 @@ test("a file without textual hunks can still be staged", async () => {
   expect((await gitStatus(dir)).files).toEqual([{ path: "image.bin", state: "added", staged: true, unstaged: false }]);
 });
 
+test("status totals include tracked and untracked text changes", async () => {
+  const dir = await repo();
+  await writeFile(path.join(dir, "a.txt"), "a\nb\n", "utf8");
+  await writeFile(path.join(dir, "new.txt"), "new\n", "utf8");
+
+  expect(await gitStatus(dir)).toMatchObject({ insertions: 2, deletions: 0 });
+});
+
 test("committing without staged changes is refused", async () => {
   const dir = await repo();
   expect(await gitCommit(dir, "feat: nothing")).toEqual({ ok: false, error: "Stage at least one change before committing." });

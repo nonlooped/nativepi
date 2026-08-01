@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Collapsible } from "@base-ui/react/collapsible";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
@@ -11,6 +12,7 @@ import { rpc } from "../lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -26,6 +28,45 @@ import { ExtensionPanels } from "./ExtensionSlots.tsx";
 import CommitDialog from "./CommitDialog.tsx";
 import RepoHostPanel from "./RepoHostPanel.tsx";
 import FileExplorer from "./FileExplorer.tsx";
+
+/**
+ * Which of the pane's two views is showing.
+ *
+ * This replaced a single ghost button labelled with the view you were *not*
+ * looking at, sitting a few pixels from a heading labelled with the view you
+ * were — two words, opposite meanings, no way to tell which was which. Both
+ * names are present now, and the selected one is the one that is filled.
+ */
+function ViewSwitch({ files, onChange }: { files: boolean; onChange: (files: boolean) => void }) {
+  return (
+    <ToggleGroup
+      value={[files ? "files" : "changes"]}
+      onValueChange={(value) => {
+        const selected = value.at(0);
+        if (selected === "changes" || selected === "files") onChange(selected === "files");
+      }}
+      spacing={0}
+      aria-label="Pane view"
+      className="h-7 rounded-lg bg-muted p-0.5 text-xs font-medium"
+    >
+      {[
+        { label: "Changes" },
+        { label: "Files" },
+      ].map((view) => (
+        <ToggleGroupItem
+          key={view.label}
+          value={view.label.toLowerCase()}
+          className={cn(
+            "rounded-md px-2 py-0.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+            "text-muted-foreground hover:text-foreground data-pressed:bg-sidebar data-pressed:text-foreground",
+          )}
+        >
+          {view.label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+}
 
 export default function ContextPane({ overlay = false, onClose }: { overlay?: boolean; onClose?: () => void }) {
   const git = useAppStore((s) => s.git);
@@ -44,7 +85,7 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
   return (
     <aside className="context-pane flex h-full min-w-0 flex-col bg-sidebar text-sidebar-foreground">
       <div className={cn("flex h-12 shrink-0 items-center gap-1 pr-2 pl-3", !overlay && WINDOW_CONTROLS_CLEARANCE)}>
-        <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{files ? "Files" : "Changes"}</span>
+        <ViewSwitch files={files} onChange={setFiles} />
         <div className="flex-1" />
         <Button
           variant="ghost"
@@ -58,7 +99,6 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
         <Button variant="ghost" size="icon-sm" onClick={() => setCommitting(true)} disabled={!git?.isRepo} title="Commit changes" aria-label="Commit changes">
           <GitCommitIcon />
         </Button>
-        <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setFiles((open) => !open)}>{files ? "Changes" : "Files"}</Button>
         <Button
           variant="ghost"
           size="icon-sm"
@@ -82,7 +122,11 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
               <ContextMenuTrigger render={<div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground" />}>
                 <GitBranchIcon className="shrink-0" />
                 <span className="truncate">{git.detached ? "No branch (detached)" : (git.branch ?? "—")}</span>
-                <span className="ml-auto tabular-nums">{git.files.length} changed</span>
+                <span className="ml-auto flex shrink-0 items-center gap-1.5 tabular-nums">
+                  <span className="text-success" aria-label={`${git.insertions} insertions`}>+{git.insertions}</span>
+                  <span className="text-destructive" aria-label={`${git.deletions} deletions`}>-{git.deletions}</span>
+                  <span>{git.files.length} changed</span>
+                </span>
               </ContextMenuTrigger>
               <ContextMenuContent>
                 <ContextMenuItem
@@ -197,6 +241,7 @@ function HunkActions({ projectDir, file }: { projectDir: string; file: GitChange
     [projectDir, file.path, file.state],
   );
   const [busy, setBusy] = useState<number | null>(null);
+  const [partsOpen, setPartsOpen] = useState(false);
   if (loading || error || !data) return null;
   async function stage(patch: string, index: number) {
     setBusy(index);
@@ -211,19 +256,42 @@ function HunkActions({ projectDir, file }: { projectDir: string; file: GitChange
     if (result.ok) await refreshGit();
   }
   return (
-    <div className="flex flex-col gap-1 border-b px-2 py-2">
-      {data.hunks.length === 0 ? (
-        <Button size="sm" variant="ghost" className="justify-start" disabled={busy !== null} onClick={() => void stageFile()}>
-          {busy === -1 ? "Staging…" : "Stage file"}
-        </Button>
-      ) : data.hunks.map((hunk, index) => (
-        <Button key={hunk.patch} size="sm" variant="ghost" className="justify-start" disabled={busy !== null} onClick={() => void stage(hunk.patch, index)}>
-          {busy === index ? "Staging…" : `Stage hunk ${index + 1}`}
-          <span className="ml-auto truncate font-mono text-xs text-muted-foreground">{hunk.header}</span>
-        </Button>
-      ))}
+    <div className="border-b px-2 py-1.5">
+      <Collapsible.Root open={partsOpen} onOpenChange={setPartsOpen}>
+        <div className="flex items-center gap-1.5">
+          <Button className="flex-1" disabled={busy !== null} onClick={() => void stageFile()} title="Add all changes in this file to your next commit">
+            {busy === -1 ? "Staging…" : "Stage file"}
+          </Button>
+          {data.hunks.length > 1 ? (
+            <Collapsible.Trigger className="group flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+              <CaretRightIcon className="transition-transform group-data-[panel-open]:rotate-90" />
+              Select parts
+            </Collapsible.Trigger>
+          ) : null}
+        </div>
+        {data.hunks.length > 1 ? (
+          <Collapsible.Panel className="mt-1.5 flex flex-col gap-1 border-t pt-1.5">
+            {data.hunks.map((hunk, index) => (
+              <div key={hunk.patch} className="flex min-w-0 items-center gap-2 rounded-md px-1 py-1 hover:bg-muted/50">
+                <span className="min-w-0 flex-1 truncate text-xs">Change {index + 1} <span className="font-mono text-muted-foreground">{hunkLocation(hunk.header)}</span></span>
+                <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => void stage(hunk.patch, index)}>
+                  {busy === index ? "Staging…" : "Stage"}
+                </Button>
+              </div>
+            ))}
+          </Collapsible.Panel>
+        ) : null}
+      </Collapsible.Root>
     </div>
   );
+}
+
+function hunkLocation(header: string): string {
+  const match = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(header);
+  if (!match) return "";
+  const start = Number(match[1]);
+  const count = Number(match[2] ?? "1");
+  return count > 1 ? `lines ${start}–${start + count - 1}` : `line ${start}`;
 }
 
 function stateBadge(state: GitChangedFile["state"]): string {

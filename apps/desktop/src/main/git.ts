@@ -1,7 +1,8 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
-import type { GitBranch, GitDiff, GitHunk, GitStatus } from "../shared/pi-types.ts";
+import type { GitBranch, GitDiff, GitHunk, GitPrTarget, GitStatus } from "../shared/pi-types.ts";
 
 
 function run(args: string[], cwd: string): Promise<{ stdout: string; stderr: string; code: number }> {
@@ -38,7 +39,7 @@ function labelFor(x: string, y: string): GitStatus["files"][number]["state"] {
 export async function gitStatus(projectDir: string): Promise<GitStatus> {
   const inside = await run(["rev-parse", "--is-inside-work-tree"], projectDir);
   if (inside.code !== 0 || inside.stdout.trim() !== "true") {
-    return { isRepo: false, files: [] };
+    return { isRepo: false, files: [], insertions: 0, deletions: 0 };
   }
 
   const branchRes = await run(["rev-parse", "--abbrev-ref", "HEAD"], projectDir);
@@ -61,11 +62,29 @@ export async function gitStatus(projectDir: string): Promise<GitStatus> {
     files.push({ path, state: labelFor(x, y), staged: x !== " " && x !== "?", unstaged: y !== " " || x === "?" });
   }
 
+  const numstat = await run(["diff", "--numstat", "HEAD"], projectDir);
+  let insertions = 0;
+  let deletions = 0;
+  for (const line of numstat.stdout.split("\n")) {
+    const [added, removed] = line.split("\t");
+    if (added && added !== "-") insertions += Number(added) || 0;
+    if (removed && removed !== "-") deletions += Number(removed) || 0;
+  }
+  for (const file of files) {
+    if (file.state !== "untracked") continue;
+    const content = await readFile(path.join(projectDir, file.path));
+    if (content.includes(0)) continue;
+    const text = content.toString("utf8");
+    if (text) insertions += text.split(/\r\n|\r|\n/).length - (/[\r\n]$/.test(text) ? 1 : 0);
+  }
+
   return {
     isRepo: true,
     branch: detached ? undefined : branch,
     detached,
     files,
+    insertions,
+    deletions,
   };
 }
 
@@ -128,6 +147,37 @@ export async function gitCommit(projectDir: string, message: string): Promise<{ 
   if (staged.code === 0) return { ok: false, error: "Stage at least one change before committing." };
   const result = await run(["commit", "-m", message], projectDir);
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
+}
+
+/**
+ * Where a pull request would go, read before the user commits to sending one.
+ *
+ * `gitPushAndCreatePr` already resolves all three of these, but it resolves them
+ * after the click. Naming the branch, the base, and the remote in the dialog is
+ * what makes the push a decision rather than a surprise, so the read is split
+ * out and done up front. Every field is optional: a repository with no `gh`, no
+ * `origin`, or a detached HEAD still has to render.
+ */
+export async function gitPrTarget(projectDir: string): Promise<GitPrTarget> {
+  const [current, remote, base] = await Promise.all([
+    run(["branch", "--show-current"], projectDir),
+    run(["remote", "get-url", "origin"], projectDir),
+    runGh(["repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"], projectDir),
+  ]);
+
+  const branch = current.stdout.trim() || undefined;
+  const target: GitPrTarget = {
+    branch,
+    remote: remote.code === 0 ? remote.stdout.trim() || undefined : undefined,
+    base: base.code === 0 ? base.stdout.trim() || undefined : undefined,
+  };
+
+  if (!branch) target.blocker = "You are not on a branch. Check one out before opening a pull request.";
+  else if (!target.remote) target.blocker = "This repository has no “origin” remote to push to.";
+  else if (!target.base) target.blocker = "GitHub CLI could not read this repository. Check that `gh` is installed and authenticated.";
+  else if (branch === target.base) target.blocker = `You are on ${base.stdout.trim()}, the base branch. Create a branch before opening a pull request.`;
+
+  return target;
 }
 
 export async function gitPushAndCreatePr(
