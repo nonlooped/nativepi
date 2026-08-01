@@ -4,7 +4,6 @@ import { DEFAULT_SERVICE_TIER, serviceTierKey } from "../../../shared/serviceTie
 import { isRemote, rpc } from "../rpc.ts";
 import { conversationFor, emptyConversation, patchConversation } from "./conversation.ts";
 import { applyExtensionUi, reduce, sessionInfoName } from "./events.ts";
-import { runModel, runTokens } from "../runBoard.ts";
 import {
   draftKey,
   forgetLastChat,
@@ -89,7 +88,6 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   isNewChat: false,
   pinnedChats: [],
   conversations: {},
-  settledRuns: {},
   sendBehavior: "followUp",
   drafts: {},
   attachments: {},
@@ -503,29 +501,12 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       else if (event.type === "message_end" && !gitRefreshedWithin(1000)) void get().refreshGit();
     }
     const patch = { ...reduce(conv, event), projectDir, sessionFile: sessionFile ?? conv.sessionFile };
-    const next = { ...conv, ...patch };
     patchConversation(set, projectDir, sessionFile ?? null, patch);
-    if (event.type === "agent_settled") {
-      const startedAt = conv.runStartedAt;
-      if (startedAt !== null) {
-        const entries = next.entries.slice(conv.runEntryStart ?? 0);
-        set((state) => ({
-          settledRuns: {
-            ...state.settledRuns,
-            [sessionFile ?? projectDir]: {
-              projectDir,
-              sessionFile: next.sessionFile,
-              sessionName: next.sessionName,
-              startedAt,
-              settledAt: Date.now(),
-              model: runModel(entries),
-              tokens: runTokens(entries),
-            },
-          },
-          extensionPromptsByProject: { ...state.extensionPromptsByProject, [projectDir]: [] },
-          ...(projectDir === state.activeProjectPath ? { extPrompts: [] } : {}),
-        }));
-      }
+    if (event.type === "agent_settled" && conv.runStartedAt !== null) {
+      set((state) => ({
+        extensionPromptsByProject: { ...state.extensionPromptsByProject, [projectDir]: [] },
+        ...(projectDir === state.activeProjectPath ? { extPrompts: [] } : {}),
+      }));
     }
   },
 

@@ -18,7 +18,6 @@ export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
         error: undefined,
         errorRecovery: undefined,
         runStartedAt: s.runStartedAt ?? Date.now(),
-        runEntryStart: s.runEntryStart ?? s.entries.length,
       };
     case "agent_settled":
       // Safety net: commit a partial (e.g. aborted) assistant message that Pi
@@ -27,12 +26,11 @@ export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
         return {
           running: false,
           runStartedAt: null,
-          runEntryStart: null,
           streaming: null,
           retry: null,
           entries: [...s.entries, liveEntry(s.streaming)],
         };
-      return { running: false, runStartedAt: null, runEntryStart: null, streaming: null, retry: null };
+      return { running: false, runStartedAt: null, streaming: null, retry: null };
     case "agent_end":
       return {};
     case "message_start":

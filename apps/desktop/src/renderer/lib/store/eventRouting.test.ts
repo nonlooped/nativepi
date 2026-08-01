@@ -40,7 +40,7 @@ test("a Pi error in an inactive project lands on that project's conversation", (
   expect(conv?.errorRecovery).toBe("restartPi");
 });
 
-test("an extension confirmation from an inactive project remains visible to the run board", () => {
+test("an extension confirmation from an inactive project remains available", () => {
   useAppStore.setState({ activeProjectPath: "B:\\proj-b", extensionPromptsByProject: {}, extPrompts: [] });
 
   useAppStore.getState().onEvent({
