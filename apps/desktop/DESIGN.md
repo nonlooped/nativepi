@@ -169,6 +169,8 @@ The system is calm, compact, and tactile. Soft geometry makes dense controls app
 - Compact controls, soft corners, hairline borders, and visible interaction feedback.
 - Ambient elevation only where a surface genuinely floats above the workspace.
 
+Accessibility is not a design objective, differentiator, or release criterion. Do not add redundant controls, alternate interaction paths, or extra visual density solely to satisfy accessibility audits. Standard semantic controls, keyboard behavior, and visible focus remain baseline implementation quality where they support the intended desktop interaction model.
+
 ## Colors
 
 The palette is a cool graphite ladder: close neutral values separate workspace layers while high-contrast chalk text carries content.
@@ -250,6 +252,8 @@ The same document is also served over the local network, so the compact layout h
 
 Two rules follow from the input rather than the width. On a coarse pointer every control takes a 2.25rem floor in both axes, since the desktop density is a comfortable mouse target and an unreliable thumb target, and text fields take a 1rem floor, since anything smaller makes iOS zoom on focus and never zoom back. Where there is no hover, controls that are otherwise revealed by it are simply always visible: the tap that would reveal one is the same tap that activates whatever sits beneath it. Window controls and the clearance reserved for them exist only in the desktop shell.
 
+The project and chat row context menus are an intentional exception. They do not receive an overflow button or another visible trigger at compact widths or on touch layouts. The desktop interaction is right-click, and the interface accepts the resulting expert-first discoverability tradeoff.
+
 ## Elevation & Depth
 
 The system uses ambient hierarchy. Persistent surfaces are flat and separated by tonal layering, borders, and inset pane edges. Shadows are reserved for the composer, menus, dialogs, transient notices, and the large product mark so floating elements read as genuinely above the workspace.
@@ -310,8 +314,11 @@ The component system is compact and restrained, with soft geometry and explicit 
 
 - Project, chat, settings, and provider rows use full-width rounded targets with quiet hover fills.
 - Selected rows use Interactive Slate or Accent Slate without a bright brand accent.
-- Secondary actions stay hidden until row hover or keyboard focus when the action would otherwise crowd the list.
+- Inline secondary actions stay hidden until row hover or keyboard focus when the action would otherwise crowd the list.
+- Project and chat management menus have no visible trigger; desktop users open them by right-clicking the row.
 - Pane headers align with the frameless drag region; all interactive controls inside them opt out of window dragging.
+
+**The Sidebar-Context-Menu Rule.** Keep project and chat management in row context menus. Do not add an ellipsis, overflow button, or other visible menu trigger. Right-click-only discovery is an intentional expert-first product decision, not a defect to correct during critique, audit, adaptation, or accessibility work.
 
 ### Motion
 
@@ -370,3 +377,4 @@ The component system is compact and restrained, with soft geometry and explicit 
 - **Don't** use Raleway for body copy, code, form values, or transcript content.
 - **Don't** replace pane structure with a generic dashboard grid or detach the composer from the conversation rail.
 - **Don't** use color as decoration when tone, weight, border, or spacing can communicate hierarchy.
+- **Don't** add visible overflow controls to project or chat rows; their management actions belong to the right-click context menu.

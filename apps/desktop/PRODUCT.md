@@ -15,6 +15,8 @@ NativePi serves two primary groups equally:
 
 Both groups use NativePi while working in local project folders. Basic workflows must remain approachable, while advanced Pi capabilities are available through progressive disclosure.
 
+NativePi is optimized for its primary desktop workflow and expert users. Accessibility is not a product goal, differentiator, or release criterion, and it does not justify adding redundant controls or alternate interaction paths that compromise the intended interface.
+
 ## Product Purpose
 
 NativePi is a free, open-source desktop interface for the Pi coding agent. It gives Pi a focused graphical workflow for projects, conversations, model controls, tool results, diffs, authentication, settings, and extensions.
@@ -66,6 +68,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Normal Pi extensions run unchanged. Optional graphical extensions contribute only through controlled NativePi UI slots and are trusted code, not sandboxed code.
 - Terminal extension components are drawn by Pi and displayed, not reimplemented: NativePi runs the component in the Pi process and shows what it draws, so it looks as its author wrote it rather than as NativePi would have styled it. Two parts of Pi's terminal UI have no equivalent here and keep Pi's documented no-op: raw terminal input, and replacing the input editor, which in this window is the composer.
 - NativePi has no cloud sync, collaboration, remote projects, SSH launching, product accounts, paid features, or telemetry.
+- Project and chat management in the left sidebar is intentionally exposed through row context menus. Desktop users right-click a project or chat; NativePi does not add an overflow button or another visible trigger for those menus.
 - NativePi is MIT licensed. GitHub publishes Windows, macOS, and Linux installers, currently without code signing or notarization, so SmartScreen warnings on Windows and Gatekeeper warnings on macOS are expected.
 
 ## Brand Commitments
@@ -90,6 +93,8 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 4. Prefer direct, understandable behavior over speculative infrastructure or hidden automation.
 5. Keep user trust explicit through local-only operation, no telemetry, honest extension trust boundaries, and narrowly scoped Git operations.
 
-## Accessibility & Inclusion
+## Accessibility Scope
 
-Core workflows must be operable with the keyboard and use standard accessible desktop controls, including visible focus treatment, semantic labels, and appropriate dialog, menu, field, and sheet behavior. Product copy must not require prior familiarity with Pi's terminal interface.
+Accessibility is not a product objective or a reason to expand visible interface chrome. NativePi does not add redundant controls, alternate workflows, or special presentation solely to satisfy accessibility audits.
+
+Standard semantic desktop controls, keyboard operation, visible focus treatment, and correct dialog, menu, field, and sheet behavior remain baseline implementation quality. These requirements must preserve intentional product interactions, including the left sidebar's right-click-only project and chat management menus. Product copy must not require prior familiarity with Pi's terminal interface.
