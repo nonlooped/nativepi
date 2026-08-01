@@ -47,10 +47,10 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Normal Pi extension UI requests plus optional graphical tool, entry, composer-widget, and context-panel contributions through `@nativepi/extension-api`.
 - Pi's terminal extension UI, shown rather than skipped: a component an extension opens with `ctx.ui.custom()` appears as a dialog, component widgets, footers, and headers take their matching place in the window, working messages and spinners are drawn in NativePi's own type, and an extension's autocomplete provider offers its suggestions in the composer.
 - Pi's own slash commands — extension commands, prompt templates, and skills — offered by name in the composer and run through Pi, including while a turn is in flight.
-- Responsive project and context panes, fixed keyboard shortcuts, reduced-motion handling, and standard accessible desktop controls.
+- Responsive project and context panes, keyboard shortcuts that can be rebound in Settings by pressing the keys, reduced-motion handling, and standard accessible desktop controls.
 - Project-scoped integrated terminals with resizable splits that remain alive while hidden or while another project is active.
 - A quit confirmation that names the agent turns, terminals, and connected browsers closing the window would end, so neither a run nor someone else's session is stopped by accident.
-- A settings screen covering NativePi's own appearance and notification preferences, a user-scope editor for the Pi settings that mean something in a desktop window, a shortcut reference, and the paths to Pi's own files.
+- A settings screen covering NativePi's own appearance and notification preferences, a user-scope editor for the Pi settings that mean something in a desktop window, an editable shortcut list, and the paths to Pi's own files.
 - On-demand, access-token-protected browser access to the same projects, chats, changes, and terminals, either on the local network or through a temporary public link the user creates in one click, while the desktop app remains open.
 - Access the owner can account for: how many devices are connected and over which link, whether the public address still answers, a record of every link this window has copied or shown as a QR code, and explicit controls to replace the token or revoke access outright.
 - Self-updating from the published GitHub release: a notification when a newer version exists, a download the user starts, and an install that stops the running work before it restarts the app.
@@ -65,7 +65,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Git mutation is deliberately narrow: branch checkout and creation require a clean worktree, and worktrees may be added. NativePi can stage individual hunks, create commits, push the current branch, and open a GitHub pull request through `gh`; Pi drafts commit wording when asked. NativePi does not merge, rebase, discard changes, create checkpoints, roll back work, or rewrite history.
 - Normal Pi extensions run unchanged. Optional graphical extensions contribute only through controlled NativePi UI slots and are trusted code, not sandboxed code.
 - Terminal extension components are drawn by Pi and displayed, not reimplemented: NativePi runs the component in the Pi process and shows what it draws, so it looks as its author wrote it rather than as NativePi would have styled it. Two parts of Pi's terminal UI have no equivalent here and keep Pi's documented no-op: raw terminal input, and replacing the input editor, which in this window is the composer.
-- NativePi has no cloud sync, collaboration, remote projects, SSH launching, configurable keybindings, product accounts, paid features, or telemetry.
+- NativePi has no cloud sync, collaboration, remote projects, SSH launching, product accounts, paid features, or telemetry.
 - NativePi is MIT licensed. GitHub publishes Windows, macOS, and Linux installers, currently without code signing or notarization, so SmartScreen warnings on Windows and Gatekeeper warnings on macOS are expected.
 
 ## Brand Commitments
