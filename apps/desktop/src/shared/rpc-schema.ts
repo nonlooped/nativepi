@@ -1,5 +1,9 @@
 import { z } from "zod";
 import type { PiPaths, PiSettings, PiSettingsPatch } from "./pi-settings.ts";
+import {
+  type SubscriptionUsage,
+  type SubscriptionUsageProvider,
+} from "./subscriptionUsage.ts";
 import type {
   CommandInfo,
   ExtensionUiResponse,
@@ -394,6 +398,10 @@ export type HostRequests = {
   getUsageDashboard: {
     params: { projects: Project[] };
     response: { dashboard?: UsageDashboard; error?: string };
+  };
+  getSubscriptionUsage: {
+    params: { providerId: SubscriptionUsageProvider };
+    response: { usage?: SubscriptionUsage; error?: string };
   };
 
   getContextInspector: {

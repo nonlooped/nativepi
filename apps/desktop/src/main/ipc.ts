@@ -21,6 +21,7 @@ import { loadGraphicalExtensions } from "./extensions.ts";
 import { fileManagerName, listInstalledEditors, openFileIn, openProjectIn } from "./editors.ts";
 import { liveSettingsFor, piPaths, queuePiSettings, readPiSettings, writePiSettings } from "./piSettings.ts";
 import { piSettingsPatchSchema, type PiSettingsPatch } from "../shared/pi-settings.ts";
+import { subscriptionUsageProviderSchema } from "../shared/subscriptionUsage.ts";
 import {
   clearTerminal,
   closeTerminal,
@@ -456,6 +457,7 @@ async function knownProject(projectDir: string): Promise<boolean> {
 const usageDashboardParamsSchema = z.object({
   projects: z.array(z.object({ path: z.string().min(1).max(32_767), name: z.string().min(1).max(200) })).max(100),
 });
+const subscriptionUsageParamsSchema = z.object({ providerId: subscriptionUsageProviderSchema });
 const setBuiltInExtensionParamsSchema = z.object({ id: z.literal("service-tier"), enabled: z.boolean() });
 
 function isThinkingLevel(level: unknown): level is ThinkingLevel {
@@ -772,6 +774,15 @@ const handlers: HandlerMap = {
     try {
       const { projects } = usageDashboardParamsSchema.parse(params);
       return { dashboard: await usageDashboard(projects) };
+    } catch (err) {
+      return { error: errorMessage(err) };
+    }
+  },
+
+  getSubscriptionUsage: async (params) => {
+    try {
+      const { providerId } = subscriptionUsageParamsSchema.parse(params);
+      return { usage: await auth.getSubscriptionUsage(providerId) };
     } catch (err) {
       return { error: errorMessage(err) };
     }

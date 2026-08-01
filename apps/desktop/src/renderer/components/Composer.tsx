@@ -3,6 +3,10 @@ import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { PaperclipIcon } from "@phosphor-icons/react/Paperclip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AssistantMessage, ContextInspector as ContextInspectorData } from "../../shared/pi-types.ts";
+import {
+  supportsSubscriptionUsage,
+  type SubscriptionUsage,
+} from "../../shared/subscriptionUsage.ts";
 import { draftKeyFor } from "../../shared/messages.ts";
 import { supportsFastServiceTier } from "../../shared/serviceTier.ts";
 import { ACCEPTED_IMAGE_TYPES } from "../lib/attachments.ts";
@@ -181,6 +185,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
             <ServiceTierSelector />
             <ThinkingSelector />
             <ContextWindow />
+            <SubscriptionUsage />
             {isRepo ? <GroupRule /> : null}
             <BranchSelector />
           </div>
@@ -707,6 +712,134 @@ function ContextWindow() {
       />
     </div>
   );
+}
+
+function SubscriptionUsage() {
+  const model = useAppStore((s) => s.model);
+  const providers = useAppStore((s) => s.providers);
+  const [open, setOpen] = useState(false);
+  const provider = model?.provider;
+  const account = providers.find((item) => item.id === provider);
+  const subscriptionProvider = supportsSubscriptionUsage(provider) && account?.storedType === "oauth" ? provider : undefined;
+  const request = useRequest<{ usage?: SubscriptionUsage; error?: string }>(
+    () => subscriptionProvider ? rpc.request.getSubscriptionUsage({ providerId: subscriptionProvider }) : Promise.resolve({}),
+    [subscriptionProvider],
+  );
+
+  if (!subscriptionProvider) return null;
+
+  const usage = request.data?.usage;
+  const error = request.data?.error ?? request.error;
+  const limit = usage?.limits.reduce((highest, item) => Math.max(highest, item.usedPercent), 0) ?? 0;
+  const tight = limit >= 75;
+  const tone = limit >= 90 ? "text-destructive" : tight ? "text-warning" : "text-muted-foreground";
+  const name = account?.name ?? subscriptionProvider;
+  const label = request.loading
+    ? `Reading ${name} subscription usage`
+    : error
+      ? `${name} subscription usage is unavailable`
+      : usage?.limits.length
+        ? `${name} subscription usage: ${Math.round(limit)}% used in the limit closest to exhaustion`
+        : `${name} did not report subscription usage`;
+
+  return (
+    <div className="group relative flex items-center">
+      <button
+        type="button"
+        aria-label={label}
+        title="Subscription usage"
+        onClick={() => setOpen(true)}
+        className={cn(
+          "flex h-8 items-center gap-1.5 rounded-lg px-1.5 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
+          tone,
+        )}
+      >
+        <svg viewBox="0 0 24 24" className="size-5 shrink-0 -rotate-90" aria-hidden>
+          <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted" />
+          <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" pathLength="100" strokeDasharray={`${limit} 100`} />
+        </svg>
+        {tight ? <span className="text-sm tabular-nums" aria-hidden="true">{Math.round(limit)}%</span> : null}
+      </button>
+      <SubscriptionUsageInspector
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (next) request.reload();
+        }}
+        providerName={name}
+        usage={usage}
+        loading={request.loading}
+        error={error}
+        refresh={request.reload}
+      />
+    </div>
+  );
+}
+
+function SubscriptionUsageInspector({
+  open,
+  onOpenChange,
+  providerName,
+  usage,
+  loading,
+  error,
+  refresh,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  providerName: string;
+  usage?: SubscriptionUsage;
+  loading: boolean;
+  error: string | null | undefined;
+  refresh: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl gap-5">
+        <DialogHeader>
+          <DialogTitle className="font-heading text-base font-semibold">Subscription usage</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            {providerName} plan limits reported for this account.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">The composer ring tracks the limit closest to its cap.</p>
+          <Button variant="ghost" size="sm" onClick={refresh} disabled={loading}>Refresh</Button>
+        </div>
+
+        {loading ? <p className="text-sm text-muted-foreground">Reading subscription usage…</p> : null}
+        {error ? <p className="text-sm text-destructive">Could not read subscription usage: {error}</p> : null}
+        {!loading && !error && usage?.limits.length === 0 ? (
+          <p className="text-sm text-muted-foreground">This account did not report any subscription limits.</p>
+        ) : null}
+        {usage?.limits.map((item) => {
+          const fill = item.usedPercent >= 90 ? "bg-destructive" : item.usedPercent >= 75 ? "bg-warning" : "bg-foreground";
+          return (
+            <section key={`${item.label}-${item.resetAt ?? ""}`} aria-label={item.label}>
+              <div className="flex items-baseline justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{item.label}</p>
+                  {item.resetAt ? <p className="text-xs text-muted-foreground">Resets {formatUsageReset(item.resetAt)}</p> : null}
+                </div>
+                <p className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                  {Math.round(100 - item.usedPercent)}% left
+                </p>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                <div className={cn("h-full rounded-full transition-[width]", fill)} style={{ width: `${item.usedPercent}%` }} />
+              </div>
+            </section>
+          );
+        })}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function formatUsageReset(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) ? value : date.toLocaleString();
 }
 
 function ContextInspector({
