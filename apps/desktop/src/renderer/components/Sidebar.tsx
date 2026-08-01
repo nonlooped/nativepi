@@ -18,8 +18,6 @@ import type { Project } from "../../shared/rpc-schema.ts";
 import type { SessionSummary } from "../../shared/pi-types.ts";
 import { useAppStore } from "../lib/store.ts";
 import { chatTitle } from "../lib/transcript.ts";
-import { providerIconName } from "../lib/providerIcons.ts";
-import BrandIcon from "./BrandIcon.tsx";
 import { hintFor, withHint, type KeybindingOverrides } from "../lib/shortcuts.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 import WorktreeDialog from "./WorktreeDialog.tsx";
@@ -488,11 +486,8 @@ function ChatList({
                             {session.lastPrompt || "No user prompt"}
                           </span>
                         </span>
-                        <span className="flex shrink-0 flex-col items-end gap-1 pt-0.5">
-                          <span className="sidebar-chat-time text-xs text-muted-foreground">{hoursAgo(session.modified, now)}</span>
-                          <span className="sidebar-chat-providers">
-                            <ProviderStack providers={session.providers} />
-                          </span>
+                        <span className="sidebar-chat-time shrink-0 pt-0.5 text-xs text-muted-foreground">
+                          {hoursAgo(session.modified, now)}
                         </span>
                       </button>
                     </SessionMenu>
@@ -548,45 +543,6 @@ function ChatHistoryState({
 }
 
 const EMPTY: SessionSummary[] = [];
-
-/** Up to two provider marks, most recent first; a third+ collapses to a count badge. */
-function ProviderStack({ providers }: { providers: string[] }) {
-  if (providers.length === 0) return null;
-  const shown = providers.slice(0, 2);
-  const overflow = providers.length > 2;
-  return (
-    <span
-      className="flex items-center"
-      title={providers.join(", ")}
-      aria-label={`Providers: ${providers.join(", ")}`}
-    >
-      {shown.map((provider, index) => (
-        <span
-          key={provider}
-          className={cn(
-            "relative flex size-4 items-center justify-center rounded-full bg-sidebar text-muted-foreground ring-1 ring-sidebar",
-            index > 0 && "-ml-1",
-          )}
-          style={{ zIndex: shown.length - index + (overflow ? 1 : 0) }}
-        >
-          <BrandIcon name={providerIconName(provider)} size={10} />
-        </span>
-      ))}
-      {overflow ? (
-        // 8px was below anything legible and below every step on the ramp. At
-        // the ramp's smallest step the glyph needs a 1rem badge, and a badge
-        // that grows sideways rather than a fixed circle keeps a two-character
-        // count from being clipped.
-        <span
-          className="relative -ml-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-0.5 text-xs leading-none font-semibold tabular-nums text-muted-foreground ring-1 ring-sidebar"
-          style={{ zIndex: 0 }}
-        >
-          {providers.length > 9 ? "9+" : providers.length}
-        </span>
-      ) : null}
-    </span>
-  );
-}
 
 function hoursAgo(timestamp: string, now: number): string {
   const minutes = Math.max(0, Math.floor((now - new Date(timestamp).getTime()) / 60_000));

@@ -338,12 +338,6 @@ html[data-shell="desktop"] .window-controls-clearance {
   }
 }
 
-@container sidebar (max-width: 19rem) {
-  .sidebar-chat-providers {
-    display: none;
-  }
-}
-
 @container sidebar (max-width: 17rem) {
   .sidebar-chat-time {
     display: none;
