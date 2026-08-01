@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
+import { PlusIcon } from "@phosphor-icons/react/Plus";
+import { PuzzlePieceIcon } from "@phosphor-icons/react/PuzzlePiece";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
+import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import type { BuiltInExtensionInfo } from "../../shared/rpc-schema.ts";
 import type { PackageInfo } from "../../shared/pi-types.ts";
 import { showHint } from "../lib/toast.tsx";
@@ -11,29 +14,36 @@ import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Input } from "@/components/ui/input.tsx";
+import { Switch } from "@/components/ui/switch.tsx";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
-  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
-import { ActionRow } from "./settings/rows.tsx";
+import { HOVER_REVEAL, cn } from "@/lib/utils.ts";
+import { Segmented, SettingsCard } from "./settings/rows.tsx";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 
+/**
+ * NativePi's own optional extensions.
+ *
+ * A switch rather than a pair of buttons, because that is what enabling one is:
+ * it either runs inside Pi or it does not. The only thing that is not a switch
+ * is an update, which appears as its own action and only when there is one.
+ */
 function BuiltInExtensions() {
   const listing = useRequest(() => rpc.request.listBuiltInExtensions({}), []);
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string>();
+  const [failed, setFailed] = useState<{ id: string; message: string }>();
 
   async function setEnabled(extension: BuiltInExtensionInfo, enabled: boolean) {
     setBusy(extension.id);
-    setError(undefined);
+    setFailed(undefined);
     const result = await rpc.request.setBuiltInExtension({ id: extension.id, enabled });
     setBusy(null);
     if (!result.ok) {
-      setError(result.error ?? "Could not change the built-in extension.");
+      setFailed({ id: extension.id, message: result.error ?? "Could not change the built-in extension." });
       return;
     }
     listing.reload();
@@ -41,55 +51,49 @@ function BuiltInExtensions() {
   }
 
   return (
-    <section aria-labelledby="builtin-heading">
-      <h2 id="builtin-heading" className="mb-1 font-heading text-sm font-semibold">
-        NativePi built-ins
-      </h2>
-      <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-        Optional extensions maintained by NativePi. They run inside Pi with your permissions. Enabling one copies it
-        into Pi’s global extensions folder, so the normal Pi TUI can use it too. Changes apply to Pi processes started
-        after the change.
-      </p>
-      {listing.loading ? <p className="border-t py-5 text-sm text-muted-foreground">Loading…</p> : null}
-      {listing.error ? <p className="border-t py-5 text-sm text-destructive">{listing.error}</p> : null}
+    <section aria-labelledby="builtin-heading" className="flex flex-col gap-3">
+      <div>
+        <h2 id="builtin-heading" className="font-heading text-sm font-semibold">
+          NativePi built-ins
+        </h2>
+        <p className="mt-1 text-sm leading-5 text-muted-foreground">
+          Enabling one copies it into Pi's global extensions folder, so the Pi command line gets it too. Pi picks it up
+          the next time it starts.
+        </p>
+      </div>
+
+      {listing.loading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
+      {listing.error ? <p className="text-sm text-destructive">{listing.error}</p> : null}
+
       {listing.data?.extensions.map((extension) => (
-        <ActionRow
+        <SettingsCard
           key={extension.id}
-          label={
-            <span className="flex items-center gap-2">
-              {extension.name}
-              <Badge variant={extension.installed ? "secondary" : "outline"}>
-                {extension.outdated ? "Update available" : extension.installed ? "Enabled" : "Not enabled"}
-              </Badge>
-            </span>
-          }
+          icon={<PuzzlePieceIcon />}
+          title={extension.name}
+          tone={extension.outdated ? "warning" : extension.installed ? "active" : "idle"}
+          status={extension.outdated ? "Update available" : extension.installed ? "Enabled" : "Not enabled"}
           description={extension.description}
-        >
-          <div className="flex items-center gap-1">
-            {!extension.installed || extension.outdated ? (
-              <Button
-                size="sm"
-                variant={extension.installed ? "outline" : "default"}
-                disabled={busy !== null}
-                onClick={() => void setEnabled(extension, true)}
-              >
-                {busy === extension.id ? <CircleNotchIcon className="animate-spin" /> : extension.installed ? "Update" : "Enable"}
-              </Button>
-            ) : null}
-            {extension.installed ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy !== null}
-                onClick={() => void setEnabled(extension, false)}
-              >
-                {busy === extension.id ? <CircleNotchIcon className="animate-spin" /> : "Disable"}
-              </Button>
-            ) : null}
-          </div>
-        </ActionRow>
+          error={failed?.id === extension.id ? failed.message : undefined}
+          action={
+            <div className="flex items-center gap-2">
+              {extension.outdated ? (
+                <Button size="lg" variant="outline" disabled={busy !== null} onClick={() => void setEnabled(extension, true)}>
+                  Update
+                </Button>
+              ) : null}
+              {busy === extension.id ? (
+                <CircleNotchIcon className="size-4 animate-spin text-muted-foreground" />
+              ) : (
+                <Switch
+                  checked={extension.installed}
+                  aria-label={`Enable ${extension.name}`}
+                  onCheckedChange={(value) => void setEnabled(extension, value)}
+                />
+              )}
+            </div>
+          }
+        />
       ))}
-      {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
     </section>
   );
 }
@@ -101,6 +105,7 @@ export default function ExtensionsManager() {
 
   const [source, setSource] = useState("");
   const [scope, setScope] = useState<"user" | "project">("user");
+  const [installing, setInstalling] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string>();
   const [pendingRemoval, setPendingRemoval] = useState<PackageInfo | null>(null);
@@ -117,9 +122,9 @@ export default function ExtensionsManager() {
 
   if (!projectDir) {
     return (
-      <div className="flex max-w-3xl flex-col gap-10">
+      <div className="flex flex-col gap-10">
         <BuiltInExtensions />
-        <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+        <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
           Open a project to manage its packages.
         </p>
       </div>
@@ -135,6 +140,7 @@ export default function ExtensionsManager() {
     setBusy(null);
     if (res.ok) {
       setSource("");
+      setInstalling(false);
       refresh();
     } else {
       setActionError(res.error ?? "Install failed");
@@ -167,13 +173,16 @@ export default function ExtensionsManager() {
   }
 
   return (
-    <div className="flex max-w-3xl flex-col gap-10">
+    <div className="flex flex-col gap-10">
       <BuiltInExtensions />
 
-      <section aria-labelledby="install-heading">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <h2 id="install-heading" className="font-heading text-sm font-semibold">
-            Install a package
+      <section aria-labelledby="installed-heading" className="flex flex-col">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 id="installed-heading" className="font-heading text-sm font-semibold">
+            Pi packages
+            <span className="ml-2 font-sans text-xs font-normal text-muted-foreground tabular-nums">
+              {extCount} loaded
+            </span>
           </h2>
           <div className="flex-1" />
           <Button variant="ghost" size="sm" onClick={() => void reload()} disabled={busy !== null}>
@@ -182,97 +191,136 @@ export default function ExtensionsManager() {
             ) : (
               <ArrowClockwiseIcon data-icon="inline-start" />
             )}
-            Reload extensions
+            Reload
+          </Button>
+          <Button
+            variant={installing ? "secondary" : "outline"}
+            size="sm"
+            aria-expanded={installing}
+            onClick={() => setInstalling((open) => !open)}
+          >
+            <PlusIcon data-icon="inline-start" />
+            Install
           </Button>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Input
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void install();
-            }}
-            placeholder="npm package or git URL"
-            aria-label="Package source"
-          />
-          <ScopeToggle scope={scope} setScope={setScope} projectTrusted={projectTrusted} />
-          <Button size="xl" className="min-w-24" onClick={() => void install()} disabled={!source.trim() || busy !== null}>
-            {busy === "install" ? <CircleNotchIcon className="animate-spin" /> : "Install"}
-          </Button>
-        </div>
+        {/* Collapsed until asked for: a field, a scope and a button standing
+            permanently above the list is three controls for something most
+            people do twice. */}
+        {installing ? (
+          <div className="mt-3 flex flex-col gap-2.5 rounded-xl border bg-card/40 p-4">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                autoFocus
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void install();
+                  if (e.key === "Escape") setInstalling(false);
+                }}
+                placeholder="npm package or git URL"
+                aria-label="Package source"
+                className="min-w-0 flex-1"
+              />
+              <div className="flex items-center gap-2">
+                <Segmented
+                  label="Install for"
+                  value={scope}
+                  onChange={setScope}
+                  options={[
+                    { value: "user", label: "User" },
+                    {
+                      value: "project",
+                      label: "Project",
+                      disabled: !projectTrusted,
+                      title: projectTrusted ? undefined : "Trust this project to install for it alone",
+                    },
+                  ]}
+                />
+                <Button size="xl" className="min-w-24" onClick={() => void install()} disabled={!source.trim() || busy !== null}>
+                  {busy === "install" ? <CircleNotchIcon className="animate-spin" /> : "Install"}
+                </Button>
+              </div>
+            </div>
+            <p className="text-sm leading-5 text-muted-foreground">
+              Extensions are trusted code that runs inside Pi with your permissions. Only install sources you recognize.
+              {projectTrusted ? "" : " Trust this project to install for it alone."}
+            </p>
+          </div>
+        ) : null}
 
         {actionError ? <p className="mt-3 text-sm text-destructive">{actionError}</p> : null}
 
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Extensions are trusted code that runs inside Pi with your permissions. Only install sources you recognize.
-        </p>
-      </section>
-
-      <section aria-labelledby="installed-heading">
-        <h2 id="installed-heading" className="mb-1 font-heading text-sm font-semibold">
-          Installed
-          <span className="ml-2 font-sans text-xs font-normal text-muted-foreground tabular-nums">
-            {extCount} loaded
-          </span>
-        </h2>
-
-        {packages === null ? (
-          <p className="border-t py-5 text-sm text-muted-foreground">Loading…</p>
-        ) : packages.length === 0 ? (
-          <p className="border-t py-5 text-sm text-muted-foreground">No packages installed.</p>
-        ) : (
-          <div className="flex flex-col">
-            {packages.map((pkg) => (
+        <div className="mt-3 flex flex-col">
+          {packages === null ? (
+            <p className="border-t py-5 text-sm text-muted-foreground">Loading…</p>
+          ) : packages.length === 0 ? (
+            <p className="border-t py-5 text-sm text-muted-foreground">No packages installed.</p>
+          ) : (
+            packages.map((pkg) => (
               <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
-                <ContextMenuTrigger render={<div className="flex items-center gap-3 border-t py-3.5" />}>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate text-sm font-medium">{pkg.source}</span>
-                    {pkg.filtered ? <Badge variant="secondary">filtered</Badge> : null}
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    {pkg.scope === "project" ? "Project" : "User"}
-                  </span>
-                </div>
-                <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => void update(pkg)}>
-                  {busy === pkg.source ? <CircleNotchIcon className="animate-spin" /> : "Update"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={busy !== null}
-                  onClick={() => setPendingRemoval(pkg)}
-                  title={`Remove ${pkg.source}`}
-                  aria-label={`Remove ${pkg.source}`}
-                  className="text-muted-foreground hover:text-destructive"
+                <ContextMenuTrigger
+                  render={<div className="group flex items-center gap-3 border-t py-3 pr-1" />}
                 >
-                  <TrashIcon />
-                </Button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-sm font-medium">{pkg.source}</span>
+                      {pkg.filtered ? <Badge variant="secondary">filtered</Badge> : null}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {pkg.scope === "project" ? "This project" : "Your user account"}
+                    </span>
+                  </div>
+                  {busy === pkg.source ? (
+                    <CircleNotchIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
+                  ) : (
+                    <div
+                      className={cn(
+                        HOVER_REVEAL,
+                        "flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100",
+                      )}
+                    >
+                      <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => void update(pkg)}>
+                        Update
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={busy !== null}
+                        onClick={() => setPendingRemoval(pkg)}
+                        title={`Remove ${pkg.source}`}
+                        aria-label={`Remove ${pkg.source}`}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <TrashIcon />
+                      </Button>
+                    </div>
+                  )}
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
-                  <ContextMenuItem disabled={busy !== null} onClick={() => void update(pkg)}>Update</ContextMenuItem>
-                  <ContextMenuItem onClick={() => void navigator.clipboard.writeText(pkg.source)}>Copy source</ContextMenuItem>
-                  <ContextMenuItem disabled={!pkg.installedPath} onClick={() => pkg.installedPath && void rpc.request.showInFolder({ path: pkg.installedPath })}>
-                    Reveal install folder
+                  <ContextMenuItem onClick={() => void navigator.clipboard.writeText(pkg.source)}>
+                    Copy source
                   </ContextMenuItem>
-                  <ContextMenuSeparator />
-                  <ContextMenuItem variant="destructive" disabled={busy !== null} onClick={() => setPendingRemoval(pkg)}>
-                    Remove
+                  <ContextMenuItem
+                    disabled={!pkg.installedPath}
+                    onClick={() => pkg.installedPath && void rpc.request.showInFolder({ path: pkg.installedPath })}
+                  >
+                    Reveal install folder
                   </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
       </section>
 
       {graphicalErrors.length > 0 || errors.length > 0 ? (
-        <section aria-labelledby="ext-errors-heading">
-          <h2 id="ext-errors-heading" className="mb-4 font-heading text-sm font-semibold text-destructive">
+        <section aria-labelledby="ext-errors-heading" className="flex flex-col gap-2">
+          <h2 id="ext-errors-heading" className="flex items-center gap-1.5 font-heading text-sm font-semibold text-destructive">
+            <WarningCircleIcon weight="fill" />
             Load errors
           </h2>
-          <div className="flex flex-col gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="flex flex-col gap-1.5 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
             {errors.map((e, i) => (
               <p key={`s${i}`} className="break-words">
                 {e}
@@ -308,46 +356,5 @@ export default function ExtensionsManager() {
         onCancel={() => setPendingRemoval(null)}
       />
     </div>
-  );
-}
-
-function ScopeToggle({
-  scope,
-  setScope,
-  projectTrusted,
-}: {
-  scope: "user" | "project";
-  setScope: (scope: "user" | "project") => void;
-  projectTrusted: boolean;
-}) {
-  return (
-    <ToggleGroup
-      value={[scope]}
-      onValueChange={(value) => {
-        const selected = value.at(0);
-        if (selected === "user" || selected === "project") setScope(selected);
-      }}
-      spacing={0}
-      aria-label="Install scope"
-      className="h-10 shrink-0 rounded-md border p-0.5 text-sm"
-    >
-      <ToggleGroupItem
-        value="user"
-        size="sm"
-        title="Install for your user account"
-        className="px-2.5 py-1.5 text-muted-foreground data-pressed:bg-accent data-pressed:text-accent-foreground"
-      >
-        User
-      </ToggleGroupItem>
-      <ToggleGroupItem
-        value="project"
-        size="sm"
-        disabled={!projectTrusted}
-        title={projectTrusted ? "Install for this project only" : "Trust the project to enable project scope"}
-        className="px-2.5 py-1.5 text-muted-foreground data-pressed:bg-accent data-pressed:text-accent-foreground"
-      >
-        Project
-      </ToggleGroupItem>
-    </ToggleGroup>
   );
 }

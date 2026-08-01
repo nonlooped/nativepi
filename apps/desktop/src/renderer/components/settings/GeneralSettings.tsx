@@ -1,5 +1,15 @@
+import { useState } from "react";
+import { BellIcon } from "@phosphor-icons/react/Bell";
+import { PowerIcon } from "@phosphor-icons/react/Power";
+import { Button } from "@/components/ui/button.tsx";
 import { useAppStore } from "../../lib/store.ts";
-import { SettingsSection, SwitchRow } from "./rows.tsx";
+import { SettingsCard, SettingsSection, SwitchRow } from "./rows.tsx";
+
+type Permission = NotificationPermission | "unsupported";
+
+function currentPermission(): Permission {
+  return typeof Notification === "undefined" ? "unsupported" : Notification.permission;
+}
 
 export default function GeneralSettings() {
   const reopenLastProject = useAppStore((s) => s.reopenLastProject);
@@ -19,13 +29,11 @@ export default function GeneralSettings() {
         />
       </SettingsSection>
 
-      <SettingsSection
-        heading="Notifications"
-        description="NativePi only notifies you when its window is in the background, so a run you are watching never interrupts itself."
-      >
+      <SettingsSection heading="Notifications">
+        <NotificationCard enabled={notifyOnTurnEnd} silent={!notificationSound} />
         <SwitchRow
           label="Notify when a turn finishes"
-          description="Show a desktop notification with how long the run took and how many files changed."
+          description="Only while the window is in the background, so a run you are watching never interrupts itself."
           checked={notifyOnTurnEnd}
           onChange={(value) => setPreference("notifyOnTurnEnd", value)}
         />
@@ -38,5 +46,68 @@ export default function GeneralSettings() {
         />
       </SettingsSection>
     </div>
+  );
+}
+
+/**
+ * Whether a notification would actually arrive, and proof of it.
+ *
+ * The switch below is a preference; this is the permission, and the two can
+ * disagree. Turning the switch on while the system has blocked notifications
+ * produces a setting that reads as enabled and does nothing at all, which is the
+ * one failure a settings screen should never hide. The test button is the only
+ * honest way to check: it puts a real notification on screen, sound and all.
+ */
+function NotificationCard({ enabled, silent }: { enabled: boolean; silent: boolean }) {
+  const [permission, setPermission] = useState<Permission>(currentPermission);
+
+  const send = async () => {
+    if (typeof Notification === "undefined") return;
+    const granted = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+    setPermission(granted);
+    if (granted !== "granted") return;
+    new Notification("NativePi", { body: "This is what a finished turn looks like.", silent });
+  };
+
+  if (permission === "unsupported") {
+    return (
+      <SettingsCard
+        icon={<BellIcon />}
+        title="Desktop notifications"
+        tone="warning"
+        status="Not available here"
+        description="This browser does not offer notifications, so a finished turn cannot announce itself. The NativePi window on your computer still can."
+      />
+    );
+  }
+
+  const blocked = permission === "denied";
+  const off = !enabled && !blocked;
+
+  return (
+    <SettingsCard
+      icon={blocked ? <PowerIcon /> : <BellIcon />}
+      title="Desktop notifications"
+      tone={blocked ? "error" : off ? "idle" : permission === "granted" ? "active" : "warning"}
+      status={
+        blocked
+          ? "Blocked by your system"
+          : off
+            ? "Turned off below"
+            : permission === "granted"
+              ? "Allowed"
+              : "Permission not asked for yet"
+      }
+      description={
+        blocked
+          ? "Allow NativePi in your system's notification settings. Until then, nothing below can put one on screen."
+          : "Send one now to check that it arrives, and that it sounds the way you want."
+      }
+      action={
+        <Button variant="outline" size="lg" disabled={blocked} onClick={() => void send()}>
+          Send a test
+        </Button>
+      }
+    />
   );
 }

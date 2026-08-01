@@ -1,6 +1,6 @@
 import { useAppStore } from "../../lib/store.ts";
 import PiPanel from "./PiPanel.tsx";
-import { SelectRow, SettingsSection, SwitchRow } from "./rows.tsx";
+import { ChoiceRow, SelectRow, SettingsSection, SwitchRow } from "./rows.tsx";
 
 /**
  * How Pi runs a turn.
@@ -17,7 +17,7 @@ export default function AgentSettings() {
     <PiPanel>
       {(settings) => (
         <>
-          <SettingsSection heading="Defaults for new chats">
+          <SettingsSection heading="New chats">
             <SelectRow
               label="Reasoning level"
               description="How hard the model thinks before answering, when it supports reasoning."
@@ -34,35 +34,41 @@ export default function AgentSettings() {
               ]}
               onChange={(value) => void update("defaultThinkingLevel", value)}
             />
+            <SwitchRow
+              label="Offer skills as commands"
+              description="Let skills be invoked directly. The composer's $ menu lists whatever this leaves available."
+              checked={settings.enableSkillCommands}
+              onChange={(value) => void update("enableSkillCommands", value)}
+            />
           </SettingsSection>
 
           <SettingsSection
             heading="Queued messages"
             description="What happens to messages you send while a turn is already running."
           >
-            <SelectRow
+            <ChoiceRow
               label="Steering"
-              description="Steering messages redirect the run that is already in progress."
+              description="Redirects the run already in progress."
               value={settings.steeringMode}
               options={[
                 { value: "one-at-a-time", label: "One at a time" },
-                { value: "all", label: "Send all at once" },
+                { value: "all", label: "All at once" },
               ]}
               onChange={(value) => void update("steeringMode", value)}
             />
-            <SelectRow
+            <ChoiceRow
               label="Follow-ups"
-              description="Follow-ups wait and start a new turn once the current one finishes."
+              description="Waits and starts a new turn once the current one finishes."
               value={settings.followUpMode}
               options={[
                 { value: "one-at-a-time", label: "One at a time" },
-                { value: "all", label: "Send all at once" },
+                { value: "all", label: "All at once" },
               ]}
               onChange={(value) => void update("followUpMode", value)}
             />
           </SettingsSection>
 
-          <SettingsSection heading="Long conversations and failures">
+          <SettingsSection heading="When a turn goes wrong">
             <SwitchRow
               label="Compact automatically"
               description="Summarize older messages when a chat approaches the model's context limit, instead of failing."
@@ -89,15 +95,6 @@ export default function AgentSettings() {
               description="Tell you when a request missed the provider's prompt cache, which usually means it cost more."
               checked={settings.showCacheMissNotices}
               onChange={(value) => void update("showCacheMissNotices", value)}
-            />
-          </SettingsSection>
-
-          <SettingsSection heading="Skills">
-            <SwitchRow
-              label="Offer skills as commands"
-              description="Let skills be invoked directly. The composer's $ menu lists whatever this leaves available."
-              checked={settings.enableSkillCommands}
-              onChange={(value) => void update("enableSkillCommands", value)}
             />
           </SettingsSection>
         </>

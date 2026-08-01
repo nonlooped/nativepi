@@ -1,3 +1,5 @@
+import { ArrowSquareOutIcon } from "@phosphor-icons/react/ArrowSquareOut";
+import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import type { UpdateState } from "../../../shared/rpc-schema.ts";
 import { fileManagerName } from "../../lib/paths.ts";
@@ -5,32 +7,34 @@ import { isRemote, rpc } from "../../lib/rpc.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { useRequest } from "../../lib/useRequest.ts";
 import NativePiWordmark from "../NativePiWordmark.tsx";
-import { ActionRow, ReadonlyRow, SettingsSection } from "./rows.tsx";
+import { ReadonlyRow, SettingsCard, SettingsSection, type CardTone } from "./rows.tsx";
 import { Button } from "@/components/ui/button.tsx";
 
 const REPOSITORY_URL = "https://github.com/nonlooped/nativepi";
 
-/** What the update row says, in the order the stages happen. */
-function updateSummary(update: UpdateState, currentVersion: string | undefined): { headline: string; detail: string } {
+/** What the update card says, in the order the stages happen. */
+function updateSummary(update: UpdateState): { tone: CardTone; status: string; detail: string } {
   const name = update.version ? `NativePi ${update.version}` : "A newer NativePi";
   switch (update.status) {
     case "checking":
-      return { headline: "Checking for updates", detail: "Asking GitHub what the latest release is." };
+      return { tone: "busy", status: "Checking for updates", detail: "Asking GitHub what the latest release is." };
     case "available":
-      return { headline: `${name} is available`, detail: "Downloading it does not interrupt anything you have running." };
+      return { tone: "warning", status: `${name} is available`, detail: "Downloading does not interrupt anything you have running." };
     case "downloading":
-      return { headline: `Downloading ${name}`, detail: `${update.percent ?? 0}% of the installer fetched.` };
+      return { tone: "busy", status: `Downloading ${name}`, detail: `${update.percent ?? 0}% of the installer fetched.` };
     case "ready":
       return {
-        headline: `${name} is ready to install`,
-        detail: "NativePi stops the agent and your terminals, installs it, and starts again.",
+        tone: "warning",
+        status: `${name} is ready`,
+        detail: "Installing stops the agent and your terminals, then starts NativePi again.",
       };
     case "error":
-      return { headline: "The update did not go through", detail: update.error ?? "NativePi could not reach the release feed." };
+      return { tone: "error", status: "The update did not go through", detail: update.error ?? "NativePi could not reach the release feed." };
     default:
       return {
-        headline: "NativePi is up to date",
-        detail: currentVersion ? `You are running ${currentVersion}.` : "No newer release has been published.",
+        tone: "active",
+        status: "Up to date",
+        detail: "NativePi asks GitHub when it starts and every few hours after. Nothing downloads until you ask for it.",
       };
   }
 }
@@ -38,12 +42,11 @@ function updateSummary(update: UpdateState, currentVersion: string | undefined):
 /**
  * Updating NativePi from inside NativePi.
  *
- * The same three actions the notification offers, in the one place someone
- * looks when they want to update on purpose rather than when asked. Left out
- * entirely on a development run, where there is no packaged app to replace, and
- * in a remote browser, which is not the machine the installer would run on.
+ * Left out entirely on a development run, where there is no packaged app to
+ * replace, and in a remote browser, which is not the machine the installer
+ * would run on.
  */
-function Updates({ currentVersion }: { currentVersion: string | undefined }) {
+function Updates() {
   const update = useAppStore((s) => s.update);
   const checkForUpdate = useAppStore((s) => s.checkForUpdate);
   const downloadUpdate = useAppStore((s) => s.downloadUpdate);
@@ -51,64 +54,69 @@ function Updates({ currentVersion }: { currentVersion: string | undefined }) {
 
   if (isRemote || update.status === "unsupported") return null;
 
-  const { headline, detail } = updateSummary(update, currentVersion);
+  const { tone, status, detail } = updateSummary(update);
   const busy = update.status === "checking" || update.status === "downloading";
 
   return (
-    <SettingsSection
-      heading="Updates"
-      description="NativePi looks for a new release on GitHub when it starts and every few hours after that. Nothing is downloaded until you ask for it. The builds are not code signed, so the installer's signature is not checked."
-    >
-      <ActionRow label={headline} description={detail}>
-        {update.status === "available" ? (
-          <Button size="sm" onClick={() => void downloadUpdate()}>
-            Download update
+    <SettingsCard
+      icon={<DownloadSimpleIcon />}
+      title="Updates"
+      tone={tone}
+      status={status}
+      description={detail}
+      action={
+        update.status === "available" ? (
+          <Button size="lg" onClick={() => void downloadUpdate()}>
+            Download
           </Button>
         ) : update.status === "ready" ? (
-          <Button size="sm" onClick={() => void installUpdate()}>
+          <Button size="lg" onClick={() => void installUpdate()}>
             Restart and install
           </Button>
         ) : (
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => void checkForUpdate()}>
-            {update.status === "checking" ? "Checking…" : update.status === "downloading" ? "Downloading…" : "Check for updates"}
+          <Button size="lg" variant="outline" disabled={busy} onClick={() => void checkForUpdate()}>
+            {busy ? "Working…" : "Check now"}
           </Button>
-        )}
-      </ActionRow>
-    </SettingsSection>
+        )
+      }
+    />
   );
 }
 
 /**
- * What this is, what it is built on, and where it keeps things.
- *
- * The paths are the useful part: Pi's configuration is a larger surface than
- * NativePi exposes, and someone who wants to hand-edit the rest should not have
- * to guess where Pi put it.
+ * What this is, and where Pi keeps the parts of itself this screen does not
+ * reach. The paths are the useful half: Pi's configuration is a larger surface
+ * than NativePi exposes, and someone who wants to hand-edit the rest should not
+ * have to guess where it lives.
  */
 export default function AboutSettings() {
   const versions = useRequest(() => rpc.request.versions({}), []);
   const paths = useRequest(() => rpc.request.piPaths({}), []);
 
   return (
-    <div className="flex flex-col gap-10">
-      <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-4">
         <NativePiWordmark display />
         <p className="max-w-prose text-sm leading-6 text-muted-foreground">
           Pi runs the agent and owns your providers, credentials and sessions. NativePi gives it a window. Everything
           stays on this computer.
         </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="font-mono text-xs text-muted-foreground">
+            NativePi {versions.data?.app ?? "…"} · Pi {versions.data?.pi ?? "…"}
+          </span>
+          <Button variant="ghost" size="sm" onClick={() => void rpc.request.openExternal({ url: REPOSITORY_URL })}>
+            Source on GitHub
+            <ArrowSquareOutIcon data-icon="inline-end" />
+          </Button>
+        </div>
       </div>
 
-      <SettingsSection heading="Versions">
-        <ReadonlyRow label="NativePi" value={versions.data?.app ?? "…"} />
-        <ReadonlyRow label="Pi" value={versions.data?.pi ?? "…"} />
-      </SettingsSection>
-
-      <Updates currentVersion={versions.data?.app} />
+      <Updates />
 
       <SettingsSection
         heading="Where Pi keeps things"
-        description="NativePi exposes the settings most people need. Pi supports more than that, and its files are here if you want to edit them directly."
+        description="NativePi exposes the settings most people need. Pi supports more, and its files are here."
       >
         <ReadonlyRow
           label="Configuration"
@@ -147,21 +155,8 @@ export default function AboutSettings() {
         />
         <ReadonlyRow
           label="Credentials"
-          description="Written by Pi when you connect a provider. NativePi never stores credentials of its own."
+          description="Written by Pi. NativePi stores none of its own."
           value={paths.data?.paths.authFile ?? "…"}
-        />
-      </SettingsSection>
-
-      <SettingsSection heading="Project">
-        <ReadonlyRow
-          label="Source"
-          description="NativePi is free and MIT licensed."
-          value={REPOSITORY_URL}
-          action={
-            <Button variant="ghost" size="sm" onClick={() => void rpc.request.openExternal({ url: REPOSITORY_URL })}>
-              Open
-            </Button>
-          }
         />
       </SettingsSection>
     </div>

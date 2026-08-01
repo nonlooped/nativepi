@@ -1,18 +1,25 @@
 import { useEffect, useState } from "react";
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react/ArrowsClockwise";
+import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
+import { CheckIcon } from "@phosphor-icons/react/Check";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
+import { DevicesIcon } from "@phosphor-icons/react/Devices";
+import { GlobeIcon } from "@phosphor-icons/react/Globe";
 import { PlayIcon } from "@phosphor-icons/react/Play";
 import { QrCodeIcon } from "@phosphor-icons/react/QrCode";
 import { StopIcon } from "@phosphor-icons/react/Stop";
+import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
+import { cn } from "@/lib/utils.ts";
 import type { AccessClient, AccessStatus, RemoteAccessStatus } from "../../../shared/rpc-schema.ts";
 import type { AccessHandoff } from "../../lib/store/types.ts";
 import { rpc } from "../../lib/rpc.ts";
 import { useAppStore } from "../../lib/store.ts";
 import ConfirmDialog from "../ConfirmDialog.tsx";
-import { ReadonlyRow, SettingsSection } from "./rows.tsx";
+import { SettingsCard, type CardTone } from "./rows.tsx";
 
 const STOPPED_STATUS: AccessStatus = {
   local: { running: false, links: [], clients: [] },
@@ -22,6 +29,15 @@ const STOPPED_STATUS: AccessStatus = {
 type Scope = "local" | "remote";
 type Action = Scope | "replace" | "revoke";
 
+/**
+ * Two ways to reach this window from somewhere else.
+ *
+ * Each one is a single card carrying its own state, its own button and, once it
+ * is on, its own link — because that is the whole task. Everything that is a
+ * record rather than a step, the handoff log and the token controls, sits behind
+ * one disclosure at the foot so that setting access up is two clicks and reading
+ * about it is a decision.
+ */
 export default function AccessSettings() {
   const [status, setStatus] = useState<AccessStatus>(STOPPED_STATUS);
   const [busy, setBusy] = useState<Action>();
@@ -29,6 +45,7 @@ export default function AccessSettings() {
   const [preferredLocalLink, setPreferredLocalLink] = useState<string>();
   const [showing, setShowing] = useState<{ scope: Scope; link: string }>();
   const [pending, setPending] = useState<"replace" | "revoke">();
+  const [auditOpen, setAuditOpen] = useState(false);
   const handoffs = useAppStore((s) => s.accessHandoffs);
   const recordHandoff = useAppStore((s) => s.recordAccessHandoff);
 
@@ -85,173 +102,161 @@ export default function AccessSettings() {
     : status.local.link;
   const clients = status.local.clients;
   const shared = status.local.running || status.remote.state !== "idle";
+  const remote = status.remote;
 
   return (
-    <div className="flex flex-col gap-10">
-      <SettingsSection
-        heading="Local access"
-        description="Use NativePi from another device on the same trusted network. The desktop app must stay open."
+    <div className="flex flex-col gap-4">
+      <SettingsCard
+        icon={<WifiHighIcon />}
+        title="Local access"
+        tone={status.local.running ? "active" : "idle"}
+        status={status.local.running ? "Serving on your network" : "Not shared"}
+        description="Reach this window from another device on the same network. NativePi has to stay open."
+        error={status.local.error}
+        action={
+          <Button
+            variant={status.local.running ? "destructive" : "default"}
+            size="lg"
+            disabled={Boolean(busy)}
+            onClick={() => void run(
+              "local",
+              status.local.running ? rpc.request.stopLocalAccess({}) : rpc.request.startLocalAccess({}),
+            )}
+          >
+            {status.local.running
+              ? <StopIcon weight="fill" data-icon="inline-start" />
+              : <PlayIcon weight="fill" data-icon="inline-start" />}
+            {busy === "local" ? "Working…" : status.local.running ? "Stop" : "Start"}
+          </Button>
+        }
       >
-        <AccessControl
-          title={status.local.running ? "Available on your network" : "Not shared"}
-          description={status.local.running
-            ? "The link is temporary and stops working when you stop access or close NativePi."
-            : "Start local access, then open the link on your other device."}
-          error={status.local.error}
-          action={
-            <Button
-              variant={status.local.running ? "destructive" : "default"}
-              disabled={Boolean(busy)}
-              onClick={() => void run(
-                "local",
-                status.local.running
-                  ? rpc.request.stopLocalAccess({})
-                  : rpc.request.startLocalAccess({}),
-              )}
-            >
-              {status.local.running
-                ? <StopIcon weight="fill" data-icon="inline-start" />
-                : <PlayIcon weight="fill" data-icon="inline-start" />}
-              {busy === "local"
-                ? "Working…"
-                : status.local.running ? "Stop local access" : "Start local access"}
-            </Button>
-          }
-        />
         {localLink ? (
-          <ReadonlyRow
-            label="Temporary link"
-            description="Anyone with the complete link can control NativePi. Share it only with devices you trust."
-            value={localLink}
-            action={
-              <div className="flex shrink-0 items-center gap-1">
-                {status.local.links.length > 1 ? (
-                  <select
-                    aria-label="Network address"
-                    className="h-8 max-w-40 rounded-md border bg-background px-2 text-xs"
-                    value={localLink}
-                    onChange={(event) => setPreferredLocalLink(event.target.value)}
-                  >
-                    {status.local.links.map((link) => (
-                      <option key={link} value={link}>{new URL(link).hostname}</option>
-                    ))}
-                  </select>
-                ) : null}
-                <LinkActions scope="local" link={localLink} copied={copied === "local"} onCopy={copy} onShowQr={showQr} />
-              </div>
-            }
+          <LinkPanel
+            scope="local"
+            link={localLink}
+            note="The link stops working when you stop access or close NativePi."
+            copied={copied === "local"}
+            onCopy={copy}
+            onShowQr={showQr}
+            addresses={status.local.links}
+            onPickAddress={setPreferredLocalLink}
           />
         ) : null}
-      </SettingsSection>
+      </SettingsCard>
 
-      <SettingsSection
-        heading="Remote access"
-        description="Use NativePi away from home over a temporary public HTTPS link. Nothing needs to be installed on the device you connect from, and the access token in the link is what keeps it yours."
+      <SettingsCard
+        icon={<GlobeIcon />}
+        title="Remote access"
+        tone={remoteTone(remote)}
+        status={remoteStatus(remote)}
+        description={remote.preparing ?? remoteDescription(remote)}
+        error={remote.error}
+        action={<RemoteAction status={remote} busy={Boolean(busy)} onRun={run} />}
       >
-        <AccessControl
-          title={remoteTitle(status.remote)}
-          description={status.remote.preparing ?? remoteDescription(status.remote)}
-          error={status.remote.error}
-          action={<RemoteAction status={status.remote} busy={Boolean(busy)} onRun={run} />}
-        />
-        {status.remote.link ? (
-          <ReadonlyRow
-            label="Public link"
-            description={`Anyone with the complete link can control NativePi. ${expiresIn(status.remote.expiresAt)}`}
-            value={status.remote.link}
-            action={
-              <LinkActions
-                scope="remote"
-                link={status.remote.link}
-                copied={copied === "remote"}
-                onCopy={copy}
-                onShowQr={showQr}
-              />
-            }
+        {remote.link ? (
+          <LinkPanel
+            scope="remote"
+            link={remote.link}
+            note={expiresIn(remote.expiresAt) || "Nothing needs to be installed on the device you open it from."}
+            copied={copied === "remote"}
+            onCopy={copy}
+            onShowQr={showQr}
           />
         ) : null}
-      </SettingsSection>
+      </SettingsCard>
 
-      <SettingsSection
-        heading={clients.length === 0 ? "Connected devices" : `Connected devices · ${clients.length}`}
-        description={connectedSummary(clients, shared)}
-      >
-        {clients.length === 0 ? (
-          <div className="border-t py-5">
-            <p className="text-sm text-muted-foreground">
-              {shared ? "No other devices are connected." : "Start access to connect another device."}
-            </p>
-          </div>
-        ) : clients.map((client) => (
-          <div
-            key={client.id}
-            className="flex flex-col gap-1 border-t py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8"
-          >
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{client.device}</p>
-            </div>
-            <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-              <span>{client.location === "remote" ? "Remote" : client.address}</span>
-              <span aria-hidden="true">·</span>
-              <span>Connected {formatTime(client.connectedAt)}</span>
-            </div>
-          </div>
-        ))}
-      </SettingsSection>
-
-      <SettingsSection
-        heading="Link handoffs"
-        description="Every time this window handed a link to another device, since it opened. Nothing records who received one, so this is the only account there is of where a link has gone."
-      >
-        {handoffs.length === 0 ? (
-          <div className="border-t py-5">
-            <p className="text-sm text-muted-foreground">No link has been copied or shown yet.</p>
-          </div>
-        ) : handoffs.map((handoff) => (
-          <div
-            key={handoff.id}
-            className="flex flex-col gap-1 border-t py-4 sm:flex-row sm:items-baseline sm:justify-between sm:gap-8"
-          >
-            <div className="min-w-0">
-              <p className="text-sm font-medium">{describeHandoff(handoff)}</p>
-              <p className="truncate font-mono text-xs text-muted-foreground" title={handoff.link}>
-                {handoff.link}
-              </p>
-            </div>
-            <span className="shrink-0 text-xs text-muted-foreground">{formatClock(handoff.at)}</span>
-          </div>
-        ))}
-      </SettingsSection>
-
-      {/* Only while something is shared: a token nothing is serving is not a
-          thing anyone needs to revoke, and two destructive buttons standing
-          permanently at the foot of the screen invite exactly one accident. */}
       {shared ? (
-        <SettingsSection
-          heading="Access token"
-          description="Local and remote links carry the same token, and neither the app nor Cloudflare knows who holds a copy."
+        <SettingsCard
+          icon={<DevicesIcon />}
+          title="Connected devices"
+          tone={clients.length > 0 ? "active" : "idle"}
+          status={clients.length === 0 ? "None right now" : connectedSummary(clients)}
+          description="Every connected browser can control NativePi."
         >
-          <AccessControl
-            title="Replace the token"
-            description="Both links are minted again and every connected device is signed out. Access itself stays on."
-            action={
-              <Button variant="outline" disabled={Boolean(busy) || status.remote.state === "starting"} onClick={() => setPending("replace")}>
-                <ArrowsClockwiseIcon data-icon="inline-start" />
-                {busy === "replace" ? "Replacing…" : "Replace token"}
-              </Button>
-            }
-          />
-          <AccessControl
-            title="Revoke all access"
-            description="Closes the public link and the network server together. NativePi goes back to this window only."
-            action={
-              <Button variant="destructive" disabled={Boolean(busy) || status.remote.state === "starting"} onClick={() => setPending("revoke")}>
-                <StopIcon weight="fill" data-icon="inline-start" />
-                {busy === "revoke" ? "Revoking…" : "Revoke access"}
-              </Button>
-            }
-          />
-        </SettingsSection>
+          {clients.length > 0 ? (
+            <ul className="flex flex-col gap-2.5">
+              {clients.map((client) => (
+                <li key={client.id} className="flex items-baseline justify-between gap-4">
+                  <span className="min-w-0 truncate text-sm">{client.device}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {client.location === "remote" ? "Remote" : client.address} · {formatTime(client.connectedAt)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </SettingsCard>
+      ) : null}
+
+      {shared || handoffs.length > 0 ? (
+        <div className="rounded-xl border bg-card/40">
+          <button
+            type="button"
+            aria-expanded={auditOpen}
+            onClick={() => setAuditOpen((open) => !open)}
+            className="flex w-full items-center gap-3 rounded-xl p-4 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">The access token</span>
+              <span className="mt-1 block text-sm text-muted-foreground">
+                Where your links have been, and how to make every one of them stop working.
+              </span>
+            </span>
+            <CaretDownIcon className={cn("shrink-0 text-muted-foreground transition-transform", auditOpen && "rotate-180")} />
+          </button>
+
+          {auditOpen ? (
+            <div className="flex flex-col gap-4 border-t p-4">
+              <div>
+                <p className="text-sm font-medium">Handoffs from this window</p>
+                {handoffs.length === 0 ? (
+                  <p className="mt-1 text-sm text-muted-foreground">No link has been copied or shown yet.</p>
+                ) : (
+                  <ul className="mt-2 flex flex-col gap-2">
+                    {handoffs.map((handoff) => (
+                      <li key={handoff.id} className="flex items-baseline justify-between gap-4">
+                        <span className="min-w-0">
+                          <span className="block text-sm">{describeHandoff(handoff)}</span>
+                          <span className="block truncate font-mono text-xs text-muted-foreground" title={handoff.link}>
+                            {handoff.link}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-xs text-muted-foreground">{formatClock(handoff.at)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {shared ? (
+                <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Both links carry the same token, and nothing knows who holds a copy.
+                  </p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      disabled={Boolean(busy) || remote.state === "starting"}
+                      onClick={() => setPending("replace")}
+                    >
+                      <ArrowsClockwiseIcon data-icon="inline-start" />
+                      {busy === "replace" ? "Replacing…" : "Replace token"}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="lg"
+                      disabled={Boolean(busy) || remote.state === "starting"}
+                      onClick={() => setPending("revoke")}
+                    >
+                      {busy === "revoke" ? "Revoking…" : "Revoke all access"}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       <ConfirmDialog
@@ -296,60 +301,84 @@ export default function AccessSettings() {
 }
 
 /**
- * Copy and QR, the two ways a link leaves this window.
+ * The link, and the two ways it leaves this window.
  *
- * Side by side because they are the same act — handing an address and its token
- * to another device — and both are what the handoff list is a record of. The
- * code sits behind a button rather than permanently on screen so that the local
- * link gets one too: a LAN address plus a 32 character token is precisely the
- * thing nobody should be retyping on a phone.
+ * The address itself is the thing someone came for, so it is a field rather than
+ * a row label, wide enough to read and selectable. Copy and QR sit beside it
+ * because handing an address plus a 32 character token to a phone by hand is not
+ * something anyone should be asked to do.
  */
-function LinkActions({
+function LinkPanel({
   scope,
   link,
+  note,
   copied,
   onCopy,
   onShowQr,
+  addresses,
+  onPickAddress,
 }: {
   scope: Scope;
   link: string;
+  note: string;
   copied: boolean;
   onCopy: (scope: Scope, link: string) => Promise<void>;
   onShowQr: (scope: Scope, link: string) => void;
+  addresses?: string[];
+  onPickAddress?: (link: string) => void;
 }) {
-  return (
-    <div className="flex shrink-0 items-center gap-1">
-      <Button variant="ghost" size="sm" onClick={() => onShowQr(scope, link)}>
-        <QrCodeIcon data-icon="inline-start" />
-        QR code
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => void onCopy(scope, link)}>
-        <CopyIcon data-icon="inline-start" />
-        {copied ? "Copied" : "Copy"}
-      </Button>
-    </div>
-  );
-}
+  const choices = addresses?.map((address) => ({ value: address, label: hostname(address) })) ?? [];
 
-function AccessControl({
-  title,
-  description,
-  error,
-  action,
-}: {
-  title: string;
-  description: string;
-  error?: string;
-  action: React.ReactNode;
-}) {
   return (
-    <div className="flex flex-col gap-3 border-t py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-      <div className="flex min-w-0 flex-col gap-1">
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-sm leading-5 text-muted-foreground">{description}</p>
-        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center gap-2">
+        <code className="min-w-0 flex-1 truncate rounded-md border bg-background/60 px-2.5 py-2 font-mono text-xs select-all">
+          {link}
+        </code>
+        <Button
+          variant="outline"
+          size="icon-lg"
+          title="Show a QR code"
+          aria-label="Show a QR code for this link"
+          onClick={() => onShowQr(scope, link)}
+        >
+          <QrCodeIcon />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon-lg"
+          title="Copy the link"
+          aria-label={copied ? "Link copied" : "Copy this link"}
+          onClick={() => void onCopy(scope, link)}
+        >
+          {copied ? <CheckIcon className="text-success" /> : <CopyIcon />}
+        </Button>
       </div>
-      <div className="shrink-0">{action}</div>
+
+      {choices.length > 1 && onPickAddress ? (
+        <Select
+          value={link}
+          onValueChange={(next) => {
+            if (typeof next === "string") onPickAddress(next);
+          }}
+          items={choices}
+        >
+          <SelectTrigger aria-label="Network address" className="w-full text-xs sm:w-56">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {choices.map((choice) => (
+              <SelectItem key={choice.value} value={choice.value} className="min-h-8 px-2.5 text-sm">
+                {choice.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : null}
+
+      <p className="text-xs leading-5 text-muted-foreground">
+        Anyone with the complete link can control NativePi. {note}
+      </p>
     </div>
   );
 }
@@ -365,23 +394,15 @@ function RemoteAction({
 }) {
   if (status.state === "running") {
     return (
-      <Button
-        variant="destructive"
-        disabled={busy}
-        onClick={() => void onRun("remote", rpc.request.stopRemoteAccess({}))}
-      >
+      <Button variant="destructive" size="lg" disabled={busy} onClick={() => void onRun("remote", rpc.request.stopRemoteAccess({}))}>
         <StopIcon weight="fill" data-icon="inline-start" />
-        {busy ? "Working…" : "Stop remote access"}
+        {busy ? "Working…" : "Stop"}
       </Button>
     );
   }
   if (status.state === "error") {
     return (
-      <Button
-        variant="outline"
-        disabled={busy}
-        onClick={() => void onRun("remote", rpc.request.startRemoteAccess({}))}
-      >
+      <Button variant="outline" size="lg" disabled={busy} onClick={() => void onRun("remote", rpc.request.startRemoteAccess({}))}>
         <ArrowsClockwiseIcon data-icon="inline-start" />
         {busy ? "Working…" : "Try again"}
       </Button>
@@ -389,37 +410,47 @@ function RemoteAction({
   }
   return (
     <Button
+      size="lg"
       disabled={busy || status.state === "starting"}
       onClick={() => void onRun("remote", rpc.request.startRemoteAccess({}))}
     >
       <PlayIcon weight="fill" data-icon="inline-start" />
-      {busy || status.state === "starting" ? "Starting…" : "Start remote access"}
+      {busy || status.state === "starting" ? "Starting…" : "Start"}
     </Button>
   );
 }
 
-function remoteTitle(status: RemoteAccessStatus): string {
+function remoteTone(status: RemoteAccessStatus): CardTone {
+  switch (status.state) {
+    case "idle": return "idle";
+    case "starting": return "busy";
+    case "running": return status.reachable === false ? "warning" : "active";
+    case "error": return "error";
+  }
+}
+
+function remoteStatus(status: RemoteAccessStatus): string {
   switch (status.state) {
     case "idle": return "Not shared";
     case "starting": return "Creating a public link";
     // A tunnel that stopped routing while its client kept running is still
     // "running" to everything else here, and reads as fine until someone tries
     // the link on a phone.
-    case "running": return status.reachable === false ? "The link is not answering" : "Available anywhere";
-    case "error": return "Remote access needs attention";
+    case "running": return status.reachable === false ? "Not answering" : "Reachable from anywhere";
+    case "error": return "Could not start";
   }
 }
 
 function remoteDescription(status: RemoteAccessStatus): string {
   switch (status.state) {
     case "idle":
-      return "Creates a temporary Cloudflare address that reaches this computer. The first run downloads the tunnel client, which takes a moment.";
+      return "Reach this window from anywhere over a temporary Cloudflare address. The first run downloads the tunnel client.";
     case "starting":
       return "Asking Cloudflare for an address.";
     case "running":
       return health(status);
     case "error":
-      return "The tunnel did not start. Check this computer's internet connection, then try again.";
+      return "Check this computer's internet connection, then try again.";
   }
 }
 
@@ -430,7 +461,7 @@ function remoteDescription(status: RemoteAccessStatus): string {
  * worth more than the same word with no time attached to it.
  */
 function health(status: RemoteAccessStatus): string {
-  if (status.reachable === undefined) return "The link works from any network. Stop remote access when you are done.";
+  if (status.reachable === undefined) return "Stop remote access when you are done.";
   const when = status.checkedAt ? `, checked ${ago(status.checkedAt)}` : "";
   return status.reachable
     ? `The address answered${when}. Stop remote access when you are done.`
@@ -444,19 +475,13 @@ function ago(at: number): string {
 }
 
 /** How many devices are connected, and over which of the two links. */
-function connectedSummary(clients: AccessClient[], shared: boolean): string {
-  if (clients.length === 0) {
-    return shared
-      ? "Browsers currently authenticated with an access link."
-      : "Nothing can connect while both kinds of access are stopped.";
-  }
+function connectedSummary(clients: AccessClient[]): string {
   const remote = clients.filter((client) => client.location === "remote").length;
   const local = clients.length - remote;
-  const parts = [
+  return [
     local > 0 ? `${local} on your network` : "",
     remote > 0 ? `${remote} over the public link` : "",
-  ].filter(Boolean);
-  return `${parts.join(", ")}. Every one of them can control NativePi.`;
+  ].filter(Boolean).join(", ");
 }
 
 function describeHandoff(handoff: AccessHandoff): string {
@@ -471,6 +496,14 @@ function expiresIn(expiresAt?: number): string {
   if (minutes < 60) return `It stops working in ${minutes} minutes.`;
   const hours = Math.round(minutes / 60);
   return `It stops working in about ${hours} ${hours === 1 ? "hour" : "hours"}.`;
+}
+
+function hostname(link: string): string {
+  try {
+    return new URL(link).hostname;
+  } catch {
+    return link;
+  }
 }
 
 function formatTime(value: string): string {

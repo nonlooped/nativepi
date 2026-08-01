@@ -1,6 +1,6 @@
 import { useAppStore } from "../../lib/store.ts";
 import PiPanel from "./PiPanel.tsx";
-import { SelectRow, SettingsSection, SwitchRow, TextRow } from "./rows.tsx";
+import { ChoiceRow, SelectRow, SettingsSection, SwitchRow, TextRow } from "./rows.tsx";
 
 /** The same choices Pi's own settings screen offers for the idle timeout. */
 const IDLE_TIMEOUTS = [
@@ -38,12 +38,12 @@ export default function AdvancedSettings() {
             heading="Trust"
             description="A project folder can carry its own extensions, skills and settings, which are code that runs with your permissions. Pi asks before loading them."
           >
-            <SelectRow
+            <ChoiceRow
               label="New project folders"
               description="What Pi assumes when it opens a folder it has never seen."
               value={settings.defaultProjectTrust}
               options={[
-                { value: "ask", label: "Ask each time" },
+                { value: "ask", label: "Ask" },
                 { value: "always", label: "Always trust" },
                 { value: "never", label: "Never trust" },
               ]}

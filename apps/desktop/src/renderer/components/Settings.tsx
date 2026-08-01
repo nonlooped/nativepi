@@ -43,16 +43,16 @@ import TerminalSettings from "./settings/TerminalSettings.tsx";
  * The order runs from what everyone touches to what almost nobody does.
  */
 const CATEGORIES = [
-  { name: "General", icon: GearSixIcon, blurb: "How NativePi starts up and when it interrupts you." },
-  { name: "Access", icon: WifiHighIcon, blurb: "Use NativePi from another device, nearby or away from home." },
+  { name: "General", icon: GearSixIcon, blurb: "Startup and notifications." },
+  { name: "Access", icon: WifiHighIcon, blurb: "Reach this window from another device." },
   { name: "Appearance", icon: PaintBrushIcon, blurb: "Layout, scale, diffs, and motion." },
-  { name: "Agent", icon: BrainIcon, blurb: "How Pi runs a turn. Stored in Pi's settings and shared with the Pi command line." },
-  { name: "Providers", icon: PlugsConnectedIcon, blurb: "Connect model providers with an API key or subscription sign-in. Credentials are stored by Pi." },
-  { name: "Extensions", icon: PuzzlePieceIcon, blurb: "Install Pi packages and optionally share NativePi's built-ins with the Pi TUI." },
-  { name: "Terminal", icon: TerminalWindowIcon, blurb: "The terminal panel in NativePi, and the shell Pi runs commands in." },
-  { name: "Advanced", icon: SlidersHorizontalIcon, blurb: "Trust, networking, and what Pi reports. Most people never need these." },
-  { name: "Keyboard", icon: KeyboardIcon, blurb: "Every shortcut NativePi listens for." },
-  { name: "About", icon: InfoIcon, blurb: "What NativePi is, and where Pi keeps everything this screen does not cover." },
+  { name: "Agent", icon: BrainIcon, blurb: "How Pi runs a turn. Shared with the Pi command line." },
+  { name: "Providers", icon: PlugsConnectedIcon, blurb: "Sign in to model providers. Pi stores the credentials." },
+  { name: "Extensions", icon: PuzzlePieceIcon, blurb: "Pi packages, and NativePi's own built-ins." },
+  { name: "Terminal", icon: TerminalWindowIcon, blurb: "The terminal panel, and the shell Pi runs commands in." },
+  { name: "Advanced", icon: SlidersHorizontalIcon, blurb: "Trust, networking, and what Pi reports." },
+  { name: "Keyboard", icon: KeyboardIcon, blurb: "Every shortcut, and how to change it." },
+  { name: "About", icon: InfoIcon, blurb: "Versions, updates, and where Pi keeps its files." },
 ] as const;
 
 type Category = (typeof CATEGORIES)[number]["name"];
