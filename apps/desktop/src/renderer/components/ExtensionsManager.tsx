@@ -2,7 +2,9 @@ import { useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
+import type { BuiltInExtensionInfo } from "../../shared/rpc-schema.ts";
 import type { PackageInfo } from "../../shared/pi-types.ts";
+import { showHint } from "../lib/toast.tsx";
 import { useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { useRequest } from "../lib/useRequest.ts";
@@ -17,7 +19,80 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
+import { ActionRow } from "./settings/rows.tsx";
 import ConfirmDialog from "./ConfirmDialog.tsx";
+
+function BuiltInExtensions() {
+  const listing = useRequest(() => rpc.request.listBuiltInExtensions({}), []);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string>();
+
+  async function setEnabled(extension: BuiltInExtensionInfo, enabled: boolean) {
+    setBusy(extension.id);
+    setError(undefined);
+    const result = await rpc.request.setBuiltInExtension({ id: extension.id, enabled });
+    setBusy(null);
+    if (!result.ok) {
+      setError(result.error ?? "Could not change the built-in extension.");
+      return;
+    }
+    listing.reload();
+    showHint(enabled ? "NativePi service tiers enabled for the Pi TUI" : "NativePi service tiers disabled");
+  }
+
+  return (
+    <section aria-labelledby="builtin-heading">
+      <h2 id="builtin-heading" className="mb-1 font-heading text-sm font-semibold">
+        NativePi built-ins
+      </h2>
+      <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+        Optional extensions maintained by NativePi. They run inside Pi with your permissions. Enabling one copies it
+        into Pi’s global extensions folder, so the normal Pi TUI can use it too. Changes apply to Pi processes started
+        after the change.
+      </p>
+      {listing.loading ? <p className="border-t py-5 text-sm text-muted-foreground">Loading…</p> : null}
+      {listing.error ? <p className="border-t py-5 text-sm text-destructive">{listing.error}</p> : null}
+      {listing.data?.extensions.map((extension) => (
+        <ActionRow
+          key={extension.id}
+          label={
+            <span className="flex items-center gap-2">
+              {extension.name}
+              <Badge variant={extension.installed ? "secondary" : "outline"}>
+                {extension.outdated ? "Update available" : extension.installed ? "Enabled" : "Not enabled"}
+              </Badge>
+            </span>
+          }
+          description={extension.description}
+        >
+          <div className="flex items-center gap-1">
+            {!extension.installed || extension.outdated ? (
+              <Button
+                size="sm"
+                variant={extension.installed ? "outline" : "default"}
+                disabled={busy !== null}
+                onClick={() => void setEnabled(extension, true)}
+              >
+                {busy === extension.id ? <CircleNotchIcon className="animate-spin" /> : extension.installed ? "Update" : "Enable"}
+              </Button>
+            ) : null}
+            {extension.installed ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy !== null}
+                onClick={() => void setEnabled(extension, false)}
+              >
+                {busy === extension.id ? <CircleNotchIcon className="animate-spin" /> : "Disable"}
+              </Button>
+            ) : null}
+          </div>
+        </ActionRow>
+      ))}
+      {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
+    </section>
+  );
+}
 
 export default function ExtensionsManager() {
   const projectDir = useAppStore((s) => s.activeProjectPath);
@@ -42,11 +117,12 @@ export default function ExtensionsManager() {
 
   if (!projectDir) {
     return (
-      <section className="max-w-3xl">
+      <div className="flex max-w-3xl flex-col gap-10">
+        <BuiltInExtensions />
         <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          Open a project to manage its extensions.
+          Open a project to manage its packages.
         </p>
-      </section>
+      </div>
     );
   }
 
@@ -92,6 +168,8 @@ export default function ExtensionsManager() {
 
   return (
     <div className="flex max-w-3xl flex-col gap-10">
+      <BuiltInExtensions />
+
       <section aria-labelledby="install-heading">
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <h2 id="install-heading" className="font-heading text-sm font-semibold">

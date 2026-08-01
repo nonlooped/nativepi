@@ -12,6 +12,7 @@ import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks,
 import { getRepoHostContext } from "./repoHost.ts";
 import { repoHostContextSchema } from "../shared/repo-host-types.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
+import { listBuiltInExtensions, setBuiltInExtension } from "./builtInExtensions.ts";
 import { listSkills } from "./skills.ts";
 import { readProjectDirectory, watchProjectDirectory } from "./fileExplorer.ts";
 import { listProjectFiles } from "./files.ts";
@@ -455,6 +456,7 @@ async function knownProject(projectDir: string): Promise<boolean> {
 const usageDashboardParamsSchema = z.object({
   projects: z.array(z.object({ path: z.string().min(1).max(32_767), name: z.string().min(1).max(200) })).max(100),
 });
+const setBuiltInExtensionParamsSchema = z.object({ id: z.literal("service-tier"), enabled: z.boolean() });
 
 function isThinkingLevel(level: unknown): level is ThinkingLevel {
   return typeof level === "string" && THINKING_LEVELS.has(level as ThinkingLevel);
@@ -1228,6 +1230,22 @@ const handlers: HandlerMap = {
       return { extensions: await loadGraphicalExtensions(projectDir) };
     } catch {
       return { extensions: [] };
+    }
+  },
+  listBuiltInExtensions: async () => {
+    try {
+      return { extensions: await listBuiltInExtensions() };
+    } catch {
+      return { extensions: [] };
+    }
+  },
+  setBuiltInExtension: async (params) => {
+    try {
+      const { id, enabled } = setBuiltInExtensionParamsSchema.parse(params);
+      await setBuiltInExtension(id, enabled);
+      return { ok: true, extensions: await listBuiltInExtensions() };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
     }
   },
   extensionRespond: ({ projectDir, sessionFile, response }) => {

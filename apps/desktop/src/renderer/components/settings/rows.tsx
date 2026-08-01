@@ -52,7 +52,7 @@ function Row({
   shrinkable,
   children,
 }: {
-  label: string;
+  label: React.ReactNode;
   description?: string;
   htmlFor?: string;
   /** Put the control on its own line, for anything wider than a few characters. */
@@ -273,7 +273,7 @@ export function ActionRow({
   description,
   children,
 }: {
-  label: string;
+  label: React.ReactNode;
   description?: string;
   children: React.ReactNode;
 }) {

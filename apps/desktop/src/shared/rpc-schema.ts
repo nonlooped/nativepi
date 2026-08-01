@@ -171,6 +171,16 @@ export interface UpdateState {
   error?: string;
 }
 
+export type BuiltInExtensionId = "service-tier";
+
+export interface BuiltInExtensionInfo {
+  id: BuiltInExtensionId;
+  name: string;
+  description: string;
+  installed: boolean;
+  outdated: boolean;
+}
+
 export type AuthPromptRequest =
   | { kind: "text"; message: string; placeholder?: string }
   | { kind: "secret"; message: string; placeholder?: string }
@@ -454,6 +464,14 @@ export type HostRequests = {
   setPiSettings: {
     params: { patch: PiSettingsPatch };
     response: { ok: boolean; settings?: PiSettings; error?: string };
+  };
+  listBuiltInExtensions: {
+    params: Record<string, never>;
+    response: { extensions: BuiltInExtensionInfo[] };
+  };
+  setBuiltInExtension: {
+    params: { id: BuiltInExtensionId; enabled: boolean };
+    response: { ok: boolean; extensions?: BuiltInExtensionInfo[]; error?: string };
   };
   piPaths: { params: Record<string, never>; response: { paths: PiPaths } };
   /** Reveal a file or folder in Explorer. Used by About to point at Pi's own files. */

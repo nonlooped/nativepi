@@ -46,6 +46,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Pi-backed model and thinking-level selection, favorite models, provider authentication, and project trust controls.
 - Git status and working-tree diffs, clean-worktree branch switching or creation, and creation of worktrees that are added as NativePi projects.
 - User- and project-scoped Pi package installation, update, removal, reload, and load-error display.
+- Optional NativePi-built extensions can be enabled from Settings and copied into Pi's global extension directory for use from the terminal TUI.
 - Normal Pi extension UI requests plus optional graphical tool, entry, composer-widget, and context-panel contributions through `@nativepi/extension-api`.
 - Pi's terminal extension UI, shown rather than skipped: a component an extension opens with `ctx.ui.custom()` appears as a dialog, component widgets, footers, and headers take their matching place in the window, working messages and spinners are drawn in NativePi's own type, and an extension's autocomplete provider offers its suggestions in the composer.
 - Pi's own slash commands — extension commands, prompt templates, and skills — offered by name in the composer and run through Pi, including while a turn is in flight.

@@ -48,7 +48,7 @@ const CATEGORIES = [
   { name: "Appearance", icon: PaintBrushIcon, blurb: "Layout, scale, diffs, and motion." },
   { name: "Agent", icon: BrainIcon, blurb: "How Pi runs a turn. Stored in Pi's settings and shared with the Pi command line." },
   { name: "Providers", icon: PlugsConnectedIcon, blurb: "Connect model providers with an API key or subscription sign-in. Credentials are stored by Pi." },
-  { name: "Extensions", icon: PuzzlePieceIcon, blurb: "Install, update, and remove the Pi packages that extend the agent." },
+  { name: "Extensions", icon: PuzzlePieceIcon, blurb: "Install Pi packages and optionally share NativePi's built-ins with the Pi TUI." },
   { name: "Terminal", icon: TerminalWindowIcon, blurb: "The terminal panel in NativePi, and the shell Pi runs commands in." },
   { name: "Advanced", icon: SlidersHorizontalIcon, blurb: "Trust, networking, and what Pi reports. Most people never need these." },
   { name: "Keyboard", icon: KeyboardIcon, blurb: "Every shortcut NativePi listens for." },

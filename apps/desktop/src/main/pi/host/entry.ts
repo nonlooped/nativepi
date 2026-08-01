@@ -259,6 +259,7 @@ async function configureHttp(): Promise<void> {
 
 process.title = "nativepi-pi-host";
 process.env["PI_CODING_AGENT"] = "true";
+process.env["NATIVEPI_HOST"] = "1";
 process.emitWarning = () => {};
 filterStdin();
 installUiContext();
