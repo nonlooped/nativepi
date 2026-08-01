@@ -40,3 +40,35 @@ test("chat history exposes a retryable failure before an empty successful load",
   expect(useAppStore.getState().sessionLoadStates[projectPath]).toBe("loaded");
   expect(useAppStore.getState().sessionsByProject[projectPath]).toEqual([]);
 });
+
+test("service-tier selection is persisted per session and sent to the Pi host", async () => {
+  let sent: { channel: string; params: unknown } | undefined;
+  stubInvoke(async (channel, params) => {
+    sent = { channel, params };
+    return {};
+  });
+
+  const { useAppStore } = await import("./store.ts");
+  useAppStore.setState({
+    activeProjectPath: "C:\\project",
+    activeSessionFile: "C:\\project\\chat.jsonl",
+    serviceTiers: {},
+  });
+
+  await useAppStore.getState().setServiceTier("fast");
+
+  expect(useAppStore.getState().serviceTier).toBe("fast");
+  expect(useAppStore.getState().serviceTiers["C:\\project\\chat.jsonl"]).toBe("fast");
+  expect(sent).toEqual({
+    channel: "tuiSend",
+    params: {
+      projectDir: "C:\\project",
+      sessionFile: "C:\\project\\chat.jsonl",
+      frame: {
+        type: "nativepi_tui_set_service_tier",
+        sessionFile: "C:\\project\\chat.jsonl",
+        tier: "fast",
+      },
+    },
+  });
+});

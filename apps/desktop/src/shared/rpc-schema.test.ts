@@ -10,6 +10,7 @@ test("an empty object yields the full set of defaults", () => {
     lastChatByProject: {},
     drafts: {},
     favoriteModels: [],
+    serviceTiers: {},
     pinnedChats: [],
     panes: undefined,
     reopenLastProject: true,

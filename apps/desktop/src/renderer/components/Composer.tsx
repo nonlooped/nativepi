@@ -4,6 +4,7 @@ import { PaperclipIcon } from "@phosphor-icons/react/Paperclip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AssistantMessage, ContextInspector as ContextInspectorData } from "../../shared/pi-types.ts";
 import { draftKeyFor } from "../../shared/messages.ts";
+import { supportsFastServiceTier } from "../../shared/serviceTier.ts";
 import { ACCEPTED_IMAGE_TYPES } from "../lib/attachments.ts";
 import { classifyDrop, draggingFiles, mentionPath } from "../lib/drops.ts";
 import { activeConversation, thinkingLabel, useAppStore } from "../lib/store.ts";
@@ -177,6 +178,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
             <AttachButton disabled={disabled} onPick={attach} />
             <ModelSelector />
+            <ServiceTierSelector />
             <ThinkingSelector />
             <ContextWindow />
             {isRepo ? <GroupRule /> : null}
@@ -411,6 +413,53 @@ function ThinkingSelector() {
             {level === "medium" ? <span className="ml-auto rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">Default</span> : null}
           </MenuItem>
         ))}
+        </MenuGroup>
+      </MenuPopup>
+    </Menu>
+  );
+}
+
+function ServiceTierSelector() {
+  const model = useAppStore((s) => s.model);
+  const serviceTier = useAppStore((s) => s.serviceTier);
+  const setServiceTier = useAppStore((s) => s.setServiceTier);
+
+  if (!supportsFastServiceTier(model)) return null;
+
+  const fast = serviceTier === "fast";
+  return (
+    <Menu>
+      <MenuTrigger
+        title="Change response speed"
+        aria-label={`Response speed: ${fast ? "Fast" : "Standard"}`}
+        className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span>{fast ? "Fast" : "Standard"}</span>
+        <CaretDownIcon className="text-muted-foreground" />
+      </MenuTrigger>
+      <MenuPopup side="top" className="w-64 p-1.5">
+        <p className="px-2 pb-1 pt-1 text-xs font-medium text-muted-foreground">Response speed</p>
+        <MenuGroup>
+          <MenuItem
+            onClick={() => void setServiceTier("standard")}
+            className={cn("items-start gap-2 rounded-md", !fast && "bg-accent")}
+          >
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">Standard</span>
+              <span className="text-xs text-muted-foreground">Normal usage and response speed</span>
+            </div>
+            {!fast ? <CheckIcon className="ml-auto mt-0.5 shrink-0" /> : null}
+          </MenuItem>
+          <MenuItem
+            onClick={() => void setServiceTier("fast")}
+            className={cn("items-start gap-2 rounded-md", fast && "bg-accent")}
+          >
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">Fast</span>
+              <span className="text-xs text-muted-foreground">1.5x speed, increased usage</span>
+            </div>
+            {fast ? <CheckIcon className="ml-auto mt-0.5 shrink-0" /> : null}
+          </MenuItem>
         </MenuGroup>
       </MenuPopup>
     </Menu>

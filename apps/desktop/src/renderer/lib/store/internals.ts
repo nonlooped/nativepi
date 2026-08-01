@@ -1,5 +1,7 @@
 import type { NativePiState } from "../../../shared/rpc-schema.ts";
 import { draftKeyFor, modelKey } from "../../../shared/messages.ts";
+import type { ServiceTier } from "../../../shared/serviceTier.ts";
+import { serviceTierKey } from "../../../shared/serviceTier.ts";
 import { loadGraphicalExtensions } from "../extensionHost.ts";
 import { isRemote, rpc } from "../rpc.ts";
 import type { GetState, SetState } from "./types.ts";
@@ -52,6 +54,21 @@ export function reportDraft(projectDir: string | null, sessionFile: string | nul
   }, 150);
 }
 
+export function reportServiceTier(
+  projectDir: string | null,
+  sessionFile: string | null,
+  tier: ServiceTier,
+): void {
+  if (!projectDir) return;
+  void rpc.request
+    .tuiSend({
+      projectDir,
+      sessionFile,
+      frame: { type: "nativepi_tui_set_service_tier", sessionFile, tier },
+    })
+    .catch(() => {});
+}
+
 /** When git was last refreshed, so a busy turn cannot spam `git status`. */
 let lastGitRefresh = 0;
 
@@ -86,6 +103,7 @@ export function persist(get: GetState): void {
       lastChatByProject: map,
       drafts: s.drafts,
       favoriteModels: s.favoriteModels ?? [],
+      serviceTiers: s.serviceTiers,
       pinnedChats: s.pinnedChats,
       panes: {
         sidebarOpen: s.sidebarOpen,
@@ -115,6 +133,9 @@ export function draftKey(get: GetState): string {
  */
 export function warmProject(set: SetState, get: GetState, path: string): void {
   const sessionFile = get().activeSessionFile;
+  const tier = get().serviceTiers[serviceTierKey(path, sessionFile)] ?? "standard";
+  set({ serviceTier: tier });
+  reportServiceTier(path, sessionFile, tier);
   void rpc.request.ensurePi({ projectDir: path });
 
   void rpc.request.getModels({ projectDir: path, sessionFile }).then((r) => {

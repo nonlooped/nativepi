@@ -262,6 +262,7 @@ export const nativePiStateSchema = z.object({
   lastChatByProject: z.record(z.string(), z.string()).catch({}),
   drafts: z.record(z.string(), z.string()).catch({}),
   favoriteModels: z.array(z.string()).catch([]),
+  serviceTiers: z.record(z.string(), z.enum(["standard", "fast"])).catch({}),
   pinnedChats: z
     .array(z.unknown())
     .catch([])

@@ -5,6 +5,7 @@ import { isTuiFrameType, type TuiClientFrame, type TuiHostFrame } from "../../..
 import { toNotice, toPromptRequest } from "../../../shared/providerAuth.ts";
 import { shapeProviders } from "../../../shared/providerShape.ts";
 import type { ContextInspector } from "../../../shared/pi-types.ts";
+import { nativePiServiceTierExtension, setNativePiServiceTier } from "../extensions/serviceTier.ts";
 import { hostInternals, withTerminalUi, type HostInternals } from "./uiContext.ts";
 
 /**
@@ -84,6 +85,10 @@ function providerRuntime(): Promise<ModelRuntime> {
 
 function handleClientFrame(frame: TuiClientFrame): void {
   if (frame.type === "nativepi_tui_editor") lastEditorFrame = frame;
+  if (frame.type === "nativepi_tui_set_service_tier") {
+    setNativePiServiceTier(frame.sessionFile, frame.tier);
+    return;
+  }
   if (frame.type === "nativepi_tui_auth_respond") {
     pendingAuthPrompts.get(frame.id)?.(frame);
     return;
@@ -257,4 +262,8 @@ process.env["PI_CODING_AGENT"] = "true";
 process.emitWarning = () => {};
 filterStdin();
 installUiContext();
-void configureHttp().then(() => main(["--mode", "rpc", ...process.argv.slice(2)]));
+void configureHttp().then(() =>
+  main(["--mode", "rpc", ...process.argv.slice(2)], {
+    extensionFactories: [nativePiServiceTierExtension],
+  }),
+);

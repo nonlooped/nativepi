@@ -1,5 +1,6 @@
 import type { SessionEntry, ThinkingLevel } from "../../../shared/pi-types.ts";
 import type { ExtensionUiRequest } from "../../../shared/pi-types.ts";
+import { DEFAULT_SERVICE_TIER, serviceTierKey } from "../../../shared/serviceTier.ts";
 import { isRemote, rpc } from "../rpc.ts";
 import { conversationFor, emptyConversation, patchConversation } from "./conversation.ts";
 import { applyExtensionUi, reduce, sessionInfoName } from "./events.ts";
@@ -11,6 +12,7 @@ import {
   gitRefreshedWithin,
   persist,
   reportDraft,
+  reportServiceTier,
   setLastChat,
 } from "./internals.ts";
 import { readAsBase64, toImageContent } from "../attachments.ts";
@@ -126,9 +128,13 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
 
   selectChat: async (sessionFile) => {
     const projectPath = get().activeProjectPath;
-    set({ activeSessionFile: sessionFile, isNewChat: false });
+    const tier = projectPath
+      ? get().serviceTiers[serviceTierKey(projectPath, sessionFile)] ?? DEFAULT_SERVICE_TIER
+      : DEFAULT_SERVICE_TIER;
+    set({ activeSessionFile: sessionFile, isNewChat: false, serviceTier: tier });
     reportActiveDraft(get);
     if (projectPath) {
+      reportServiceTier(projectPath, sessionFile, tier);
       setLastChat(projectPath, sessionFile);
       persist(get);
       // Watch the chat being viewed for writes from another NativePi window or
@@ -153,11 +159,15 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
 
   newChat: () => {
     const projectDir = get().activeProjectPath;
+    const tier = projectDir
+      ? get().serviceTiers[serviceTierKey(projectDir, null)] ?? DEFAULT_SERVICE_TIER
+      : DEFAULT_SERVICE_TIER;
     if (projectDir) {
       void rpc.request.watchSession({ projectDir, sessionFile: null });
       patchConversation(set, projectDir, null, () => ({ ...emptyConversation(), projectDir }));
     }
-    set({ activeSessionFile: null, isNewChat: true });
+    set({ activeSessionFile: null, isNewChat: true, serviceTier: tier });
+    reportServiceTier(projectDir, null, tier);
     reportActiveDraft(get);
   },
 
@@ -303,6 +313,15 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       return;
     }
     if (res.sessionFile) {
+      const pendingTier = get().serviceTiers[serviceTierKey(projectDir, null)];
+      if (pendingTier) {
+        set((state) => ({
+          serviceTier: pendingTier,
+          serviceTiers: { ...state.serviceTiers, [res.sessionFile!]: pendingTier },
+        }));
+        persist(get);
+        reportServiceTier(projectDir, res.sessionFile, pendingTier);
+      }
       patchConversation(set, projectDir, res.sessionFile, { projectDir, sessionFile: res.sessionFile });
       if (!s.activeSessionFile) {
         set((state) => {
@@ -406,9 +425,11 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     set((s) => {
       const { [sessionFile]: _draft, ...drafts } = s.drafts;
       const { [sessionFile]: _images, ...attachments } = s.attachments;
+      const { [sessionFile]: _tier, ...serviceTiers } = s.serviceTiers;
       return {
         drafts,
         attachments,
+        serviceTiers,
         pinnedChats: s.pinnedChats.filter((path) => path !== sessionFile),
       };
     });

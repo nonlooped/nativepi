@@ -52,6 +52,23 @@ test("a resize from the window is bounded", () => {
   ).toBe(false);
 });
 
+test("a service-tier frame is scoped to a session and accepts only known tiers", () => {
+  expect(
+    tuiClientFrameSchema.safeParse({
+      type: "nativepi_tui_set_service_tier",
+      sessionFile: "C:\\chat.jsonl",
+      tier: "fast",
+    }).success,
+  ).toBe(true);
+  expect(
+    tuiClientFrameSchema.safeParse({
+      type: "nativepi_tui_set_service_tier",
+      sessionFile: null,
+      tier: "turbo",
+    }).success,
+  ).toBe(false);
+});
+
 test("the context inspector accepts only a non-negative Pi measurement", () => {
   const inspector = {
     usedTokens: 42,

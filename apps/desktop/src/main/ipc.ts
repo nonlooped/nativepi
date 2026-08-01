@@ -1233,9 +1233,14 @@ const handlers: HandlerMap = {
     projectPi(projectDir, sessionFile)?.sendRaw(response);
     return { ok: true };
   },
-  tuiSend: (params) => {
+  tuiSend: async (params) => {
     const { projectDir, sessionFile, frame } = tuiSendParamsSchema.parse(params);
-    projectPi(projectDir, sessionFile)?.sendFrame(frame);
+    if (frame.type === "nativepi_tui_set_service_tier") {
+      const pi = await ensurePi(projectDir, sessionFile ?? undefined);
+      pi.sendFrame(frame);
+    } else {
+      projectPi(projectDir, sessionFile)?.sendFrame(frame);
+    }
     return { ok: true };
   },
   tuiComplete: async (params) => {

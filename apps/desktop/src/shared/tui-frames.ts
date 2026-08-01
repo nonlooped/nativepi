@@ -221,6 +221,11 @@ export const tuiClientFrameSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("nativepi_tui_logout"), requestId: z.string().min(1).max(64), providerId: z.string().min(1) }),
   z.object({
+    type: z.literal("nativepi_tui_set_service_tier"),
+    sessionFile: z.string().min(1).nullable(),
+    tier: z.enum(["standard", "fast"]),
+  }),
+  z.object({
     type: z.literal("nativepi_tui_auth_respond"),
     id: z.string().min(1).max(64),
     value: z.string().optional(),

@@ -57,6 +57,8 @@ test("the initial state is what the app starts from", () => {
   expect(s.activeSessionFile).toBeNull();
   expect(s.conversations).toEqual({});
   expect(s.sendBehavior).toBe("followUp");
+  expect(s.serviceTier).toBe("standard");
+  expect(s.serviceTiers).toEqual({});
   expect(s.thinkingLevel).toBe("off");
   expect(s.thinkingLevels).toEqual(["off"]);
   expect(s.sidebarOpen).toBe(true);
