@@ -153,7 +153,7 @@ export async function searchSessions(projectDirs: string[], rawQuery: string): P
  * read-only and works for chats that are not currently running.
  */
 export async function usageDashboard(projects: { path: string; name: string }[]): Promise<UsageDashboard> {
-  const daily = new Map<string, number>();
+  const daily = new Map<string, { cost: number; sessions: Set<string>; models: Map<string, number> }>();
   const perProject = new Map<string, { name: string; cost: number }>();
   const models = new Map<string, number>();
   const usedSessions = new Set<string>();
@@ -187,13 +187,17 @@ export async function usageDashboard(projects: { path: string; name: string }[])
       if (!date) continue;
       billedEntries.add(billedEntry);
       usedSessions.add(session.path);
-      daily.set(date, (daily.get(date) ?? 0) + cost);
+      const dailyTotal = daily.get(date) ?? { cost: 0, sessions: new Set<string>(), models: new Map<string, number>() };
+      dailyTotal.cost += cost;
+      dailyTotal.sessions.add(session.path);
       const projectTotal = perProject.get(project.path) ?? { name: project.name, cost: 0 };
       projectTotal.cost += cost;
       perProject.set(project.path, projectTotal);
       const model = entry.message.provider && entry.message.model
         ? `${entry.message.provider}/${entry.message.model}`
         : entry.message.model ?? "Unknown model";
+      dailyTotal.models.set(model, (dailyTotal.models.get(model) ?? 0) + cost);
+      daily.set(date, dailyTotal);
       models.set(model, (models.get(model) ?? 0) + cost);
     }
   }
@@ -206,7 +210,12 @@ export async function usageDashboard(projects: { path: string; name: string }[])
     .map(([name, cost]) => ({ name, cost }))
     .toSorted(byCost);
   const dailyTotals = [...daily.entries()]
-    .map(([date, cost]) => ({ date, cost }))
+    .map(([date, value]) => ({
+      date,
+      cost: value.cost,
+      sessions: value.sessions.size,
+      models: [...value.models.entries()].map(([name, cost]) => ({ name, cost })).toSorted(byCost),
+    }))
     .toSorted((a, b) => a.date.localeCompare(b.date));
 
   return {

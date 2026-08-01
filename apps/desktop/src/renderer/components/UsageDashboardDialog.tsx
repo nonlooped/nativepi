@@ -9,6 +9,7 @@ import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { TrendDownIcon } from "@phosphor-icons/react/TrendDown";
 import { TrendUpIcon } from "@phosphor-icons/react/TrendUp";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { useState } from "react";
 import type { UsageDashboard } from "../../shared/pi-types.ts";
 import { useAppStore } from "../lib/store.ts";
@@ -23,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
+import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart.tsx";
 
 const ALL_PROJECTS = "all-projects";
 
@@ -118,20 +120,60 @@ function Dashboard({ dashboard, allProjects }: { dashboard: UsageDashboard; allP
 
 function Trend({ daily }: { daily: UsageDashboard["daily"] }) {
   const points = recentDays(daily);
-  const maximum = Math.max(...points.map((point) => point.cost), 0);
+  const chartConfig = { cost: { label: "Spend", color: "var(--foreground)" } } satisfies ChartConfig;
+
   return (
     <div className="mt-3" role="img" aria-label={points.map((point) => `${point.label}: ${cost(point.cost)}`).join(", ")}>
-      <div className="flex h-20 items-end gap-1" aria-hidden>
-        {points.map((point) => (
-          <div key={point.date} className="flex min-w-0 flex-1 items-end" title={`${point.label}: ${cost(point.cost)}`}>
-            <div className="w-full rounded-sm bg-foreground/70" style={{ height: maximum === 0 ? "2px" : `${Math.max((point.cost / maximum) * 100, 3)}%` }} />
-          </div>
-        ))}
+      <ChartContainer config={chartConfig} className="h-32 w-full aspect-auto">
+        <AreaChart accessibilityLayer data={points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid vertical={false} className="stroke-border/50" />
+          <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={28} />
+          <YAxis hide domain={[0, "auto"]} />
+          <ChartTooltip cursor={false} content={<UsageTooltip />} />
+          <Area
+            dataKey="cost"
+            type="monotone"
+            fill="var(--color-cost)"
+            fillOpacity={0.12}
+            stroke="var(--color-cost)"
+            strokeWidth={2}
+            dot={{ r: 2.5, fill: "var(--color-cost)" }}
+            activeDot={{ r: 4 }}
+          />
+        </AreaChart>
+      </ChartContainer>
+    </div>
+  );
+}
+
+type UsagePoint = ReturnType<typeof recentDays>[number];
+
+function UsageTooltip({ active, payload }: { active?: boolean; payload?: { payload?: UsagePoint }[] }) {
+  const point = payload?.[0]?.payload;
+  if (!active || !point) return null;
+
+  return (
+    <div className="grid min-w-44 gap-2 rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
+      <p className="font-medium">{point.label}</p>
+      <div className="grid gap-1.5">
+        <TooltipRow label="Spend" value={cost(point.cost)} />
+        <TooltipRow label="Sessions" value={point.sessions.toLocaleString()} />
       </div>
-      <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-        <span>{points[0]?.label}</span>
-        <span>{points.at(-1)?.label}</span>
+      <div className="grid gap-1 border-t border-border/50 pt-2">
+        <p className="text-muted-foreground">Models</p>
+        {point.models.length ? point.models.slice(0, 4).map((model) => (
+          <TooltipRow key={model.name} label={model.name} value={cost(model.cost)} />
+        )) : <span className="text-muted-foreground">No billed models</span>}
       </div>
+    </div>
+  );
+}
+
+function TooltipRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="min-w-0 truncate text-muted-foreground" title={label}>{label}</span>
+      <span className="shrink-0 font-mono font-medium tabular-nums">{value}</span>
     </div>
   );
 }
@@ -162,15 +204,22 @@ function TrendLabel({ trend }: { trend: { amount: number; direction: "up" | "dow
   );
 }
 
-function recentDays(daily: UsageDashboard["daily"]): { date: string; label: string; cost: number }[] {
+function recentDays(daily: UsageDashboard["daily"]): { date: string; label: string; cost: number; sessions: number; models: { name: string; cost: number }[] }[] {
   const costs = new Map(daily.map((point) => [point.date, point.cost]));
+  const details = new Map(daily.map((point) => [point.date, point]));
   const end = new Date();
   end.setHours(12, 0, 0, 0);
   return Array.from({ length: 14 }, (_, index) => {
     const date = new Date(end);
     date.setDate(end.getDate() - (13 - index));
     const key = date.toLocaleDateString("en-CA");
-    return { date: key, label: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }), cost: costs.get(key) ?? 0 };
+    return {
+      date: key,
+      label: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      cost: costs.get(key) ?? 0,
+      sessions: details.get(key)?.sessions ?? 0,
+      models: details.get(key)?.models ?? [],
+    };
   });
 }
 

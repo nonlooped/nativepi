@@ -235,7 +235,15 @@ test("usageDashboard groups Pi-recorded cost by day, project, and model", async 
 
   expect(dashboard.totalCost).toBeCloseTo(0.35);
   expect(dashboard.sessions).toBe(2);
-  expect(dashboard.daily).toEqual([{ date: "2026-01-02", cost: 0.12 }, { date: "2026-01-03", cost: 0.23 }]);
+  expect(dashboard.daily).toEqual([
+    { date: "2026-01-02", cost: 0.12, sessions: 1, models: [{ name: "openai/gpt-5", cost: 0.12 }] },
+    {
+      date: "2026-01-03",
+      cost: 0.23,
+      sessions: 2,
+      models: [{ name: "claude", cost: 0.2 }, { name: "openai/gpt-5", cost: 0.03 }],
+    },
+  ]);
   expect(dashboard.projects).toEqual([{ path: beta, name: "Beta", cost: 0.2 }, { path: alpha, name: "Alpha", cost: 0.15 }]);
   expect(dashboard.models).toEqual([{ name: "claude", cost: 0.2 }, { name: "openai/gpt-5", cost: 0.15 }]);
 });
