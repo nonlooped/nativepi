@@ -35,8 +35,12 @@ describe("countPatchLines", () => {
 
 describe("diffPatchFor", () => {
   test("synthesizes an all-additions patch for a write", () => {
-    const patch = diffPatchFor(toolCall("1", "write", { content: "a\nb" }));
-    expect(patch).toBe("@@ -0,0 +1,2 @@\n+a\n+b");
+    const patch = diffPatchFor(toolCall("1", "write", { path: "x", content: "a\nb" }));
+    expect(patch).toBe("--- /dev/null\n+++ x\n@@ -0,0 +1,2 @@\n+a\n+b");
+  });
+
+  test("has no patch for a write with no path", () => {
+    expect(diffPatchFor(toolCall("1", "write", { content: "a\nb" }))).toBeUndefined();
   });
 
   test("reads an edit's patch from the result details", () => {

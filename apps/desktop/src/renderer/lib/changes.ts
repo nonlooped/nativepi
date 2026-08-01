@@ -23,9 +23,11 @@ export function diffPatchFor(call: ToolCall, result?: ToolResultMessage): string
   if (call.name === "write") {
     const content = call.arguments["content"];
     if (typeof content !== "string") return undefined;
+    const path = pathOf(call);
+    if (!path) return undefined;
     const lines = content.split("\n");
     const body = lines.map((line) => "+" + line).join("\n");
-    return `@@ -0,0 +1,${lines.length} @@\n${body}`;
+    return `--- /dev/null\n+++ ${path}\n@@ -0,0 +1,${lines.length} @@\n${body}`;
   }
   return undefined;
 }
