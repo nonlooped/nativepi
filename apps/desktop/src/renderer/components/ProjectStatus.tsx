@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { ShieldCheckIcon } from "@phosphor-icons/react/ShieldCheck";
 import { ShieldWarningIcon } from "@phosphor-icons/react/ShieldWarning";
@@ -6,7 +6,7 @@ import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import type { PiStatus } from "../../shared/rpc-schema.ts";
 import { useAppStore } from "../lib/store.ts";
 import { DropdownMenu as Menu, DropdownMenuContent as MenuPopup, DropdownMenuGroup as MenuGroup, DropdownMenuItem as MenuItem, DropdownMenuTrigger as MenuTrigger } from "@/components/ui/dropdown-menu.tsx";
-import { cn } from "@/lib/utils.ts";
+import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 
 export default function ProjectStatus({ className }: { className?: string }) {
@@ -31,11 +31,7 @@ export default function ProjectStatus({ className }: { className?: string }) {
               health.tone,
             )}
           >
-            {health.spinning ? (
-              <CircleNotchIcon className="animate-spin" />
-            ) : (
-              <WarningCircleIcon weight="fill" />
-            )}
+            <WarningCircleIcon weight="fill" />
             <span>{health.label}</span>
           </MenuTrigger>
           <MenuPopup align="end" className="w-72 p-1.5">
@@ -112,30 +108,134 @@ export default function ProjectStatus({ className }: { className?: string }) {
   );
 }
 
-function healthOf(
-  status: PiStatus | undefined,
-): { label: string; detail: string; tone: string; spinning: boolean } | null {
+/*
+  Starting Pi is routine, expected and over in about a second, so this is
+  deliberately not built like `ErrorBanner` beside it: no tinted fill, no
+  headline, no border. Those say "act now", and there is nothing to act on
+  here.
+
+  It also floats instead of taking a row in the column. In the flow it pushed
+  the whole conversation down on mount and let it snap back a second later,
+  which is a lot of movement to report that nothing is wrong.
+*/
+export function PiStartingNotice() {
+  const piStarting = useAppStore((s) =>
+    s.activeProjectPath ? s.piStatus[s.activeProjectPath] === "starting" : false,
+  );
+  const phase = useSlowStartPhase(piStarting);
+
+  if (!phase) return null;
+
+  return (
+    // `top-12` clears `WorkspaceHeader`'s `h-12`. The gutter offset centres it
+    // over the same optical axis as the transcript and composer below.
+    <div
+      className={cn(
+        "pointer-events-none absolute inset-x-0 top-12 z-20 flex justify-center px-4",
+        SCROLLBAR_GUTTER_OFFSET,
+      )}
+    >
+      <div
+        role="status"
+        aria-live="polite"
+        className={cn(
+          "flex items-center gap-2 rounded-full bg-popover py-1.5 pr-3 pl-2.5 text-xs text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-150",
+          phase === "entering"
+            ? "animate-in fade-in-0 slide-in-from-top-1"
+            : "animate-out fade-out-0 slide-out-to-top-1",
+        )}
+      >
+        <CircleNotchIcon aria-hidden="true" className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+        <span className="font-medium">Starting Pi</span>
+        <span aria-hidden="true" className="text-muted-foreground/40">
+          ·
+        </span>
+        {/* The one thing the header's status chip cannot say, and the only
+            reason this is on screen at all: a draft written now is not lost. */}
+        <span className="text-muted-foreground">you can keep typing</span>
+      </div>
+    </div>
+  );
+}
+
+/** How long a start has to run before it is worth mentioning. */
+const APPEAR_AFTER = 400;
+/** Once mentioned, the floor on how long it stays. */
+const MIN_VISIBLE = 900;
+const FADE_OUT = 150;
+
+/**
+ * Paces a transient indicator so it never blinks.
+ *
+ * A warm start settles well inside `APPEAR_AFTER`, and an indicator that paints
+ * and unpaints inside that window reads as a glitch rather than as progress —
+ * so a fast start is silent, and a slow one is held for `MIN_VISIBLE` and then
+ * faded out rather than cut.
+ */
+function useSlowStartPhase(active: boolean): "entering" | "leaving" | null {
+  const [phase, setPhase] = useState<"entering" | "leaving" | null>(null);
+  const shownAt = useRef<number | null>(null);
+
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    if (active) {
+      // Already on screen, or fading out and now needed again: either way this
+      // is one continuous start, so keep the original entry.
+      if (shownAt.current !== null) setPhase("entering");
+      else {
+        timers.push(
+          setTimeout(() => {
+            shownAt.current = Date.now();
+            setPhase("entering");
+          }, APPEAR_AFTER),
+        );
+      }
+    } else if (shownAt.current === null) {
+      setPhase(null);
+    } else {
+      const held = Math.max(0, MIN_VISIBLE - (Date.now() - shownAt.current));
+      timers.push(
+        setTimeout(() => {
+          setPhase("leaving");
+          timers.push(
+            setTimeout(() => {
+              shownAt.current = null;
+              setPhase(null);
+            }, FADE_OUT),
+          );
+        }, held),
+      );
+    }
+
+    return () => {
+      for (const timer of timers) clearTimeout(timer);
+    };
+  }, [active]);
+
+  return phase;
+}
+
+/*
+  Only the states that need the user. A start in progress needs nothing from
+  them and resolves on its own, and the one action this chip offers — restart —
+  is meaningless against a Pi that is already starting. `PiStartingNotice`
+  carries that state instead, which keeps one spinner on screen rather than two
+  reporting the same second.
+*/
+function healthOf(status: PiStatus | undefined): { label: string; detail: string; tone: string } | null {
   switch (status) {
-    case "starting":
-      return {
-        label: "Starting",
-        detail: "Pi is starting up for this project.",
-        tone: "text-muted-foreground",
-        spinning: true,
-      };
     case "error":
       return {
         label: "Pi error",
         detail: "Pi could not start for this project. Restarting may fix it.",
         tone: "text-destructive",
-        spinning: false,
       };
     case "exited":
       return {
         label: "Pi stopped",
         detail: "Pi exited for this project. Restart it to keep working.",
         tone: "text-warning",
-        spinning: false,
       };
     default:
       return null;

@@ -15,30 +15,28 @@ export default function TrustDialog() {
 
   return (
     <Dialog open onOpenChange={(next) => !next && dismissTrust()}>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent className="min-w-0 gap-3">
+        <DialogHeader className="min-w-0">
           <DialogTitle className="flex items-center gap-2 font-heading text-base font-semibold">
             <ShieldWarningIcon weight="fill" className="size-5 text-warning" />
             Trust this project?
           </DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-            This folder contains local Pi extensions or skills. Running the agent here will execute that code with your
-            permissions. Only trust folders whose contents you recognize.
+            Local Pi extensions or skills in this folder can run with your permissions. Continue only if you recognize
+            what it contains.
           </DialogDescription>
         </DialogHeader>
 
-        <p
-          className="rounded-md border bg-muted/40 px-2.5 py-2 font-mono text-xs break-all"
-          title={trustPrompt.projectPath}
-        >
-          {trustPrompt.projectPath}
-        </p>
+        <div className="flex min-w-0 flex-col gap-2">
+          <p className="min-w-0 max-w-full font-mono text-xs break-all text-muted-foreground" title={trustPrompt.projectPath}>
+            {trustPrompt.projectPath}
+          </p>
+          <LocalCodeSummary projectPath={trustPrompt.projectPath} />
+        </div>
 
-        <LocalCodeSummary projectPath={trustPrompt.projectPath} />
-
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          Continuing without trust keeps project-local extensions and skills disabled. NativePi will ask again next
-          time, and you can change this later from the project status in the header.
+        <p className="min-w-0 text-xs leading-relaxed text-muted-foreground">
+          Continuing without trust keeps local extensions and skills disabled. You can change this later from project
+          status.
         </p>
 
         {/*
@@ -49,11 +47,13 @@ export default function TrustDialog() {
           keeps the ordinary primary treatment, and Escape still takes the safe
           path.
         */}
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="ghost" onClick={dismissTrust}>
-            Continue without local extensions
+        <div className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <Button variant="ghost" className="w-full max-w-full whitespace-normal sm:w-auto" onClick={dismissTrust}>
+            Continue without trust
           </Button>
-          <Button onClick={() => void trustActiveProject()}>Trust and load local code</Button>
+          <Button className="w-full max-w-full whitespace-normal sm:w-auto" onClick={() => void trustActiveProject()}>
+            Trust and load code
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -110,9 +110,9 @@ function LocalCodeSummary({ projectPath }: { projectPath: string }) {
       <p className="text-xs font-medium">
         {state.names.length} local {state.names.length === 1 ? "item" : "items"} would run:
       </p>
-      <ul className="flex max-h-32 flex-col gap-1 overflow-y-auto rounded-md border bg-muted/40 px-2.5 py-2">
+      <ul className="flex min-w-0 max-h-32 flex-col gap-1 overflow-x-hidden overflow-y-auto rounded-md border bg-muted/40 px-2.5 py-2">
         {state.names.map((name) => (
-          <li key={name} className="truncate font-mono text-xs text-muted-foreground" title={name}>
+          <li key={name} className="min-w-0 truncate font-mono text-xs text-muted-foreground" title={name}>
             {name}
           </li>
         ))}

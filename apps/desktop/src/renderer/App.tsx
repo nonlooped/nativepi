@@ -17,7 +17,7 @@ import DropZone from "./components/DropZone.tsx";
 import ExtensionUi from "./components/ExtensionUi.tsx";
 import TuiOverlay from "./components/TuiSurface.tsx";
 import NativePiWordmark from "./components/NativePiWordmark.tsx";
-import ProjectStatus from "./components/ProjectStatus.tsx";
+import ProjectStatus, { PiStartingNotice } from "./components/ProjectStatus.tsx";
 import QuitDialog from "./components/QuitDialog.tsx";
 import OpenWith from "./components/OpenWith.tsx";
 import Settings from "./components/Settings.tsx";
@@ -122,7 +122,9 @@ export default function App() {
         <ResizablePanel id="conversation" minSize="35%">
           <ResizablePanelGroup orientation="vertical">
           <ResizablePanel id="workspace" minSize="35%">
-          <main className="conversation-shell flex h-full min-h-0 min-w-0 flex-col">
+          {/* `relative` anchors `PiStartingNotice`, which floats under the
+              header rather than taking a row and shifting the conversation. */}
+          <main className="conversation-shell relative flex h-full min-h-0 min-w-0 flex-col">
             <WorkspaceHeader
               layout={layout}
               sidebarDocked={sidebarDocked}
@@ -132,6 +134,7 @@ export default function App() {
               onOpenContext={() => (layout === "wide" ? toggleContextPane() : setContextSheetOpen(true))}
               onToggleTerminal={toggleTerminal}
             />
+            <PiStartingNotice />
 
             {activeProjectPath ? (
               <div className="flex min-h-0 flex-1 flex-col">
