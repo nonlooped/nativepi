@@ -39,6 +39,7 @@ import type { AccessStatus, HostEvents, HostRequestName, HostRequests, PiStatus 
 import type { CommandInfo, ForkPoint, ModelInfo, RpcSessionState, SessionStats, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
 import { tuiClientFrameSchema, tuiCompletionEditSchema, tuiCompletionsSchema, type TuiHostFrame } from "../shared/tui-frames.ts";
 import { localServerConnection, localServerStatus, startLocalServer, stopLocalServer } from "./localServer.ts";
+import { setSleepBlocked } from "./powerSaveGuard.ts";
 import {
   remoteAccessRunning,
   remoteAccessStatus,
@@ -1315,6 +1316,9 @@ async function startRemoteAccessForCurrentServer(): Promise<void> {
 
 function accessStatus(localError?: string): AccessStatus {
   const local = localServerStatus();
+  // Any server bound and listening — local network or loopback backing a
+  // remote tunnel — is a reason this machine should not go to sleep.
+  setSleepBlocked(localServerConnection() !== undefined);
   return {
     local: localError ? { ...local, error: localError } : local,
     remote: remoteAccessStatus(),
@@ -1350,6 +1354,7 @@ export async function stopAllPi(): Promise<void> {
   stopAllTerminals();
   await stopRemoteAccess();
   await stopLocalServer();
+  setSleepBlocked(false);
   const all = [...pis.values()];
   pis.clear();
   starting.clear();
