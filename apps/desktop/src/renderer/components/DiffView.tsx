@@ -1,7 +1,10 @@
 import { PatchDiff } from "@pierre/diffs/react";
 import { useAppStore } from "../lib/store.ts";
 import { usePhoneLayout } from "../lib/layout.ts";
+import { primeDiffHighlighter } from "../lib/diffHighlighter.ts";
 import { cn } from "@/lib/utils.ts";
+
+void primeDiffHighlighter();
 
 export default function DiffView({ patch, className }: { patch: string; className?: string }) {
   const preferred = useAppStore((s) => s.preferences.diffStyle);
@@ -10,7 +13,6 @@ export default function DiffView({ patch, className }: { patch: string; classNam
   // roughly twenty characters each, so the preference yields to the width it
   // was chosen for rather than rendering something nobody can read.
   const diffStyle = phone ? "unified" : preferred;
-
   if (!patch.trim()) {
     return <p className="px-3 py-2 text-xs text-muted-foreground">No changes to display.</p>;
   }
@@ -20,6 +22,7 @@ export default function DiffView({ patch, className }: { patch: string; classNam
       <PatchDiff
         patch={patch}
         options={{
+          theme: "pierre-dark",
           themeType: "dark",
           diffStyle,
           diffIndicators: "bars",

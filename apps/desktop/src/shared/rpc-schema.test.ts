@@ -8,7 +8,6 @@ test("an empty object yields the full set of defaults", () => {
     projects: [],
     lastProjectPath: undefined,
     lastChatByProject: {},
-    recentFilesByProject: {},
     drafts: {},
     favoriteModels: [],
     pinnedChats: [],

@@ -8,12 +8,13 @@ import type { PiMessage } from "./pi/protocol.ts";
 import { deleteSession, listSessions, readSession, searchSessions, sessionMtime, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
 import { loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
-import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitPushAndCreatePr, gitStageFile, gitStageHunk, gitStatus } from "./git.ts";
+import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitPrTarget, gitPushAndCreatePr, gitStageFile, gitStageHunk, gitStatus } from "./git.ts";
 import { getRepoHostContext } from "./repoHost.ts";
 import { repoHostContextSchema } from "../shared/repo-host-types.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
 import { listSkills } from "./skills.ts";
-import { listExplorerFiles, listProjectFiles, readFilePreview } from "./files.ts";
+import { readProjectDirectory, watchProjectDirectory } from "./fileExplorer.ts";
+import { listProjectFiles } from "./files.ts";
 import { prepareImages } from "./images.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
 import { fileManagerName, listInstalledEditors, openFileIn, openProjectIn } from "./editors.ts";
@@ -102,6 +103,57 @@ function notifySessionsChanged(projectDir: string): void {
     sessionNotificationTimers.delete(projectDir);
     push("sessionsChanged", { projectDir });
   }, 150));
+}
+
+/**
+ * The folders the file explorer is watching, per project.
+ *
+ * One entry per open folder, created the moment the renderer asks for it rather
+ * than when its watcher finishes installing: `watchProjectDirectory` is async,
+ * and a pane that opens and closes a folder faster than that would otherwise
+ * leave the watcher behind with nothing left to cancel it.
+ */
+type ExplorerWatch = { stop: () => void };
+const explorerWatches = new Map<string, Map<string, ExplorerWatch>>();
+
+function setExplorerWatches(projectDir: string, paths: string[]): void {
+  const current = explorerWatches.get(projectDir) ?? new Map<string, ExplorerWatch>();
+  explorerWatches.set(projectDir, current);
+
+  const wanted = new Set(paths);
+  for (const [dir, watch] of current) {
+    if (wanted.has(dir)) continue;
+    watch.stop();
+    current.delete(dir);
+  }
+
+  for (const dir of wanted) {
+    if (current.has(dir)) continue;
+    // `release` is what `stop()` currently means: recording the cancellation
+    // until the watcher exists, and closing it afterwards.
+    let stopped = false;
+    let release = () => {
+      stopped = true;
+    };
+    const entry: ExplorerWatch = { stop: () => release() };
+    current.set(dir, entry);
+    void watchProjectDirectory(projectDir, dir, () => {
+      if (explorerWatches.get(projectDir)?.get(dir) === entry) push("projectFilesChanged", { projectDir, path: dir });
+    }).then(
+      (stop) => {
+        if (stopped) stop();
+        else release = stop;
+      },
+      () => {},
+    );
+  }
+
+  if (current.size === 0) explorerWatches.delete(projectDir);
+}
+
+function stopExplorerWatches(projectDir: string): void {
+  for (const watch of explorerWatches.get(projectDir)?.values() ?? []) watch.stop();
+  explorerWatches.delete(projectDir);
 }
 
 function stopProjectSessionWatch(projectDir: string): void {
@@ -387,7 +439,13 @@ const searchSessionsParamsSchema = z.object({
   projectDirs: z.array(z.string().min(1).max(32_767)).max(100),
   query: z.string().min(1).max(500),
 });
-const projectFileParamsSchema = z.object({ projectDir: z.string().min(1).max(32_767), path: z.string().min(1).max(32_767) });
+/** `path` may be empty: that is how the explorer asks for the project root. */
+const explorerDirParamsSchema = z.object({ projectDir: z.string().min(1).max(32_767), path: z.string().max(32_767) });
+/** Capped because it is a watcher each: an explorer with 500 folders open is already past useful. */
+const explorerWatchParamsSchema = z.object({
+  projectDir: z.string().min(1).max(32_767),
+  paths: z.array(z.string().max(32_767)).max(500),
+});
 
 async function knownProject(projectDir: string): Promise<boolean> {
   const project = resolve(projectDir);
@@ -441,7 +499,6 @@ const handlers: HandlerMap = {
     sessionNotificationTimers.delete(projectDir);
     return { ok: true };
   },
-
   ensurePi: async ({ projectDir }) => {
     try {
       await ensurePi(projectDir);
@@ -1051,6 +1108,7 @@ const handlers: HandlerMap = {
     try { const { projectDir, message } = gitCommitParamsSchema.parse(params); return await gitCommit(projectDir, message); }
     catch (err) { return { ok: false, error: errorMessage(err) }; }
   },
+  gitPrTarget: async ({ projectDir }) => ({ target: await gitPrTarget(projectDir) }),
   gitPushAndCreatePr: async (params) => {
     try { const { projectDir, title, body } = gitPrParamsSchema.parse(params); return await gitPushAndCreatePr(projectDir, title, body); }
     catch (err) { return { ok: false, error: errorMessage(err) }; }
@@ -1110,19 +1168,27 @@ const handlers: HandlerMap = {
       return { files: [] };
     }
   },
-  listExplorerFiles: async ({ projectDir }) => {
+  readProjectDirectory: async (params) => {
+    const { projectDir, path: dir } = explorerDirParamsSchema.parse(params);
+    if (!await knownProject(projectDir)) return { entries: [], error: "That project is not available." };
     try {
-      if (!await knownProject(projectDir)) return { files: [] };
-      return { files: await listExplorerFiles(projectDir) };
+      return { entries: await readProjectDirectory(projectDir, dir) };
     } catch {
-      return { files: [] };
+      // A folder can vanish or be unreadable between the click and the read;
+      // the explorer says so on that one row and leaves the rest standing.
+      return { entries: [], error: "That folder could not be read." };
     }
   },
-  readFilePreview: async (params) => {
-    const { projectDir, path: file } = projectFileParamsSchema.parse(params);
-    if (!await knownProject(projectDir)) return { error: "That project is not available." };
-    const result = await readFilePreview(projectDir, file);
-    return "error" in result ? { error: result.error } : { preview: result };
+  watchProjectDirectories: async (params) => {
+    const { projectDir, paths } = explorerWatchParamsSchema.parse(params);
+    // An unknown project gets its watchers dropped rather than refused: that is
+    // also what the pane asks for when it lets a project go.
+    if (!await knownProject(projectDir)) {
+      stopExplorerWatches(projectDir);
+      return { ok: true };
+    }
+    setExplorerWatches(projectDir, paths);
+    return { ok: true };
   },
 
   listPackages: async ({ projectDir }) => {
@@ -1273,6 +1339,7 @@ export function registerIpc(): void {
 export async function stopAllPi(): Promise<void> {
   stopAllSessionWatches();
   for (const projectDir of projectSessionWatches.keys()) stopProjectSessionWatch(projectDir);
+  for (const projectDir of [...explorerWatches.keys()]) stopExplorerWatches(projectDir);
   for (const timer of sessionNotificationTimers.values()) clearTimeout(timer);
   sessionNotificationTimers.clear();
   stopAllTerminals();

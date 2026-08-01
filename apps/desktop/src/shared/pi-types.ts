@@ -170,7 +170,7 @@ export interface SessionStats {
 export interface UsageDashboard {
   totalCost: number;
   sessions: number;
-  daily: { date: string; cost: number }[];
+  daily: { date: string; cost: number; sessions: number; models: { name: string; cost: number }[] }[];
   projects: { path: string; name: string; cost: number }[];
   models: { name: string; cost: number }[];
 }
@@ -215,6 +215,8 @@ export interface GitStatus {
   branch?: string;
   detached?: boolean;
   files: GitChangedFile[];
+  insertions: number;
+  deletions: number;
 }
 export interface GitDiff {
   path: string;
@@ -224,6 +226,18 @@ export interface GitHunk {
   header: string;
   patch: string;
 }
+/** Where a pull request from this checkout would land, read before the push is confirmed. */
+export interface GitPrTarget {
+  /** The branch that would be pushed, absent on a detached HEAD. */
+  branch?: string;
+  /** The default branch the pull request would target, absent when `gh` cannot read the repository. */
+  base?: string;
+  /** The `origin` push URL, absent when the repository has no such remote. */
+  remote?: string;
+  /** Why a pull request cannot be opened from here, stated before the user tries. */
+  blocker?: string;
+}
+
 export interface GitBranch {
   name: string;
   current: boolean;
@@ -232,27 +246,18 @@ export interface GitBranch {
 }
 
 /**
- * A read-only preview of one project file.
+ * One entry in the file explorer: a single child of one directory.
  *
- * `kind` decides how the renderer shows `content`: markdown and code get syntax
- * highlighting, image gets an `<img>` from the data URL, and binary/too-large
- * files show a message instead of file bytes.
+ * There is no `children` field on purpose. The explorer asks for one directory
+ * at a time and holds the shape of the tree in the renderer, so nothing here
+ * ever describes a folder the user has not opened.
  */
-export interface FilePreview {
+export interface ExplorerEntry {
+  /** The entry's own name, as it is shown in the row. */
+  name: string;
+  /** Forward-slashed and relative to the project root, for Git and IPC alike. */
   path: string;
-  size: number;
-  mtimeMs: number;
-  kind: "text" | "markdown" | "image" | "binary" | "too-large";
-  content?: string;
-  /** Present only when `kind` is `"image"`. */
-  dataUrl?: string;
-}
-
-/** One project file the user opened from the explorer, recency- and count-tracked. */
-export interface RecentFile {
-  path: string;
-  lastOpenedAt: number;
-  openCount: number;
+  kind: "dir" | "file";
 }
 
 /** One skill the composer's `$` menu can insert as a `/skill:name` command. */

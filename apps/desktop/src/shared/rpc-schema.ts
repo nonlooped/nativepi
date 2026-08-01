@@ -3,12 +3,13 @@ import type { PiPaths, PiSettings, PiSettingsPatch } from "./pi-settings.ts";
 import type {
   CommandInfo,
   ExtensionUiResponse,
+  ExplorerEntry,
   FileEntry,
-  FilePreview,
   ForkPoint,
   GitBranch,
   GitDiff,
   GitHunk,
+  GitPrTarget,
   GitStatus,
   GraphicalExtension,
   ImageContent,
@@ -259,12 +260,6 @@ export const nativePiStateSchema = z.object({
     ),
   lastProjectPath: z.string().optional().catch(undefined),
   lastChatByProject: z.record(z.string(), z.string()).catch({}),
-  recentFilesByProject: z
-    .record(
-      z.string(),
-      z.array(z.object({ path: z.string(), lastOpenedAt: z.number(), openCount: z.number() })).catch([]),
-    )
-    .catch({}),
   drafts: z.record(z.string(), z.string()).catch({}),
   favoriteModels: z.array(z.string()).catch([]),
   pinnedChats: z
@@ -512,6 +507,7 @@ export type HostRequests = {
   gitStageHunk: { params: { projectDir: string; file: string; untracked: boolean; patch: string }; response: { ok: boolean; error?: string } };
   gitStageFile: { params: { projectDir: string; file: string }; response: { ok: boolean; error?: string } };
   gitCommit: { params: { projectDir: string; message: string }; response: { ok: boolean; error?: string } };
+  gitPrTarget: { params: { projectDir: string }; response: { target: GitPrTarget } };
   gitPushAndCreatePr: {
     params: { projectDir: string; title: string; body: string };
     response: { ok: boolean; url?: string; error?: string };
@@ -532,11 +528,28 @@ export type HostRequests = {
   listCommands: { params: { projectDir: string }; response: { commands: CommandInfo[] } };
   listSkills: { params: { projectDir: string }; response: { skills: SkillInfo[] } };
   listProjectFiles: { params: { projectDir: string }; response: { files: string[] } };
-  listExplorerFiles: { params: { projectDir: string }; response: { files: string[] } };
-  /** A read-only preview of one project file, for the file explorer's preview pane. */
-  readFilePreview: {
+  /**
+   * One directory's immediate children, for the file explorer.
+   *
+   * `path` is relative to the project root, and `""` means the root itself. The
+   * explorer calls this once per folder the user opens and never speculatively,
+   * which is why there is no "list the whole project" channel beside it.
+   */
+  readProjectDirectory: {
     params: { projectDir: string; path: string };
-    response: { preview?: FilePreview; error?: string };
+    response: { entries: ExplorerEntry[]; error?: string };
+  };
+  /**
+   * The exact set of folders the explorer wants told about, replacing whatever
+   * it asked for last. Each one reports as `projectFilesChanged`.
+   *
+   * Stated as a set rather than as watch/unwatch pairs so the pane never has to
+   * track which side it is out of step with: it sends the folders it is showing
+   * whenever that changes, and an empty list is how it lets a project go.
+   */
+  watchProjectDirectories: {
+    params: { projectDir: string; paths: string[] };
+    response: { ok: boolean };
   };
 
   listPackages: {
@@ -597,6 +610,8 @@ export type HostEvents = {
   piError: { projectDir: string; message: string };
   sessionChangedExternally: { projectDir: string; sessionFile: string };
   sessionsChanged: { projectDir: string };
+  /** A watched folder's contents changed. `path` is relative, `""` being the root. */
+  projectFilesChanged: { projectDir: string; path: string };
   authPrompt: { projectDir?: string; id: string; prompt: AuthPromptRequest };
   authNotice: { projectDir?: string; notice: AuthNotice };
   windowMaximized: { maximized: boolean };
