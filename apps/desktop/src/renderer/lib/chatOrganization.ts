@@ -1,8 +1,10 @@
 import type { SessionSummary } from "../../shared/pi-types.ts";
 import { chatTitle } from "./transcript.ts";
 
+const RECENT_WINDOW_MS = 3 * 60 * 60 * 1000;
+
 export interface ChatGroup {
-  label: "Pinned" | "Today" | "Recent" | "This week" | "Older";
+  label: "Pinned" | "Recent" | "Today" | "This week" | "Older";
   sessions: SessionSummary[];
 }
 
@@ -28,17 +30,16 @@ export function groupChats(
       )
     : sessions;
   const pinned = new Set(pinnedChats);
+  const recentCutoff = now - RECENT_WINDOW_MS;
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
-  const startOfRecent = new Date(startOfToday);
-  startOfRecent.setDate(startOfToday.getDate() - 1);
   const startOfWeek = new Date(startOfToday);
   startOfWeek.setDate(startOfToday.getDate() - ((startOfToday.getDay() + 6) % 7));
 
   const groups: ChatGroup[] = [
     { label: "Pinned", sessions: [] },
-    { label: "Today", sessions: [] },
     { label: "Recent", sessions: [] },
+    { label: "Today", sessions: [] },
     { label: "This week", sessions: [] },
     { label: "Older", sessions: [] },
   ];
@@ -49,8 +50,8 @@ export function groupChats(
       continue;
     }
     const modified = new Date(session.modified).getTime();
-    if (modified >= startOfToday.getTime()) groups[1]!.sessions.push(session);
-    else if (modified >= startOfRecent.getTime()) groups[2]!.sessions.push(session);
+    if (modified >= recentCutoff) groups[1]!.sessions.push(session);
+    else if (modified >= startOfToday.getTime()) groups[2]!.sessions.push(session);
     else if (modified >= startOfWeek.getTime()) groups[3]!.sessions.push(session);
     else groups[4]!.sessions.push(session);
   }

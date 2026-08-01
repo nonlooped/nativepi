@@ -22,6 +22,7 @@ import type { ChatSlice, GetState, PendingMessage, SetState, SliceCreator } from
 
 let pendingId = 1;
 const MAX_REMOTE_IMAGE_BATCH_BYTES = 48 * 1024 * 1024;
+const sessionRefreshes = new Map<string, Promise<void>>();
 
 /**
  * Tell the host which draft the composer is showing now.
@@ -81,6 +82,7 @@ function countPreparing(set: SetState, key: string, delta: number): void {
 
 export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   sessionsByProject: {},
+  sessionLoadStates: {},
   activeSessionFile: null,
   isNewChat: false,
   pinnedChats: [],
@@ -91,9 +93,30 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   attachments: {},
   preparing: {},
 
-  refreshSessions: async (projectPath) => {
-    const { sessions } = await rpc.request.listSessions({ projectDir: projectPath });
-    set((s) => ({ sessionsByProject: { ...s.sessionsByProject, [projectPath]: sessions } }));
+  refreshSessions: (projectPath) => {
+    const current = sessionRefreshes.get(projectPath);
+    if (current) return current;
+
+    const refresh = (async () => {
+      if (get().sessionLoadStates[projectPath] !== "loaded") {
+        set((s) => ({ sessionLoadStates: { ...s.sessionLoadStates, [projectPath]: "loading" } }));
+      }
+      try {
+        const { sessions } = await rpc.request.listSessions({ projectDir: projectPath });
+        set((s) => ({
+          sessionsByProject: { ...s.sessionsByProject, [projectPath]: sessions },
+          sessionLoadStates: { ...s.sessionLoadStates, [projectPath]: "loaded" },
+        }));
+      } catch {
+        set((s) => ({ sessionLoadStates: { ...s.sessionLoadStates, [projectPath]: "failed" } }));
+      }
+    })();
+
+    sessionRefreshes.set(projectPath, refresh);
+    void refresh.finally(() => {
+      if (sessionRefreshes.get(projectPath) === refresh) sessionRefreshes.delete(projectPath);
+    });
+    return refresh;
   },
 
   togglePinnedChat: (sessionFile) => {

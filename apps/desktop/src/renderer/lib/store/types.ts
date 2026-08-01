@@ -68,6 +68,8 @@ export const NO_EXTENSION_UI_STATE: ExtensionUiState = {
 
 export type ErrorRecovery = "retrySend" | "restartPi";
 
+export type SessionLoadStatus = "unloaded" | "loading" | "loaded" | "failed";
+
 export interface PendingMessage {
   id: number;
   text: string;
@@ -141,6 +143,7 @@ export interface SettledRun {
 /** The conversation: which chat, its transcript, and everything sent into it. */
 export interface ChatSlice {
   sessionsByProject: Record<string, SessionSummary[]>;
+  sessionLoadStates: Record<string, SessionLoadStatus>;
   activeSessionFile: string | null;
   isNewChat: boolean;
   pinnedChats: string[];

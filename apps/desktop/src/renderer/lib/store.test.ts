@@ -19,3 +19,24 @@ test("selecting a model loads only its supported reasoning levels", async () => 
   await useAppStore.getState().cycleThinkingLevel();
   expect(useAppStore.getState().thinkingLevel).toBe("low");
 });
+
+test("chat history exposes a retryable failure before an empty successful load", async () => {
+  let fail = true;
+  stubInvoke(async (channel) => {
+    if (channel !== "listSessions") return {};
+    if (fail) throw new Error("session list unavailable");
+    return { sessions: [] };
+  });
+
+  const { useAppStore } = await import("./store.ts");
+  const projectPath = "C:\\project-without-chats";
+  useAppStore.setState({ sessionLoadStates: {}, sessionsByProject: {} });
+
+  await useAppStore.getState().refreshSessions(projectPath);
+  expect(useAppStore.getState().sessionLoadStates[projectPath]).toBe("failed");
+
+  fail = false;
+  await useAppStore.getState().refreshSessions(projectPath);
+  expect(useAppStore.getState().sessionLoadStates[projectPath]).toBe("loaded");
+  expect(useAppStore.getState().sessionsByProject[projectPath]).toEqual([]);
+});

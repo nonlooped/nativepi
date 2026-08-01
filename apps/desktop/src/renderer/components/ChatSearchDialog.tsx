@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Combobox } from "@base-ui/react/combobox";
+import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { ChatCircleDotsIcon } from "@phosphor-icons/react/ChatCircleDots";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { SpinnerGapIcon } from "@phosphor-icons/react/SpinnerGap";
@@ -12,6 +13,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
+import { Button } from "@/components/ui/button.tsx";
 
 export default function ChatSearchDialog({
   open,
@@ -30,6 +32,7 @@ export default function ChatSearchDialog({
   const [results, setResults] = useState<SessionSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [failure, setFailure] = useState(false);
+  const [retryRequest, setRetryRequest] = useState(0);
   const status = loading
     ? "Searching chats."
     : failure
@@ -68,7 +71,7 @@ export default function ChatSearchDialog({
       current = false;
       window.clearTimeout(timer);
     };
-  }, [open, projects, query]);
+  }, [open, projects, query, retryRequest]);
 
   function close() {
     onOpenChange(false);
@@ -86,7 +89,7 @@ export default function ChatSearchDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => next ? onOpenChange(true) : close()}>
       <DialogContent className="max-w-xl gap-0 overflow-hidden p-0">
-        <DialogTitle className="sr-only">Search chats</DialogTitle>
+        <DialogTitle className="sr-only">Search chats and messages</DialogTitle>
         <DialogDescription className="sr-only">
           Search chat titles and messages across your projects.
         </DialogDescription>
@@ -96,7 +99,7 @@ export default function ChatSearchDialog({
           inputValue={query}
           onInputValueChange={setQuery}
           autoHighlight
-          aria-label="Chat search"
+          aria-label="Search chats and messages"
         >
           <div className="relative border-b">
             <MagnifyingGlassIcon
@@ -131,7 +134,18 @@ export default function ChatSearchDialog({
             <SearchState
               icon={<ChatCircleDotsIcon />}
               title="Search unavailable"
-              detail="Close this window and try again."
+              detail="NativePi couldn't search chat history right now."
+              action={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setRetryRequest((request) => request + 1)}
+                >
+                  <ArrowClockwiseIcon data-icon="inline-start" />
+                  Try again
+                </Button>
+              }
             />
           ) : null}
           {query.trim() && !loading && !failure && results.length === 0 ? (
@@ -180,16 +194,19 @@ function SearchState({
   icon,
   title,
   detail,
+  action,
 }: {
   icon: ReactNode;
   title: string;
   detail: string;
+  action?: ReactNode;
 }) {
   return (
     <div className="flex min-h-48 flex-col items-center justify-center gap-1 px-6 text-center">
       <span className="mb-2 text-muted-foreground" aria-hidden="true">{icon}</span>
       <p className="text-sm font-medium">{title}</p>
       <p className="text-sm text-muted-foreground">{detail}</p>
+      {action}
     </div>
   );
 }

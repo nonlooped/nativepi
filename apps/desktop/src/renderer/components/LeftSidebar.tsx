@@ -62,7 +62,7 @@ export default function LeftSidebar({
       <ResizablePanel
         id="projects"
         defaultSize={`${sidebarSize}%`}
-        minSize="14%"
+        minSize="220px"
         maxSize="30%"
         onResize={(size) => setSidebarSize(size.asPercentage)}
       >

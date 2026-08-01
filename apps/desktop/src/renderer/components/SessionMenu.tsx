@@ -16,7 +16,7 @@ import { textOf } from "../../shared/messages.ts";
 import { fileManagerName } from "../lib/paths.ts";
 import { chatTitle } from "../lib/transcript.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
-import { activeConversation, useAppStore } from "../lib/store.ts";
+import { useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
 import { useRequest } from "../lib/useRequest.ts";
@@ -49,14 +49,14 @@ export default function SessionMenu({
 }: {
   projectPath: string;
   session: SessionSummary;
-   /** Drives the row fill, which lives on the wrapper around the chat row. */
+  /** Drives the row fill, which lives on the wrapper around the chat row. */
   selected?: boolean;
   children: React.ReactElement;
 }) {
   const [dialog, setDialog] = useState<DialogKind | null>(null);
   const [exportPath, setExportPath] = useState<string>("");
 
-  const running = useAppStore((s) => activeConversation(s).running);
+  const running = useAppStore((s) => s.conversations[session.path]?.running ?? false);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const cloneChat = useAppStore((s) => s.cloneChat);
   const deleteChat = useAppStore((s) => s.deleteChat);
@@ -110,7 +110,8 @@ export default function SessionMenu({
             <div
               className={cn(
                 "group/chat flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent",
-                selected && "bg-sidebar-accent",
+                selected && "bg-sidebar-accent text-sidebar-accent-foreground ring-1 ring-inset ring-sidebar-ring/35",
+                running && !selected && "bg-success/5 ring-1 ring-inset ring-success/20",
               )}
             />
           }
