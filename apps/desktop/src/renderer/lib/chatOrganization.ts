@@ -2,7 +2,7 @@ import type { SessionSummary } from "../../shared/pi-types.ts";
 import { chatTitle } from "./transcript.ts";
 
 export interface ChatGroup {
-  label: "Pinned" | "Today" | "This week" | "Older";
+  label: "Pinned" | "Today" | "Recent" | "This week" | "Older";
   sessions: SessionSummary[];
 }
 
@@ -30,12 +30,15 @@ export function groupChats(
   const pinned = new Set(pinnedChats);
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
+  const startOfRecent = new Date(startOfToday);
+  startOfRecent.setDate(startOfToday.getDate() - 1);
   const startOfWeek = new Date(startOfToday);
   startOfWeek.setDate(startOfToday.getDate() - ((startOfToday.getDay() + 6) % 7));
 
   const groups: ChatGroup[] = [
     { label: "Pinned", sessions: [] },
     { label: "Today", sessions: [] },
+    { label: "Recent", sessions: [] },
     { label: "This week", sessions: [] },
     { label: "Older", sessions: [] },
   ];
@@ -47,8 +50,9 @@ export function groupChats(
     }
     const modified = new Date(session.modified).getTime();
     if (modified >= startOfToday.getTime()) groups[1]!.sessions.push(session);
-    else if (modified >= startOfWeek.getTime()) groups[2]!.sessions.push(session);
-    else groups[3]!.sessions.push(session);
+    else if (modified >= startOfRecent.getTime()) groups[2]!.sessions.push(session);
+    else if (modified >= startOfWeek.getTime()) groups[3]!.sessions.push(session);
+    else groups[4]!.sessions.push(session);
   }
 
   return groups.filter((group) => group.sessions.length > 0);

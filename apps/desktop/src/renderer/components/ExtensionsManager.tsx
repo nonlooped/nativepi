@@ -7,6 +7,7 @@ import { useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
+import { Badge } from "@/components/ui/badge.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import {
   ContextMenu,
@@ -15,7 +16,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
-import { cn } from "@/lib/utils.ts";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 
 export default function ExtensionsManager() {
@@ -150,7 +151,7 @@ export default function ExtensionsManager() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="truncate text-sm font-medium">{pkg.source}</span>
-                    {pkg.filtered ? <Badge>filtered</Badge> : null}
+                    {pkg.filtered ? <Badge variant="secondary">filtered</Badge> : null}
                   </div>
                   <span className="text-sm text-muted-foreground">
                     {pkg.scope === "project" ? "Project" : "User"}
@@ -232,10 +233,6 @@ export default function ExtensionsManager() {
   );
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{children}</span>;
-}
-
 function ScopeToggle({
   scope,
   setScope,
@@ -246,32 +243,33 @@ function ScopeToggle({
   projectTrusted: boolean;
 }) {
   return (
-    <div role="group" aria-label="Install scope" className="flex h-10 shrink-0 items-center rounded-md border p-0.5 text-sm">
-      <button
-        type="button"
-        aria-pressed={scope === "user"}
-        onClick={() => setScope("user")}
+    <ToggleGroup
+      value={[scope]}
+      onValueChange={(value) => {
+        const selected = value.at(0);
+        if (selected === "user" || selected === "project") setScope(selected);
+      }}
+      spacing={0}
+      aria-label="Install scope"
+      className="h-10 shrink-0 rounded-md border p-0.5 text-sm"
+    >
+      <ToggleGroupItem
+        value="user"
+        size="sm"
         title="Install for your user account"
-        className={cn(
-          "rounded-sm px-2.5 py-1.5 outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-          scope === "user" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-        )}
+        className="px-2.5 py-1.5 text-muted-foreground data-pressed:bg-accent data-pressed:text-accent-foreground"
       >
         User
-      </button>
-      <button
-        type="button"
-        aria-pressed={scope === "project"}
-        onClick={() => setScope("project")}
+      </ToggleGroupItem>
+      <ToggleGroupItem
+        value="project"
+        size="sm"
         disabled={!projectTrusted}
         title={projectTrusted ? "Install for this project only" : "Trust the project to enable project scope"}
-        className={cn(
-          "rounded-sm px-2.5 py-1.5 outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40",
-          scope === "project" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-        )}
+        className="px-2.5 py-1.5 text-muted-foreground data-pressed:bg-accent data-pressed:text-accent-foreground"
       >
         Project
-      </button>
-    </div>
+      </ToggleGroupItem>
+    </ToggleGroup>
   );
 }

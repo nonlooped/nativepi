@@ -1,5 +1,4 @@
 import { Collapsible } from "@base-ui/react/collapsible";
-import { ArrowDownIcon } from "@phosphor-icons/react/ArrowDown";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
 import { CheckIcon } from "@phosphor-icons/react/Check";
 import { CircleIcon } from "@phosphor-icons/react/Circle";
@@ -11,16 +10,27 @@ import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { code } from "@streamdown/code";
 import { Streamdown } from "streamdown";
 import { toast } from "sonner";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
 import { imagesOf, isAssistant, isToolResult, isUser, textOf } from "../../shared/messages.ts";
 import { toolArgSummary, toolResultsById } from "../lib/transcript.ts";
 import { diffPatchFor, fileDir, fileName, turnChanges, type FileChange } from "../lib/changes.ts";
 import { formatDuration, formatElapsed, formatLineDelta, pluralize } from "../lib/format.ts";
-import { scrollBehavior, useReducedMotion } from "../lib/motion.ts";
+import { useReducedMotion } from "../lib/motion.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { withHint } from "../lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+  useMessageScroller,
+} from "@/components/ui/message-scroller.tsx";
+import { Message } from "@/components/ui/message.tsx";
+import { Bubble, BubbleContent } from "@/components/ui/bubble.tsx";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -40,9 +50,15 @@ import { TuiPane } from "./TuiSurface.tsx";
 
 const streamdownPlugins = { code };
 
-const FOLLOW_THRESHOLD = 120;
-
 export default function Transcript() {
+  return (
+    <MessageScrollerProvider autoScroll>
+      <TranscriptContent />
+    </MessageScrollerProvider>
+  );
+}
+
+function TranscriptContent() {
   const entries = useAppStore((s) => activeConversation(s).entries);
   const streaming = useAppStore((s) => activeConversation(s).streaming);
   const pending = useAppStore((s) => activeConversation(s).pending);
@@ -55,9 +71,7 @@ export default function Transcript() {
   const results = toolResultsById(entries);
   const items = transcriptItems(entries, streaming);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const followingRef = useRef(true);
-  const [following, setFollowing] = useState(true);
+  const { scrollToEnd } = useMessageScroller();
   const [transcriptSelection, setTranscriptSelection] = useState("");
 
   // The end of a run is the payoff of the whole loop, so the status pill
@@ -101,44 +115,19 @@ export default function Transcript() {
   useEffect(() => {
     const update = () => {
       const selection = window.getSelection();
-      const anchor = selection?.anchorNode;
-      setTranscriptSelection(anchor && scrollRef.current?.contains(anchor) ? selection.toString().trim() : "");
+      setTranscriptSelection(selection?.toString().trim() ?? "");
     };
     document.addEventListener("selectionchange", update);
     return () => document.removeEventListener("selectionchange", update);
   }, []);
 
-  function scrollToLatest(behavior: ScrollBehavior = scrollBehavior()) {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior });
-    followingRef.current = true;
-    setFollowing(true);
+  function scrollToLatest() {
+    scrollToEnd();
   }
-
-  useLayoutEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, []);
-
-  useLayoutEffect(() => {
-    const el = scrollRef.current;
-    if (!el || !followingRef.current) return;
-    el.scrollTop = el.scrollHeight;
-  }, [entries, streaming, pending, running, compacting, retry]);
 
   useEffect(() => {
     if (jumpRequest > 0) scrollToLatest();
   }, [jumpRequest]);
-
-  function handleScroll() {
-    const el = scrollRef.current;
-    if (!el) return;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    const next = distanceFromBottom <= FOLLOW_THRESHOLD;
-    followingRef.current = next;
-    setFollowing((current) => (current === next ? current : next));
-  }
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -146,58 +135,73 @@ export default function Transcript() {
           announcements are handled by TurnAnnouncer below: streaming markdown
           re-renders on every token and would otherwise be read continuously. */}
       <ContextMenu disabled={!transcriptSelection}>
-        <ContextMenuTrigger
-          render={<div ref={scrollRef} onScroll={handleScroll} />}
+          <ContextMenuTrigger
+          render={<div className="min-h-0 flex-1" />}
           role="log"
           aria-label="Conversation transcript"
           aria-live="off"
-          className="min-h-0 flex-1 overflow-y-auto px-4 py-5 [scrollbar-gutter:stable]"
+          className="min-h-0 flex-1"
         >
-        <div className="mx-auto flex w-full max-w-(--conversation-width) flex-col gap-6">
-          <ExtensionHeader />
+        <MessageScroller className="min-h-0 flex-1">
+          <MessageScrollerViewport aria-label="Conversation transcript" aria-live="off">
+            <MessageScrollerContent className="mx-auto w-full max-w-(--conversation-width) px-4 py-5">
+          <MessageScrollerItem scrollAnchor>
+            <ExtensionHeader />
+          </MessageScrollerItem>
           {items.map((item, index) =>
             item.type === "response" ? (
               // Keyed by position, not id: a response's id changes from the
               // synthetic streaming one to its committed entry id mid-turn, and
               // keying on that would remount the block and discard whichever
               // tool panels the user had opened while watching it run.
-              <AssistantResponse
-                key={`response:${index}`}
-                messages={item.messages}
-                results={results}
-                startedAt={item.startedAt}
-                finishedAt={item.finishedAt}
-                streaming={running && index === items.length - 1}
-              />
+              <MessageScrollerItem key={`response:${index}`} scrollAnchor>
+                <AssistantResponse
+                  messages={item.messages}
+                  results={results}
+                  startedAt={item.startedAt}
+                  finishedAt={item.finishedAt}
+                  streaming={running && index === items.length - 1}
+                />
+              </MessageScrollerItem>
             ) : (
-              <EntryView key={item.entry.id} entry={item.entry} />
+              <MessageScrollerItem key={item.entry.id}>
+                <EntryView entry={item.entry} />
+              </MessageScrollerItem>
             ),
           )}
           {pending.map((p) => (
-            <UserBubble key={p.id} text={p.text} images={p.images} pending />
+            <MessageScrollerItem key={p.id} scrollAnchor>
+              <UserBubble text={p.text} images={p.images} pending />
+            </MessageScrollerItem>
           ))}
           {retry && (
-            <div
-              role="alert"
-              className="mx-auto flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning"
-            >
-              <WarningCircleIcon className="shrink-0" />
-              <span className="min-w-0">
-                Retrying after an error (attempt {retry.attempt} of {retry.maxAttempts})
-                {retry.error ? <span className="text-muted-foreground"> — {retry.error}</span> : null}
-              </span>
-              <Button size="sm" variant="ghost" className="ml-auto h-6 shrink-0 px-2" onClick={abortRetry}>
-                Stop
-              </Button>
-            </div>
+            <MessageScrollerItem>
+              <div role="alert" className="mx-auto flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+                <WarningCircleIcon className="shrink-0" />
+                <span className="min-w-0">
+                  Retrying after an error (attempt {retry.attempt} of {retry.maxAttempts})
+                  {retry.error ? <span className="text-muted-foreground"> — {retry.error}</span> : null}
+                </span>
+                <Button size="sm" variant="ghost" className="ml-auto h-6 shrink-0 px-2" onClick={abortRetry}>
+                  Stop
+                </Button>
+              </div>
+            </MessageScrollerItem>
           )}
           {compacting && (
-            <Notice>
-              <CircleNotchIcon className="mr-1.5 inline animate-spin align-[-2px]" />
-              Compacting context…
-            </Notice>
+            <MessageScrollerItem>
+              <Notice>
+                <CircleNotchIcon className="mr-1.5 inline animate-spin align-[-2px]" />
+                Compacting context…
+              </Notice>
+            </MessageScrollerItem>
           )}
-          </div>
+            </MessageScrollerContent>
+          </MessageScrollerViewport>
+          <MessageScrollerButton direction="end" className="pointer-events-auto h-8 w-auto px-3.5 text-xs">
+            Jump to latest
+          </MessageScrollerButton>
+        </MessageScroller>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-48">
           <ContextMenuItem onClick={() => void navigator.clipboard.writeText(transcriptSelection)}>Copy</ContextMenuItem>
@@ -216,17 +220,6 @@ export default function Transcript() {
       {/* The transient-affordance layer: run status and jump-to-latest, the two
           controls that act on the view rather than on the message being typed. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-3 flex flex-col items-center gap-2">
-        {!following ? (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => scrollToLatest()}
-            className="pointer-events-auto h-8 rounded-full !bg-popover px-3.5 text-popover-foreground shadow-lg"
-          >
-            <ArrowDownIcon data-icon="inline-start" />
-            Jump to latest
-          </Button>
-        ) : null}
         {running ? (
           <RunStatusBar
             activeTool={activeToolName(items, results)}
@@ -586,14 +579,9 @@ function UserBubble({
   const article = (
     <article className="group/message flex flex-col items-end py-1" aria-busy={pending || undefined}>
       <span className="sr-only">You{pending ? " (sending)" : ""}:</span>
-      <div
-        className={cn(
-          // break-words so an unbroken path, URL, or hash wraps instead of
-          // overflowing the bubble.
-          "max-w-[85%] rounded-2xl rounded-br-md bg-secondary px-4 py-3 text-sm leading-6 break-words whitespace-pre-wrap text-secondary-foreground",
-          pending && "opacity-60",
-        )}
-      >
+      <Message align="end" className="justify-end">
+      <Bubble variant="secondary" align="end" className={cn("max-w-[85%]", pending && "opacity-60")}>
+        <BubbleContent className="rounded-2xl rounded-br-md px-4 py-3 text-sm leading-6 whitespace-pre-wrap">
         {images.length > 0 ? (
           // Sized to be recognisable, not to be studied: the bubble is a record
           // of what was sent, and the agent's reading of it is what follows.
@@ -608,7 +596,9 @@ function UserBubble({
           </div>
         ) : null}
         {text}
-      </div>
+        </BubbleContent>
+      </Bubble>
+      </Message>
       {pending ? (
         <span className="flex h-7 items-center gap-1.5 text-xs text-muted-foreground">
           <CircleNotchIcon className="animate-spin" />

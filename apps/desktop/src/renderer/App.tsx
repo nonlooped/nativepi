@@ -139,13 +139,8 @@ export default function App() {
                   <Transcript key={activeSessionFile ?? "new"} />
                 ) : (
                   <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-8 sm:px-6">
-                    <div className="my-auto flex w-full max-w-(--conversation-width) flex-col items-center gap-6">
-                      <div className="flex flex-col items-center gap-2 text-center">
-                        <h1 className="font-heading text-2xl font-medium tracking-tight">What do you want to build?</h1>
-                        <p className="text-sm text-muted-foreground">
-                          Describe a task, ask about the codebase, or start with a bug.
-                        </p>
-                      </div>
+                    <div className="my-auto flex w-full max-w-(--conversation-width) flex-col items-center gap-4">
+                      <h1 className="font-heading text-2xl font-semibold tracking-tight">What would you like to work on?</h1>
                       <Composer prominent />
                     </div>
                   </div>
@@ -216,9 +211,7 @@ export default function App() {
       ) : null}
 
       {runBoardOpen ? (
-        <div className="absolute inset-0 z-40 bg-background">
-          <RunBoard />
-        </div>
+        <RunBoard />
       ) : null}
 
       <DropZone />
@@ -597,10 +590,13 @@ function WelcomeScreen() {
       <div className="my-auto flex max-w-md flex-col items-center gap-6 text-center">
         <NativePiWordmark display />
         <div className="flex flex-col gap-2">
-          <h1 className="font-heading text-2xl font-medium tracking-tight">Start building with NativePi</h1>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">Start building with NativePi</h1>
+          {/* The first question an existing Pi user has is whether this is a
+              second setup to maintain. It is not, and that is worth saying
+              before the three steps ask them to connect anything. */}
           <p className="text-sm leading-6 text-muted-foreground">
-            NativePi runs the Pi coding agent on this computer. Your projects, conversations, and credentials
-            stay here.
+            NativePi is a desktop window onto the Pi coding agent. It uses the Pi you already have — the same
+            credentials, settings, and session files, all still on this computer and still usable from the terminal.
           </p>
         </div>
 
@@ -608,7 +604,7 @@ function WelcomeScreen() {
             first-timer has nothing else to read. */}
         <ol className="flex w-full flex-col gap-3 text-left">
           <OnboardingStep index={1} title="Connect a provider">
-            Sign in with a subscription or paste an API key. Pi stores the credential.
+            Sign in with a subscription or paste an API key. If you have already done this in Pi, skip it.
           </OnboardingStep>
           <OnboardingStep index={2} title="Open a project folder">
             The agent reads and edits files in that folder, and nothing outside it.

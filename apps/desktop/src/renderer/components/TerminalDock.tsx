@@ -13,7 +13,7 @@ import { findTerminalLinks } from "../lib/terminalLinks.ts";
 import { useAppStore } from "../lib/store.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
+import { DropdownMenu as Menu, DropdownMenuContent as MenuPopup, DropdownMenuGroup as MenuGroup, DropdownMenuItem as MenuItem, DropdownMenuTrigger as MenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.tsx";
 import { rpc } from "@/lib/rpc.ts";
 import {
@@ -263,7 +263,7 @@ function ShellSplitButton({
           <CaretDownIcon />
         </MenuTrigger>
         <MenuPopup align="end" className="min-w-44">
-          {shells.map((shell) => (
+           <MenuGroup>{shells.map((shell) => (
             <MenuItem
               key={shell.id}
               role="menuitemradio"
@@ -274,7 +274,7 @@ function ShellSplitButton({
               <span className="min-w-0 flex-1 truncate">{shell.name}</span>
               {shell.id === preferredShellId ? <CheckIcon className="ml-auto" aria-hidden /> : null}
             </MenuItem>
-          ))}
+           ))}</MenuGroup>
         </MenuPopup>
       </Menu>
     </div>

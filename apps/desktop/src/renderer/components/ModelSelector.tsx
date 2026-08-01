@@ -8,7 +8,7 @@ import { modelProviders } from "../lib/modelProviders.ts";
 import { providerIconName } from "../lib/providerIcons.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
+import { DropdownMenu as Menu, DropdownMenuContent as MenuPopup, DropdownMenuGroup as MenuGroup, DropdownMenuItem as MenuItem, DropdownMenuTrigger as MenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import BrandIcon from "./BrandIcon.tsx";
 
@@ -91,6 +91,7 @@ export default function ModelSelector() {
               <p className="px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground">
                 {provider === "favorite" ? "Favorite" : (providers.find((item) => item.id === provider)?.name ?? provider)}
               </p>
+              <MenuGroup>
               <ModelList
                 visibleModels={visibleModels}
                 provider={provider}
@@ -100,6 +101,7 @@ export default function ModelSelector() {
                 favoritesEmpty={favoriteModels.length === 0}
                 providerNames={providerNames}
               />
+              </MenuGroup>
             </div>
           </div>
         </div>

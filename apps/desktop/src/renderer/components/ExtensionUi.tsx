@@ -3,9 +3,9 @@ import type { ExtensionPrompt } from "../lib/store.ts";
 import { useAppStore } from "../lib/store.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { Label } from "@/components/ui/label.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field.tsx";
 
 export default function ExtensionUi() {
   const prompt = useAppStore((s) => s.extPrompts[0]);
@@ -61,33 +61,21 @@ function ExtensionPromptDialog({ prompt }: { prompt: ExtensionPrompt }) {
           >
             {/* The placeholder is `prompt.placeholder ?? ""`, so it cannot be
                 relied on for the accessible name — the extension may not set it. */}
-            <Label htmlFor={fieldId} className="sr-only">
-              {prompt.title}
-            </Label>
-            <Input
-              id={fieldId}
-              autoFocus
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder={prompt.placeholder ?? ""}
-            />
+            <Field>
+              <FieldLabel htmlFor={fieldId} className="sr-only">{prompt.title}</FieldLabel>
+              <Input id={fieldId} autoFocus value={value} onChange={(e) => setValue(e.target.value)} placeholder={prompt.placeholder ?? ""} />
+            </Field>
             <Button type="submit">Submit</Button>
           </form>
         ) : null}
 
         {prompt.method === "editor" ? (
           <div className="flex flex-col gap-2">
-            <Label htmlFor={fieldId} className="sr-only">
-              {prompt.title}
-            </Label>
-            <Textarea
-              id={fieldId}
-              autoFocus
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              rows={8}
-              className="resize-none font-mono text-sm"
-            />
+            <Field>
+              <FieldLabel htmlFor={fieldId} className="sr-only">{prompt.title}</FieldLabel>
+              <Textarea id={fieldId} autoFocus value={value} onChange={(e) => setValue(e.target.value)} rows={8} className="resize-none font-mono text-sm" />
+              <FieldDescription className="sr-only">Enter a response for the extension.</FieldDescription>
+            </Field>
             <div className="flex justify-end">
               <Button onClick={() => respond({ value })}>Submit</Button>
             </div>

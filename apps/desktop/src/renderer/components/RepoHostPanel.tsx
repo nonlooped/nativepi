@@ -75,8 +75,7 @@ export default function RepoHostPanel() {
                   <div className="flex-1" />
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-5 px-1.5 text-[11px]"
+                    size="xs"
                     onClick={() => insertIntoComposer(comment.body)}
                   >
                     Insert into composer
@@ -159,7 +158,7 @@ function Section({
           {title}
         </button>
         {onInsert ? (
-          <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[11px]" onClick={onInsert}>
+          <Button variant="ghost" size="xs" onClick={onInsert}>
             Insert into composer
           </Button>
         ) : null}

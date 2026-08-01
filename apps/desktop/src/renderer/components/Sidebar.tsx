@@ -7,7 +7,6 @@ import { FolderPlusIcon } from "@phosphor-icons/react/FolderPlus";
 import { GearSixIcon } from "@phosphor-icons/react/GearSix";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { ListBulletsIcon } from "@phosphor-icons/react/ListBullets";
-import { DotsThreeOutlineIcon } from "@phosphor-icons/react/DotsThreeOutline";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
 import { PushPinIcon } from "@phosphor-icons/react/PushPin";
 import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
@@ -27,7 +26,6 @@ import UsageDashboardDialog from "./UsageDashboardDialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -268,25 +266,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
               >
                 <NotePencilIcon />
               </Button>
-              <Menu>
-                <MenuTrigger
-                  aria-label={`Project actions for ${project.name}`}
-                  title={`Project actions for ${project.name}`}
-                  className={cn(
-                    HOVER_REVEAL,
-                    "mr-1 rounded-md p-1 text-muted-foreground opacity-0 outline-none group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-                  )}
-                >
-                  <DotsThreeOutlineIcon weight="fill" />
-                </MenuTrigger>
-                <MenuPopup align="end">
-                  <MenuItem onClick={() => setWorktreesFor(project.path)}>Worktrees…</MenuItem>
-                  <MenuItem onClick={() => setPendingRemoval(project)} className="text-destructive">
-                    Remove from NativePi
-                  </MenuItem>
-                </MenuPopup>
-              </Menu>
-              </ContextMenuTrigger>
+            </ContextMenuTrigger>
               <ContextMenuContent className="w-56">
                 <ContextMenuItem onClick={() => void startNewChat(project.path)} disabled={busy}>
                   <NotePencilIcon /> New chat here
@@ -386,7 +366,12 @@ function ChatList({
   return (
     <div className="flex flex-col gap-0.5">
       {isNewChat && projectPath === activeProjectPath && (
-        <div className="rounded-lg bg-sidebar-accent px-3 py-2 text-sm font-semibold">New chat</div>
+        <div className="rounded-lg bg-sidebar-accent px-3 py-2" role="status">
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-sm font-medium">New chat</span>
+            <span className="text-xs text-muted-foreground">Start a conversation</span>
+          </span>
+        </div>
       )}
       {groups.map((group) => (
         <section key={group.label} aria-label={group.label}>
@@ -397,7 +382,12 @@ function ChatList({
             {group.sessions.map((session) => {
               const pinned = pinnedChats.includes(session.path);
               return (
-                <SessionMenu key={session.path} projectPath={projectPath} session={session}>
+                <SessionMenu
+                  key={session.path}
+                  projectPath={projectPath}
+                  session={session}
+                  selected={session.path === activeSessionFile && !isNewChat}
+                >
                   <button
                     type="button"
                     onClick={() => {
@@ -406,10 +396,7 @@ function ChatList({
                         : selectProject(projectPath);
                       void select.then(() => selectChat(session.path)).then(onNavigate).catch(() => undefined);
                     }}
-                    className={cn(
-                      "flex w-full min-w-0 items-start gap-2 rounded-lg px-3 py-2 text-left outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
-                      session.path === activeSessionFile && !isNewChat && "bg-sidebar-accent",
-                    )}
+                    className="flex min-w-0 flex-1 items-start gap-2 rounded-lg px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
                   >
                     {pinned ? (
                       <PushPinIcon className="mt-0.5 shrink-0 text-favorite" weight="fill" aria-hidden />
@@ -460,7 +447,7 @@ function ProviderStack({ providers }: { providers: string[] }) {
         <span
           key={provider}
           className={cn(
-            "relative flex size-3.5 items-center justify-center rounded-full bg-sidebar text-muted-foreground ring-1 ring-sidebar",
+            "relative flex size-4 items-center justify-center rounded-full bg-sidebar text-muted-foreground ring-1 ring-sidebar",
             index > 0 && "-ml-1",
           )}
           style={{ zIndex: shown.length - index + (overflow ? 1 : 0) }}
@@ -469,11 +456,15 @@ function ProviderStack({ providers }: { providers: string[] }) {
         </span>
       ))}
       {overflow ? (
+        // 8px was below anything legible and below every step on the ramp. At
+        // the ramp's smallest step the glyph needs a 1rem badge, and a badge
+        // that grows sideways rather than a fixed circle keeps a two-character
+        // count from being clipped.
         <span
-          className="relative -ml-1 flex size-3.5 items-center justify-center rounded-full bg-muted text-[8px] font-semibold leading-none tabular-nums text-muted-foreground ring-1 ring-sidebar"
+          className="relative -ml-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-0.5 text-xs leading-none font-semibold tabular-nums text-muted-foreground ring-1 ring-sidebar"
           style={{ zIndex: 0 }}
         >
-          {providers.length}
+          {providers.length > 9 ? "9+" : providers.length}
         </span>
       ) : null}
     </span>

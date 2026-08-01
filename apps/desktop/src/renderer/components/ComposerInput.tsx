@@ -174,7 +174,7 @@ export default function ComposerInput({
           disabled && "cursor-not-allowed opacity-50",
         )}
       />
-      {value === "" ? (
+      {value.trim() === "" ? (
         <p aria-hidden="true" className="pointer-events-none absolute left-2.5 top-3 text-[15px] leading-relaxed text-muted-foreground">
           {placeholder}
         </p>

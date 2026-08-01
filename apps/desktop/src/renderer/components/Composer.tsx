@@ -1,4 +1,4 @@
-import { ArrowBendUpRightIcon, CaretDownIcon, CheckIcon, GitBranchIcon, PaperPlaneRightIcon, PlusIcon, TreeStructureIcon } from "../../shared/icons.ts"
+import { ArrowBendUpRightIcon, CaretDownIcon, CheckIcon, GitBranchIcon, PaperPlaneRightIcon, PlusIcon } from "../../shared/icons.ts"
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { PaperclipIcon } from "@phosphor-icons/react/Paperclip";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -16,7 +16,7 @@ import { chipText, hoistSkill } from "../lib/composerText.ts";
 import { showDropRejected, showHint } from "../lib/toast.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
+import { DropdownMenu as Menu, DropdownMenuContent as MenuPopup, DropdownMenuGroup as MenuGroup, DropdownMenuItem as MenuItem, DropdownMenuTrigger as MenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
@@ -25,7 +25,6 @@ import ComposerInput from "./ComposerInput.tsx";
 import { ComposerWidgets } from "./ExtensionSlots.tsx";
 import { TuiPane } from "./TuiSurface.tsx";
 import ModelSelector from "./ModelSelector.tsx";
-import WorktreeDialog from "./WorktreeDialog.tsx";
 
 export default function Composer({ prominent = false }: { prominent?: boolean }) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -52,7 +51,6 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
   );
 
   const [dropTarget, setDropTarget] = useState(false);
-
   const disabled = !activeProjectPath;
   // Images being read hold the send: they belong to this message, and Enter a
   // moment too early would send the text alone and leave them for the next one.
@@ -169,19 +167,12 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
                   ? "Steer this turn…"
                   : running
                     ? "Queue a follow-up…"
-                    : "Ask for a change, or a question about this code"
+                    : "Ask Pi to explore, explain, or change this project…"
           }
         />
-        {/* Three groups, not six peers: what answers the message (model,
-            reasoning, the context it has left), then what the answer lands in
-            (branch, worktree), then the single act of sending. The rule earns
-            its place only between groups — a divider after every control is
-            just noise with a border. Stop is not here at all; it acts on the
-            run and lives with the run status above the transcript. */}
-        {/* The groups wrap as a unit on a narrow screen rather than the row
-            scrolling sideways or squeezing every control past legibility: six
-            controls do not fit a phone in one line, and Send is the one that
-            must never be the one pushed off the end. */}
+        {/* Keep the controls that shape this reply on one compact line: model,
+            reasoning, context, then branch. Worktrees stay in project actions,
+            where their separate-project consequence is clearer. */}
         <div className="flex items-end gap-1 px-1">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
             <AttachButton disabled={disabled} onPick={attach} />
@@ -190,7 +181,6 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
             <ContextWindow />
             {isRepo ? <GroupRule /> : null}
             <BranchSelector />
-            <WorktreeButton />
           </div>
           {running ? <BehaviorSelector behavior={behavior} setBehavior={setBehavior} /> : null}
           <Button
@@ -207,9 +197,9 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           </Button>
         </div>
       </div>
-      {/* Only on the empty-project screen, where a first-timer has nothing else
-          to read and the keys are otherwise undiscoverable. The persistent
-          composer stays silent: by then the user has sent a message. */}
+      {/* The first composer gets only the two keys needed to begin. Commands,
+          skills, and file mentions remain discoverable when their trigger is
+          typed, without turning an otherwise quiet starting point into a guide. */}
       {prominent ? (
         <p className="mx-auto flex w-full max-w-(--conversation-width) flex-wrap items-center justify-center gap-x-2 gap-y-1 pt-0.5 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
@@ -220,14 +210,6 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           </span>
           <span className="flex items-center gap-1.5">
             <Kbd>Shift+Enter</Kbd> for a new line
-          </span>
-          <span aria-hidden="true" className="text-muted-foreground/50">
-            ·
-          </span>
-          {/* The three triggers are invisible until typed, and this screen is
-              the only place that says they exist. */}
-          <span className="flex items-center gap-1.5">
-            <Kbd>/</Kbd> for commands, <Kbd>$</Kbd> for skills, <Kbd>@</Kbd> for files
           </span>
         </p>
       ) : null}
@@ -375,6 +357,7 @@ function BehaviorSelector({
         <CaretDownIcon className="text-muted-foreground" />
       </MenuTrigger>
       <MenuPopup side="top" className="w-64 p-1.5">
+        <MenuGroup>
         <MenuItem onClick={() => setBehavior("steer")} className="items-start gap-2 rounded-md">
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-medium">Steer</span>
@@ -389,6 +372,7 @@ function BehaviorSelector({
           </div>
           {behavior === "followUp" ? <CheckIcon className="ml-auto mt-0.5 shrink-0" /> : null}
         </MenuItem>
+        </MenuGroup>
       </MenuPopup>
     </Menu>
   );
@@ -416,6 +400,7 @@ function ThinkingSelector() {
       </MenuTrigger>
       <MenuPopup side="top" className="w-44 p-1.5">
         <p className="px-2 pb-1 pt-1 text-xs font-medium text-muted-foreground">Reasoning</p>
+        <MenuGroup>
         {thinkingLevels.map((level) => (
           <MenuItem
             key={level}
@@ -426,47 +411,17 @@ function ThinkingSelector() {
             {level === "medium" ? <span className="ml-auto rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">Default</span> : null}
           </MenuItem>
         ))}
+        </MenuGroup>
       </MenuPopup>
     </Menu>
   );
 }
 
 /**
- * Worktrees for this project, as its own surface.
- *
- * Next to the branch control but never inside it. Switching a branch changes the
- * folder you already have open; a worktree is a second folder with its own Pi,
- * chats and changes, which makes it a project. Two neighbouring controls keep
- * both a click away without implying they are one choice.
- */
-function WorktreeButton() {
-  const projectPath = useAppStore((s) => s.activeProjectPath);
-  const isRepo = useAppStore((s) => s.git?.isRepo ?? false);
-  const [open, setOpen] = useState(false);
-
-  if (!isRepo || !projectPath) return null;
-
-  return (
-    <>
-      <Button
-        variant="ghost"
-        size="icon-lg"
-        onClick={() => setOpen(true)}
-        title="Worktrees"
-        aria-label="Worktrees"
-        className="rounded-lg text-muted-foreground hover:text-foreground"
-      >
-        <TreeStructureIcon />
-      </Button>
-      <WorktreeDialog projectPath={open ? projectPath : null} onClose={() => setOpen(false)} />
-    </>
-  );
-}
-
-/**
  * Which branch this project is on.
  *
- * Branches only. Worktrees are the button beside this one.
+ * Worktrees stay with the project actions in the sidebar: switching a branch
+ * changes the current workspace, while a worktree creates another project.
  */
 function BranchSelector() {
   const isRepo = useAppStore((s) => s.git?.isRepo ?? false);
@@ -575,6 +530,7 @@ function BranchList({ onDone }: { onDone: () => void }) {
             Loading branches…
           </p>
         ) : null}
+        <MenuGroup>
         {matches.map((item) => {
           // Git allows one checkout per branch, so a branch another worktree
           // holds is not available here however much the user wants it.
@@ -607,6 +563,7 @@ function BranchList({ onDone }: { onDone: () => void }) {
             </span>
           </MenuItem>
         ) : null}
+        </MenuGroup>
         {/* An unanswered request is not an empty repository. Reporting one as
             the other sent the user looking for branches that were always there. */}
         {unread ? (
@@ -676,6 +633,7 @@ function ContextWindow() {
         // The figure lives in the accessible name, so the ring is not a
         // visual-only readout for anyone who can't see it.
         aria-label={`Context window ${percent}% used, ${formatTokens(used)} of ${formatTokens(total)} tokens`}
+        title="Conversation context — messages Pi can use for this reply"
         onClick={() => setOpen(true)}
         className={cn(
           "flex h-8 items-center gap-1.5 rounded-lg px-1.5 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",

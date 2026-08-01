@@ -2,13 +2,18 @@ import { useEffect, useState } from "react";
 import { CheckCircleIcon } from "@phosphor-icons/react/CheckCircle";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
-import { XIcon } from "@phosphor-icons/react/X";
 import { useAppStore } from "../lib/store.ts";
 import { currentTool, runModel, runTokens } from "../lib/runBoard.ts";
 import { formatElapsed, formatTokens } from "../lib/format.ts";
 import { chatTitle } from "../lib/transcript.ts";
-import { Button } from "@/components/ui/button.tsx";
-import { DRAG_REGION, NO_DRAG_REGION, WINDOW_CONTROLS_CLEARANCE } from "@/lib/utils.ts";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog.tsx";
+import { cn } from "@/lib/utils.ts";
 
 export default function RunBoard() {
   const close = useAppStore((s) => s.closeRunBoard);
@@ -68,23 +73,23 @@ export default function RunBoard() {
     .sort((a, b) => Number(b.active) - Number(a.active) || b.at - a.at);
 
   return (
-    <main className="flex h-full min-w-0 flex-col bg-background text-foreground">
-      <header className={`${DRAG_REGION} ${WINDOW_CONTROLS_CLEARANCE} flex h-12 shrink-0 items-center gap-3 border-b px-4 sm:px-10`}>
-        <div className="min-w-0 flex-1">
-          <h1 className="font-heading text-base font-semibold">Run board</h1>
-        </div>
-        <Button variant="ghost" size="icon-sm" onClick={close} aria-label="Close run board" title="Close run board" className={NO_DRAG_REGION}>
-          <XIcon />
-        </Button>
-      </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-8 sm:px-10 sm:py-12">
-        <div className="mx-auto w-full max-w-5xl">
-          <div className="mb-8 flex flex-col gap-1">
-            <p className="text-sm text-muted-foreground">Every active run, plus the most recently settled run in each project for this app session.</p>
-          </div>
+    <Dialog open onOpenChange={(open) => !open && close()}>
+      <DialogContent className="flex max-h-[min(42rem,calc(100dvh-2rem))] max-w-5xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12 sm:px-6">
+          <DialogTitle className="font-heading text-base font-semibold">Run board</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Every active run, plus the most recently settled run in each project for this app session.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="min-h-0 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
+          {/* Six labels across a three-column grid is two ragged rows of
+              headings sitting above data they no longer line up with. Below
+              `sm` the table stops being a table: each run becomes a card that
+              carries its own labels, and the header row goes away with the
+              columns it was describing. */}
           {rows.length ? (
             <div className="overflow-x-auto rounded-lg border">
-              <div className="grid grid-cols-[minmax(12rem,1.35fr)_minmax(10rem,1.1fr)_minmax(7rem,.8fr)] gap-x-4 border-b bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground sm:grid-cols-[minmax(10rem,1.1fr)_minmax(10rem,1.1fr)_minmax(10rem,1fr)_5rem_7rem_6rem]">
+              <div className={cn(HEADER_GRID, "hidden border-b bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground sm:grid")}>
                 <span>Project / chat</span><span>Model</span><span>Current work</span><span>Elapsed</span><span>Tokens</span><span>Status</span>
               </div>
               {rows.map((row) => (
@@ -98,23 +103,58 @@ export default function RunBoard() {
                       close();
                     })();
                   }}
-                  className="grid w-full grid-cols-[minmax(12rem,1.35fr)_minmax(10rem,1.1fr)_minmax(7rem,.8fr)] gap-x-4 border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none sm:grid-cols-[minmax(10rem,1.1fr)_minmax(10rem,1.1fr)_minmax(10rem,1fr)_5rem_7rem_6rem]"
+                  className={cn(
+                    HEADER_GRID,
+                    "flex w-full flex-col gap-2 border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none sm:grid sm:items-center sm:gap-y-0",
+                  )}
                 >
-                  <span className="min-w-0"><span className="block truncate text-sm font-medium">{row.project.name}</span><span className="block truncate text-xs text-muted-foreground">{row.chat}</span></span>
-                  <span className="truncate font-mono text-xs leading-9 text-muted-foreground">{row.model}</span>
-                  <span className="truncate text-sm leading-9">{row.tool}</span>
-                  <span className="font-mono text-xs leading-9 tabular-nums text-muted-foreground">{row.elapsed}</span>
-                  <span className="font-mono text-xs leading-9 tabular-nums text-muted-foreground">{row.tokens}</span>
-                  <span className="flex items-center gap-1.5 text-xs leading-9"><StatusIcon active={row.active} blocked={row.blocked} /><span className="truncate">{row.blocked ?? (row.active ? "Running" : "Settled")}</span></span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">{row.project.name}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{row.chat}</span>
+                  </span>
+                  <Cell label="Model" className="truncate font-mono text-xs text-muted-foreground">{row.model}</Cell>
+                  <Cell label="Current work" className="truncate text-sm">{row.tool}</Cell>
+                  <Cell label="Elapsed" className="font-mono text-xs tabular-nums text-muted-foreground">{row.elapsed}</Cell>
+                  <Cell label="Tokens" className="font-mono text-xs tabular-nums text-muted-foreground">{row.tokens}</Cell>
+                  <Cell label="Status" className="flex min-w-0 items-center gap-1.5 text-xs">
+                    <StatusIcon active={row.active} blocked={row.blocked} />
+                    <span className="truncate">{row.blocked ?? (row.active ? "Running" : "Settled")}</span>
+                  </Cell>
                 </button>
               ))}
             </div>
           ) : (
-            <div className="py-16 text-center"><p className="font-heading text-xl font-medium">No runs yet</p><p className="mt-2 text-sm text-muted-foreground">When Pi starts working in a project, its status will appear here.</p></div>
+            <div className="py-16 text-center">
+              <p className="font-heading text-2xl font-semibold tracking-tight">No runs yet</p>
+              <p className="mt-2 text-sm text-muted-foreground">When Pi starts working in a project, its status will appear here.</p>
+            </div>
           )}
         </div>
-      </div>
-    </main>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * The six columns, named once so the header and every row cannot drift apart.
+ * Below `sm` this contributes nothing: the header is hidden and the row is a
+ * flex column, so `grid-cols-*` never applies.
+ */
+const HEADER_GRID =
+  "gap-x-4 sm:grid sm:grid-cols-[minmax(10rem,1.1fr)_minmax(10rem,1.1fr)_minmax(10rem,1fr)_5rem_7rem_6rem]";
+
+/**
+ * One datum, labelled in card mode and bare in table mode.
+ *
+ * Above `sm` the column header names the value and the label is redundant;
+ * below it there is no header left, so each value carries its own.
+ */
+function Cell({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
+  return (
+    <span className="flex min-w-0 items-baseline gap-2 sm:block">
+      <span className="w-24 shrink-0 text-xs text-muted-foreground sm:hidden">{label}</span>
+      <span className={cn("min-w-0 flex-1", className)}>{children}</span>
+    </span>
   );
 }
 

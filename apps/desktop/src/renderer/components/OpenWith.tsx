@@ -6,7 +6,7 @@ import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { toast } from "sonner";
 import type { InstalledEditor } from "../../shared/rpc-schema.ts";
 import { Button } from "@/components/ui/button.tsx";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
+import { DropdownMenu as Menu, DropdownMenuContent as MenuPopup, DropdownMenuGroup as MenuGroup, DropdownMenuItem as MenuItem, DropdownMenuTrigger as MenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { fileManagerName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { useAppStore } from "@/lib/store.ts";
@@ -80,7 +80,7 @@ export default function OpenWith({ projectDir }: { projectDir: string }) {
           <CaretDownIcon />
         </MenuTrigger>
         <MenuPopup align="end" className="min-w-52">
-          {editors.map((editor) => (
+           <MenuGroup>{editors.map((editor) => (
             <MenuItem
               key={editor.id}
               role="menuitemradio"
@@ -92,7 +92,7 @@ export default function OpenWith({ projectDir }: { projectDir: string }) {
               <span className="min-w-0 flex-1 truncate">{editor.name}</span>
               {editor.id === selectedId ? <CheckIcon className="ml-auto" aria-hidden /> : null}
             </MenuItem>
-          ))}
+           ))}</MenuGroup>
         </MenuPopup>
       </Menu>
     </div>

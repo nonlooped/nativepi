@@ -65,11 +65,19 @@ export default function QuitDialog() {
           <p className="text-sm text-muted-foreground">{devices(viewers)} also connected over the shared link, and will be disconnected.</p>
         ) : null}
 
+        {/* Same order as ConfirmDialog: dismiss on the left, the consequential
+            action on the right in destructive dress. The reverse taught two
+            opposite rules for which side is dangerous, and the expensive
+            direction of that confusion is learning "rightmost is safe" here and
+            then meeting Delete chat in the same slot. Escape, the backdrop and
+            the close button still mean keep working. */}
         <DialogFooter>
+          <Button variant="ghost" onClick={() => setWork(null)}>
+            Keep working
+          </Button>
           <Button variant="destructive" onClick={() => void rpc.request.confirmQuit({})}>
             {rows.length > 0 ? "Stop and quit" : "Disconnect and quit"}
           </Button>
-          <Button onClick={() => setWork(null)}>Keep working</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

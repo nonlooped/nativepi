@@ -44,10 +44,13 @@ type DialogKind = "rename" | "fork" | "tree" | "info" | "export" | "delete";
 export default function SessionMenu({
   projectPath,
   session,
+  selected = false,
   children,
 }: {
   projectPath: string;
   session: SessionSummary;
+   /** Drives the row fill, which lives on the wrapper around the chat row. */
+  selected?: boolean;
   children: React.ReactElement;
 }) {
   const [dialog, setDialog] = useState<DialogKind | null>(null);
@@ -102,7 +105,18 @@ export default function SessionMenu({
   return (
     <>
       <ContextMenu>
-        <ContextMenuTrigger render={children} />
+        <ContextMenuTrigger
+          render={
+            <div
+              className={cn(
+                "group/chat flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent",
+                selected && "bg-sidebar-accent",
+              )}
+            />
+          }
+        >
+          {children}
+        </ContextMenuTrigger>
         <ContextMenuContent className="w-56">
           <SessionItems actions={actions} />
         </ContextMenuContent>
@@ -156,34 +170,96 @@ type SessionActions = {
   delete: () => void;
 };
 
+type SessionItem =
+  | { kind: "separator" }
+  | { kind: "section"; label: string }
+  | {
+      kind: "item";
+      label: string;
+      icon: React.ReactNode;
+      onClick: () => void;
+      disabled?: boolean;
+      destructive?: boolean;
+      title?: string;
+    };
+
+/**
+ * Keep chat actions in one right-click menu so the row stays visually compact.
+ */
+function sessionItems(actions: SessionActions): SessionItem[] {
+  return [
+    { kind: "section", label: "Organize" },
+    {
+      kind: "item",
+      label: actions.pinned ? "Unpin chat" : "Pin chat",
+      icon: actions.pinned ? <PushPinSlashIcon /> : <PushPinIcon />,
+      onClick: actions.togglePin,
+    },
+    { kind: "item", label: "Rename", icon: <PencilSimpleIcon />, onClick: actions.rename },
+    { kind: "section", label: "Continue" },
+    {
+      kind: "item",
+      label: "Start a new chat from a message…",
+      icon: <GitForkIcon />,
+      onClick: actions.fork,
+      disabled: actions.blocked,
+    },
+    { kind: "item", label: "Duplicate", icon: <CopyIcon />, onClick: actions.clone, disabled: actions.blocked },
+    ...(actions.active
+      ? [
+          {
+            kind: "item" as const,
+            label: "Summarize earlier messages",
+            icon: <ArrowsInSimpleIcon />,
+            onClick: actions.compact,
+            disabled: actions.blocked,
+            title: "Compact context in Pi by summarizing earlier messages so this chat keeps fitting in the model's context window",
+          },
+        ]
+      : []),
+    { kind: "section", label: "Inspect" },
+    { kind: "item", label: "View chat branches…", icon: <TreeStructureIcon />, onClick: actions.tree },
+    { kind: "item", label: "Chat details…", icon: <InfoIcon />, onClick: actions.info },
+    { kind: "section", label: "File and share" },
+    { kind: "item", label: "Copy title", icon: <CopyIcon />, onClick: actions.copyTitle },
+    { kind: "item", label: "Reveal session file", icon: <ArrowSquareOutIcon />, onClick: actions.reveal },
+    { kind: "item", label: "Copy session file path", icon: <CopyIcon />, onClick: actions.copyPath },
+    { kind: "item", label: "Export to HTML", icon: <ExportIcon />, onClick: actions.export },
+    { kind: "separator" },
+    {
+      kind: "item",
+      label: "Delete chat…",
+      icon: <TrashIcon />,
+      onClick: actions.delete,
+      disabled: actions.blocked,
+      destructive: true,
+    },
+  ];
+}
+
 function SessionItems({ actions }: { actions: SessionActions }) {
   return (
     <>
-      <ContextMenuItem onClick={actions.togglePin}>
-        {actions.pinned ? <PushPinSlashIcon /> : <PushPinIcon />}
-        {actions.pinned ? "Unpin chat" : "Pin chat"}
-      </ContextMenuItem>
-      <ContextMenuSeparator />
-      <ContextMenuItem onClick={actions.rename}><PencilSimpleIcon /> Rename</ContextMenuItem>
-      <ContextMenuItem onClick={actions.fork} disabled={actions.blocked}><GitForkIcon /> Fork from a message…</ContextMenuItem>
-      <ContextMenuItem onClick={actions.clone} disabled={actions.blocked}><CopyIcon /> Duplicate</ContextMenuItem>
-      {actions.active ? (
-        <ContextMenuItem onClick={actions.compact} disabled={actions.blocked} title="Summarize earlier messages so a long chat keeps fitting in the model's context window">
-          <ArrowsInSimpleIcon /> Compact context
-        </ContextMenuItem>
-      ) : null}
-      <ContextMenuSeparator />
-      <ContextMenuItem onClick={actions.copyTitle}><CopyIcon /> Copy title</ContextMenuItem>
-      <ContextMenuItem onClick={actions.reveal}><ArrowSquareOutIcon /> Reveal session file</ContextMenuItem>
-      <ContextMenuItem onClick={actions.copyPath}><CopyIcon /> Copy session file path</ContextMenuItem>
-      <ContextMenuSeparator />
-      <ContextMenuItem onClick={actions.tree}><TreeStructureIcon /> Session tree…</ContextMenuItem>
-      <ContextMenuItem onClick={actions.info}><InfoIcon /> Session info…</ContextMenuItem>
-      <ContextMenuItem onClick={actions.export}><ExportIcon /> Export to HTML</ContextMenuItem>
-      <ContextMenuSeparator />
-      <ContextMenuItem onClick={actions.delete} disabled={actions.blocked} className="text-destructive">
-        <TrashIcon /> Delete chat…
-      </ContextMenuItem>
+      {sessionItems(actions).map((item, index) =>
+        item.kind === "separator" ? (
+          <ContextMenuSeparator key={`separator-${index}`} />
+        ) : item.kind === "section" ? (
+          <p key={item.label} className="px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground first:pt-1">
+            {item.label}
+          </p>
+        ) : (
+          <ContextMenuItem
+            key={item.label}
+            onClick={item.onClick}
+            disabled={item.disabled}
+            title={item.title}
+            variant={item.destructive ? "destructive" : "default"}
+          >
+            {item.icon}
+            {item.label}
+          </ContextMenuItem>
+        ),
+      )}
     </>
   );
 }

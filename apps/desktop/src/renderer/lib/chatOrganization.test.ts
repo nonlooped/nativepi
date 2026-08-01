@@ -20,6 +20,7 @@ function session(path: string, title: string, modified: Date): SessionSummary {
 test("groups pinned chats first, then unpinned chats by local calendar date", () => {
   const sessions = [
     session("today", "Today", new Date(2026, 6, 30, 9)),
+    session("recent", "Recent", new Date(2026, 6, 29, 9)),
     session("week", "Week", new Date(2026, 6, 28, 9)),
     session("old", "Old", new Date(2026, 5, 1, 9)),
   ];
@@ -30,6 +31,7 @@ test("groups pinned chats first, then unpinned chats by local calendar date", ()
   }))).toEqual([
     { label: "Pinned", paths: ["old"] },
     { label: "Today", paths: ["today"] },
+    { label: "Recent", paths: ["recent"] },
     { label: "This week", paths: ["week"] },
   ]);
 });

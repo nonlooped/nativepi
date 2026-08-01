@@ -17,7 +17,6 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
   extSurfaces: [],
   extTriggers: [],
   extUiState: NO_EXTENSION_UI_STATE,
-  recentFilesByProject: {},
 
   refreshGit: async () => {
     const path = get().activeProjectPath;
@@ -124,16 +123,5 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
         if (!insertAtComposerCaret(frame.text)) get().insertIntoComposer(frame.text);
         return;
     }
-  },
-
-  recordFileOpened: (projectPath, path) => {
-    set((s) => {
-      const existing = s.recentFilesByProject[projectPath] ?? [];
-      const prior = existing.find((f) => f.path === path);
-      const entry = { path, lastOpenedAt: Date.now(), openCount: (prior?.openCount ?? 0) + 1 };
-      const rest = existing.filter((f) => f.path !== path);
-      return { recentFilesByProject: { ...s.recentFilesByProject, [projectPath]: [entry, ...rest].slice(0, 30) } };
-    });
-    persist(get);
   },
 });

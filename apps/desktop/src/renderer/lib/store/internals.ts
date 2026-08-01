@@ -84,7 +84,6 @@ export function persist(get: GetState): void {
       projects: s.projects,
       lastProjectPath: s.activeProjectPath ?? undefined,
       lastChatByProject: map,
-      recentFilesByProject: s.recentFilesByProject,
       drafts: s.drafts,
       favoriteModels: s.favoriteModels ?? [],
       pinnedChats: s.pinnedChats,

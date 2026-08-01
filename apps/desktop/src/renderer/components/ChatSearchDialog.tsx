@@ -1,4 +1,5 @@
-import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Combobox } from "@base-ui/react/combobox";
 import { ChatCircleDotsIcon } from "@phosphor-icons/react/ChatCircleDots";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { SpinnerGapIcon } from "@phosphor-icons/react/SpinnerGap";
@@ -11,8 +12,6 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
-import { Input } from "@/components/ui/input.tsx";
-import { cn } from "@/lib/utils.ts";
 
 export default function ChatSearchDialog({
   open,
@@ -31,7 +30,6 @@ export default function ChatSearchDialog({
   const [results, setResults] = useState<SessionSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [failure, setFailure] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
   const status = loading
     ? "Searching chats."
     : failure
@@ -46,7 +44,6 @@ export default function ChatSearchDialog({
       setResults([]);
       setLoading(false);
       setFailure(false);
-      setActiveIndex(0);
       return;
     }
 
@@ -59,7 +56,6 @@ export default function ChatSearchDialog({
         .then(({ results: next }) => {
           if (!current) return;
           setResults(next);
-          setActiveIndex(0);
         })
         .catch(() => {
           if (current) setFailure(true);
@@ -74,10 +70,6 @@ export default function ChatSearchDialog({
     };
   }, [open, projects, query]);
 
-  useEffect(() => {
-    document.getElementById(`chat-search-result-${activeIndex}`)?.scrollIntoView({ block: "nearest" });
-  }, [activeIndex]);
-
   function close() {
     onOpenChange(false);
     setQuery("");
@@ -91,21 +83,6 @@ export default function ChatSearchDialog({
     void select.then(() => selectChat(result.sessionFile)).then(onNavigate).catch(() => undefined);
   }
 
-  function handleKeys(event: KeyboardEvent<HTMLInputElement>) {
-    if (results.length === 0) return;
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setActiveIndex((index) => (index + 1) % results.length);
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setActiveIndex((index) => (index - 1 + results.length) % results.length);
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      const result = results[activeIndex];
-      if (result) navigate(result);
-    }
-  }
-
   return (
     <Dialog open={open} onOpenChange={(next) => next ? onOpenChange(true) : close()}>
       <DialogContent className="max-w-xl gap-0 overflow-hidden p-0">
@@ -114,35 +91,28 @@ export default function ChatSearchDialog({
           Search chat titles and messages across your projects.
         </DialogDescription>
 
-        <div className="relative border-b">
-          <MagnifyingGlassIcon
-            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            autoFocus
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={handleKeys}
-            placeholder="Search chats and messages"
-            aria-label="Search chats and messages"
-            role="combobox"
-            aria-expanded={results.length > 0}
-            aria-autocomplete="list"
-            aria-controls="chat-search-results"
-            aria-activedescendant={results[activeIndex] ? `chat-search-result-${activeIndex}` : undefined}
-            className="h-12 rounded-none border-0 bg-transparent pl-11 pr-12 text-base shadow-none focus-visible:bg-input/20 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30 md:text-base"
-          />
-        </div>
-
-        <p className="sr-only" role="status">{status}</p>
-        <div
-          id="chat-search-results"
-          role={results.length > 0 ? "listbox" : undefined}
-          aria-label="Chat search results"
-          className="flex min-h-48 max-h-[min(30rem,calc(100dvh-8rem))] flex-col gap-0.5 overflow-y-auto p-2"
+        <Combobox.Root
+          items={results}
+          inputValue={query}
+          onInputValueChange={setQuery}
+          autoHighlight
+          aria-label="Chat search"
         >
+          <div className="relative border-b">
+            <MagnifyingGlassIcon
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Combobox.Input
+              autoFocus
+              placeholder="Search chats and messages"
+              aria-label="Search chats and messages"
+              className="h-12 w-full rounded-none border-0 bg-transparent pl-11 pr-12 text-base outline-none focus-visible:bg-input/20 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30"
+            />
+          </div>
+
+          <p className="sr-only" role="status">{status}</p>
+          <Combobox.List className="flex min-h-48 max-h-[min(30rem,calc(100dvh-8rem))] flex-col gap-0.5 overflow-y-auto p-2">
           {!query.trim() ? (
             <SearchState
               icon={<MagnifyingGlassIcon />}
@@ -175,19 +145,12 @@ export default function ChatSearchDialog({
             const project = projects.find((item) => item.path === result.projectDir);
             const source = result.match === "title" ? "Chat title" : result.match === "user" ? "You" : "Pi";
             return (
-              <button
+              <Combobox.Item
                 key={result.sessionFile}
-                id={`chat-search-result-${index}`}
-                type="button"
-                role="option"
-                tabIndex={-1}
-                aria-selected={index === activeIndex}
-                onMouseEnter={() => setActiveIndex(index)}
+                value={result}
+                index={index}
                 onClick={() => navigate(result)}
-                className={cn(
-                  "flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-                  index === activeIndex ? "bg-accent text-accent-foreground" : "hover:bg-accent/60",
-                )}
+                className="flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
               >
                 <span className="flex min-w-0 items-baseline gap-2">
                   <span className="truncate text-sm font-semibold">{result.title}</span>
@@ -197,10 +160,11 @@ export default function ChatSearchDialog({
                   <span className="font-medium text-foreground">{source}:</span>{" "}
                   {result.snippet}
                 </span>
-              </button>
+              </Combobox.Item>
             );
           })}
-        </div>
+          </Combobox.List>
+        </Combobox.Root>
 
         <div className="flex items-center gap-3 border-t px-3 py-2 text-xs text-muted-foreground">
           <span><kbd className="font-[inherit]">↑↓</kbd> navigate</span>

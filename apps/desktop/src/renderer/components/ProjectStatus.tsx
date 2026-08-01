@@ -5,7 +5,7 @@ import { ShieldWarningIcon } from "@phosphor-icons/react/ShieldWarning";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import type { PiStatus } from "../../shared/rpc-schema.ts";
 import { useAppStore } from "../lib/store.ts";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu.tsx";
+import { DropdownMenu as Menu, DropdownMenuContent as MenuPopup, DropdownMenuGroup as MenuGroup, DropdownMenuItem as MenuItem, DropdownMenuTrigger as MenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { cn } from "@/lib/utils.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 
@@ -40,9 +40,9 @@ export default function ProjectStatus({ className }: { className?: string }) {
           </MenuTrigger>
           <MenuPopup align="end" className="w-72 p-1.5">
             <p className="px-2 pb-1.5 pt-1 text-xs text-muted-foreground">{health.detail}</p>
-            <MenuItem onClick={() => void restartPi()} className="rounded-md text-sm">
+             <MenuGroup><MenuItem onClick={() => void restartPi()} className="rounded-md text-sm">
               Restart Pi
-            </MenuItem>
+             </MenuItem></MenuGroup>
           </MenuPopup>
         </Menu>
       ) : null}
@@ -75,7 +75,7 @@ export default function ProjectStatus({ className }: { className?: string }) {
                 ? "This project's local extensions and skills run inside Pi."
                 : "This project's local extensions and skills are not loaded. Pi is running without them."}
             </p>
-            {trust.trusted ? (
+             <MenuGroup>{trust.trusted ? (
               <MenuItem onClick={() => setConfirmingRevoke(true)} className="rounded-md text-sm text-destructive">
                 Revoke trust and restart Pi…
               </MenuItem>
@@ -83,7 +83,7 @@ export default function ProjectStatus({ className }: { className?: string }) {
               <MenuItem onClick={promptTrust} className="rounded-md text-sm">
                 Review and trust this project…
               </MenuItem>
-            )}
+             )}</MenuGroup>
           </MenuPopup>
         </Menu>
       ) : null}

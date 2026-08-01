@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider.tsx";
 import { Switch } from "@/components/ui/switch.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
+import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field.tsx";
 
 /**
  * One settings screen's worth of layout.
@@ -30,7 +31,7 @@ export function SettingsSection({
         {heading}
       </h2>
       {description ? <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p> : null}
-      <div className="mt-4 flex flex-col">{children}</div>
+      <FieldGroup className="mt-4 flex flex-col">{children}</FieldGroup>
     </section>
   );
 }
@@ -68,24 +69,24 @@ function Row({
   children: React.ReactNode;
 }) {
   const text = (
-    <div className="flex min-w-0 flex-col gap-1">
+    <FieldContent className="min-w-0 gap-1">
       {htmlFor ? (
-        <label htmlFor={htmlFor} className="w-fit text-sm font-medium">
+        <FieldLabel htmlFor={htmlFor} className="w-fit text-sm font-medium">
           {label}
-        </label>
+        </FieldLabel>
       ) : (
-        <p className="text-sm font-medium">{label}</p>
+        <FieldTitle className="text-sm font-medium">{label}</FieldTitle>
       )}
-      {description ? <p className="text-sm leading-5 text-muted-foreground">{description}</p> : null}
-    </div>
+      {description ? <FieldDescription className="text-sm leading-5">{description}</FieldDescription> : null}
+    </FieldContent>
   );
 
   if (wide) {
     return (
-      <div className="flex flex-col gap-3 border-t py-5">
+      <Field orientation="vertical" className="flex flex-col gap-3 border-t py-5">
         {text}
         {children}
-      </div>
+      </Field>
     );
   }
 
@@ -93,10 +94,10 @@ function Row({
   // below it. A 14rem select next to a two-line explanation is what turns a
   // settings list into two columns of four-character-wide text on a phone.
   return (
-    <div className="flex flex-col gap-3 border-t py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+    <Field orientation="horizontal" className="flex flex-col gap-3 border-t py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
       {text}
       <div className={shrinkable ? "min-w-0" : "sm:shrink-0"}>{children}</div>
-    </div>
+    </Field>
   );
 }
 
@@ -149,9 +150,11 @@ export function SelectRow<T extends string>({
         disabled={disabled}
         items={options}
       >
-        {/* The trigger's own height is a `data-size` variant, so plain `h-9`
+        {/* 2.5rem is the form scale DESIGN.md gives both `input` and
+            `button-form`, and a settings list puts all three in one column. The
+            trigger's own height is a `data-size` variant, so a plain `h-10`
             would lose to it on specificity and the row would stay compact. */}
-        <SelectTrigger aria-label={label} className="w-full px-3 text-sm data-[size=default]:h-9 sm:w-auto sm:min-w-44">
+        <SelectTrigger aria-label={label} className="w-full px-3 text-sm data-[size=default]:h-10 sm:w-auto sm:min-w-44">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

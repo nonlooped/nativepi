@@ -1,9 +1,14 @@
 import { useAppStore } from "../../lib/store.ts";
+import { osName } from "../../lib/platform.ts";
 import { SelectRow, SettingsSection, SliderRow } from "./rows.tsx";
 
 export default function AppearanceSettings() {
   const preferences = useAppStore((s) => s.preferences);
   const setPreference = useAppStore((s) => s.setPreference);
+  // Named rather than hard-coded: this screen is also served to a phone over
+  // Remote Access, where "Follow Windows" would be describing someone else's
+  // machine and pointing at a setting the reader cannot find.
+  const system = osName();
 
   return (
     <div className="flex flex-col gap-10">
@@ -48,10 +53,10 @@ export default function AppearanceSettings() {
       <SettingsSection heading="Motion">
         <SelectRow
           label="Animation"
-          description="NativePi follows Windows' reduced-motion setting unless you override it here."
+          description={`NativePi follows the reduced-motion setting in ${system} unless you override it here.`}
           value={preferences.reducedMotion}
           options={[
-            { value: "system", label: "Follow Windows" },
+            { value: "system", label: `Follow ${system}` },
             { value: "always", label: "Always reduce" },
             { value: "never", label: "Never reduce" },
           ]}
