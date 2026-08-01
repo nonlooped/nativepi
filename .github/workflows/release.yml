@@ -263,7 +263,7 @@ jobs:
     if: needs.release.outputs.publish == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           path: release
           merge-multiple: true

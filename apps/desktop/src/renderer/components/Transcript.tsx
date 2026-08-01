@@ -8,7 +8,7 @@ import { StopIcon } from "@phosphor-icons/react/Stop";
 import { WarningIcon } from "@phosphor-icons/react/Warning";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { code } from "@streamdown/code";
-import { Streamdown } from "streamdown";
+import { Streamdown, type CodeHighlighterPlugin } from "streamdown";
 import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
@@ -48,7 +48,10 @@ import { ExtensionEntry, ExtensionToolResult, useHasEntryRenderer, useHasToolRen
 import FileContextMenu from "./FileContextMenu.tsx";
 import { TuiPane } from "./TuiSurface.tsx";
 
-const streamdownPlugins = { code };
+// @streamdown/code still publishes Shiki 3 token types while Streamdown resolves Shiki 4.
+const streamdownPlugins: { code: CodeHighlighterPlugin } = {
+  code: code as unknown as CodeHighlighterPlugin,
+};
 
 export default function Transcript() {
   return (

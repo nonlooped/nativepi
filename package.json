@@ -37,11 +37,11 @@
     "preview": "cd apps/desktop && bun run preview"
   },
   "overrides": {
-    "postcss": "8.5.24",
+    "postcss": "8.5.25",
     "sharp": "0.35.3"
   },
   "devDependencies": {
-    "fallow": "^3.9.1",
-    "react-doctor": "^0.9.1"
+    "fallow": "^3.10.0",
+    "react-doctor": "^0.9.3"
   }
 }
