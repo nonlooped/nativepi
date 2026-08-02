@@ -293,6 +293,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       projectDir,
       sessionFile: s.activeSessionFile,
       message: text,
+      titleGeneratorModel: s.titleGeneratorModel,
       images: images.map(toImageContent),
     });
     if (!res.ok) {

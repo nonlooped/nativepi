@@ -103,6 +103,7 @@ export function persist(get: GetState): void {
       lastChatByProject: map,
       drafts: s.drafts,
       favoriteModels: s.favoriteModels ?? [],
+      titleGeneratorModel: s.titleGeneratorModel,
       serviceTiers: s.serviceTiers,
       pinnedChats: s.pinnedChats,
       panes: {

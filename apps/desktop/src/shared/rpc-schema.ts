@@ -1,9 +1,7 @@
 import { z } from "zod";
+import { TITLE_GENERATOR_ACTIVE } from "./title-generator.ts";
 import type { PiPaths, PiSettings, PiSettingsPatch } from "./pi-settings.ts";
-import {
-  type SubscriptionUsage,
-  type SubscriptionUsageProvider,
-} from "./subscriptionUsage.ts";
+import type { SubscriptionUsage } from "./subscriptionUsage.ts";
 import type {
   CommandInfo,
   ExtensionUiResponse,
@@ -175,7 +173,7 @@ export interface UpdateState {
   error?: string;
 }
 
-export type BuiltInExtensionId = "service-tier";
+export type BuiltInExtensionId = "service-tier" | "subscription-usage" | "title-generator";
 
 export interface BuiltInExtensionInfo {
   id: BuiltInExtensionId;
@@ -276,6 +274,8 @@ export const nativePiStateSchema = z.object({
   lastChatByProject: z.record(z.string(), z.string()).catch({}),
   drafts: z.record(z.string(), z.string()).catch({}),
   favoriteModels: z.array(z.string()).catch([]),
+  /** Model used for automatic first-message chat titles; "active" follows the chat model. */
+  titleGeneratorModel: z.string().min(1).max(512).catch(TITLE_GENERATOR_ACTIVE),
   serviceTiers: z.record(z.string(), z.enum(["standard", "fast"])).catch({}),
   pinnedChats: z
     .array(z.unknown())
@@ -321,6 +321,8 @@ export type HostRequests = {
       projectDir: string;
       sessionFile: string | null;
       message: string;
+      /** NativePi's selected title model; delivered to Pi's built-in title extension when sending. */
+      titleGeneratorModel?: string;
       images?: ImageContent[];
       /**
        * Set only while a turn is running. Pi executes an extension command
@@ -400,8 +402,8 @@ export type HostRequests = {
     response: { dashboard?: UsageDashboard; error?: string };
   };
   getSubscriptionUsage: {
-    params: { providerId: SubscriptionUsageProvider };
-    response: { usage?: SubscriptionUsage; error?: string };
+    params: { projectDir: string; sessionFile?: string | null; providerId: string };
+    response: { supported?: boolean; usage?: SubscriptionUsage; error?: string };
   };
 
   getContextInspector: {

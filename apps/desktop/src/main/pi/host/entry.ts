@@ -6,6 +6,12 @@ import { toNotice, toPromptRequest } from "../../../shared/providerAuth.ts";
 import { shapeProviders } from "../../../shared/providerShape.ts";
 import type { ContextInspector } from "../../../shared/pi-types.ts";
 import { nativePiServiceTierExtension, setNativePiServiceTier } from "../extensions/serviceTier.ts";
+import {
+  getNativePiSubscriptionUsage,
+  nativePiSubscriptionUsageExtension,
+} from "../extensions/subscriptionUsage.ts";
+import { nativePiTitleGeneratorExtension, setNativePiTitleGeneratorModel } from "../extensions/titleGenerator.ts";
+import { subscriptionUsageResponseSchema } from "../../../shared/subscriptionUsage.ts";
 import { hostInternals, withTerminalUi, type HostInternals } from "./uiContext.ts";
 
 /**
@@ -84,9 +90,17 @@ function providerRuntime(): Promise<ModelRuntime> {
 }
 
 function handleClientFrame(frame: TuiClientFrame): void {
-  if (frame.type === "nativepi_tui_editor") lastEditorFrame = frame;
   if (frame.type === "nativepi_tui_set_service_tier") {
     setNativePiServiceTier(frame.sessionFile, frame.tier);
+    return;
+  }
+  if (frame.type === "nativepi_tui_editor") lastEditorFrame = frame;
+  if (frame.type === "nativepi_tui_set_title_generator_model") {
+    setNativePiTitleGeneratorModel(frame.sessionFile, frame.modelSetting);
+    return;
+  }
+  if (frame.type === "nativepi_tui_get_subscription_usage") {
+    void respondSubscriptionUsage(frame.requestId, frame.providerId);
     return;
   }
   if (frame.type === "nativepi_tui_auth_respond") {
@@ -110,6 +124,23 @@ function handleClientFrame(frame: TuiClientFrame): void {
     return;
   }
   internals?.handle(frame);
+}
+
+async function respondSubscriptionUsage(requestId: string, providerId: string): Promise<void> {
+  try {
+    const session = currentSession;
+    if (!session) throw new Error("No active Pi session");
+    const usage = await getNativePiSubscriptionUsage(providerId, {
+      getProviderAuth: (id) => session.modelRuntime.getAuth(id),
+    });
+    const response = subscriptionUsageResponseSchema.parse({
+      supported: usage !== undefined,
+      ...(usage ? { usage } : {}),
+    });
+    send({ type: "nativepi_tui_reply", requestId, data: response });
+  } catch (err) {
+    send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
+  }
 }
 
 async function respondContextInspector(requestId: string): Promise<void> {
@@ -265,6 +296,6 @@ filterStdin();
 installUiContext();
 void configureHttp().then(() =>
   main(["--mode", "rpc", ...process.argv.slice(2)], {
-    extensionFactories: [nativePiServiceTierExtension],
+      extensionFactories: [nativePiServiceTierExtension, nativePiSubscriptionUsageExtension, nativePiTitleGeneratorExtension],
   }),
 );

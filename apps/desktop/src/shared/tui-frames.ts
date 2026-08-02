@@ -226,6 +226,16 @@ export const tuiClientFrameSchema = z.discriminatedUnion("type", [
     tier: z.enum(["standard", "fast"]),
   }),
   z.object({
+    type: z.literal("nativepi_tui_set_title_generator_model"),
+    sessionFile: z.string().min(1).nullable(),
+    modelSetting: z.string().min(1).max(512),
+  }),
+  z.object({
+    type: z.literal("nativepi_tui_get_subscription_usage"),
+    requestId: z.string().min(1).max(64),
+    providerId: z.string().min(1).max(200),
+  }),
+  z.object({
     type: z.literal("nativepi_tui_auth_respond"),
     id: z.string().min(1).max(64),
     value: z.string().optional(),

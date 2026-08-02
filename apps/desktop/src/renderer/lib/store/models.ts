@@ -1,5 +1,6 @@
 import type { ThinkingLevel } from "../../../shared/pi-types.ts";
 import { modelKey } from "../../../shared/messages.ts";
+import { TITLE_GENERATOR_ACTIVE } from "../../../shared/title-generator.ts";
 import { DEFAULT_SERVICE_TIER, serviceTierKey, type ServiceTier } from "../../../shared/serviceTier.ts";
 import { rpc } from "../rpc.ts";
 import { showHint } from "../toast.tsx";
@@ -15,6 +16,7 @@ export function thinkingLabel(level: ThinkingLevel): string {
 export const createModelSlice: SliceCreator<ModelSlice> = (set, get) => ({
   models: [],
   favoriteModels: [],
+  titleGeneratorModel: TITLE_GENERATOR_ACTIVE,
   serviceTier: DEFAULT_SERVICE_TIER,
   serviceTiers: {},
   thinkingLevel: "off",
@@ -36,6 +38,10 @@ export const createModelSlice: SliceCreator<ModelSlice> = (set, get) => ({
     ) {
       set({ thinkingLevels: result.levels });
     }
+  },
+  setTitleGeneratorModel: (titleGeneratorModel) => {
+    set({ titleGeneratorModel });
+    persist(get);
   },
 
   setServiceTier: async (tier: ServiceTier) => {

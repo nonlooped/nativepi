@@ -69,6 +69,40 @@ test("a service-tier frame is scoped to a session and accepts only known tiers",
   ).toBe(false);
 });
 
+test("a title-generator model frame carries a nullable session and bounded setting", () => {
+  expect(
+    tuiClientFrameSchema.safeParse({
+      type: "nativepi_tui_set_title_generator_model",
+      sessionFile: null,
+      modelSetting: "openai/gpt-5-mini",
+    }).success,
+  ).toBe(true);
+  expect(
+    tuiClientFrameSchema.safeParse({
+      type: "nativepi_tui_set_title_generator_model",
+      sessionFile: "C:\\chat.jsonl",
+      modelSetting: "",
+    }).success,
+  ).toBe(false);
+});
+
+test("a subscription-usage request carries a bounded provider id", () => {
+  expect(
+    tuiClientFrameSchema.safeParse({
+      type: "nativepi_tui_get_subscription_usage",
+      requestId: "f-1",
+      providerId: "anthropic",
+    }).success,
+  ).toBe(true);
+  expect(
+    tuiClientFrameSchema.safeParse({
+      type: "nativepi_tui_get_subscription_usage",
+      requestId: "f-1",
+      providerId: "",
+    }).success,
+  ).toBe(false);
+});
+
 test("the context inspector accepts only a non-negative Pi measurement", () => {
   const inspector = {
     usedTokens: 42,

@@ -10,6 +10,7 @@ test("an empty object yields the full set of defaults", () => {
     lastChatByProject: {},
     drafts: {},
     favoriteModels: [],
+    titleGeneratorModel: "active",
     serviceTiers: {},
     pinnedChats: [],
     panes: undefined,
@@ -89,4 +90,9 @@ test("absent panes stay absent, so a first run can still open the pane itself", 
     sidebarSize: 18,
     contextPaneOpen: false,
   });
+});
+
+test("title generator model survives persistence and invalid values use the active model", () => {
+  expect(nativePiStateSchema.parse({ titleGeneratorModel: "openai/gpt-5-mini" }).titleGeneratorModel).toBe("openai/gpt-5-mini");
+  expect(nativePiStateSchema.parse({ titleGeneratorModel: null }).titleGeneratorModel).toBe("active");
 });

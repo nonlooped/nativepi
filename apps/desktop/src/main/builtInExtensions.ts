@@ -3,6 +3,8 @@ import path from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { BuiltInExtensionInfo } from "../shared/rpc-schema.ts";
 import serviceTierSource from "./pi/extensions/serviceTier.ts?raw";
+import subscriptionUsageSource from "./pi/extensions/subscriptionUsage.ts?raw";
+import titleGeneratorSource from "./pi/extensions/titleGenerator.ts?raw";
 
 const BUILT_IN_EXTENSIONS = [
   {
@@ -11,6 +13,20 @@ const BUILT_IN_EXTENSIONS = [
     description: "Adds Standard and Fast response speed choices for supported Codex models. Use /speed in the Pi TUI.",
     filename: "nativepi-service-tier.ts",
     source: serviceTierSource,
+  },
+  {
+    id: "subscription-usage" as const,
+    name: "NativePi subscription usage",
+    description: "Shows provider-reported subscription limits in NativePi. Use /usage in the Pi TUI.",
+    filename: "nativepi-subscription-usage.ts",
+    source: subscriptionUsageSource,
+  },
+  {
+    id: "title-generator" as const,
+    name: "NativePi automatic chat titles",
+    description: "Generates a concise title from each chat's first message. Choose its model in NativePi settings or use /title-model in Pi.",
+    filename: "nativepi-title-generator.ts",
+    source: titleGeneratorSource,
   },
 ];
 

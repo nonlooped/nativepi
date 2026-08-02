@@ -21,7 +21,7 @@ import { loadGraphicalExtensions } from "./extensions.ts";
 import { fileManagerName, listInstalledEditors, openFileIn, openProjectIn } from "./editors.ts";
 import { liveSettingsFor, piPaths, queuePiSettings, readPiSettings, writePiSettings } from "./piSettings.ts";
 import { piSettingsPatchSchema, type PiSettingsPatch } from "../shared/pi-settings.ts";
-import { subscriptionUsageProviderSchema } from "../shared/subscriptionUsage.ts";
+import { subscriptionUsageResponseSchema } from "../shared/subscriptionUsage.ts";
 import {
   clearTerminal,
   closeTerminal,
@@ -362,6 +362,7 @@ function toSessionState(data: RpcSessionState): RpcSessionState {
   return { ...data, model: data.model ? toModelInfo(data.model) : undefined };
 }
 
+
 const THINKING_LEVELS = new Set<ThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 const openProjectInParamsSchema = z.object({ projectDir: z.string().min(1), editorId: z.string().min(1) });
 const openFileInParamsSchema = openProjectInParamsSchema.extend({ file: z.string().min(1), line: z.number().int().positive().optional(), column: z.number().int().positive().optional() });
@@ -457,8 +458,15 @@ async function knownProject(projectDir: string): Promise<boolean> {
 const usageDashboardParamsSchema = z.object({
   projects: z.array(z.object({ path: z.string().min(1).max(32_767), name: z.string().min(1).max(200) })).max(100),
 });
-const subscriptionUsageParamsSchema = z.object({ providerId: subscriptionUsageProviderSchema });
-const setBuiltInExtensionParamsSchema = z.object({ id: z.literal("service-tier"), enabled: z.boolean() });
+const subscriptionUsageParamsSchema = z.object({
+  projectDir: z.string().min(1).max(32_767),
+  sessionFile: z.string().min(1).nullable().optional(),
+  providerId: z.string().min(1).max(200),
+});
+const setBuiltInExtensionParamsSchema = z.object({
+  id: z.enum(["service-tier", "subscription-usage", "title-generator"]),
+  enabled: z.boolean(),
+});
 
 function isThinkingLevel(level: unknown): level is ThinkingLevel {
   return typeof level === "string" && THINKING_LEVELS.has(level as ThinkingLevel);
@@ -527,7 +535,7 @@ const handlers: HandlerMap = {
    * already running, and the projects the user is not looking at give no sign of
    * it. Stopping them all means the next time one is opened it starts on the
    * settings the file now holds.
-   */
+  */
   restartAllPi: async () => {
     const all = [...new Set([...pis.values(), ...startingPis.values()])];
     pis.clear();
@@ -561,13 +569,24 @@ const handlers: HandlerMap = {
     }
   },
 
-  submit: async ({ projectDir, sessionFile, message, images, streamingBehavior }) => {
+  submit: async ({ projectDir, sessionFile, message, titleGeneratorModel, images, streamingBehavior }) => {
+    const wasNewChat = !sessionFile;
+    let titleGeneratorSetting: string | undefined;
     // Claim the write before Pi is even up, so our own append is never mistaken
     // for a concurrent editor and a cold start counts as work in flight: the
     // renderer has already cleared the draft, and a close that slipped through
     // here would take the prompt with it.
     markBusy(sessionFile ?? projectDir, Number.POSITIVE_INFINITY);
     try {
+      if (typeof titleGeneratorModel === "string") {
+        const normalizedTitleModel = titleGeneratorModel.trim();
+        if (normalizedTitleModel.length > 0 && normalizedTitleModel.length <= 512) {
+          titleGeneratorSetting = normalizedTitleModel;
+        }
+      }
+      if (!titleGeneratorSetting && wasNewChat) {
+        titleGeneratorSetting = (await loadState()).titleGeneratorModel;
+      }
       const pi = await ensurePi(projectDir, sessionFile ?? undefined);
       if (!sessionFile) {
         await pi.request({ type: "new_session" });
@@ -576,6 +595,13 @@ const handlers: HandlerMap = {
         sessionFile = state.sessionFile ?? null;
       }
       if (sessionFile) markBusy(sessionFile, Number.POSITIVE_INFINITY);
+      if (sessionFile && titleGeneratorSetting) {
+        pi.sendFrame({
+          type: "nativepi_tui_set_title_generator_model",
+          sessionFile,
+          modelSetting: titleGeneratorSetting,
+        });
+      }
       pi.send({ type: "prompt", message, images, streamingBehavior });
       return { ok: true, sessionFile: sessionFile ?? undefined };
     } catch (err) {
@@ -781,8 +807,13 @@ const handlers: HandlerMap = {
 
   getSubscriptionUsage: async (params) => {
     try {
-      const { providerId } = subscriptionUsageParamsSchema.parse(params);
-      return { usage: await auth.getSubscriptionUsage(providerId) };
+      const { projectDir, sessionFile, providerId } = subscriptionUsageParamsSchema.parse(params);
+      const pi = sessionFile ? await bindPi(projectDir, sessionFile, false) : await ensurePi(projectDir);
+      const response = await pi.frameRequest<unknown>(
+        (requestId) => ({ type: "nativepi_tui_get_subscription_usage", requestId, providerId }),
+        12_000,
+      );
+      return subscriptionUsageResponseSchema.parse(response);
     } catch (err) {
       return { error: errorMessage(err) };
     }
@@ -1265,7 +1296,7 @@ const handlers: HandlerMap = {
   },
   tuiSend: async (params) => {
     const { projectDir, sessionFile, frame } = tuiSendParamsSchema.parse(params);
-    if (frame.type === "nativepi_tui_set_service_tier") {
+    if (frame.type === "nativepi_tui_set_service_tier" || frame.type === "nativepi_tui_set_title_generator_model") {
       const pi = await ensurePi(projectDir, sessionFile ?? undefined);
       pi.sendFrame(frame);
     } else {

@@ -47,7 +47,7 @@ function BuiltInExtensions() {
       return;
     }
     listing.reload();
-    showHint(enabled ? "NativePi service tiers enabled for the Pi TUI" : "NativePi service tiers disabled");
+    showHint(`${extension.name} ${enabled ? "enabled" : "disabled"}`);
   }
 
   return (

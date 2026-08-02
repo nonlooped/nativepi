@@ -189,12 +189,14 @@ export interface ModelSlice {
   models: ModelInfo[];
   model?: ModelInfo;
   favoriteModels: string[];
+  titleGeneratorModel: string;
   serviceTier: ServiceTier;
   serviceTiers: Record<string, ServiceTier>;
   thinkingLevel: ThinkingLevel;
   thinkingLevels: ThinkingLevel[];
 
   setModel: (model: ModelInfo) => Promise<void>;
+  setTitleGeneratorModel: (modelKey: string) => void;
   setServiceTier: (tier: ServiceTier) => Promise<void>;
   toggleFavoriteModel: (model: ModelInfo) => void;
   setThinkingLevel: (level: ThinkingLevel) => Promise<void>;
