@@ -146,24 +146,20 @@ components:
 
 **Creative North Star: "The Window, Opened"**
 
-The desktop app is a closed graphite window you work inside. The website is that
-same window taken off the desk, held at an angle, and pulled apart along its Z
-axis so a visitor can see what it is made of before they install it.
-
-One silhouette holds the center of the viewport for the entire page. Everything
-the site has to say happens inside that outline or in the gaps that open between
-its layers. There is no hero card, no feature grid, and no second visual
-metaphor introduced halfway down.
+The website opens the desktop app's graphite window at a scale large enough to
+inspect before installing it. A concise, centered proposition leads directly to
+the real interface, followed only by the product's strongest compatibility,
+portability, and open-source arguments.
 
 This is the desktop design system inherited whole and given a display register
-it did not previously need. The palette, the radius scale, the Color-Is-Status
-rule, and the type families all carry over unchanged. What is new is scale,
-depth, and motion.
+it did not previously need. The palette, radius scale, Color-Is-Status rule, and
+type families carry over unchanged. The web surface adds scale and breathing
+room, not a second visual metaphor.
 
 **Key Characteristics:**
 
-- A single pinned window silhouette as the page's fixed structural anchor.
-- Layer separation along Z as the only way the page advances its argument.
+- A large, centered application screenshot as the page's visual anchor.
+- A short, linear argument with generous separation between sections.
 - Near-monochrome graphite, with saturated hue meaning exactly what it means in
   the app.
 - The real interface, screenshotted from the running app rather than rebuilt.
@@ -239,18 +235,17 @@ product's voice already uses.
 
 ### Hierarchy
 
-- **Display:** One per page, the opening statement. Capped at 4.75rem, and
-  clamped against viewport height as well as width: the hero shares a fixed
-  100vh stage with the window, so a width-only clamp collides with the thing the
-  headline introduces on any short, wide screen.
-- **Section:** The name of a layer as it separates.
+- **Display:** One per page, the opening statement. Capped at 4.75rem and
+  clamped against viewport height as well as width so it remains balanced on
+  short, wide screens.
+- **Section:** The heading for each supporting argument.
 - **Headline / Title:** Sub-arguments and doc page headings.
 - **Lede:** The single paragraph under a display or section heading. Wider and
   lighter than body.
 - **Body:** Documentation prose and long-form explanation, 65 to 72ch.
-- **UI:** Interface text the site draws itself, on the diagram plates. The app's
-  own interface is a screenshot and sets its own type.
-- **Label:** Slot markers, metadata, captions, and layer annotations.
+- **UI:** Interface text the site draws itself. The app's own interface is a
+  screenshot and sets its own type.
+- **Label:** Metadata and captions.
 - **Code:** Paths, snippets, types, diffs, and shell output.
 
 ### Named Rules
@@ -270,51 +265,33 @@ tracked uppercase kicker over every section.
 
 ## Layout
 
-The page is a fixed stage, not a stack of bands. A single window silhouette is
-pinned to viewport center and stays there from the first pixel to the last
-section. Scroll does not move the window. Scroll separates it.
-
-Content lives in three zones relative to that silhouette:
-
-- **Inside:** the app screenshot, which the stage only ever scales as a whole.
-  Nothing is composited on top of it except slot markers.
-- **Between:** annotations that appear in the gaps opened by separating layers,
-  set in Label and connected to their layer by a hairline leader.
-- **Around:** the display heading, lede, and actions, which occupy the margin
-  the silhouette leaves and never overlap it.
+The page is a short vertical document. The hero copy and actions are centered,
+followed by the application screenshot at up to 96% of the viewport and a
+100rem cap. This makes the product itself the dominant evidence without cropping
+or tilting it.
 
 Page gutters run 1.5rem at mobile, 2rem at tablet, and 4rem above 1280px, with
-content capped at 90rem. Vertical rhythm uses the 4/8/12/16/24/32 step ladder,
-with more space above a heading than below it. Section separation is measured
-in scroll distance allocated to a layer, not in fixed padding.
+prose capped at 90rem. Vertical rhythm uses the 4/8/12/16/24/32 step ladder,
+with more space above a heading than below it. Supporting sections use ordinary
+block flow and generous fixed padding.
 
-Below 900px the explosion loses its third dimension rather than its content:
-layers restack as a vertical sequence of plates, annotations move beneath the
-plate they describe, and every fact the 3D version carried is still readable.
-The window keeps its own proportions at every width. It is a picture of a
+The screenshot keeps its 16:9 proportions at every width. It is a picture of a
 desktop application, and a desktop application is what it should look like on a
 phone.
 
 ## Elevation & Depth
 
-Depth on this surface is literal. The window's layers are separated in real
-space, so the shadow work has to be real too: each plate casts onto the plate
-behind it, offset in the direction of the light, softening with distance.
+Depth is restrained to the screenshot and genuinely raised diagrams.
 
-- **Plate Cast:** A large, offset, low-opacity shadow with genuine blur. Never
+- **Window Cast:** A large, offset, low-opacity shadow with genuine blur. Never
   a zero-offset halo.
-- **Edge Light:** A one-pixel top highlight at low opacity on each plate, which
-  is what makes a flat rectangle read as a physical sheet.
+- **Edge Light:** A one-pixel top highlight at low opacity makes the screenshot
+  frame read as a window.
 - **Ambient Field:** A static, very low-contrast CSS field behind everything,
-  which exists to give the void a sense of volume. It never brightens enough to
-  compete with content. Its tone is Ambient Field, a desaturated cool blue that
-  exists so the atmosphere never has to borrow Slot Cyan. Slot Cyan means
-  extension ownership, and an atmosphere that used it would make the one
-  functional hue on the site decorative.
+  which gives the void volume without competing with content.
 
-**The Flat-Until-Floating Rule.** Inherited and sharpened: on this surface,
-things genuinely float, so they genuinely cast. Nothing that is not a separated
-layer gets a shadow.
+**The Flat-Until-Floating Rule.** Inherited: only the screenshot and genuinely
+raised diagrams cast shadows. Persistent page sections remain flat.
 
 ## Shapes
 
@@ -325,56 +302,31 @@ as generic cards. Borders stay hairline and low contrast at every scale.
 
 ## Motion
 
-The page has exactly one authored motion idea: **the window comes apart, and
-then it goes back together.** Every other movement on the site is a
-consequence of that one, or it does not ship.
+The marketing page has no scroll-linked or staged motion. Native scrolling keeps
+the screenshot stable and the reading order predictable. Hover and focus
+transitions are limited to controls and provider marks.
 
-- Scroll position drives layer separation directly. There is no autoplay, no
-  entrance animation per section, and no scroll-triggered fade on every block.
-- Easing is exponential ease-out. Scroll-linked transforms are damped so they
-  settle rather than track the wheel exactly.
-- The window itself does not animate. It is a still of the app, and a still that
-  moves is a mockup pretending to be a demo.
-- Hover on a slot marker lifts its plate slightly and dims the others. That is
-  the only hover effect that moves geometry.
-
-**The Information-Survives-Stillness Rule.** Inherited and binding here.
-Freeze every animation and the page must still state everything it states in
-motion. Layer names, slot labels, and annotations are text, never implied by
-position alone.
-
-**The Reduced-Motion Contract.** Under `prefers-reduced-motion: reduce` the
-window renders pre-separated in its final arrangement, scroll-linked transforms
-are disabled, the ambient field remains still, and the page becomes a
-straightforward vertical document. Nothing is lost but the movement.
+**The Information-Survives-Stillness Rule.** Inherited and binding here. Freeze
+every transition and the page must remain complete.
 
 **The Atmosphere-Is-Decoration Rule.** The ambient field adds depth without
-client JavaScript. Removing backgrounds leaves the same complete hierarchy,
-layers, labels, and annotations.
+client JavaScript. Removing backgrounds leaves the same complete hierarchy.
 
 ## Components
 
 ### Buttons
 
 - **Primary:** Primary Chalk fill, dark text, medium radius, 2.75rem tall.
-  Exactly one per viewport. It goes to the repository.
+  Exactly one per viewport. It downloads the latest release.
 - **Outline:** Hairline border over a faint input-toned fill.
 - **Hover / Focus / Active:** Hover shifts tone. Focus shows a visible ring
   against the dark ground. Press translates down one pixel.
 
-### Layer Plates
+### Application Screenshot
 
-The page's primary structural component. A plate is one Z-layer of the app
-window: a large-radius surface with a hairline border, an edge light, a cast
-shadow, a Label-set name, and either the app screenshot or a diagram inside it.
-Plates are never nested and are never used as generic content cards.
-
-### Slot Markers
-
-A Slot Cyan label with a hairline leader connecting it to a point on a plate.
-Marks the four real contribution points of the graphical extension API: tool
-renderers, entry renderers, composer widgets, and context panels. A slot marker
-appears only where an extension can genuinely contribute.
+The screenshot is the page's primary visual component: full-width within its
+large centered frame, with a hairline border, edge light, and cast shadow. It is
+never tilted, composited over, or animated.
 
 ### Provider Marks
 
@@ -384,28 +336,25 @@ supports. No grid of tiles, no card per provider, no logo wall implying scale.
 
 ### Documentation
 
-Docs are Read mode, not Persuade. They inherit the palette and type but drop
-the 3D entirely: a fixed sidebar, a 68ch measure, generous heading space, real
-syntax highlighting, and anchored headings. The window silhouette does not
-follow the reader into the docs. Only the wordmark does.
+Docs are Read mode, not Persuade. They use a fixed sidebar, a 68ch measure,
+generous heading space, real syntax highlighting, and anchored headings. The
+application screenshot does not follow the reader into the docs. Only the
+wordmark does.
 
 ## Do's and Don'ts
 
 ### Do:
 
-- **Do** keep the window silhouette at viewport center for the entire marketing
-  page. It is the one structural commitment the design has.
+- **Do** keep the application screenshot large and centered.
 - **Do** show the interface as a screenshot of the running app, replaced when
   the app changes rather than touched up.
-- **Do** state the costs plainly: unsigned installers, experimental extension
-  API.
-- **Do** make every layer, label, and annotation survive with motion removed.
+- **Do** state the installer cost plainly.
 - **Do** use Phosphor icons, matching the desktop app.
 
 ### Don't:
 
 - **Don't** introduce a second visual metaphor once the window is established.
-- **Don't** build a same-size feature card grid. The plates are the structure.
+- **Don't** add scroll-linked transforms or tilt the screenshot.
 - **Don't** use gradient text, decorative glass, or a colored left border.
 - **Don't** put Departure Mono anywhere except the wordmark.
 - **Don't** show a capability the app does not have, or a number the project

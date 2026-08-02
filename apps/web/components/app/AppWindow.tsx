@@ -21,7 +21,7 @@ export function AppWindow({ className }: { className?: string }) {
       width={2560}
       height={1440}
       priority
-      sizes="(min-width: 900px) 78rem, 92vw"
+      sizes="(min-width: 1667px) 100rem, 96vw"
       className={cn("h-full w-full object-cover object-left-top", className)}
     />
   );

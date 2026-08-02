@@ -1,18 +1,29 @@
+import desktopPackage from "../../desktop/package.json";
+
 /**
  * Every fact on the site comes from here, and every fact here comes from
  * PRODUCT.md, the README, or source. Nothing in this file may be a claim the
  * project cannot back: no download counts, no star counts, no benchmarks.
  */
 
+const releaseTag = `v${desktopPackage.version}`;
+const releaseDownload = (asset: string) =>
+  `https://github.com/nonlooped/nativepi/releases/download/${releaseTag}/${asset}`;
+
 export const site = {
   name: "NativePi",
   tagline: "Pi, at home on your desktop.",
   description:
-    "A free, open-source desktop interface for the Pi coding agent on Windows, macOS, and Linux. Pi keeps the agent loop. Your sessions stay yours.",
+    "A free, open-source desktop app for the Pi coding agent on Windows, macOS, and Linux. Same sessions, same logins, same files.",
   url: "https://nativepi.vercel.app",
   repo: "https://github.com/nonlooped/nativepi",
   releases: "https://github.com/nonlooped/nativepi/releases",
   releasesLatest: "https://github.com/nonlooped/nativepi/releases/latest",
+  downloads: {
+    windows: releaseDownload(`NativePi-Setup-${desktopPackage.version}.exe`),
+    macos: releaseDownload(`NativePi-${desktopPackage.version}.dmg`),
+    linux: releaseDownload(`NativePi-${desktopPackage.version}.AppImage`),
+  },
   issues: "https://github.com/nonlooped/nativepi/issues",
   license: "https://github.com/nonlooped/nativepi/blob/main/LICENSE",
   extensionApi:

@@ -29,7 +29,8 @@ Linux.
 
 Success means a visitor can state what NativePi is, why its relationship to Pi
 is different from other agent frontends, and what it costs them to try, then
-acts on that by opening the repository.
+acts on that by downloading the app. The repository remains the secondary path
+for visitors who want to inspect the source first.
 
 ## Positioning
 
@@ -148,9 +149,8 @@ of the running app, and it is the only depiction of the product the site makes.
 ## Accessibility & Inclusion
 
 - Keyboard operable throughout, with visible focus treatment.
-- `prefers-reduced-motion: reduce` must neutralize scroll-linked motion, 3D
-  camera movement, and ambient animation, leaving all content readable and all
-  meaning intact.
+- `prefers-reduced-motion: reduce` must neutralize ambient animation, leaving
+  all content readable and all meaning intact.
 - The ambient background is decorative. Every page remains complete and
   legible with backgrounds, motion, and JavaScript disabled.
 - Text contrast meets WCAG AA against the dark ground. Copy does not require

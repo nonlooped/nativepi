@@ -1,14 +1,15 @@
-import { ArrowDownIcon, StarIcon } from "@phosphor-icons/react/dist/ssr";
+import { StarIcon } from "@phosphor-icons/react/dist/ssr";
 
+import { DownloadButton } from "@/components/site/DownloadButton";
 import { Button } from "@/components/site/Button";
-import { AppleMark, LinuxMark, PiMark, WindowsMark } from "@/components/site/Marks";
+import { PiMark } from "@/components/site/Marks";
 import { site } from "@/lib/site";
 
 /**
  * The opening statement.
  *
- * The primary action is the repository, so it is the only filled button on the
- * page. The platform and unsigned-installer costs are stated here rather than
+ * Download is the primary action, with the repository available as the secondary
+ * path. The platform and unsigned-installer costs are stated here rather than
  * discovered later, which is Product Principle 2 applied to the first viewport.
  */
 export function Hero() {
@@ -31,15 +32,10 @@ export function Hero() {
       </p>
 
       <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-        <Button href={site.repo} variant="primary">
+        <DownloadButton />
+        <Button href={site.repo} variant="outline">
           <StarIcon className="size-4" weight="fill" />
           Star on GitHub
-        </Button>
-        <Button href={site.releasesLatest} variant="outline">
-          <WindowsMark className="size-4" />
-          <AppleMark className="size-4" />
-          <LinuxMark className="size-4" />
-          Download
         </Button>
       </div>
 
@@ -47,15 +43,6 @@ export function Hero() {
       <p className="mt-4 text-xs text-silver">
         MIT licensed. Windows, macOS, and Linux. Unsigned, so your OS warns once.
       </p>
-    </div>
-  );
-}
-
-export function ScrollCue() {
-  return (
-    <div className="flex items-center gap-2 rounded-full border border-hairline bg-void/90 px-3 py-1.5 text-xs text-silver backdrop-blur-sm">
-      <ArrowDownIcon className="size-3.5" />
-      Scroll to take it apart
     </div>
   );
 }

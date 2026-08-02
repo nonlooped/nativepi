@@ -9,11 +9,7 @@ import { GitHubMark } from "@/components/site/Marks";
 import { cn } from "@/lib/cn";
 import { site } from "@/lib/site";
 
-const nav = [
-  { href: "/#layers", label: "How it works" },
-  { href: "/#extensions", label: "Extensions" },
-  { href: "/docs", label: "Docs" },
-];
+const nav = [{ href: "/docs", label: "Docs" }];
 
 export function Header() {
   const pathname = usePathname();

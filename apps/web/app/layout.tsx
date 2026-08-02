@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 
 import { Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
-import { SmoothScroll } from "@/components/site/SmoothScroll";
 import { site } from "@/lib/site";
 
 import "./globals.css";
@@ -60,51 +59,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        {/*
-          Without JavaScript the scroll rig never runs, so the stage would stay
-          collapsed at its closed position for 460vh. This flattens it into the
-          same vertical arrangement narrow screens get, which is a complete
-          reading of the page rather than a degraded one.
-        */}
-        <noscript>
-          <style>{`
-            .stage-section { height: auto !important; }
-            .stage-sticky {
-              position: static !important;
-              height: auto !important;
-              overflow: visible !important;
-              display: block !important;
-              padding-block: 7rem 4rem;
-            }
-            .stage-scene {
-              position: static !important;
-              perspective: none !important;
-              display: block !important;
-            }
-            .stage-scene > * {
-              transform: none !important;
-              aspect-ratio: auto !important;
-              display: grid !important;
-              gap: 2rem;
-            }
-            .stage-plate {
-              position: relative !important;
-              inset: auto !important;
-              transform: none !important;
-              opacity: 1 !important;
-              aspect-ratio: 16 / 10;
-            }
-            .stage-annotation {
-              position: static !important;
-              transform: none !important;
-              opacity: 1 !important;
-              margin-block: 2rem;
-            }
-            .stage-annotation > div { background: none !important; padding-top: 0 !important; }
-          `}</style>
-        </noscript>
-      </head>
       <body className="bg-void text-chalk antialiased">
         <a
           href="#main"
@@ -112,7 +66,6 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        <SmoothScroll />
         <Header />
         <main id="main">{children}</main>
         <Footer />

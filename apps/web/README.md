@@ -35,9 +35,8 @@ Metadata, `robots.txt`, and `sitemap.xml` all read `site.url` from there.
 
 - `app/` routes. The marketing page is `app/page.tsx`; docs live under
   `app/docs`.
-- `components/stage/` the pinned window that comes apart on scroll, plus the
-  static ambient field behind it. `WindowStage.tsx` owns the scroll rig and the
-  flat arrangement used on narrow screens and under reduced motion.
+- `components/stage/` the hero and its large, centered application screenshot,
+  plus the static ambient field behind it.
 - `components/app/` the NativePi window, which is a screenshot of the running
   app in `public/app/window.png`. Retake it when the interface changes.
 - `components/sections/` the rest of the marketing page.

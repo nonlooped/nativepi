@@ -1,6 +1,4 @@
-import { Boundaries, Close } from "@/components/sections/Boundaries";
-import { Capabilities } from "@/components/sections/Capabilities";
-import { Extensions } from "@/components/sections/Extensions";
+import { Close } from "@/components/sections/Close";
 import { Interchange } from "@/components/sections/Interchange";
 import { Providers } from "@/components/sections/Providers";
 import { Atmosphere } from "@/components/stage/Atmosphere";
@@ -13,9 +11,6 @@ export default function Home() {
       <WindowStage />
       <Providers />
       <Interchange />
-      <Extensions />
-      <Capabilities />
-      <Boundaries />
       <Close />
     </>
   );

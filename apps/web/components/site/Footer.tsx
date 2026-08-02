@@ -7,12 +7,7 @@ import { site } from "@/lib/site";
 const columns = [
   {
     heading: "Product",
-    links: [
-      { label: "How it works", href: "/#layers" },
-      { label: "Extensions", href: "/#extensions" },
-      { label: "What it does not do", href: "/#boundaries" },
-      { label: "Releases", href: site.releases },
-    ],
+    links: [{ label: "Releases", href: site.releases }],
   },
   {
     heading: "Documentation",
