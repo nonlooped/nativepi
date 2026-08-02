@@ -17,10 +17,11 @@ function session(path: string, title: string, modified: Date): SessionSummary {
   };
 }
 
-test("groups pinned chats, then recent chats, then today's older chats", () => {
+test("groups chats by calendar date rather than an hour threshold", () => {
   const sessions = [
-    session("recent", "Recent", new Date(2026, 6, 30, 10)),
-    session("today", "Today", new Date(2026, 6, 30, 8)),
+    session("today-late", "Today late", new Date(2026, 6, 30, 10)),
+    session("today-early", "Today early", new Date(2026, 6, 30, 1)),
+    session("yesterday", "Yesterday", new Date(2026, 6, 29, 9)),
     session("week", "Week", new Date(2026, 6, 28, 9)),
     session("old", "Old", new Date(2026, 5, 1, 9)),
   ];
@@ -30,24 +31,24 @@ test("groups pinned chats, then recent chats, then today's older chats", () => {
     paths: group.sessions.map((chat) => chat.path),
   }))).toEqual([
     { label: "Pinned", paths: ["old"] },
-    { label: "Recent", paths: ["recent"] },
-    { label: "Today", paths: ["today"] },
-    { label: "This week", paths: ["week"] },
+    { label: "Today", paths: ["today-late", "today-early"] },
+    { label: "Yesterday", paths: ["yesterday"] },
+    { label: "Previous 7 days", paths: ["week"] },
   ]);
 });
 
-test("keeps chats at the three-hour boundary in Recent", () => {
+test("uses midnight as the Today boundary", () => {
   const sessions = [
-    session("at-boundary", "At boundary", new Date(2026, 6, 30, 9)),
-    session("outside", "Outside", new Date(2026, 6, 30, 8, 59, 59)),
+    session("today", "Today", new Date(2026, 6, 30, 0)),
+    session("yesterday", "Yesterday", new Date(2026, 6, 29, 23, 59, 59)),
   ];
 
   expect(groupChats(sessions, [], "", null, NOW).map((group) => ({
     label: group.label,
     paths: group.sessions.map((chat) => chat.path),
   }))).toEqual([
-    { label: "Recent", paths: ["at-boundary"] },
-    { label: "Today", paths: ["outside"] },
+    { label: "Today", paths: ["today"] },
+    { label: "Yesterday", paths: ["yesterday"] },
   ]);
 });
 
