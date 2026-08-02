@@ -84,8 +84,8 @@ export default function WorkingWithPiPage() {
           <li>Its own appearance and notification preferences</li>
         </ul>
         <p>
-          No conversations, no credentials, no telemetry. Nothing leaves your
-          machine.
+          NativePi does not store conversations or credentials, and it does not collect
+          telemetry. Nothing leaves your machine.
         </p>
       </Prose>
 

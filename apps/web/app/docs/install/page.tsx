@@ -27,7 +27,7 @@ export default function InstallPage() {
             installer, macOS a DMG, and Linux an AppImage.
           </li>
           <li>
-            <strong>Nothing else.</strong> A pinned build of Pi ships inside the
+            <strong>No separate Pi installation is required.</strong> A pinned build of Pi ships inside the
             installer. If you already have the Pi command line, NativePi will
             reuse its credentials, configuration, and sessions rather than
             creating its own.
@@ -38,7 +38,7 @@ export default function InstallPage() {
       <H2 id="download">Download</H2>
       <Prose>
         <p>
-          Grab the installer for your platform from{" "}
+          Download the installer for your platform from{" "}
           <a href={site.releases} target="_blank" rel="noreferrer noopener">
             GitHub Releases
           </a>
@@ -54,9 +54,9 @@ export default function InstallPage() {
           Your OS will warn you on first launch.
         </strong>{" "}
         Releases are not code signed or notarized yet. Windows SmartScreen shows
-        an &ldquo;unrecognized app&rdquo; dialog — choose <em>More info</em>,
+        an &ldquo;unrecognized app&rdquo; dialog. Choose <em>More info</em>,
         then <em>Run anyway</em>. macOS Gatekeeper blocks the app outright the
-        first time — open <em>System Settings &gt; Privacy &amp; Security</em>{" "}
+        first time. Open <em>System Settings &gt; Privacy &amp; Security</em>{" "}
         and choose <em>Open Anyway</em>. Linux AppImages need their executable
         bit set (<code>chmod +x</code>) before they will run at all. If you
         would rather not do any of that, build from source instead.

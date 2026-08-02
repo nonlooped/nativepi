@@ -549,7 +549,7 @@ function BranchList({ onDone }: { onDone: () => void }) {
       // Left open on failure: Git's refusal, usually uncommitted changes or an
       // invalid name, answers what the user just tried and belongs beside it.
       if (res.ok) onDone();
-      else setError(res.error ?? "Git refused this change.");
+      else setError(res.error ?? "Unable to switch branches. Check that the working tree is clean, then try again.");
     } finally {
       setBusy(false);
     }
@@ -624,7 +624,7 @@ function BranchList({ onDone }: { onDone: () => void }) {
         {/* An unanswered request is not an empty repository. Reporting one as
             the other sent the user looking for branches that were always there. */}
         {unread ? (
-          <p className="px-2.5 py-6 text-center text-sm text-destructive">Could not read this repository's branches.</p>
+          <p className="px-2.5 py-6 text-center text-sm text-destructive">Unable to read this repository's branches. Close and reopen the branch menu to try again.</p>
         ) : !loading && matches.length === 0 && !canCreate ? (
           <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">No branches yet.</p>
         ) : null}

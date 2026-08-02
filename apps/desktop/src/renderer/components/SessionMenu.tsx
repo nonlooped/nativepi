@@ -312,7 +312,7 @@ function RenameDialog({ session, onClose }: { session: SessionSummary; onClose: 
     try {
       const res = await renameChat(session.path, trimmed);
       if (res.ok) onClose();
-      else setError(res.error ?? "Rename failed");
+      else setError(res.error ?? "Unable to rename this chat. Try again.");
     } finally {
       setSaving(false);
     }
@@ -369,7 +369,7 @@ function ForkDialog({ session, onClose }: { session: SessionSummary; onClose: ()
     try {
       const res = await forkChat(session.path, entryId);
       if (res.ok) onClose();
-      else setForkError(res.error ?? "Fork failed");
+      else setForkError(res.error ?? "Unable to fork this chat. Try again.");
     } finally {
       setForking(false);
     }
@@ -388,7 +388,7 @@ function ForkDialog({ session, onClose }: { session: SessionSummary; onClose: ()
           {points === null ? (
             <Loading />
           ) : points.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">This chat has no messages to fork from.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">Send a message before creating a fork.</p>
           ) : (
             <div className="flex flex-col gap-1">
               {points.map((point) => (
@@ -436,7 +436,7 @@ function TreeDialog({ session, onClose }: { session: SessionSummary; onClose: ()
           {tree === null ? (
             <Loading />
           ) : tree.tree.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No entries yet.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">This chat has no entries yet.</p>
           ) : (
             <div className="flex flex-col gap-0.5 text-sm">
               {tree.tree.map((node) => (

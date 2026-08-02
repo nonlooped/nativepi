@@ -9,10 +9,10 @@ export function Close() {
   return (
     <section className="relative z-10 overflow-hidden border-t border-hairline">
       <div className="rail py-28 text-center sm:py-36">
-        <h2 className="display text-bright">Take it apart yourself.</h2>
+        <h2 className="display text-bright">Inspect and extend it.</h2>
         <p className="lede mx-auto mt-6 max-w-lg text-balance">
-          MIT licensed, all the way down to the extension contract. Read it,
-          fork it, bend it.
+          NativePi and its graphical extension API are MIT licensed. Inspect the
+          source, fork it, or build on it.
         </p>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">

@@ -46,7 +46,7 @@ function BuiltInExtensions() {
     const result = await rpc.request.setBuiltInExtension({ id: extension.id, enabled });
     setBusy(null);
     if (!result.ok) {
-      setFailed({ id: extension.id, message: result.error ?? "Could not change the built-in extension." });
+      setFailed({ id: extension.id, message: result.error ?? "Unable to update this extension. Try again." });
       return;
     }
     listing.reload();
@@ -150,7 +150,7 @@ export default function ExtensionsManager() {
       setInstalling(false);
       refresh();
     } else {
-      setActionError(res.error ?? "Install failed");
+      setActionError(res.error ?? "Unable to install the package. Try again.");
     }
   }
 
@@ -160,7 +160,7 @@ export default function ExtensionsManager() {
     const res = await rpc.request.removePackage({ projectDir: projectDir!, source: pkg.source, scope: pkg.scope });
     setBusy(null);
     if (res.ok) refresh();
-    else setActionError(res.error ?? "Remove failed");
+    else setActionError(res.error ?? "Unable to remove the package. Try again.");
   }
 
   async function update(pkg: PackageInfo) {
@@ -168,7 +168,7 @@ export default function ExtensionsManager() {
     setActionError(undefined);
     const res = await rpc.request.updatePackage({ projectDir: projectDir!, source: pkg.source });
     setBusy(null);
-    if (!res.ok) return setActionError(res.error ?? "Update failed");
+    if (!res.ok) return setActionError(res.error ?? "Unable to update the package. Try again.");
     refresh();
     showHint(`${pkg.source} updated`);
   }
@@ -273,7 +273,7 @@ export default function ExtensionsManager() {
           {packages === null ? (
             <p className="border-t py-5 text-sm text-muted-foreground">Loading…</p>
           ) : packages.length === 0 ? (
-            <p className="border-t py-5 text-sm text-muted-foreground">No packages installed.</p>
+            <p className="border-t py-5 text-sm text-muted-foreground">No packages installed. Install a package to add a Pi extension.</p>
           ) : (
             packages.map((pkg) => (
               <ContextMenu key={`${pkg.scope}:${pkg.source}`}>

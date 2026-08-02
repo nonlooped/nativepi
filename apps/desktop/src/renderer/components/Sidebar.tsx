@@ -480,8 +480,8 @@ function ChatList({
       {sessionLoadStatus === "failed" ? (
         <ChatHistoryState
           icon={<WarningCircleIcon className="text-warning" weight="fill" />}
-          title="Couldn't load chat history"
-          detail="NativePi couldn't read this project's chat list."
+          title="Unable to load chat history"
+          detail="Check that the project's Pi sessions are available, then try again."
           role="alert"
           action={
             <Button
@@ -567,11 +567,11 @@ function ChatList({
           ))}
           {sessions.length === 0 ? (
             <p className="px-1.5 py-1.5 text-xs leading-relaxed text-muted-foreground">
-              {`No chats in this project yet — press ${hintFor("newChat", overrides)} to start one`}
+              {`No chats yet. Press ${hintFor("newChat", overrides)} to start one.`}
             </p>
           ) : query.trim() && matchCount === 0 ? (
             <p className="px-1.5 py-1.5 text-xs leading-relaxed text-muted-foreground">
-              No chat titles match. This filter reads titles only — search to look inside messages.
+              No chat titles match this filter. Search messages instead.
             </p>
           ) : null}
         </>
