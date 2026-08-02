@@ -44,7 +44,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: "stopTurn",
     binding: "Escape",
     label: "Stop the current turn",
-    description: "Abort the running agent turn, including while typing in the composer. Also closes Settings.",
+    description: "Abort the running agent turn, including while typing in the composer.",
     group: "Chat",
   },
   {
@@ -166,14 +166,22 @@ const MODIFIER_CODES = new Set([
  * Turn a captured keydown into a tinykeys binding string, or `null` if the key
  * pressed was only a modifier (nothing to bind yet).
  *
- * `$mod` covers Ctrl and Cmd. On Windows, Meta is the Windows key and must stay
- * distinct so recording it produces a shortcut that can actually fire.
+ * `$mod` is whichever key is the platform's command modifier: Cmd on macOS,
+ * Ctrl everywhere else. The other one keeps its own name, because the two are
+ * distinct keys on a Mac and mapping Ctrl onto `$mod` there recorded Ctrl+K and
+ * bound Cmd+K — a shortcut the user never pressed. On Windows the same applies
+ * to Meta, which is the Windows key.
  */
 export function parseKeyEvent(event: KeyboardEvent): string | null {
   if (MODIFIER_CODES.has(event.code)) return null;
   const parts: string[] = [];
-  if (event.ctrlKey) parts.push("$mod");
-  if (event.metaKey) parts.push(IS_MAC ? "$mod" : "Meta");
+  if (IS_MAC) {
+    if (event.metaKey) parts.push("$mod");
+    if (event.ctrlKey) parts.push("Control");
+  } else {
+    if (event.ctrlKey) parts.push("$mod");
+    if (event.metaKey) parts.push("Meta");
+  }
   if (event.altKey) parts.push("Alt");
   if (event.shiftKey) parts.push("Shift");
   parts.push(event.code);
@@ -202,6 +210,7 @@ function partLabel(part: string): string {
   if (part === "$mod") return IS_MAC ? "Cmd" : "Ctrl";
   if (part === "Alt") return IS_MAC ? "Option" : "Alt";
   if (part === "Meta") return IS_MAC ? "Cmd" : "Win";
+  if (part === "Control") return "Ctrl";
   if (KEY_LABELS[part]) return KEY_LABELS[part]!;
   // `KeyN` -> `N`, `Digit1` -> `1`; anything else already reads correctly.
   if (/^Key[A-Z]$/.test(part)) return part.slice(3);

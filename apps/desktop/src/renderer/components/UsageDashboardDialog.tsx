@@ -1,10 +1,3 @@
-/*
-THESIS: make the Pi-written cost record immediately scannable, without turning it into a dashboard grid.
-OWN-WORLD: NativePi's graphite dialog, hairlines, quiet rows, and tabular cost figures.
-STORY: choose all projects or one project, see total spend, its recent direction, and where it came from.
-FIRST VIEWPORT: title and project filter lead; total, trend, then compact model and project ledgers follow.
-FORM: an operating receipt, extending the existing session-info dialog rather than inventing a second surface language.
-*/
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { TrendDownIcon } from "@phosphor-icons/react/TrendDown";
@@ -238,11 +231,20 @@ function recentTrend(daily: UsageDashboard["daily"]): { amount: number; directio
 }
 
 function Loading() {
-  return <div className="flex justify-center py-10 text-muted-foreground"><CircleNotchIcon className="animate-spin" /></div>;
+  return (
+    <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground" role="status">
+      <CircleNotchIcon className="animate-spin" />
+      Reading Pi's session files…
+    </div>
+  );
 }
 
+// Fractions of a cent are the normal case, so a flat two decimals would print
+// most of this as "$0.00". Zero is just zero: it goes in the same right-aligned
+// figure column as every other amount, and "$0.00 recorded" was a sentence
+// sitting in it.
 function cost(value: number): string {
-  if (value === 0) return "$0.00 recorded";
+  if (value === 0) return "$0";
   if (value < 0.01) return `$${value.toFixed(4)}`;
   if (value < 1) return `$${value.toFixed(3)}`;
   return `$${value.toFixed(2)}`;

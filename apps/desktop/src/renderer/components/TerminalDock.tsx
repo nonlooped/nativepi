@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
@@ -23,6 +23,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
+import ConfirmDialog from "./ConfirmDialog.tsx";
 
 function columnForTextOffset(line: { length: number; getCell(index: number): { getChars(): string; getWidth(): number } | undefined }, offset: number) {
   let textOffset = 0;
@@ -56,8 +57,14 @@ export default function TerminalDock({
 }) {
   const [terminals, setTerminals] = useState<TerminalSession[]>([]);
   const [shells, setShells] = useState<ShellProfile[]>([]);
+  // Only a dock with no terminals at all reports through `error`, because that
+  // message replaces the whole panel. A shell that fails to open while others
+  // are running is a toast: tearing the panel down would dispose every live
+  // xterm to report that a new one did not start.
   const [error, setError] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
+  const [restarts, setRestarts] = useState<Record<string, number>>({});
+  const [confirmingKillAll, setConfirmingKillAll] = useState(false);
   const preferredShellId = useAppStore((s) => s.preferences.preferredShellId);
   const setPreference = useAppStore((s) => s.setPreference);
 
@@ -88,6 +95,11 @@ export default function TerminalDock({
     const offRestart = rpc.events.on("terminalRestart", ({ projectDir: restartedProject, terminal }) => {
       if (restartedProject !== projectDir) return;
       setTerminals((current) => current.map((session) => (session.id === terminal.id ? terminal : session)));
+      // A restart keeps the terminal's id but empties its buffer in the main
+      // process, so the surface has to be rebuilt to drop the dead shell's
+      // scrollback. This counter is the only thing that says so — nothing else
+      // about the session changes.
+      setRestarts((current) => ({ ...current, [terminal.id]: (current[terminal.id] ?? 0) + 1 }));
     });
     return () => {
       cancelled = true;
@@ -101,7 +113,9 @@ export default function TerminalDock({
       const { terminal } = await rpc.request.terminalCreate({ projectDir, shellId, name });
       setTerminals((current) => [...current, terminal]);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      const message = reason instanceof Error ? reason.message : String(reason);
+      if (terminals.length === 0) setError(message);
+      else toast.error(`Could not open another shell: ${message}`);
     }
   }
 
@@ -142,7 +156,7 @@ export default function TerminalDock({
       else setClosing(false);
     } catch (reason) {
       setClosing(false);
-      setError(reason instanceof Error ? reason.message : String(reason));
+      toast.error(reason instanceof Error ? reason.message : String(reason));
     }
   }
 
@@ -157,7 +171,7 @@ export default function TerminalDock({
       onMinimize();
     } catch (reason) {
       setClosing(false);
-      setError(reason instanceof Error ? reason.message : String(reason));
+      toast.error(reason instanceof Error ? reason.message : String(reason));
     }
   }
 
@@ -175,10 +189,13 @@ export default function TerminalDock({
           onChoose={(shellId) => setPreference("preferredShellId", shellId)}
           onSplit={(shellId) => void addSplit(shellId)}
         />
+        {/* Confirmed, like every other control that ends work the user cannot
+            get back. Quitting the window asks about exactly these shells; the
+            button that kills them all should not be the one that does not. */}
         <Button
           variant="ghost"
           size="icon-xs"
-          onClick={() => void closeAll()}
+          onClick={() => setConfirmingKillAll(true)}
           disabled={terminals.length === 0 || closing}
           title="Kill all terminals"
           aria-label="Kill all terminals"
@@ -189,8 +206,25 @@ export default function TerminalDock({
           <XIcon />
         </Button>
         </ContextMenuTrigger>
-        <TerminalChromeMenu addSplit={() => void addSplit(preferredShellId || undefined)} closeAll={closeAll} closing={closing} />
+        <TerminalChromeMenu
+          addSplit={() => void addSplit(preferredShellId || undefined)}
+          closeAll={() => setConfirmingKillAll(true)}
+          closing={closing}
+        />
       </ContextMenu>
+
+      <ConfirmDialog
+        open={confirmingKillAll}
+        title={terminals.length === 1 ? "Close this terminal?" : `Close all ${terminals.length} terminals?`}
+        description="The shells end along with whatever they are running. Their scrollback goes with them."
+        confirmLabel={terminals.length === 1 ? "Close terminal" : "Close all"}
+        destructive
+        onConfirm={() => {
+          setConfirmingKillAll(false);
+          void closeAll();
+        }}
+        onCancel={() => setConfirmingKillAll(false)}
+      />
 
       {error ? (
         <div role="alert" className="flex min-h-0 flex-1 items-center justify-center px-4 text-sm text-destructive">
@@ -210,9 +244,10 @@ export default function TerminalDock({
               defaultSize={`${100 / terminals.length}%`}
               showHandle={index > 0}
               closing={closing}
+              restartCount={restarts[terminal.id] ?? 0}
               onClose={() => void closeSplit(terminal.id)}
               onSplit={() => void addSplit(preferredShellId || undefined)}
-              onCloseAll={closeAll}
+              onCloseAll={() => setConfirmingKillAll(true)}
               onDuplicate={() => void duplicateSplit(terminal)}
               onRestart={() => void restartSplit(terminal.id)}
               onRename={(name) => void renameSplit(terminal.id, name)}
@@ -287,6 +322,7 @@ function TerminalSplit({
   defaultSize,
   showHandle,
   closing,
+  restartCount,
   onClose,
   onSplit,
   onCloseAll,
@@ -299,9 +335,10 @@ function TerminalSplit({
   defaultSize: string;
   showHandle: boolean;
   closing: boolean;
+  restartCount: number;
   onClose: () => void;
   onSplit: () => void;
-  onCloseAll: () => Promise<void>;
+  onCloseAll: () => void;
   onDuplicate: () => void;
   onRestart: () => void;
   onRename: (name: string) => void;
@@ -356,6 +393,7 @@ function TerminalSplit({
           </ContextMenu>
           <TerminalSurface
             session={session}
+            restartCount={restartCount}
             projectDir={projectDir}
             onSplit={onSplit}
             onClose={onClose}
@@ -387,6 +425,7 @@ function StatusDot({ session }: { session: TerminalSession }) {
 
 function TerminalSurface({
   session,
+  restartCount,
   projectDir,
   onSplit,
   onClose,
@@ -396,16 +435,18 @@ function TerminalSurface({
   closing,
 }: {
   session: TerminalSession;
+  restartCount: number;
   projectDir: string;
   onSplit: () => void;
   onClose: () => void;
-  onCloseAll: () => Promise<void>;
+  onCloseAll: () => void;
   onDuplicate: () => void;
   onRestart: () => void;
   closing: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
   const cwdRef = useRef(projectDir);
   const controlRef = useRef("");
   const [selection, setSelection] = useState("");
@@ -413,6 +454,25 @@ function TerminalSurface({
   const scrollback = useAppStore((s) => s.preferences.terminalScrollback);
   const cursorBlink = useAppStore((s) => s.preferences.terminalCursorBlink);
   const preferredEditorId = useAppStore((s) => s.preferences.preferredEditorId);
+  const terminalId = session.id;
+
+  // A shell that had already exited before this surface mounted has no exit
+  // event left to send, so the notice has to come from the session. Read as an
+  // effect event because it is a fact about the moment of mounting: letting it
+  // into the dependencies would rebuild the whole terminal when a process ends.
+  const noticeIfAlreadyExited = useEffectEvent((terminal: Terminal) => {
+    if (session.exited) terminal.write(`\r\n[Process exited with code ${session.exitCode ?? "unknown"}]\r\n`);
+  });
+
+  // Likewise for the editor a file link opens in: a preference the link handler
+  // reads when it fires, not one the terminal has to be rebuilt around.
+  const openFileLink = useEffectEvent((file: string, line?: number, column?: number) => {
+    void rpc.request
+      .openFileIn({ projectDir: cwdRef.current, file, editorId: preferredEditorId, line, column })
+      .then((result) => {
+        if (!result.ok) toast.error(result.error ?? `Could not open ${file}.`);
+      });
+  });
 
   useEffect(() => {
     const container = containerRef.current;
@@ -452,6 +512,7 @@ function TerminalSurface({
     });
 
     const fit = new FitAddon();
+    fitRef.current = fit;
     terminal.loadAddon(fit);
     terminal.open(container);
 
@@ -474,11 +535,7 @@ function TerminalSurface({
                 void rpc.request.openExternal({ url: match.url });
                 return;
               }
-              void rpc.request
-                .openFileIn({ projectDir: cwdRef.current, file: match.file, editorId: preferredEditorId, line: match.line, column: match.column })
-                .then((result) => {
-                  if (!result.ok) toast.error(result.error ?? `Could not open ${match.file}.`);
-                });
+              openFileLink(match.file, match.line, match.column);
             },
           })),
         );
@@ -490,20 +547,20 @@ function TerminalSurface({
     let live = false;
     const pending: { data: string; sequence: number }[] = [];
     const offData = rpc.events.on("terminalData", (payload) => {
-      if (payload.projectDir !== projectDir || payload.terminalId !== session.id) return;
+      if (payload.projectDir !== projectDir || payload.terminalId !== terminalId) return;
       updateWorkingDirectory(cwdRef, controlRef, payload.data);
       if (live) terminal.write(payload.data);
       else pending.push(payload);
     });
     const offExit = rpc.events.on("terminalExit", (payload) => {
-      if (payload.projectDir !== projectDir || payload.terminalId !== session.id) return;
+      if (payload.projectDir !== projectDir || payload.terminalId !== terminalId) return;
       terminal.write(`\r\n[Process exited with code ${payload.exitCode}]\r\n`);
     });
     const input = terminal.onData((data) => {
-      void rpc.request.terminalWrite({ projectDir, terminalId: session.id, data });
+      void rpc.request.terminalWrite({ projectDir, terminalId, data });
     });
 
-    void rpc.request.terminalSnapshot({ projectDir, terminalId: session.id }).then(
+    void rpc.request.terminalSnapshot({ projectDir, terminalId }).then(
       ({ output, sequence }) => {
         if (disposed) return;
         snapshotSequence = sequence;
@@ -516,7 +573,7 @@ function TerminalSurface({
           }
         }
         live = true;
-        if (session.exited) terminal.write(`\r\n[Process exited with code ${session.exitCode ?? "unknown"}]\r\n`);
+        noticeIfAlreadyExited(terminal);
       },
       () => {},
     );
@@ -529,7 +586,7 @@ function TerminalSurface({
         fit.fit();
         void rpc.request.terminalResize({
           projectDir,
-          terminalId: session.id,
+          terminalId,
           cols: terminal.cols,
           rows: terminal.rows,
         });
@@ -550,13 +607,27 @@ function TerminalSurface({
       offExit();
       terminal.dispose();
       terminalRef.current = null;
+      fitRef.current = null;
     };
-    // A preference change rebuilds the surface rather than mutating the live
-    // terminal's options. The pty and its output live in the main process, and
-    // the snapshot above restores the scrollback, so a rebuild is invisible —
-    // the same path a project switch already takes. A restart bumps `session`
-    // (a new object from the main process) for the same reason.
-  }, [projectDir, session, fontSize, scrollback, cursorBlink, preferredEditorId]);
+    // Rebuilt only for a different terminal, or the same one restarted — a
+    // restart keeps its id and empties its buffer in the main process, so the
+    // counter is the only thing saying the scrollback on screen is dead.
+    // Everything else that used to be in here was a preference, and those are
+    // now applied to the live terminal below: dragging the font-size slider
+    // rebuilt this once per step, and renaming a tab threw away the selection
+    // and scroll position of a shell that had not moved.
+  }, [projectDir, terminalId, restartCount, noticeIfAlreadyExited, openFileLink]);
+
+  // Preferences, applied in place rather than by reconstruction.
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!terminal) return;
+    terminal.options.fontSize = fontSize;
+    terminal.options.scrollback = scrollback;
+    terminal.options.cursorBlink = cursorBlink;
+    fitRef.current?.fit();
+    void rpc.request.terminalResize({ projectDir, terminalId, cols: terminal.cols, rows: terminal.rows });
+  }, [projectDir, terminalId, fontSize, scrollback, cursorBlink]);
 
   return (
     <ContextMenu>
@@ -586,7 +657,7 @@ function TerminalSurface({
         <ContextMenuItem onClick={onDuplicate}>Duplicate terminal</ContextMenuItem>
         <ContextMenuItem onClick={onRestart}>Restart terminal</ContextMenuItem>
         <ContextMenuItem disabled={closing} onClick={onClose}>Close this terminal</ContextMenuItem>
-        <ContextMenuItem disabled={closing} onClick={() => void onCloseAll()}>Kill all terminals</ContextMenuItem>
+        <ContextMenuItem disabled={closing} onClick={onCloseAll}>Kill all terminals</ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   );
@@ -603,7 +674,7 @@ function TerminalChromeMenu({
 }: {
   addSplit: () => void;
   close?: () => void;
-  closeAll: () => Promise<void>;
+  closeAll: () => void;
   closing: boolean;
   onDuplicate?: () => void;
   onRestart?: () => void;
@@ -616,7 +687,7 @@ function TerminalChromeMenu({
       {onDuplicate ? <ContextMenuItem onClick={onDuplicate}>Duplicate terminal</ContextMenuItem> : null}
       {onRestart ? <ContextMenuItem onClick={onRestart}>Restart terminal</ContextMenuItem> : null}
       {close ? <ContextMenuItem disabled={closing} onClick={close}>Close this terminal</ContextMenuItem> : null}
-      <ContextMenuItem disabled={closing} onClick={() => void closeAll()}>Kill all terminals</ContextMenuItem>
+      <ContextMenuItem disabled={closing} onClick={closeAll}>Kill all terminals</ContextMenuItem>
     </ContextMenuContent>
   );
 }

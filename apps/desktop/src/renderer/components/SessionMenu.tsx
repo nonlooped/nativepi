@@ -11,6 +11,7 @@ import { PushPinSlashIcon } from "@phosphor-icons/react/PushPinSlash";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { TreeStructureIcon } from "@phosphor-icons/react/TreeStructure";
 import { useState } from "react";
+import { toast } from "sonner";
 import type { ForkPoint, SessionStats, SessionSummary, SessionTreeNode } from "../../shared/pi-types.ts";
 import { textOf } from "../../shared/messages.ts";
 import { fileManagerName } from "../lib/paths.ts";
@@ -25,7 +26,9 @@ import { Input } from "@/components/ui/input.tsx";
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuGroup,
   ContextMenuItem,
+  ContextMenuLabel,
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
@@ -65,7 +68,10 @@ export default function SessionMenu({
   const pinned = useAppStore((s) => s.pinnedChats.includes(session.path));
   const togglePinnedChat = useAppStore((s) => s.togglePinnedChat);
 
-  const blocked = running && activeSessionFile === session.path;
+  // A chat is off-limits while its own turn is in flight, whether or not it is
+  // the one on screen. Requiring it to also be the active session left every
+  // chat running in a background project freely deletable mid-run.
+  const blocked = running;
   const inProject = (action: () => void | Promise<void>) => () => {
     void selectProject(projectPath).then(action);
   };
@@ -78,10 +84,13 @@ export default function SessionMenu({
     const projectDir = useAppStore.getState().activeProjectPath;
     if (!projectDir) return;
     const res = await rpc.request.exportHtml({ projectDir, sessionFile: session.path });
-    if (res.ok && res.path) {
-      setExportPath(res.path);
-      setDialog("export");
+    if (!res.ok || !res.path) {
+      // Silence here was indistinguishable from a menu item that does nothing.
+      toast.error(res.error ?? "NativePi could not export this chat.");
+      return;
     }
+    setExportPath(res.path);
+    setDialog("export");
   }
 
   const actions = {
@@ -241,29 +250,51 @@ function sessionItems(actions: SessionActions): SessionItem[] {
   ];
 }
 
+/**
+ * The menu, with each section as a real labelled group.
+ *
+ * The headings used to be bare paragraphs dropped between menu items, which put
+ * unlabelled non-items inside a `role="menu"`. The primitives for this already
+ * exist and every dropdown in the window uses them.
+ */
 function SessionItems({ actions }: { actions: SessionActions }) {
+  const sections: { label?: string; items: Extract<SessionItem, { kind: "item" }>[] }[] = [];
+  for (const item of sessionItems(actions)) {
+    // A separator opens an unlabelled group; every group is already ruled off
+    // from the one before it.
+    if (item.kind === "separator") {
+      sections.push({ items: [] });
+      continue;
+    }
+    if (item.kind === "section") {
+      sections.push({ label: item.label, items: [] });
+      continue;
+    }
+    const current = sections.at(-1);
+    if (current) current.items.push(item);
+    else sections.push({ items: [item] });
+  }
+
   return (
     <>
-      {sessionItems(actions).map((item, index) =>
-        item.kind === "separator" ? (
-          <ContextMenuSeparator key={`separator-${index}`} />
-        ) : item.kind === "section" ? (
-          <p key={item.label} className="px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground first:pt-1">
-            {item.label}
-          </p>
-        ) : (
-          <ContextMenuItem
-            key={item.label}
-            onClick={item.onClick}
-            disabled={item.disabled}
-            title={item.title}
-            variant={item.destructive ? "destructive" : "default"}
-          >
-            {item.icon}
-            {item.label}
-          </ContextMenuItem>
-        ),
-      )}
+      {sections.map((section, index) => (
+        <ContextMenuGroup key={section.label ?? `section-${index}`}>
+          {index > 0 ? <ContextMenuSeparator /> : null}
+          {section.label ? <ContextMenuLabel>{section.label}</ContextMenuLabel> : null}
+          {section.items.map((item) => (
+            <ContextMenuItem
+              key={item.label}
+              onClick={item.onClick}
+              disabled={item.disabled}
+              title={item.title}
+              variant={item.destructive ? "destructive" : "default"}
+            >
+              {item.icon}
+              {item.label}
+            </ContextMenuItem>
+          ))}
+        </ContextMenuGroup>
+      ))}
     </>
   );
 }
@@ -580,10 +611,12 @@ function pct(value: number, total: number): string {
   return `${Math.round((value / total) * 100)}%`;
 }
 
+/** Freeze the animation and a bare spinner says nothing at all, so it says it. */
 function Loading() {
   return (
-    <div className="flex items-center justify-center py-10 text-muted-foreground">
+    <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground" role="status">
       <CircleNotchIcon className="animate-spin" />
+      Reading this chat…
     </div>
   );
 }
@@ -602,8 +635,22 @@ function cost(value: number): string {
   return `$${value.toFixed(2)}`;
 }
 
+/**
+ * A `file://` URL for an exported chat.
+ *
+ * Each segment is encoded separately so the separators survive: an export named
+ * after a chat title can carry `#`, `?` or a space, any of which silently
+ * truncated or broke the raw concatenation this used to be.
+ */
 function fileUrl(path: string): string {
-  return "file:///" + path.replace(/\\/g, "/").replace(/^\/+/, "");
+  const normalized = path.replace(/\\/g, "/").replace(/^\/+/, "");
+  const encoded = normalized
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/")
+    // A Windows drive letter keeps its colon; `file:///C%3A/…` is not a path.
+    .replace(/^([A-Za-z])%3A/, "$1:");
+  return "file:///" + encoded;
 }
 
 function nodeKind(node: SessionTreeNode): string {

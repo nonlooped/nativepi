@@ -74,16 +74,22 @@ export default function ModelSelector({
     onSelectionChange?.(TITLE_GENERATOR_ACTIVE);
   }
 
-  if (models.length === 0 && providersLoaded && !providers.some((item) => item.configured)) {
+  // Providers have answered and there is still nothing to pick from. Whether
+  // that is because none is connected or because a connected one returned no
+  // models, the way out is the same screen — and saying "Loading models…"
+  // forever, which is what the second case used to do, is not a way out at all.
+  if (models.length === 0 && providersLoaded) {
+    const configured = providers.some((item) => item.configured);
     return (
       <Button
         variant="ghost"
         size="sm"
         onClick={openSettings}
+        title={configured ? "Your connected providers reported no usable models" : undefined}
         className="h-8 gap-2 px-2 text-sm font-normal text-muted-foreground hover:text-foreground"
       >
         <WarningCircleIcon />
-        Connect a provider
+        {configured ? "No models available" : "Connect a provider"}
       </Button>
     );
   }

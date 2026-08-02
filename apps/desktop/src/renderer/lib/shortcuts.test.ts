@@ -139,6 +139,14 @@ describe("parseKeyEvent", () => {
     expect(parseKeyEvent(keydown({ code: "KeyG", metaKey: true }))).toBe("Meta+KeyG");
   });
 
+  // Off a Mac, `$mod` is Ctrl and Meta is the Windows key. The two are never the
+  // same key, so recording one must never produce the other: Ctrl+K used to be
+  // written as `$mod+KeyK` on macOS as well, where it fires on Cmd+K.
+  test("keeps the command modifier and the other one apart", () => {
+    expect(parseKeyEvent(keydown({ code: "KeyK", ctrlKey: true }))).toBe("$mod+KeyK");
+    expect(parseKeyEvent(keydown({ code: "KeyK", ctrlKey: true, metaKey: true }))).toBe("$mod+Meta+KeyK");
+  });
+
   test("a plain key with no modifiers binds on its own", () => {
     expect(parseKeyEvent(keydown({ code: "Escape" }))).toBe("Escape");
   });

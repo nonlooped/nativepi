@@ -66,15 +66,15 @@ function Updates() {
       description={detail}
       action={
         update.status === "available" ? (
-          <Button size="lg" onClick={() => void downloadUpdate()}>
+          <Button size="xl" onClick={() => void downloadUpdate()}>
             Download
           </Button>
         ) : update.status === "ready" ? (
-          <Button size="lg" onClick={() => void installUpdate()}>
+          <Button size="xl" onClick={() => void installUpdate()}>
             Restart and install
           </Button>
         ) : (
-          <Button size="lg" variant="outline" disabled={busy} onClick={() => void checkForUpdate()}>
+          <Button size="xl" variant="outline" disabled={busy} onClick={() => void checkForUpdate()}>
             {busy ? "Working…" : "Check now"}
           </Button>
         )

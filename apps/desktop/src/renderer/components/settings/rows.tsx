@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useEffectEvent, useId, useRef } from "react";
 import { CheckIcon } from "@phosphor-icons/react/Check";
 import { Input } from "@/components/ui/input.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
@@ -21,6 +21,12 @@ import { cn } from "@/lib/utils.ts";
  * a link that is or is not being served, an extension that is or is not loaded,
  * an update that is or is not waiting. Those get `SettingsCard`, because a state
  * dot and an outcome need somewhere to live that a two-column row does not have.
+ *
+ * Buttons in either right-hand column are `size="xl"`. That is the 2.5rem form
+ * scale DESIGN.md gives `input` and `button-form`, and it is what `Input`,
+ * `SelectTrigger` and `Segmented` below already stand at — a shorter button in
+ * the same column is visibly out of line with the row above it. Compact sizes
+ * stay for section headers and inline row actions, which are not form controls.
  */
 
 export function SettingsSection({
@@ -271,10 +277,20 @@ export function ChoiceCards<T extends string>({
   options: { value: T; label: string; preview: React.ReactNode }[];
   onChange: (value: T) => void;
 }) {
+  // A radio group is a single tab stop the arrows move within. Declaring the
+  // roles without that behaviour promised an interaction the cards did not have,
+  // so the keyboard contract is implemented rather than the roles dropped: these
+  // are a picture of one setting's alternatives, which is what a radio group is.
+  const move = (index: number, step: number) => {
+    const next = options[(index + step + options.length) % options.length];
+    if (next) onChange(next.value);
+  };
+  const selectedIndex = Math.max(0, options.findIndex((option) => option.value === value));
+
   return (
     <Row label={label} description={description} wide>
       <div role="radiogroup" aria-label={label} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {options.map((option) => {
+        {options.map((option, index) => {
           const selected = option.value === value;
           return (
             <button
@@ -282,6 +298,18 @@ export function ChoiceCards<T extends string>({
               type="button"
               role="radio"
               aria-checked={selected}
+              tabIndex={index === selectedIndex ? 0 : -1}
+              onKeyDown={(event) => {
+                const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1
+                  : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1
+                  : 0;
+                if (!step) return;
+                event.preventDefault();
+                move(index, step);
+                const group = event.currentTarget.parentElement;
+                const target = group?.children[(index + step + options.length) % options.length];
+                if (target instanceof HTMLElement) target.focus();
+              }}
               onClick={() => onChange(option.value)}
               className={cn(
                 "relative flex flex-col gap-2 rounded-lg border p-2 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:border-foreground focus-visible:ring-2 focus-visible:ring-ring",
@@ -428,6 +456,10 @@ export function SliderRow({
  * Every one of these writes a file, and half of them restart Pi; saving while
  * someone is halfway through typing a shell path would write a dozen invalid
  * ones on the way to the valid one.
+ *
+ * Unmounting counts as leaving the field. Closing Settings with Escape never
+ * fires a blur, so a value typed and not tabbed out of used to be dropped
+ * without a word.
  */
 export function TextRow({
   label,
@@ -445,6 +477,14 @@ export function TextRow({
   onCommit: (value: string) => void;
 }) {
   const id = useId();
+  const field = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const commitOnUnmount = useEffectEvent(() => {
+    const typed = field.current?.value;
+    if (typed !== undefined && typed !== value) onCommit(typed);
+  });
+
+  useEffect(() => () => commitOnUnmount(), []);
+
   const commit = (event: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (event.target.value !== value) onCommit(event.target.value);
   };
@@ -455,6 +495,7 @@ export function TextRow({
         <Textarea
           id={id}
           key={value}
+          ref={field as React.Ref<HTMLTextAreaElement>}
           defaultValue={value}
           placeholder={placeholder}
           onBlur={commit}
@@ -467,6 +508,7 @@ export function TextRow({
         <Input
           id={id}
           key={value}
+          ref={field as React.Ref<HTMLInputElement>}
           defaultValue={value}
           placeholder={placeholder}
           onBlur={commit}

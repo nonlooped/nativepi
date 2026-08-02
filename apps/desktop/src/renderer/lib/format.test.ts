@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatDuration, formatElapsed, formatLineDelta, formatTokens, pluralize } from "./format.ts";
+import { formatDuration, formatElapsed, formatLineDelta, formatTokens, pluralize, timeAgo } from "./format.ts";
 
 describe("formatElapsed", () => {
   test("steps from seconds to hours", () => {
@@ -40,8 +40,9 @@ describe("formatLineDelta", () => {
 describe("formatTokens", () => {
   test("abbreviates at each magnitude", () => {
     expect(formatTokens(999)).toBe("999");
-    expect(formatTokens(12_400)).toBe("12k");
-    expect(formatTokens(1_250_000)).toBe("1.3m");
+    expect(formatTokens(12_400)).toBe("12K");
+    expect(formatTokens(1_250_000)).toBe("1.3M");
+    expect(formatTokens(2_000_000)).toBe("2M");
   });
 });
 
@@ -49,5 +50,28 @@ describe("pluralize", () => {
   test("agrees with its count", () => {
     expect(pluralize(1, "file")).toBe("1 file");
     expect(pluralize(3, "file")).toBe("3 files");
+  });
+});
+
+describe("timeAgo", () => {
+  const NOW = new Date(2026, 6, 30, 12).getTime();
+  const daysBefore = (days: number) => new Date(NOW - days * 86_400_000).toISOString();
+
+  test("climbs through the units", () => {
+    expect(timeAgo(new Date(NOW - 30_000).toISOString(), NOW)).toBe("now");
+    expect(timeAgo(new Date(NOW - 20 * 60_000).toISOString(), NOW)).toBe("20m");
+    expect(timeAgo(new Date(NOW - 5 * 3_600_000).toISOString(), NOW)).toBe("5h");
+    expect(timeAgo(daysBefore(3), NOW)).toBe("3d");
+    expect(timeAgo(daysBefore(20), NOW)).toBe("2w");
+    expect(timeAgo(daysBefore(90), NOW)).toBe("3mo");
+    expect(timeAgo(daysBefore(400), NOW)).toBe("1y");
+  });
+
+  test("never reports a chat under a year old as zero years", () => {
+    // 360 days used to round to twelve months and then fall through to "0y".
+    for (const days of [340, 355, 360, 364]) {
+      expect(timeAgo(daysBefore(days), NOW)).toBe("11mo");
+    }
+    expect(timeAgo(daysBefore(365), NOW)).toBe("1y");
   });
 });

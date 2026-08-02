@@ -4,6 +4,7 @@ import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { SparkleIcon } from "@phosphor-icons/react/Sparkle";
 import type { AssistantMessage, GitPrTarget, SessionEntry } from "../../shared/pi-types.ts";
 import { rpc } from "../lib/rpc.ts";
+import { showHint } from "../lib/toast.tsx";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { useRequest } from "../lib/useRequest.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
@@ -105,6 +106,12 @@ export default function CommitDialog({ projectDir, onClose }: { projectDir: stri
     setBusy(null);
     if (!result.ok) return setError(result.error ?? "Git could not create the commit.");
     await refreshGit();
+    // A commit that leaves the dialog exactly as it was, message included, looks
+    // like one that did not happen — and the obvious response to that is to
+    // press Commit again.
+    showHint("Commit created");
+    setMessage("");
+    if (!showPullRequest) onClose();
   }
 
   async function createPr() {
@@ -140,6 +147,12 @@ export default function CommitDialog({ projectDir, onClose }: { projectDir: stri
               <SparkleIcon data-icon="inline-start" />
               {draftingSince ? "Pi is drafting…" : "Draft with Pi"}
             </Button>
+            {/* This is an ordinary turn in the open chat, not a side channel:
+                it costs tokens and it stays in the transcript afterwards. Worth
+                one sentence before the click rather than a surprise after it. */}
+            {canAskPi ? (
+              <p className="text-xs text-muted-foreground">Asks in the open chat, and stays in its history.</p>
+            ) : null}
             {!conversation.sessionFile ? <p className="text-xs text-muted-foreground">Open a chat to ask Pi for a draft.</p> : null}
             {conversation.running ? <p className="text-xs text-muted-foreground">Wait for Pi’s current turn before asking for a draft.</p> : null}
 
@@ -227,7 +240,8 @@ function PrTarget({ target, error }: { target: GitPrTarget | null; error: string
   return (
     <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
       <span className="font-mono text-foreground">{target.branch}</span>
-      <ArrowRightIcon aria-label="into" className="shrink-0" />
+      <ArrowRightIcon aria-hidden="true" className="shrink-0" />
+      <span className="sr-only">into</span>
       <span className="font-mono text-foreground">{target.base}</span>
       {target.remote ? <span className="w-full truncate font-mono" title={target.remote}>{target.remote}</span> : null}
     </p>

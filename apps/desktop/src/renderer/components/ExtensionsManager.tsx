@@ -37,7 +37,10 @@ function BuiltInExtensions() {
   const [busy, setBusy] = useState<string | null>(null);
   const [failed, setFailed] = useState<{ id: string; message: string }>();
 
-  async function setEnabled(extension: BuiltInExtensionInfo, enabled: boolean) {
+  // `updating` only changes the wording: reinstalling over an outdated copy is
+  // the same call as enabling it, and reporting "enabled" for a button labelled
+  // Update described something the user had not done.
+  async function setEnabled(extension: BuiltInExtensionInfo, enabled: boolean, updating = false) {
     setBusy(extension.id);
     setFailed(undefined);
     const result = await rpc.request.setBuiltInExtension({ id: extension.id, enabled });
@@ -47,7 +50,7 @@ function BuiltInExtensions() {
       return;
     }
     listing.reload();
-    showHint(`${extension.name} ${enabled ? "enabled" : "disabled"}`);
+    showHint(`${extension.name} ${updating ? "updated" : enabled ? "enabled" : "disabled"}`);
   }
 
   return (
@@ -77,7 +80,7 @@ function BuiltInExtensions() {
           action={
             <div className="flex items-center gap-2">
               {extension.outdated ? (
-                <Button size="lg" variant="outline" disabled={busy !== null} onClick={() => void setEnabled(extension, true)}>
+                <Button size="xl" variant="outline" disabled={busy !== null} onClick={() => void setEnabled(extension, true, true)}>
                   Update
                 </Button>
               ) : null}
@@ -102,6 +105,10 @@ export default function ExtensionsManager() {
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const reloadExtensions = useAppStore((s) => s.reloadExtensions);
   const graphicalErrors = useAppStore((s) => s.extLoadErrors);
+  // Reloading extensions restarts Pi, which ends whatever turn it is in the
+  // middle of. Every other route to that restart already waits for the run;
+  // this one used to take it out from under the user without a word.
+  const running = useAppStore((s) => Object.values(s.conversations).some((conversation) => conversation.running));
 
   const [source, setSource] = useState("");
   const [scope, setScope] = useState<"user" | "project">("user");
@@ -161,8 +168,9 @@ export default function ExtensionsManager() {
     setActionError(undefined);
     const res = await rpc.request.updatePackage({ projectDir: projectDir!, source: pkg.source });
     setBusy(null);
-    if (!res.ok) setActionError(res.error ?? "Update failed");
-    else refresh();
+    if (!res.ok) return setActionError(res.error ?? "Update failed");
+    refresh();
+    showHint(`${pkg.source} updated`);
   }
 
   async function reload() {
@@ -185,7 +193,17 @@ export default function ExtensionsManager() {
             </span>
           </h2>
           <div className="flex-1" />
-          <Button variant="ghost" size="sm" onClick={() => void reload()} disabled={busy !== null}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void reload()}
+            disabled={busy !== null || running}
+            title={
+              running
+                ? "Wait for every running turn to finish — reloading restarts Pi"
+                : "Restart Pi so it picks up changed extensions"
+            }
+          >
             {busy === "reload" ? (
               <CircleNotchIcon className="animate-spin" data-icon="inline-start" />
             ) : (

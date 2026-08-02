@@ -4,7 +4,7 @@ import { PowerIcon } from "@phosphor-icons/react/Power";
 import { Button } from "@/components/ui/button.tsx";
 import { useAppStore } from "../../lib/store.ts";
 import ModelSelector from "../ModelSelector.tsx";
-import { SettingsCard, SettingsSection, SwitchRow } from "./rows.tsx";
+import { ActionRow, SettingsCard, SettingsSection, SwitchRow } from "./rows.tsx";
 
 type Permission = NotificationPermission | "unsupported";
 
@@ -36,17 +36,16 @@ export default function GeneralSettings() {
         heading="Chat titles"
         description="NativePi asks Pi for a short title after your first message. Choose a smaller model to keep this request inexpensive."
       >
-        <div className="flex flex-col gap-3 border-t py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-          <div className="min-w-0">
-            <p className="text-sm font-medium">Title generator</p>
-            <p className="text-sm leading-5 text-muted-foreground">Uses the models Pi makes available for the current project.</p>
-          </div>
+        <ActionRow
+          label="Title generator"
+          description="Uses the models Pi makes available for the current project."
+        >
           <ModelSelector
             selectedKey={titleGeneratorModel}
             onSelectionChange={setTitleGeneratorModel}
             showChatModelOption
           />
-        </div>
+        </ActionRow>
       </SettingsSection>
 
       <SettingsSection heading="Notifications">
@@ -124,7 +123,7 @@ function NotificationCard({ enabled, silent }: { enabled: boolean; silent: boole
           : "Send one now to check that it arrives, and that it sounds the way you want."
       }
       action={
-        <Button variant="outline" size="lg" disabled={blocked} onClick={() => void send()}>
+        <Button variant="outline" size="xl" disabled={blocked} onClick={() => void send()}>
           Send a test
         </Button>
       }

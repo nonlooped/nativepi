@@ -80,6 +80,20 @@ export default function Settings() {
     if (PI_BACKED.has(category)) void loadPiSettings();
   }, [category, loadPiSettings]);
 
+  // Escape belongs to this screen, not to the "stop the turn" shortcut it used
+  // to be answered by — rebinding that one silently took the keyboard way out of
+  // Settings with it. A dialog or menu on top gets Escape first and marks it
+  // handled, so this only ever closes the last layer.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      closeSettings();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [closeSettings]);
+
   const rail = (
     <CategoryNav
       category={category}
@@ -181,7 +195,7 @@ function CategoryNav({
   onSelect: (category: Category) => void;
 }) {
   return (
-    // Scrolls rather than compressing: nine categories do not fit a short
+    // Scrolls rather than compressing: ten categories do not fit a short
     // window, and the Back button below must stay reachable.
     <nav
       aria-label="Settings categories"

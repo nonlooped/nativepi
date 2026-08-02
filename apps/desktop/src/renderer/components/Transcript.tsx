@@ -134,15 +134,14 @@ function TranscriptContent() {
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      {/* role="log" gives assistive tech a navigable transcript, but live
+      {/* The scroller supplies the region and the log; this element exists only
+          to catch a right-click on transcript whitespace, so it stays a plain
+          wrapper rather than a third, duplicately-labelled landmark. Live
           announcements are handled by TurnAnnouncer below: streaming markdown
           re-renders on every token and would otherwise be read continuously. */}
       <ContextMenu disabled={!transcriptSelection}>
           <ContextMenuTrigger
           render={<div className="min-h-0 flex-1" />}
-          role="log"
-          aria-label="Conversation transcript"
-          aria-live="off"
           className="min-h-0 flex-1"
         >
         <MessageScroller className="min-h-0 flex-1">
@@ -201,9 +200,6 @@ function TranscriptContent() {
           )}
             </MessageScrollerContent>
           </MessageScrollerViewport>
-          <MessageScrollerButton direction="end" className="pointer-events-auto h-8 w-auto px-3.5 text-xs">
-            Jump to latest
-          </MessageScrollerButton>
         </MessageScroller>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-48">
@@ -221,8 +217,20 @@ function TranscriptContent() {
       />
 
       {/* The transient-affordance layer: run status and jump-to-latest, the two
-          controls that act on the view rather than on the message being typed. */}
+          controls that act on the view rather than on the message being typed.
+          Both float over the same strip above the composer, so they stack here
+          rather than being positioned independently and landing on each other.
+          The run pill sits last because DESIGN puts it directly above the
+          composer; the jump control rides above it. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-3 flex flex-col items-center gap-2">
+        {/* `static` undoes the primitive's own absolute placement, which is
+            written for a viewport it is no longer a child of. */}
+        <MessageScrollerButton
+          direction="end"
+          className="pointer-events-auto static h-8 w-auto translate-x-0 px-3.5 text-xs"
+        >
+          Jump to latest
+        </MessageScrollerButton>
         {running ? (
           <RunStatusBar
             activeTool={activeToolName(items, results)}
@@ -657,6 +665,10 @@ function AssistantResponse({
   const reduced = useReducedMotion();
   const workIsStreaming = streaming && !finalText && !reduced;
   const [workOpen, setWorkOpen] = useState(streaming);
+  // A panel the reader opened for themselves is theirs to close. Without this,
+  // the end of the turn shut the work section under anyone who had expanded it
+  // to watch a tool run — which is the moment they most wanted it open.
+  const openedByReader = useRef(false);
   const responseRef = useRef<HTMLElement>(null);
   const changes = useMemo(() => turnChanges(messages, results), [messages, results]);
   // `ctx.ui.setToolsExpanded()` is Pi's control over whether tool output shows
@@ -665,11 +677,18 @@ function AssistantResponse({
   // something it is about to do and then puts it back.
   const toolsExpanded = useAppStore((s) => s.extUiState.toolsExpanded);
   const hiddenThinkingLabel = useAppStore((s) => s.extUiState.hiddenThinkingLabel);
+  // Only on a change. Reading it on mount too meant the default `false` fired
+  // at once and overwrote the streaming response's own open state, so the work
+  // section of a running turn never actually opened.
+  const lastToolsExpanded = useRef(toolsExpanded);
   useEffect(() => {
+    if (lastToolsExpanded.current === toolsExpanded) return;
+    lastToolsExpanded.current = toolsExpanded;
+    openedByReader.current = false;
     setWorkOpen(toolsExpanded);
   }, [toolsExpanded]);
   useEffect(() => {
-    if (!streaming) setWorkOpen(false);
+    if (!streaming && !openedByReader.current) setWorkOpen(false);
   }, [streaming]);
   let error: string | undefined;
   for (const message of messages) {
@@ -680,7 +699,13 @@ function AssistantResponse({
     <article ref={responseRef} className="group/message flex flex-col gap-3 text-sm leading-relaxed" aria-busy={streaming || undefined}>
       <span className="sr-only">Assistant:</span>
       {work.length > 0 ? (
-        <Collapsible.Root open={workOpen} onOpenChange={setWorkOpen}>
+        <Collapsible.Root
+          open={workOpen}
+          onOpenChange={(open) => {
+            openedByReader.current = open;
+            setWorkOpen(open);
+          }}
+        >
           <Collapsible.Trigger className="group flex items-center gap-1.5 rounded-sm py-1 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
             <span>{streaming ? "Working…" : `Worked for ${formatDuration(startedAt, finishedAt)}`}</span>
             <CaretRightIcon className="transition-transform group-data-[panel-open]:rotate-90" />
@@ -766,7 +791,12 @@ function AssistantResponse({
             Copy as plain text
           </ContextMenuItem>
           {work.length > 0 ? (
-            <ContextMenuItem onClick={() => setWorkOpen((open) => !open)}>
+            <ContextMenuItem
+              onClick={() => {
+                openedByReader.current = !workOpen;
+                setWorkOpen(!workOpen);
+              }}
+            >
               {workOpen ? "Collapse" : "Expand"} work section
             </ContextMenuItem>
           ) : null}

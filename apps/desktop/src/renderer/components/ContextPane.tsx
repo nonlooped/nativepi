@@ -122,9 +122,17 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
               <ContextMenuTrigger render={<div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground" />}>
                 <GitBranchIcon className="shrink-0" />
                 <span className="truncate">{git.detached ? "No branch (detached)" : (git.branch ?? "—")}</span>
+                {/* `aria-label` is ignored on a span with no role, so the words
+                    behind these figures are spelled out instead. */}
                 <span className="ml-auto flex shrink-0 items-center gap-1.5 tabular-nums">
-                  <span className="text-success" aria-label={`${git.insertions} insertions`}>+{git.insertions}</span>
-                  <span className="text-destructive" aria-label={`${git.deletions} deletions`}>-{git.deletions}</span>
+                  <span className="text-success">
+                    <span aria-hidden="true">+{git.insertions}</span>
+                    <span className="sr-only">{git.insertions} insertions</span>
+                  </span>
+                  <span className="text-destructive">
+                    <span aria-hidden="true">-{git.deletions}</span>
+                    <span className="sr-only">{git.deletions} deletions</span>
+                  </span>
                   <span>{git.files.length} changed</span>
                 </span>
               </ContextMenuTrigger>
@@ -191,9 +199,11 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
             )}
           </>
         )}
-
-        <ExtensionPanels />
         </>}
+        {/* Outside the view switch: an extension's panel is about the project,
+            not about the Git changes, and used to vanish when the pane was
+            switched to Files. */}
+        <ExtensionPanels />
       </div>
       <CommitDialog projectDir={committing ? projectDir : null} onClose={() => setCommitting(false)} />
     </aside>
@@ -201,9 +211,13 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
 }
 
 function FileDiff({ file, projectDir }: { file: GitChangedFile; projectDir: string }) {
+  // Staging part of a file leaves its `state` untouched, so neither this diff
+  // nor the hunk list below it had any reason to re-read — and both went on
+  // showing work that had already moved to the index.
+  const [staged, setStaged] = useState(0);
   const { data, error, reload } = useRequest(
     () => rpc.request.gitDiff({ projectDir, file: file.path, untracked: file.state === "untracked" }),
-    [projectDir, file.path, file.state],
+    [projectDir, file.path, file.state, staged],
   );
   const patch = data ? data.diff.patch : null;
 
@@ -226,7 +240,9 @@ function FileDiff({ file, projectDir }: { file: GitChangedFile; projectDir: stri
         <p className="px-3 py-2 text-xs text-muted-foreground">Loading diff…</p>
       ) : (
         <>
-          {file.unstaged ? <HunkActions projectDir={projectDir} file={file} /> : null}
+          {file.unstaged ? (
+            <HunkActions projectDir={projectDir} file={file} staged={staged} onStaged={() => setStaged((n) => n + 1)} />
+          ) : null}
           <DiffView patch={patch} />
         </>
       )}
@@ -234,26 +250,52 @@ function FileDiff({ file, projectDir }: { file: GitChangedFile; projectDir: stri
   );
 }
 
-function HunkActions({ projectDir, file }: { projectDir: string; file: GitChangedFile }) {
+function HunkActions({
+  projectDir,
+  file,
+  staged,
+  onStaged,
+}: {
+  projectDir: string;
+  file: GitChangedFile;
+  staged: number;
+  onStaged: () => void;
+}) {
   const refreshGit = useAppStore((s) => s.refreshGit);
   const { data, loading, error } = useRequest(
     () => rpc.request.gitHunks({ projectDir, file: file.path, untracked: file.state === "untracked" }),
-    [projectDir, file.path, file.state],
+    [projectDir, file.path, file.state, staged],
   );
   const [busy, setBusy] = useState<number | null>(null);
   const [partsOpen, setPartsOpen] = useState(false);
-  if (loading || error || !data) return null;
+  // Git refusing to apply a patch is the whole reason to be looking here; it
+  // used to be dropped on the floor and the row simply did nothing.
+  const [failure, setFailure] = useState<string | null>(null);
+  if (loading) return null;
+  if (error || !data) {
+    return (
+      <p className="border-b px-3 py-2 text-xs text-muted-foreground">
+        NativePi could not read this file's hunks, so staging is unavailable here.
+      </p>
+    );
+  }
   async function stage(patch: string, index: number) {
     setBusy(index);
+    setFailure(null);
     const result = await rpc.request.gitStageHunk({ projectDir, file: file.path, untracked: file.state === "untracked", patch });
     setBusy(null);
-    if (result.ok) await refreshGit();
+    if (!result.ok) return setFailure(result.error ?? "Git could not stage this change.");
+    await refreshGit();
+    onStaged();
   }
   async function stageFile() {
     setBusy(-1);
+    setFailure(null);
     const result = await rpc.request.gitStageFile({ projectDir, file: file.path });
     setBusy(null);
-    if (result.ok) await refreshGit();
+    if (!result.ok) return setFailure(result.error ?? "Git could not stage this file.");
+    await refreshGit();
+    onStaged();
   }
   return (
     <div className="border-b px-2 py-1.5">
@@ -282,6 +324,11 @@ function HunkActions({ projectDir, file }: { projectDir: string; file: GitChange
           </Collapsible.Panel>
         ) : null}
       </Collapsible.Root>
+      {failure ? (
+        <p role="alert" className="mt-1.5 whitespace-pre-wrap px-1 text-xs text-destructive">
+          {failure}
+        </p>
+      ) : null}
     </div>
   );
 }

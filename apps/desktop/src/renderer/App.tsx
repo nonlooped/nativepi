@@ -27,6 +27,7 @@ import WindowControls from "./components/WindowControls.tsx";
 import TerminalDock from "./components/TerminalDock.tsx";
 import { activeConversation, useAppStore } from "./lib/store.ts";
 import { isRemote } from "./lib/rpc.ts";
+import { showHint } from "./lib/toast.tsx";
 import { chatTitle } from "./lib/transcript.ts";
 import { bindingFor, bindings, withHint } from "./lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -397,7 +398,13 @@ function useWorkspaceShortcuts(
 ) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const running = useAppStore((s) => activeConversation(s).running);
-  const settingsOpen = useAppStore((s) => s.settingsOpen);
+  // A new chat has no session file yet, so it binds to whichever Pi the project
+  // already has — which is the one mid-turn. The sidebar button has always been
+  // disabled for this; the shortcut used to check only the open chat and let the
+  // second message land in the first chat's process.
+  const projectRunning = useAppStore((s) =>
+    Object.values(s.conversations).some((c) => c.projectDir === s.activeProjectPath && c.running),
+  );
   const abort = useAppStore((s) => s.abort);
   const openSettings = useAppStore((s) => s.openSettings);
   const closeSettings = useAppStore((s) => s.closeSettings);
@@ -431,11 +438,6 @@ function useWorkspaceShortcuts(
         openSettings: always(openSettings),
 
         stopTurn: (event) => {
-          if (settingsOpen) {
-            event.preventDefault();
-            closeSettings();
-            return;
-          }
           // Escape belongs to a single-line field first — it clears or closes
           // whatever the user is typing in. The composer is a textarea, so
           // stopping a run while writing the next message still works.
@@ -468,7 +470,10 @@ function useWorkspaceShortcuts(
         toggleTerminal: withProject(toggleTerminal),
 
         newChat: withProject(() => {
-          if (running) return;
+          if (projectRunning) {
+            showHint("Stop the current run before starting a new chat");
+            return;
+          }
           closeSettings();
           newChat();
         }),
@@ -496,6 +501,7 @@ function useWorkspaceShortcuts(
     layout,
     newChat,
     openSettings,
+    projectRunning,
     requestJumpToLatest,
     requestSearchFocus,
     running,
@@ -503,7 +509,6 @@ function useWorkspaceShortcuts(
     setSidebarOpen,
     setSidebarSheetOpen,
     setContextSheetOpen,
-    settingsOpen,
     stopTurnBinding,
     toggleContextPane,
     toggleTerminal,

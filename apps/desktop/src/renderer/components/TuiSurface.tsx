@@ -176,8 +176,12 @@ export function TuiPane({ surface, rows }: { surface: TuiSurface; rows: number }
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const containerRef = useSurfaceTerminal(surface, projectDir, { rows, focus: false });
   return (
+    // A labelled group rather than a bare div: `aria-label` on a role-less
+    // element is dropped, and xterm's own output underneath carries no hint
+    // that it came from an extension.
     <div
       ref={containerRef}
+      role="group"
       aria-label={`${surface.key} (extension)`}
       className="terminal-surface w-full overflow-hidden"
       style={{ height: `calc(${rows} * 1.2em)` }}

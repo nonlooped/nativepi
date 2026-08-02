@@ -418,20 +418,30 @@ function Row({
 /**
  * The matched characters, marked.
  *
- * Weight rather than colour: the row already uses colour for its selected state,
- * and a second hue inside it would compete with that for the same glance.
+ * The same `mark` the model picker and chat search use, so a matched substring
+ * looks the same wherever the window shows one. Matches here are fuzzy and so
+ * can be scattered, which is why runs are found rather than one slice — but they
+ * are emitted as runs, not as one element per letter.
  */
 function Highlighted({ text, positions, offset }: { text: string; positions: number[]; offset: number }) {
   const hit = new Set(positions.map((position) => position - offset));
+  const runs: { text: string; match: boolean }[] = [];
+  for (const [index, character] of [...text].entries()) {
+    const match = hit.has(index);
+    const last = runs.at(-1);
+    if (last && last.match === match) last.text += character;
+    else runs.push({ text: character, match });
+  }
+
   return (
     <>
-      {[...text].map((character, index) =>
-        hit.has(index) ? (
-          <span key={index} className="font-semibold text-primary underline decoration-primary/40 underline-offset-2">
-            {character}
-          </span>
+      {runs.map((run, index) =>
+        run.match ? (
+          <mark key={index} className="rounded-sm bg-foreground/15 px-0.5 font-medium text-inherit">
+            {run.text}
+          </mark>
         ) : (
-          <span key={index}>{character}</span>
+          run.text
         ),
       )}
     </>

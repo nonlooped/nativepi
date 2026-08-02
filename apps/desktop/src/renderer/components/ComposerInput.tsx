@@ -169,13 +169,16 @@ export default function ComposerInput({
           event.currentTarget.ownerDocument.execCommand("insertText", false, text);
           emit();
         }}
+        // `0.9375rem` rather than `15px`: Interface scale works by moving the
+        // root font size, which an absolute length ignores — the composer was
+        // the one piece of text in the window that did not scale with it.
         className={cn(
-          "max-h-56 min-h-12 w-full overflow-y-auto whitespace-pre-wrap break-words px-2.5 py-2 text-[15px] leading-relaxed outline-none",
+          "max-h-56 min-h-12 w-full overflow-y-auto whitespace-pre-wrap break-words px-2.5 py-2 text-[0.9375rem] leading-relaxed outline-none",
           disabled && "cursor-not-allowed opacity-50",
         )}
       />
       {value.trim() === "" ? (
-        <p aria-hidden="true" className="pointer-events-none absolute left-2.5 top-2 text-[15px] leading-relaxed text-muted-foreground">
+        <p aria-hidden="true" className="pointer-events-none absolute left-2.5 top-2 text-[0.9375rem] leading-relaxed text-muted-foreground">
           {placeholder}
         </p>
       ) : null}

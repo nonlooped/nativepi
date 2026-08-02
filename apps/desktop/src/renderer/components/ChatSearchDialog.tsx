@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { Kbd } from "@/components/ui/kbd.tsx";
 
 export default function ChatSearchDialog({
   open,
@@ -182,9 +183,15 @@ export default function ChatSearchDialog({
         </Combobox.Root>
 
         <div className="flex items-center gap-3 border-t px-3 py-2 text-xs text-muted-foreground">
-          <span><kbd className="font-[inherit]">↑↓</kbd> navigate</span>
-          <span><kbd className="font-[inherit]">Enter</kbd> open</span>
-          <span><kbd className="font-[inherit]">Esc</kbd> close</span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>↑↓</Kbd> navigate
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>Enter</Kbd> open
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>Esc</Kbd> close
+          </span>
         </div>
       </DialogContent>
     </Dialog>

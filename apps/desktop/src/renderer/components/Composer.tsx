@@ -204,9 +204,11 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
       </div>
       {/* The first composer gets only the two keys needed to begin. Commands,
           skills, and file mentions remain discoverable when their trigger is
-          typed, without turning an otherwise quiet starting point into a guide. */}
+          typed, without turning an otherwise quiet starting point into a guide.
+          Hidden on a touch screen, where naming two keystrokes is advice about a
+          keyboard the reader does not have. */}
       {prominent ? (
-        <p className="mx-auto flex w-full max-w-(--conversation-width) flex-wrap items-center justify-center gap-x-2 gap-y-1 pt-0.5 text-xs text-muted-foreground">
+        <p className="mx-auto flex w-full max-w-(--conversation-width) flex-wrap items-center justify-center gap-x-2 gap-y-1 pt-0.5 text-xs text-muted-foreground pointer-coarse:hidden">
           <span className="flex items-center gap-1.5">
             <Kbd>Enter</Kbd> to send
           </span>
@@ -312,8 +314,11 @@ function QueuedMessages() {
   if (steering.length === 0 && followUp.length === 0) return null;
 
   return (
-    <div className="mx-auto mb-2 flex max-h-40 w-full max-w-(--conversation-width) flex-col gap-1 overflow-y-auto">
-      <ul aria-label="Messages queued for this turn" className="flex flex-col gap-1">
+    <div className="mx-auto mb-2 flex w-full max-w-(--conversation-width) flex-col gap-1">
+      {/* Only the list scrolls. The note below used to sit inside the scroller
+          and slide out of sight exactly when the queue was long enough for
+          someone to want to know how to clear it. */}
+      <ul aria-label="Messages queued for this turn" className="flex max-h-40 flex-col gap-1 overflow-y-auto">
         {steering.map((text, i) => (
           <QueueRow key={`s${i}`} label="Steer" text={text} />
         ))}
@@ -657,9 +662,12 @@ function ContextWindow() {
   }, [entries, streaming]);
 
   const total = model?.contextWindow ?? 0;
+  // Keyed on what can actually change the answer, not on `streaming` — which is
+  // a fresh object per token, and had this re-requesting (and blanking the open
+  // dialog back to its loading state) on every character Pi wrote.
   const inspection = useRequest(
     async () => (open && projectDir ? await rpc.request.getContextInspector({ projectDir, sessionFile: sessionFile ?? undefined }) : null),
-    [open, projectDir, sessionFile, entries, streaming],
+    [open, projectDir, sessionFile, entries.length, used],
   );
   const inspectedUsed = inspection.data?.inspector?.usedTokens ?? used;
   const inspectedTotal = inspection.data?.inspector?.contextWindow || total;
@@ -683,8 +691,10 @@ function ContextWindow() {
       <button
         type="button"
         // The figure lives in the accessible name, so the ring is not a
-        // visual-only readout for anyone who can't see it.
-        aria-label={`Context window ${percent}% used, ${formatTokens(used)} of ${formatTokens(total)} tokens`}
+        // visual-only readout for anyone who can't see it. Same numbers the
+        // ring is drawn from, so the two cannot disagree once Pi's own
+        // measurement replaces the transcript's.
+        aria-label={`Context window ${percent}% used, ${formatTokens(inspectedUsed)} of ${formatTokens(inspectedTotal)} tokens`}
         title="Conversation context — messages Pi can use for this reply"
         onClick={() => setOpen(true)}
         className={cn(
@@ -732,10 +742,21 @@ function SubscriptionUsage() {
 
   const usage = request.data?.usage;
   const error = request.data?.error ?? request.error;
+  // A reading we do not have is not a reading of zero. Without this, a failed or
+  // still-loading request drew a full ring in the resting tone — the exact
+  // picture of a plan with everything left — and only the accessible name
+  // disagreed.
+  const known = !request.loading && !error && (usage?.limits.length ?? 0) > 0;
   const limit = usage?.limits.reduce((highest, item) => Math.max(highest, item.usedPercent), 0) ?? 0;
   const remaining = 100 - limit;
-  const tight = limit >= 75;
-  const tone = limit >= 90 ? "text-destructive" : tight ? "text-warning" : "text-muted-foreground";
+  const tight = known && limit >= 75;
+  const tone = !known
+    ? "text-muted-foreground/50"
+    : limit >= 90
+      ? "text-destructive"
+      : limit >= 75
+        ? "text-warning"
+        : "text-muted-foreground";
   const name = account?.name ?? subscriptionProvider;
   const label = request.loading
     ? `Reading ${name} subscription usage`
@@ -750,7 +771,7 @@ function SubscriptionUsage() {
       <button
         type="button"
         aria-label={label}
-        title="Subscription usage"
+        title={known ? "Subscription usage" : label}
         onClick={() => setOpen(true)}
         className={cn(
           "flex h-8 items-center gap-1.5 rounded-lg px-1.5 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
@@ -759,9 +780,14 @@ function SubscriptionUsage() {
       >
         <svg viewBox="0 0 24 24" className="size-5 shrink-0 -rotate-90" aria-hidden>
           <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted" />
-          <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" pathLength="100" strokeDasharray={`${remaining} 100`} />
+          {known ? (
+            <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" pathLength="100" strokeDasharray={`${remaining} 100`} />
+          ) : null}
         </svg>
-        {tight ? <span className="text-sm tabular-nums" aria-hidden="true">{Math.round(remaining)}%</span> : null}
+        {/* "left", spelled out. This ring empties as the plan is spent and the
+            context ring beside it fills as the window is spent, so a bare number
+            on both would be the same glyph meaning opposite things. */}
+        {tight ? <span className="text-sm tabular-nums" aria-hidden="true">{Math.round(remaining)}% left</span> : null}
       </button>
       <SubscriptionUsageDialog
         open={open}

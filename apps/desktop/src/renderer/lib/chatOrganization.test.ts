@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { SessionSummary } from "../../shared/pi-types.ts";
-import { groupChats, togglePinnedPath } from "./chatOrganization.ts";
+import { countMatches, groupChats, togglePinnedPath } from "./chatOrganization.ts";
 
 const NOW = new Date(2026, 6, 30, 12).getTime();
 
@@ -66,4 +66,20 @@ test("filtering by title keeps the selected chat visible as an orientation ancho
 test("pinning is reversible and does not reorder the stored paths", () => {
   expect(togglePinnedPath(["one"], "two")).toEqual(["one", "two"]);
   expect(togglePinnedPath(["one", "two"], "one")).toEqual(["two"]);
+});
+
+test("counts matches without the open chat the list always keeps", () => {
+  const sessions = [
+    session("a", "Refactor the parser", new Date(2026, 6, 30, 10)),
+    session("b", "Fix the composer", new Date(2026, 6, 30, 9)),
+  ];
+
+  expect(countMatches(sessions, "parser")).toBe(1);
+  expect(countMatches(sessions, "")).toBe(2);
+  // The active chat survives the filter for continuity, but it is not a match,
+  // and counting the rows on screen reported "1 result" for a query that found
+  // nothing.
+  expect(countMatches(sessions, "nothing here")).toBe(0);
+  const groups = groupChats(sessions, [], "nothing here", "a", NOW);
+  expect(groups.flatMap((group) => group.sessions.map((s) => s.path))).toEqual(["a"]);
 });

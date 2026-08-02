@@ -6,6 +6,13 @@ export interface ChatGroup {
   sessions: SessionSummary[];
 }
 
+/** How many chats a query actually matched, not counting the open one it always keeps. */
+export function countMatches(sessions: SessionSummary[], query: string): number {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return sessions.length;
+  return sessions.filter((session) => chatTitle(session).toLocaleLowerCase().includes(normalizedQuery)).length;
+}
+
 export function togglePinnedPath(paths: string[], sessionFile: string): string[] {
   return paths.includes(sessionFile)
     ? paths.filter((path) => path !== sessionFile)

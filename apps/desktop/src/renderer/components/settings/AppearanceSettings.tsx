@@ -1,5 +1,6 @@
 import { useAppStore } from "../../lib/store.ts";
 import { osName } from "../../lib/platform.ts";
+import { cn } from "@/lib/utils.ts";
 import { ChoiceCards, ChoiceRow, SettingsSection, SliderRow } from "./rows.tsx";
 
 /** A stack of fake message lines, used to draw the width and diff previews. */
@@ -8,6 +9,24 @@ function Lines({ widths, className }: { widths: string[]; className?: string }) 
     <span className={className}>
       {widths.map((width, index) => (
         <span key={index} className="block h-1 rounded-full bg-current" style={{ width, marginTop: index ? 3 : 0 }} />
+      ))}
+    </span>
+  );
+}
+
+/** Diff lines with their own tones, so the picture is of a diff and not of a deletion. */
+function DiffLines({ lines }: { lines: { width: string; tone: "added" | "removed" | "context" }[] }) {
+  return (
+    <span className="block">
+      {lines.map((line, index) => (
+        <span
+          key={index}
+          className={cn(
+            "block h-1 rounded-full",
+            line.tone === "added" ? "bg-success/50" : line.tone === "removed" ? "bg-destructive/50" : "bg-current",
+          )}
+          style={{ width: line.width, marginTop: index ? 3 : 0 }}
+        />
       ))}
     </span>
   );
@@ -66,10 +85,20 @@ export default function AppearanceSettings() {
           options={[
             {
               value: "unified",
+              // One column, removals and additions interleaved. Drawing all four
+              // lines in the removal tone made the picture of a unified diff a
+              // picture of a file being deleted.
               label: "Unified",
               preview: (
-                <span className="w-full">
-                  <Lines widths={["70%", "90%", "55%", "80%"]} className="block text-destructive/50" />
+                <span className="w-full text-muted-foreground/60">
+                  <DiffLines
+                    lines={[
+                      { width: "70%", tone: "context" },
+                      { width: "90%", tone: "removed" },
+                      { width: "55%", tone: "added" },
+                      { width: "80%", tone: "context" },
+                    ]}
+                  />
                 </span>
               ),
             },
@@ -77,9 +106,27 @@ export default function AppearanceSettings() {
               value: "split",
               label: "Side by side",
               preview: (
-                <span className="flex w-full gap-1.5">
-                  <Lines widths={["80%", "60%", "90%", "70%"]} className="block flex-1 text-destructive/50" />
-                  <Lines widths={["70%", "85%", "50%", "80%"]} className="block flex-1 text-success/50" />
+                <span className="flex w-full gap-1.5 text-muted-foreground/60">
+                  <span className="flex-1">
+                    <DiffLines
+                      lines={[
+                        { width: "80%", tone: "context" },
+                        { width: "60%", tone: "removed" },
+                        { width: "90%", tone: "removed" },
+                        { width: "70%", tone: "context" },
+                      ]}
+                    />
+                  </span>
+                  <span className="flex-1">
+                    <DiffLines
+                      lines={[
+                        { width: "70%", tone: "context" },
+                        { width: "85%", tone: "added" },
+                        { width: "50%", tone: "added" },
+                        { width: "80%", tone: "context" },
+                      ]}
+                    />
+                  </span>
                 </span>
               ),
             },

@@ -1,10 +1,3 @@
-/*
-THESIS: answer "how much of my plan is left, and am I spending it too fast?" in one glance.
-OWN-WORLD: graphite dialog, hairline rules, mono figures, no dashboard cards.
-STORY: the limit closest to its cap leads as a dial; the rest follow as quiet rows.
-FIRST VIEWPORT: dial, headline percentage, pace verdict.
-FORM: a gauge cluster, not a chart grid, because every limit is one number against a clock.
-*/
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import type { SubscriptionUsage } from "../../shared/subscriptionUsage.ts";
 import { pluralize } from "../lib/format.ts";

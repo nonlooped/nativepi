@@ -64,7 +64,7 @@ export default function KeybindSettings() {
           </span>
         </p>
         {anyCustomized ? (
-          <Button variant="outline" size="lg" onClick={resetAllKeybindings} className="shrink-0">
+          <Button variant="outline" size="xl" onClick={resetAllKeybindings} className="shrink-0">
             <ArrowCounterClockwiseIcon data-icon="inline-start" />
             Reset all
           </Button>

@@ -19,6 +19,7 @@ import { XIcon } from "@phosphor-icons/react/X";
 import type { Project } from "../../shared/rpc-schema.ts";
 import type { SessionSummary } from "../../shared/pi-types.ts";
 import { useAppStore } from "../lib/store.ts";
+import { timeAgo } from "../lib/format.ts";
 import { chatTitle } from "../lib/transcript.ts";
 import { hintFor, withHint, type KeybindingOverrides } from "../lib/shortcuts.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
@@ -40,7 +41,7 @@ import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import { editorName, fileManagerName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
-import { groupChats } from "../lib/chatOrganization.ts";
+import { countMatches, groupChats } from "../lib/chatOrganization.ts";
 
 export default function Sidebar({ onClose, overlay = false }: { onClose: () => void; overlay?: boolean }) {
   const projects = useAppStore((s) => s.projects);
@@ -72,6 +73,14 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
   const [worktreesFor, setWorktreesFor] = useState<string | null>(null);
   const [expandedProjects, setExpandedProjects] = useState(() => new Set(activeProjectPath ? [activeProjectPath] : []));
+
+  // The project can also become active from outside this pane — the next/previous
+  // project shortcuts, a dropped folder, a search result. Expanding only in this
+  // component's own click handler left those routes selecting a project whose
+  // chats stayed shut.
+  useEffect(() => {
+    if (activeProjectPath) expandProject(activeProjectPath);
+  }, [activeProjectPath]);
 
   useEffect(() => {
     if (searchFocusRequest > 0) setSearchOpen(true);
@@ -440,7 +449,11 @@ function ChatList({
   const refreshSessions = useAppStore((s) => s.refreshSessions);
   const pinnedChats = useAppStore((s) => s.pinnedChats);
   const groups = groupChats(sessions, pinnedChats, query, activeSessionFile, now);
-  const visibleCount = groups.reduce((count, group) => count + group.sessions.length, 0);
+  // The open chat stays on the list whatever the query, so the count of rows on
+  // screen is not the count of matches. Saying nothing matched while one row is
+  // visible reads as a bug; saying nothing while the query matched nothing reads
+  // as one too.
+  const matchCount = countMatches(sessions, query);
 
   return (
     <div className="flex flex-col gap-0.5">
@@ -453,8 +466,8 @@ function ChatList({
       {sessionLoadStatus === "unloaded" ? (
         <ChatHistoryState
           icon={<ChatCircleDotsIcon />}
-          title="Chat history not loaded"
-          detail="Preparing this project's chats."
+          title="Preparing chat history"
+          detail="NativePi has not read this project's chats yet."
         />
       ) : null}
       {sessionLoadStatus === "loading" ? (
@@ -543,7 +556,7 @@ function ChatList({
                           />
                         ) : null}
                         <span className="sidebar-chat-time shrink-0 pt-0.5 text-[0.6875rem] leading-5 tabular-nums text-muted-foreground">
-                          {hoursAgo(session.modified, now)}
+                          {timeAgo(session.modified, now)}
                         </span>
                       </button>
                     </SessionMenu>
@@ -554,13 +567,12 @@ function ChatList({
           ))}
           {sessions.length === 0 ? (
             <p className="px-1.5 py-1.5 text-xs leading-relaxed text-muted-foreground">
-              {query.trim()
-                ? "No chat titles match"
-                : `No chats in this project yet — press ${hintFor("newChat", overrides)} to start one`}
+              {`No chats in this project yet — press ${hintFor("newChat", overrides)} to start one`}
             </p>
-          ) : null}
-          {sessions.length > 0 && visibleCount === 0 ? (
-            <p className="px-1.5 py-1.5 text-xs leading-relaxed text-muted-foreground">No chat titles match</p>
+          ) : query.trim() && matchCount === 0 ? (
+            <p className="px-1.5 py-1.5 text-xs leading-relaxed text-muted-foreground">
+              No chat titles match. This filter reads titles only — search to look inside messages.
+            </p>
           ) : null}
         </>
       ) : null}
@@ -600,19 +612,4 @@ function ChatHistoryState({
 
 const EMPTY: SessionSummary[] = [];
 
-function hoursAgo(timestamp: string, now: number): string {
-  const minutes = Math.max(0, Math.floor((now - new Date(timestamp).getTime()) / 60_000));
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  // The scale keeps climbing: a year-old chat reading "365d" makes the reader
-  // do the division that this label exists to do for them.
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  const weeks = Math.floor(days / 7);
-  if (weeks < 5) return `${weeks}w`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo`;
-  return `${Math.floor(days / 365)}y`;
-}
+
