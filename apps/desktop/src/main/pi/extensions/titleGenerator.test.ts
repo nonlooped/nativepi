@@ -20,6 +20,8 @@ type HarnessState = {
 
 type HarnessOptions = {
   reasoning?: boolean;
+  requiredRetries?: number;
+  requiredTitleTokens?: number;
 };
 
 function createHarness(sessionFile: string, entries: unknown[] = [], harnessOptions: HarnessOptions = {}) {
@@ -39,10 +41,15 @@ function createHarness(sessionFile: string, entries: unknown[] = [], harnessOpti
       state.streamOptions = streamOptions;
       state.streamCalls += 1;
       const result =
-        selectedModel.reasoning && Number(streamOptions.maxTokens) < 256
+        selectedModel.reasoning && Number(streamOptions.maxTokens) < (harnessOptions.requiredTitleTokens ?? 256)
           ? { stopReason: "length", content: [{ type: "thinking", thinking: "I need to choose a title." }] }
           : { content: [{ type: "text", text: 'Title: "Review title flow"' }] };
-      return { result: async () => result };
+      return {
+        result: async () => {
+          if (Number(streamOptions.maxRetries) < (harnessOptions.requiredRetries ?? 0)) throw new Error("Transient provider failure");
+          return result;
+        },
+      };
     },
   };
   const context = {
@@ -94,15 +101,25 @@ test("the first settled turn uses the selected catalog model without reasoning",
   expect(harness.state.streamOptions?.reasoning).toBeUndefined();
   expect(harness.state.streamOptions?.maxTokens).toBe(64);
 });
+test("a transient provider failure does not leave the prompt fallback as the title", async () => {
+  const harness = createHarness("C:\\title-retry.jsonl", [], { requiredRetries: 1 });
+  setNativePiTitleGeneratorModel("C:\\title-retry.jsonl", "openai/gpt-5-mini");
+  harness.handlers.get("before_agent_start")?.({ prompt: "review the title flow" }, harness.context);
+  harness.handlers.get("agent_settled")?.({}, harness.context);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(harness.names).toEqual(["Review title flow"]);
+});
+
 test("reasoning models receive enough budget to emit title text", async () => {
-  const harness = createHarness("C:\\title-reasoning.jsonl", [], { reasoning: true });
+  const harness = createHarness("C:\\title-reasoning.jsonl", [], { reasoning: true, requiredTitleTokens: 512 });
   setNativePiTitleGeneratorModel("C:\\title-reasoning.jsonl", "openai/gpt-5-mini");
   harness.handlers.get("before_agent_start")?.({ prompt: "review the title flow" }, harness.context);
   harness.handlers.get("agent_settled")?.({}, harness.context);
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   expect(harness.names).toEqual(["Review title flow"]);
-  expect(harness.state.streamOptions?.maxTokens).toBe(256);
+  expect(harness.state.streamOptions?.maxTokens).toBe(1024);
 });
 
 test("a later user turn cannot schedule another title", () => {

@@ -153,8 +153,8 @@ async function generateTitle(context: ExtensionContext, prompt: string, model: T
       headers: resolvedAuth.headers,
       env: resolvedAuth.env,
       signal: controller.signal,
-      maxTokens: model.reasoning ? 256 : 64,
-      maxRetries: 0,
+      maxTokens: model.reasoning ? 1024 : 64,
+      maxRetries: 2,
     },
   );
   const result = await stream.result();
