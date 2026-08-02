@@ -70,7 +70,6 @@ $RECYCLE.BIN/
 .settings/
 
 # Local agent / tool state (keep shared skills)
-.impeccable/
 .claude/settings.local.json
 .claude/settings.json
 .codex/sessions/
@@ -86,7 +85,6 @@ core.*
 .agents
 .claude
 .codex
-.impeccable
 skills-lock.json
 .fallow/
 
