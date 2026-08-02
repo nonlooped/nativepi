@@ -170,12 +170,12 @@ export default function ComposerInput({
           emit();
         }}
         className={cn(
-          "max-h-56 min-h-24 w-full overflow-y-auto whitespace-pre-wrap break-words px-2.5 py-3 text-[15px] leading-relaxed outline-none",
+          "max-h-56 min-h-12 w-full overflow-y-auto whitespace-pre-wrap break-words px-2.5 py-2 text-[15px] leading-relaxed outline-none",
           disabled && "cursor-not-allowed opacity-50",
         )}
       />
       {value.trim() === "" ? (
-        <p aria-hidden="true" className="pointer-events-none absolute left-2.5 top-3 text-[15px] leading-relaxed text-muted-foreground">
+        <p aria-hidden="true" className="pointer-events-none absolute left-2.5 top-2 text-[15px] leading-relaxed text-muted-foreground">
           {placeholder}
         </p>
       ) : null}

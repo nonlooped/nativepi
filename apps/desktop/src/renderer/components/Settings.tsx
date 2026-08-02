@@ -43,7 +43,7 @@ import TerminalSettings from "./settings/TerminalSettings.tsx";
  * The order runs from what everyone touches to what almost nobody does.
  */
 const CATEGORIES = [
-  { name: "General", icon: GearSixIcon, blurb: "Startup and notifications." },
+  { name: "General", icon: GearSixIcon, blurb: "Startup, notifications, and chat titles." },
   { name: "Access", icon: WifiHighIcon, blurb: "Reach this window from another device." },
   { name: "Appearance", icon: PaintBrushIcon, blurb: "Layout, scale, diffs, and motion." },
   { name: "Agent", icon: BrainIcon, blurb: "How Pi runs a turn. Shared with the Pi command line." },
@@ -129,7 +129,7 @@ export default function Settings() {
                 </Button>
               </>
             ) : null}
-            <span className="text-xs font-medium text-muted-foreground">Settings</span>
+            <span className="text-xs font-medium text-muted-foreground">Settings / {category}</span>
             <div className="flex-1" />
             <RunningAgentBadge />
           </header>
@@ -185,7 +185,7 @@ function CategoryNav({
     // window, and the Back button below must stay reachable.
     <nav
       aria-label="Settings categories"
-      className={cn("flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-3 pt-3", NO_DRAG_REGION)}
+      className={cn("flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-3 pt-1", NO_DRAG_REGION)}
     >
       <p className="px-2 pb-2 font-heading text-sm font-semibold">Settings</p>
       {CATEGORIES.filter(({ name }) => !isRemote || name !== "Access").map(({ name, icon: Icon }) => (

@@ -164,16 +164,17 @@ export default function ChatSearchDialog({
                 value={result}
                 index={index}
                 onClick={() => navigate(result)}
-                className="flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
+                className="flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground data-highlighted:ring-1 data-highlighted:ring-inset data-highlighted:ring-ring"
               >
                 <span className="flex min-w-0 items-baseline gap-2">
-                  <span className="truncate text-sm font-semibold">{result.title}</span>
-                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">{project?.name ?? result.projectDir}</span>
+                  <span className="truncate text-sm font-semibold">{highlight(result.title, query)}</span>
+                  <span className="ml-auto shrink-0 text-xs font-medium text-foreground/75">{project?.name ?? result.projectDir}</span>
                 </span>
                 <span className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
                   <span className="font-medium text-foreground">{source}:</span>{" "}
-                  {result.snippet}
+                  {highlight(normalizePreview(result.snippet), query)}
                 </span>
+                <span className="text-xs text-muted-foreground/80">{relativeTime(result.modified)}</span>
               </Combobox.Item>
             );
           })}
@@ -209,4 +210,45 @@ function SearchState({
       {action}
     </div>
   );
+}
+
+function normalizePreview(value: string): string {
+  return value
+    .replace(/```[^\n]*\n?/g, " ")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/(^|\s)[#>*_~`|]+(?=\s|$)/g, "$1")
+    .replace(/[*_~`|]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function highlight(value: string, rawQuery: string): ReactNode {
+  const query = rawQuery.trim();
+  if (!query) return value;
+  const lower = value.toLocaleLowerCase();
+  const needle = query.toLocaleLowerCase();
+  const parts: ReactNode[] = [];
+  let start = 0;
+  let match = lower.indexOf(needle);
+  while (match >= 0) {
+    if (match > start) parts.push(value.slice(start, match));
+    parts.push(<mark key={`${match}-${parts.length}`} className="rounded-sm bg-foreground/15 px-0.5 text-inherit">{value.slice(match, match + query.length)}</mark>);
+    start = match + query.length;
+    match = lower.indexOf(needle, start);
+  }
+  if (start < value.length) parts.push(value.slice(start));
+  return parts.length ? parts : value;
+}
+
+function relativeTime(value: string): string {
+  const elapsed = Date.now() - Date.parse(value);
+  if (!Number.isFinite(elapsed) || elapsed < 0) return new Date(value).toLocaleDateString();
+  const minutes = Math.max(1, Math.round(elapsed / 60_000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }

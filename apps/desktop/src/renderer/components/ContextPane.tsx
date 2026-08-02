@@ -155,17 +155,17 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
             {git.files.length === 0 ? (
               <p className="px-3 py-4 text-xs text-muted-foreground">Working tree clean.</p>
             ) : (
-              <div className="flex flex-col gap-1 px-2 pb-2">
+              <div className="mx-2 overflow-hidden rounded-md border border-sidebar-border/70">
                 {git.files.map((file) => (
-                  <div key={file.path} className="overflow-hidden rounded-md border bg-background/35">
+                  <div key={file.path} className="border-b border-sidebar-border/60 bg-background/20 last:border-b-0">
                     {projectDir ? <FileContextMenu projectDir={projectDir} file={file.path} untracked={file.state === "untracked"}>
                     <button
                       type="button"
                       aria-expanded={selected?.path === file.path}
                       onClick={() => setSelected(selected?.path === file.path ? null : file)}
                       className={cn(
-                        "flex min-h-10 w-full items-center gap-2 px-2.5 text-left text-xs outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
-                        selected?.path === file.path && "bg-sidebar-accent",
+                        "flex min-h-8 w-full items-center gap-2 px-2 text-left text-xs outline-none transition-colors hover:bg-sidebar-accent/60 focus-visible:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
+                        selected?.path === file.path && "bg-sidebar-accent text-sidebar-accent-foreground",
                       )}
                       title={file.path}
                     >

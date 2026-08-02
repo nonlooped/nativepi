@@ -185,7 +185,7 @@ export default function TerminalDock({
         >
           <TrashIcon />
         </Button>
-        <Button variant="ghost" size="icon-xs" onClick={onMinimize} title="Minimize terminal" aria-label="Minimize terminal">
+        <Button variant="ghost" size="icon-xs" onClick={onMinimize} title="Hide terminal panel" aria-label="Hide terminal panel">
           <XIcon />
         </Button>
         </ContextMenuTrigger>
@@ -340,7 +340,7 @@ function TerminalSplit({
                   {session.name}
                 </button>
               )}
-              <Button variant="ghost" size="icon-xs" onClick={onClose} disabled={closing} title="Close terminal" aria-label="Close terminal">
+              <Button variant="ghost" size="icon-xs" onClick={onClose} disabled={closing} title="Close this terminal tab" aria-label="Close this terminal tab">
                 <XIcon />
               </Button>
             </ContextMenuTrigger>

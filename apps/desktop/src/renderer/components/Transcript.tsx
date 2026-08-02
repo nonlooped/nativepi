@@ -15,7 +15,7 @@ import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from
 import { imagesOf, isAssistant, isToolResult, isUser, textOf } from "../../shared/messages.ts";
 import { toolArgSummary, toolResultsById } from "../lib/transcript.ts";
 import { diffPatchFor, fileDir, fileName, turnChanges, type FileChange } from "../lib/changes.ts";
-import { formatDuration, formatElapsed, formatLineDelta, pluralize } from "../lib/format.ts";
+import { formatDuration, formatElapsed, pluralize } from "../lib/format.ts";
 import { useReducedMotion } from "../lib/motion.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { withHint } from "../lib/shortcuts.ts";
@@ -780,7 +780,7 @@ function AssistantResponse({
 
 function ChangeStrip({ changes }: { changes: ReturnType<typeof turnChanges> }) {
   const [open, setOpen] = useState<string | null>(null);
-  const delta = formatLineDelta(changes.added, changes.removed);
+  const hasDelta = changes.added > 0 || changes.removed > 0;
 
   return (
     <section
@@ -789,7 +789,7 @@ function ChangeStrip({ changes }: { changes: ReturnType<typeof turnChanges> }) {
     >
       <h3 className="flex items-center gap-2 border-b px-3 py-2 text-xs font-medium">
         {pluralize(changes.files.length, "file")} changed
-        {delta ? <span className="font-mono tabular-nums text-muted-foreground">{delta}</span> : null}
+        {hasDelta ? <LineDelta added={changes.added} removed={changes.removed} /> : null}
       </h3>
       <ul className="flex flex-col">
         {changes.files.map((file) => (
@@ -802,10 +802,20 @@ function ChangeStrip({ changes }: { changes: ReturnType<typeof turnChanges> }) {
   );
 }
 
+function LineDelta({ added, removed, className }: { added: number; removed: number; className?: string }) {
+  return (
+    <span className={cn("font-mono tabular-nums", className)}>
+      {added ? <span className="text-success">+{added}</span> : null}
+      {added && removed ? " " : null}
+      {removed ? <span className="text-destructive">−{removed}</span> : null}
+    </span>
+  );
+}
+
 function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; onToggle: () => void }) {
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const directory = fileDir(file.path);
-  const delta = formatLineDelta(file.added, file.removed);
+  const hasDelta = file.added > 0 || file.removed > 0;
 
   return (
     <>
@@ -824,8 +834,8 @@ function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; 
         {directory ? <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{directory}</span> : <span className="flex-1" />}
         {file.failed ? (
           <span className="shrink-0 rounded-sm bg-destructive/15 px-1.5 py-0.5 font-medium text-destructive">Failed</span>
-        ) : delta ? (
-          <span className="shrink-0 font-mono tabular-nums text-muted-foreground">{delta}</span>
+        ) : hasDelta ? (
+          <LineDelta added={file.added} removed={file.removed} className="shrink-0" />
         ) : null}
       </button>
       </FileContextMenu> : null}

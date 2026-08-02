@@ -6,13 +6,16 @@ import { ChartLineUpIcon } from "@phosphor-icons/react/ChartLineUp";
 import { ChatCircleDotsIcon } from "@phosphor-icons/react/ChatCircleDots";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
+import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { FolderPlusIcon } from "@phosphor-icons/react/FolderPlus";
+import { FunnelSimpleIcon } from "@phosphor-icons/react/FunnelSimple";
 import { GearSixIcon } from "@phosphor-icons/react/GearSix";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
 import { PushPinIcon } from "@phosphor-icons/react/PushPin";
 import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
+import { XIcon } from "@phosphor-icons/react/X";
 import type { Project } from "../../shared/rpc-schema.ts";
 import type { SessionSummary } from "../../shared/pi-types.ts";
 import { useAppStore } from "../lib/store.ts";
@@ -42,6 +45,13 @@ import { groupChats } from "../lib/chatOrganization.ts";
 export default function Sidebar({ onClose, overlay = false }: { onClose: () => void; overlay?: boolean }) {
   const projects = useAppStore((s) => s.projects);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
+  const projectChatCounts = useAppStore(
+    useShallow((s) =>
+      s.projects.map((project) =>
+        s.sessionLoadStates[project.path] === "loaded" ? s.sessionsByProject[project.path]?.length ?? 0 : null,
+      ),
+    ),
+  );
   const addProject = useAppStore((s) => s.addProject);
   const openSettings = useAppStore((s) => s.openSettings);
   const selectProject = useAppStore((s) => s.selectProject);
@@ -123,6 +133,10 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
     if (overlay) onClose();
   }
 
+  const activeBusy = activeProjectPath
+    ? projectBusyStates[projects.findIndex((project) => project.path === activeProjectPath)] ?? false
+    : false;
+
   return (
     <LeftSidebar
       actionIcon={<GearSixIcon data-icon="inline-start" />}
@@ -131,70 +145,97 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
         openSettings();
         if (overlay) onClose();
       }}
+      footerExtra={
+        <Button variant="ghost" size="sm" onClick={() => setUsageOpen(true)} title="Token usage and cost">
+          <ChartLineUpIcon data-icon="inline-start" />
+          Usage
+        </Button>
+      }
       onClose={onClose}
       overlay={overlay}
     >
-      <div className={cn("relative px-3 pb-6 pt-2", NO_DRAG_REGION)}>
-        <MagnifyingGlassIcon className="pointer-events-none absolute left-5 top-5 text-muted-foreground" />
-        <Input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Filter chat titles"
-          aria-label="Filter chat titles"
-          className="border-0 bg-transparent pl-8 pr-3 text-base shadow-none focus-visible:ring-2 focus-visible:ring-sidebar-ring md:text-base"
-        />
-      </div>
-
-      <div className="flex items-center justify-between px-4 pb-2">
-        <span className="text-sm font-medium text-muted-foreground">Projects</span>
-        <div className="flex items-center">
+      {/* One primary action, one way in to full-text search. Everything else
+          moved next to the thing it acts on: projects to the Projects header,
+          usage to the footer, per-chat actions to the row's context menu. */}
+      <div className={cn("flex flex-col gap-1.5 px-2 pb-2", NO_DRAG_REGION)}>
+        <div className="flex items-center gap-1">
           <Button
-            variant="ghost"
-            size="icon-sm"
+            size="lg"
+            className="min-w-0 flex-1 justify-start"
+            onClick={() => activeProjectPath && void startNewChat(activeProjectPath)}
+            disabled={!activeProjectPath || activeBusy}
+            title={activeProjectPath ? withHint("New chat", "newChat", keybindingOverrides) : "Open a project to start a chat"}
+          >
+            <NotePencilIcon data-icon="inline-start" />
+            New chat
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-lg"
             onClick={() => setSearchOpen(true)}
+            aria-label="Search all chats and messages"
             title={withHint("Search chats and messages", "search", keybindingOverrides)}
-            aria-label="Search chats and messages"
           >
             <MagnifyingGlassIcon />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setUsageOpen(true)}
-            title="Usage and costs"
-            aria-label="Usage and costs"
-          >
-            <ChartLineUpIcon />
-          </Button>
-          {activeProjectPath ? (
+        </div>
+        <div className="relative">
+          <FunnelSimpleIcon className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Filter chats"
+            aria-label="Filter chat titles in the sidebar"
+            className="h-8 rounded-md pl-7 pr-7 [&::-webkit-search-cancel-button]:hidden"
+          />
+          {query ? (
             <Button
               variant="ghost"
-              size="icon-sm"
-              onClick={() => void importSession().then(() => overlay && onClose())}
-              title={withHint("Import an existing chat", "importChat", keybindingOverrides)}
-              aria-label="Import an existing chat"
+              size="icon-xs"
+              className="absolute right-1 top-1/2 -translate-y-1/2"
+              onClick={() => setQuery("")}
+              aria-label="Clear filter"
             >
-              <UploadSimpleIcon />
+              <XIcon />
             </Button>
           ) : null}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => void addProjectAndClose()}
-            title="Add project folder"
-            aria-label="Add project folder"
-          >
-            <FolderPlusIcon />
-          </Button>
         </div>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-3">
+
+      <div className={cn("flex h-7 items-center gap-0.5 px-2", NO_DRAG_REGION)}>
+        <span className="px-1 text-[0.6875rem] font-medium uppercase tracking-wider text-muted-foreground">
+          Projects
+        </span>
+        <span className="flex-1" />
+        {activeProjectPath ? (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => void importSession().then(() => overlay && onClose())}
+            aria-label="Import an existing chat"
+            title={withHint("Import an existing chat", "importChat", keybindingOverrides)}
+          >
+            <UploadSimpleIcon />
+          </Button>
+        ) : null}
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={() => void addProjectAndClose()}
+          aria-label="Add project"
+          title="Add a project folder"
+        >
+          <FolderPlusIcon />
+        </Button>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-3">
         {projects.length === 0 && (
           <button
             type="button"
             onClick={() => void addProjectAndClose()}
-            className="flex items-center gap-2 rounded-lg border border-dashed px-2.5 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:border-sidebar-ring focus-visible:ring-2 focus-visible:ring-sidebar-ring/30 focus-visible:outline-none"
+            className="flex items-center gap-2 rounded-md border border-dashed px-2.5 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:border-sidebar-ring focus-visible:ring-2 focus-visible:ring-sidebar-ring/30 focus-visible:outline-none"
           >
             <FolderPlusIcon className="shrink-0" />
             Open your first folder
@@ -203,37 +244,37 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
         {projects.map((project, index) => {
           const busy = projectBusyStates[index] ?? false;
           const active = project.path === activeProjectPath;
+          const expanded = expandedProjects.has(project.path);
+          const chatCount = projectChatCounts[index] ?? null;
           return (
-            <div
-              key={project.path}
-              className="flex flex-col gap-0.5"
-            >
+            <div key={project.path} className="flex flex-col">
               <ContextMenu>
                 <ContextMenuTrigger
                   render={
                     <div
                       className={cn(
-                        "group flex items-center rounded-lg transition-colors hover:bg-sidebar-accent focus-within:bg-sidebar-accent",
-                        active && "bg-sidebar-accent ring-1 ring-inset ring-sidebar-ring/30",
+                        "group flex h-8 items-center rounded-md pr-1 transition-colors hover:bg-sidebar-accent/65 focus-within:bg-sidebar-accent/65",
+                        active && "bg-sidebar-accent/50",
                       )}
                     />
                   }
                 >
                   <Button
                     variant="ghost"
-                    size="icon-sm"
+                    size="icon-xs"
                     onClick={(event) => {
                       event.stopPropagation();
                       toggleProject(project.path);
                     }}
-                    aria-label={`${expandedProjects.has(project.path) ? "Collapse" : "Expand"} ${project.name}`}
-                    aria-expanded={expandedProjects.has(project.path)}
-                    className={cn("shrink-0", active && "text-foreground")}
+                    aria-label={`${expanded ? "Collapse" : "Expand"} ${project.name}`}
+                    aria-expanded={expanded}
+                    className="ml-0.5 shrink-0 hover:bg-transparent"
                   >
                     <CaretDownIcon
                       className={cn(
                         "text-muted-foreground transition-transform",
-                        !expandedProjects.has(project.path) && "-rotate-90",
+                        !expanded && "-rotate-90",
+                        active && "text-foreground",
                       )}
                       weight="bold"
                     />
@@ -243,24 +284,39 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                     onClick={() => void selectProjectAndClose(project.path)}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-left text-sm font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
-                      active && "text-sidebar-accent-foreground",
+                      "flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 text-left text-[0.8125rem] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
+                      active ? "font-semibold text-sidebar-accent-foreground" : "font-medium",
                     )}
                     title={busy ? `${project.path} — agent running` : project.path}
                   >
-                    <FolderIcon className={cn("shrink-0", active ? "text-foreground" : "text-muted-foreground")} />
+                    {expanded ? (
+                      <FolderOpenIcon
+                        className={cn("size-3.5 shrink-0", active ? "text-foreground" : "text-muted-foreground")}
+                        weight={active ? "fill" : "regular"}
+                      />
+                    ) : (
+                      <FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                    )}
                     <span className="truncate">{project.name}</span>
                     {busy ? (
                       <span
                         role="status"
                         aria-label={`Agent running in ${project.name}`}
-                        className="ml-auto size-2 shrink-0 animate-pulse rounded-full bg-success ring-2 ring-success/20"
+                        className="size-1.5 shrink-0 animate-pulse rounded-full bg-success ring-2 ring-success/20"
                       />
                     ) : null}
                   </button>
+                  {chatCount !== null ? (
+                    <span
+                      className="shrink-0 px-1 text-[0.6875rem] tabular-nums text-muted-foreground"
+                      title={`${chatCount} ${chatCount === 1 ? "chat" : "chats"}`}
+                    >
+                      {chatCount}
+                    </span>
+                  ) : null}
                   <Button
                     variant="ghost"
-                    size="icon-sm"
+                    size="icon-xs"
                     onClick={() => void startNewChat(project.path)}
                     disabled={busy}
                     aria-label={`New chat in ${project.name}`}
@@ -269,7 +325,10 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                         ? "Stop the current run before starting a new chat"
                         : withHint(`New chat in ${project.name}`, "newChat", keybindingOverrides)
                     }
-                    className={cn(HOVER_REVEAL, "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100")}
+                    className={cn(
+                      HOVER_REVEAL,
+                      "shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+                    )}
                   >
                     <NotePencilIcon />
                   </Button>
@@ -302,14 +361,24 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                   </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>
-              {expandedProjects.has(project.path) ? (
-                <ChatList
-                  projectPath={project.path}
-                  query={query}
-                  now={now}
-                  overrides={keybindingOverrides}
-                  onNavigate={overlay ? onClose : undefined}
-                />
+              {/* A 220px sidebar cannot afford a deep nest: every pixel spent on
+                  indent comes straight out of the chat title. One hairline rail
+                  under the folder icon is enough to read as "inside". */}
+              {expanded ? (
+                <div
+                  className={cn(
+                    "ml-3 mt-0.5 mb-1 border-l pl-1.5",
+                    active ? "border-sidebar-ring/50" : "border-sidebar-border",
+                  )}
+                >
+                  <ChatList
+                    projectPath={project.path}
+                    query={query}
+                    now={now}
+                    overrides={keybindingOverrides}
+                    onNavigate={overlay ? onClose : undefined}
+                  />
+                </div>
               ) : null}
             </div>
           );
@@ -376,11 +445,9 @@ function ChatList({
   return (
     <div className="flex flex-col gap-0.5">
       {isNewChat && projectPath === activeProjectPath && (
-        <div className="rounded-lg bg-sidebar-accent px-3 py-2" role="status">
-          <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-sm font-medium">New chat</span>
-            <span className="text-xs text-muted-foreground">Start a conversation</span>
-          </span>
+        <div className="flex items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1.5" role="status">
+          <NotePencilIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="truncate text-[0.8125rem] font-medium">New chat</span>
         </div>
       )}
       {sessionLoadStatus === "unloaded" ? (
@@ -419,8 +486,8 @@ function ChatList({
       {sessionLoadStatus === "loaded" ? (
         <>
           {groups.map((group) => (
-            <section key={group.label} aria-label={group.label}>
-              <h3 className="px-3 pb-0.5 pt-2 text-xs font-medium text-muted-foreground">
+            <section key={group.label} aria-label={group.label} className="first:[&>h3]:pt-1">
+              <h3 className="px-1.5 pb-1 pt-2.5 text-[0.6875rem] font-medium uppercase tracking-wider text-muted-foreground/80">
                 {group.label}
               </h3>
               <div className="flex flex-col gap-0.5">
@@ -445,33 +512,37 @@ function ChatList({
                         }}
                         aria-current={selected ? "page" : undefined}
                         className={cn(
-                          "flex min-w-0 flex-1 items-start gap-2 rounded-lg px-3 py-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
-                          selected && "text-foreground",
-                          running && "text-foreground",
+                          "flex min-w-0 flex-1 items-start gap-1.5 rounded-md px-1.5 py-1.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
+                          (selected || running) && "text-foreground",
                         )}
                       >
                         {pinned ? (
-                          <PushPinIcon className="mt-0.5 shrink-0 text-favorite" weight="fill" aria-hidden />
+                          <PushPinIcon className="mt-px size-3.5 shrink-0 text-favorite" weight="fill" aria-hidden />
                         ) : null}
                         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                          <span className="flex min-w-0 items-center gap-1.5">
-                            <span className="sidebar-chat-title truncate text-sm font-medium">{chatTitle(session)}</span>
-                            {running ? (
-                              <span
-                                className="sidebar-chat-running inline-flex shrink-0 items-center gap-1 rounded-full bg-success/10 px-1.5 py-0.5 text-[0.625rem] font-semibold leading-none text-success"
-                                role="status"
-                                aria-label="Agent running"
-                              >
-                                <CircleNotchIcon className="size-3 animate-spin" aria-hidden />
-                                <span>Running</span>
-                              </span>
-                            ) : null}
+                          <span
+                            className={cn(
+                              "sidebar-chat-title truncate text-[0.8125rem] leading-5",
+                              selected ? "font-semibold" : "font-medium",
+                            )}
+                          >
+                            {chatTitle(session)}
                           </span>
                           <span className="sidebar-chat-prompt truncate text-xs text-muted-foreground">
                             {session.lastPrompt || "No user prompt"}
                           </span>
                         </span>
-                        <span className="sidebar-chat-time shrink-0 pt-0.5 text-xs text-muted-foreground">
+                        {/* A spinner rather than a "Running" pill: at the pane's
+                            narrow floor the pill was wider than the title it
+                            was reporting on. */}
+                        {running ? (
+                          <CircleNotchIcon
+                            className="mt-1 size-3 shrink-0 animate-spin text-success"
+                            role="status"
+                            aria-label="Agent running"
+                          />
+                        ) : null}
+                        <span className="sidebar-chat-time shrink-0 pt-0.5 text-[0.6875rem] leading-5 tabular-nums text-muted-foreground">
                           {hoursAgo(session.modified, now)}
                         </span>
                       </button>
@@ -482,14 +553,14 @@ function ChatList({
             </section>
           ))}
           {sessions.length === 0 ? (
-            <p className="px-2.5 py-1.5 text-xs text-muted-foreground">
+            <p className="px-1.5 py-1.5 text-xs leading-relaxed text-muted-foreground">
               {query.trim()
                 ? "No chat titles match"
                 : `No chats in this project yet — press ${hintFor("newChat", overrides)} to start one`}
             </p>
           ) : null}
           {sessions.length > 0 && visibleCount === 0 ? (
-            <p className="px-2.5 py-1.5 text-xs text-muted-foreground">No chat titles match</p>
+            <p className="px-1.5 py-1.5 text-xs leading-relaxed text-muted-foreground">No chat titles match</p>
           ) : null}
         </>
       ) : null}
@@ -513,7 +584,7 @@ function ChatHistoryState({
   return (
     <div
       role={role}
-      className="flex items-start gap-2 rounded-lg border border-dashed border-sidebar-border px-3 py-2.5 text-xs"
+      className="flex flex-wrap items-start gap-2 rounded-md border border-dashed border-sidebar-border px-2 py-2 text-xs"
     >
       <span className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true">
         {icon}

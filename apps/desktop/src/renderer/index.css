@@ -332,13 +332,13 @@ html[data-shell="desktop"] .window-controls-clearance {
 
 /* Keep chat titles readable when the resizable project pane approaches its
    floor. The title and running state stay; only supporting context gives way. */
-@container sidebar (max-width: 22rem) {
+@container sidebar (max-width: 19rem) {
   .sidebar-chat-prompt {
     display: none;
   }
 }
 
-@container sidebar (max-width: 17rem) {
+@container sidebar (max-width: 15rem) {
   .sidebar-chat-time {
     display: none;
   }
@@ -379,6 +379,17 @@ html[data-shell="desktop"] .window-controls-clearance {
     0 16px 50px oklch(0 0 0 / 18%),
     0 0 0 2px var(--ring),
     inset 0 1px color-mix(in oklch, var(--foreground) 5%, transparent);
+}
+
+/* Keep short identifiers together, but still let a path longer than the whole
+   transcript rail wrap inside its pill. Streamdown supplies the semantic code
+   element; this only adjusts its inline presentation. */
+[data-response-text] :not(pre) > code,
+.streamdown :not(pre) > code {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  background-color: color-mix(in oklch, var(--muted) 62%, transparent);
 }
 
 /* The OS preference, unless the user has overridden it in Settings. `data-motion`

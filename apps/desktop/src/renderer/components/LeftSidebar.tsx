@@ -11,6 +11,7 @@ export default function LeftSidebar({
   actionIcon,
   actionLabel,
   onAction,
+  footerExtra,
   onClose,
   overlay = false,
 }: {
@@ -18,6 +19,8 @@ export default function LeftSidebar({
   actionIcon: ReactNode;
   actionLabel: string;
   onAction: () => void;
+  /** Sits opposite the primary footer action, for a second low-traffic entry point. */
+  footerExtra?: ReactNode;
   onClose: () => void;
   overlay?: boolean;
 }) {
@@ -28,7 +31,7 @@ export default function LeftSidebar({
     <aside className="sidebar-panel flex h-full min-w-0 flex-col bg-sidebar text-sidebar-foreground">
       {/* h-12 matches the conversation and context pane headers: three adjacent
           pane headers on two different baselines is a seam you cannot unsee. */}
-      <div className={cn("flex h-12 shrink-0 items-center px-4", !overlay && DRAG_REGION)}>
+      <div className={cn("flex h-12 shrink-0 items-center px-2", !overlay && DRAG_REGION)}>
         <div className={cn("flex items-center gap-2", NO_DRAG_REGION)}>
           <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close sidebar" aria-label="Close sidebar">
             <SidebarSimpleIcon />
@@ -43,14 +46,15 @@ export default function LeftSidebar({
           over this button. `env()` is 0 on every other platform. */}
       <div
         className={cn(
-          "shrink-0 border-t border-sidebar-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+          "flex shrink-0 items-center gap-1 border-t border-sidebar-border p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]",
           NO_DRAG_REGION,
         )}
       >
-        <Button variant="ghost" className="w-full justify-start" onClick={onAction}>
+        <Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start" onClick={onAction}>
           {actionIcon}
           {actionLabel}
         </Button>
+        {footerExtra}
       </div>
     </aside>
   );

@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { CheckIcon } from "@phosphor-icons/react/Check";
 import { Input } from "@/components/ui/input.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
 import { Slider } from "@/components/ui/slider.tsx";
@@ -283,7 +284,7 @@ export function ChoiceCards<T extends string>({
               aria-checked={selected}
               onClick={() => onChange(option.value)}
               className={cn(
-                "flex flex-col gap-2 rounded-lg border p-2 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30",
+                "relative flex flex-col gap-2 rounded-lg border p-2 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:border-foreground focus-visible:ring-2 focus-visible:ring-ring",
                 selected && "border-ring bg-muted/60",
               )}
             >
@@ -294,6 +295,11 @@ export function ChoiceCards<T extends string>({
                 {option.preview}
               </span>
               <span className="px-0.5 text-xs font-medium">{option.label}</span>
+              {selected ? (
+                <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-foreground text-background" aria-hidden="true">
+                  <CheckIcon />
+                </span>
+              ) : null}
             </button>
           );
         })}

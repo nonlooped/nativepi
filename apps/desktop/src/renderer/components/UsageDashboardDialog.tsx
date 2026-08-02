@@ -49,7 +49,7 @@ export default function UsageDashboardDialog({ onClose }: { onClose: () => void 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
           <Select
             value={projectPath}
             onValueChange={(next) => typeof next === "string" && setProjectPath(next)}
@@ -67,14 +67,16 @@ export default function UsageDashboardDialog({ onClose }: { onClose: () => void 
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {error ? <p className="text-sm text-destructive">Unable to load usage. {error}</p> : null}
+        {request.loading ? <Loading /> : dashboard ? <Dashboard dashboard={dashboard} allProjects={projectPath === ALL_PROJECTS} /> : null}
+        <div className="flex justify-end border-t pt-3">
           <Button variant="ghost" size="sm" onClick={request.reload} disabled={request.loading}>
             <ArrowClockwiseIcon data-icon="inline-start" className={request.loading ? "animate-spin" : undefined} />
             Refresh
           </Button>
         </div>
-
-        {error ? <p className="text-sm text-destructive">Unable to load usage. {error}</p> : null}
-        {request.loading ? <Loading /> : dashboard ? <Dashboard dashboard={dashboard} allProjects={projectPath === ALL_PROJECTS} /> : null}
       </DialogContent>
     </Dialog>
   );
@@ -102,13 +104,16 @@ function Dashboard({ dashboard, allProjects }: { dashboard: UsageDashboard; allP
       <section className="border-t pt-4" aria-labelledby="usage-trend-heading">
         <div className="flex items-baseline justify-between gap-4">
           <h3 id="usage-trend-heading" className="font-heading text-sm font-semibold">Recent spend</h3>
-          {trend ? <TrendLabel trend={trend} /> : null}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">Last 14 days</span>
+            {trend ? <TrendLabel trend={trend} /> : null}
+          </div>
         </div>
         <Trend daily={dashboard.daily} />
       </section>
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <CostList heading="By model" values={dashboard.models.map((model) => ({ id: model.name, label: model.name, cost: model.cost }))} />
+        <CostList heading="By model" values={dashboard.models.map((model) => ({ id: model.name, label: friendlyModelName(model.name), detail: model.name, cost: model.cost }))} />
         <CostList
           heading={allProjects ? "By project" : "Selected project"}
           values={dashboard.projects.map((project) => ({ id: project.path, label: project.name, cost: project.cost }))}
@@ -162,7 +167,7 @@ function UsageTooltip({ active, payload }: { active?: boolean; payload?: { paylo
       <div className="grid gap-1 border-t border-border/50 pt-2">
         <p className="text-muted-foreground">Models</p>
         {point.models.length ? point.models.slice(0, 4).map((model) => (
-          <TooltipRow key={model.name} label={model.name} value={cost(model.cost)} />
+          <TooltipRow key={model.name} label={friendlyModelName(model.name)} value={cost(model.cost)} />
         )) : <span className="text-muted-foreground">No billed models</span>}
       </div>
     </div>
@@ -178,14 +183,14 @@ function TooltipRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CostList({ heading, values }: { heading: string; values: { id: string; label: string; cost: number }[] }) {
+function CostList({ heading, values }: { heading: string; values: { id: string; label: string; detail?: string; cost: number }[] }) {
   return (
     <section aria-label={heading}>
       <h3 className="font-heading text-sm font-semibold">{heading}</h3>
       <div className="mt-2 flex flex-col gap-1">
         {values.map((value) => (
           <div key={value.id} className="flex items-baseline justify-between gap-4 py-1">
-            <span className="min-w-0 truncate text-sm text-muted-foreground" title={value.label}>{value.label}</span>
+            <span className="min-w-0 truncate text-sm text-muted-foreground" title={value.detail ?? value.label}>{value.label}</span>
             <span className="shrink-0 font-mono text-xs tabular-nums">{cost(value.cost)}</span>
           </div>
         ))}
@@ -237,8 +242,21 @@ function Loading() {
 }
 
 function cost(value: number): string {
-  if (value === 0) return "$0";
+  if (value === 0) return "$0.00 recorded";
   if (value < 0.01) return `$${value.toFixed(4)}`;
   if (value < 1) return `$${value.toFixed(3)}`;
   return `$${value.toFixed(2)}`;
+}
+
+function friendlyModelName(value: string): string {
+  const id = value.split("/").at(-1) ?? value;
+  return id
+    .replace(/[-_]+/g, " ")
+    .replace(/^gpt\s+(?=\d)/i, "GPT-")
+    .replace(/\bgpt\b/gi, "GPT")
+    .replace(/\bclaude\b/gi, "Claude")
+    .replace(/\bcodex\b/gi, "Codex")
+    .replace(/\b(opus|sonnet|haiku|terra|sol|spark)\b/gi, (word) => word[0]!.toUpperCase() + word.slice(1).toLowerCase())
+    .replace(/\s+/g, " ")
+    .trim();
 }

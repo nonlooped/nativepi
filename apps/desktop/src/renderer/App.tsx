@@ -169,7 +169,7 @@ export default function App() {
         {activeProjectPath && contextDocked ? (
           <>
             <ResizableHandle className="hover:bg-ring focus-visible:bg-ring" />
-            <ResizablePanel id="context" defaultSize="28%" minSize="20%" maxSize="45%">
+            <ResizablePanel id="context" defaultSize="24%" minSize="18%" maxSize="40%">
               <ContextPane />
             </ResizablePanel>
           </>
