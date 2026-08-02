@@ -41,7 +41,7 @@ const OPEN_START = 0.2;
 const OPEN_END = 0.86;
 
 /** The window screenshot's aspect ratio, which every frame around it follows. */
-const RATIO = 1917 / 1016;
+const RATIO = 16 / 9;
 
 function LayerFace({ id }: { id: string }) {
   if (id === "pi") return <PiPlate />;
@@ -150,7 +150,7 @@ function StackedLayers() {
             {layer.body}
           </p>
 
-          <div className="plate mt-6 aspect-[1917/1016] overflow-hidden">
+          <div className="plate mt-6 aspect-video overflow-hidden">
             {layer.id === "slots" ? (
               <div className="relative h-full w-full bg-ink">
                 <AppWindow />
@@ -288,7 +288,7 @@ export function WindowStage() {
         <section className="pt-28 pb-4">
           <Hero />
           <div className="rail mt-12">
-            <div className="plate aspect-[1917/1016] overflow-hidden">
+            <div className="plate aspect-video overflow-hidden">
               <AppWindow />
             </div>
           </div>
@@ -376,7 +376,7 @@ export function WindowStage() {
               // get: a window that may run past the fold, never a distorted one.
               width: stage.width || undefined,
             }}
-            className="relative aspect-[1917/1016] w-full max-w-[min(78rem,92vw)]"
+            className="relative aspect-video w-full max-w-[min(78rem,92vw)]"
           >
             {layers.map((layer, index) => (
               <Plate
