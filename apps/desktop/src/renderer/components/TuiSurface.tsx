@@ -150,7 +150,7 @@ function TuiOverlayDialog({ surface, projectDir }: { surface: TuiSurface; projec
       <DialogContent className="max-w-2xl" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle className="font-heading text-base font-semibold">{surface.key}</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogDescription className="text-sm text-body-muted-foreground">
             An extension is showing this and is waiting for you to answer it. Use the keys it names.
           </DialogDescription>
         </DialogHeader>

@@ -137,7 +137,7 @@ function ProviderGroup({
             {providers.length}
           </span>
         </h2>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="text-sm text-body-muted-foreground">{description}</p>
       </div>
       {providers.map((provider) => {
         const expanded = selected === provider.id;
@@ -212,7 +212,7 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
 
   if (flow?.busy && !flow.error) {
     return (
-      <p className="flex items-center gap-2 px-4 pb-6 pt-1 sm:px-14 text-sm text-muted-foreground">
+      <p className="flex items-center gap-2 px-4 pb-6 pt-1 sm:px-14 text-sm text-body-muted-foreground">
         <CircleNotchIcon className="animate-spin" />
         Preparing secure sign-in…
       </p>
@@ -224,7 +224,7 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
       {/* The failure accompanies the orientation copy rather than replacing it:
           "Choose how you'd like to sign in" is exactly what you still need when
           a sign-in has just failed. */}
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-body-muted-foreground">
         {provider.configured
           ? describeConnected(provider)
           : methods.length > 0

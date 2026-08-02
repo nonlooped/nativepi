@@ -36,7 +36,7 @@ export default function QuitDialog() {
               ? "Pi is still working"
               : rows.length > 0 ? "Terminals are still open" : "Other devices are connected"}
           </DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+          <DialogDescription className="text-sm leading-relaxed text-body-muted-foreground">
             {runs > 0
               ? "Quitting stops the turn where it is: the rest of the turn will not happen. Everything Pi has already written to the chat is saved."
               : rows.length > 0
@@ -62,7 +62,7 @@ export default function QuitDialog() {
             phone is not one of this machine's projects, and the person holding
             it cannot see this dialog. */}
         {viewers > 0 && rows.length > 0 ? (
-          <p className="text-sm text-muted-foreground">{devices(viewers)} also connected over the shared link, and will be disconnected.</p>
+          <p className="text-sm text-body-muted-foreground">{devices(viewers)} also connected over the shared link, and will be disconnected.</p>
         ) : null}
 
         {/* Same order as ConfirmDialog: dismiss on the left, the consequential

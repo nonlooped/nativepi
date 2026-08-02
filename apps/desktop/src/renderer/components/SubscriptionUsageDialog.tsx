@@ -76,15 +76,15 @@ export default function SubscriptionUsageDialog({
       <DialogContent className="gap-5">
         <DialogHeader>
           <DialogTitle className="font-heading text-base font-semibold">Subscription usage</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogDescription className="text-sm text-body-muted-foreground">
             {providerName} plan limits reported for this account.
           </DialogDescription>
         </DialogHeader>
 
-        {loading ? <p className="text-sm text-muted-foreground">Reading subscription usage…</p> : null}
+        {loading ? <p className="text-sm text-body-muted-foreground">Reading subscription usage…</p> : null}
         {error ? <p className="text-sm text-destructive">Could not read subscription usage: {error}</p> : null}
         {!loading && !error && limits.length === 0 ? (
-          <p className="text-sm text-muted-foreground">This account did not report any subscription limits.</p>
+          <p className="text-sm text-body-muted-foreground">This account did not report any subscription limits.</p>
         ) : null}
 
         {leading ? <Headline limit={leading} /> : null}

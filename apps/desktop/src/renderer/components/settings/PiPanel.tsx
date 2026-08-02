@@ -25,7 +25,7 @@ export default function PiPanel({ children }: { children: (settings: PiSettings)
         <span className="min-w-0 break-words">Pi's settings could not be read. {error}</span>
       </p>
     ) : (
-      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+      <p className="flex items-center gap-2 text-sm text-body-muted-foreground">
         <CircleNotchIcon className="animate-spin" />
         Loading Pi's settings…
       </p>
@@ -64,7 +64,7 @@ function PiSettingsStatus() {
   return (
     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-lg border bg-muted/40 px-3 py-2.5 text-sm">
       <InfoIcon className="shrink-0 text-muted-foreground" />
-      <p className="min-w-0 flex-1 text-muted-foreground">
+      <p className="min-w-0 flex-1 text-body-muted-foreground">
         Saved. Pi reads its settings when it starts, so this takes effect the next time it runs
         {activeProjectPath ? " in this project" : ""}.
       </p>

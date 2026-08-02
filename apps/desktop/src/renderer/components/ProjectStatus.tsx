@@ -66,7 +66,7 @@ export default function ProjectStatus({ className }: { className?: string }) {
             <span>{trust.trusted ? "Trusted" : "Restricted"}</span>
           </MenuTrigger>
           <MenuPopup align="end" className="w-80 p-1.5">
-            <p className="px-2 pb-2 pt-1 text-xs leading-relaxed text-muted-foreground">
+            <p className="px-2 pb-2 pt-1 text-xs leading-relaxed text-body-muted-foreground">
               {trust.trusted
                 ? "This project's local extensions and skills run inside Pi."
                 : "This project's local extensions and skills are not loaded. Pi is running without them."}

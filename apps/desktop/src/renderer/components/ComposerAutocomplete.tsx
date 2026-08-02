@@ -314,7 +314,7 @@ export function AutocompleteMenu({ state }: { state: ComposerAutocomplete }) {
         </p>
       </div>
       {state.options.length === 0 ? (
-        <p className="px-3 py-4 text-center text-sm text-muted-foreground">
+        <p className="px-3 py-4 text-center text-sm text-body-muted-foreground">
           {state.loading ? "Looking…" : MENU_LABELS[state.kind].empty}
         </p>
       ) : (

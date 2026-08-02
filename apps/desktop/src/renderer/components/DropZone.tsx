@@ -95,7 +95,7 @@ export default function DropZone() {
       <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-ring px-10 py-8 text-center">
         <FolderOpenIcon weight="fill" className="size-7 text-muted-foreground" />
         <p className="font-heading text-base font-medium">Drop to open</p>
-        <p className="max-w-xs text-sm leading-5 text-muted-foreground">
+        <p className="max-w-xs text-sm leading-5 text-body-muted-foreground">
           A folder becomes a project. A Pi chat file is imported into this one.
         </p>
       </div>

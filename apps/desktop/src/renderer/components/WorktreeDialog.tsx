@@ -39,7 +39,7 @@ export default function WorktreeDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="font-heading text-base font-semibold">Worktrees</DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+          <DialogDescription className="text-sm leading-relaxed text-body-muted-foreground">
             A worktree is a second checkout of this repository in its own folder, so a branch can be worked on
             without disturbing the one you have open. NativePi opens each worktree as its own project.
           </DialogDescription>
@@ -93,7 +93,7 @@ function Branches({ projectPath, onClose }: { projectPath: string; onClose: () =
       />
 
       <div className="-mx-1 flex max-h-64 min-h-24 flex-col gap-0.5 overflow-y-auto px-1">
-        {loading ? <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">Loading branches…</p> : null}
+        {loading ? <p className="px-2.5 py-6 text-center text-sm text-body-muted-foreground">Loading branches…</p> : null}
 
         {matches.map((item) => (
           <Row
@@ -120,7 +120,7 @@ function Branches({ projectPath, onClose }: { projectPath: string; onClose: () =
         {error ? (
           <p className="px-2.5 py-6 text-center text-sm text-destructive">Could not read this repository's branches.</p>
         ) : !loading && matches.length === 0 && !canCreate ? (
-          <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">
+          <p className="px-2.5 py-6 text-center text-sm text-body-muted-foreground">
             No branches here. This folder may not be a Git repository yet.
           </p>
         ) : null}

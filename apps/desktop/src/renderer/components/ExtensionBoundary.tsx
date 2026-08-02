@@ -23,7 +23,7 @@ export default class ExtensionBoundary extends Component<Props, State> {
           <WarningCircleIcon className="mt-0.5 shrink-0" />
           <span className="min-w-0">
             Extension “{this.props.name}” failed to render.
-            <span className="block text-destructive/80">{this.state.error}</span>
+            <span className="block text-destructive">{this.state.error}</span>
           </span>
         </div>
       );

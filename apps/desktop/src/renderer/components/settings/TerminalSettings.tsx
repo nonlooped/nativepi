@@ -105,11 +105,11 @@ function TerminalPreview({
       </div>
       <div className="overflow-hidden p-3 leading-relaxed" style={{ fontFamily: TERMINAL_FONT, fontSize }}>
         <p className="whitespace-pre text-muted-foreground">
-          <span className="text-success">~/projects/nativepi</span> $ git status --short
+          <span className="text-active">~/projects/nativepi</span> $ git status --short
         </p>
         <p className="whitespace-pre text-warning">{" M apps/desktop/src/renderer/index.css"}</p>
         <p className="whitespace-pre text-muted-foreground">
-          <span className="text-success">~/projects/nativepi</span> ${" "}
+          <span className="text-active">~/projects/nativepi</span> ${" "}
           <span
             className={cursorBlink ? "animate-pulse" : undefined}
             style={{ display: "inline-block", width: "0.6em", height: "1.1em", verticalAlign: "text-bottom", background: "currentColor" }}

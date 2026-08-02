@@ -410,7 +410,7 @@ function TerminalSplit({
 
 function StatusDot({ session }: { session: TerminalSession }) {
   if (!session.exited) {
-    return <span className="size-1.5 shrink-0 rounded-full bg-success" aria-hidden="true" />;
+    return <span className="size-1.5 shrink-0 rounded-full bg-active" aria-hidden="true" />;
   }
   const failed = (session.exitCode ?? 0) !== 0;
   return (

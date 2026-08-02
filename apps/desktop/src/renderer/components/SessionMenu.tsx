@@ -123,7 +123,7 @@ export default function SessionMenu({
                 "group/chat relative flex items-center rounded-md transition-colors hover:bg-sidebar-accent/60 focus-within:bg-sidebar-accent/60",
                 selected &&
                   "bg-sidebar-accent text-sidebar-accent-foreground before:absolute before:inset-y-1 before:-left-1.5 before:w-0.5 before:rounded-full before:bg-primary",
-                running && !selected && "bg-success/5",
+                running && !selected && "bg-active/5",
               )}
             />
           }

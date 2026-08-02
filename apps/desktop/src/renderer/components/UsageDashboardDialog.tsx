@@ -37,7 +37,7 @@ export default function UsageDashboardDialog({ onClose }: { onClose: () => void 
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="font-heading text-base font-semibold">Usage and costs</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogDescription className="text-sm text-body-muted-foreground">
             Spend recorded in Pi session files. NativePi does not send a prompt to calculate it.
           </DialogDescription>
         </DialogHeader>
@@ -77,7 +77,7 @@ export default function UsageDashboardDialog({ onClose }: { onClose: () => void 
 
 function Dashboard({ dashboard, allProjects }: { dashboard: UsageDashboard; allProjects: boolean }) {
   if (dashboard.sessions === 0) {
-    return <p className="py-8 text-center text-sm leading-relaxed text-muted-foreground">No billed model usage is recorded for this selection yet.</p>;
+    return <p className="py-8 text-center text-sm leading-relaxed text-body-muted-foreground">No billed model usage is recorded for this selection yet.</p>;
   }
 
   const trend = recentTrend(dashboard.daily);

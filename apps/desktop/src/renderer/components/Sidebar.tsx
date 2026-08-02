@@ -311,7 +311,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
                       <span
                         role="status"
                         aria-label={`Agent running in ${project.name}`}
-                        className="size-1.5 shrink-0 animate-pulse rounded-full bg-success ring-2 ring-success/20"
+                        className="size-1.5 shrink-0 animate-pulse rounded-full bg-active ring-2 ring-active/20"
                       />
                     ) : null}
                   </button>
@@ -550,7 +550,7 @@ function ChatList({
                             was reporting on. */}
                         {running ? (
                           <CircleNotchIcon
-                            className="mt-1 size-3 shrink-0 animate-spin text-success"
+                            className="mt-1 size-3 shrink-0 animate-spin text-active"
                             role="status"
                             aria-label="Agent running"
                           />

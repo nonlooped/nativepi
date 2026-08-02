@@ -171,7 +171,7 @@ export default function ChatSearchDialog({
                   <span className="truncate text-sm font-semibold">{highlight(result.title, query)}</span>
                   <span className="ml-auto shrink-0 text-xs font-medium text-foreground/75">{project?.name ?? result.projectDir}</span>
                 </span>
-                <span className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                <span className="line-clamp-2 text-sm leading-relaxed text-body-muted-foreground">
                   <span className="font-medium text-foreground">{source}:</span>{" "}
                   {highlight(normalizePreview(result.snippet), query)}
                 </span>
@@ -213,7 +213,7 @@ function SearchState({
     <div className="flex min-h-48 flex-col items-center justify-center gap-1 px-6 text-center">
       <span className="mb-2 text-muted-foreground" aria-hidden="true">{icon}</span>
       <p className="text-sm font-medium">{title}</p>
-      <p className="text-sm text-muted-foreground">{detail}</p>
+      <p className="text-sm text-body-muted-foreground">{detail}</p>
       {action}
     </div>
   );

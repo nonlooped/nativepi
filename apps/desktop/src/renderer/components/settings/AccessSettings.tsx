@@ -198,7 +198,7 @@ export default function AccessSettings() {
           >
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold">The access token</span>
-              <span className="mt-1 block text-sm text-muted-foreground">
+              <span className="mt-1 block text-sm text-body-muted-foreground">
                 Where your links have been, and how to make every one of them stop working.
               </span>
             </span>
@@ -210,7 +210,7 @@ export default function AccessSettings() {
               <div>
                 <p className="text-sm font-medium">Handoffs from this window</p>
                 {handoffs.length === 0 ? (
-                  <p className="mt-1 text-sm text-muted-foreground">No link has been copied or shown yet.</p>
+                  <p className="mt-1 text-sm text-body-muted-foreground">No link has been copied or shown yet.</p>
                 ) : (
                   <ul className="mt-2 flex flex-col gap-2">
                     {handoffs.map((handoff) => (
@@ -230,7 +230,7 @@ export default function AccessSettings() {
 
               {shared ? (
                 <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-body-muted-foreground">
                     Both links carry the same token, and nothing knows who holds a copy.
                   </p>
                   <div className="flex shrink-0 items-center gap-2">
@@ -285,7 +285,7 @@ export default function AccessSettings() {
             <DialogTitle className="font-heading text-base font-semibold">
               {showing?.scope === "remote" ? "Public link" : "Network link"}
             </DialogTitle>
-            <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+            <DialogDescription className="text-sm leading-relaxed text-body-muted-foreground">
               Point the other device's camera at this. The token is in the code, so there is nothing to type.
             </DialogDescription>
           </DialogHeader>
@@ -382,7 +382,7 @@ function LinkPanel({
         </Select>
       ) : null}
 
-      <p className="text-xs leading-5 text-muted-foreground">
+      <p className="text-xs leading-5 text-body-muted-foreground">
         Anyone with the complete link can control NativePi. {note}
       </p>
     </div>

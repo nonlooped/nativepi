@@ -38,7 +38,7 @@ function ExtensionPromptDialog({ prompt }: { prompt: ExtensionPrompt }) {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="font-heading text-base font-semibold">{prompt.title}</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">{description}</DialogDescription>
+          <DialogDescription className="text-sm text-body-muted-foreground">{description}</DialogDescription>
         </DialogHeader>
 
         {prompt.method === "select" ? (

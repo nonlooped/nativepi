@@ -94,7 +94,7 @@ export default function App() {
       <div className="relative flex h-full items-center justify-center overflow-hidden bg-background text-foreground">
         <div className="flex max-w-md flex-col items-center gap-3 px-6 text-center" role={startupError ? "alert" : "status"}>
           <NativePiWordmark display />
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-body-muted-foreground">
             {startupError ?? "Starting NativePi…"}
           </p>
           {startupError ? (
@@ -243,7 +243,7 @@ function OnboardingStep({
       </span>
       <div className="min-w-0">
         <p className="text-sm font-medium">{title}</p>
-        <p className="text-sm leading-6 text-muted-foreground">{children}</p>
+        <p className="text-sm leading-6 text-body-muted-foreground">{children}</p>
       </div>
     </li>
   );
@@ -541,7 +541,7 @@ function ErrorBanner() {
                 ? "Pi stopped unexpectedly"
                 : "This turn hit an error"}
           </p>
-          <p className="mt-0.5 break-words text-destructive/80">{error}</p>
+          <p className="mt-0.5 break-words text-body-muted-foreground">{error}</p>
         </div>
         {/* The action is whatever actually recovers from *this*
             failure. Retry used to be offered unconditionally and
@@ -596,7 +596,7 @@ function WelcomeScreen() {
           {/* The first question an existing Pi user has is whether this is a
               second setup to maintain. It is not, and that is worth saying
               before the three steps ask them to connect anything. */}
-          <p className="text-sm leading-6 text-muted-foreground">
+          <p className="text-sm leading-6 text-body-muted-foreground">
             NativePi is a desktop window onto the Pi coding agent. It uses the Pi you already have — the same
             credentials, settings, and session files, all still on this computer and still usable from the terminal.
           </p>

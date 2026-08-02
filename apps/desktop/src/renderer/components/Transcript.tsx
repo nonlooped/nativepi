@@ -182,7 +182,7 @@ function TranscriptContent() {
                 <WarningCircleIcon className="shrink-0" />
                 <span className="min-w-0">
                   Retrying after an error (attempt {retry.attempt} of {retry.maxAttempts})
-                  {retry.error ? <span className="text-muted-foreground"> — {retry.error}</span> : null}
+                  {retry.error ? <span className="text-body-muted-foreground"> — {retry.error}</span> : null}
                 </span>
                 <Button size="sm" variant="ghost" className="ml-auto h-6 shrink-0 px-2" onClick={abortRetry}>
                   Stop
@@ -1007,7 +1007,7 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
         <CaretRightIcon className="shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-90" />
         {header}
       </Collapsible.Trigger>
-      <Collapsible.Panel className="max-h-72 overflow-auto border-t px-2.5 py-2 font-mono text-xs whitespace-pre-wrap text-muted-foreground">
+      <Collapsible.Panel className="max-h-72 overflow-auto border-t px-2.5 py-2 font-mono text-xs whitespace-pre-wrap text-body-muted-foreground">
         {output}
       </Collapsible.Panel>
     </Collapsible.Root>,

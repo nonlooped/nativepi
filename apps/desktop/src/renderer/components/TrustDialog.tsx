@@ -21,7 +21,7 @@ export default function TrustDialog() {
             <ShieldWarningIcon weight="fill" className="size-5 text-warning" />
             Trust this project?
           </DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+          <DialogDescription className="text-sm leading-relaxed text-body-muted-foreground">
             Local Pi extensions or skills in this folder can run with your permissions. Continue only if you recognize
             what it contains.
           </DialogDescription>
@@ -34,7 +34,7 @@ export default function TrustDialog() {
           <LocalCodeSummary projectPath={trustPrompt.projectPath} />
         </div>
 
-        <p className="min-w-0 text-xs leading-relaxed text-muted-foreground">
+        <p className="min-w-0 text-xs leading-relaxed text-body-muted-foreground">
           Continuing without trust keeps local extensions and skills disabled. You can change this later from project
           status.
         </p>

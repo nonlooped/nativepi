@@ -50,7 +50,7 @@ export default function RepoHostPanel() {
           onToggle={() => toggle("body")}
           onInsert={() => insertIntoComposer(context.body ?? "")}
         >
-          <p className="whitespace-pre-wrap px-1 pb-1 text-xs text-muted-foreground">{context.body}</p>
+          <p className="whitespace-pre-wrap px-1 pb-1 text-xs text-body-muted-foreground">{context.body}</p>
         </Section>
       ) : null}
 
@@ -81,7 +81,7 @@ export default function RepoHostPanel() {
                     Insert into composer
                   </Button>
                 </div>
-                {comment.body ? <p className="whitespace-pre-wrap text-muted-foreground">{comment.body}</p> : null}
+                {comment.body ? <p className="whitespace-pre-wrap text-body-muted-foreground">{comment.body}</p> : null}
               </li>
             ))}
           </ul>
@@ -177,7 +177,7 @@ function StateBadge({ context }: { context: RepoHostContext }) {
         ? "text-destructive"
         : context.draft
           ? "text-muted-foreground"
-          : "text-success";
+          : "text-active";
   return <span className={cn("shrink-0 text-xs font-medium capitalize", color)}>{label}</span>;
 }
 

@@ -57,7 +57,7 @@ export default function KeybindSettings() {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-3 rounded-xl border bg-card/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="flex items-start gap-2 text-sm text-muted-foreground">
+        <p className="flex items-start gap-2 text-sm text-body-muted-foreground">
           <PencilSimpleIcon className="mt-0.5 shrink-0" />
           <span>
             Every shortcut here can be changed. Click one, then press the keys you want. Escape cancels.
@@ -93,7 +93,7 @@ export default function KeybindSettings() {
                 >
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <p className="text-sm font-medium">{shortcut.label}</p>
-                    <p className="text-sm leading-5 text-muted-foreground">{shortcut.description}</p>
+                    <p className="text-sm leading-5 text-body-muted-foreground">{shortcut.description}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     {customized ? (

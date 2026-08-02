@@ -44,7 +44,7 @@ export function SettingsSection({
       <h2 id={id} className="font-heading text-sm font-semibold">
         {heading}
       </h2>
-      {description ? <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p> : null}
+      {description ? <p className="mt-1 text-sm leading-5 text-body-muted-foreground">{description}</p> : null}
       <FieldGroup className="mt-4 flex flex-col">{children}</FieldGroup>
     </section>
   );
@@ -338,7 +338,7 @@ export function ChoiceCards<T extends string>({
 
 const TONE_DOT = {
   idle: "bg-muted-foreground/50",
-  active: "bg-success",
+  active: "bg-active",
   busy: "bg-warning animate-pulse",
   warning: "bg-warning",
   error: "bg-destructive",
@@ -346,7 +346,7 @@ const TONE_DOT = {
 
 const TONE_TEXT = {
   idle: "text-muted-foreground",
-  active: "text-success",
+  active: "text-active",
   busy: "text-warning",
   warning: "text-warning",
   error: "text-destructive",
@@ -397,7 +397,7 @@ export function SettingsCard({
               {status}
             </p>
           ) : null}
-          {description ? <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p> : null}
+          {description ? <p className="mt-1 text-sm leading-5 text-body-muted-foreground">{description}</p> : null}
           {error ? (
             <p role="alert" className="mt-2 text-sm text-destructive">
               {error}

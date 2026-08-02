@@ -153,7 +153,7 @@ export default function Settings() {
           <div className="mx-auto w-full max-w-3xl px-4 pb-16 pt-8 sm:px-10 sm:pt-12">
             <div className="mb-8 flex flex-col gap-2 sm:mb-12">
               <h1 className="font-heading text-2xl font-semibold tracking-tight">{category}</h1>
-              {blurb ? <p className="text-sm leading-6 text-muted-foreground">{blurb}</p> : null}
+              {blurb ? <p className="text-sm leading-6 text-body-muted-foreground">{blurb}</p> : null}
             </div>
 
             <CategoryPanel category={category} />
