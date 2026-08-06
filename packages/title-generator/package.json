@@ -1,6 +1,6 @@
 {
   "name": "@nativepi/title-generator",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Generates concise chat titles in Pi, with a model picker in NativePi.",
   "author": "nonlooped",
   "license": "MIT",

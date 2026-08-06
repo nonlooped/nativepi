@@ -1,6 +1,6 @@
 {
   "name": "@nativepi/subscription-usage",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Shows provider-reported subscription limits in Pi, with a graphical reading in NativePi.",
   "author": "nonlooped",
   "license": "MIT",
