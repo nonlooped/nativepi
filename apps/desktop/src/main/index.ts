@@ -150,10 +150,13 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(async () => {
+app.whenReady().then(() => {
   registerIpc();
-  await migrateLegacyBuiltInExtensions();
+  // Migration may hit the registry for each leftover built-in. Do not hold the
+  // window for that: a blocked or slow npm leaves the user staring at nothing,
+  // and a failed install is retried on the next launch anyway.
   createWindow();
+  void migrateLegacyBuiltInExtensions();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

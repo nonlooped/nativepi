@@ -156,6 +156,20 @@ jobs:
         working-directory: ${{ matrix.directory }}
         run: npm install -g npm@latest
 
+      # npm publish leaves `workspace:` ranges verbatim, and consumers cannot
+      # install that protocol. Rewrite only the packed manifest to a registry
+      # range taken from the workspace package's current version.
+      - name: Rewrite workspace dependencies
+        if: steps.resolve.outputs.publish == 'true'
+        working-directory: ${{ matrix.directory }}
+        run: >
+          node -e "const fs=require('node:fs');const path=require('node:path');const
+          pkg=JSON.parse(fs.readFileSync('package.json','utf8'));const
+          api=JSON.parse(fs.readFileSync(path.join('..','extension-api','package.json'),'utf8'));const
+          range='^'+api.version;let changed=false;for (const section of
+          ['dependencies','peerDependencies','optionalDependencies','devDependencies'])
+          {const deps=pkg[section];if(!deps||typeof deps['@nativepi/extension-api']!=='string')continue;if(!deps['@nativepi/extension-api'].startsWith('workspace:'))continue;deps['@nativepi/extension-api']=range;changed=true;}if(changed){fs.writeFileSync('package.json',JSON.stringify(pkg,null,2)+'\n');console.log('Rewrote @nativepi/extension-api to '+range);}"
+
       - name: Publish
         if: steps.resolve.outputs.publish == 'true'
         working-directory: ${{ matrix.directory }}

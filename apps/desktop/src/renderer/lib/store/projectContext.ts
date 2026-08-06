@@ -3,6 +3,7 @@ import { dispatchExtensionEvent } from "../extensionHost.ts";
 import { rpc } from "../rpc.ts";
 import { showHint } from "../toast.tsx";
 import { dropAllSurfaces, dropSurface, retainSurfaceHistory, writeSurface } from "../tuiSurfaces.ts";
+import { patchConversation } from "./conversation.ts";
 import { markGitRefreshed, persist } from "./internals.ts";
 import { NO_EXTENSION_UI_STATE, type ProjectContextSlice, type SliceCreator } from "./types.ts";
 
@@ -99,7 +100,33 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
         // A different chat has already cleared all surfaces before it syncs, so
         // only a genuinely new id needs its old replay buffer discarded.
         if (!isDuplicate) dropSurface(frame.surface.id);
-        if (frame.surface.placement === "timeline") retainSurfaceHistory(frame.surface.id);
+        if (frame.surface.placement === "timeline") {
+          retainSurfaceHistory(frame.surface.id);
+          // Custom messages reach the host as `message_end` and are persisted
+          // without an `entry_appended` event, so the live transcript never sees
+          // their real entry id. The surface carries that id; put a stub in the
+          // transcript so EntryView can match it before the next session read.
+          const entryId = frame.surface.entryId;
+          const activeProject = get().activeProjectPath;
+          if (entryId && activeProject) {
+            patchConversation(set, activeProject, get().activeSessionFile, (conversation) => {
+              if (conversation.entries.some((entry) => entry.id === entryId)) return {};
+              return {
+                entries: [
+                  ...conversation.entries,
+                  {
+                    type: "custom_message",
+                    id: entryId,
+                    parentId: null,
+                    timestamp: new Date().toISOString(),
+                    customType: frame.surface.key,
+                    display: true,
+                  },
+                ],
+              };
+            });
+          }
+        }
         set((s) => ({
           extSurfaces: [...s.extSurfaces.filter((surface) => surface.id !== frame.surface.id), frame.surface],
         }));

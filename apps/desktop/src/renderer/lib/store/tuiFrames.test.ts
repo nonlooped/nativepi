@@ -67,6 +67,51 @@ test("a background project's surface is ignored", () => {
   expect(useAppStore.getState().extSurfaces).toEqual([]);
 });
 
+test("a blank chat accepts draft frames that carry no session file", () => {
+  useAppStore.setState({ activeProjectPath: "A:\\proj-a", activeSessionFile: null, extSurfaces: [] });
+
+  useAppStore.getState().onTuiFrame({
+    projectDir: "A:\\proj-a",
+    frame: open("footer-draft", "footer"),
+  });
+
+  expect(useAppStore.getState().extSurfaces.map((surface) => surface.id)).toEqual(["footer-draft"]);
+});
+
+test("a blank chat rejects frames tagged for another session", () => {
+  useAppStore.setState({ activeProjectPath: "A:\\proj-a", activeSessionFile: null, extSurfaces: [] });
+
+  useAppStore.getState().onTuiFrame({
+    projectDir: "A:\\proj-a",
+    sessionFile: "hidden-draft.jsonl",
+    frame: open("footer-other", "footer"),
+  });
+
+  expect(useAppStore.getState().extSurfaces).toEqual([]);
+});
+
+test("a live timeline surface puts its entry into the transcript", () => {
+  useAppStore.setState({
+    activeProjectPath: "A:\\proj-a",
+    activeSessionFile: "chat.jsonl",
+    conversations: {},
+    extSurfaces: [],
+  });
+
+  useAppStore.getState().onTuiFrame({
+    projectDir: "A:\\proj-a",
+    sessionFile: "chat.jsonl",
+    frame: {
+      type: "nativepi_tui_open",
+      surface: { id: "notice-surface", placement: "timeline", key: "build-notice", entryId: "notice-1" },
+    },
+  });
+
+  const entries = useAppStore.getState().conversations["chat.jsonl"]?.entries ?? [];
+  expect(entries).toMatchObject([{ id: "notice-1", type: "custom_message", customType: "build-notice" }]);
+  expect(useAppStore.getState().extSurfaces.map((surface) => surface.id)).toEqual(["notice-surface"]);
+});
+
 test("closing a surface unmounts it and forgets what it drew", () => {
   useAppStore.setState({ activeProjectPath: "A:\\proj-a", extSurfaces: [] });
   const store = useAppStore.getState();

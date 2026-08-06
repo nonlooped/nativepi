@@ -170,6 +170,14 @@ function markBusy(projectDir: string, until: number): void {
   busyUntil.set(projectDir, until);
 }
 
+/** Session path the window should match this process against. */
+function clientSessionFile(projectDir: string, pi: PiProcess) {
+  // A blank chat's draft Pi already has a hidden session file on disk, but the
+  // renderer still treats that view as `activeSessionFile: null`. Tagging the
+  // bound path would make every frame look like another chat's.
+  return draftPis.get(projectDir) === pi ? undefined : pi.boundSessionFile;
+}
+
 function forwardEvent(projectDir: string, pi: PiProcess, event: PiMessage): void {
   const sessionFile = pi.boundSessionFile ?? projectDir;
   if (event["type"] === "agent_start") markBusy(sessionFile, Number.POSITIVE_INFINITY);
@@ -184,7 +192,7 @@ function forwardEvent(projectDir: string, pi: PiProcess, event: PiMessage): void
     markBusy(sessionFile, Date.now() + SETTLE_GRACE_MS);
   }
   if (event["type"] === "message_end" || event["type"] === "agent_settled") notifySessionsChanged(projectDir);
-  push("piEvent", { projectDir, sessionFile: pi.boundSessionFile, event });
+  push("piEvent", { projectDir, sessionFile: clientSessionFile(projectDir, pi), event });
 }
 
 /**
@@ -240,7 +248,7 @@ function forwardPiFrame(projectDir: string, pi: PiProcess, frame: TuiHostFrame):
     if (frame.notice.kind === "auth_url") void shell.openExternal(frame.notice.url);
     return;
   }
-  push("tuiFrame", { projectDir, sessionFile: pi.boundSessionFile, frame });
+  push("tuiFrame", { projectDir, sessionFile: clientSessionFile(projectDir, pi), frame });
 }
 
 function rememberPi(pi: PiProcess, sessionFile: string | undefined): void {
@@ -272,7 +280,7 @@ function ensurePi(projectDir: string, sessionFile?: string, fresh = false): Prom
         // Panes belong to the process that drew them: a Pi that dies takes its
         // surfaces with it, and the window has to be told or they stay on screen
         // with nothing behind them.
-        push("tuiFrame", { projectDir, sessionFile: pi.boundSessionFile, frame: { type: "nativepi_tui_reset" } });
+        push("tuiFrame", { projectDir, sessionFile: clientSessionFile(projectDir, pi), frame: { type: "nativepi_tui_reset" } });
         if (pi.boundSessionFile && pis.get(pi.boundSessionFile) === pi) pis.delete(pi.boundSessionFile);
         if (draftPis.get(projectDir) === pi) draftPis.delete(projectDir);
         if (startingPis.get(key) === pi) startingPis.delete(key);
