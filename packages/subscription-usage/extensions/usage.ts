@@ -1,32 +1,17 @@
 import { readStoredCredential } from "@earendil-works/pi-coding-agent";
-import type { ExtensionAPI, ExtensionContext, InlineExtension } from "@earendil-works/pi-coding-agent";
-
-/**
- * Provider subscription endpoints belong here rather than in NativePi itself.
- * This file is copied to Pi's global extension directory, so it intentionally
- * has no imports from the desktop application.
- */
-export interface SubscriptionUsageLimit {
-  label: string;
-  usedPercent: number;
-  resetAt?: string;
-  windowSeconds?: number;
-}
-
-export interface SubscriptionUsage {
-  provider: string;
-  limits: SubscriptionUsageLimit[];
-}
-
-export interface SubscriptionAuthResolver {
-  getProviderAuth(providerId: string): Promise<unknown>;
-}
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { connect } from "@nativepi/extension-api/host";
+import type { SubscriptionUsage, SubscriptionUsageLimit, UsageReading } from "../types.ts";
 
 type JsonRecord = Record<string, unknown>;
 
+interface AuthResolver {
+  getProviderAuth(providerId: string): Promise<unknown>;
+}
+
 const SUPPORTED_PROVIDERS = new Set(["anthropic", "github-copilot", "kimi-coding", "openai-codex"]);
-const USAGE_STATUS = "nativepi-subscription-usage";
-const USAGE_WIDGET = "nativepi-subscription-usage";
+const USAGE_STATUS = "subscription-usage";
+const USAGE_WIDGET = "subscription-usage";
 
 function record(value: unknown): JsonRecord | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as JsonRecord) : undefined;
@@ -126,13 +111,7 @@ function addRateWindows(limits: SubscriptionUsageLimit[], value: unknown, scope?
     const window = record(rateLimit[key]);
     if (!window) continue;
     const seconds = number(window["limit_window_seconds"]);
-    addLimit(
-      limits,
-      openAiLimitLabel(seconds, scope),
-      window["used_percent"],
-      window["reset_at"],
-      seconds,
-    );
+    addLimit(limits, openAiLimitLabel(seconds, scope), window["used_percent"], window["reset_at"], seconds);
   }
 }
 
@@ -231,9 +210,16 @@ function authResult(value: unknown): JsonRecord | undefined {
   return record(record(value)?.["auth"]);
 }
 
-async function oauthAccessToken(providerId: string, resolver: SubscriptionAuthResolver): Promise<string> {
-  const credential = readStoredCredential(providerId);
-  if (credential?.type !== "oauth") throw new Error("This provider is not connected with a subscription.");
+async function oauthAccessToken(
+  providerId: string,
+  resolver: AuthResolver,
+  credentialReader: typeof readStoredCredential,
+) {
+  const credential = credentialReader(providerId);
+  // Subscription usage endpoints accept the provider's OAuth session, not an
+  // API key. Treat key-backed accounts as unsupported instead of sending the
+  // renderer an error for a control it should not show.
+  if (credential?.type !== "oauth") return undefined;
   const auth = authResult(await resolver.getProviderAuth(providerId));
   const apiKey = text(auth?.["apiKey"]);
   if (apiKey) return apiKey;
@@ -261,15 +247,17 @@ function usage(provider: string, limits: SubscriptionUsageLimit[]): Subscription
 }
 
 /** Fetch the supported provider's subscription data using Pi's resolved auth. */
-export async function getNativePiSubscriptionUsage(
+export async function getSubscriptionUsage(
   providerId: string,
-  resolver: SubscriptionAuthResolver,
+  resolver: AuthResolver,
+  credentialReader: typeof readStoredCredential = readStoredCredential,
 ): Promise<SubscriptionUsage | undefined> {
   if (!SUPPORTED_PROVIDERS.has(providerId)) return undefined;
 
   switch (providerId) {
     case "openai-codex": {
-      const accessToken = await oauthAccessToken(providerId, resolver);
+      const accessToken = await oauthAccessToken(providerId, resolver, credentialReader);
+      if (!accessToken) return undefined;
       const accountId = chatGptAccountId(accessToken);
       if (!accountId) throw new Error("Could not identify the ChatGPT account.");
       const body = await usageResponse("https://chatgpt.com/backend-api/wham/usage", {
@@ -281,7 +269,8 @@ export async function getNativePiSubscriptionUsage(
       return usage(providerId, openAiLimits(body));
     }
     case "anthropic": {
-      const accessToken = await oauthAccessToken(providerId, resolver);
+      const accessToken = await oauthAccessToken(providerId, resolver, credentialReader);
+      if (!accessToken) return undefined;
       const body = await usageResponse("https://api.anthropic.com/api/oauth/usage", {
         Authorization: `Bearer ${accessToken}`,
         Accept: "application/json",
@@ -292,7 +281,8 @@ export async function getNativePiSubscriptionUsage(
       return usage(providerId, anthropicLimits(body));
     }
     case "kimi-coding": {
-      const accessToken = await oauthAccessToken(providerId, resolver);
+      const accessToken = await oauthAccessToken(providerId, resolver, credentialReader);
+      if (!accessToken) return undefined;
       const body = await usageResponse("https://api.kimi.com/coding/v1/usages", {
         Authorization: `Bearer ${accessToken}`,
         Accept: "application/json",
@@ -300,10 +290,10 @@ export async function getNativePiSubscriptionUsage(
       return usage(providerId, kimiLimits(body));
     }
     case "github-copilot": {
-      const credential = readStoredCredential(providerId);
-      if (credential?.type !== "oauth") throw new Error("This provider is not connected with a subscription.");
+      const credential = credentialReader(providerId);
+      if (credential?.type !== "oauth") return undefined;
       await resolver.getProviderAuth(providerId);
-      const current = readStoredCredential(providerId);
+      const current = credentialReader(providerId);
       const refresh = current?.type === "oauth" ? current.refresh : credential.refresh;
       const body = await usageResponse("https://api.github.com/copilot_internal/user", {
         Authorization: `token ${refresh}`,
@@ -325,25 +315,31 @@ function resetLabel(value: string): string {
 }
 
 function providerLabel(provider: string): string {
-  return provider === "github-copilot" ? "GitHub Copilot" : provider === "openai-codex" ? "OpenAI" : provider === "kimi-coding" ? "Kimi Code" : "Anthropic";
+  return provider === "github-copilot"
+    ? "GitHub Copilot"
+    : provider === "openai-codex"
+      ? "OpenAI"
+      : provider === "kimi-coding"
+        ? "Kimi Code"
+        : "Anthropic";
 }
 
-function usageWidget(usage: SubscriptionUsage): string[] {
-  if (usage.limits.length === 0) return [`${providerLabel(usage.provider)} did not report any subscription limits.`];
+function usageWidget(data: SubscriptionUsage): string[] {
+  if (data.limits.length === 0) return [`${providerLabel(data.provider)} did not report any subscription limits.`];
   return [
-    `${providerLabel(usage.provider)} subscription usage`,
-    ...usage.limits.map((item) =>
+    `${providerLabel(data.provider)} subscription usage`,
+    ...data.limits.map((item) =>
       `${item.label}: ${Math.round(100 - item.usedPercent)}% left${item.resetAt ? ` · resets ${resetLabel(item.resetAt)}` : ""}`,
     ),
   ];
 }
 
-function clearStandaloneUsage(context: ExtensionContext): void {
+function clearUsage(context: ExtensionContext): void {
   context.ui.setStatus(USAGE_STATUS, undefined);
   context.ui.setWidget(USAGE_WIDGET, undefined);
 }
 
-function showStandaloneUsage(context: ExtensionContext, data: SubscriptionUsage): void {
+function showUsage(context: ExtensionContext, data: SubscriptionUsage): void {
   const highest = data.limits.reduce((value, item) => Math.max(value, item.usedPercent), 0);
   context.ui.setStatus(
     USAGE_STATUS,
@@ -352,43 +348,69 @@ function showStandaloneUsage(context: ExtensionContext, data: SubscriptionUsage)
   context.ui.setWidget(USAGE_WIDGET, usageWidget(data));
 }
 
-function activateStandaloneSubscriptionUsageExtension(pi: ExtensionAPI): void {
-  pi.on("session_start", (_event, context) => clearStandaloneUsage(context));
-  pi.on("model_select", (_event, context) => clearStandaloneUsage(context));
+export default function subscriptionUsageExtension(pi: ExtensionAPI): void {
+  const ui = connect("@nativepi/subscription-usage");
+
+  /**
+   * The window asks for usage on its own schedule, and Pi only hands out a
+   * context inside a handler, so the latest one is kept for the channel to use.
+   */
+  let latest: ExtensionContext | undefined;
+
+  const remember = (_event: unknown, context: ExtensionContext): void => {
+    latest = context;
+  };
+
+  pi.on("session_start", (event, context) => {
+    remember(event, context);
+    // A renderer can mount and ask while Pi is still creating this session.
+    // The initial unsupported response keeps it quiet; this event makes it
+    // retry once the context needed to read usage exists.
+    if (ui.connected) ui.emit("changed");
+    else clearUsage(context);
+  });
+  pi.on("model_select", (event, context) => {
+    remember(event, context);
+    if (ui.connected) ui.emit("changed");
+    else clearUsage(context);
+  });
+  pi.on("turn_end", remember);
+
+  ui.method("usage", async (params) => {
+    // The graphical control mounts before a new Pi session can report its
+    // context. It will retry on session_start, so this is unsupported for now,
+    // not a broken control.
+    if (!latest) return { supported: false } satisfies UsageReading;
+    const providerId = text(record(params)?.["providerId"]) ?? latest.model?.provider;
+    if (!providerId) throw new Error("No model is selected.");
+    const data = await getSubscriptionUsage(providerId, latest.modelRegistry);
+    return { supported: data !== undefined, ...(data ? { usage: data } : {}) } satisfies UsageReading;
+  });
 
   pi.registerCommand("usage", {
     description: "Show subscription usage for the active provider",
     handler: async (_args, context) => {
+      latest = context;
       const providerId = context.model?.provider;
       if (!providerId) {
         context.ui.notify("No model is selected.", "warning");
         return;
       }
-      clearStandaloneUsage(context);
+      clearUsage(context);
       try {
-        const data = await getNativePiSubscriptionUsage(providerId, context.modelRegistry);
+        const data = await getSubscriptionUsage(providerId, context.modelRegistry);
         if (!data) {
-          clearStandaloneUsage(context);
           context.ui.notify("This provider does not report subscription usage.", "info");
           return;
         }
-        showStandaloneUsage(context, data);
+        showUsage(context, data);
         context.ui.notify("Subscription usage updated.", "info");
       } catch (error) {
-        context.ui.notify(`Could not read subscription usage: ${error instanceof Error ? error.message : String(error)}`, "error");
+        context.ui.notify(
+          `Could not read subscription usage: ${error instanceof Error ? error.message : String(error)}`,
+          "error",
+        );
       }
     },
   });
-}
-
-/** NativePi asks this inline extension for data; the copied file uses /usage. */
-export const nativePiSubscriptionUsageExtension: InlineExtension = {
-  name: "NativePi subscription usage",
-  factory: () => {},
-  hidden: true,
-};
-
-export default function nativePiSubscriptionUsageFileExtension(pi: ExtensionAPI): void {
-  if (process.env["NATIVEPI_HOST"] === "1") return;
-  activateStandaloneSubscriptionUsageExtension(pi);
 }

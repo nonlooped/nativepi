@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu, shell, type MenuItemConstructorOptions } from "electron";
 import { join } from "node:path";
 import { quitBlocked, registerIpc, setMainWindow, stopAllPi } from "./ipc.ts";
+import { migrateLegacyBuiltInExtensions } from "./legacyBuiltIns.ts";
 
 // Not named `__dirname`: rolldown injects a CommonJS `__dirname` shim at the top
 // of the main bundle, and a same-named top-level const collides with it at load.
@@ -151,7 +152,11 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   registerIpc();
+  // Migration may hit the registry for each leftover built-in. Do not hold the
+  // window for that: a blocked or slow npm leaves the user staring at nothing,
+  // and a failed install is retried on the next launch anyway.
   createWindow();
+  void migrateLegacyBuiltInExtensions();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

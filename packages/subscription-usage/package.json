@@ -1,0 +1,53 @@
+{
+  "name": "@nativepi/subscription-usage",
+  "version": "0.1.0",
+  "description": "Shows provider-reported subscription limits in Pi, with a graphical reading in NativePi.",
+  "author": "nonlooped",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-coding-agent",
+    "nativepi",
+    "extension"
+  ],
+  "files": [
+    "extensions",
+    "renderer",
+    "types.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "pi": {
+    "extensions": ["./extensions/usage.ts"]
+  },
+  "nativepi": {
+    "renderer": "./renderer/index.tsx"
+  },
+  "homepage": "https://github.com/nonlooped/nativepi/tree/main/packages/subscription-usage",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nonlooped/nativepi.git",
+    "directory": "packages/subscription-usage"
+  },
+  "bugs": {
+    "url": "https://github.com/nonlooped/nativepi/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@nativepi/extension-api": "workspace:^",
+    "@phosphor-icons/react": "^2.1.10"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.84.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.0",
+    "@types/react": "^19.2.18",
+    "react": "^19.2.0"
+  }
+}

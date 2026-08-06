@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
 import { imagesOf, isAssistant, isToolResult, isUser, textOf } from "../../shared/messages.ts";
+import { stripAnsi } from "../lib/ansi.ts";
 import { toolArgSummary, toolResultsById } from "../lib/transcript.ts";
 import { diffPatchFor, fileDir, fileName, turnChanges, type FileChange } from "../lib/changes.ts";
 import { formatDuration, formatElapsed, pluralize } from "../lib/format.ts";
@@ -46,7 +47,7 @@ import DiffView from "./DiffView.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 import { ExtensionEntry, ExtensionToolResult, useHasEntryRenderer, useHasToolRenderer } from "./ExtensionSlots.tsx";
 import FileContextMenu from "./FileContextMenu.tsx";
-import { TuiPane } from "./TuiSurface.tsx";
+import { TuiPane, TuiTimelineEntry } from "./TuiSurface.tsx";
 
 // @streamdown/code still publishes Shiki 3 token types while Streamdown resolves Shiki 4.
 const streamdownPlugins: { code: CodeHighlighterPlugin } = {
@@ -289,13 +290,6 @@ function useIndicatorFrame(
   return stripAnsi(frames[index % frames.length] ?? "");
 }
 
-/** Escape sequences, out. See `useIndicatorFrame` for why they are not honoured. */
-function stripAnsi(text: string): string {
-  // CSI (colour, cursor) and OSC (hyperlinks, titles), which is everything pi-tui
-  // puts around a glyph.
-  return text.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "");
-}
-
 function RunStatusBar({
   activeTool,
   compacting,
@@ -508,7 +502,10 @@ function transcriptItems(entries: SessionEntry[], streaming: AssistantMessage | 
       continue;
     }
     if (isToolResult(entry.message)) continue;
-    if (!isAssistant(entry.message)) continue;
+    if (!isAssistant(entry.message)) {
+      items.push({ type: "entry", entry });
+      continue;
+    }
 
     const messages = [entry.message];
     let finishedAt = entry.timestamp;
@@ -550,6 +547,16 @@ function transcriptItems(entries: SessionEntry[], streaming: AssistantMessage | 
 }
 
 function EntryView({ entry }: { entry: SessionEntry }) {
+  const terminal = useAppStore((s) =>
+    s.extSurfaces.find((surface) => surface.placement === "timeline" && surface.entryId === entry.id),
+  );
+  if (terminal) {
+    return (
+      <div className="overflow-hidden rounded-lg border bg-card/60 px-2 py-1.5">
+        <TuiTimelineEntry surface={terminal} />
+      </div>
+    );
+  }
   if (entry.type === "message") {
     const message = entry.message;
     if (isUser(message)) {

@@ -25,11 +25,22 @@ const JSX_EXPORTS = ["jsx", "jsxs", "Fragment"];
 const JSX_DEV_EXPORTS = ["jsxDEV", "Fragment"];
 const API_EXPORTS = ["defineRenderer", "version"];
 
+// NativePi's interface components, lent to extensions so their UI carries real
+// styles. Tailwind cannot see extension code, so a class an extension writes has
+// no rule behind it and only a shared component can look native.
+const UI_EXPORTS = [
+  "Button",
+  "Dialog", "DialogTrigger", "DialogClose", "DialogContent", "DialogHeader",
+  "DialogFooter", "DialogTitle", "DialogDescription",
+  "Menu", "MenuTrigger", "MenuContent", "MenuGroup", "MenuLabel", "MenuItem", "MenuSeparator", "SettingsActionRow",
+];
+
 const HOST_MODULES: Record<string, string[]> = {
   react: REACT_EXPORTS,
   "react/jsx-runtime": JSX_EXPORTS,
   "react/jsx-dev-runtime": JSX_DEV_EXPORTS,
   "@nativepi/extension-api": API_EXPORTS,
+  "@nativepi/extension-api/ui": UI_EXPORTS,
 };
 
 function shimFor(key: string, names: string[]): string {
@@ -41,7 +52,7 @@ function shimFor(key: string, names: string[]): string {
 const hostGlobalsPlugin: Plugin = {
   name: "nativepi-host-globals",
   setup(pluginBuild) {
-    const filter = /^(react|react\/jsx-runtime|react\/jsx-dev-runtime|@nativepi\/extension-api)$/;
+    const filter = /^(react|react\/jsx-runtime|react\/jsx-dev-runtime|@nativepi\/extension-api(\/ui)?)$/;
     pluginBuild.onResolve({ filter }, (args) => ({ path: args.path, namespace: "nativepi-host" }));
     pluginBuild.onLoad({ filter: /.*/, namespace: "nativepi-host" }, (args) => ({
       contents: shimFor(args.path, HOST_MODULES[args.path] ?? []),

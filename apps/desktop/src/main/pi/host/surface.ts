@@ -1,4 +1,4 @@
-import { TUI, type Component, type OverlayHandle, type OverlayOptions, type Terminal } from "@earendil-works/pi-tui";
+import { TuiMainScreen, type Component, type OverlayHandle, type OverlayOptions, type Terminal, type TUI } from "@earendil-works/pi-tui";
 
 /**
  * One pi-tui component, hosted with no terminal under it.
@@ -116,7 +116,7 @@ export class Surface {
 
   constructor(onWrite: (data: string) => void) {
     this.terminal = new PiTerminal(onWrite);
-    this.tui = new TUI(this.terminal);
+    this.tui = new TuiMainScreen(this.terminal);
   }
 
   /**

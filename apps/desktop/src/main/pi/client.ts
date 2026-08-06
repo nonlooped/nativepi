@@ -4,6 +4,7 @@ import { isTuiFrameType, tuiHostFrameSchema, type TuiClientFrame, type TuiHostFr
 import type { AuthProviderInfo } from "../../shared/rpc-schema.ts";
 import type { ContextInspector } from "../../shared/pi-types.ts";
 import { contextInspectorSchema } from "../../shared/tui-frames.ts";
+import { jsonValueSchema, type JsonValue } from "../../shared/json.ts";
 import { drainLines, serializeCommand, type PiCommand, type PiMessage } from "./protocol.ts";
 
 /**
@@ -37,6 +38,7 @@ let nextRequestId = 1;
 
 /** How long the composer waits for an extension's completions before giving up. */
 const FRAME_REQUEST_TIMEOUT_MS = 2000;
+const EXTENSION_CALL_TIMEOUT_MS = 30_000;
 
 export class PiProcess {
   readonly projectDir: string;
@@ -194,6 +196,23 @@ export class PiProcess {
   logoutProvider(providerId: string): Promise<void> {
     return this.frameRequest<true>((requestId) => ({ type: "nativepi_tui_logout", requestId, providerId }), 0).then(
       () => undefined,
+    );
+  }
+
+  /**
+   * Call a method a graphical extension's Pi half registered.
+   *
+   * Given longer than the autocomplete round trip the default is sized for: a
+   * panel asking its extension for data can legitimately shell out or hit the
+   * network, where a completion menu cannot.
+   */
+  callExtension(extension: string, method: string, params: JsonValue | undefined): Promise<JsonValue> {
+    if (!jsonValueSchema.safeParse(params).success && params !== undefined) {
+      return Promise.reject(new Error("Extension call parameters must be a JSON value."));
+    }
+    return this.frameRequest<JsonValue>(
+      (requestId) => ({ type: "nativepi_tui_ext_call", requestId, extension, method, ...(params === undefined ? {} : { params }) }),
+      EXTENSION_CALL_TIMEOUT_MS,
     );
   }
 

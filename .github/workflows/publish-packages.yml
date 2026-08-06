@@ -1,0 +1,181 @@
+name: Publish extension packages
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  # Required for npm trusted publishing; no NPM_TOKEN is used.
+  id-token: write
+
+jobs:
+  verify-main:
+    name: Verify main
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.verify.outputs.sha }}
+    steps:
+      - name: Checkout verified candidate
+        uses: actions/checkout@v7
+        with:
+          # A manual dispatch always starts from main, never from the ref that
+          # happened to open the Actions page. workflow_run has CI's exact SHA.
+          ref: ${{ github.event.workflow_run.head_sha || 'main' }}
+
+      - name: Verify successful main CI
+        id: verify
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $sha = git rev-parse HEAD
+          $runs = gh api "repos/$env:GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&status=completed&per_page=100" |
+            ConvertFrom-Json
+          $verified = $runs.workflow_runs | Where-Object {
+            $_.head_sha -eq $sha -and
+            $_.head_branch -eq "main" -and
+            $_.event -eq "push" -and
+            $_.conclusion -eq "success"
+          }
+          if (-not $verified) {
+            throw "Ref $sha is not a successfully verified main CI run"
+          }
+          "sha=$sha" >> $env:GITHUB_OUTPUT
+
+  publish-api:
+    name: Publish @nativepi/extension-api
+    needs: verify-main
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: packages/extension-api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.verify-main.outputs.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Resolve published version
+        id: resolve
+        shell: pwsh
+        run: |
+          # Ask the registry rather than diffing the previous commit, so the job
+          # is idempotent across re-runs and squash merges.
+          $package = Get-Content package.json | ConvertFrom-Json
+          $published = npm view "$($package.name)@$($package.version)" version 2>$null
+          if ($LASTEXITCODE -ne 0) { $published = "" }
+          if ($published) {
+            Write-Host "$($package.name)@$($package.version) is already published"
+            "publish=false" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "Publishing $($package.name)@$($package.version)"
+            "publish=true" >> $env:GITHUB_OUTPUT
+            "version=$($package.version)" >> $env:GITHUB_OUTPUT
+          }
+          # A missing version makes `npm view` exit 1, and pwsh steps inherit the
+          # last native exit code. Without this the step fails on the one path
+          # that matters.
+          exit 0
+
+      # Trusted publishing needs npm 11.5.1 or newer.
+      - name: Update npm
+        if: steps.resolve.outputs.publish == 'true'
+        run: npm install -g npm@latest
+
+      - name: Publish
+        if: steps.resolve.outputs.publish == 'true'
+        run: npm publish
+
+      - name: Summary
+        if: steps.resolve.outputs.publish == 'true'
+        run: echo "Published @nativepi/extension-api@${{ steps.resolve.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+
+  publish-extension:
+    name: Publish ${{ matrix.package }}
+    needs: [verify-main, publish-api]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: "@nativepi/service-tier"
+            directory: packages/service-tier
+          - package: "@nativepi/subscription-usage"
+            directory: packages/subscription-usage
+          - package: "@nativepi/title-generator"
+            directory: packages/title-generator
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.verify-main.outputs.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Resolve published version
+        id: resolve
+        shell: pwsh
+        working-directory: ${{ matrix.directory }}
+        run: |
+          $package = Get-Content package.json | ConvertFrom-Json
+          $published = npm view "$($package.name)@$($package.version)" version 2>$null
+          if ($LASTEXITCODE -ne 0) { $published = "" }
+          if ($published) {
+            Write-Host "$($package.name)@$($package.version) is already published"
+            "publish=false" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "Publishing $($package.name)@$($package.version)"
+            "publish=true" >> $env:GITHUB_OUTPUT
+            "version=$($package.version)" >> $env:GITHUB_OUTPUT
+          }
+          exit 0
+
+      - name: Update npm
+        if: steps.resolve.outputs.publish == 'true'
+        working-directory: ${{ matrix.directory }}
+        run: npm install -g npm@latest
+
+      # npm publish leaves `workspace:` ranges verbatim, and consumers cannot
+      # install that protocol. Rewrite only the packed manifest to a registry
+      # range taken from the workspace package's current version.
+      - name: Rewrite workspace dependencies
+        if: steps.resolve.outputs.publish == 'true'
+        working-directory: ${{ matrix.directory }}
+        run: >
+          node -e "const fs=require('node:fs');const path=require('node:path');const
+          pkg=JSON.parse(fs.readFileSync('package.json','utf8'));const
+          api=JSON.parse(fs.readFileSync(path.join('..','extension-api','package.json'),'utf8'));const
+          range='^'+api.version;let changed=false;for (const section of
+          ['dependencies','peerDependencies','optionalDependencies','devDependencies'])
+          {const deps=pkg[section];if(!deps||typeof deps['@nativepi/extension-api']!=='string')continue;if(!deps['@nativepi/extension-api'].startsWith('workspace:'))continue;deps['@nativepi/extension-api']=range;changed=true;}if(changed){fs.writeFileSync('package.json',JSON.stringify(pkg,null,2)+'\n');console.log('Rewrote @nativepi/extension-api to '+range);}"
+
+      - name: Publish
+        if: steps.resolve.outputs.publish == 'true'
+        working-directory: ${{ matrix.directory }}
+        run: npm publish
+
+      - name: Summary
+        if: steps.resolve.outputs.publish == 'true'
+        working-directory: ${{ matrix.directory }}
+        run: echo "Published ${{ matrix.package }}@${{ steps.resolve.outputs.version }}" >> $GITHUB_STEP_SUMMARY

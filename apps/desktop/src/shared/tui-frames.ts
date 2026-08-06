@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ContextInspector } from "./pi-types.ts";
+import { jsonValueSchema } from "./json.ts";
 
 const authPromptSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), message: z.string(), placeholder: z.string().optional() }),
@@ -57,7 +58,7 @@ const authNoticeSchema = z.discriminatedUnion("kind", [
  * TypeScript types are inferred from it so neither can drift from the other.
  */
 
-const placementSchema = z.enum(["overlay", "aboveEditor", "belowEditor", "footer", "header"]);
+const placementSchema = z.enum(["overlay", "aboveEditor", "belowEditor", "footer", "header", "timeline"]);
 
 /** Where a surface belongs in the window. */
 export type TuiPlacement = z.infer<typeof placementSchema>;
@@ -73,6 +74,8 @@ const surfaceSchema = z.object({
   id: z.string().min(1).max(64),
   placement: placementSchema,
   key: z.string().max(120),
+  /** Session entry rendered by Pi inside NativePi's transcript. */
+  entryId: z.string().min(1).max(200).optional(),
 });
 
 export type TuiSurface = z.infer<typeof surfaceSchema>;
@@ -145,12 +148,26 @@ export const tuiHostFrameSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("nativepi_tui_reply"),
     requestId: z.string().min(1).max(64),
-    // Shape-checked where it is used, by the handler that knows what it asked for.
-    data: z.unknown().optional(),
+    // Each request handler may apply a more specific JSON shape after this.
+    data: jsonValueSchema.optional(),
     error: z.string().max(2000).optional(),
   }),
   z.object({ type: z.literal("nativepi_tui_auth_prompt"), id: z.string().min(1).max(64), prompt: authPromptSchema }),
   z.object({ type: z.literal("nativepi_tui_auth_notice"), notice: authNoticeSchema }),
+  /**
+   * A graphical extension's Pi half pushing to its renderer half.
+   *
+   * Addressed by package name, which is what both halves are keyed by: the
+   * manifest NativePi read `nativepi.renderer` from, and the name the Pi half
+   * passed to `connect()`. The payload is whatever the extension emitted, so it
+   * is JSON so it remains safe on the shared stdio stream.
+   */
+  z.object({
+    type: z.literal("nativepi_tui_ext_event"),
+    extension: z.string().min(1).max(200),
+    event: z.string().min(1).max(200),
+    payload: jsonValueSchema.optional(),
+  }),
   /**
    * Everything this project drew is gone.
    *
@@ -221,25 +238,18 @@ export const tuiClientFrameSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("nativepi_tui_logout"), requestId: z.string().min(1).max(64), providerId: z.string().min(1) }),
   z.object({
-    type: z.literal("nativepi_tui_set_service_tier"),
-    sessionFile: z.string().min(1).nullable(),
-    tier: z.enum(["standard", "fast"]),
-  }),
-  z.object({
-    type: z.literal("nativepi_tui_set_title_generator_model"),
-    sessionFile: z.string().min(1).nullable(),
-    modelSetting: z.string().min(1).max(512),
-  }),
-  z.object({
-    type: z.literal("nativepi_tui_get_subscription_usage"),
-    requestId: z.string().min(1).max(64),
-    providerId: z.string().min(1).max(200),
-  }),
-  z.object({
     type: z.literal("nativepi_tui_auth_respond"),
     id: z.string().min(1).max(64),
     value: z.string().optional(),
     cancel: z.boolean().optional(),
+  }),
+  /** A renderer half calling a method its Pi half registered through `connect()`. */
+  z.object({
+    type: z.literal("nativepi_tui_ext_call"),
+    requestId: z.string().min(1).max(64),
+    extension: z.string().min(1).max(200),
+    method: z.string().min(1).max(200),
+    params: jsonValueSchema.optional(),
   }),
 ]);
 

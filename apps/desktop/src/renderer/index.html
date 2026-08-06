@@ -2,9 +2,14 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
+    <!-- `blob:` in script-src is what lets a graphical extension load: its
+         renderer half is compiled to a module in the main process and imported
+         here as an object URL. It is a real relaxation, and the reason it is
+         acceptable is that extension code already runs with the window's own
+         privileges once loaded. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws: wss:"
+      content="default-src 'self'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws: wss:"
     />
     <!-- `interactive-widget=resizes-content` makes Chrome on Android shrink the
          layout viewport for the soft keyboard instead of sliding the page up,

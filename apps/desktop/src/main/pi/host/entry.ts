@@ -1,18 +1,13 @@
 import { PassThrough } from "node:stream";
 import { AgentSession, main, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
-import { isTuiFrameType, type TuiClientFrame, type TuiHostFrame } from "../../../shared/tui-frames.ts";
+import { isTuiFrameType, tuiClientFrameSchema, type TuiClientFrame, type TuiHostFrame } from "../../../shared/tui-frames.ts";
+import { jsonValueSchema, type JsonValue } from "../../../shared/json.ts";
 import { toNotice, toPromptRequest } from "../../../shared/providerAuth.ts";
 import { shapeProviders } from "../../../shared/providerShape.ts";
 import type { ContextInspector } from "../../../shared/pi-types.ts";
-import { nativePiServiceTierExtension, setNativePiServiceTier } from "../extensions/serviceTier.ts";
-import {
-  getNativePiSubscriptionUsage,
-  nativePiSubscriptionUsageExtension,
-} from "../extensions/subscriptionUsage.ts";
-import { nativePiTitleGeneratorExtension, setNativePiTitleGeneratorModel } from "../extensions/titleGenerator.ts";
-import { subscriptionUsageResponseSchema } from "../../../shared/subscriptionUsage.ts";
 import { hostInternals, withTerminalUi, type HostInternals } from "./uiContext.ts";
+import { callExtensionMethod, installExtensionChannel, installExtensionMethodLifecycle } from "./extensionChannel.ts";
 
 /**
  * How NativePi starts Pi.
@@ -90,19 +85,7 @@ function providerRuntime(): Promise<ModelRuntime> {
 }
 
 function handleClientFrame(frame: TuiClientFrame): void {
-  if (frame.type === "nativepi_tui_set_service_tier") {
-    setNativePiServiceTier(frame.sessionFile, frame.tier);
-    return;
-  }
   if (frame.type === "nativepi_tui_editor") lastEditorFrame = frame;
-  if (frame.type === "nativepi_tui_set_title_generator_model") {
-    setNativePiTitleGeneratorModel(frame.sessionFile, frame.modelSetting);
-    return;
-  }
-  if (frame.type === "nativepi_tui_get_subscription_usage") {
-    void respondSubscriptionUsage(frame.requestId, frame.providerId);
-    return;
-  }
   if (frame.type === "nativepi_tui_auth_respond") {
     pendingAuthPrompts.get(frame.id)?.(frame);
     return;
@@ -123,24 +106,11 @@ function handleClientFrame(frame: TuiClientFrame): void {
     void respondLogout(frame.requestId, frame.providerId);
     return;
   }
-  internals?.handle(frame);
-}
-
-async function respondSubscriptionUsage(requestId: string, providerId: string): Promise<void> {
-  try {
-    const session = currentSession;
-    if (!session) throw new Error("No active Pi session");
-    const usage = await getNativePiSubscriptionUsage(providerId, {
-      getProviderAuth: (id) => session.modelRuntime.getAuth(id),
-    });
-    const response = subscriptionUsageResponseSchema.parse({
-      supported: usage !== undefined,
-      ...(usage ? { usage } : {}),
-    });
-    send({ type: "nativepi_tui_reply", requestId, data: response });
-  } catch (err) {
-    send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
+  if (frame.type === "nativepi_tui_ext_call") {
+    void respondExtensionCall(frame.requestId, frame.extension, frame.method, frame.params);
+    return;
   }
+  internals?.handle(frame);
 }
 
 async function respondContextInspector(requestId: string): Promise<void> {
@@ -152,7 +122,7 @@ async function respondContextInspector(requestId: string): Promise<void> {
       usedTokens: usage?.tokens ?? null,
       contextWindow: usage?.contextWindow ?? session.model?.contextWindow ?? 0,
     };
-    send({ type: "nativepi_tui_reply", requestId, data: inspector });
+    send({ type: "nativepi_tui_reply", requestId, data: jsonValueSchema.parse(inspector) });
   } catch (err) {
     send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
   }
@@ -161,7 +131,7 @@ async function respondContextInspector(requestId: string): Promise<void> {
 async function respondProviders(requestId: string): Promise<void> {
   try {
     const providers = await shapeProviders(await providerRuntime());
-    send({ type: "nativepi_tui_reply", requestId, data: providers });
+    send({ type: "nativepi_tui_reply", requestId, data: jsonValueSchema.parse(providers) });
   } catch (err) {
     send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
   }
@@ -203,6 +173,19 @@ async function respondLogout(requestId: string, providerId: string): Promise<voi
   }
 }
 
+async function respondExtensionCall(
+  requestId: string,
+  extension: string,
+  method: string,
+  params: JsonValue | undefined,
+): Promise<void> {
+  try {
+    send({ type: "nativepi_tui_reply", requestId, data: await callExtensionMethod(extension, method, params) });
+  } catch (err) {
+    send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
+  }
+}
+
 /**
  * Pi's stdin, minus our frames.
  *
@@ -231,8 +214,10 @@ function filterStdin(): void {
         parsed = undefined;
       }
       const type = (parsed as { type?: unknown } | undefined)?.type;
-      if (isTuiFrameType(type)) handleClientFrame(parsed as TuiClientFrame);
-      else piStdin.write(`${line}\n`);
+      if (isTuiFrameType(type)) {
+        const frame = tuiClientFrameSchema.safeParse(parsed);
+        if (frame.success) handleClientFrame(frame.data);
+      } else piStdin.write(`${line}\n`);
     }
   });
   source.on("end", () => {
@@ -246,6 +231,7 @@ function filterStdin(): void {
 }
 
 function installUiContext(): void {
+  installExtensionMethodLifecycle(AgentSession.prototype);
   const bind = AgentSession.prototype.bindExtensions;
   AgentSession.prototype.bindExtensions = function patched(
     this: AgentSession,
@@ -256,15 +242,21 @@ function installUiContext(): void {
     internals?.dispose();
     internals = undefined;
     currentSession = this;
+    let installed: HostInternals | undefined;
     if (bindings.uiContext) {
       const wrapped = withTerminalUi(bindings.uiContext, { send });
-      internals = hostInternals(wrapped);
+      installed = hostInternals(wrapped);
+      internals = installed;
       if (lastEditorFrame) internals?.handle(lastEditorFrame);
       // "tui" is what extensions guard `custom()` and component factories behind,
       // and with the surfaces above that guard is now true.
       bindings = { ...bindings, uiContext: wrapped, mode: "tui" };
     }
-    return bind.call(this, bindings as Parameters<typeof bind>[0]);
+    return bind.call(this, bindings as Parameters<typeof bind>[0]).then(() => {
+      // Renderers are registered before bind, while session_start may append the
+      // first custom entry during bind. Attach only after both are complete.
+      installed?.bindSession(this);
+    });
   } as typeof bind;
 }
 
@@ -290,12 +282,13 @@ async function configureHttp(): Promise<void> {
 
 process.title = "nativepi-pi-host";
 process.env["PI_CODING_AGENT"] = "true";
+process.env["AI_AGENT"] = "pi";
 process.env["NATIVEPI_HOST"] = "1";
 process.emitWarning = () => {};
 filterStdin();
 installUiContext();
+// Before `main`, because extensions call `connect()` during activation.
+installExtensionChannel(send);
 void configureHttp().then(() =>
-  main(["--mode", "rpc", ...process.argv.slice(2)], {
-      extensionFactories: [nativePiServiceTierExtension, nativePiSubscriptionUsageExtension, nativePiTitleGeneratorExtension],
-  }),
+  main(["--mode", "rpc", ...process.argv.slice(2)]),
 );

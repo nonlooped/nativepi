@@ -3,9 +3,7 @@ import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { PaperclipIcon } from "@phosphor-icons/react/Paperclip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AssistantMessage, ContextInspector as ContextInspectorData } from "../../shared/pi-types.ts";
-import type { SubscriptionUsage } from "../../shared/subscriptionUsage.ts";
 import { draftKeyFor } from "../../shared/messages.ts";
-import { supportsFastServiceTier } from "../../shared/serviceTier.ts";
 import { ACCEPTED_IMAGE_TYPES } from "../lib/attachments.ts";
 import { classifyDrop, draggingFiles, mentionPath } from "../lib/drops.ts";
 import { activeConversation, thinkingLabel, useAppStore } from "../lib/store.ts";
@@ -24,10 +22,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
 import ComposerAttachments from "./ComposerAttachments.tsx";
 import ComposerInput from "./ComposerInput.tsx";
-import { ComposerWidgets } from "./ExtensionSlots.tsx";
-import { TuiPane } from "./TuiSurface.tsx";
+import { ComposerControls, ComposerWidgets } from "./ExtensionSlots.tsx";
+import { TuiAutoPane } from "./TuiSurface.tsx";
 import ModelSelector from "./ModelSelector.tsx";
-import SubscriptionUsageDialog from "./SubscriptionUsageDialog.tsx";
 
 export default function Composer({ prominent = false }: { prominent?: boolean }) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -180,10 +177,9 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
             <AttachButton disabled={disabled} onPick={attach} />
             <ModelSelector />
-            <ServiceTierSelector />
             <ThinkingSelector />
             <ContextWindow />
-            <SubscriptionUsage />
+            <ComposerControls />
             {isRepo ? <GroupRule /> : null}
             <BranchSelector />
           </div>
@@ -292,7 +288,7 @@ function ExtensionStatuses() {
   if (footer) {
     return (
       <div className="mx-auto w-full max-w-(--conversation-width) px-1">
-        <TuiPane surface={footer} rows={1} />
+        <TuiAutoPane surface={footer} maxRows={1} />
       </div>
     );
   }
@@ -421,53 +417,6 @@ function ThinkingSelector() {
             {level === "medium" ? <span className="ml-auto rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">Default</span> : null}
           </MenuItem>
         ))}
-        </MenuGroup>
-      </MenuPopup>
-    </Menu>
-  );
-}
-
-function ServiceTierSelector() {
-  const model = useAppStore((s) => s.model);
-  const serviceTier = useAppStore((s) => s.serviceTier);
-  const setServiceTier = useAppStore((s) => s.setServiceTier);
-
-  if (!supportsFastServiceTier(model)) return null;
-
-  const fast = serviceTier === "fast";
-  return (
-    <Menu>
-      <MenuTrigger
-        title="Change response speed"
-        aria-label={`Response speed: ${fast ? "Fast" : "Standard"}`}
-        className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <span>{fast ? "Fast" : "Standard"}</span>
-        <CaretDownIcon className="text-muted-foreground" />
-      </MenuTrigger>
-      <MenuPopup side="top" className="w-64 p-1.5">
-        <p className="px-2 pb-1 pt-1 text-xs font-medium text-muted-foreground">Response speed</p>
-        <MenuGroup>
-          <MenuItem
-            onClick={() => void setServiceTier("standard")}
-            className={cn("items-start gap-2 rounded-md", !fast && "bg-accent")}
-          >
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium">Standard</span>
-              <span className="text-xs text-muted-foreground">Normal usage and response speed</span>
-            </div>
-            {!fast ? <CheckIcon className="ml-auto mt-0.5 shrink-0" /> : null}
-          </MenuItem>
-          <MenuItem
-            onClick={() => void setServiceTier("fast")}
-            className={cn("items-start gap-2 rounded-md", fast && "bg-accent")}
-          >
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium">Fast</span>
-              <span className="text-xs text-muted-foreground">1.5x speed, increased usage</span>
-            </div>
-            {fast ? <CheckIcon className="ml-auto mt-0.5 shrink-0" /> : null}
-          </MenuItem>
         </MenuGroup>
       </MenuPopup>
     </Menu>
@@ -717,89 +666,6 @@ function ContextWindow() {
         used={inspectedUsed}
         total={inspectedTotal}
         percent={percent}
-      />
-    </div>
-  );
-}
-
-function SubscriptionUsage() {
-  const model = useAppStore((s) => s.model);
-  const providers = useAppStore((s) => s.providers);
-  const projectDir = useAppStore((s) => s.activeProjectPath);
-  const sessionFile = useAppStore((s) => s.activeSessionFile);
-  const [open, setOpen] = useState(false);
-  const provider = model?.provider;
-  const account = providers.find((item) => item.id === provider);
-  const subscriptionProvider = provider && account?.storedType === "oauth" ? provider : undefined;
-  const request = useRequest<{ supported?: boolean; usage?: SubscriptionUsage; error?: string }>(
-    () => subscriptionProvider && projectDir
-      ? rpc.request.getSubscriptionUsage({ projectDir, sessionFile, providerId: subscriptionProvider })
-      : Promise.resolve({}),
-    [projectDir, sessionFile, subscriptionProvider],
-  );
-
-  if (!subscriptionProvider || request.data?.supported === false) return null;
-
-  const usage = request.data?.usage;
-  const error = request.data?.error ?? request.error;
-  // A reading we do not have is not a reading of zero. Without this, a failed or
-  // still-loading request drew a full ring in the resting tone — the exact
-  // picture of a plan with everything left — and only the accessible name
-  // disagreed.
-  const known = !request.loading && !error && (usage?.limits.length ?? 0) > 0;
-  const limit = usage?.limits.reduce((highest, item) => Math.max(highest, item.usedPercent), 0) ?? 0;
-  const remaining = 100 - limit;
-  const tight = known && limit >= 75;
-  const tone = !known
-    ? "text-muted-foreground/50"
-    : limit >= 90
-      ? "text-destructive"
-      : limit >= 75
-        ? "text-warning"
-        : "text-muted-foreground";
-  const name = account?.name ?? subscriptionProvider;
-  const label = request.loading
-    ? `Reading ${name} subscription usage`
-    : error
-      ? `${name} subscription usage is unavailable`
-      : usage?.limits.length
-        ? `${name} subscription usage: ${Math.round(remaining)}% left in the limit closest to exhaustion`
-        : `${name} did not report subscription usage`;
-
-  return (
-    <div className="group relative flex items-center">
-      <button
-        type="button"
-        aria-label={label}
-        title={known ? "Subscription usage" : label}
-        onClick={() => setOpen(true)}
-        className={cn(
-          "flex h-8 items-center gap-1.5 rounded-lg px-1.5 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
-          tone,
-        )}
-      >
-        <svg viewBox="0 0 24 24" className="size-5 shrink-0 -rotate-90" aria-hidden>
-          <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted" />
-          {known ? (
-            <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" pathLength="100" strokeDasharray={`${remaining} 100`} />
-          ) : null}
-        </svg>
-        {/* "left", spelled out. This ring empties as the plan is spent and the
-            context ring beside it fills as the window is spent, so a bare number
-            on both would be the same glyph meaning opposite things. */}
-        {tight ? <span className="text-sm tabular-nums" aria-hidden="true">{Math.round(remaining)}% left</span> : null}
-      </button>
-      <SubscriptionUsageDialog
-        open={open}
-        onOpenChange={(next) => {
-          setOpen(next);
-          if (next) request.reload();
-        }}
-        providerName={name}
-        usage={usage}
-        loading={request.loading}
-        error={error}
-        refresh={request.reload}
       />
     </div>
   );
