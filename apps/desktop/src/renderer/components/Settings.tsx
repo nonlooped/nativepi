@@ -48,7 +48,7 @@ const CATEGORIES = [
   { name: "Appearance", icon: PaintBrushIcon, blurb: "Layout, scale, diffs, and motion." },
   { name: "Agent", icon: BrainIcon, blurb: "How Pi runs a turn. Shared with the Pi command line." },
   { name: "Providers", icon: PlugsConnectedIcon, blurb: "Sign in to model providers. Pi stores the credentials." },
-  { name: "Extensions", icon: PuzzlePieceIcon, blurb: "Pi packages, and NativePi's own built-ins." },
+  { name: "Extensions", icon: PuzzlePieceIcon, blurb: "Pi packages and their NativePi surfaces." },
   { name: "Terminal", icon: TerminalWindowIcon, blurb: "The terminal panel, and the shell Pi runs commands in." },
   { name: "Advanced", icon: SlidersHorizontalIcon, blurb: "Trust, networking, and what Pi reports." },
   { name: "Keyboard", icon: KeyboardIcon, blurb: "Every shortcut, and how to change it." },

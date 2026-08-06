@@ -162,9 +162,9 @@ editor, which here is the composer.
 NativePi can also install and manage Pi packages at user or project scope. To
 draw with React instead, an extension imports `@nativepi/extension-api` and adds
 a `nativepi.renderer` entry to its manifest. NativePi compiles that browser entry
-with esbuild and loads its tool, entry, composer-widget, and context-panel
-contributions behind error boundaries. The graphical extension API is
-experimental and may change between releases.
+with esbuild and loads its tool, entry, composer-widget, composer-control,
+settings-section, and context-panel contributions behind error boundaries. The
+graphical extension API is experimental and may change between releases.
 
 ## License
 

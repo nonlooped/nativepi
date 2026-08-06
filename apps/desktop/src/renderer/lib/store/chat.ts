@@ -1,6 +1,5 @@
 import type { SessionEntry, ThinkingLevel } from "../../../shared/pi-types.ts";
 import type { ExtensionUiRequest } from "../../../shared/pi-types.ts";
-import { DEFAULT_SERVICE_TIER, serviceTierKey } from "../../../shared/serviceTier.ts";
 import { isRemote, rpc } from "../rpc.ts";
 import { conversationFor, emptyConversation, patchConversation } from "./conversation.ts";
 import { applyExtensionUi, reduce, sessionInfoName } from "./events.ts";
@@ -11,7 +10,6 @@ import {
   gitRefreshedWithin,
   persist,
   reportDraft,
-  reportServiceTier,
   setLastChat,
 } from "./internals.ts";
 import { readAsBase64, toImageContent } from "../attachments.ts";
@@ -19,11 +17,23 @@ import { showAttachmentsRejected } from "../toast.tsx";
 import { MAX_IMAGE_BYTES } from "../../../shared/images.ts";
 import type { ImageAttachment } from "../../../shared/rpc-schema.ts";
 import { togglePinnedPath } from "../chatOrganization.ts";
-import type { ChatSlice, GetState, PendingMessage, SetState, SliceCreator } from "./types.ts";
+import { dropAllSurfaces } from "../tuiSurfaces.ts";
+import { NO_EXTENSION_UI_STATE, type ChatSlice, type GetState, type PendingMessage, type SetState, type SliceCreator } from "./types.ts";
 
 let pendingId = 1;
 const MAX_REMOTE_IMAGE_BATCH_BYTES = 48 * 1024 * 1024;
 const sessionRefreshes = new Map<string, Promise<void>>();
+
+function clearSessionExtensionUi(set: SetState) {
+  dropAllSurfaces();
+  set({
+    extStatuses: {},
+    extWidgets: {},
+    extSurfaces: [],
+    extTriggers: [],
+    extUiState: NO_EXTENSION_UI_STATE,
+  });
+}
 
 /**
  * Tell the host which draft the composer is showing now.
@@ -126,18 +136,20 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
 
   selectChat: async (sessionFile) => {
     const projectPath = get().activeProjectPath;
-    const tier = projectPath
-      ? get().serviceTiers[serviceTierKey(projectPath, sessionFile)] ?? DEFAULT_SERVICE_TIER
-      : DEFAULT_SERVICE_TIER;
-    set({ activeSessionFile: sessionFile, isNewChat: false, serviceTier: tier });
+    clearSessionExtensionUi(set);
+    set({ activeSessionFile: sessionFile, isNewChat: false });
     reportActiveDraft(get);
     if (projectPath) {
-      reportServiceTier(projectPath, sessionFile, tier);
       setLastChat(projectPath, sessionFile);
       persist(get);
       // Watch the chat being viewed for writes from another NativePi window or
       // a Pi CLI in a terminal.
       void rpc.request.watchSession({ projectDir: projectPath, sessionFile });
+      void rpc.request.tuiSend({
+        projectDir: projectPath,
+        sessionFile,
+        frame: { type: "nativepi_tui_sync" },
+      });
       // A run already streaming into this chat keeps its live state — this is
       // the path back into a project that kept working in the background, and
       // its conversation has been fed every event in the meantime.
@@ -156,16 +168,13 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   },
 
   newChat: () => {
+    clearSessionExtensionUi(set);
     const projectDir = get().activeProjectPath;
-    const tier = projectDir
-      ? get().serviceTiers[serviceTierKey(projectDir, null)] ?? DEFAULT_SERVICE_TIER
-      : DEFAULT_SERVICE_TIER;
     if (projectDir) {
       void rpc.request.watchSession({ projectDir, sessionFile: null });
       patchConversation(set, projectDir, null, () => ({ ...emptyConversation(), projectDir }));
     }
-    set({ activeSessionFile: null, isNewChat: true, serviceTier: tier });
-    reportServiceTier(projectDir, null, tier);
+    set({ activeSessionFile: null, isNewChat: true });
     reportActiveDraft(get);
   },
 
@@ -293,7 +302,6 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       projectDir,
       sessionFile: s.activeSessionFile,
       message: text,
-      titleGeneratorModel: s.titleGeneratorModel,
       images: images.map(toImageContent),
     });
     if (!res.ok) {
@@ -312,15 +320,6 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       return;
     }
     if (res.sessionFile) {
-      const pendingTier = get().serviceTiers[serviceTierKey(projectDir, null)];
-      if (pendingTier) {
-        set((state) => ({
-          serviceTier: pendingTier,
-          serviceTiers: { ...state.serviceTiers, [res.sessionFile!]: pendingTier },
-        }));
-        persist(get);
-        reportServiceTier(projectDir, res.sessionFile, pendingTier);
-      }
       patchConversation(set, projectDir, res.sessionFile, { projectDir, sessionFile: res.sessionFile });
       if (!s.activeSessionFile) {
         set((state) => {
@@ -424,11 +423,9 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     set((s) => {
       const { [sessionFile]: _draft, ...drafts } = s.drafts;
       const { [sessionFile]: _images, ...attachments } = s.attachments;
-      const { [sessionFile]: _tier, ...serviceTiers } = s.serviceTiers;
       return {
         drafts,
         attachments,
-        serviceTiers,
         pinnedChats: s.pinnedChats.filter((path) => path !== sessionFile),
       };
     });
@@ -479,7 +476,8 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     if (event.type === "extension_ui_request") {
       const request = event as ExtensionUiRequest;
       const isPrompt = request.method === "select" || request.method === "confirm" || request.method === "input" || request.method === "editor";
-      if (projectDir === s.activeProjectPath || isPrompt) applyExtensionUi(set, get, projectDir, request);
+      const isActiveSession = projectDir === s.activeProjectPath && (!sessionFile || sessionFile === s.activeSessionFile);
+      if (isActiveSession || isPrompt) applyExtensionUi(set, get, projectDir, request);
       return;
     }
     if (event.type === "thinking_level_changed") {

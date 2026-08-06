@@ -3,8 +3,8 @@ import { BellIcon } from "@phosphor-icons/react/Bell";
 import { PowerIcon } from "@phosphor-icons/react/Power";
 import { Button } from "@/components/ui/button.tsx";
 import { useAppStore } from "../../lib/store.ts";
-import ModelSelector from "../ModelSelector.tsx";
-import { ActionRow, SettingsCard, SettingsSection, SwitchRow } from "./rows.tsx";
+import { ExtensionSettings } from "../ExtensionSlots.tsx";
+import { SettingsCard, SettingsSection, SwitchRow } from "./rows.tsx";
 
 type Permission = NotificationPermission | "unsupported";
 
@@ -18,8 +18,6 @@ export default function GeneralSettings() {
   const notifyOnTurnEnd = useAppStore((s) => s.preferences.notifyOnTurnEnd);
   const notificationSound = useAppStore((s) => s.preferences.notificationSound);
   const setPreference = useAppStore((s) => s.setPreference);
-  const titleGeneratorModel = useAppStore((s) => s.titleGeneratorModel);
-  const setTitleGeneratorModel = useAppStore((s) => s.setTitleGeneratorModel);
 
   return (
     <div className="flex flex-col gap-10">
@@ -32,21 +30,7 @@ export default function GeneralSettings() {
         />
       </SettingsSection>
 
-      <SettingsSection
-        heading="Chat titles"
-        description="NativePi asks Pi for a short title after your first message. Choose a smaller model to keep this request inexpensive."
-      >
-        <ActionRow
-          label="Title generator"
-          description="Uses the models Pi makes available for the current project."
-        >
-          <ModelSelector
-            selectedKey={titleGeneratorModel}
-            onSelectionChange={setTitleGeneratorModel}
-            showChatModelOption
-          />
-        </ActionRow>
-      </SettingsSection>
+      <ExtensionSettings />
 
       <SettingsSection heading="Notifications">
         <NotificationCard enabled={notifyOnTurnEnd} silent={!notificationSound} />

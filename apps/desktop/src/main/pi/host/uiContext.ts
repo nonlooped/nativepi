@@ -1,5 +1,6 @@
 import { getKeybindings, setKeybindings, type AutocompleteProvider, type Component } from "@earendil-works/pi-tui";
-import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import type { AgentSession, ExtensionUIContext, SessionEntry } from "@earendil-works/pi-coding-agent";
+import { jsonValueSchema } from "../../../shared/json.ts";
 import type {
   TuiClientFrame,
   TuiCompletionEdit,
@@ -78,17 +79,21 @@ export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): 
   const surfaces = new Map<string, { surface: Surface; info: TuiSurfaceInfo }>();
   /** Component-backed widgets, footer and header, keyed to survive replacement. */
   const slots = new Map<string, string>();
+  /** Durable transcript components, keyed by their Pi session entry. */
+  const timeline = new Map<string, string>();
   const statuses = new Map<string, string>();
+  let unsubscribeSession: (() => void) | undefined;
+  let boundSession: AgentSession | undefined;
   const providers: AutocompleteProvider[] = [];
   let editorText = "";
   let toolsExpanded = false;
   /** Every chrome patch sent so far, folded, for the same replay. */
   let uiState: TuiUiState = {};
 
-  function open(placement: TuiPlacement, key: string): { id: string; surface: Surface } {
+  function open(placement: TuiPlacement, key: string, entryId?: string): { id: string; surface: Surface } {
     const id = surfaceId();
     const surface = new Surface((data) => channel.send({ type: "nativepi_tui_write", surfaceId: id, data }));
-    const info: TuiSurfaceInfo = { id, placement, key };
+    const info: TuiSurfaceInfo = { id, placement, key, entryId };
     surfaces.set(id, { surface, info });
     channel.send({ type: "nativepi_tui_open", surface: info });
     return { id, surface };
@@ -123,6 +128,87 @@ export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): 
       channel.send({ type: "nativepi_tui_open", surface: info });
       surface.redraw();
     }
+  }
+
+  /** Render the extension-owned representation of one durable transcript entry. */
+  function mountTimelineEntry(session: AgentSession, entry: SessionEntry): void {
+    if (timeline.has(entry.id)) return;
+
+    let surfaceId: string | undefined;
+    try {
+      let component: Component | undefined;
+      let key: string | undefined;
+      if (entry.type === "custom") {
+        key = entry.customType;
+        component = session.extensionRunner.getEntryRenderer(entry.customType)?.(entry, { expanded: false }, base.theme);
+      } else if (entry.type === "custom_message" && entry.display) {
+        key = entry.customType;
+        const renderer = session.extensionRunner.getMessageRenderer(entry.customType);
+        if (renderer) {
+          component = renderer(
+            {
+              role: "custom",
+              customType: entry.customType,
+              content: entry.content,
+              display: entry.display,
+              details: entry.details,
+              timestamp: Date.parse(entry.timestamp),
+            },
+            { expanded: false, outputPad: 0 },
+            base.theme,
+          );
+        }
+      }
+      if (!component || !key) return;
+
+      const { id, surface } = open("timeline", key, entry.id);
+      surfaceId = id;
+      timeline.set(entry.id, id);
+      surface.mount(component);
+    } catch (error) {
+      if (surfaceId) {
+        timeline.delete(entry.id);
+        close(surfaceId);
+      }
+      base.notify(`Extension entry failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+    }
+  }
+
+  /**
+   * Bring the mounted entries back in line with the branch Pi is on.
+   *
+   * Pi announces an append but not a branch change, so a rewind or a fork is
+   * only visible as entries that are no longer there. Closing them matters
+   * because a surface outlives its entry otherwise, and the component behind it
+   * keeps drawing into a window with nowhere to put it.
+   */
+  function syncTimeline(session: AgentSession): void {
+    const branch = session.sessionManager.getBranch();
+    const live = new Set(branch.map((entry) => entry.id));
+    for (const [entryId, surfaceId] of timeline) {
+      if (live.has(entryId)) continue;
+      timeline.delete(entryId);
+      close(surfaceId);
+    }
+    for (const entry of branch) mountTimelineEntry(session, entry);
+  }
+
+  function bindSession(session: AgentSession): void {
+    unsubscribeSession?.();
+    boundSession = session;
+    syncTimeline(session);
+    unsubscribeSession = session.subscribe((event) => {
+      if (event.type === "entry_appended") {
+        syncTimeline(session);
+      } else if (event.type === "message_end" && event.message.role === "custom") {
+        // AgentSession notifies listeners before it persists a custom message.
+        // Wait one microtask for its append, then mount the entry without waiting
+        // for an unrelated append or a session re-open.
+        queueMicrotask(() => {
+          if (boundSession === session) syncTimeline(session);
+        });
+      }
+    });
   }
 
   /** Replace whatever occupies a named slot, closing the component that was there. */
@@ -350,7 +436,7 @@ export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): 
 
   async function reply(requestId: string, produce: () => unknown): Promise<void> {
     try {
-      channel.send({ type: "nativepi_tui_reply", requestId, data: await produce() });
+      channel.send({ type: "nativepi_tui_reply", requestId, data: jsonValueSchema.parse(await produce()) });
     } catch (error) {
       channel.send({
         type: "nativepi_tui_reply",
@@ -362,8 +448,12 @@ export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): 
 
   /** Closed when Pi rebinds extensions, so a replaced session leaves no panes behind. */
   function dispose(): void {
+    unsubscribeSession?.();
+    unsubscribeSession = undefined;
+    boundSession = undefined;
     for (const id of [...surfaces.keys()]) close(id);
     slots.clear();
+    timeline.clear();
     statuses.clear();
     providers.length = 0;
     toolsExpanded = false;
@@ -396,7 +486,7 @@ export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): 
    * badly, so an extension that calls one gets the documented no-op.
    */
   const merged = Object.assign(Object.create(base) as ExtensionUIContext, context);
-  return Object.assign(merged, { [HOST_INTERNALS]: { handle, dispose } });
+  return Object.assign(merged, { [HOST_INTERNALS]: { handle, bindSession, dispose } });
 }
 
 const EMPTY_PROVIDER: AutocompleteProvider = {
@@ -409,6 +499,7 @@ export const HOST_INTERNALS = Symbol("nativepi.tuiHost");
 
 export interface HostInternals {
   handle: (frame: TuiClientFrame) => void;
+  bindSession: (session: AgentSession) => void;
   dispose: () => void;
 }
 

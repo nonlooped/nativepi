@@ -19,11 +19,15 @@ test("parses a complete line", () => {
 });
 
 test("reassembles a message split across chunk boundaries", () => {
-  const line = '{"type":"message_update","assistantMessageEvent":{"type":"text_delta","delta":"hi"}}\n';
+  const line = '{"type":"message_update","assistantMessageEvent":{"type":"text_delta","contentIndex":0,"delta":"hi"}}\n';
   const mid = Math.floor(line.length / 2);
   const msgs = feed([line.slice(0, mid), line.slice(mid)]);
   expect(msgs).toHaveLength(1);
-  expect((msgs[0] as any).assistantMessageEvent.delta).toBe("hi");
+  expect((msgs[0] as { assistantMessageEvent: { type: "text_delta"; contentIndex: number; delta: string } }).assistantMessageEvent).toEqual({
+    type: "text_delta",
+    contentIndex: 0,
+    delta: "hi",
+  });
 });
 
 test("emits multiple messages from one chunk and holds a trailing partial", () => {

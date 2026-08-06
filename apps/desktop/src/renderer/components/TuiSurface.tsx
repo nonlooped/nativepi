@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import type { TuiSurface } from "../../shared/tui-frames.ts";
@@ -24,16 +24,19 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 
 /** Matches the integrated terminal, so extension UI and shell output read alike. */
 const FONT_FAMILY = "Consolas, 'Cascadia Mono', ui-monospace, monospace";
+// xterm clamps this to its unsigned-integer ceiling: effectively unlimited
+// without NativePi choosing a content limit for historical timeline entries.
+const UNLIMITED_SCROLLBACK = Number.MAX_SAFE_INTEGER;
 
 function useSurfaceTerminal(
   surface: TuiSurface,
   projectDir: string | null,
-  options: { rows?: number; focus: boolean },
+  options: { rows?: number; focus: boolean; onRows?: (rows: number) => void; maxRows?: number; scrollback?: number },
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fontSize = useAppStore((s) => s.preferences.terminalFontSize);
   const sessionFile = useAppStore((s) => s.activeSessionFile);
-  const { rows, focus } = options;
+  const { rows, focus, onRows, maxRows = 24, scrollback = 0 } = options;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -49,9 +52,9 @@ function useSurfaceTerminal(
       fontFamily: FONT_FAMILY,
       fontSize,
       lineHeight: 1.2,
-      // A surface is a live view of a component, never a scrollback: pi-tui
-      // repaints in place, and anything scrolled out of view is a stale frame.
-      scrollback: 0,
+      // Live surfaces repaint in place, so they have no scrollback. Timeline
+      // entries are historical output and opt into retaining their full stream.
+      scrollback,
       screenReaderMode: true,
       theme: {
         background: "rgba(0, 0, 0, 0)",
@@ -67,9 +70,10 @@ function useSurfaceTerminal(
     terminal.open(container);
     // Everything drawn since the component's last full redraw, so a pane that
     // remounts shows what is there rather than waiting for the next keystroke.
-    terminal.write(surfaceBuffer(surface.id));
+    const reportRows = () => onRows?.(Math.max(1, Math.min(maxRows, terminal.buffer.active.cursorY + 1)));
+    terminal.write(surfaceBuffer(surface.id), reportRows);
 
-    const offWrite = onSurfaceWrite(surface.id, (data) => terminal.write(data));
+    const offWrite = onSurfaceWrite(surface.id, (data) => terminal.write(data, reportRows));
     const input = terminal.onData((data) => {
       if (!projectDir) return;
       void rpc.request.tuiSend({
@@ -81,6 +85,11 @@ function useSurfaceTerminal(
 
     let disposed = false;
     let frame = 0;
+    let focusFrame = 0;
+    // An auto-sizing pane changes its own height from what the component drew,
+    // which the observer sees as a resize. The size it reports has not changed,
+    // so telling the component again would be a redraw per redraw.
+    let sent = "";
     const resize = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
@@ -95,6 +104,9 @@ function useSurfaceTerminal(
           terminal.resize(dimensions.cols, Math.max(1, nextRows));
         }
         if (!projectDir) return;
+        const size = `${dimensions.cols}x${Math.max(1, nextRows)}`;
+        if (size === sent) return;
+        sent = size;
         void rpc.request.tuiSend({
           projectDir,
           sessionFile,
@@ -110,17 +122,20 @@ function useSurfaceTerminal(
     const observer = new ResizeObserver(resize);
     observer.observe(container);
     resize();
-    if (focus) terminal.focus();
+    // The dialog installs its own focus trap after children mount. Focus on the
+    // next frame so arrows and Escape belong to the terminal, not its close button.
+    if (focus) focusFrame = requestAnimationFrame(() => terminal.focus());
 
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(focusFrame);
       observer.disconnect();
       input.dispose();
       offWrite();
       terminal.dispose();
     };
-  }, [focus, fontSize, projectDir, rows, sessionFile, surface.id]);
+  }, [focus, fontSize, maxRows, onRows, projectDir, rows, scrollback, sessionFile, surface.id]);
 
   return containerRef;
 }
@@ -140,14 +155,29 @@ export default function TuiOverlay() {
 }
 
 function TuiOverlayDialog({ surface, projectDir }: { surface: TuiSurface; projectDir: string | null }) {
+  const sessionFile = useAppStore((s) => s.activeSessionFile);
+  const cancel = () => {
+    if (!projectDir) return;
+    void rpc.request.tuiSend({
+      projectDir,
+      sessionFile,
+      frame: { type: "nativepi_tui_input", surfaceId: surface.id, data: "\u001b" },
+    });
+  };
+
   return (
-    // Held open deliberately: `open` is passed with no `onOpenChange`, so Escape
-    // and a click outside cannot dismiss it. The component owns the keyboard and
-    // decides what closing means — Escape reaches it as Escape, and if it treats
-    // that as cancel the surface closes from the extension's side, which is the
-    // only side that can resolve the promise the extension is waiting on.
-    <Dialog open>
-      <DialogContent className="max-w-2xl" showCloseButton={false}>
+    // NativePi cannot dismiss this locally: the extension is awaiting `done()`.
+    // Dialog dismissal is therefore translated to Escape, the same key its TUI
+    // names for cancel, so the extension resolves its own promise and closes.
+    <Dialog
+      open
+      onOpenChange={(open, details) => {
+        // Focused xterm already receives Escape itself. Translate only pointer
+        // dismissal and the visible close button, or Escape would be sent twice.
+        if (!open && details.reason !== "escape-key") cancel();
+      }}
+    >
+      <DialogContent className="flex h-[min(90dvh,64rem)] w-[min(96vw,112rem)] max-w-none flex-col">
         <DialogHeader>
           <DialogTitle className="font-heading text-base font-semibold">{surface.key}</DialogTitle>
           <DialogDescription className="text-sm text-body-muted-foreground">
@@ -162,8 +192,8 @@ function TuiOverlayDialog({ surface, projectDir }: { surface: TuiSurface; projec
 
 /** Mounted by the portal with its element, so the terminal effect always receives the ref. */
 function TuiOverlayTerminal({ surface, projectDir }: { surface: TuiSurface; projectDir: string | null }) {
-  const containerRef = useSurfaceTerminal(surface, projectDir, { rows: 18, focus: true });
-  return <div ref={containerRef} className="terminal-surface h-72 w-full" />;
+  const containerRef = useSurfaceTerminal(surface, projectDir, { focus: true });
+  return <div ref={containerRef} className="terminal-surface min-h-0 w-full flex-1" />;
 }
 
 /**
@@ -172,6 +202,39 @@ function TuiOverlayTerminal({ surface, projectDir }: { surface: TuiSurface; proj
  * `rows` is the caller's, for the reason above: these sit in a window that has
  * already decided how much room the surface gets.
  */
+export function TuiAutoPane({
+  surface,
+  maxRows = 24,
+  scrollback = 0,
+}: {
+  surface: TuiSurface;
+  maxRows?: number;
+  scrollback?: number;
+}) {
+  const projectDir = useAppStore((s) => s.activeProjectPath);
+  const [rows, setRows] = useState(1);
+  const containerRef = useSurfaceTerminal(surface, projectDir, {
+    rows: maxRows,
+    focus: false,
+    onRows: setRows,
+    maxRows,
+    scrollback,
+  });
+  return (
+    <div
+      ref={containerRef}
+      role="group"
+      aria-label={`${surface.key} (extension)`}
+      className="terminal-surface w-full overflow-hidden"
+      style={{ height: `calc(${rows} * 1.2em)` }}
+    />
+  );
+}
+
+export function TuiTimelineEntry({ surface }: { surface: TuiSurface }) {
+  return <TuiAutoPane surface={surface} scrollback={UNLIMITED_SCROLLBACK} />;
+}
+
 export function TuiPane({ surface, rows }: { surface: TuiSurface; rows: number }) {
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const containerRef = useSurfaceTerminal(surface, projectDir, { rows, focus: false });

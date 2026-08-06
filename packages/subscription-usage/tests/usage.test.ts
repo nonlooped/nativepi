@@ -1,15 +1,16 @@
 import { expect, test } from "bun:test";
-import {
+import type { ExtensionMethod } from "@nativepi/extension-api/host";
+import subscriptionUsageExtension, {
   anthropicLimits,
-  getNativePiSubscriptionUsage,
+  getSubscriptionUsage,
   githubCopilotLimits,
   kimiLimits,
   openAiLimits,
-} from "./subscriptionUsage.ts";
+} from "../extensions/usage.ts";
 
 test("unsupported providers do not invoke the auth resolver", async () => {
   let called = false;
-  const usage = await getNativePiSubscriptionUsage("custom-provider", {
+  const usage = await getSubscriptionUsage("custom-provider", {
     getProviderAuth: async () => {
       called = true;
       return undefined;
@@ -18,6 +19,53 @@ test("unsupported providers do not invoke the auth resolver", async () => {
 
   expect(usage).toBeUndefined();
   expect(called).toBe(false);
+});
+
+test("API-key accounts are unsupported without resolving OAuth auth", async () => {
+  let resolved = false;
+  const usage = await getSubscriptionUsage(
+    "openai-codex",
+    {
+      getProviderAuth: async () => {
+        resolved = true;
+        return undefined;
+      },
+    },
+    () => ({ type: "api_key" }),
+  );
+
+  expect(usage).toBeUndefined();
+  expect(resolved).toBe(false);
+});
+
+test("usage requested before session start recovers when the session begins", async () => {
+  const previousHost = globalThis.__NATIVEPI_EXTENSION_HOST__;
+  const methods = new Map<string, ExtensionMethod>();
+  const events: string[] = [];
+  const handlers = new Map<string, (event: unknown, context: unknown) => void>();
+  globalThis.__NATIVEPI_EXTENSION_HOST__ = {
+    method: (_extension, name, handler) => methods.set(name, handler),
+    emit: (_extension, event) => events.push(event),
+  };
+
+  try {
+    subscriptionUsageExtension({
+      on: (event: string, handler: (event: unknown, context: unknown) => void) => handlers.set(event, handler),
+      registerCommand: () => {},
+    } as never);
+
+    const usage = methods.get("usage");
+    if (!usage) throw new Error("Usage method was not registered.");
+    await expect(usage(undefined)).resolves.toEqual({ supported: false });
+
+    const sessionStart = handlers.get("session_start");
+    if (!sessionStart) throw new Error("Session-start handler was not registered.");
+    sessionStart({}, { model: { provider: "custom-provider" } });
+
+    expect(events).toContain("changed");
+  } finally {
+    globalThis.__NATIVEPI_EXTENSION_HOST__ = previousHost;
+  }
 });
 
 test("OpenAI usage parses short and long rate windows", () => {

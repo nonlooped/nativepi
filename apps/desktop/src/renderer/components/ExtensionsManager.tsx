@@ -2,10 +2,8 @@ import { useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
-import { PuzzlePieceIcon } from "@phosphor-icons/react/PuzzlePiece";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
-import type { BuiltInExtensionInfo } from "../../shared/rpc-schema.ts";
 import type { PackageInfo } from "../../shared/pi-types.ts";
 import { showHint } from "../lib/toast.tsx";
 import { useAppStore } from "../lib/store.ts";
@@ -14,7 +12,6 @@ import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { Switch } from "@/components/ui/switch.tsx";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -22,82 +19,27 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
 import { HOVER_REVEAL, cn } from "@/lib/utils.ts";
-import { Segmented, SettingsCard } from "./settings/rows.tsx";
+import { Segmented } from "./settings/rows.tsx";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 
-/**
- * NativePi's own optional extensions.
- *
- * A switch rather than a pair of buttons, because that is what enabling one is:
- * it either runs inside Pi or it does not. The only thing that is not a switch
- * is an update, which appears as its own action and only when there is one.
- */
-function BuiltInExtensions() {
-  const listing = useRequest(() => rpc.request.listBuiltInExtensions({}), []);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [failed, setFailed] = useState<{ id: string; message: string }>();
+function extensionLabel(path: string) {
+  const parts = path.split(/[\\/]/);
+  const filename = parts.pop();
+  if (!filename) return path;
 
-  // `updating` only changes the wording: reinstalling over an outdated copy is
-  // the same call as enabling it, and reporting "enabled" for a button labelled
-  // Update described something the user had not done.
-  async function setEnabled(extension: BuiltInExtensionInfo, enabled: boolean, updating = false) {
-    setBusy(extension.id);
-    setFailed(undefined);
-    const result = await rpc.request.setBuiltInExtension({ id: extension.id, enabled });
-    setBusy(null);
-    if (!result.ok) {
-      setFailed({ id: extension.id, message: result.error ?? "Unable to update this extension. Try again." });
-      return;
-    }
-    listing.reload();
-    showHint(`${extension.name} ${updating ? "updated" : enabled ? "enabled" : "disabled"}`);
-  }
+  const name = filename.replace(/\.[jt]s$/, "");
+  if (name !== "index") return name;
 
+  const extensionsIndex = parts.lastIndexOf("extensions");
+  const extensionParts = extensionsIndex === -1 ? parts.slice(-1) : parts.slice(extensionsIndex + 1);
+  return extensionParts.join(":") || filename;
+}
+
+export function canReloadProjectAfterPackageChange(projectDir: string) {
+  const { activeProjectPath, conversations } = useAppStore.getState();
   return (
-    <section aria-labelledby="builtin-heading" className="flex flex-col gap-3">
-      <div>
-        <h2 id="builtin-heading" className="font-heading text-sm font-semibold">
-          NativePi built-ins
-        </h2>
-        <p className="mt-1 text-sm leading-5 text-muted-foreground">
-          Enabling one copies it into Pi's global extensions folder, so the Pi command line gets it too. Pi picks it up
-          the next time it starts.
-        </p>
-      </div>
-
-      {listing.loading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
-      {listing.error ? <p className="text-sm text-destructive">{listing.error}</p> : null}
-
-      {listing.data?.extensions.map((extension) => (
-        <SettingsCard
-          key={extension.id}
-          icon={<PuzzlePieceIcon />}
-          title={extension.name}
-          tone={extension.outdated ? "warning" : extension.installed ? "active" : "idle"}
-          status={extension.outdated ? "Update available" : extension.installed ? "Enabled" : "Not enabled"}
-          description={extension.description}
-          error={failed?.id === extension.id ? failed.message : undefined}
-          action={
-            <div className="flex items-center gap-2">
-              {extension.outdated ? (
-                <Button size="xl" variant="outline" disabled={busy !== null} onClick={() => void setEnabled(extension, true, true)}>
-                  Update
-                </Button>
-              ) : null}
-              {busy === extension.id ? (
-                <CircleNotchIcon className="size-4 animate-spin text-muted-foreground" />
-              ) : (
-                <Switch
-                  checked={extension.installed}
-                  aria-label={`Enable ${extension.name}`}
-                  onCheckedChange={(value) => void setEnabled(extension, value)}
-                />
-              )}
-            </div>
-          }
-        />
-      ))}
-    </section>
+    activeProjectPath === projectDir &&
+    !Object.values(conversations).some((conversation) => conversation.projectDir === projectDir && conversation.running)
   );
 }
 
@@ -108,7 +50,7 @@ export default function ExtensionsManager() {
   // Reloading extensions restarts Pi, which ends whatever turn it is in the
   // middle of. Every other route to that restart already waits for the run;
   // this one used to take it out from under the user without a word.
-  const running = useAppStore((s) => Object.values(s.conversations).some((conversation) => conversation.running));
+  const hasRunningTurns = useAppStore((s) => Object.values(s.conversations).some((conversation) => conversation.running));
 
   const [source, setSource] = useState("");
   const [scope, setScope] = useState<"user" | "project">("user");
@@ -122,55 +64,73 @@ export default function ExtensionsManager() {
     [projectDir],
   );
   const packages: PackageInfo[] | null = listing.data?.packages ?? null;
-  const extCount = listing.data?.extensions.length ?? 0;
+  const localExtensions = listing.data?.extensions.filter((extension) => extension.origin === "top-level") ?? null;
   const projectTrusted = listing.data?.projectTrusted ?? false;
   const errors = listing.data?.errors ?? [];
   const refresh = listing.reload;
 
   if (!projectDir) {
     return (
-      <div className="flex flex-col gap-10">
-        <BuiltInExtensions />
-        <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          Open a project to manage its packages.
-        </p>
-      </div>
+      <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+        Open a project to manage its packages.
+      </p>
     );
+  }
+
+  async function applyPackageChange(modifiedProjectDir: string, message: string) {
+    const activeProjectPath = useAppStore.getState().activeProjectPath;
+    if (!canReloadProjectAfterPackageChange(modifiedProjectDir)) {
+      if (activeProjectPath === modifiedProjectDir) {
+        refresh();
+        showHint(`${message}. Reload after the running turns finish.`);
+      } else {
+        showHint(`${message}. Reload Pi when you return to that project.`);
+      }
+      return;
+    }
+    await reloadExtensions();
+    refresh();
+    showHint(message);
   }
 
   async function install() {
     const trimmed = source.trim();
     if (!trimmed) return;
+    const modifiedProjectDir = projectDir;
+    if (!modifiedProjectDir) return;
     setBusy("install");
     setActionError(undefined);
-    const res = await rpc.request.installPackage({ projectDir: projectDir!, source: trimmed, scope });
-    setBusy(null);
+    const res = await rpc.request.installPackage({ projectDir: modifiedProjectDir, source: trimmed, scope });
     if (res.ok) {
       setSource("");
       setInstalling(false);
-      refresh();
+      await applyPackageChange(modifiedProjectDir, `${trimmed} installed`);
     } else {
       setActionError(res.error ?? "Unable to install the package. Try again.");
     }
+    setBusy(null);
   }
 
   async function remove(pkg: PackageInfo) {
+    const modifiedProjectDir = projectDir;
+    if (!modifiedProjectDir) return;
     setBusy(pkg.source);
     setActionError(undefined);
-    const res = await rpc.request.removePackage({ projectDir: projectDir!, source: pkg.source, scope: pkg.scope });
-    setBusy(null);
-    if (res.ok) refresh();
+    const res = await rpc.request.removePackage({ projectDir: modifiedProjectDir, source: pkg.source, scope: pkg.scope });
+    if (res.ok) await applyPackageChange(modifiedProjectDir, `${pkg.source} removed`);
     else setActionError(res.error ?? "Unable to remove the package. Try again.");
+    setBusy(null);
   }
 
   async function update(pkg: PackageInfo) {
+    const modifiedProjectDir = projectDir;
+    if (!modifiedProjectDir) return;
     setBusy(pkg.source);
     setActionError(undefined);
-    const res = await rpc.request.updatePackage({ projectDir: projectDir!, source: pkg.source });
+    const res = await rpc.request.updatePackage({ projectDir: modifiedProjectDir, source: pkg.source });
+    if (res.ok) await applyPackageChange(modifiedProjectDir, `${pkg.source} updated`);
+    else setActionError(res.error ?? "Unable to update the package. Try again.");
     setBusy(null);
-    if (!res.ok) return setActionError(res.error ?? "Unable to update the package. Try again.");
-    refresh();
-    showHint(`${pkg.source} updated`);
   }
 
   async function reload() {
@@ -182,24 +142,19 @@ export default function ExtensionsManager() {
 
   return (
     <div className="flex flex-col gap-10">
-      <BuiltInExtensions />
-
       <section aria-labelledby="installed-heading" className="flex flex-col">
         <div className="flex flex-wrap items-center gap-2">
           <h2 id="installed-heading" className="font-heading text-sm font-semibold">
-            Pi packages
-            <span className="ml-2 font-sans text-xs font-normal text-muted-foreground tabular-nums">
-              {extCount} loaded
-            </span>
+            Pi extensions
           </h2>
           <div className="flex-1" />
           <Button
             variant="ghost"
             size="sm"
             onClick={() => void reload()}
-            disabled={busy !== null || running}
+            disabled={busy !== null || hasRunningTurns}
             title={
-              running
+              hasRunningTurns
                 ? "Wait for every running turn to finish — reloading restarts Pi"
                 : "Restart Pi so it picks up changed extensions"
             }
@@ -270,64 +225,89 @@ export default function ExtensionsManager() {
         {actionError ? <p className="mt-3 text-sm text-destructive">{actionError}</p> : null}
 
         <div className="mt-3 flex flex-col">
-          {packages === null ? (
+          {packages === null || localExtensions === null ? (
             <p className="border-t py-5 text-sm text-muted-foreground">Loading…</p>
-          ) : packages.length === 0 ? (
-            <p className="border-t py-5 text-sm text-muted-foreground">No packages installed. Install a package to add a Pi extension.</p>
+          ) : packages.length === 0 && localExtensions.length === 0 ? (
+            <p className="border-t py-5 text-sm text-muted-foreground">No extensions installed or found locally.</p>
           ) : (
-            packages.map((pkg) => (
-              <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
-                <ContextMenuTrigger
-                  render={<div className="group flex items-center gap-3 border-t py-3 pr-1" />}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-medium">{pkg.source}</span>
-                      {pkg.filtered ? <Badge variant="secondary">filtered</Badge> : null}
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {pkg.scope === "project" ? "This project" : "Your user account"}
-                    </span>
-                  </div>
-                  {busy === pkg.source ? (
-                    <CircleNotchIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
-                  ) : (
-                    <div
-                      className={cn(
-                        HOVER_REVEAL,
-                        "flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100",
-                      )}
-                    >
-                      <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => void update(pkg)}>
-                        Update
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        disabled={busy !== null}
-                        onClick={() => setPendingRemoval(pkg)}
-                        title={`Remove ${pkg.source}`}
-                        aria-label={`Remove ${pkg.source}`}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <TrashIcon />
-                      </Button>
-                    </div>
-                  )}
-                </ContextMenuTrigger>
-                <ContextMenuContent className="w-48">
-                  <ContextMenuItem onClick={() => void navigator.clipboard.writeText(pkg.source)}>
-                    Copy source
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    disabled={!pkg.installedPath}
-                    onClick={() => pkg.installedPath && void rpc.request.showInFolder({ path: pkg.installedPath })}
+            <>
+              {packages.map((pkg) => (
+                <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
+                  <ContextMenuTrigger
+                    render={<div className="group flex items-center gap-3 border-t py-3 pr-1" />}
                   >
-                    Reveal install folder
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
-            ))
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-sm font-medium">{pkg.source}</span>
+                        {pkg.filtered ? <Badge variant="secondary">filtered</Badge> : null}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {pkg.scope === "project" ? "This project" : "Your user account"}
+                      </span>
+                    </div>
+                    {busy === pkg.source ? (
+                      <CircleNotchIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
+                    ) : (
+                      <div
+                        className={cn(
+                          HOVER_REVEAL,
+                          "flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100",
+                        )}
+                      >
+                        <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => void update(pkg)}>
+                          Update
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={busy !== null}
+                          onClick={() => setPendingRemoval(pkg)}
+                          title={`Remove ${pkg.source}`}
+                          aria-label={`Remove ${pkg.source}`}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <TrashIcon />
+                        </Button>
+                      </div>
+                    )}
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="w-48">
+                    <ContextMenuItem onClick={() => void navigator.clipboard.writeText(pkg.source)}>
+                      Copy source
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      disabled={!pkg.installedPath}
+                      onClick={() => pkg.installedPath && void rpc.request.showInFolder({ path: pkg.installedPath })}
+                    >
+                      Reveal install folder
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+              ))}
+              {localExtensions.map((extension) => (
+                <ContextMenu key={extension.path}>
+                  <ContextMenuTrigger render={<div className="flex items-center gap-3 border-t py-3 pr-1" />}>
+                    <div className="min-w-0 flex-1">
+                      <span title={extension.path} className="block truncate text-sm font-medium">
+                        {extensionLabel(extension.path)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {extension.scope === "project" ? "This project" : "Your user account"}
+                        {extension.enabled ? "" : " · Disabled"}
+                      </span>
+                    </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="w-48">
+                    <ContextMenuItem onClick={() => void navigator.clipboard.writeText(extension.path)}>
+                      Copy path
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => void rpc.request.showInFolder({ path: extension.path })}>
+                      Reveal in folder
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+              ))}
+            </>
           )}
         </div>
       </section>

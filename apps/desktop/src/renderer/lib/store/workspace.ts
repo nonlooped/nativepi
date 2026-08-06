@@ -1,5 +1,4 @@
 import { rpc } from "../rpc.ts";
-import { TITLE_GENERATOR_ACTIVE } from "../../../shared/title-generator.ts";
 import { sanitizeOverrides } from "../shortcuts.ts";
 import { showHint } from "../toast.tsx";
 import { dropAllSurfaces } from "../tuiSurfaces.ts";
@@ -27,8 +26,6 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       projects: loaded.projects,
       drafts: loaded.drafts ?? {},
       favoriteModels: loaded.favoriteModels ?? [],
-      titleGeneratorModel: loaded.titleGeneratorModel ?? TITLE_GENERATOR_ACTIVE,
-      serviceTiers: loaded.serviceTiers ?? {},
       pinnedChats: loaded.pinnedChats ?? [],
       activeProjectPath: restoreProject,
       reopenLastProject,

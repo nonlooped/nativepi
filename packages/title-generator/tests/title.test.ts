@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { nativePiTitleGeneratorExtension, normalizeGeneratedTitle, setNativePiTitleGeneratorModel, titlePrompt } from "./titleGenerator.ts";
+import titleGeneratorExtension, { normalizeGeneratedTitle, titlePrompt } from "../extensions/title.ts";
 
 type Handler = (...args: unknown[]) => void;
 type FakePi = {
   on: (event: string, handler: Handler) => void;
-  registerCommand: () => undefined;
+  registerCommand: (name: string, command: { handler: (args: string, context: unknown) => Promise<void> }) => void;
   appendEntry: () => undefined;
   setSessionName: (name: string) => void;
   getSessionName: () => string | undefined;
@@ -59,6 +59,10 @@ function createHarness(sessionFile: string, entries: unknown[] = [], harnessOpti
       getSessionName: () => names.at(-1),
     },
     model: { provider: "openai", id: "gpt-5" },
+    ui: {
+      notify: () => {},
+      select: async () => undefined,
+    },
     modelRegistry: {
       find: (providerId: string, modelId: string) => (providerId === model.provider && modelId === model.id ? model : undefined),
       getProvider: () => provider,
@@ -67,9 +71,12 @@ function createHarness(sessionFile: string, entries: unknown[] = [], harnessOpti
       getProviderDisplayName: () => "OpenAI",
     },
   };
+  let setTitleModel: ((args: string, context: unknown) => Promise<void>) | undefined;
   const pi: FakePi = {
     on: (event, handler) => handlers.set(event, handler),
-    registerCommand: () => undefined,
+    registerCommand: (name, command) => {
+      if (name === "title-model") setTitleModel = command.handler;
+    },
     appendEntry: () => undefined,
     setSessionName: (name) => {
       names.push(name);
@@ -79,18 +86,15 @@ function createHarness(sessionFile: string, entries: unknown[] = [], harnessOpti
   };
 
   // The fake only implements the extension methods exercised by these tests.
-  const extension = nativePiTitleGeneratorExtension;
-  const factory = typeof extension === "function" ? extension : extension.factory;
-  const activate = factory as unknown as (fakePi: FakePi) => void;
-  activate(pi);
+  titleGeneratorExtension(pi as never);
   handlers.get("session_start")?.({}, context);
 
-  return { context, handlers, names, named, state };
+  return { context, handlers, names, named, state, setTitleModel };
 }
 
 test("the first settled turn uses the selected catalog model without reasoning", async () => {
   const harness = createHarness("C:\\title-selection.jsonl");
-  setNativePiTitleGeneratorModel("C:\\title-selection.jsonl", "openai/gpt-5-mini");
+  await harness.setTitleModel?.("openai/gpt-5-mini", harness.context);
   harness.handlers.get("before_agent_start")?.({ prompt: "review the title flow" }, harness.context);
   harness.handlers.get("agent_settled")?.({}, harness.context);
   await harness.named;
@@ -103,7 +107,7 @@ test("the first settled turn uses the selected catalog model without reasoning",
 });
 test("a transient provider failure does not leave the prompt fallback as the title", async () => {
   const harness = createHarness("C:\\title-retry.jsonl", [], { requiredRetries: 1 });
-  setNativePiTitleGeneratorModel("C:\\title-retry.jsonl", "openai/gpt-5-mini");
+  await harness.setTitleModel?.("openai/gpt-5-mini", harness.context);
   harness.handlers.get("before_agent_start")?.({ prompt: "review the title flow" }, harness.context);
   harness.handlers.get("agent_settled")?.({}, harness.context);
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -113,7 +117,7 @@ test("a transient provider failure does not leave the prompt fallback as the tit
 
 test("reasoning models receive enough budget to emit title text", async () => {
   const harness = createHarness("C:\\title-reasoning.jsonl", [], { reasoning: true, requiredTitleTokens: 512 });
-  setNativePiTitleGeneratorModel("C:\\title-reasoning.jsonl", "openai/gpt-5-mini");
+  await harness.setTitleModel?.("openai/gpt-5-mini", harness.context);
   harness.handlers.get("before_agent_start")?.({ prompt: "review the title flow" }, harness.context);
   harness.handlers.get("agent_settled")?.({}, harness.context);
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -129,6 +133,17 @@ test("a later user turn cannot schedule another title", () => {
 
   expect(harness.state.streamCalls).toBe(0);
   expect(harness.names).toEqual([]);
+});
+
+test("uses the title model recorded by the legacy built-in extension", async () => {
+  const harness = createHarness("C:\\legacy-title-model.jsonl", [
+    { type: "custom", customType: "nativepi-title-generator", data: { modelSetting: "openai/gpt-5-mini" } },
+  ]);
+  harness.handlers.get("before_agent_start")?.({ prompt: "review the title flow" }, harness.context);
+  harness.handlers.get("agent_settled")?.({}, harness.context);
+  await harness.named;
+
+  expect(harness.state.streamModel).toEqual({ provider: "openai", id: "gpt-5-mini", name: "GPT-5 mini" });
 });
 
 test("title prompt uses the readable request without skill markup", () => {

@@ -52,53 +52,25 @@ test("a resize from the window is bounded", () => {
   ).toBe(false);
 });
 
-test("a service-tier frame is scoped to a session and accepts only known tiers", () => {
+test("graphical extension frames reject values that JSON cannot carry", () => {
+  const circular: Record<string, unknown> = {};
+  circular.self = circular;
+
   expect(
     tuiClientFrameSchema.safeParse({
-      type: "nativepi_tui_set_service_tier",
-      sessionFile: "C:\\chat.jsonl",
-      tier: "fast",
-    }).success,
-  ).toBe(true);
-  expect(
-    tuiClientFrameSchema.safeParse({
-      type: "nativepi_tui_set_service_tier",
-      sessionFile: null,
-      tier: "turbo",
+      type: "nativepi_tui_ext_call",
+      requestId: "f-1",
+      extension: "@acme/ext",
+      method: "save",
+      params: circular,
     }).success,
   ).toBe(false);
-});
-
-test("a title-generator model frame carries a nullable session and bounded setting", () => {
   expect(
-    tuiClientFrameSchema.safeParse({
-      type: "nativepi_tui_set_title_generator_model",
-      sessionFile: null,
-      modelSetting: "openai/gpt-5-mini",
-    }).success,
-  ).toBe(true);
-  expect(
-    tuiClientFrameSchema.safeParse({
-      type: "nativepi_tui_set_title_generator_model",
-      sessionFile: "C:\\chat.jsonl",
-      modelSetting: "",
-    }).success,
-  ).toBe(false);
-});
-
-test("a subscription-usage request carries a bounded provider id", () => {
-  expect(
-    tuiClientFrameSchema.safeParse({
-      type: "nativepi_tui_get_subscription_usage",
-      requestId: "f-1",
-      providerId: "anthropic",
-    }).success,
-  ).toBe(true);
-  expect(
-    tuiClientFrameSchema.safeParse({
-      type: "nativepi_tui_get_subscription_usage",
-      requestId: "f-1",
-      providerId: "",
+    tuiHostFrameSchema.safeParse({
+      type: "nativepi_tui_ext_event",
+      extension: "@acme/ext",
+      event: "changed",
+      payload: 1n,
     }).success,
   ).toBe(false);
 });

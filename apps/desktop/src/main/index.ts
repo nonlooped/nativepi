@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu, shell, type MenuItemConstructorOptions } from "electron";
 import { join } from "node:path";
 import { quitBlocked, registerIpc, setMainWindow, stopAllPi } from "./ipc.ts";
+import { migrateLegacyBuiltInExtensions } from "./legacyBuiltIns.ts";
 
 // Not named `__dirname`: rolldown injects a CommonJS `__dirname` shim at the top
 // of the main bundle, and a same-named top-level const collides with it at load.
@@ -149,8 +150,9 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   registerIpc();
+  await migrateLegacyBuiltInExtensions();
   createWindow();
 
   app.on("activate", () => {

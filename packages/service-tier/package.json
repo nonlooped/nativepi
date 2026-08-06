@@ -1,0 +1,53 @@
+{
+  "name": "@nativepi/service-tier",
+  "version": "0.1.0",
+  "description": "Adds Standard and Fast response speeds for supported Codex models, in Pi and in NativePi.",
+  "author": "nonlooped",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-coding-agent",
+    "nativepi",
+    "extension"
+  ],
+  "files": [
+    "extensions",
+    "renderer",
+    "types.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "pi": {
+    "extensions": ["./extensions/tier.ts"]
+  },
+  "nativepi": {
+    "renderer": "./renderer/index.tsx"
+  },
+  "homepage": "https://github.com/nonlooped/nativepi/tree/main/packages/service-tier",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nonlooped/nativepi.git",
+    "directory": "packages/service-tier"
+  },
+  "bugs": {
+    "url": "https://github.com/nonlooped/nativepi/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@nativepi/extension-api": "^0.3.0",
+    "@phosphor-icons/react": "^2.1.10"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.84.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.0",
+    "@types/react": "^19.2.18",
+    "react": "^19.2.0"
+  }
+}

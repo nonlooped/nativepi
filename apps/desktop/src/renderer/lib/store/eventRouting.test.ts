@@ -52,6 +52,23 @@ test("an extension confirmation from an inactive project remains available", () 
   expect(useAppStore.getState().extPrompts).toEqual([]);
 });
 
+test("ANSI-styled extension statuses are safe to render as native text", () => {
+  useAppStore.setState({ activeProjectPath: "A:\\proj-a", extStatuses: {} });
+
+  useAppStore.getState().onEvent({
+    projectDir: "A:\\proj-a",
+    event: {
+      type: "extension_ui_request",
+      id: "status-ansi",
+      method: "setStatus",
+      statusKey: "subagents",
+      statusText: "\u001b[38;2;125;133;144msubagents\u001b[39m · \u001b[38;2;47;129;247m1 running\u001b[39m",
+    },
+  });
+
+  expect(useAppStore.getState().extStatuses.subagents).toBe("subagents · 1 running");
+});
+
 test("non-prompt extension UI from an inactive project cannot alter the active project", () => {
   useAppStore.setState({
     activeProjectPath: "B:\\proj-b",
@@ -103,6 +120,21 @@ test("events from parallel chats keep their own runtime state", () => {
 
   expect(useAppStore.getState().conversations["one.jsonl"]?.running).toBe(true);
   expect(useAppStore.getState().conversations["other.jsonl"]?.running).toBe(true);
+});
+
+test("a new chat starts without the previous chat's extension footer", () => {
+  useAppStore.setState({
+    activeProjectPath: "A:\\proj-a",
+    activeSessionFile: "old.jsonl",
+    extStatuses: { usage: "$2.64" },
+    extSurfaces: [{ id: "footer-old", placement: "footer", key: "Footer" }],
+  });
+
+  useAppStore.getState().newChat();
+
+  const state = useAppStore.getState();
+  expect(state.extStatuses).toEqual({});
+  expect(state.extSurfaces).toEqual([]);
 });
 
 test("a new session is remembered when submit returns after switching projects", async () => {

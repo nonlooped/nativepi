@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { DEFAULT_PREFERENCES, nativePiStateSchema } from "./rpc-schema.ts";
+import { DEFAULT_PREFERENCES, extensionCallParamsSchema, nativePiStateSchema } from "./rpc-schema.ts";
 
 test("an empty object yields the full set of defaults", () => {
   const state = nativePiStateSchema.parse({});
@@ -10,8 +10,6 @@ test("an empty object yields the full set of defaults", () => {
     lastChatByProject: {},
     drafts: {},
     favoriteModels: [],
-    titleGeneratorModel: "active",
-    serviceTiers: {},
     pinnedChats: [],
     panes: undefined,
     reopenLastProject: true,
@@ -81,6 +79,25 @@ test("sidebar size is clamped rather than discarded", () => {
   expect(nativePiStateSchema.parse({ panes: { sidebarSize: Infinity } }).panes?.sidebarSize).toBe(18);
 });
 
+test("graphical extension calls only accept JSON parameters", () => {
+  expect(
+    extensionCallParamsSchema.safeParse({
+      projectDir: "C:\\project",
+      extension: "@acme/ext",
+      method: "save",
+      params: { nested: [true, null, "ok"] },
+    }).success,
+  ).toBe(true);
+  expect(
+    extensionCallParamsSchema.safeParse({
+      projectDir: "C:\\project",
+      extension: "@acme/ext",
+      method: "save",
+      params: 1n,
+    }).success,
+  ).toBe(false);
+});
+
 test("absent panes stay absent, so a first run can still open the pane itself", () => {
   // `init` treats `panes === undefined` as "the user has never chosen", which is
   // what lets NativePi open the changes pane once it sees the repo is dirty.
@@ -90,9 +107,4 @@ test("absent panes stay absent, so a first run can still open the pane itself", 
     sidebarSize: 18,
     contextPaneOpen: false,
   });
-});
-
-test("title generator model survives persistence and invalid values use the active model", () => {
-  expect(nativePiStateSchema.parse({ titleGeneratorModel: "openai/gpt-5-mini" }).titleGeneratorModel).toBe("openai/gpt-5-mini");
-  expect(nativePiStateSchema.parse({ titleGeneratorModel: null }).titleGeneratorModel).toBe("active");
 });

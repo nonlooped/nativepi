@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { TITLE_GENERATOR_ACTIVE } from "./title-generator.ts";
 import type { PiPaths, PiSettings, PiSettingsPatch } from "./pi-settings.ts";
-import type { SubscriptionUsage } from "./subscriptionUsage.ts";
+import { jsonValueSchema, type JsonValue } from "./json.ts";
 import type {
   CommandInfo,
   ExtensionUiResponse,
@@ -44,6 +43,14 @@ export interface Project {
   path: string;
   name: string;
 }
+
+export const extensionCallParamsSchema = z.object({
+  projectDir: z.string().min(1).max(32_767),
+  sessionFile: z.string().min(1).max(32_767).nullable().optional(),
+  extension: z.string().min(1).max(200),
+  method: z.string().min(1).max(200),
+  params: jsonValueSchema.optional(),
+});
 
 export interface InstalledEditor {
   id: string;
@@ -173,16 +180,6 @@ export interface UpdateState {
   error?: string;
 }
 
-export type BuiltInExtensionId = "service-tier" | "subscription-usage" | "title-generator";
-
-export interface BuiltInExtensionInfo {
-  id: BuiltInExtensionId;
-  name: string;
-  description: string;
-  installed: boolean;
-  outdated: boolean;
-}
-
 export type AuthPromptRequest =
   | { kind: "text"; message: string; placeholder?: string }
   | { kind: "secret"; message: string; placeholder?: string }
@@ -274,9 +271,6 @@ export const nativePiStateSchema = z.object({
   lastChatByProject: z.record(z.string(), z.string()).catch({}),
   drafts: z.record(z.string(), z.string()).catch({}),
   favoriteModels: z.array(z.string()).catch([]),
-  /** Model used for automatic first-message chat titles; "active" follows the chat model. */
-  titleGeneratorModel: z.string().min(1).max(512).catch(TITLE_GENERATOR_ACTIVE),
-  serviceTiers: z.record(z.string(), z.enum(["standard", "fast"])).catch({}),
   pinnedChats: z
     .array(z.unknown())
     .catch([])
@@ -321,8 +315,6 @@ export type HostRequests = {
       projectDir: string;
       sessionFile: string | null;
       message: string;
-      /** NativePi's selected title model; delivered to Pi's built-in title extension when sending. */
-      titleGeneratorModel?: string;
       images?: ImageContent[];
       /**
        * Set only while a turn is running. Pi executes an extension command
@@ -401,10 +393,6 @@ export type HostRequests = {
     params: { projects: Project[] };
     response: { dashboard?: UsageDashboard; error?: string };
   };
-  getSubscriptionUsage: {
-    params: { projectDir: string; sessionFile?: string | null; providerId: string };
-    response: { supported?: boolean; usage?: SubscriptionUsage; error?: string };
-  };
 
   getContextInspector: {
     params: { projectDir: string; sessionFile?: string };
@@ -474,14 +462,6 @@ export type HostRequests = {
   setPiSettings: {
     params: { patch: PiSettingsPatch };
     response: { ok: boolean; settings?: PiSettings; error?: string };
-  };
-  listBuiltInExtensions: {
-    params: Record<string, never>;
-    response: { extensions: BuiltInExtensionInfo[] };
-  };
-  setBuiltInExtension: {
-    params: { id: BuiltInExtensionId; enabled: boolean };
-    response: { ok: boolean; extensions?: BuiltInExtensionInfo[]; error?: string };
   };
   piPaths: { params: Record<string, never>; response: { paths: PiPaths } };
   /** Reveal a file or folder in Explorer. Used by About to point at Pi's own files. */
@@ -605,6 +585,11 @@ export type HostRequests = {
   loadGraphicalExtensions: {
     params: { projectDir: string };
     response: { extensions: GraphicalExtension[] };
+  };
+  /** A graphical extension's renderer half calling a method on its Pi half. */
+  callExtension: {
+    params: z.infer<typeof extensionCallParamsSchema>;
+    response: { result?: JsonValue; error?: string };
   };
   extensionRespond: {
     params: { projectDir: string; sessionFile?: string | null; response: ExtensionUiResponse };

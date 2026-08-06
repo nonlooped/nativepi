@@ -71,6 +71,21 @@ export type AgentMessage =
   | ToolResultMessage
   | { role: string; [key: string]: unknown };
 
+/** Pi's non-cumulative assistant stream events, sent between message_start and message_end. */
+export type AssistantMessageDelta =
+  | { type: "start" }
+  | { type: "text_start"; contentIndex: number }
+  | { type: "text_delta"; contentIndex: number; delta: string }
+  | { type: "text_end"; contentIndex: number; content: string }
+  | { type: "thinking_start"; contentIndex: number }
+  | { type: "thinking_delta"; contentIndex: number; delta: string }
+  | { type: "thinking_end"; contentIndex: number; content: string }
+  | { type: "toolcall_start"; contentIndex: number }
+  | { type: "toolcall_delta"; contentIndex: number; delta: string }
+  | { type: "toolcall_end"; contentIndex: number; toolCall: ToolCall }
+  | { type: "done"; reason: "stop" | "length" | "toolUse"; message: AssistantMessage }
+  | { type: "error"; reason: "aborted" | "error"; error: AssistantMessage };
+
 
 export interface SessionHeader {
   type: "session";
@@ -294,6 +309,7 @@ export interface ResolvedExtension {
   enabled: boolean;
   scope: string;
   source: string;
+  origin: "package" | "top-level";
 }
 
 export interface GraphicalExtension {
@@ -332,7 +348,7 @@ export type PiEvent =
   | { type: "agent_end"; willRetry?: boolean }
   | { type: "agent_settled" }
   | { type: "message_start"; message: AgentMessage }
-  | { type: "message_update"; message: AgentMessage }
+  | { type: "message_update"; assistantMessageEvent: AssistantMessageDelta }
   | { type: "message_end"; message: AgentMessage }
   | { type: "entry_appended"; entry: SessionEntry }
   | { type: "queue_update"; steering: readonly string[]; followUp: readonly string[] }

@@ -1,4 +1,6 @@
-import type { ExtensionAPI, ExtensionContext, InlineExtension } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { connect } from "@nativepi/extension-api/host";
+import type { TitleGeneratorState } from "../types.ts";
 
 type TitleModelSetting = string;
 type TitleModel = NonNullable<ExtensionContext["model"]>;
@@ -19,14 +21,6 @@ const TITLE_REQUEST_SYSTEM = "You generate concise coding-chat titles. Reply wit
 
 const titleModelBySession = new Map<string, TitleModelSetting>();
 let pendingTitleModel: TitleModelSetting = TITLE_GENERATOR_ACTIVE;
-
-/** Update the model used by the session named by NativePi's side channel. */
-export function setNativePiTitleGeneratorModel(sessionFile: string | null, modelSetting: string): void {
-  const normalized = modelSetting.trim();
-  if (!normalized) return;
-  if (sessionFile) titleModelBySession.set(sessionFile, normalized);
-  else pendingTitleModel = normalized;
-}
 
 function modelKey(model: { provider: string; id: string }): string {
   return `${model.provider}/${model.id}`;
@@ -87,7 +81,7 @@ export function normalizeGeneratedTitle(raw: string): string | null {
 
   const cleaned = line
     .replace(/^title\s*:\s*/i, "")
-    .replace(/^[\"'`“”]+|[\"'`“”]+$/g, "")
+    .replace(/^["'`“”]+|["'`“”]+$/g, "")
     .replace(/\s+/g, " ")
     .trim();
   if (!cleaned) return null;
@@ -125,6 +119,7 @@ function selectedModel(context: ExtensionContext, setting: TitleModelSetting): T
   if (!parts) return undefined;
   return context.modelRegistry.find(parts.provider, parts.id) ?? undefined;
 }
+
 function isTextPart(part: unknown): part is { type: "text"; text: string } {
   if (typeof part !== "object" || part === null || !("type" in part) || !("text" in part)) return false;
   return part.type === "text" && typeof part.text === "string";
@@ -171,6 +166,13 @@ function modelChoices(context: ExtensionContext): Map<string, string> {
   return choices;
 }
 
+function state(context: ExtensionContext): TitleGeneratorState {
+  return {
+    modelSetting: titleModelSettingFor(context),
+    models: [...modelChoices(context)].map(([key, label]) => ({ key, label })),
+  };
+}
+
 function setTitleModel(pi: ExtensionAPI, context: ExtensionContext, setting: string): boolean {
   const choices = modelChoices(context);
   if (!choices.has(setting)) {
@@ -184,25 +186,36 @@ function setTitleModel(pi: ExtensionAPI, context: ExtensionContext, setting: str
   } else {
     pendingTitleModel = setting;
   }
-  context.ui.notify(`Title generator: ${choices.get(setting)}`, "info");
   return true;
 }
 
-function activateTitleGeneratorExtension(pi: ExtensionAPI): void {
+export default function titleGeneratorExtension(pi: ExtensionAPI): void {
+  const ui = connect("@nativepi/title-generator");
   let activeSessionFile: string | undefined;
+  let latest: ExtensionContext | undefined;
   let pendingTitle: PendingTitle | undefined;
   let titleAbort: AbortController | undefined;
   let generationInFlight = false;
 
+  const emitState = (context: ExtensionContext) => ui.emit("changed", state(context));
+
   pi.on("session_start", (_event, context) => {
+    latest = context;
     titleAbort?.abort();
     titleAbort = undefined;
     pendingTitle = undefined;
     generationInFlight = false;
     activeSessionFile = context.sessionManager.getSessionFile();
+    emitState(context);
+  });
+
+  pi.on("model_select", (_event, context) => {
+    latest = context;
+    emitState(context);
   });
 
   pi.on("before_agent_start", (event, context) => {
+    latest = context;
     const sessionFile = context.sessionManager.getSessionFile();
     if (!sessionFile) return;
     if (pendingTitle || generationInFlight || context.sessionManager.getSessionName() || hasUserMessage(context)) return;
@@ -212,6 +225,7 @@ function activateTitleGeneratorExtension(pi: ExtensionAPI): void {
   });
 
   pi.on("agent_settled", (_event, context) => {
+    latest = context;
     const candidate = pendingTitle;
     if (!candidate || candidate.sessionFile !== activeSessionFile || generationInFlight) return;
     pendingTitle = undefined;
@@ -242,33 +256,50 @@ function activateTitleGeneratorExtension(pi: ExtensionAPI): void {
     pendingTitle = undefined;
     generationInFlight = false;
     activeSessionFile = undefined;
+    latest = undefined;
+  });
+
+  ui.method("state", () => {
+    if (!latest) throw new Error("No active Pi session.");
+    return state(latest);
+  });
+
+  ui.method("set", (params) => {
+    const setting = typeof params === "object" && params !== null && "modelSetting" in params
+      ? params.modelSetting
+      : undefined;
+    if (typeof setting !== "string") throw new Error("Choose a model from Pi's catalog.");
+    if (!latest) throw new Error("No active Pi session.");
+    if (!setTitleModel(pi, latest, setting)) throw new Error("That model is not available in Pi's catalog.");
+    const next = state(latest);
+    ui.emit("changed", next);
+    return next;
   });
 
   pi.registerCommand("title-model", {
     description: "Choose the model Pi uses for automatic first-message titles",
+    getArgumentCompletions: (prefix) => latest
+      ? [...modelChoices(latest)].filter(([key]) => key.startsWith(prefix)).map(([value, label]) => ({ value, label }))
+      : null,
     handler: async (args, context) => {
+      latest = context;
       const requested = args.trim();
       const choices = modelChoices(context);
       if (requested) {
-        setTitleModel(pi, context, requested);
+        if (setTitleModel(pi, context, requested)) {
+          context.ui.notify(`Title generator: ${choices.get(requested)}`, "info");
+          emitState(context);
+        }
         return;
       }
       const labels = [...choices.values()];
       const selected = await context.ui.select("Title generator model", labels);
       if (!selected) return;
       const setting = [...choices.entries()].find(([, label]) => label === selected)?.[0];
-      if (setting) setTitleModel(pi, context, setting);
+      if (setting && setTitleModel(pi, context, setting)) {
+        context.ui.notify(`Title generator: ${selected}`, "info");
+        emitState(context);
+      }
     },
   });
-}
-
-export const nativePiTitleGeneratorExtension: InlineExtension = {
-  name: "NativePi automatic chat titles",
-  factory: activateTitleGeneratorExtension,
-  hidden: true,
-};
-
-export default function nativePiTitleGeneratorFileExtension(pi: ExtensionAPI): void {
-  if (process.env["NATIVEPI_HOST"] === "1") return;
-  activateTitleGeneratorExtension(pi);
 }

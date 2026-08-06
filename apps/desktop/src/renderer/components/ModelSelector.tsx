@@ -3,7 +3,6 @@ import { useState } from "react";
 import type { ModelInfo } from "../../shared/pi-types.ts";
 import type { AuthProviderInfo } from "../../shared/rpc-schema.ts";
 import { modelKey } from "../../shared/messages.ts";
-import { TITLE_GENERATOR_ACTIVE } from "../../shared/title-generator.ts";
 import { useAppStore } from "../lib/store.ts";
 import { modelProviders } from "../lib/modelProviders.ts";
 import { providerIconName } from "../lib/providerIcons.ts";
@@ -13,17 +12,7 @@ import { DropdownMenu as Menu, DropdownMenuContent as MenuPopup, DropdownMenuGro
 import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import BrandIcon from "./BrandIcon.tsx";
 
-type ModelSelectorProps = {
-  selectedKey?: string;
-  onSelectionChange?: (key: string) => void;
-  showChatModelOption?: boolean;
-};
-
-export default function ModelSelector({
-  selectedKey,
-  onSelectionChange,
-  showChatModelOption = false,
-}: ModelSelectorProps = {}) {
+export default function ModelSelector() {
   const models = useAppStore((s) => s.models);
   const model = useAppStore((s) => s.model);
   const setModel = useAppStore((s) => s.setModel);
@@ -35,20 +24,7 @@ export default function ModelSelector({
   const [selectedTab, setSelectedTab] = useState<string | null>(null);
   const favoriteModelKeys = new Set(favoriteModels);
   const providerNames = new Map(providers.map((item) => [item.id, item.name]));
-  const selection = selectedKey ?? (model ? modelKey(model) : null);
-  const selectedModel =
-    selection && selection !== TITLE_GENERATOR_ACTIVE
-      ? (models.find((item) => modelKey(item) === selection) ?? null)
-      : null;
-  const displayModel = selection === TITLE_GENERATOR_ACTIVE ? model : selectedModel;
-  const label =
-    selection === TITLE_GENERATOR_ACTIVE
-      ? "Use the chat model"
-      : displayModel
-        ? (displayModel.name ?? displayModel.id)
-        : selection
-          ? "Unavailable model"
-          : "Model";
+  const label = model ? (model.name ?? model.id) : "Model";
   const availableProviders = modelProviders(providers, models);
 
   const provider =
@@ -63,15 +39,7 @@ export default function ModelSelector({
   });
 
   function selectModel(next: ModelInfo) {
-    if (onSelectionChange) {
-      onSelectionChange(modelKey(next));
-      return;
-    }
     void setModel(next);
-  }
-
-  function selectChatModel() {
-    onSelectionChange?.(TITLE_GENERATOR_ACTIVE);
   }
 
   // Providers have answered and there is still nothing to pick from. Whether
@@ -101,7 +69,7 @@ export default function ModelSelector({
         title={models.length === 0 ? "Loading models from Pi…" : "Change model"}
         className="flex h-8 max-w-56 items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
       >
-        {displayModel ? <ModelProviderIcon provider={displayModel.provider} /> : null}
+        {model ? <ModelProviderIcon provider={model.provider} /> : null}
         <span className="truncate">{models.length === 0 ? "Loading models…" : label}</span>
         <CaretDownIcon className="shrink-0 text-muted-foreground" />
       </MenuTrigger>
@@ -139,11 +107,7 @@ export default function ModelSelector({
                   visibleModels={visibleModels}
                   provider={provider}
                   query={query}
-                  model={selectedModel}
-                  activeModel={model}
-                  chatModelSelected={selection === TITLE_GENERATOR_ACTIVE}
-                  showChatModelOption={showChatModelOption}
-                  onSelectChatModel={selectChatModel}
+                  model={model}
                   favoriteModelKeys={favoriteModelKeys}
                   favoritesEmpty={favoriteModels.length === 0}
                   providerNames={providerNames}
@@ -201,10 +165,6 @@ function ModelList({
   provider,
   query,
   model,
-  activeModel,
-  chatModelSelected,
-  showChatModelOption,
-  onSelectChatModel,
   favoriteModelKeys,
   favoritesEmpty,
   providerNames,
@@ -214,26 +174,14 @@ function ModelList({
   provider: string;
   query: string;
   model?: ModelInfo | null;
-  activeModel?: ModelInfo | null;
-  chatModelSelected: boolean;
-  showChatModelOption: boolean;
-  onSelectChatModel: () => void;
   favoriteModelKeys: Set<string>;
   favoritesEmpty: boolean;
   providerNames: Map<string, string>;
   onSelect: (model: ModelInfo) => void;
 }) {
-  const normalizedQuery = query.trim().toLowerCase();
-  const chatModelText = `${activeModel?.name ?? ""} ${activeModel?.id ?? ""} use the chat model`.toLowerCase();
-  const showChatModel = showChatModelOption && (!normalizedQuery || chatModelText.includes(normalizedQuery));
-  const chatModelRow = showChatModel ? (
-    <ChatModelRow model={activeModel} selected={chatModelSelected} onSelect={onSelectChatModel} />
-  ) : null;
-
   if (visibleModels.length) {
     return (
       <>
-        {chatModelRow}
         {visibleModels.map((m) => (
           <ModelRow
             key={`${m.provider}/${m.id}`}
@@ -246,27 +194,6 @@ function ModelList({
             onSelect={onSelect}
           />
         ))}
-      </>
-    );
-  }
-  if (chatModelRow) {
-    return (
-      <>
-        {chatModelRow}
-        {provider === "favorite" && favoritesEmpty ? (
-          <div className="flex flex-col items-center gap-1 px-6 py-10 text-center">
-            <StarIcon className="mb-1 text-favorite" />
-            <p className="text-sm font-medium">No favorites yet</p>
-            <p className="text-sm text-muted-foreground">
-              Star a model to pin it here — click the star, or press F on a highlighted row. You can also pick a
-              provider from the rail on the left.
-            </p>
-          </div>
-        ) : (
-          <p className="px-3 py-8 text-center text-sm text-muted-foreground">
-            {query.trim() ? `No models match “${query.trim()}”.` : "No models available from this provider."}
-          </p>
-        )}
       </>
     );
   }
@@ -286,29 +213,6 @@ function ModelList({
     <p className="px-3 py-8 text-center text-sm text-muted-foreground">
       {query.trim() ? `No models match “${query.trim()}”.` : "No models available from this provider."}
     </p>
-  );
-}
-
-function ChatModelRow({
-  model,
-  selected,
-  onSelect,
-}: {
-  model?: ModelInfo | null;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <MenuItem onClick={onSelect} className={cn("group/model min-h-14 rounded-lg px-3", selected && "bg-accent")}>
-      <ModelProviderIcon provider={model?.provider ?? ""} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">Use the chat model</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {model ? (model.name ?? model.id) : "Follows the current chat model"}
-        </p>
-      </div>
-      {selected ? <CheckIcon className="text-success" /> : null}
-    </MenuItem>
   );
 }
 

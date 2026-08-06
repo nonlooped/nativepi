@@ -25,6 +25,7 @@ const MAX_BUFFERED = 256 * 1024;
 const CLEAR = "\x1b[2J";
 
 const buffers = new Map<string, string>();
+const completeHistories = new Set<string>();
 const listeners = new Map<string, Set<(data: string) => void>>();
 
 export function writeSurface(surfaceId: string, data: string): void {
@@ -32,8 +33,16 @@ export function writeSurface(surfaceId: string, data: string): void {
   const held = buffers.get(surfaceId) ?? "";
   // A full redraw makes the history irrelevant: keep the redraw and drop the rest.
   const next = clearAt === -1 ? held + data : data.slice(clearAt);
-  buffers.set(surfaceId, next.length > MAX_BUFFERED ? next.slice(next.length - MAX_BUFFERED) : next);
+  buffers.set(
+    surfaceId,
+    completeHistories.has(surfaceId) || next.length <= MAX_BUFFERED ? next : next.slice(next.length - MAX_BUFFERED),
+  );
   for (const listener of listeners.get(surfaceId) ?? []) listener(data);
+}
+
+/** Keep a historical surface's complete stream so it can be replayed after remounting. */
+export function retainSurfaceHistory(surfaceId: string): void {
+  completeHistories.add(surfaceId);
 }
 
 /** Everything the surface has drawn since its last full redraw. */
@@ -53,10 +62,12 @@ export function onSurfaceWrite(surfaceId: string, listener: (data: string) => vo
 
 export function dropSurface(surfaceId: string): void {
   buffers.delete(surfaceId);
+  completeHistories.delete(surfaceId);
   listeners.delete(surfaceId);
 }
 
 export function dropAllSurfaces(): void {
   buffers.clear();
+  completeHistories.clear();
   listeners.clear();
 }

@@ -12,7 +12,6 @@ import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks,
 import { getRepoHostContext } from "./repoHost.ts";
 import { repoHostContextSchema } from "../shared/repo-host-types.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
-import { listBuiltInExtensions, setBuiltInExtension } from "./builtInExtensions.ts";
 import { listSkills } from "./skills.ts";
 import { readProjectDirectory, watchProjectDirectory } from "./fileExplorer.ts";
 import { listProjectFiles } from "./files.ts";
@@ -21,7 +20,6 @@ import { loadGraphicalExtensions } from "./extensions.ts";
 import { fileManagerName, listInstalledEditors, openFileIn, openProjectIn } from "./editors.ts";
 import { liveSettingsFor, piPaths, queuePiSettings, readPiSettings, writePiSettings } from "./piSettings.ts";
 import { piSettingsPatchSchema, type PiSettingsPatch } from "../shared/pi-settings.ts";
-import { subscriptionUsageResponseSchema } from "../shared/subscriptionUsage.ts";
 import {
   clearTerminal,
   closeTerminal,
@@ -37,7 +35,7 @@ import {
   terminalSnapshot,
   writeTerminal,
 } from "./terminal.ts";
-import type { AccessStatus, HostEvents, HostRequestName, HostRequests, PiStatus } from "../shared/rpc-schema.ts";
+import { extensionCallParamsSchema, type AccessStatus, type HostEvents, type HostRequestName, type HostRequests, type PiStatus } from "../shared/rpc-schema.ts";
 import type { CommandInfo, ForkPoint, ModelInfo, RpcSessionState, SessionStats, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
 import { tuiClientFrameSchema, tuiCompletionEditSchema, tuiCompletionsSchema, type TuiHostFrame } from "../shared/tui-frames.ts";
 import { localServerConnection, localServerStatus, startLocalServer, stopLocalServer } from "./localServer.ts";
@@ -52,6 +50,10 @@ import { checkForUpdate, downloadUpdate, installUpdate, startUpdates, updateStat
 
 /** One Pi process per session: Pi already permits concurrent sessions in a project. */
 const pis = new Map<string, PiProcess>();
+// Pi gives even an unsent chat a session file, but the renderer deliberately
+// keeps it invisible until its first prompt. Keep that process distinct from
+// the project's opened chats so pre-send controls configure the right chat.
+const draftPis = new Map<string, PiProcess>();
 const starting = new Map<string, Promise<PiProcess>>();
 const startingPis = new Map<string, PiProcess>();
 
@@ -250,11 +252,11 @@ function rememberPi(pi: PiProcess, sessionFile: string | undefined): void {
 
 function projectPi(projectDir: string, sessionFile?: string | null): PiProcess | undefined {
   if (sessionFile) return pis.get(sessionFile);
-  return [...pis.values()].find((pi) => pi.projectDir === projectDir);
+  return draftPis.get(projectDir) ?? [...pis.values()].find((pi) => pi.projectDir === projectDir);
 }
 
 function ensurePi(projectDir: string, sessionFile?: string, fresh = false): Promise<PiProcess> {
-  const existing = sessionFile ? pis.get(sessionFile) : fresh ? undefined : projectPi(projectDir);
+  const existing = sessionFile ? pis.get(sessionFile) : fresh ? undefined : draftPis.get(projectDir);
   if (existing) return Promise.resolve(existing);
   const key = sessionFile ?? `new:${projectDir}`;
   const inflight = starting.get(key);
@@ -272,6 +274,7 @@ function ensurePi(projectDir: string, sessionFile?: string, fresh = false): Prom
         // with nothing behind them.
         push("tuiFrame", { projectDir, sessionFile: pi.boundSessionFile, frame: { type: "nativepi_tui_reset" } });
         if (pi.boundSessionFile && pis.get(pi.boundSessionFile) === pi) pis.delete(pi.boundSessionFile);
+        if (draftPis.get(projectDir) === pi) draftPis.delete(projectDir);
         if (startingPis.get(key) === pi) startingPis.delete(key);
         // A Pi that dies mid-turn never reaches `agent_settled`, so drop the
         // marker with the process rather than leaving this project looking
@@ -295,6 +298,7 @@ function ensurePi(projectDir: string, sessionFile?: string, fresh = false): Prom
     } catch {
     }
     startingPis.delete(key);
+    if (!sessionFile) draftPis.set(projectDir, pi);
     status(projectDir, "ready");
     starting.delete(key);
     return pi;
@@ -458,15 +462,6 @@ async function knownProject(projectDir: string): Promise<boolean> {
 const usageDashboardParamsSchema = z.object({
   projects: z.array(z.object({ path: z.string().min(1).max(32_767), name: z.string().min(1).max(200) })).max(100),
 });
-const subscriptionUsageParamsSchema = z.object({
-  projectDir: z.string().min(1).max(32_767),
-  sessionFile: z.string().min(1).nullable().optional(),
-  providerId: z.string().min(1).max(200),
-});
-const setBuiltInExtensionParamsSchema = z.object({
-  id: z.enum(["service-tier", "subscription-usage", "title-generator"]),
-  enabled: z.boolean(),
-});
 
 function isThinkingLevel(level: unknown): level is ThinkingLevel {
   return typeof level === "string" && THINKING_LEVELS.has(level as ThinkingLevel);
@@ -523,6 +518,7 @@ const handlers: HandlerMap = {
 
   restartPi: async ({ projectDir }) => {
     const all = [...new Set([...pis.values(), ...startingPis.values()].filter((pi) => pi.projectDir === projectDir))];
+    draftPis.delete(projectDir);
     for (const pi of all) if (pi.boundSessionFile) pis.delete(pi.boundSessionFile);
     await Promise.all(all.map((pi) => pi.stop()));
     return { ok: true };
@@ -539,6 +535,7 @@ const handlers: HandlerMap = {
   restartAllPi: async () => {
     const all = [...new Set([...pis.values(), ...startingPis.values()])];
     pis.clear();
+    draftPis.clear();
     starting.clear();
     startingPis.clear();
     await Promise.all(all.map((pi) => pi.stop()));
@@ -551,6 +548,7 @@ const handlers: HandlerMap = {
       await pi.request({ type: "new_session" });
       const state = await pi.request<RpcSessionState>({ type: "get_state" });
       rememberPi(pi, state.sessionFile);
+      if (draftPis.get(projectDir) === pi) draftPis.delete(projectDir);
       return { ok: true, sessionFile: state.sessionFile };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
@@ -569,39 +567,22 @@ const handlers: HandlerMap = {
     }
   },
 
-  submit: async ({ projectDir, sessionFile, message, titleGeneratorModel, images, streamingBehavior }) => {
-    const wasNewChat = !sessionFile;
-    let titleGeneratorSetting: string | undefined;
+  submit: async ({ projectDir, sessionFile, message, images, streamingBehavior }) => {
     // Claim the write before Pi is even up, so our own append is never mistaken
     // for a concurrent editor and a cold start counts as work in flight: the
     // renderer has already cleared the draft, and a close that slipped through
     // here would take the prompt with it.
     markBusy(sessionFile ?? projectDir, Number.POSITIVE_INFINITY);
     try {
-      if (typeof titleGeneratorModel === "string") {
-        const normalizedTitleModel = titleGeneratorModel.trim();
-        if (normalizedTitleModel.length > 0 && normalizedTitleModel.length <= 512) {
-          titleGeneratorSetting = normalizedTitleModel;
-        }
-      }
-      if (!titleGeneratorSetting && wasNewChat) {
-        titleGeneratorSetting = (await loadState()).titleGeneratorModel;
-      }
       const pi = await ensurePi(projectDir, sessionFile ?? undefined);
       if (!sessionFile) {
-        await pi.request({ type: "new_session" });
-        const state = await pi.request<RpcSessionState>({ type: "get_state" });
-        rememberPi(pi, state.sessionFile);
-        sessionFile = state.sessionFile ?? null;
+        // `ensurePi` created this draft session for its pre-send controls.
+        // Starting another session here would discard those choices.
+        sessionFile = pi.boundSessionFile ?? (await pi.request<RpcSessionState>({ type: "get_state" })).sessionFile ?? null;
+        if (sessionFile) rememberPi(pi, sessionFile);
+        if (draftPis.get(projectDir) === pi) draftPis.delete(projectDir);
       }
       if (sessionFile) markBusy(sessionFile, Number.POSITIVE_INFINITY);
-      if (sessionFile && titleGeneratorSetting) {
-        pi.sendFrame({
-          type: "nativepi_tui_set_title_generator_model",
-          sessionFile,
-          modelSetting: titleGeneratorSetting,
-        });
-      }
       pi.send({ type: "prompt", message, images, streamingBehavior });
       return { ok: true, sessionFile: sessionFile ?? undefined };
     } catch (err) {
@@ -800,20 +781,6 @@ const handlers: HandlerMap = {
     try {
       const { projects } = usageDashboardParamsSchema.parse(params);
       return { dashboard: await usageDashboard(projects) };
-    } catch (err) {
-      return { error: errorMessage(err) };
-    }
-  },
-
-  getSubscriptionUsage: async (params) => {
-    try {
-      const { projectDir, sessionFile, providerId } = subscriptionUsageParamsSchema.parse(params);
-      const pi = sessionFile ? await bindPi(projectDir, sessionFile, false) : await ensurePi(projectDir);
-      const response = await pi.frameRequest<unknown>(
-        (requestId) => ({ type: "nativepi_tui_get_subscription_usage", requestId, providerId }),
-        12_000,
-      );
-      return subscriptionUsageResponseSchema.parse(response);
     } catch (err) {
       return { error: errorMessage(err) };
     }
@@ -1267,27 +1234,23 @@ const handlers: HandlerMap = {
       return { ok: false, error: errorMessage(err) };
     }
   },
+  callExtension: async (request) => {
+    try {
+      const { projectDir, sessionFile, extension, method, params } = extensionCallParamsSchema.parse(request);
+      // A new chat's draft Pi is separate from the project's opened chats, so
+      // graphical settings calls stay with the chat on screen.
+      const pi = sessionFile ? await bindPi(projectDir, sessionFile, false) : await ensurePi(projectDir);
+      return { result: await pi.callExtension(extension, method, params) };
+    } catch (err) {
+      return { error: errorMessage(err) };
+    }
+  },
+
   loadGraphicalExtensions: async ({ projectDir }) => {
     try {
       return { extensions: await loadGraphicalExtensions(projectDir) };
     } catch {
       return { extensions: [] };
-    }
-  },
-  listBuiltInExtensions: async () => {
-    try {
-      return { extensions: await listBuiltInExtensions() };
-    } catch {
-      return { extensions: [] };
-    }
-  },
-  setBuiltInExtension: async (params) => {
-    try {
-      const { id, enabled } = setBuiltInExtensionParamsSchema.parse(params);
-      await setBuiltInExtension(id, enabled);
-      return { ok: true, extensions: await listBuiltInExtensions() };
-    } catch (err) {
-      return { ok: false, error: errorMessage(err) };
     }
   },
   extensionRespond: ({ projectDir, sessionFile, response }) => {
@@ -1296,12 +1259,7 @@ const handlers: HandlerMap = {
   },
   tuiSend: async (params) => {
     const { projectDir, sessionFile, frame } = tuiSendParamsSchema.parse(params);
-    if (frame.type === "nativepi_tui_set_service_tier" || frame.type === "nativepi_tui_set_title_generator_model") {
-      const pi = await ensurePi(projectDir, sessionFile ?? undefined);
-      pi.sendFrame(frame);
-    } else {
-      projectPi(projectDir, sessionFile)?.sendFrame(frame);
-    }
+    projectPi(projectDir, sessionFile)?.sendFrame(frame);
     return { ok: true };
   },
   tuiComplete: async (params) => {
@@ -1417,6 +1375,7 @@ export async function stopAllPi(): Promise<void> {
   setSleepBlocked(false);
   const all = [...pis.values()];
   pis.clear();
+  draftPis.clear();
   starting.clear();
   await Promise.all(all.map((pi) => pi.stop()));
 }

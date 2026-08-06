@@ -21,7 +21,6 @@ import type {
 import type { PiSettings } from "../../../shared/pi-settings.ts";
 import type { RepoHostContext } from "../../../shared/repo-host-types.ts";
 import type { TuiHostFrame, TuiSurface } from "../../../shared/tui-frames.ts";
-import type { ServiceTier } from "../../../shared/serviceTier.ts";
 import type { LoadedExtension } from "../extensionHost.ts";
 import type { KeybindingOverrides, ShortcutId } from "../shortcuts.ts";
 
@@ -189,15 +188,10 @@ export interface ModelSlice {
   models: ModelInfo[];
   model?: ModelInfo;
   favoriteModels: string[];
-  titleGeneratorModel: string;
-  serviceTier: ServiceTier;
-  serviceTiers: Record<string, ServiceTier>;
   thinkingLevel: ThinkingLevel;
   thinkingLevels: ThinkingLevel[];
 
   setModel: (model: ModelInfo) => Promise<void>;
-  setTitleGeneratorModel: (modelKey: string) => void;
-  setServiceTier: (tier: ServiceTier) => Promise<void>;
   toggleFavoriteModel: (model: ModelInfo) => void;
   setThinkingLevel: (level: ThinkingLevel) => Promise<void>;
   cycleThinkingLevel: () => Promise<void>;

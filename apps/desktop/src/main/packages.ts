@@ -26,6 +26,7 @@ export async function listPackages(projectDir: string): Promise<PackageListing> 
       enabled: e.enabled,
       scope: e.metadata.scope,
       source: e.metadata.source,
+      origin: e.metadata.origin,
     }));
   } catch {
   }
