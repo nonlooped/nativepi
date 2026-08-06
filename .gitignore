@@ -91,4 +91,7 @@ skills-lock.json
 # Next.js (apps/web)
 .next/
 next-env.d.ts
+apps/web/.design-sync/
+apps/web/.ds-sync/
+apps/web/ds-bundle/
 .vercel/
