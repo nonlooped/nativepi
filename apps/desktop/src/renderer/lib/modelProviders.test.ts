@@ -10,6 +10,7 @@ test("includes an extension provider when Pi exposes its models without Pi crede
         supportsApiKey: false,
         supportsOAuth: false,
         configured: false,
+        ready: false,
       },
     ],
     [{ provider: "claude-bridge", id: "claude-sonnet-5" }],

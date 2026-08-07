@@ -29,12 +29,13 @@ function loginMethods(provider: AuthProviderInfo): ("oauth" | "api_key")[] {
 }
 
 function providerStatusLabel(provider: AuthProviderInfo): string {
-  if (provider.configured) {
+  if (provider.ready) {
     if (provider.storedType === "oauth") return "Connected · Subscription";
     if (provider.storedType === "api_key") return "Connected · API key";
     if (provider.authSource === "environment") return `Connected · ${provider.authLabel ?? "Environment"}`;
     return provider.authLabel ? `Connected · ${provider.authLabel}` : "Connected";
   }
+  if (provider.configured) return "Credentials aren't working";
   const methods = loginMethods(provider);
   if (methods.length > 0) return "Not connected";
   return "Set up with environment variables";
@@ -61,8 +62,8 @@ export default function ProviderSettings() {
   const matching = normalized
     ? providers.filter((provider) => provider.name.toLocaleLowerCase().includes(normalized))
     : providers;
-  const connected = matching.filter((provider) => provider.configured).toSorted(byProviderName);
-  const available = matching.filter((provider) => !provider.configured).toSorted(byProviderName);
+  const connected = matching.filter((provider) => provider.ready).toSorted(byProviderName);
+  const available = matching.filter((provider) => !provider.ready).toSorted(byProviderName);
 
   return (
     <div className="flex flex-col gap-8">
@@ -171,7 +172,7 @@ function ProviderGroup({
                 <span
                   className={cn(
                     "mt-1 block truncate text-sm",
-                    provider.configured ? "text-success" : "text-muted-foreground",
+                    provider.ready ? "text-success" : provider.configured ? "text-warning" : "text-muted-foreground",
                   )}
                 >
                   {providerStatusLabel(provider)}
@@ -289,6 +290,8 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
 }
 
 function describeConnected(provider: AuthProviderInfo): string {
+  if (!provider.ready)
+    return "Pi has credentials for this provider but cannot use them, so its models stay out of the picker. Signing in again replaces them.";
   if (provider.storedType === "oauth") return "Signed in with a subscription account through Pi.";
   if (provider.storedType === "api_key") return "Connected with an API key stored by Pi.";
   if (provider.authSource === "environment")

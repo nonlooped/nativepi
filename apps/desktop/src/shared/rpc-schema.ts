@@ -118,6 +118,12 @@ export interface AuthProviderInfo {
   apiKeyLabel?: string;
   oauthLabel?: string;
   configured: boolean;
+  /**
+   * Whether the provider's auth actually resolves, not merely that a credential
+   * is on disk. Pi's model list only offers providers that pass this check, so a
+   * configured provider that fails it has models nowhere to appear.
+   */
+  ready: boolean;
   storedType?: "api_key" | "oauth";
   authSource?: "stored" | "runtime" | "environment" | "fallback" | "models_json_key" | "models_json_command";
   authLabel?: string;

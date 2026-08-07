@@ -47,17 +47,17 @@ export default function ModelSelector() {
   // models, the way out is the same screen — and saying "Loading models…"
   // forever, which is what the second case used to do, is not a way out at all.
   if (models.length === 0 && providersLoaded) {
-    const configured = providers.some((item) => item.configured);
+    const ready = providers.some((item) => item.ready);
     return (
       <Button
         variant="ghost"
         size="sm"
         onClick={openSettings}
-        title={configured ? "Your connected providers reported no usable models" : undefined}
+        title={ready ? "Your connected providers reported no usable models" : undefined}
         className="h-8 gap-2 px-2 text-sm font-normal text-muted-foreground hover:text-foreground"
       >
         <WarningCircleIcon />
-        {configured ? "No models available" : "Connect a provider"}
+        {ready ? "No models available" : "Connect a provider"}
       </Button>
     );
   }
