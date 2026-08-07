@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { build, type Plugin } from "esbuild";
+import type { Plugin } from "esbuild";
 import { piServices } from "./pi/services.ts";
 import type { GraphicalExtension } from "../shared/pi-types.ts";
 
@@ -103,7 +103,10 @@ async function readManifest(root: string): Promise<{ name: string; renderer: str
 export async function loadGraphicalExtensions(projectDir: string): Promise<GraphicalExtension[]> {
   // child_process cannot launch esbuild's executable from app.asar. Its package
   // is deliberately unpacked for distribution, so point esbuild at that copy.
+  // esbuild reads ESBUILD_BINARY_PATH once while its module evaluates, so it
+  // has to be imported after the variable is set, not at the top of this file.
   configureEsbuildBinary();
+  const { build } = await import("esbuild");
   const extensions = await Promise.all(candidateRoots(projectDir).map(async (root) => {
     const manifest = await readManifest(root);
     if (!manifest) return null;
