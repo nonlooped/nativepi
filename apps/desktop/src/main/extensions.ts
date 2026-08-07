@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { build, type Plugin } from "esbuild";
@@ -43,6 +44,19 @@ const HOST_MODULES: Record<string, string[]> = {
   "@nativepi/extension-api/ui": UI_EXPORTS,
 };
 
+function configureEsbuildBinary() {
+  if (process.env["ESBUILD_BINARY_PATH"] || !process.resourcesPath) return;
+  const binary = path.join(
+    process.resourcesPath,
+    "app.asar.unpacked",
+    "node_modules",
+    "@esbuild",
+    `${process.platform}-${process.arch}`,
+    ...(process.platform === "win32" ? ["esbuild.exe"] : ["bin", "esbuild"]),
+  );
+  if (existsSync(binary)) process.env["ESBUILD_BINARY_PATH"] = binary;
+}
+
 function shimFor(key: string, names: string[]): string {
   const m = `globalThis.__NATIVEPI_HOST__[${JSON.stringify(key)}]`;
   const named = names.map((n) => `export const ${n} = ${m}[${JSON.stringify(n)}];`).join("\n");
@@ -87,6 +101,9 @@ async function readManifest(root: string): Promise<{ name: string; renderer: str
 }
 
 export async function loadGraphicalExtensions(projectDir: string): Promise<GraphicalExtension[]> {
+  // child_process cannot launch esbuild's executable from app.asar. Its package
+  // is deliberately unpacked for distribution, so point esbuild at that copy.
+  configureEsbuildBinary();
   const extensions = await Promise.all(candidateRoots(projectDir).map(async (root) => {
     const manifest = await readManifest(root);
     if (!manifest) return null;
