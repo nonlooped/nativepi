@@ -7,9 +7,20 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
-      tag:
-        description: Existing release tag whose notes should be regenerated
+      action:
+        description: Publish a missing release or regenerate an existing release's notes
         required: true
+        default: publish
+        type: choice
+        options: [publish, regenerate-notes]
+      tag:
+        description: Release tag to publish or regenerate
+        required: true
+        type: string
+      ref:
+        description: Verified main ref to package when publishing
+        required: false
+        default: main
         type: string
 
 permissions:
@@ -18,7 +29,9 @@ permissions:
 jobs:
   release:
     name: Resolve release
-    if: github.event.workflow_run.conclusion == 'success'
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'publish')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -30,7 +43,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
           fetch-depth: 2
 
       - name: Resolve release
@@ -46,10 +59,30 @@ jobs:
           }
 
           $tag = "v$version"
-          $previousVersion = (git show HEAD^:package.json | ConvertFrom-Json).version
-          if ($version -eq $previousVersion) {
-            "publish=false" >> $env:GITHUB_OUTPUT
-            exit 0
+          $manualPublish = "${{ github.event_name }}" -eq "workflow_dispatch"
+          if ($manualPublish) {
+            if ("${{ inputs.tag }}" -ne $tag) {
+              throw "Requested tag ${{ inputs.tag }} does not match package version $version"
+            }
+
+            $sha = git rev-parse HEAD
+            $runs = gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?head_sha=$sha&status=completed&per_page=100" |
+              ConvertFrom-Json
+            $verified = $runs.workflow_runs | Where-Object {
+              $_.head_sha -eq $sha -and
+              $_.head_branch -eq "main" -and
+              $_.event -eq "push" -and
+              $_.conclusion -eq "success"
+            }
+            if (-not $verified) {
+              throw "Ref $sha is not a successfully verified main CI run"
+            }
+          } else {
+            $previousVersion = (git show HEAD^:package.json | ConvertFrom-Json).version
+            if ($version -eq $previousVersion) {
+              "publish=false" >> $env:GITHUB_OUTPUT
+              exit 0
+            }
           }
 
           if (git ls-remote --exit-code --tags origin "refs/tags/$tag") {
@@ -280,7 +313,7 @@ jobs:
 
   repair-release-notes:
     name: Regenerate release notes
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'regenerate-notes'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
