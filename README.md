@@ -51,8 +51,8 @@ storage, their own login. NativePi takes the opposite approach.
 - **Nothing is locked in.** Sessions and credentials live in Pi's normal
   storage and remain interchangeable with the Pi CLI. NativePi does not create
   a second conversation store.
-- **Everything runs on your machine.** No account, no cloud store, no
-  telemetry, no NativePi servers.
+- **Local by default.** No account, no cloud store of your sessions, no
+  telemetry, no NativePi servers. Optional browser access is something you start.
 - **Free and open source.** MIT licensed, from the app down to the extension
   contract.
 
@@ -65,7 +65,7 @@ storage, their own login. NativePi takes the opposite approach.
 | **Stay in control mid-run** | Send, steer, queue a follow-up, or stop the agent from the same workspace. |
 | **The right model for the moment** | Use Pi's providers, models, and thinking levels without rebuilding your configuration. |
 | **Full session workflows** | Create, resume, rename, fork, clone, import, export, compact, and inspect session history. |
-| **Review code in context** | Inspect Git status and rich diffs alongside the transcript. |
+| **Review code in context** | Inspect Git status and rich diffs alongside the transcript, stage hunks, commit, push, and open a GitHub pull request. |
 | **Work on the right branch** | Switch or create branches from the composer, and add worktrees from the project menu as projects of their own. |
 | **Manage extensions visually** | Install, update, remove, and reload Pi packages; extensions can opt into richer desktop presentation through the graphical API. |
 

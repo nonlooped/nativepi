@@ -12,7 +12,7 @@ import { Wordmark } from "@/components/site/Wordmark";
  */
 
 const nativePiKeeps = [
-  "Pinned projects",
+  "Pinned projects and chats",
   "Last project and chat",
   "Unsent drafts",
   "Favorite models",

@@ -27,7 +27,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 
 ## Operating Context
 
-- NativePi is a Windows, macOS, or Linux desktop application used alongside local code projects, Git repositories, and the existing Pi CLI ecosystem. Its workspace can be shared temporarily to browsers on the same local network.
+- NativePi is a Windows, macOS, or Linux desktop application used alongside local code projects, Git repositories, and the existing Pi CLI ecosystem. Its workspace can be shared temporarily to a browser on the local network or through a temporary public link.
 - Users pin project folders; create, discover, import, and manage Pi sessions; inspect streamed messages and tool activity; and review Git state and diffs.
 - Existing Pi credentials, configuration, sessions, packages, skills, prompts, and extensions remain in Pi's normal storage and remain usable by the Pi CLI.
 - NativePi keeps one Pi process per active chat, so chats in the same project and different projects may run concurrently.
@@ -42,7 +42,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Images attached to a message by paste, drag and drop, or the file picker, resized by Pi before they are sent and shown in the transcript alongside the message they went with.
 - Drag and drop as an entry point throughout the window: a folder dropped anywhere becomes a project, a Pi session file is imported as a chat, and files dropped on the composer attach as images or become `@` mentions of their path.
 - Pi-backed model and thinking-level selection, favorite models, provider authentication, and project trust controls.
-- Git status and working-tree diffs, clean-worktree branch switching or creation, and creation of worktrees that are added as NativePi projects.
+- Git status and working-tree diffs, clean-worktree branch switching or creation, worktrees added as NativePi projects, hunk or file staging, commits, push of the current branch, and opening a GitHub pull request through `gh`, with Pi able to draft commit wording when asked.
 - User- and project-scoped Pi package installation, update, removal, reload, and load-error display.
 - NativePi packages can provide the same extension capability in the window and Pi's terminal TUI through graphical tool, entry, composer-widget, composer-control, settings, and context-panel contributions.
 - Normal Pi extension UI requests plus optional graphical tool, entry, composer-widget, composer-control, settings-section, and context-panel contributions through `@nativepi/extension-api`.
@@ -90,7 +90,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 2. Serve new and experienced users together: make the basic path obvious and reveal advanced Pi capabilities progressively.
 3. Protect local work: keep Pi sessions authoritative, preserve drafts, and fail conservatively around external session changes.
 4. Prefer direct, understandable behavior over speculative infrastructure or hidden automation.
-5. Keep user trust explicit through local-only operation, no telemetry, honest extension trust boundaries, and narrowly scoped Git operations.
+5. Keep user trust explicit through local-by-default operation, no telemetry, honest extension trust boundaries, and narrowly scoped Git operations.
 
 ## Accessibility Scope
 

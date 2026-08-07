@@ -20,7 +20,7 @@ const pages = [
   {
     href: "/docs/working-with-pi",
     title: "Working with Pi",
-    body: "Where your sessions live, what NativePi stores, how settings are shared with the command line, and what the local server does.",
+    body: "Where your sessions live, what NativePi stores, how settings are shared with the command line, and what optional browser access does.",
   },
   {
     href: "/docs/extension-api",

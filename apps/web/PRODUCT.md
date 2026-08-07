@@ -41,8 +41,8 @@ extensions, queues, compaction, and sessions. NativePi renders what Pi returns.
 The claim a neighboring product cannot truthfully copy: nothing is locked in.
 Sessions and credentials stay in Pi's normal storage in `~/.pi/agent` and remain
 fully interchangeable with the Pi CLI. There is no second conversation store, no
-account, no cloud, no telemetry. Uninstalling NativePi leaves the Pi workflow
-exactly as it was.
+product account, no cloud sync of your sessions, and no telemetry. Uninstalling
+NativePi leaves the Pi workflow exactly as it was.
 
 The second differentiator is that NativePi extends Pi's extension API into a
 graphical one, so the app itself is hackable by the same people who already
@@ -85,23 +85,27 @@ README:
 - Pi-backed model and thinking-level selection, favorite models, provider
   authentication, project trust.
 - Git status and working-tree diffs, clean-worktree branch switch or creation,
-  worktrees added as projects.
+  worktrees added as projects, hunk or file staging, commits, push, and opening
+  a GitHub pull request through `gh`.
 - Pi package install, update, removal, and reload at user or project scope.
 - Pi slash commands, prompt templates, and skills offered in the composer.
 - Project-scoped integrated terminals that survive being hidden.
-- An on-demand, access-token-protected local server that presents the same
-  workspace in a browser on the local network.
+- On-demand, access-token-protected browser access to the same workspace, either
+  on the local network or through a temporary public Cloudflare link the user
+  starts, while the desktop app remains open.
 
 Boundaries the site must not blur:
 
 - Windows, macOS, and Linux; single window, dark only.
 - No agent loop of its own, no LLM requests of its own, no added agent tools,
   no support for other harnesses.
-- Git mutation is narrow: branch checkout and creation on a clean worktree, and
-  adding worktrees. No staging, committing, merging, rebasing, discarding,
-  checkpointing, or history rewriting.
-- No cloud sync, collaboration, remote projects, accounts, paid tiers, or
-  telemetry.
+- Git mutation is narrow: branch checkout and creation on a clean worktree,
+  worktrees, hunk or file staging, commits, push, and opening a GitHub pull
+  request through `gh`. No merging, rebasing, discarding, checkpointing, or
+  history rewriting.
+- No cloud sync of sessions, collaboration, remote projects, product accounts,
+  paid tiers, or telemetry. Optional browser access is started by the user and
+  is not a NativePi hosting service.
 
 ## Brand Commitments
 
@@ -143,8 +147,8 @@ of the running app, and it is the only depiction of the product the site makes.
    reimplements it.
 4. Respect the visitor's autonomy the way the product respects their machine:
    no dark patterns, no manufactured urgency, no gated content.
-5. The site's own behavior should model the product's claims. Local, fast, no
-   trackers, works without an account.
+5. The site's own behavior should model the product's claims. Local by default,
+   fast, no trackers, works without an account.
 
 ## Accessibility & Inclusion
 

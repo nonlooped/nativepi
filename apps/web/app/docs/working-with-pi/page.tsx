@@ -7,7 +7,7 @@ import { H2, H3, Note, PageTitle, Prose } from "@/components/docs/Prose";
 export const metadata: Metadata = {
   title: "Working with Pi",
   description:
-    "Where sessions live, what NativePi stores, how settings are shared with the Pi command line, and what the optional local server does.",
+    "Where sessions live, what NativePi stores, how settings are shared with the Pi command line, and what optional browser access does.",
 };
 
 export default function WorkingWithPiPage() {
@@ -29,8 +29,8 @@ export default function WorkingWithPiPage() {
         </p>
         <p>
           A pinned Pi build is bundled with each release and started in RPC mode.
-          NativePi keeps at most one Pi process per project, and different
-          projects can run at the same time.
+          NativePi keeps one Pi process per active chat, so chats in the same
+          project and chats in different projects can run at the same time.
         </p>
       </Prose>
 
@@ -76,16 +76,17 @@ export default function WorkingWithPiPage() {
       <Prose>
         <p>This is the complete list:</p>
         <ul>
-          <li>Pinned projects</li>
+          <li>Pinned projects and chats</li>
           <li>The last project and chat you had open</li>
           <li>Unsent text drafts</li>
           <li>Favorite models</li>
           <li>Pane sizes</li>
-          <li>Its own appearance and notification preferences</li>
+          <li>Its own interface preferences, including appearance, notifications, and keyboard shortcuts</li>
         </ul>
         <p>
-          NativePi does not store conversations or credentials, and it does not collect
-          telemetry. Nothing leaves your machine.
+          NativePi does not store conversations or credentials, and it does not
+          collect telemetry. Conversations and credentials stay in Pi&apos;s files
+          on this computer. Browser access is off until you start it.
         </p>
       </Prose>
 
@@ -108,17 +109,19 @@ export default function WorkingWithPiPage() {
       <Prose>
         <p>
           The context pane shows Git status and working-tree diffs beside the
-          transcript. From the composer you can switch or create a branch, and
-          from the project menu you can add a worktree, which is then added as a
-          NativePi project of its own.
+          transcript. You can stage individual hunks or whole files, create a
+          commit, push the current branch, and open a GitHub pull request through{" "}
+          <code>gh</code>. Pi can draft commit wording when asked. From the
+          composer you can switch or create a branch on a clean worktree, and from
+          the project menu you can add a worktree, which NativePi opens as a
+          project of its own.
         </p>
       </Prose>
 
       <Note>
-        Git access is deliberately narrow. Branch checkout and creation require a
-        clean worktree. NativePi does not stage, commit, merge, rebase, discard
-        changes, create checkpoints, roll back work, or rewrite history. Those
-        stay with your normal tools.
+        Git access stays narrow on purpose. NativePi does not merge, rebase,
+        discard changes, create checkpoints, roll back work, or rewrite history.
+        Those stay with your normal tools.
       </Note>
 
       <H2 id="extensions">Pi packages and extensions</H2>
@@ -151,17 +154,23 @@ export default function WorkingWithPiPage() {
       <Prose>
         <p>
           NativePi can open an access-token-protected HTTP and WebSocket server
-          on your local network, presenting the same projects, chats, changes,
-          and terminals in a browser while the desktop app stays open. It runs
-          until you stop it or NativePi exits.
+          that presents the same projects, chats, changes, and terminals in a
+          browser while the desktop app stays open. Start it for devices on your
+          local network, or create a temporary public link that reaches the same
+          server through a throwaway Cloudflare tunnel. The public link closes
+          itself after twelve hours. Either form runs until you stop it or
+          NativePi exits.
         </p>
       </Prose>
 
       <Note tone="warning">
-        The server is off until you start it. It listens on this computer&apos;s
-        network interfaces, so your firewall, VPN, and router determine which
-        devices can reach it. Use it only on networks you trust. NativePi does
-        not operate a hosted relay or send your workspace to a NativePi server.
+        Access is off until you start it. Local access listens on this
+        computer&apos;s network interfaces, so your firewall, VPN, and router
+        decide which devices can reach it. Use local access only on networks you
+        trust. A public link dials out to Cloudflare; NativePi does not operate a
+        hosted relay, register a permanent address, or hold an account. One token
+        backs both links, so replacing it invalidates everything handed out so
+        far.
       </Note>
     </>
   );
