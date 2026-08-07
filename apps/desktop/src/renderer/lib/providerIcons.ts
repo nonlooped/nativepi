@@ -15,6 +15,7 @@ const PROVIDER_ICON_ALIASES: Record<string, string> = {
   "opencode-go": "opencode",
   "qwen-token-plan": "qwen",
   "qwen-token-plan-cn": "qwen",
+  "qwen-token-plan-individual": "qwen",
   "vercel-ai-gateway": "vercel",
   xiaomi: "xiaomimimo",
   "xiaomi-token-plan-ams": "xiaomimimo",
