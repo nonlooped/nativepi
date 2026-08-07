@@ -1,5 +1,7 @@
-import { readStoredCredential } from "@earendil-works/pi-coding-agent";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { DynamicBorder, readStoredCredential } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
+import { Container, Spacer, Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import type { Component } from "@earendil-works/pi-tui";
 import { connect } from "@nativepi/extension-api/host";
 import type { SubscriptionUsage, SubscriptionUsageLimit, UsageReading } from "../types.ts";
 
@@ -11,7 +13,6 @@ interface AuthResolver {
 
 const SUPPORTED_PROVIDERS = new Set(["anthropic", "github-copilot", "kimi-coding", "openai-codex"]);
 const USAGE_STATUS = "subscription-usage";
-const USAGE_WIDGET = "subscription-usage";
 
 function record(value: unknown): JsonRecord | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as JsonRecord) : undefined;
@@ -309,11 +310,6 @@ export async function getSubscriptionUsage(
   }
 }
 
-function resetLabel(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.valueOf()) ? value : date.toLocaleString();
-}
-
 function providerLabel(provider: string): string {
   return provider === "github-copilot"
     ? "GitHub Copilot"
@@ -324,28 +320,187 @@ function providerLabel(provider: string): string {
         : "Anthropic";
 }
 
-function usageWidget(data: SubscriptionUsage): string[] {
-  if (data.limits.length === 0) return [`${providerLabel(data.provider)} did not report any subscription limits.`];
-  return [
-    `${providerLabel(data.provider)} subscription usage`,
-    ...data.limits.map((item) =>
-      `${item.label}: ${Math.round(100 - item.usedPercent)}% left${item.resetAt ? ` · resets ${resetLabel(item.resetAt)}` : ""}`,
-    ),
-  ];
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
-function clearUsage(context: ExtensionContext): void {
-  context.ui.setStatus(USAGE_STATUS, undefined);
-  context.ui.setWidget(USAGE_WIDGET, undefined);
+function countdown(resetAt: string | undefined): string | undefined {
+  if (!resetAt) return undefined;
+  const remaining = Date.parse(resetAt) - Date.now();
+  if (Number.isNaN(remaining)) return undefined;
+  if (remaining <= 0) return "resets now";
+  const minutes = Math.round(remaining / 60_000);
+  if (minutes < 60) return `resets in ${plural(minutes, "minute")}`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `resets in ${plural(hours, "hour")}`;
+  return `resets in ${plural(Math.round(hours / 24), "day")}`;
 }
 
-function showUsage(context: ExtensionContext, data: SubscriptionUsage): void {
-  const highest = data.limits.reduce((value, item) => Math.max(value, item.usedPercent), 0);
+/** How far into the limit window we are, which is what makes "on track" mean anything. */
+function pace(limit: SubscriptionUsageLimit): string | undefined {
+  if (!limit.resetAt || !limit.windowSeconds) return undefined;
+  const reset = Date.parse(limit.resetAt);
+  if (Number.isNaN(reset)) return undefined;
+  const window = limit.windowSeconds * 1000;
+  const elapsed = ((Date.now() - (reset - window)) / window) * 100;
+  if (elapsed <= 0 || elapsed >= 100) return undefined;
+  const drift = limit.usedPercent - elapsed;
+  return drift > 12 ? "at risk" : drift < -12 ? "ahead of pace" : "on track";
+}
+
+function usageTone(usedPercent: number): ThemeColor {
+  return usedPercent >= 90 ? "error" : usedPercent >= 75 ? "warning" : "success";
+}
+
+function highestUsed(data: SubscriptionUsage): number {
+  return data.limits.reduce((value, item) => Math.max(value, item.usedPercent), 0);
+}
+
+function showStatus(context: ExtensionContext, data: SubscriptionUsage | undefined): void {
+  const theme = context.ui.theme;
+  if (!data || data.limits.length === 0) {
+    context.ui.setStatus(USAGE_STATUS, undefined);
+    return;
+  }
+  const used = highestUsed(data);
   context.ui.setStatus(
     USAGE_STATUS,
-    data.limits.length > 0 ? `Usage: ${Math.round(highest)}% used` : "Usage: no limits reported",
+    theme.fg("muted", "Usage ") + theme.fg(usageTone(used), `${Math.round(100 - used)}% left`),
   );
-  context.ui.setWidget(USAGE_WIDGET, usageWidget(data));
+}
+
+/**
+ * The slices of Pi's TUI the panel actually uses.
+ *
+ * `TUI` and `KeybindingsManager` carry private fields, and this package resolves
+ * `@earendil-works/pi-tui` to a different copy than Pi's own, so naming those
+ * classes here would compare two nominally distinct types.
+ */
+type PanelHost = { requestRender(): void };
+type PanelKeys = {
+  matches(data: string, binding: "tui.select.cancel"): boolean;
+  getKeys(binding: "tui.select.cancel"): string[];
+};
+
+type Reading = { loading: boolean; usage?: SubscriptionUsage; error?: string };
+
+const BAR_MAX_WIDTH = 28;
+
+/** The limit readings, drawn to whatever width the terminal currently is. */
+class UsageBody implements Component {
+  private state: Reading = { loading: true };
+
+  constructor(
+    private readonly theme: Theme,
+    private readonly provider: string,
+  ) {}
+
+  setState(state: Reading): void {
+    this.state = state;
+  }
+
+  invalidate(): void {}
+
+  render(width: number): string[] {
+    const theme = this.theme;
+    const inner = Math.max(24, width - 2);
+    const row = (text: string) => ` ${text}`;
+    const note = (color: ThemeColor, text: string) => [row(theme.fg(color, truncateToWidth(text, inner, "…")))];
+
+    if (this.state.error) return note("error", `Unable to read subscription usage. ${this.state.error}`);
+    if (this.state.loading) return note("muted", "Reading subscription usage…");
+    if (!this.state.usage) return note("muted", "This provider does not report subscription usage.");
+
+    const limits = [...this.state.usage.limits].sort((a, b) => b.usedPercent - a.usedPercent);
+    if (limits.length === 0) {
+      return note("muted", `${providerLabel(this.provider)} did not report any subscription limits.`);
+    }
+
+    const bar = Math.max(10, Math.min(BAR_MAX_WIDTH, inner - 34));
+    const lines: string[] = [];
+    for (const limit of limits) {
+      if (lines.length > 0) lines.push("");
+      const tone = usageTone(limit.usedPercent);
+      const left = `${Math.round(100 - limit.usedPercent)}% left`;
+      const label = truncateToWidth(limit.label, Math.max(8, inner - left.length - 2), "…");
+      const gap = " ".repeat(Math.max(1, inner - visibleWidth(label) - left.length));
+      lines.push(row(theme.fg("text", label) + gap + theme.fg(tone, left)));
+
+      const filled = Math.round((limit.usedPercent / 100) * bar);
+      const meta = [countdown(limit.resetAt), pace(limit)].filter(Boolean).join(" · ");
+      lines.push(
+        row(
+          theme.fg(tone, "█".repeat(filled)) +
+            theme.fg("dim", "░".repeat(bar - filled)) +
+            (meta ? `  ${theme.fg("muted", truncateToWidth(meta, Math.max(0, inner - bar - 2), "…"))}` : ""),
+        ),
+      );
+    }
+    return lines;
+  }
+}
+
+/**
+ * The `/usage` panel.
+ *
+ * The reading is fetched while the panel is already on screen, so a slow
+ * provider shows as a loading line rather than as a command that does nothing.
+ */
+class UsagePanel extends Container {
+  private readonly body: UsageBody;
+  private closed = false;
+
+  constructor(
+    private readonly tui: PanelHost,
+    theme: Theme,
+    private readonly keybindings: PanelKeys,
+    provider: string,
+    private readonly load: () => Promise<SubscriptionUsage | undefined>,
+    private readonly done: () => void,
+  ) {
+    super();
+    this.body = new UsageBody(theme, provider);
+    const hint = (key: string, description: string) => theme.fg("dim", key) + theme.fg("muted", ` ${description}`);
+
+    this.addChild(new DynamicBorder((line) => theme.fg("border", line)));
+    this.addChild(new Spacer(1));
+    this.addChild(new Text(theme.fg("accent", theme.bold("Subscription usage")), 1, 0));
+    this.addChild(new Text(theme.fg("dim", `${providerLabel(provider)} limits for this account`), 1, 0));
+    this.addChild(new Spacer(1));
+    this.addChild(this.body);
+    this.addChild(new Spacer(1));
+    this.addChild(
+      new Text([hint("r", "refresh"), hint(keybindings.getKeys("tui.select.cancel").join("/"), "close")].join("  "), 1, 0),
+    );
+    this.addChild(new Spacer(1));
+    this.addChild(new DynamicBorder((line) => theme.fg("border", line)));
+
+    this.refresh();
+  }
+
+  private refresh(): void {
+    this.body.setState({ loading: true });
+    this.tui.requestRender();
+    void this.load()
+      .then((usage) => this.closed || this.body.setState({ loading: false, usage }))
+      .catch((error: unknown) =>
+        this.closed || this.body.setState({ loading: false, error: error instanceof Error ? error.message : String(error) }),
+      )
+      .finally(() => this.tui.requestRender());
+  }
+
+  handleInput(data: string): void {
+    if (this.keybindings.matches(data, "tui.select.cancel")) {
+      this.dispose();
+      this.done();
+      return;
+    }
+    if (data === "r" || data === "R") this.refresh();
+  }
+
+  dispose(): void {
+    this.closed = true;
+  }
 }
 
 export default function subscriptionUsageExtension(pi: ExtensionAPI): void {
@@ -367,12 +522,12 @@ export default function subscriptionUsageExtension(pi: ExtensionAPI): void {
     // The initial unsupported response keeps it quiet; this event makes it
     // retry once the context needed to read usage exists.
     if (ui.connected) ui.emit("changed");
-    else clearUsage(context);
+    else showStatus(context, undefined);
   });
   pi.on("model_select", (event, context) => {
     remember(event, context);
     if (ui.connected) ui.emit("changed");
-    else clearUsage(context);
+    else showStatus(context, undefined);
   });
   pi.on("turn_end", remember);
 
@@ -396,21 +551,23 @@ export default function subscriptionUsageExtension(pi: ExtensionAPI): void {
         context.ui.notify("No model is selected.", "warning");
         return;
       }
-      clearUsage(context);
-      try {
-        const data = await getSubscriptionUsage(providerId, context.modelRegistry);
-        if (!data) {
-          context.ui.notify("This provider does not report subscription usage.", "info");
-          return;
-        }
-        showUsage(context, data);
-        context.ui.notify("Subscription usage updated.", "info");
-      } catch (error) {
-        context.ui.notify(
-          `Could not read subscription usage: ${error instanceof Error ? error.message : String(error)}`,
-          "error",
-        );
+      if (!SUPPORTED_PROVIDERS.has(providerId)) {
+        context.ui.notify("This provider does not report subscription usage.", "info");
+        return;
       }
+      let reading: SubscriptionUsage | undefined;
+      await context.ui.custom<null>(
+        (tui, theme, keybindings, done) =>
+          new UsagePanel(
+            tui,
+            theme,
+            keybindings,
+            providerId,
+            async () => (reading = await getSubscriptionUsage(providerId, context.modelRegistry)),
+            () => done(null),
+          ),
+      );
+      showStatus(context, reading);
     },
   });
 }

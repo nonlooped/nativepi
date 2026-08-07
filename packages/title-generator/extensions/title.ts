@@ -1,4 +1,7 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { DynamicBorder } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
+import { Container, fuzzyFilter, Input, Spacer, Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import type { Component } from "@earendil-works/pi-tui";
 import { connect } from "@nativepi/extension-api/host";
 import type { TitleGeneratorState } from "../types.ts";
 
@@ -156,26 +159,37 @@ async function generateTitle(context: ExtensionContext, prompt: string, model: T
   return normalizeGeneratedTitle(assistantText(result));
 }
 
-function modelChoices(context: ExtensionContext): Map<string, string> {
-  const choices = new Map<string, string>([[TITLE_GENERATOR_ACTIVE, "Use the chat model"]]);
+type TitleChoice = { key: string; name: string; provider: string };
+
+function modelChoices(context: ExtensionContext): TitleChoice[] {
+  const choices = new Map<string, TitleChoice>([
+    [TITLE_GENERATOR_ACTIVE, { key: TITLE_GENERATOR_ACTIVE, name: "Use the chat model", provider: "" }],
+  ]);
   for (const model of context.modelRegistry.getAvailable()) {
     const key = modelKey(model);
     if (choices.has(key)) continue;
-    choices.set(key, `${model.name || model.id} · ${context.modelRegistry.getProviderDisplayName(model.provider)}`);
+    choices.set(key, {
+      key,
+      name: model.name || model.id,
+      provider: context.modelRegistry.getProviderDisplayName(model.provider),
+    });
   }
-  return choices;
+  return [...choices.values()];
+}
+
+function choiceLabel(choice: TitleChoice): string {
+  return choice.provider ? `${choice.name} · ${choice.provider}` : choice.name;
 }
 
 function state(context: ExtensionContext): TitleGeneratorState {
   return {
     modelSetting: titleModelSettingFor(context),
-    models: [...modelChoices(context)].map(([key, label]) => ({ key, label })),
+    models: modelChoices(context).map((choice) => ({ key: choice.key, label: choiceLabel(choice) })),
   };
 }
 
 function setTitleModel(pi: ExtensionAPI, context: ExtensionContext, setting: string): boolean {
-  const choices = modelChoices(context);
-  if (!choices.has(setting)) {
+  if (!modelChoices(context).some((choice) => choice.key === setting)) {
     context.ui.notify("That model is not available in Pi's catalog.", "warning");
     return false;
   }
@@ -187,6 +201,163 @@ function setTitleModel(pi: ExtensionAPI, context: ExtensionContext, setting: str
     pendingTitleModel = setting;
   }
   return true;
+}
+
+/**
+ * The slices of Pi's TUI the picker actually uses.
+ *
+ * `TUI` and `KeybindingsManager` carry private fields, and this package resolves
+ * `@earendil-works/pi-tui` to a different copy than Pi's own, so naming those
+ * classes here would compare two nominally distinct types.
+ */
+type PickerHost = { requestRender(): void };
+type PickerBinding = "tui.select.up" | "tui.select.down" | "tui.select.confirm" | "tui.select.cancel";
+type PickerKeys = {
+  matches(data: string, binding: PickerBinding): boolean;
+  getKeys(binding: PickerBinding): string[];
+};
+
+const PICKER_MAX_VISIBLE = 10;
+const PICKER_NAME_COLUMN = 34;
+/** Stands in for the provider column on the one choice that has no provider of its own. */
+const PICKER_ACTIVE_DETAIL = "follows whatever this chat runs on";
+
+/** The visible slice of the catalog, laid out to whatever width the terminal currently is. */
+class PickerList implements Component {
+  items: TitleChoice[] = [];
+  selectedIndex = 0;
+
+  constructor(
+    private readonly theme: Theme,
+    private readonly current: string,
+  ) {}
+
+  invalidate(): void {}
+
+  render(width: number): string[] {
+    const theme = this.theme;
+    if (this.items.length === 0) return [` ${theme.fg("muted", "No matching models")}`];
+
+    const available = Math.max(16, width - 4);
+    const start = Math.max(
+      0,
+      Math.min(this.selectedIndex - Math.floor(PICKER_MAX_VISIBLE / 2), this.items.length - PICKER_MAX_VISIBLE),
+    );
+    const end = Math.min(start + PICKER_MAX_VISIBLE, this.items.length);
+    const visible = this.items.slice(start, end);
+    const widest = visible.reduce((value, choice) => Math.max(value, visibleWidth(choice.name)), 0);
+    const column = Math.max(8, Math.min(widest + 2, PICKER_NAME_COLUMN, Math.round(available * 0.6)));
+
+    const lines = visible.map((choice, offset) => {
+      const selected = start + offset === this.selectedIndex;
+      const name = truncateToWidth(choice.name, column - 1, "…");
+      const padded = name + " ".repeat(Math.max(1, column - visibleWidth(name)));
+      const mark = choice.key === this.current ? " ✓" : "";
+      const detail = truncateToWidth(
+        choice.provider || PICKER_ACTIVE_DETAIL,
+        Math.max(0, available - column - mark.length),
+        "…",
+      );
+      return (
+        ` ${selected ? theme.fg("accent", `→ ${padded}`) : `  ${padded}`}` +
+        theme.fg("muted", detail) +
+        theme.fg("success", mark)
+      );
+    });
+
+    if (this.items.length > PICKER_MAX_VISIBLE) {
+      lines.push(` ${theme.fg("dim", `  ${this.selectedIndex + 1}/${this.items.length}`)}`);
+    }
+    return lines;
+  }
+}
+
+/**
+ * The `/title-model` picker.
+ *
+ * Pi's catalog runs to hundreds of models, so this is search-first: the list
+ * narrows as you type rather than asking you to scroll past everything you are
+ * logged in to.
+ */
+class TitleModelPicker extends Container {
+  private readonly search = new Input();
+  private readonly list: PickerList;
+  private searchFocused = false;
+
+  get focused(): boolean {
+    return this.searchFocused;
+  }
+
+  set focused(value: boolean) {
+    this.searchFocused = value;
+    this.search.focused = value;
+  }
+
+  constructor(
+    private readonly tui: PickerHost,
+    private readonly theme: Theme,
+    private readonly keybindings: PickerKeys,
+    private readonly choices: TitleChoice[],
+    private readonly current: string,
+    private readonly done: (key: string | undefined) => void,
+  ) {
+    super();
+    this.list = new PickerList(theme, current);
+    this.list.items = choices;
+    this.list.selectedIndex = Math.max(0, choices.findIndex((choice) => choice.key === current));
+
+    const hint = (key: string, description: string) => theme.fg("dim", key) + theme.fg("muted", ` ${description}`);
+
+    this.addChild(new DynamicBorder((line) => theme.fg("border", line)));
+    this.addChild(new Spacer(1));
+    this.addChild(new Text(theme.fg("accent", theme.bold("Title model")), 1, 0));
+    this.addChild(new Text(theme.fg("dim", "Names a new chat once, from your first message"), 1, 0));
+    this.addChild(new Spacer(1));
+    this.addChild(this.search);
+    this.addChild(new Spacer(1));
+    this.addChild(this.list);
+    this.addChild(new Spacer(1));
+    this.addChild(
+      new Text(
+        [
+          hint("↑↓", "navigate"),
+          hint(keybindings.getKeys("tui.select.confirm").join("/"), "select"),
+          hint(keybindings.getKeys("tui.select.cancel").join("/"), "cancel"),
+        ].join("  "),
+        1,
+        0,
+      ),
+    );
+    this.addChild(new Spacer(1));
+    this.addChild(new DynamicBorder((line) => theme.fg("border", line)));
+  }
+
+  handleInput(data: string): void {
+    const keys = this.keybindings;
+    const list = this.list;
+    if (keys.matches(data, "tui.select.cancel")) {
+      this.done(undefined);
+      return;
+    }
+    if (keys.matches(data, "tui.select.confirm")) {
+      const choice = list.items[list.selectedIndex];
+      if (choice) this.done(choice.key);
+      return;
+    }
+    if (list.items.length > 0 && keys.matches(data, "tui.select.up")) {
+      list.selectedIndex = list.selectedIndex === 0 ? list.items.length - 1 : list.selectedIndex - 1;
+    } else if (list.items.length > 0 && keys.matches(data, "tui.select.down")) {
+      list.selectedIndex = list.selectedIndex === list.items.length - 1 ? 0 : list.selectedIndex + 1;
+    } else {
+      this.search.handleInput(data);
+      const query = this.search.getValue();
+      list.items = query
+        ? fuzzyFilter(this.choices, query, (choice) => `${choice.name} ${choice.provider} ${choice.key}`)
+        : this.choices;
+      list.selectedIndex = Math.min(list.selectedIndex, Math.max(0, list.items.length - 1));
+    }
+    this.tui.requestRender();
+  }
 }
 
 export default function titleGeneratorExtension(pi: ExtensionAPI): void {
@@ -279,27 +450,22 @@ export default function titleGeneratorExtension(pi: ExtensionAPI): void {
   pi.registerCommand("title-model", {
     description: "Choose the model Pi uses for automatic first-message titles",
     getArgumentCompletions: (prefix) => latest
-      ? [...modelChoices(latest)].filter(([key]) => key.startsWith(prefix)).map(([value, label]) => ({ value, label }))
+      ? modelChoices(latest)
+        .filter((choice) => choice.key.startsWith(prefix))
+        .map((choice) => ({ value: choice.key, label: choiceLabel(choice) }))
       : null,
     handler: async (args, context) => {
       latest = context;
-      const requested = args.trim();
       const choices = modelChoices(context);
-      if (requested) {
-        if (setTitleModel(pi, context, requested)) {
-          context.ui.notify(`Title generator: ${choices.get(requested)}`, "info");
-          emitState(context);
-        }
-        return;
-      }
-      const labels = [...choices.values()];
-      const selected = await context.ui.select("Title generator model", labels);
-      if (!selected) return;
-      const setting = [...choices.entries()].find(([, label]) => label === selected)?.[0];
-      if (setting && setTitleModel(pi, context, setting)) {
-        context.ui.notify(`Title generator: ${selected}`, "info");
-        emitState(context);
-      }
+      const setting = args.trim()
+        || (await context.ui.custom<string | undefined>(
+          (tui, theme, keybindings, done) =>
+            new TitleModelPicker(tui, theme, keybindings, choices, titleModelSettingFor(context), done),
+        ));
+      if (!setting || !setTitleModel(pi, context, setting)) return;
+      const chosen = choices.find((choice) => choice.key === setting);
+      context.ui.notify(`Title model: ${chosen ? choiceLabel(chosen) : setting}`, "info");
+      emitState(context);
     },
   });
 }
