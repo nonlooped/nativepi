@@ -112,10 +112,12 @@ export function showUpdateNotice(
     case "downloading": {
       const percent = Math.min(100, Math.max(0, Math.round(state.percent ?? 0)));
       // No close button: dismissing it would leave the download running with
-      // nothing on screen saying so.
+      // nothing on screen saying so. Clear `action` explicitly — sonner merges
+      // same-id updates, so the available-state Update button would otherwise stick.
       return void toast.loading(`Downloading ${name}`, {
         ...options,
         closeButton: false,
+        action: undefined,
         description: <DownloadProgress percent={percent} />,
       });
     }

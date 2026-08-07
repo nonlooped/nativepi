@@ -1,3 +1,4 @@
+import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { Toaster as SonnerToaster } from "sonner";
 
 /**
@@ -21,6 +22,12 @@ export default function Toaster() {
       offset={16}
       gap={8}
       visibleToasts={4}
+      // Sonner's built-in loader is twelve absolutely-positioned bars that need
+      // the styled toast chrome. With unstyled toasts it collapses into a faint
+      // broken ring — use the same spinner the rest of the app already does.
+      icons={{
+        loading: <CircleNotchIcon className="size-4 animate-spin" />,
+      }}
       toastOptions={{
         unstyled: true,
         classNames: {
