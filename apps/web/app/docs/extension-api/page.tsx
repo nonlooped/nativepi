@@ -11,8 +11,8 @@ export const metadata: Metadata = {
 };
 
 /**
- * Public signatures on this page are copied from packages/extension-api/src.
- * When that package changes, this page changes with it.
+ * Public signatures on this page track the latest published package.
+ * Update them when a new package version is released, not for unreleased source changes.
  */
 
 export default function ExtensionApiPage() {

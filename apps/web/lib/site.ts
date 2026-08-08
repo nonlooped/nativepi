@@ -12,9 +12,9 @@ const releaseDownload = (asset: string) =>
 
 export const site = {
   name: "NativePi",
-  tagline: "Pi, at home on your desktop.",
+  tagline: "Keep Pi. Add a window.",
   description:
-    "A free, open-source desktop app for the Pi coding agent on Windows, macOS, and Linux. Same sessions, same logins, same files.",
+    "A free, open-source desktop interface for the Pi coding agent on Windows, macOS, and Linux. Your Pi sessions, credentials, and configuration stay where they are.",
   url: "https://nativepi.vercel.app",
   repo: "https://github.com/nonlooped/nativepi",
   releases: "https://github.com/nonlooped/nativepi/releases",

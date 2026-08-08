@@ -14,7 +14,7 @@ export default function DocsLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rail pt-24 lg:flex lg:gap-12">
+    <div className="rail pt-16 lg:flex lg:gap-12">
       <DocsNav />
 
       <div className="min-w-0 flex-1 pb-24">

@@ -6,8 +6,8 @@ import { cn } from "@/lib/cn";
  * Server-highlighted code. Shiki runs at build time, so no highlighter ships to
  * the client and the markup is styled before first paint.
  *
- * The theme is overridden to the app's own graphite ground rather than a stock
- * editor background, so a snippet reads as part of this surface.
+ * A maintained high-contrast theme keeps every token legible against the
+ * site's graphite code surface instead of its stock editor background.
  */
 export async function Code({
   code,
@@ -22,7 +22,7 @@ export async function Code({
 }) {
   const html = await codeToHtml(code.trim(), {
     lang,
-    theme: "vitesse-dark",
+    theme: "github-dark-high-contrast",
     transformers: [
       {
         pre(node) {

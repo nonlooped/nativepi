@@ -3,11 +3,14 @@ import { Hero } from "@/components/stage/Hero";
 
 export function WindowStage() {
   return (
-    <section className="overflow-hidden pb-20 pt-28 sm:pb-28 sm:pt-32">
+    <section className="bg-void">
       <Hero />
 
-      <div className="mx-auto mt-14 w-[min(100rem,96vw)] sm:mt-16">
-        <div className="plate aspect-video overflow-hidden">
+      <div
+        id="app"
+        className="scroll-mt-14 px-4 pb-16 pt-4 sm:px-6 sm:pb-24 sm:pt-6 lg:pb-28"
+      >
+        <div className="window-frame mx-auto aspect-video w-full max-w-[96rem] overflow-hidden">
           <AppWindow />
         </div>
       </div>

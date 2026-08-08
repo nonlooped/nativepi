@@ -1,15 +1,11 @@
-import { FolderIcon, TerminalWindowIcon } from "@phosphor-icons/react/dist/ssr";
+import {
+  FolderIcon,
+  MonitorIcon,
+  TerminalWindowIcon,
+} from "@phosphor-icons/react/dist/ssr";
 
 import { PiMark } from "@/components/site/Marks";
 import { Wordmark } from "@/components/site/Wordmark";
-
-/**
- * The claim a neighboring product cannot truthfully copy, proved with the
- * filesystem rather than asserted with an adjective.
- *
- * The list of what NativePi persists on its own is exhaustive and comes from
- * PRODUCT.md. Being able to print the whole list is the argument.
- */
 
 const nativePiKeeps = [
   "Pinned projects and chats",
@@ -17,100 +13,95 @@ const nativePiKeeps = [
   "Unsent drafts",
   "Favorite models",
   "Pane sizes",
-  "Its own interface preferences",
+  "Interface preferences",
 ];
+
+const sharedState = [
+  ["sessions/", "Conversations"],
+  ["packages/", "Packages and extensions"],
+  ["settings.json", "Pi configuration"],
+  ["credentials", "Provider logins"],
+] as const;
 
 export function Interchange() {
   return (
-    <section className="relative z-10 py-24 sm:py-32">
-      <div className="rail grid items-start gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-20">
-        <div>
-          <h2 className="section-head text-bright">
-            Leave whenever
-            <br />
-            you want.
+    <section
+      id="ownership"
+      className="scroll-mt-12 bg-ink py-20 sm:py-28 lg:py-32"
+    >
+      <div className="rail grid gap-14 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start lg:gap-20">
+        <div className="max-w-2xl">
+          <p className="text-sm font-medium text-silver">Your data</p>
+          <h2 className="section-head mt-4 max-w-2xl text-bright">
+            Your Pi setup stays yours.
           </h2>
-          <p className="lede mt-6 max-w-lg">
-            Nothing to migrate out of. Your sessions and logins never leave
-            Pi&apos;s own storage, and the Pi CLI reads the same files while this
-            is open.
+          <p className="lede mt-6 max-w-2xl">
+            NativePi reads the same sessions, credentials, settings, packages,
+            and extensions as the Pi command line. Close the app and keep
+            working in the terminal. Nothing needs exporting or migrating.
           </p>
 
-          <div className="mt-10">
+          <div className="mt-10 border-t border-hairline pt-6">
             <h3 className="text-sm font-semibold text-chalk">
-              Everything NativePi stores on its own
+              NativePi keeps only interface state
             </h3>
-            <ul className="mt-4 flex flex-wrap gap-2">
+            <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
               {nativePiKeeps.map((item) => (
                 <li
                   key={item}
-                  className="rounded-md border border-hairline bg-white/[0.03] px-2.5 py-1 text-xs text-silver"
+                  className="flex items-center gap-2 text-sm text-silver"
                 >
+                  <span className="size-1 rounded-full bg-dim" />
                   {item}
                 </li>
               ))}
             </ul>
-            <p className="mt-4 text-sm text-silver">
-              That is the whole list.
-            </p>
           </div>
         </div>
 
-        {/* One store, two clients. The diagram is the proof. */}
-        <div className="plate p-6 sm:p-8">
-          <div className="flex items-center justify-center gap-4 sm:gap-8">
-            <div className="flex flex-1 flex-col items-center gap-2 rounded-lg border border-hairline bg-white/[0.02] px-3 py-4">
-              <Wordmark className="h-4" />
-              <span className="text-xs text-dim">desktop</span>
-            </div>
-            <div className="flex flex-1 flex-col items-center gap-2 rounded-lg border border-hairline bg-white/[0.02] px-3 py-4">
-              <TerminalWindowIcon className="size-4 text-chalk" />
-              <span className="font-mono text-sm text-chalk">pi</span>
-              <span className="text-xs text-dim">command line</span>
-            </div>
-          </div>
-
-          {/* Both arrows point down into the same place. */}
-          <div
-            className="relative mx-auto h-12 w-full max-w-[19rem]"
-            aria-hidden="true"
-          >
-            <svg
-              viewBox="0 0 300 48"
-              className="h-full w-full"
-              preserveAspectRatio="none"
-            >
-              <path
-                d="M75 0 V20 Q75 30 105 30 H150 M225 0 V20 Q225 30 195 30 H150 M150 30 V48"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-                className="text-silver/45"
-              />
-            </svg>
-          </div>
-
-          <div className="rounded-lg border border-hairline bg-ink p-4">
-            <div className="flex items-center gap-2">
-              <PiMark className="size-3.5 shrink-0 text-silver" />
-              <span className="font-mono text-xs text-chalk">~/.pi/agent</span>
-            </div>
-            <div className="mt-3 space-y-1 border-l border-hairline pl-3 font-mono text-xs text-silver">
-              <div className="flex items-center gap-2">
-                <FolderIcon className="size-3 shrink-0 text-dim" />
-                sessions/
+        <div className="lg:pt-8">
+          <div className="window-panel overflow-hidden">
+            <div className="grid grid-cols-2 border-b border-hairline">
+              <div className="flex min-h-24 flex-col items-center justify-center gap-2 border-e border-hairline p-4">
+                <Wordmark className="h-4" />
+                <span className="flex items-center gap-1.5 text-xs text-silver">
+                  <MonitorIcon className="size-3.5" />
+                  Desktop
+                </span>
               </div>
-              <div className="flex items-center gap-2">
-                <FolderIcon className="size-3 shrink-0 text-dim" />
-                packages/
+              <div className="flex min-h-24 flex-col items-center justify-center gap-2 p-4">
+                <span className="flex items-center gap-2 font-mono text-sm text-chalk">
+                  <PiMark className="size-3.5" />
+                  pi
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-silver">
+                  <TerminalWindowIcon className="size-3.5" />
+                  Command line
+                </span>
               </div>
-              <div className="pl-5 text-dim">settings.json</div>
-              <div className="pl-5 text-dim">credentials</div>
+            </div>
+
+            <div className="bg-void p-4">
+              <p className="flex items-center gap-2 font-mono text-sm text-chalk">
+                <FolderIcon className="size-4 text-silver" />
+                ~/.pi/agent
+              </p>
+              <dl className="mt-4 divide-y divide-hairline border-s border-hairline ps-4">
+                {sharedState.map(([path, label]) => (
+                  <div
+                    key={path}
+                    className="flex items-start justify-between gap-4 py-2 first:pt-0 last:pb-0"
+                  >
+                    <dt className="font-mono text-xs text-chalk">{path}</dt>
+                    <dd className="text-end text-xs text-silver">{label}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           </div>
 
-          <p className="mt-4 text-center text-xs text-dim">
-            One store. Both clients. Neither one owns it.
+          <p className="mt-4 text-sm leading-relaxed text-silver">
+            No product account. No cloud conversation store. No telemetry.
           </p>
         </div>
       </div>

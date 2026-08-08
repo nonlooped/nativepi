@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 
 const base =
   "inline-flex h-11 items-center justify-center gap-2 rounded-md px-[1.125rem] text-sm font-medium " +
-  "transition-[background-color,color,transform,box-shadow] duration-150 ease-out " +
+  "transition-[background-color,border-color,color,transform,box-shadow] duration-150 ease-out " +
   "active:translate-y-px whitespace-nowrap";
 
 const variants = {

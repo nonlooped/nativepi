@@ -135,7 +135,7 @@ export default function WorkingWithPiPage() {
           Pi&apos;s own slash commands, prompt templates, and skills are offered
           by name in the composer and run through Pi, including while a turn is
           already in flight. An extension that wants to draw its own desktop UI
-          uses the{" "}
+          uses a shared, schema-validated protocol through the{" "}
           <Link href="/docs/extension-api">graphical extension API</Link>.
         </p>
       </Prose>

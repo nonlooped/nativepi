@@ -24,8 +24,8 @@ const pages = [
   },
   {
     href: "/docs/extension-api",
-    title: "Extension API",
-    body: "The complete reference for @nativepi/extension-api: every type, every slot, and how a renderer is loaded.",
+    title: "Graphical extension API",
+    body: "Define a typed host protocol, add native interface contributions, and migrate an experimental 0.x renderer to API version 1.",
   },
 ];
 

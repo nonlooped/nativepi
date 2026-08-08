@@ -45,7 +45,7 @@ export function PageTitle({
   return (
     <header className="measure mb-12">
       {eyebrow && (
-        <p className="text-xs font-medium uppercase tracking-[0.1em] text-slot">
+        <p className="text-xs font-medium uppercase tracking-[0.1em] text-silver">
           {eyebrow}
         </p>
       )}
@@ -61,7 +61,7 @@ export function H2({ id, children }: { id: string; children: ReactNode }) {
   return (
     <h2
       id={id}
-      className="measure mb-4 mt-14 scroll-mt-24 font-display text-2xl font-semibold tracking-[-0.025em] text-bright first:mt-0"
+      className="measure mb-4 mt-14 scroll-mt-20 font-display text-2xl font-semibold tracking-[-0.025em] text-bright first:mt-0"
     >
       <a href={`#${id}`} className="hover:underline">
         {children}
@@ -74,7 +74,7 @@ export function H3({ id, children }: { id: string; children: ReactNode }) {
   return (
     <h3
       id={id}
-      className="measure mb-3 mt-10 scroll-mt-24 font-display text-base font-semibold tracking-[-0.02em] text-chalk"
+      className="measure mb-3 mt-10 scroll-mt-20 font-display text-base font-semibold tracking-[-0.02em] text-chalk"
     >
       {children}
     </h3>
