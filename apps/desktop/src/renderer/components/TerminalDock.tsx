@@ -616,7 +616,7 @@ function TerminalSurface({
     // now applied to the live terminal below: dragging the font-size slider
     // rebuilt this once per step, and renaming a tab threw away the selection
     // and scroll position of a shell that had not moved.
-  }, [projectDir, terminalId, restartCount, noticeIfAlreadyExited, openFileLink]);
+  }, [projectDir, terminalId, restartCount]);
 
   // Preferences, applied in place rather than by reconstruction.
   useEffect(() => {

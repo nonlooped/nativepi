@@ -177,39 +177,37 @@ function useSlowStartPhase(active: boolean): "entering" | "leaving" | null {
   const shownAt = useRef<number | null>(null);
 
   useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = [];
+    let appearTimer: ReturnType<typeof setTimeout> | undefined;
+    let holdTimer: ReturnType<typeof setTimeout> | undefined;
+    let fadeTimer: ReturnType<typeof setTimeout> | undefined;
 
     if (active) {
       // Already on screen, or fading out and now needed again: either way this
       // is one continuous start, so keep the original entry.
       if (shownAt.current !== null) setPhase("entering");
       else {
-        timers.push(
-          setTimeout(() => {
-            shownAt.current = Date.now();
-            setPhase("entering");
-          }, APPEAR_AFTER),
-        );
+        appearTimer = setTimeout(() => {
+          shownAt.current = Date.now();
+          setPhase("entering");
+        }, APPEAR_AFTER);
       }
     } else if (shownAt.current === null) {
       setPhase(null);
     } else {
       const held = Math.max(0, MIN_VISIBLE - (Date.now() - shownAt.current));
-      timers.push(
-        setTimeout(() => {
-          setPhase("leaving");
-          timers.push(
-            setTimeout(() => {
-              shownAt.current = null;
-              setPhase(null);
-            }, FADE_OUT),
-          );
-        }, held),
-      );
+      holdTimer = setTimeout(() => {
+        setPhase("leaving");
+        fadeTimer = setTimeout(() => {
+          shownAt.current = null;
+          setPhase(null);
+        }, FADE_OUT);
+      }, held);
     }
 
     return () => {
-      for (const timer of timers) clearTimeout(timer);
+      clearTimeout(appearTimer);
+      clearTimeout(holdTimer);
+      clearTimeout(fadeTimer);
     };
   }, [active]);
 

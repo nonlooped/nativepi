@@ -5,7 +5,12 @@
     "rules": ["deslop/unused-file"],
     "overrides": [
       {
-        "files": ["src/renderer/components/WindowControls.tsx"],
+        "files": [
+          "src/renderer/components/FileExplorer.tsx",
+          "src/renderer/components/ProjectStatus.tsx",
+          "src/renderer/components/QuitDialog.tsx",
+          "src/renderer/components/WindowControls.tsx"
+        ],
         "rules": ["react-doctor/effect-needs-cleanup"]
       },
       {

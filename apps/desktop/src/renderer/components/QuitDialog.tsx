@@ -18,7 +18,12 @@ export default function QuitDialog() {
   const [work, setWork] = useState<PendingWork | null>(null);
   const projects = useAppStore((s) => s.projects);
 
-  useEffect(() => rpc.events.on("quitRequested", (payload) => setWork(payload.work)), []);
+  useEffect(() => {
+    const stop = rpc.events.on("quitRequested", (payload) => setWork(payload.work));
+    return () => {
+      stop();
+    };
+  }, []);
 
   if (!work) return null;
 

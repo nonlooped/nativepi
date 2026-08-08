@@ -42,7 +42,7 @@
     "sharp": "0.35.3"
   },
   "devDependencies": {
-    "fallow": "^3.10.0",
-    "react-doctor": "^0.9.3"
+    "fallow": "^3.14.0",
+    "react-doctor": "^0.9.4"
   }
 }

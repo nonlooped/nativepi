@@ -13,6 +13,10 @@
     "class-variance-authority",
     "react-resizable-panels"
   ],
+  // Intentional root pin for a transitive native dependency (Electron image pipeline).
+  "ignoreDependencyOverrides": [
+    { "package": "sharp", "source": "package.json" }
+  ],
   "workspaces": {
     "patterns": [
       "apps/*",
