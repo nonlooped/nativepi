@@ -3,7 +3,7 @@ import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-c
 import { Container, fuzzyFilter, Input, Spacer, Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Component } from "@earendil-works/pi-tui";
 import { connect } from "@nativepi/extension-api/host";
-import type { TitleGeneratorState } from "../types.ts";
+import { titleGeneratorProtocol, type TitleGeneratorState } from "../types.ts";
 
 type TitleModelSetting = string;
 type TitleModel = NonNullable<ExtensionContext["model"]>;
@@ -361,12 +361,27 @@ class TitleModelPicker extends Container {
 }
 
 export default function titleGeneratorExtension(pi: ExtensionAPI): void {
-  const ui = connect("@nativepi/title-generator");
   let activeSessionFile: string | undefined;
   let latest: ExtensionContext | undefined;
   let pendingTitle: PendingTitle | undefined;
   let titleAbort: AbortController | undefined;
   let generationInFlight = false;
+
+  const ui = connect("@nativepi/title-generator", titleGeneratorProtocol, {
+    state: () => {
+      if (!latest) throw new Error("No active Pi session.");
+      return state(latest);
+    },
+    set: ({ modelSetting }) => {
+      if (!latest) throw new Error("No active Pi session.");
+      if (!setTitleModel(pi, latest, modelSetting)) {
+        throw new Error("That model is not available in Pi's catalog.");
+      }
+      const next = state(latest);
+      ui.emit("changed", next);
+      return next;
+    },
+  });
 
   const emitState = (context: ExtensionContext) => ui.emit("changed", state(context));
 
@@ -428,23 +443,6 @@ export default function titleGeneratorExtension(pi: ExtensionAPI): void {
     generationInFlight = false;
     activeSessionFile = undefined;
     latest = undefined;
-  });
-
-  ui.method("state", () => {
-    if (!latest) throw new Error("No active Pi session.");
-    return state(latest);
-  });
-
-  ui.method("set", (params) => {
-    const setting = typeof params === "object" && params !== null && "modelSetting" in params
-      ? params.modelSetting
-      : undefined;
-    if (typeof setting !== "string") throw new Error("Choose a model from Pi's catalog.");
-    if (!latest) throw new Error("No active Pi session.");
-    if (!setTitleModel(pi, latest, setting)) throw new Error("That model is not available in Pi's catalog.");
-    const next = state(latest);
-    ui.emit("changed", next);
-    return next;
   });
 
   pi.registerCommand("title-model", {

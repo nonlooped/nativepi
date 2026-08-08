@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import type { AgentSession } from "@earendil-works/pi-coding-agent";
+import { defineProtocol } from "@nativepi/extension-api";
+import { connect } from "@nativepi/extension-api/host";
 import type { TuiHostFrame } from "../../../shared/tui-frames.ts";
 import {
   callExtensionMethod,
@@ -16,7 +18,7 @@ function host(): { frames: TuiHostFrame[]; channel: NonNullable<typeof globalThi
 
 test("a registered method answers its renderer half", async () => {
   const { channel } = host();
-  channel.method("@acme/ext", "stats", (params) => ({ echoed: params ?? null }));
+  channel.register("@acme/ext", { stats: (params) => ({ echoed: params ?? null }) });
 
   expect(await callExtensionMethod("@acme/ext", "stats", { since: 1 })).toEqual({ echoed: { since: 1 } });
 });
@@ -29,7 +31,7 @@ test("a call for a method nobody registered fails rather than hanging", () => {
 
 test("methods are scoped to the extension that registered them", () => {
   const { channel } = host();
-  channel.method("@acme/one", "stats", () => 1);
+  channel.register("@acme/one", { stats: () => 1 });
 
   expect(callExtensionMethod("@acme/two", "stats", undefined)).rejects.toThrow("has no method");
 });
@@ -39,7 +41,7 @@ test("an unserializable result is reported instead of breaking the frame stream"
   const circular: Record<string, unknown> = {};
   circular["self"] = circular;
   // @ts-expect-error Runtime validation rejects a broken extension's result.
-  channel.method("@acme/ext", "loop", () => circular);
+  channel.register("@acme/ext", { loop: () => circular });
 
   expect(callExtensionMethod("@acme/ext", "loop", undefined)).rejects.toThrow("non-JSON");
 });
@@ -50,7 +52,7 @@ test("factory methods survive binding and are cleared when their session is repl
     dispose: () => {},
     reload: async () => {
       // Pi runs extension factories while rebuilding the runtime during reload.
-      channel.method("@acme/ext", "stats", () => 2);
+      channel.register("@acme/ext", { stats: () => 2 });
     },
     bindExtensions: async () => {},
   };
@@ -58,8 +60,7 @@ test("factory methods survive binding and are cleared when their session is repl
 
   // Extension factories run before Pi calls bindExtensions, so this registration
   // must survive that call.
-  channel.method("@acme/ext", "stats", () => 1);
-  channel.method("@acme/ext", "stale", () => 1);
+  channel.register("@acme/ext", { stats: () => 1, stale: () => 1 });
   await session.bindExtensions();
   expect(await callExtensionMethod("@acme/ext", "stats", undefined)).toBe(1);
 
@@ -83,4 +84,31 @@ test("an unserializable event payload is dropped rather than written", () => {
   expect(frames).toEqual([
     { type: "nativepi_tui_ext_event", extension: "@acme/ext", event: "changed", payload: { ok: true } },
   ]);
+});
+
+test("connect validates the shared protocol before values cross the host channel", async () => {
+  const { frames } = host();
+  const integer = {
+    parse(value: unknown): number {
+      if (typeof value !== "number" || !Number.isInteger(value)) throw new Error("Expected an integer");
+      return value;
+    },
+  };
+  const protocol = defineProtocol({
+    methods: { double: { params: integer, result: integer } },
+    events: { changed: integer },
+  });
+  const ui = connect("@acme/typed", protocol, { double: (value) => value * 2 });
+
+  expect(ui.connected).toBe(true);
+  expect(await callExtensionMethod("@acme/typed", "double", 2)).toBe(4);
+  expect(callExtensionMethod("@acme/typed", "double", 1.5)).rejects.toThrow("Expected an integer");
+  expect(() => ui.emit("changed", 1.5)).toThrow("Expected an integer");
+  ui.emit("changed", 3);
+  expect(frames.at(-1)).toEqual({
+    type: "nativepi_tui_ext_event",
+    extension: "@acme/typed",
+    event: "changed",
+    payload: 3,
+  });
 });

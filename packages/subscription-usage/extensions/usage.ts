@@ -3,7 +3,12 @@ import type { ExtensionAPI, ExtensionContext, Theme, ThemeColor } from "@earendi
 import { Container, Spacer, Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Component } from "@earendil-works/pi-tui";
 import { connect } from "@nativepi/extension-api/host";
-import type { SubscriptionUsage, SubscriptionUsageLimit, UsageReading } from "../types.ts";
+import {
+  subscriptionUsageProtocol,
+  type SubscriptionUsage,
+  type SubscriptionUsageLimit,
+  type UsageReading,
+} from "../types.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -504,13 +509,23 @@ class UsagePanel extends Container {
 }
 
 export default function subscriptionUsageExtension(pi: ExtensionAPI): void {
-  const ui = connect("@nativepi/subscription-usage");
-
   /**
    * The window asks for usage on its own schedule, and Pi only hands out a
    * context inside a handler, so the latest one is kept for the channel to use.
    */
   let latest: ExtensionContext | undefined;
+
+  const ui = connect("@nativepi/subscription-usage", subscriptionUsageProtocol, {
+    usage: async (params) => {
+      // The graphical control can mount before a new Pi session reports its
+      // context. It retries on session_start, so this is unsupported for now.
+      if (!latest) return { supported: false } satisfies UsageReading;
+      const providerId = params?.providerId ?? latest.model?.provider;
+      if (!providerId) throw new Error("No model is selected.");
+      const data = await getSubscriptionUsage(providerId, latest.modelRegistry);
+      return { supported: data !== undefined, ...(data ? { usage: data } : {}) } satisfies UsageReading;
+    },
+  });
 
   const remember = (_event: unknown, context: ExtensionContext): void => {
     latest = context;
@@ -530,17 +545,6 @@ export default function subscriptionUsageExtension(pi: ExtensionAPI): void {
     else showStatus(context, undefined);
   });
   pi.on("turn_end", remember);
-
-  ui.method("usage", async (params) => {
-    // The graphical control mounts before a new Pi session can report its
-    // context. It will retry on session_start, so this is unsupported for now,
-    // not a broken control.
-    if (!latest) return { supported: false } satisfies UsageReading;
-    const providerId = text(record(params)?.["providerId"]) ?? latest.model?.provider;
-    if (!providerId) throw new Error("No model is selected.");
-    const data = await getSubscriptionUsage(providerId, latest.modelRegistry);
-    return { supported: data !== undefined, ...(data ? { usage: data } : {}) } satisfies UsageReading;
-  });
 
   pi.registerCommand("usage", {
     description: "Show subscription usage for the active provider",

@@ -1,47 +1,32 @@
-import type { JsonValue } from "@nativepi/extension-api";
+import { defineProtocol } from "@nativepi/extension-api";
+import { z } from "@nativepi/extension-api/schema";
 
-export type SubscriptionUsageLimit = {
-  label: string;
-  usedPercent: number;
-  resetAt?: string;
-  windowSeconds?: number;
-};
+export const subscriptionUsageLimitSchema = z.object({
+  label: z.string(),
+  usedPercent: z.number().finite(),
+  resetAt: z.string().optional(),
+  windowSeconds: z.number().finite().optional(),
+});
+export type SubscriptionUsageLimit = z.infer<typeof subscriptionUsageLimitSchema>;
 
-export type SubscriptionUsage = {
-  provider: string;
-  limits: SubscriptionUsageLimit[];
-};
+export const subscriptionUsageSchema = z.object({
+  provider: z.string(),
+  limits: z.array(subscriptionUsageLimitSchema),
+});
+export type SubscriptionUsage = z.infer<typeof subscriptionUsageSchema>;
 
-/** What the renderer half receives from the `usage` method. */
-export type UsageReading = {
-  supported: boolean;
-  usage?: SubscriptionUsage;
-};
+export const usageReadingSchema = z.object({
+  supported: z.boolean(),
+  usage: subscriptionUsageSchema.optional(),
+});
+export type UsageReading = z.infer<typeof usageReadingSchema>;
 
-function isUsageLimit(value: JsonValue): value is SubscriptionUsageLimit {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    typeof value["label"] === "string" &&
-    typeof value["usedPercent"] === "number" &&
-    (value["resetAt"] === undefined || typeof value["resetAt"] === "string") &&
-    (value["windowSeconds"] === undefined || typeof value["windowSeconds"] === "number")
-  );
-}
-
-export function isUsageReading(value: JsonValue): value is UsageReading {
-  if (typeof value !== "object" || value === null || Array.isArray(value) || typeof value["supported"] !== "boolean") {
-    return false;
-  }
-  const usage = value["usage"];
-  return (
-    usage === undefined ||
-    (typeof usage === "object" &&
-      usage !== null &&
-      !Array.isArray(usage) &&
-      typeof usage["provider"] === "string" &&
-      Array.isArray(usage["limits"]) &&
-      usage["limits"].every(isUsageLimit))
-  );
-}
+export const subscriptionUsageProtocol = defineProtocol({
+  methods: {
+    usage: {
+      params: z.object({ providerId: z.string().min(1).optional() }).optional(),
+      result: usageReadingSchema,
+    },
+  },
+  events: { changed: undefined },
+});

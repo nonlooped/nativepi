@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { ExtensionMethod } from "@nativepi/extension-api/host";
+import type { JsonValue } from "@nativepi/extension-api";
 import subscriptionUsageExtension, {
   anthropicLimits,
   getSubscriptionUsage,
@@ -40,11 +40,14 @@ test("API-key accounts are unsupported without resolving OAuth auth", async () =
 
 test("usage requested before session start recovers when the session begins", async () => {
   const previousHost = globalThis.__NATIVEPI_EXTENSION_HOST__;
+  type ExtensionMethod = (params: JsonValue | undefined) => JsonValue | Promise<JsonValue>;
   const methods = new Map<string, ExtensionMethod>();
   const events: string[] = [];
   const handlers = new Map<string, (event: unknown, context: unknown) => void>();
   globalThis.__NATIVEPI_EXTENSION_HOST__ = {
-    method: (_extension, name, handler) => methods.set(name, handler),
+    register: (_extension, registered) => {
+      for (const [name, handler] of Object.entries(registered)) methods.set(name, handler);
+    },
     emit: (_extension, event) => events.push(event),
   };
 

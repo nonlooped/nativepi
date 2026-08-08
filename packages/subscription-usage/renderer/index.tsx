@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { ChartDonutIcon } from "@phosphor-icons/react/ChartDonut";
 import { defineRenderer } from "@nativepi/extension-api";
-import type { NativePiContext } from "@nativepi/extension-api";
+import type { RendererContext } from "@nativepi/extension-api";
 import {
   Button,
   Dialog,
@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@nativepi/extension-api/ui";
 import {
-  isUsageReading,
+  subscriptionUsageProtocol,
   type SubscriptionUsage,
   type SubscriptionUsageLimit,
   type UsageReading,
@@ -94,8 +94,8 @@ type Reading = {
   error?: string;
 };
 
-function useUsage(ctx: NativePiContext) {
-  const { call, on } = ctx;
+function useUsage(context: RendererContext<typeof subscriptionUsageProtocol>) {
+  const { call, on } = context.channel;
   const [state, setState] = useState<Reading>({ loading: true });
   const [nonce, setNonce] = useState(0);
 
@@ -109,8 +109,6 @@ function useUsage(ctx: NativePiContext) {
       }));
       void call("usage")
         .then((result) => {
-          if (!isUsageReading(result))
-            throw new Error("Extension returned an invalid usage reading.");
           if (!cancelled) setState({ loading: false, reading: result });
         })
         .catch((error: unknown) => {
@@ -132,8 +130,8 @@ function useUsage(ctx: NativePiContext) {
   return { ...state, reload: () => setNonce((value) => value + 1) };
 }
 
-function UsageControl({ ctx }: { ctx: NativePiContext }) {
-  const { loading, reading, error, reload } = useUsage(ctx);
+function UsageControl({ context }: { context: RendererContext<typeof subscriptionUsageProtocol> }) {
+  const { loading, reading, error, reload } = useUsage(context);
   const [open, setOpen] = useState(false);
 
   if (reading?.supported === false) return null;
@@ -465,10 +463,12 @@ function UsageBar({ used }: { used: number }) {
 }
 
 export default defineRenderer({
+  apiVersion: 1,
+  protocol: subscriptionUsageProtocol,
   composerControls: [
     {
-      key: "subscription-usage",
-      render: (ctx) => <UsageControl ctx={ctx} />,
+      id: "subscription-usage",
+      render: (context) => <UsageControl context={context} />,
     },
   ],
 });

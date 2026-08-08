@@ -3,7 +3,7 @@ import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-c
 import { Box, Container, SelectList, Spacer, Text } from "@earendil-works/pi-tui";
 import type { SelectItem } from "@earendil-works/pi-tui";
 import { connect } from "@nativepi/extension-api/host";
-import type { ServiceTier, TierState } from "../types.ts";
+import { serviceTierProtocol, type ServiceTier, type TierState } from "../types.ts";
 
 const DEFAULT_TIER: ServiceTier = "standard";
 
@@ -163,8 +163,6 @@ function persistedTier(context: ExtensionContext): ServiceTier | undefined {
 }
 
 export default function serviceTierExtension(pi: ExtensionAPI): void {
-  const ui = connect("@nativepi/service-tier");
-
   let tier = DEFAULT_TIER;
   let latest: ExtensionContext | undefined;
 
@@ -190,6 +188,18 @@ export default function serviceTierExtension(pi: ExtensionAPI): void {
     ui.emit("changed", state(context));
   };
 
+  const ui = connect("@nativepi/service-tier", serviceTierProtocol, {
+    state: () => state(latest),
+    set: ({ tier: next }) => {
+      if (!latest) throw new Error("No active Pi session.");
+      if (next === "fast" && !supportsFastServiceTier(latest.model)) {
+        throw new Error("Fast response speed is only available for supported Codex models.");
+      }
+      setTier(next, latest);
+      return state(latest);
+    },
+  });
+
   pi.on("session_start", (_event, context) => {
     latest = context;
     // A tier chosen before the first message has nothing to be recorded against
@@ -212,19 +222,6 @@ export default function serviceTierExtension(pi: ExtensionAPI): void {
     latest = context;
     if (!supportsFastServiceTier(context.model)) return;
     return applyServiceTierPayload(event.payload, tier);
-  });
-
-  ui.method("state", () => state(latest));
-
-  ui.method("set", (params) => {
-    const next = asTier(isRecord(params) ? params["tier"] : undefined);
-    if (!next) throw new Error("Choose either the standard or the fast tier.");
-    if (!latest) throw new Error("No active Pi session.");
-    if (next === "fast" && !supportsFastServiceTier(latest.model)) {
-      throw new Error("Fast response speed is only available for supported Codex models.");
-    }
-    setTier(next, latest);
-    return state(latest);
   });
 
   pi.registerCommand("speed", {
