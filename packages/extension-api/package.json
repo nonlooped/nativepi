@@ -1,6 +1,6 @@
 {
   "name": "@nativepi/extension-api",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "Typed, schema-validated graphical extension API for NativePi.",
   "author": "nonlooped",
   "license": "MIT",
