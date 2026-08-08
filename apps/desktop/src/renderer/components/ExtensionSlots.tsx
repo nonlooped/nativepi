@@ -128,11 +128,13 @@ function actionsFor(extension: string): RendererActions {
     openFile: async (file, location) => {
       const state = useAppStore.getState();
       if (!state.activeProjectPath) throw new Error("No project is open.");
+      const { line, column } = location ?? {};
       const result = await rpc.request.openFileIn({
         projectDir: state.activeProjectPath,
         file: projectRelativeFile(file),
         editorId: state.preferences.preferredEditorId,
-        ...location,
+        line,
+        column,
       });
       if (!result.ok) throw new Error(result.error ?? `NativePi could not open ${file}.`);
     },
