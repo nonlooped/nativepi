@@ -164,7 +164,8 @@ draw with React instead, an extension imports `@nativepi/extension-api` and adds
 a `nativepi.renderer` entry to its manifest. NativePi compiles that browser entry
 with esbuild and loads its tool, entry, composer-widget, composer-control,
 settings-section, and context-panel contributions behind error boundaries. The
-graphical extension API is experimental and may change between releases.
+graphical extension API is versioned (`apiVersion: 1`); NativePi rejects an
+incompatible renderer at load time.
 
 ## License
 

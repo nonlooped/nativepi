@@ -20,7 +20,7 @@ const sharedState = [
   ["sessions/", "Conversations"],
   ["packages/", "Packages and extensions"],
   ["settings.json", "Pi configuration"],
-  ["credentials", "Provider logins"],
+  ["auth.json", "Provider logins"],
 ] as const;
 
 export function Interchange() {

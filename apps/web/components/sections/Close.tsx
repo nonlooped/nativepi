@@ -1,7 +1,8 @@
 import {
   ArrowRightIcon,
   CodeIcon,
-  SlidersHorizontalIcon,
+  LayoutIcon,
+  RowsIcon,
   SidebarSimpleIcon,
   WrenchIcon,
 } from "@phosphor-icons/react/dist/ssr";
@@ -12,14 +13,14 @@ import { site } from "@/lib/site";
 
 const slots = [
   {
-    name: "Tool renderers",
-    detail: "Turn Pi tool results into native React surfaces.",
+    name: "Tool & entry renderers",
+    detail: "Replace Pi tool calls and session entries with native React.",
     Icon: WrenchIcon,
   },
   {
-    name: "Composer controls",
-    detail: "Add focused actions beside the prompt.",
-    Icon: SlidersHorizontalIcon,
+    name: "Composer widgets & controls",
+    detail: "Add state above the composer or compact actions beside Send.",
+    Icon: RowsIcon,
   },
   {
     name: "Settings sections",
@@ -29,6 +30,16 @@ const slots = [
   {
     name: "Context panels",
     detail: "Keep extension context visible beside the conversation.",
+    Icon: SidebarSimpleIcon,
+  },
+  {
+    name: "Typed host channel",
+    detail: "One shared protocol for calls and events, validated on both sides.",
+    Icon: LayoutIcon,
+  },
+  {
+    name: "Shared UI primitives",
+    detail: "Buttons, dialogs, menus, and settings rows that match the window.",
     Icon: SidebarSimpleIcon,
   },
 ];
@@ -55,8 +66,9 @@ export function Close() {
               maintaining a separate integration.
             </p>
             <p className="mt-4 text-sm leading-relaxed text-silver">
-              <span className="font-medium text-chalk">Experimental API.</span>{" "}
-              It is MIT licensed and may change between releases.
+              <span className="font-medium text-chalk">API version 1.</span>{" "}
+              The graphical contract is versioned and MIT licensed. A bundle
+              declares <code className="rounded bg-white/[0.06] px-1 py-0.5 font-mono text-xs text-chalk">apiVersion: 1</code> and NativePi rejects an incompatible one.
             </p>
             <Button
               href="/docs/extension-api"

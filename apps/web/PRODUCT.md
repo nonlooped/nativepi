@@ -59,8 +59,9 @@ shape Pi.
   discover it after downloading.
 - NativePi bundles a pinned Pi version, so a separate Pi installation is not
   required, and existing Pi credentials, configuration, and sessions are reused.
-- The graphical extension API is published as `@nativepi/extension-api` and is
-  experimental; it may change between releases.
+- The graphical extension API is published as `@nativepi/extension-api` at
+  contract version 1 (`apiVersion: 1`). NativePi rejects an incompatible bundle
+  at load time.
 
 ## Capabilities and Constraints
 

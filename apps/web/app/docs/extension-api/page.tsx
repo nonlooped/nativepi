@@ -25,10 +25,11 @@ export default function ExtensionApiPage() {
       />
 
       <Note tone="warning">
-        The graphical extension API is experimental and may change between
-        releases. Graphical extensions are trusted code running inside the
-        window, not sandboxed code. Install extensions you would be willing to
-        run in your shell.
+        Graphical extensions are trusted code running inside the window, not
+        sandboxed code. Install extensions you would be willing to run in your
+        shell. The API contract is versioned: renderers declare{" "}
+        <code>apiVersion: 1</code> and NativePi rejects an incompatible bundle
+        before any contribution runs.
       </Note>
 
       <H2 id="install">Install</H2>
@@ -43,9 +44,10 @@ export default function ExtensionApiPage() {
           React&apos;s peer range is <code>^18.3.1 || ^19.0.0</code>.
         </p>
         <p>
-          If the Pi-side entry imports <code>@nativepi/extension-api/host</code>,
-          install the package as a regular dependency instead. Pi loads that
-          entry itself and does not install dev dependencies.
+          If the Pi-side entry imports <code>@nativepi/extension-api/host</code>
+          or a shared protocol, install the package as a regular dependency
+          instead. Pi loads that entry itself and does not install dev
+          dependencies.
         </p>
       </Prose>
 
@@ -80,26 +82,70 @@ export default function ExtensionApiPage() {
         </p>
       </Prose>
 
-      <H2 id="define-renderer">defineRenderer</H2>
+      <H2 id="protocol">Shared protocol</H2>
       <Prose>
         <p>
-          The entry&apos;s default export. It is an identity function that exists
-          for its types: it gives you completion and checking on the object you
-          hand back.
+          The protocol is the typed contract between the two halves. Define it
+          once, then pass it to both <code>defineRenderer</code> and{" "}
+          <code>connect</code>. The recommended schemas come from{" "}
+          <code>@nativepi/extension-api/schema</code>.
         </p>
       </Prose>
       <div className="measure mt-4">
         <Code
           lang="ts"
-          code={`function defineRenderer(renderer: NativePiRenderer): NativePiRenderer;
+          code={`import { defineProtocol } from "@nativepi/extension-api";
+import { z } from "@nativepi/extension-api/schema";
 
-interface NativePiRenderer {
-  tools?: Record<string, ToolRenderer>;
-  entries?: Record<string, EntryRenderer>;
-  composerWidgets?: ComposerWidget[];
-  composerControls?: ComposerControl[];
-  settings?: SettingsSection[];
-  panels?: Panel[];
+export const counterProtocol = defineProtocol({
+  methods: {
+    state: { result: z.object({ count: z.number().int() }) },
+    increment: {
+      params: z.object({ by: z.number().int().positive() }),
+      result: z.object({ count: z.number().int() }),
+    },
+  },
+  events: {
+    changed: z.object({ count: z.number().int() }),
+  },
+});`}
+        />
+      </div>
+      <Prose className="mt-4">
+        <p>
+          Every method has a <code>result</code> schema; add{" "}
+          <code>params</code> when it takes input. Every event maps to its
+          payload schema, or <code>undefined</code> for a payload-free event.
+          Values must remain JSON data: null, booleans, finite numbers, strings,
+          arrays, or plain objects containing those values.
+        </p>
+      </Prose>
+
+      <H2 id="define-renderer">defineRenderer</H2>
+      <Prose>
+        <p>
+          The entry&apos;s default export. It is an identity function that exists
+          for its types: it gives you completion and checking on the object you
+          hand back. Write <code>apiVersion: 1</code> as a literal so an older
+          bundle can identify itself to a newer host.
+        </p>
+      </Prose>
+      <div className="measure mt-4">
+        <Code
+          lang="ts"
+          code={`function defineRenderer<const Protocol extends ExtensionProtocol>(
+  renderer: NativePiRenderer<Protocol>,
+): NativePiRenderer<Protocol>;
+
+interface NativePiRenderer<Protocol extends ExtensionProtocol = ExtensionProtocol> {
+  apiVersion: 1;
+  protocol?: Protocol;
+  tools?: Record<string, ToolRenderer<Protocol>>;
+  entries?: Record<string, EntryRenderer<Protocol>>;
+  composerWidgets?: ComposerWidget<Protocol>[];
+  composerControls?: ComposerControl<Protocol>[];
+  settings?: SettingsSection<Protocol>[];
+  panels?: ContextPanel<Protocol>[];
 }`}
         />
       </div>
@@ -113,22 +159,36 @@ interface NativePiRenderer {
         </p>
       </Prose>
 
-      <H2 id="context">NativePiContext</H2>
+      <H2 id="context">RendererContext</H2>
       <Prose>
         <p>Every renderer and every slot receives the same context object.</p>
       </Prose>
       <div className="measure mt-4">
         <Code
           lang="ts"
-          code={`interface NativePiContext {
-  session: {
-    projectDir: string;
-    sessionFile?: string;
-    sessionName?: string;
-  } | null;
-  dark: boolean;
-  call: (method: string, params?: JsonValue) => Promise<JsonValue>;
-  on: (event: string, handler: (payload: JsonValue | undefined) => void) => () => void;
+          code={`interface RendererContext<Protocol extends ExtensionProtocol = ExtensionProtocol> {
+  extension: { id: string; name: string };
+  project: { path: string; name: string };
+  session: { file: string | null; name?: string };
+  agent: {
+    status: "idle" | "starting" | "ready" | "error" | "exited";
+    running: boolean;
+    model?: { provider: string; id: string; name?: string };
+    thinkingLevel: string;
+  };
+  channel: RendererChannel<Protocol>;
+  actions: RendererActions;
+}
+
+interface RendererChannel<Protocol extends ExtensionProtocol> {
+  call<Name extends MethodName<Protocol>>(
+    method: Name,
+    ...args: MethodArguments<Methods<Protocol>[Name]>
+  ): Promise<MethodResult<Methods<Protocol>[Name]>>;
+  on<Name extends EventName<Protocol>>(
+    event: Name,
+    handler: (...args: EventArguments<Events<Protocol>[Name]>) => void,
+  ): () => void;
 }
 
 type JsonValue = null | boolean | number | string | JsonValue[] | {
@@ -138,18 +198,14 @@ type JsonValue = null | boolean | number | string | JsonValue[] | {
       </div>
       <Prose className="mt-4">
         <p>
-          <code>session</code> is <code>null</code> when no project is active.
-          With a project open, <code>sessionFile</code> remains undefined until a
-          conversation is selected. <code>dark</code> reports the window&apos;s
-          appearance; NativePi is currently dark only, so treat a future light
-          value as something to handle rather than something to assume.
-        </p>
-        <p>
-          <code>call</code> invokes a method registered by this extension&apos;s Pi
-          entry and resolves to its JSON-serializable result. <code>on</code>
-          listens for a named event and returns its unsubscribe function. These
-          functions are stable while the window is open; depend on them, rather
-          than the context object, in an effect.
+          <code>session.file</code> is <code>null</code> for a new chat.
+          <code>channel.call</code> and <code>channel.on</code> are typed from
+          the shared protocol and keep stable identities while the window is
+          open; depend on them, rather than the context object, in an effect.
+          <code>actions</code> exposes <code>notify</code>,{" "}
+          <code>insertIntoComposer</code>, <code>openExternal</code>,{" "}
+          <code>openFile</code>, <code>revealFile</code>, and{" "}
+          <code>copyText</code>.
         </p>
       </Prose>
 
@@ -163,10 +219,10 @@ type JsonValue = null | boolean | number | string | JsonValue[] | {
       <div className="measure mt-4">
         <Code
           lang="ts"
-          code={`type ToolRenderer = (props: {
+          code={`type ToolRenderer<Protocol extends ExtensionProtocol = ExtensionProtocol> = (props: {
   call: ToolCall;
   result?: ToolResult;
-  ctx: NativePiContext;
+  context: RendererContext<Protocol>;
 }) => ReactNode;
 
 interface ToolCall {
@@ -198,8 +254,11 @@ interface ToolResult {
           lang="tsx"
           filename="src/renderer.tsx"
           code={`import { defineRenderer } from "@nativepi/extension-api";
+import { counterProtocol } from "./protocol.ts";
 
 export default defineRenderer({
+  apiVersion: 1,
+  protocol: counterProtocol,
   tools: {
     "db.query": ({ call, result }) => {
       const sql = String(call.arguments.sql ?? "");
@@ -225,9 +284,9 @@ export default defineRenderer({
       <div className="measure mt-4">
         <Code
           lang="ts"
-          code={`type EntryRenderer = (props: {
+          code={`type EntryRenderer<Protocol extends ExtensionProtocol = ExtensionProtocol> = (props: {
   entry: SessionEntry;
-  ctx: NativePiContext;
+  context: RendererContext<Protocol>;
 }) => ReactNode;
 
 interface SessionEntry {
@@ -249,10 +308,10 @@ interface SessionEntry {
       <div className="measure mt-4">
         <Code
           lang="ts"
-          code={`interface ComposerWidget {
-  key: string;
+          code={`interface ComposerWidget<Protocol extends ExtensionProtocol = ExtensionProtocol> {
+  id: string;
   placement: "aboveComposer" | "belowComposer";
-  render: (ctx: NativePiContext) => ReactNode;
+  render: (context: RendererContext<Protocol>) => ReactNode;
 }`}
         />
       </div>
@@ -273,9 +332,9 @@ interface SessionEntry {
       <div className="measure mt-4">
         <Code
           lang="ts"
-          code={`interface ComposerControl {
-  key: string;
-  render: (ctx: NativePiContext) => ReactNode;
+          code={`interface ComposerControl<Protocol extends ExtensionProtocol = ExtensionProtocol> {
+  id: string;
+  render: (context: RendererContext<Protocol>) => ReactNode;
 }`}
         />
       </div>
@@ -292,11 +351,11 @@ interface SessionEntry {
       <div className="measure mt-4">
         <Code
           lang="ts"
-          code={`interface SettingsSection {
-  key: string;
+          code={`interface SettingsSection<Protocol extends ExtensionProtocol = ExtensionProtocol> {
+  id: string;
   heading: string;
   description?: string;
-  render: (ctx: NativePiContext) => ReactNode;
+  render: (context: RendererContext<Protocol>) => ReactNode;
 }`}
         />
       </div>
@@ -312,10 +371,10 @@ interface SessionEntry {
       <div className="measure mt-4">
         <Code
           lang="ts"
-          code={`interface Panel {
-  key: string;
+          code={`interface ContextPanel<Protocol extends ExtensionProtocol = ExtensionProtocol> {
+  id: string;
   title: string;
-  render: (ctx: NativePiContext) => ReactNode;
+  render: (context: RendererContext<Protocol>) => ReactNode;
 }`}
         />
       </div>
@@ -323,41 +382,53 @@ interface SessionEntry {
       <H2 id="host">Pi host channel</H2>
       <Prose>
         <p>
-          Import <code>connect</code> from <code>@nativepi/extension-api/host</code>
-          in the Pi entry. Pass the same package name NativePi read from the
-          manifest, register methods for <code>ctx.call</code>, and emit events
-          for <code>ctx.on</code> listeners.
+          Import <code>connect</code> from{" "}
+          <code>@nativepi/extension-api/host</code> in the Pi entry. Pass the
+          package name, the shared protocol, and the method handlers; emit typed
+          events for renderer listeners.
         </p>
       </Prose>
       <div className="measure mt-4">
         <Code
           lang="ts"
-          code={`import { connect } from "@nativepi/extension-api/host";
+          code={`import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { connect } from "@nativepi/extension-api/host";
+import { counterProtocol } from "./protocol.ts";
 
-type ExtensionMethod = (params: JsonValue | undefined) =>
-  JsonValue | Promise<JsonValue>;
+export default function counterExtension(pi: ExtensionAPI) {
+  let count = 0;
 
-interface ExtensionChannel {
-  connected: boolean;
-  method(name: string, handler: ExtensionMethod): void;
-  emit(event: string, payload?: JsonValue): void;
+  const host = connect("@acme/counter", counterProtocol, {
+    state: () => ({ count }),
+    increment: ({ by }) => {
+      count += by;
+      const state = { count };
+      host.emit("changed", state);
+      return state;
+    },
+  });
+
+  pi.registerCommand("counter", {
+    description: "Show the current counter",
+    handler: async (_args, ctx) => { ctx.ui.notify(\`Count: \${count}\`, "info"); },
+  });
 }
 
-const ui = connect("@acme/my-extension");
-ui.method("state", async () => ({ enabled: true }));
-ui.emit("changed", { enabled: true });
-
-// ui.connected is false under Pi's terminal UI.`}
+// host.connected is false under Pi's terminal UI.`}
         />
       </div>
       <Prose className="mt-4">
         <p>
-          Method results and event payloads must be <code>JsonValue</code>s:
-          null, booleans, numbers, strings, arrays, or objects containing those
-          values. Calls reject if no method is registered, a method throws, or it exceeds the
-          thirty-second limit. In Pi&apos;s terminal there is no graphical host:
-          <code>connected</code> is false and calls and events are no-ops, so an
-          ordinary Pi extension remains usable.
+          Registration is atomic: calling <code>connect</code> again for the
+          same package replaces its complete method table, so reloads cannot
+          leave removed handlers behind. Method results and event payloads are
+          validated on both sides against the protocol schemas.
+        </p>
+        <p>
+          Calls reject if no method is registered, a method throws, or it exceeds
+          the thirty-second limit. In Pi&apos;s terminal there is no graphical
+          host: <code>connected</code> is false and <code>emit</code> is a
+          no-op, so an ordinary Pi extension remains usable.
         </p>
       </Prose>
 
@@ -365,16 +436,31 @@ ui.emit("changed", { enabled: true });
       <Prose>
         <p>
           Import NativePi&apos;s styled primitives from
-          <code> @nativepi/extension-api/ui</code>: <code>Button</code>;
-          <code>Dialog</code>, <code>DialogTrigger</code>,
-          <code>DialogClose</code>, <code>DialogContent</code>,
-          <code>DialogHeader</code>, <code>DialogFooter</code>,
-          <code>DialogTitle</code>, and <code>DialogDescription</code>;
-          <code>Menu</code>, <code>MenuTrigger</code>, <code>MenuContent</code>,
-          <code>MenuGroup</code>, <code>MenuLabel</code>, <code>MenuItem</code>,
-          and <code>MenuSeparator</code>; plus <code>SettingsActionRow</code>.
-          Extension Tailwind classes are not included in NativePi&apos;s stylesheet,
-          so use these components and inline styles for extension-specific layout.
+          <code> @nativepi/extension-api/ui</code>: <code>Button</code> and{" "}
+          <code>Badge</code>; <code>Input</code>, <code>Textarea</code>,{" "}
+          <code>Label</code>, <code>Switch</code>, <code>Separator</code>;{" "}
+          <code>Field</code>, <code>FieldContent</code>,{" "}
+          <code>FieldDescription</code>, <code>FieldError</code>,{" "}
+          <code>FieldGroup</code>, <code>FieldLabel</code>;{" "}
+          <code>Dialog</code>, <code>DialogTrigger</code>,{" "}
+          <code>DialogClose</code>, <code>DialogContent</code>,{" "}
+          <code>DialogHeader</code>, <code>DialogFooter</code>,{" "}
+          <code>DialogTitle</code>, <code>DialogDescription</code>;{" "}
+          <code>Menu</code>, <code>MenuTrigger</code>,{" "}
+          <code>MenuContent</code>, <code>MenuGroup</code>,{" "}
+          <code>MenuLabel</code>, <code>MenuItem</code>,{" "}
+          <code>MenuSeparator</code>; <code>Select</code>,{" "}
+          <code>SelectTrigger</code>, <code>SelectValue</code>,{" "}
+          <code>SelectContent</code>, <code>SelectGroup</code>,{" "}
+          <code>SelectLabel</code>, <code>SelectItem</code>,{" "}
+          <code>SelectSeparator</code>; plus <code>SettingsActionRow</code>,{" "}
+          <code>SettingsSwitchRow</code>, <code>SettingsSelectRow</code>,{" "}
+          <code>SettingsTextRow</code>, and <code>SettingsSliderRow</code>.
+        </p>
+        <p>
+          Extension Tailwind classes are not included in NativePi&apos;s
+          stylesheet, so use these components and inline styles for
+          extension-specific layout.
         </p>
       </Prose>
       <div className="measure mt-4">
@@ -392,7 +478,8 @@ ui.emit("changed", { enabled: true });
       <Prose className="mt-4">
         <p>
           The dialog and menu triggers follow Base UI: compose a different
-          trigger with <code>render</code>, not Radix&apos;s <code>asChild</code>.
+          trigger with <code>render</code>, not Radix&apos;s{" "}
+          <code>asChild</code>.
         </p>
       </Prose>
 
@@ -407,9 +494,19 @@ ui.emit("changed", { enabled: true });
         <Code
           lang="ts"
           code={`import { version } from "@nativepi/extension-api";
-// e.g. "0.3.0"`}
+// e.g. "1.0.0"`}
         />
       </div>
+      <Prose className="mt-4">
+        <p>
+          There are two versions with different jobs: <code>apiVersion: 1</code>{" "}
+          is the renderer contract checked at load time, while{" "}
+          <code>version</code> is the npm package version and is informational.
+          Do not set <code>apiVersion</code> from <code>version</code>; writing
+          the literal is what lets an older bundle identify itself to a newer
+          host.
+        </p>
+      </Prose>
 
       <H2 id="full-example">A complete renderer</H2>
       <div className="measure mt-4">
@@ -417,14 +514,18 @@ ui.emit("changed", { enabled: true });
           lang="tsx"
           filename="src/renderer.tsx"
           code={`import { defineRenderer } from "@nativepi/extension-api";
+import { counterProtocol } from "./protocol.ts";
 
 export default defineRenderer({
+  apiVersion: 1,
+  protocol: counterProtocol,
+
   tools: {
-    "db.query": ({ call, result, ctx }) => (
+    "db.query": ({ call, result, context }) => (
       <ResultTable
         sql={String(call.arguments.sql ?? "")}
         rows={result?.details}
-        projectDir={ctx.session?.projectDir}
+        projectDir={context.project.path}
       />
     ),
   },
@@ -437,22 +538,22 @@ export default defineRenderer({
 
   composerWidgets: [
     {
-      key: "target-db",
+      id: "target-db",
       placement: "aboveComposer",
-      render: (ctx) => <TargetDatabase projectDir={ctx.session?.projectDir} />,
+      render: (context) => <TargetDatabase projectDir={context.project.path} />,
     },
   ],
 
   composerControls: [
     {
-      key: "query-mode",
+      id: "query-mode",
       render: () => <QueryModePicker />,
     },
   ],
 
   settings: [
     {
-      key: "query-settings",
+      id: "query-settings",
       heading: "Query settings",
       description: "Choose how this extension runs queries.",
       render: () => <QuerySettings />,
@@ -461,11 +562,11 @@ export default defineRenderer({
 
   panels: [
     {
-      key: "schema",
+      id: "schema",
       title: "Schema",
-      render: (ctx) =>
-        ctx.session ? (
-          <SchemaTree dir={ctx.session.projectDir} />
+      render: (context) =>
+        context.session.file ? (
+          <SchemaTree dir={context.project.path} />
         ) : (
           <p>Open a project to inspect its schema.</p>
         ),
@@ -475,13 +576,60 @@ export default defineRenderer({
         />
       </div>
 
+      <H2 id="migrating">Migrating from 0.x</H2>
+      <Prose>
+        <p>
+          The version-1 contract replaces the experimental raw channel. Update
+          each item together; NativePi rejects a 0.x bundle with a compatibility
+          error rather than trying to interpret it as version 1.
+        </p>
+        <ul>
+          <li>
+            Add the literal <code>apiVersion: 1</code> to{" "}
+            <code>defineRenderer</code>.
+          </li>
+          <li>
+            Define one shared protocol with <code>defineProtocol</code> and pass
+            it to both <code>defineRenderer</code> and{" "}
+            <code>connect(packageName, protocol, handlers)</code>.
+          </li>
+          <li>
+            Replace repeated <code>channel.method(name, handler)</code> calls
+            with the handlers object passed to <code>connect</code>.
+          </li>
+          <li>
+            Rename <code>NativePiContext</code> to{" "}
+            <code>RendererContext</code> and renderer prop <code>ctx</code> to{" "}
+            <code>context</code>.
+          </li>
+          <li>
+            Replace <code>ctx.call</code> / <code>ctx.on</code> with{" "}
+            <code>context.channel.call</code> /{" "}
+            <code>context.channel.on</code>.
+          </li>
+          <li>
+            Rename contribution <code>key</code> fields to <code>id</code>.
+          </li>
+          <li>
+            Read <code>context.project</code>, <code>context.session</code>, and{" "}
+            <code>context.agent</code> instead of the old nullable session
+            object. The removed <code>dark</code> flag was always true because
+            NativePi is dark-only.
+          </li>
+        </ul>
+        <p>
+          The ordinary Pi extension continues to load even when its optional
+          graphical renderer is incompatible.
+        </p>
+      </Prose>
+
       <H2 id="notes">Practical notes</H2>
       <Prose>
         <ul>
           <li>
-            <strong>Handle the empty case.</strong> <code>ctx.session</code> is
-            null with no project active; with an empty project,
-            <code>sessionFile</code> is undefined. Panels render regardless.
+            <strong>Handle the empty case.</strong> <code>context.session</code>{" "}
+            has <code>file: null</code> with no conversation open. Panels render
+            regardless.
           </li>
           <li>
             <strong>Match the surrounding density.</strong> The window is compact
