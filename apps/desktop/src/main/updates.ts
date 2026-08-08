@@ -14,14 +14,11 @@ import type { UpdateState } from "../shared/rpc-schema.ts";
  * background download is not something a wrapper should spend someone's
  * connection on without being told to.
  *
- * NativePi's builds are unsigned, so the downloaded installer's Authenticode
- * signature is not verified; `verifyUpdateCodeSignature` in the desktop package
- * manifest says so explicitly rather than leaving it to electron-builder to
- * infer from the absence of a certificate. On an unsigned macOS build,
- * Gatekeeper's own code-signature check on the downloaded update is stricter
- * still and has no such override, so `update-downloaded` there can surface as
- * an `error` instead — the same `checkForUpdate`/`downloadUpdate` failure path
- * this module already reports through, not a case this module special-cases.
+ * NativePi's builds are unsigned (`mac.identity` is null, Windows
+ * `verifyUpdateCodeSignature` is false). On Windows the signature check is
+ * explicitly disabled; on macOS there is no such override and Gatekeeper
+ * rejects the unsigned update, surfacing as a visible error. Auto-update is
+ * therefore disabled on macOS while builds remain unsigned.
  */
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -46,6 +43,10 @@ export function startUpdates(onChange: (state: UpdateState) => void): void {
   // the missing `app-update.yml` rather than reporting that there is nothing to
   // do. The renderer reads `unsupported` and leaves the whole surface out.
   if (!app.isPackaged) return;
+  // Unsigned macOS builds fail code-signature verification on update and
+  // surface as a visible error. Disable auto-update on darwin while
+  // `mac.identity` is null.
+  if (process.platform === "darwin") return;
 
   state = { status: "idle" };
   autoUpdater.autoDownload = false;
