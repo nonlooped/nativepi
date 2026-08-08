@@ -16,7 +16,7 @@ const sections = [
   },
   {
     title: "Extending",
-    links: [{ href: "/docs/extension-api", label: "Extension API" }],
+    links: [{ href: "/docs/extension-api", label: "Graphical extension API" }],
   },
 ];
 
@@ -56,7 +56,7 @@ export function DocsNav() {
 
       <nav
         aria-label="Documentation"
-        className="sticky top-24 hidden h-fit w-56 shrink-0 lg:block"
+        className="sticky top-20 hidden h-fit w-56 shrink-0 lg:block"
       >
         {/*
           These group labels are deliberately not headings. The nav renders before

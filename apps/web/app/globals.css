@@ -2,13 +2,6 @@
 @import "@fontsource-variable/raleway/index.css";
 @import "@fontsource-variable/nunito-sans/index.css";
 
-/*
-  NativePi Web tokens.
-  The graphite ladder, radius scale, and status hues are inherited verbatim from
-  apps/desktop/DESIGN.md. Void and Slot Cyan are the only two additions, and both
-  are functional: Void is the space the window floats in, Slot Cyan marks the
-  parts of the app an extension owns.
-*/
 @theme {
   --color-void: oklch(0.115 0.004 285);
   --color-ink: oklch(0.155 0.004 285);
@@ -37,7 +30,6 @@
   --color-amber: oklch(0.78 0.14 75);
   --color-info: oklch(0.74 0.12 235);
   --color-slot: oklch(0.78 0.11 205);
-  --color-field: oklch(0.28 0.035 225);
 
   --color-hairline: oklch(1 0 0 / 9%);
   --color-input-hairline: oklch(1 0 0 / 15%);
@@ -55,8 +47,6 @@
   --radius-2xl: 1.125rem;
   --radius-3xl: 1.375rem;
 
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 @font-face {
@@ -74,13 +64,13 @@
   }
 
   html {
-    background-color: var(--color-void);
+    background-color: var(--color-ink);
     color-scheme: dark;
     -webkit-text-size-adjust: 100%;
   }
 
   body {
-    background-color: var(--color-void);
+    background-color: var(--color-ink);
     color: var(--color-chalk);
     font-family: var(--font-body);
     font-size: 1rem;
@@ -101,6 +91,11 @@
 
   p {
     text-wrap: pretty;
+  }
+
+  a {
+    text-underline-position: from-font;
+    text-decoration-thickness: from-font;
   }
 
   /*
@@ -128,7 +123,7 @@
 @layer components {
   .rail {
     width: 100%;
-    max-width: 90rem;
+    max-width: 96rem;
     margin-inline: auto;
     padding-inline: 1.5rem;
   }
@@ -149,18 +144,13 @@
     max-width: 68ch;
   }
 
-  /*
-    The display size answers to viewport height as well as width. The hero shares
-    a fixed 100vh stage with the window, so on a short, wide screen a width-only
-    clamp produces a headline that is technically responsive and still collides
-    with the thing it is introducing.
-  */
-  .display {
+  .hero-display {
     font-family: var(--font-display);
-    font-size: clamp(2.25rem, min(6vw, 8.5vh), 4.75rem);
+    font-size: clamp(2.75rem, 6vw, 4.5rem);
     font-weight: 600;
     line-height: 0.98;
     letter-spacing: -0.045em;
+    text-wrap: balance;
   }
 
   .section-head {
@@ -184,19 +174,30 @@
     color: var(--color-silver);
   }
 
-  /* A real offset and blur lift screenshots and diagrams without a halo. */
-  .plate {
+  .window-frame {
+    background-color: var(--color-raised);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-xl);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 6%),
+      0 32px 72px -24px oklch(0 0 0 / 70%),
+      0 12px 24px -16px oklch(0 0 0 / 60%);
+  }
+
+  .window-panel {
     background-color: var(--color-raised);
     border: 1px solid var(--color-hairline);
     border-radius: var(--radius-lg);
-    box-shadow:
-      inset 0 1px 0 0 oklch(1 0 0 / 6%),
-      0 24px 48px -12px oklch(0 0 0 / 55%),
-      0 8px 16px -8px oklch(0 0 0 / 40%);
+    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 5%);
   }
 
-  .hairline-top {
-    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 6%);
+  .composer-cta {
+    background-color: var(--color-raised);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-3xl);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 6%),
+      0 20px 48px -24px oklch(0 0 0 / 80%);
   }
 }
 
@@ -217,10 +218,6 @@
   }
 }
 
-/*
-  The Reduced-Motion Contract from DESIGN.md. Movement is removed; nothing else
-  is. Components read this same signal in JS to render the window pre-separated.
-*/
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

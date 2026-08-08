@@ -129,7 +129,7 @@ bun run dist:linux            # build the Linux installer`}
       <Prose className="mt-6">
         <p>
           The desktop application lives in <code>apps/desktop</code>. The public
-          graphical extension contract lives in{" "}
+          typed graphical extension contract lives in{" "}
           <code>packages/extension-api</code>.
         </p>
       </Prose>

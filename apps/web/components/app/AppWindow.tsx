@@ -10,8 +10,9 @@ import { cn } from "@/lib/cn";
  * it, and every width where it reflows differently from the app is a width where
  * the page is lying. A picture is honest at all of them.
  *
- * Its intrinsic ratio is 2560x1440. Anything framing it uses aspect-video
- * so the frame never crops the window or letterboxes it.
+ * Its intrinsic ratio is 2560x1440. The full window stays visible wherever its
+ * controls remain legible; the narrowest layout crops into the active workspace
+ * instead of reducing the whole application to an unreadable thumbnail.
  */
 export function AppWindow({ className }: { className?: string }) {
   return (
@@ -22,7 +23,10 @@ export function AppWindow({ className }: { className?: string }) {
       height={1440}
       priority
       sizes="(min-width: 1667px) 100rem, 96vw"
-      className={cn("h-full w-full object-cover object-left-top", className)}
+      className={cn(
+        "h-full w-full object-cover object-left-top outline outline-1 -outline-offset-1 outline-white/10",
+        className,
+      )}
     />
   );
 }

@@ -1,35 +1,107 @@
-import { StarIcon } from "@phosphor-icons/react/dist/ssr";
+import {
+  ArrowRightIcon,
+  CodeIcon,
+  SlidersHorizontalIcon,
+  SidebarSimpleIcon,
+  WrenchIcon,
+} from "@phosphor-icons/react/dist/ssr";
 
-import { DownloadButton } from "@/components/site/DownloadButton";
 import { Button } from "@/components/site/Button";
-import { GitHubMark } from "@/components/site/Marks";
+import { DownloadButton } from "@/components/site/DownloadButton";
 import { site } from "@/lib/site";
+
+const slots = [
+  {
+    name: "Tool renderers",
+    detail: "Turn Pi tool results into native React surfaces.",
+    Icon: WrenchIcon,
+  },
+  {
+    name: "Composer controls",
+    detail: "Add focused actions beside the prompt.",
+    Icon: SlidersHorizontalIcon,
+  },
+  {
+    name: "Settings sections",
+    detail: "Give an extension a native place to configure itself.",
+    Icon: CodeIcon,
+  },
+  {
+    name: "Context panels",
+    detail: "Keep extension context visible beside the conversation.",
+    Icon: SidebarSimpleIcon,
+  },
+];
 
 export function Close() {
   return (
-    <section className="relative z-10 overflow-hidden border-t border-hairline">
-      <div className="rail py-28 text-center sm:py-36">
-        <h2 className="display text-bright">Inspect and extend it.</h2>
-        <p className="lede mx-auto mt-6 max-w-lg text-balance">
-          NativePi and its graphical extension API are MIT licensed. Inspect the
-          source, fork it, or build on it.
-        </p>
+    <section
+      id="extensions"
+      className="scroll-mt-12 border-t border-hairline bg-sidebar py-20 sm:py-28 lg:py-32"
+    >
+      <div className="rail">
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start lg:gap-20">
+          <div className="max-w-2xl">
+            <p className="text-sm font-medium text-silver">Extensions</p>
+            <h2 className="section-head mt-4 text-bright">
+              Pi extensions can belong in the window.
+            </h2>
+          </div>
 
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-          <DownloadButton />
-          <Button href={site.repo} variant="outline">
-            <StarIcon className="size-4" weight="fill" />
-            Star on GitHub
-          </Button>
+          <div className="lg:pt-8">
+            <p className="text-base leading-relaxed text-silver">
+              NativePi extends Pi&apos;s package model with a small graphical API.
+              Build interface contributions without replacing the agent or
+              maintaining a separate integration.
+            </p>
+            <p className="mt-4 text-sm leading-relaxed text-silver">
+              <span className="font-medium text-chalk">Experimental API.</span>{" "}
+              It is MIT licensed and may change between releases.
+            </p>
+            <Button
+              href="/docs/extension-api"
+              variant="outline"
+              className="mt-5"
+            >
+              Read the extension API
+              <ArrowRightIcon className="size-4" />
+            </Button>
+          </div>
         </div>
 
-        <p className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-silver">
-          <span className="flex items-center gap-1.5">
-            <GitHubMark className="size-3.5" />
-            github.com/nonlooped/nativepi
-          </span>
-          <span>Made for people who already shape Pi around their workflow.</span>
-        </p>
+        <ul className="mt-14 grid border-y border-hairline md:grid-cols-2 md:[&>li:nth-child(odd)]:border-e md:[&>li:nth-child(-n+2)]:border-b">
+          {slots.map(({ name, detail, Icon }) => (
+            <li key={name} className="flex gap-4 border-b border-hairline p-5 last:border-b-0 md:border-b-0 sm:p-6">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slot/20 bg-slot/[0.06] text-slot">
+                <Icon className="size-4" />
+              </span>
+              <div>
+                <h3 className="font-display text-base font-semibold text-chalk">
+                  {name}
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-silver">
+                  {detail}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        <div className="composer-cta mt-16 flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm text-silver">Ready to use Pi on desktop?</p>
+            <p className="mt-1 font-display text-xl font-semibold tracking-[-0.025em] text-bright">
+              Open a project. Everything Pi knows is already there.
+            </p>
+          </div>
+
+          <div className="flex shrink-0 flex-wrap gap-3">
+            <DownloadButton />
+            <Button href={site.repo} variant="ghost">
+              View source
+            </Button>
+          </div>
+        </div>
       </div>
     </section>
   );

@@ -1,48 +1,44 @@
-import { StarIcon } from "@phosphor-icons/react/dist/ssr";
-
-import { DownloadButton } from "@/components/site/DownloadButton";
 import { Button } from "@/components/site/Button";
-import { PiMark } from "@/components/site/Marks";
+import { DownloadButton } from "@/components/site/DownloadButton";
+import { GitHubMark, PiMark } from "@/components/site/Marks";
 import { site } from "@/lib/site";
 
-/**
- * The opening statement.
- *
- * Download is the primary action, with the repository available as the secondary
- * path. The platform and unsigned-installer costs are stated here rather than
- * discovered later, which is Product Principle 2 applied to the first viewport.
- */
 export function Hero() {
   return (
-    <div className="rail text-center">
-      <p className="flex items-center justify-center gap-2 text-sm text-silver">
-        <PiMark className="size-3.5" />
-        Built around the Pi coding agent
-      </p>
+    <section
+      id="overview"
+      className="scroll-mt-14 border-b border-hairline bg-ink"
+    >
+      <div className="rail py-16 sm:py-20 lg:pb-24 lg:pt-28">
+        <div className="max-w-[52rem]">
+          <p className="flex items-center gap-2 text-sm font-medium text-silver">
+            <PiMark className="size-3.5" />
+            A desktop interface for the Pi coding agent
+          </p>
 
-      <h1 className="display mt-5 text-bright">
-        Pi, at home
-        <br />
-        on your desktop.
-      </h1>
+          <h1 className="hero-display mt-6 text-bright">
+            Keep Pi. Add a window.
+          </h1>
 
-      <p className="lede mx-auto mt-6 max-w-xl text-balance">
-        A free, open source app for the Pi coding agent. Same sessions,
-        same logins, same files.
-      </p>
+          <p className="lede mt-6 max-w-2xl">
+            Work with Pi in a focused desktop app without moving your sessions,
+            credentials, or configuration.
+          </p>
 
-      <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-        <DownloadButton />
-        <Button href={site.repo} variant="outline">
-          <StarIcon className="size-4" weight="fill" />
-          Star on GitHub
-        </Button>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <DownloadButton />
+            <Button href={site.repo} variant="ghost" className="px-3">
+              <GitHubMark className="size-4" />
+              View on GitHub
+            </Button>
+          </div>
+
+          <p className="mt-4 text-sm text-silver">
+            Free and MIT licensed for Windows, macOS, and Linux. Installers are
+            unsigned.
+          </p>
+        </div>
       </div>
-
-      {/* A caveat, not marginalia. It gets a readable tone. */}
-      <p className="mt-4 text-xs text-silver">
-        MIT licensed. Windows, macOS, and Linux. Unsigned, so your OS warns once.
-      </p>
-    </div>
+    </section>
   );
 }

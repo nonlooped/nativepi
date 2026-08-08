@@ -49,7 +49,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   colorScheme: "dark",
-  themeColor: "#131316",
+  themeColor: "#151517",
 };
 
 export default function RootLayout({
@@ -59,7 +59,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-void text-chalk antialiased">
+      <body className="bg-ink text-chalk antialiased">
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary-chalk focus:px-4 focus:py-2 focus:text-sm focus:text-popover"
