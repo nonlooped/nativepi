@@ -159,45 +159,46 @@ html[data-shell="desktop"] .window-controls-clearance {
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --body-muted-foreground: oklch(0.52 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --bright: oklch(0.985 0 0);
-  --favorite: oklch(0.72 0.16 85);
-  --success: oklch(0.58 0.16 145);
-  --warning: oklch(0.55 0.14 75);
-  --info: oklch(0.52 0.13 235);
-  --active: oklch(0.52 0.016 286.067);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
+  /* Warm paper — easy on the eyes for long sessions, not pure white. */
+  --background: oklch(0.975 0.006 75);
+  --foreground: oklch(0.22 0.007 285);
+  --card: oklch(0.985 0.005 75);
+  --card-foreground: oklch(0.22 0.007 285);
+  --popover: oklch(0.99 0.004 75);
+  --popover-foreground: oklch(0.22 0.007 285);
+  --primary: oklch(0.22 0.007 285);
+  --primary-foreground: oklch(0.985 0.005 75);
+  --secondary: oklch(0.945 0.007 75);
+  --secondary-foreground: oklch(0.25 0.007 285);
+  --muted: oklch(0.945 0.007 75);
+  --muted-foreground: oklch(0.53 0.016 285.938);
+  --body-muted-foreground: oklch(0.5 0.016 285.938);
+  --accent: oklch(0.935 0.007 75);
+  --accent-foreground: oklch(0.22 0.007 285);
+  --destructive: oklch(0.55 0.22 27.325);
+  --bright: oklch(0.25 0.006 285);
+  --favorite: oklch(0.68 0.15 85);
+  --success: oklch(0.55 0.14 145);
+  --warning: oklch(0.55 0.13 75);
+  --info: oklch(0.52 0.12 235);
+  --active: oklch(0.5 0.016 286.067);
+  --border: oklch(0.895 0.008 75);
+  --input: oklch(0.895 0.008 75);
+  --ring: oklch(0.62 0.015 286.067);
   --chart-1: oklch(0.871 0.006 286.286);
   --chart-2: oklch(0.552 0.016 285.938);
   --chart-3: oklch(0.442 0.017 285.786);
   --chart-4: oklch(0.37 0.013 285.805);
   --chart-5: oklch(0.274 0.006 286.033);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.21 0.006 285.885);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.705 0.015 286.067);
+  --sidebar: oklch(0.96 0.007 75);
+  --sidebar-foreground: oklch(0.22 0.007 285);
+  --sidebar-primary: oklch(0.22 0.007 285);
+  --sidebar-primary-foreground: oklch(0.985 0.005 75);
+  --sidebar-accent: oklch(0.935 0.007 75);
+  --sidebar-accent-foreground: oklch(0.22 0.007 285);
+  --sidebar-border: oklch(0.895 0.008 75);
+  --sidebar-ring: oklch(0.62 0.015 286.067);
 }
 
 .dark {
@@ -402,6 +403,30 @@ html[data-shell="desktop"] .window-controls-clearance {
     0 16px 50px oklch(0 0 0 / 18%),
     0 0 0 2px var(--ring),
     inset 0 1px color-mix(in oklch, var(--foreground) 5%, transparent);
+}
+
+/* Light mode: soften elevation — strong black shadows on warm paper feel harsh */
+html:not(.dark) .composer-surface {
+  box-shadow:
+    0 8px 24px oklch(0.22 0.007 285 / 8%),
+    0 1px 3px oklch(0.22 0.007 285 / 10%),
+    inset 0 1px 0 oklch(1 0 0 / 85%),
+    inset 0 0 0 1px oklch(0.22 0.007 285 / 6%);
+}
+
+html:not(.dark) .composer-surface:focus-within {
+  box-shadow:
+    0 8px 24px oklch(0.22 0.007 285 / 8%),
+    0 1px 3px oklch(0.22 0.007 285 / 10%),
+    0 0 0 2px var(--ring),
+    inset 0 1px 0 oklch(1 0 0 / 85%),
+    inset 0 0 0 1px oklch(0.22 0.007 285 / 6%);
+}
+
+html:not(.dark) .conversation-shell {
+  background:
+    radial-gradient(circle at 50% -20%, oklch(0.22 0.007 285 / 3%), transparent 42%),
+    var(--background);
 }
 
 /* Keep short identifiers together, but still let a path longer than the whole
