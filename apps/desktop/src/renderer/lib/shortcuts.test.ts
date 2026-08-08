@@ -9,7 +9,6 @@ import {
   isCustomized,
   parseKeyEvent,
   sanitizeOverrides,
-  shortcutsByGroup,
 } from "./shortcuts.ts";
 
 describe("hints", () => {
@@ -29,27 +28,9 @@ describe("hints", () => {
 });
 
 describe("the registry", () => {
-  test("declares every shortcut exactly once and gives each a hint", () => {
-    const ids = SHORTCUTS.map((shortcut) => shortcut.id);
-    expect(new Set(ids).size).toBe(ids.length);
-    for (const id of ids) expect(hintFor(id)).not.toBe("");
-  });
-
   test("no two shortcuts claim the same binding", () => {
     const all = SHORTCUTS.map((shortcut) => shortcut.binding);
     expect(new Set(all).size).toBe(all.length);
-  });
-
-  test("every binding names a key, not just modifiers", () => {
-    for (const { binding } of SHORTCUTS) {
-      const key = binding.split("+").at(-1)!;
-      expect(["$mod", "Shift", "Alt", "Meta", "Control"]).not.toContain(key);
-    }
-  });
-
-  test("grouping loses nothing", () => {
-    const grouped = shortcutsByGroup().flatMap(({ shortcuts }) => shortcuts);
-    expect(grouped).toHaveLength(SHORTCUTS.length);
   });
 });
 

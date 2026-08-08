@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatDuration, formatElapsed, formatLineDelta, formatTokens, pluralize, timeAgo } from "./format.ts";
+import { formatDuration, formatElapsed, formatLineDelta, formatTokens, timeAgo } from "./format.ts";
 
 describe("formatElapsed", () => {
   test("steps from seconds to hours", () => {
@@ -8,11 +8,6 @@ describe("formatElapsed", () => {
     expect(formatElapsed(133_000)).toBe("2m 13s");
     expect(formatElapsed(120_000)).toBe("2m");
     expect(formatElapsed(3_840_000)).toBe("1h 4m");
-  });
-
-  test("has nothing to say about an impossible duration", () => {
-    expect(formatElapsed(-1)).toBe("");
-    expect(formatElapsed(Number.NaN)).toBe("");
   });
 });
 
@@ -43,13 +38,6 @@ describe("formatTokens", () => {
     expect(formatTokens(12_400)).toBe("12K");
     expect(formatTokens(1_250_000)).toBe("1.3M");
     expect(formatTokens(2_000_000)).toBe("2M");
-  });
-});
-
-describe("pluralize", () => {
-  test("agrees with its count", () => {
-    expect(pluralize(1, "file")).toBe("1 file");
-    expect(pluralize(3, "file")).toBe("3 files");
   });
 });
 

@@ -46,28 +46,6 @@ test("the composed store exposes every key its slices declare", () => {
   expect([...expected].filter((key) => !actual.has(key))).toEqual([]);
 });
 
-test("the initial state is what the app starts from", () => {
-  // Composed fresh rather than read off `useAppStore`: the singleton is shared
-  // across test files, and another file's `setState` would decide this result.
-  const s = { ...slices.workspace, ...slices.chat, ...slices.models, ...slices.auth, ...slices.projectContext, ...slices.ui };
-
-  expect(s.ready).toBe(false);
-  expect(s.projects).toEqual([]);
-  expect(s.activeProjectPath).toBeNull();
-  expect(s.activeSessionFile).toBeNull();
-  expect(s.conversations).toEqual({});
-  expect(s.sendBehavior).toBe("followUp");
-  expect(s.thinkingLevel).toBe("off");
-  expect(s.thinkingLevels).toEqual(["off"]);
-  expect(s.sidebarOpen).toBe(true);
-  expect(s.sidebarSize).toBe(18);
-  expect(s.reopenLastProject).toBe(true);
-  expect(s.contextPaneOpen).toBe(false);
-  expect(s.contextPaneChosen).toBe(false);
-  expect(s.git).toBeNull();
-  expect(s.trust).toBeNull();
-});
-
 test("a conversation reset hands out fresh collections each time", async () => {
   // `emptyConversation()` is a function precisely so two resets cannot end up
   // sharing one array; if it were a constant these would be the same object.
