@@ -306,7 +306,7 @@ export type HostRequests = {
     response: { results: SessionSearchResult[] };
   };
   readSession: { params: { sessionFile: string }; response: { entries: FileEntry[] } };
-  ensurePi: { params: { projectDir: string }; response: { ok: boolean; error?: string } };
+  ensurePi: { params: { projectDir: string; sessionFile?: string | null }; response: { ok: boolean; error?: string } };
   restartPi: { params: { projectDir: string }; response: { ok: boolean } };
   /** Stop every live Pi, so a restart-only setting reaches background projects too. */
   restartAllPi: { params: Record<string, never>; response: { ok: boolean } };

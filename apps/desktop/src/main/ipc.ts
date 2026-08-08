@@ -515,9 +515,9 @@ const handlers: HandlerMap = {
     sessionNotificationTimers.delete(projectDir);
     return { ok: true };
   },
-  ensurePi: async ({ projectDir }) => {
+  ensurePi: async ({ projectDir, sessionFile }) => {
     try {
-      await ensurePi(projectDir);
+      await ensurePi(projectDir, sessionFile ?? undefined);
       return { ok: true };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };

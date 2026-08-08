@@ -41,13 +41,20 @@ const platforms = {
 export function DownloadButton() {
   const platform = useSyncExternalStore(subscribe, detectPlatform, () => null);
 
-  const download = platform ?? "windows";
-  const { label, Icon } = platforms[download];
+  if (!platform) {
+    return (
+      <Button href={site.releasesLatest} variant="primary" external={false}>
+        Download NativePi
+      </Button>
+    );
+  }
+
+  const { label, Icon } = platforms[platform];
 
   return (
-    <Button href={site.downloads[download]} variant="primary" external={false}>
+    <Button href={site.downloads[platform]} variant="primary" external={false}>
       <Icon className="size-4" />
-      {platform ? `Download for ${label}` : "Download NativePi"}
+      {`Download for ${label}`}
     </Button>
   );
 }

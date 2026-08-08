@@ -14,7 +14,7 @@ function open(id: string, placement: TuiHostFrame extends never ? never : "overl
 }
 
 test("a surface opened by the project on screen is mounted", () => {
-  useAppStore.setState({ activeProjectPath: "A:\\proj-a", extSurfaces: [] });
+  useAppStore.setState({ activeProjectPath: "A:\\proj-a", activeSessionFile: null, extSurfaces: [] });
 
   useAppStore.getState().onTuiFrame({ projectDir: "A:\\proj-a", frame: open("s1", "overlay") });
 
@@ -22,7 +22,7 @@ test("a surface opened by the project on screen is mounted", () => {
 });
 
 test("a duplicate open preserves a mounted surface's write listener", () => {
-  useAppStore.setState({ activeProjectPath: "A:\\proj-a", extSurfaces: [] });
+  useAppStore.setState({ activeProjectPath: "A:\\proj-a", activeSessionFile: null, extSurfaces: [] });
   const store = useAppStore.getState();
   const seen: string[] = [];
   store.onTuiFrame({ projectDir: "A:\\proj-a", frame: open("s1", "footer") });
@@ -44,7 +44,7 @@ test("a duplicate open preserves a mounted surface's write listener", () => {
 });
 
 test("a timeline surface retains its complete history", () => {
-  useAppStore.setState({ activeProjectPath: "A:\\proj-a", extSurfaces: [] });
+  useAppStore.setState({ activeProjectPath: "A:\\proj-a", activeSessionFile: null, extSurfaces: [] });
   const store = useAppStore.getState();
   const output = "x".repeat(256 * 1024 + 1);
 
@@ -113,7 +113,7 @@ test("a live timeline surface puts its entry into the transcript", () => {
 });
 
 test("closing a surface unmounts it and forgets what it drew", () => {
-  useAppStore.setState({ activeProjectPath: "A:\\proj-a", extSurfaces: [] });
+  useAppStore.setState({ activeProjectPath: "A:\\proj-a", activeSessionFile: null, extSurfaces: [] });
   const store = useAppStore.getState();
 
   store.onTuiFrame({ projectDir: "A:\\proj-a", frame: open("s1", "aboveEditor") });
@@ -130,7 +130,7 @@ test("closing a surface unmounts it and forgets what it drew", () => {
 });
 
 test("a Pi that exits takes its panes with it", () => {
-  useAppStore.setState({ activeProjectPath: "A:\\proj-a", extSurfaces: [], extTriggers: ["#"] });
+  useAppStore.setState({ activeProjectPath: "A:\\proj-a", activeSessionFile: null, extSurfaces: [], extTriggers: ["#"] });
   const store = useAppStore.getState();
   store.onTuiFrame({ projectDir: "A:\\proj-a", frame: open("s1", "overlay") });
 
@@ -142,7 +142,7 @@ test("a Pi that exits takes its panes with it", () => {
 });
 
 test("an extension paste goes to the caret, and to the end when there is none", () => {
-  useAppStore.setState({ activeProjectPath: "A:\\proj-a", drafts: {} });
+  useAppStore.setState({ activeProjectPath: "A:\\proj-a", activeSessionFile: null, drafts: {} });
   const store = useAppStore.getState();
 
   // No composer mounted: the store's own append is the only place text can go.
@@ -165,6 +165,7 @@ test("an extension paste goes to the caret, and to the end when there is none", 
 test("a state patch changes only the fields it carries", () => {
   useAppStore.setState({
     activeProjectPath: "A:\\proj-a",
+    activeSessionFile: null,
     extUiState: {
       workingMessage: "Thinking deeply",
       workingVisible: true,
@@ -187,6 +188,7 @@ test("a state patch changes only the fields it carries", () => {
 test("null in a state patch is a value, not an absence", () => {
   useAppStore.setState({
     activeProjectPath: "A:\\proj-a",
+    activeSessionFile: null,
     extUiState: {
       workingMessage: "Thinking deeply",
       workingVisible: true,

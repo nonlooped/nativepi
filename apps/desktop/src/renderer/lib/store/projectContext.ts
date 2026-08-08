@@ -89,7 +89,7 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
    * are: a background project's footer has nothing to attach to.
    */
   onTuiFrame: ({ projectDir, sessionFile, frame }) => {
-    if (projectDir !== get().activeProjectPath || (sessionFile && sessionFile !== get().activeSessionFile)) return;
+    if (projectDir !== get().activeProjectPath || (sessionFile ?? null) !== (get().activeSessionFile ?? null)) return;
     switch (frame.type) {
       // Keyed by id rather than appended: a resync re-announces surfaces the
       // window may still be holding, and the same pane twice is not two panes.

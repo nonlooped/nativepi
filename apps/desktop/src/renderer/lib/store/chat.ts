@@ -476,7 +476,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     if (event.type === "extension_ui_request") {
       const request = event as ExtensionUiRequest;
       const isPrompt = request.method === "select" || request.method === "confirm" || request.method === "input" || request.method === "editor";
-      const isActiveSession = projectDir === s.activeProjectPath && (!sessionFile || sessionFile === s.activeSessionFile);
+      const isActiveSession = projectDir === s.activeProjectPath && (sessionFile ?? null) === (s.activeSessionFile ?? null);
       if (isActiveSession || isPrompt) applyExtensionUi(set, get, projectDir, request);
       return;
     }
