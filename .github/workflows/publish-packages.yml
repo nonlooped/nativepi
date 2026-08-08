@@ -119,6 +119,8 @@ jobs:
             directory: packages/service-tier
           - package: "@nativepi/subscription-usage"
             directory: packages/subscription-usage
+          - package: "@nativepi/meta"
+            directory: packages/meta
           - package: "@nativepi/title-generator"
             directory: packages/title-generator
     steps:

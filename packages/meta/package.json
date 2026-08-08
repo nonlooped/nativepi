@@ -1,0 +1,46 @@
+{
+  "name": "@nativepi/meta",
+  "version": "1.0.1",
+  "description": "Adds Meta as a provider for Muse Spark models via the Meta Model API, in Pi and in NativePi.",
+  "author": "nonlooped",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-coding-agent",
+    "nativepi",
+    "extension",
+    "meta",
+    "muse-spark"
+  ],
+  "files": [
+    "extensions",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "pi": {
+    "extensions": ["./extensions/meta.ts"]
+  },
+  "homepage": "https://github.com/nonlooped/nativepi/tree/main/packages/meta",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nonlooped/nativepi.git",
+    "directory": "packages/meta"
+  },
+  "bugs": {
+    "url": "https://github.com/nonlooped/nativepi/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.82.1"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.82.1",
+    "@types/bun": "^1.3.14",
+    "typescript": "^7.0.2"
+  }
+}
