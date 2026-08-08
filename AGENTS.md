@@ -192,6 +192,10 @@ Do not run project-wide tests, builds, or quality suites unless asked. If no
 focused automated verification exists, say so rather than inventing a low-value
 test. Report exactly what was and was not verified.
 
+Do not wait for, watch, or poll CI / GitHub Actions runs (`gh run watch`,
+`gh run view --log`, Vercel deployments, etc.) unless the user explicitly
+asks. Push and report the commit; let CI run in the background.
+
 ## Running the App
 
 Do not start a dev server, `electron-vite dev`, preview server, or any
