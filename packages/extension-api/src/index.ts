@@ -1,34 +1,42 @@
-// @nativepi/extension-api
-// Public API surface for NativePi graphical extensions.
-//
-// An extension's `nativepi.renderer` entry imports this package, describes the
-// UI slots it contributes, and default-exports the result of `defineRenderer`.
-// NativePi compiles the entry to browser code and provides React and this
-// package at runtime, so extension components share NativePi's React instance.
-//
-// Extensions contribute to controlled slots only; they cannot replace the core
-// composer, transcript, sidebar, or routing.
-
 import type { ReactNode } from "react";
-import type { JsonValue } from "./json.ts";
-
-export type { JsonValue } from "./json.ts";
+import type { ExtensionProtocol, RendererChannel } from "./protocol.ts";
 
 import pkg from "../package.json" with { type: "json" };
 
-/** The published version of this package, as seen by extensions at runtime. */
+export type { JsonValue } from "./json.ts";
+export { defineProtocol } from "./protocol.ts";
+export type {
+  EventArguments,
+  ExtensionHost,
+  ExtensionMethodHandlers,
+  ExtensionProtocol,
+  MethodArguments,
+  MethodSchema,
+  RendererChannel,
+  ValueSchema,
+} from "./protocol.ts";
+
+/** The extension API package version supplied by the current host. */
 export const version: string = pkg.version;
 
-export interface ToolCall {
+/**
+ * The renderer contract NativePi understands.
+ *
+ * A renderer writes this literal into its definition, allowing a newer host to
+ * reject an incompatible bundle before any third-party render function runs.
+ */
+export const extensionApiVersion = 1 as const;
+
+export interface ToolCall<Arguments extends Record<string, unknown> = Record<string, unknown>> {
   id: string;
   name: string;
-  arguments: Record<string, unknown>;
+  arguments: Arguments;
 }
 
-export interface ToolResult {
+export interface ToolResult<Details = unknown> {
   toolName: string;
   text: string;
-  details?: unknown;
+  details?: Details;
   isError: boolean;
 }
 
@@ -38,75 +46,100 @@ export interface SessionEntry {
   [key: string]: unknown;
 }
 
-export interface NativePiContext {
-  session: { projectDir: string; sessionFile?: string; sessionName?: string } | null;
-  dark: boolean;
-  /**
-   * Call a method this extension's Pi half registered with `connect()` from
-   * `@nativepi/extension-api/host`. Rejects when no method of that name is
-   * registered, when the extension throws, or when the call takes too long.
-   */
-  call: (method: string, params?: JsonValue) => Promise<JsonValue>;
-  /** Subscribe to events this extension's Pi half emits. Returns an unsubscribe function. */
-  on: (event: string, handler: (payload: JsonValue | undefined) => void) => () => void;
+export interface RendererModel {
+  provider: string;
+  id: string;
+  name?: string;
+  reasoning?: boolean;
+  contextWindow?: number;
 }
 
-export type ToolRenderer = (props: {
-  call: ToolCall;
-  result?: ToolResult;
-  ctx: NativePiContext;
+export interface RendererActions {
+  /** Show a NativePi notification attributed to this extension. */
+  notify(message: string, tone?: "info" | "warning" | "error"): void;
+  /** Insert text into the active draft without sending it. */
+  insertIntoComposer(text: string): void;
+  /** Open an http(s) URL in the user's browser. */
+  openExternal(url: string): Promise<void>;
+  /** Open a project-relative file in the user's preferred editor. */
+  openFile(file: string, location?: { line?: number; column?: number }): Promise<void>;
+  /** Reveal a project-relative file in the platform file manager. */
+  revealFile(file: string): Promise<void>;
+  /** Copy plain text using the browser or remote client's clipboard. */
+  copyText(text: string): Promise<void>;
+}
+
+export interface RendererContext<Protocol extends ExtensionProtocol = ExtensionProtocol> {
+  extension: { id: string; name: string };
+  project: { path: string; name: string };
+  session: { file: string | null; name?: string };
+  agent: {
+    status: "idle" | "starting" | "ready" | "error" | "exited";
+    running: boolean;
+    model?: RendererModel;
+    thinkingLevel: string;
+  };
+  channel: RendererChannel<Protocol>;
+  actions: RendererActions;
+}
+
+export type ToolRenderer<
+  Protocol extends ExtensionProtocol = ExtensionProtocol,
+  Arguments extends Record<string, unknown> = Record<string, unknown>,
+  Details = unknown,
+> = (props: {
+  call: ToolCall<Arguments>;
+  result?: ToolResult<Details>;
+  context: RendererContext<Protocol>;
 }) => ReactNode;
 
-export type EntryRenderer = (props: { entry: SessionEntry; ctx: NativePiContext }) => ReactNode;
+export type EntryRenderer<
+  Protocol extends ExtensionProtocol = ExtensionProtocol,
+  Entry extends SessionEntry = SessionEntry,
+> = (props: { entry: Entry; context: RendererContext<Protocol> }) => ReactNode;
 
-export interface ComposerWidget {
-  key: string;
+export interface ComposerWidget<Protocol extends ExtensionProtocol = ExtensionProtocol> {
+  id: string;
   placement: "aboveComposer" | "belowComposer";
-  render: (ctx: NativePiContext) => ReactNode;
+  render: (context: RendererContext<Protocol>) => ReactNode;
 }
 
-export interface Panel {
-  key: string;
+/** A compact control beside NativePi's model and thinking controls. */
+export interface ComposerControl<Protocol extends ExtensionProtocol = ExtensionProtocol> {
+  id: string;
+  render: (context: RendererContext<Protocol>) => ReactNode;
+}
+
+export interface ContextPanel<Protocol extends ExtensionProtocol = ExtensionProtocol> {
+  id: string;
   title: string;
-  render: (ctx: NativePiContext) => ReactNode;
+  render: (context: RendererContext<Protocol>) => ReactNode;
 }
 
-/**
- * A control on the composer's own row, beside the model and thinking pickers.
- *
- * The row is tight and shared with NativePi's controls, so a control should be
- * a single compact element. Anything taller belongs in a composer widget or a
- * panel.
- */
-export interface ComposerControl {
-  key: string;
-  render: (ctx: NativePiContext) => ReactNode;
-}
-
-/**
- * A section in NativePi's General settings.
- *
- * NativePi draws the heading and description, so the section renders only its
- * controls. Settings an extension keeps here are its own: NativePi does not
- * store them, and a setting that has to survive a restart belongs in Pi, where
- * the terminal can reach it too.
- */
-export interface SettingsSection {
-  key: string;
+/** A section in Settings → General whose durable state remains owned by Pi. */
+export interface SettingsSection<Protocol extends ExtensionProtocol = ExtensionProtocol> {
+  id: string;
   heading: string;
   description?: string;
-  render: (ctx: NativePiContext) => ReactNode;
+  render: (context: RendererContext<Protocol>) => ReactNode;
 }
 
-export interface NativePiRenderer {
-  tools?: Record<string, ToolRenderer>;
-  entries?: Record<string, EntryRenderer>;
-  composerWidgets?: ComposerWidget[];
-  composerControls?: ComposerControl[];
-  panels?: Panel[];
-  settings?: SettingsSection[];
+export interface NativePiRenderer<Protocol extends ExtensionProtocol = ExtensionProtocol> {
+  /** Write the literal `1`; do not derive this from NativePi at runtime. */
+  apiVersion: typeof extensionApiVersion;
+  /** Required only when the renderer talks to its Pi half. */
+  protocol?: Protocol;
+  tools?: Record<string, ToolRenderer<Protocol>>;
+  entries?: Record<string, EntryRenderer<Protocol>>;
+  composerWidgets?: ComposerWidget<Protocol>[];
+  composerControls?: ComposerControl<Protocol>[];
+  panels?: ContextPanel<Protocol>[];
+  settings?: SettingsSection<Protocol>[];
 }
 
-export function defineRenderer(renderer: NativePiRenderer): NativePiRenderer {
+/** Define and contextually type a graphical renderer bundle. */
+export function defineRenderer<const Protocol extends ExtensionProtocol = ExtensionProtocol>(
+  renderer: NativePiRenderer<Protocol>,
+): NativePiRenderer<Protocol> {
   return renderer;
 }

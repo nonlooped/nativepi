@@ -3,7 +3,7 @@ import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CheckIcon } from "@phosphor-icons/react/Check";
 import { GaugeIcon } from "@phosphor-icons/react/Gauge";
 import { defineRenderer } from "@nativepi/extension-api";
-import type { JsonValue, NativePiContext } from "@nativepi/extension-api";
+import type { RendererContext } from "@nativepi/extension-api";
 import {
   Button,
   Menu,
@@ -13,7 +13,7 @@ import {
   MenuLabel,
   MenuTrigger,
 } from "@nativepi/extension-api/ui";
-import { isTierState, type ServiceTier, type TierState } from "../types.ts";
+import { serviceTierProtocol, type ServiceTier, type TierState } from "../types.ts";
 
 const MUTED = "var(--muted-foreground)";
 
@@ -30,8 +30,8 @@ const CHOICES: { tier: ServiceTier; label: string; description: string }[] = [
   },
 ];
 
-function ServiceTierControl({ ctx }: { ctx: NativePiContext }) {
-  const { call, on } = ctx;
+function ServiceTierControl({ context }: { context: RendererContext<typeof serviceTierProtocol> }) {
+  const { call, on } = context.channel;
   const [state, setState] = useState<TierState | null>(null);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState<ServiceTier | null>(null);
@@ -39,8 +39,8 @@ function ServiceTierControl({ ctx }: { ctx: NativePiContext }) {
 
   useEffect(() => {
     let cancelled = false;
-    const apply = (value: JsonValue | undefined) => {
-      if (!cancelled && isTierState(value)) setState(value);
+    const apply = (value: TierState) => {
+      if (!cancelled) setState(value);
     };
     void call("state")
       .then(apply)
@@ -59,8 +59,6 @@ function ServiceTierControl({ ctx }: { ctx: NativePiContext }) {
     setError(null);
     void call("set", { tier })
       .then((value) => {
-        if (!isTierState(value))
-          throw new Error("The response speed was not updated.");
         setState(value);
         setOpen(false);
       })
@@ -172,10 +170,12 @@ function ServiceTierControl({ ctx }: { ctx: NativePiContext }) {
 }
 
 export default defineRenderer({
+  apiVersion: 1,
+  protocol: serviceTierProtocol,
   composerControls: [
     {
-      key: "service-tier",
-      render: (ctx) => <ServiceTierControl ctx={ctx} />,
+      id: "service-tier",
+      render: (context) => <ServiceTierControl context={context} />,
     },
   ],
 });

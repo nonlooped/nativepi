@@ -1,4 +1,4 @@
-import type { ExtensionMethod } from "@nativepi/extension-api/host";
+import type {} from "@nativepi/extension-api/host";
 import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import type { TuiHostFrame } from "../../../shared/tui-frames.ts";
 import { isJsonValue, type JsonValue } from "../../../shared/json.ts";
@@ -16,6 +16,8 @@ import { isJsonValue, type JsonValue } from "../../../shared/json.ts";
  * both halves already have — the renderer half is loaded from the manifest that
  * declares it, and the Pi half passes it to `connect()`.
  */
+
+type ExtensionMethod = (params: JsonValue | undefined) => JsonValue | Promise<JsonValue>;
 
 const methods = new Map<string, Map<string, ExtensionMethod>>();
 
@@ -53,14 +55,12 @@ export function installExtensionMethodLifecycle(prototype: Pick<AgentSession, "d
 export function installExtensionChannel(send: (frame: TuiHostFrame) => void): void {
   methods.clear();
   globalThis.__NATIVEPI_EXTENSION_HOST__ = {
-    method(extension, name, handler) {
-      if (typeof handler !== "function") return;
-      let registered = methods.get(extension);
-      if (!registered) {
-        registered = new Map();
-        methods.set(extension, registered);
+    register(extension, handlers) {
+      const registered = new Map<string, ExtensionMethod>();
+      for (const [name, handler] of Object.entries(handlers)) {
+        if (name && typeof handler === "function") registered.set(name, handler);
       }
-      registered.set(name, handler);
+      methods.set(extension, registered);
     },
     emit(extension, event, payload) {
       if (payload !== undefined && !isJsonValue(payload)) {

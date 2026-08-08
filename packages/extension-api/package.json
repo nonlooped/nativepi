@@ -1,7 +1,7 @@
 {
   "name": "@nativepi/extension-api",
   "version": "0.3.0",
-  "description": "Graphical extension types and helpers for NativePi.",
+  "description": "Typed, schema-validated graphical extension API for NativePi.",
   "author": "nonlooped",
   "license": "MIT",
   "type": "module",
@@ -10,6 +10,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./host": "./src/host.ts",
+    "./schema": "./src/schema.ts",
     "./ui": "./src/ui.ts"
   },
   "scripts": {
@@ -44,6 +45,9 @@
     "react": {
       "optional": true
     }
+  },
+  "dependencies": {
+    "zod": "^4"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",

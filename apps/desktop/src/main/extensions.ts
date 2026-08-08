@@ -24,16 +24,19 @@ const REACT_EXPORTS = [
 ];
 const JSX_EXPORTS = ["jsx", "jsxs", "Fragment"];
 const JSX_DEV_EXPORTS = ["jsxDEV", "Fragment"];
-const API_EXPORTS = ["defineRenderer", "version"];
+const API_EXPORTS = ["defineProtocol", "defineRenderer", "extensionApiVersion", "version"];
 
 // NativePi's interface components, lent to extensions so their UI carries real
 // styles. Tailwind cannot see extension code, so a class an extension writes has
 // no rule behind it and only a shared component can look native.
 const UI_EXPORTS = [
-  "Button",
+  "Badge", "Button", "Input", "Textarea", "Label", "Switch", "Separator",
+  "Field", "FieldContent", "FieldDescription", "FieldError", "FieldGroup", "FieldLabel",
   "Dialog", "DialogTrigger", "DialogClose", "DialogContent", "DialogHeader",
   "DialogFooter", "DialogTitle", "DialogDescription",
   "Menu", "MenuTrigger", "MenuContent", "MenuGroup", "MenuLabel", "MenuItem", "MenuSeparator", "SettingsActionRow",
+  "Select", "SelectContent", "SelectGroup", "SelectItem", "SelectLabel", "SelectSeparator", "SelectTrigger", "SelectValue",
+  "SettingsSwitchRow", "SettingsSelectRow", "SettingsTextRow", "SettingsSliderRow",
 ];
 
 const HOST_MODULES: Record<string, string[]> = {
@@ -41,6 +44,7 @@ const HOST_MODULES: Record<string, string[]> = {
   "react/jsx-runtime": JSX_EXPORTS,
   "react/jsx-dev-runtime": JSX_DEV_EXPORTS,
   "@nativepi/extension-api": API_EXPORTS,
+  "@nativepi/extension-api/schema": ["z"],
   "@nativepi/extension-api/ui": UI_EXPORTS,
 };
 
@@ -66,7 +70,7 @@ function shimFor(key: string, names: string[]): string {
 const hostGlobalsPlugin: Plugin = {
   name: "nativepi-host-globals",
   setup(pluginBuild) {
-    const filter = /^(react|react\/jsx-runtime|react\/jsx-dev-runtime|@nativepi\/extension-api(\/ui)?)$/;
+    const filter = /^(react|react\/jsx-runtime|react\/jsx-dev-runtime|@nativepi\/extension-api(\/(schema|ui))?)$/;
     pluginBuild.onResolve({ filter }, (args) => ({ path: args.path, namespace: "nativepi-host" }));
     pluginBuild.onLoad({ filter: /.*/, namespace: "nativepi-host" }, (args) => ({
       contents: shimFor(args.path, HOST_MODULES[args.path] ?? []),

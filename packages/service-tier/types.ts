@@ -1,19 +1,22 @@
-import type { JsonValue } from "@nativepi/extension-api";
+import { defineProtocol } from "@nativepi/extension-api";
+import { z } from "@nativepi/extension-api/schema";
 
-export type ServiceTier = "standard" | "fast";
+export const serviceTierSchema = z.enum(["standard", "fast"]);
+export type ServiceTier = z.infer<typeof serviceTierSchema>;
 
-/** What the renderer half receives from the `state` and `set` methods. */
-export type TierState = {
-  supported: boolean;
-  tier: ServiceTier;
-};
+export const tierStateSchema = z.object({
+  supported: z.boolean(),
+  tier: serviceTierSchema,
+});
+export type TierState = z.infer<typeof tierStateSchema>;
 
-export function isTierState(value: JsonValue | undefined): value is TierState {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    typeof value["supported"] === "boolean" &&
-    (value["tier"] === "standard" || value["tier"] === "fast")
-  );
-}
+export const serviceTierProtocol = defineProtocol({
+  methods: {
+    state: { result: tierStateSchema },
+    set: {
+      params: z.object({ tier: serviceTierSchema }),
+      result: tierStateSchema,
+    },
+  },
+  events: { changed: tierStateSchema },
+});
