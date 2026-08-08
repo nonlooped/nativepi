@@ -1,177 +1,86 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { Code } from "@/components/site/Code";
-import { H2, H3, Note, PageTitle, Prose } from "@/components/docs/Prose";
+import { H2, Note, PageTitle, Prose } from "@/components/docs/Prose";
 
 export const metadata: Metadata = {
-  title: "Working with Pi",
-  description:
-    "Where sessions live, what NativePi stores, how settings are shared with the Pi command line, and what optional browser access does.",
+  title: "NativePi and Pi",
+  description: "Understand how NativePi presents Pi without replacing its agent loop, configuration, sessions, tools, or extensions.",
 };
 
 export default function WorkingWithPiPage() {
   return (
     <>
       <PageTitle
-        eyebrow="Getting started"
-        title="Working with Pi"
-        lede="NativePi is a window onto Pi, not a replacement for it. Knowing which of the two owns what makes the rest of the app predictable."
+        eyebrow="Using NativePi"
+        title="NativePi and Pi"
+        lede="Pi is the coding agent. NativePi is a desktop interface that starts Pi, sends it ordinary commands, and renders what it returns."
       />
 
-      <H2 id="who-owns-what">Who owns what</H2>
+      <H2 id="pi-owns">What Pi owns</H2>
       <Prose>
         <p>
-          Pi owns the agent loop, providers, models, authentication, tools,
-          prompts, skills, extensions, queues, compaction, and sessions. NativePi
-          calls Pi and renders the result. It has no agent loop, makes no model
-          requests of its own, and adds no tools.
+          Pi owns the agent loop, provider and model integrations,
+          authentication, tools, prompts, skills, extensions, message queues,
+          compaction, and sessions. A NativePi chat runs a pinned Pi build in RPC
+          mode rather than reproducing those capabilities in the desktop app.
         </p>
         <p>
-          A pinned Pi build is bundled with each release and started in RPC mode.
-          NativePi keeps one Pi process per active chat, so chats in the same
-          project and chats in different projects can run at the same time.
+          This means a prompt sent under the same Pi configuration should behave
+          similarly in NativePi and Pi&apos;s terminal interface.
         </p>
       </Prose>
 
-      <H2 id="sessions">Sessions and credentials</H2>
+      <H2 id="nativepi-owns">What NativePi owns</H2>
       <Prose>
         <p>
-          Conversations are Pi session files. They live in Pi&apos;s normal
-          storage and remain fully interchangeable with the Pi command line.
-          There is no second conversation store.
+          NativePi owns desktop concerns: pinned projects and chats, panes,
+          drafts, integrated terminals, narrow Git workflows, browser access,
+          notifications, keyboard shortcuts, and its window preferences. It also
+          exposes controlled graphical slots for packages that opt into the{" "}
+          <Link href="/docs/extension-api">extension API</Link>.
         </p>
       </Prose>
 
-      <div className="measure mt-5">
-        <Code
-          lang="shell"
-          code={`~/.pi/agent
-├── sessions/      # conversations, shared with the pi CLI
-├── packages/      # installed Pi packages
-├── settings.json  # agent configuration
-└── auth.json      # provider auth, never held by NativePi`}
-        />
-      </div>
-
-      <Prose className="mt-6">
+      <H2 id="processes">How chats run</H2>
+      <Prose>
         <p>
-          Conversations open directly from session files without waiting for a Pi
-          process to start, so resuming is immediate. Credentials are never
-          written to NativePi&apos;s renderer storage or its state file.
+          Each active chat gets its own Pi process. Chats in one project or
+          across several projects can run concurrently. Opening a saved
+          conversation does not wait for Pi to start because NativePi reads Pi&apos;s
+          session file for display, then starts the process when the chat needs
+          agent work.
         </p>
       </Prose>
 
-      <H3 id="session-workflows">What you can do to a session</H3>
+      <H2 id="configuration">Shared configuration</H2>
       <Prose>
         <p>
-          Create, resume, rename, clone, fork, delete, import, export to HTML,
-          inspect the session tree and statistics, and compact. These workflows
-          use Pi&apos;s session formats and APIs; NativePi performs the small
-          desktop-side file operations where Pi has no direct command.
-        </p>
-      </Prose>
-
-      <H2 id="nativepi-storage">What NativePi stores</H2>
-      <Prose>
-        <p>This is the complete list:</p>
-        <ul>
-          <li>Pinned projects and chats</li>
-          <li>The last project and chat you had open</li>
-          <li>Unsent text drafts</li>
-          <li>Favorite models</li>
-          <li>Pane sizes</li>
-          <li>Its own interface preferences, including appearance, notifications, and keyboard shortcuts</li>
-        </ul>
-        <p>
-          NativePi does not store conversations or credentials, and it does not
-          collect telemetry. Conversations and credentials stay in Pi&apos;s files
-          on this computer. Browser access is off until you start it.
-        </p>
-      </Prose>
-
-      <H2 id="settings">Settings</H2>
-      <Prose>
-        <p>
-          Agent configuration belongs to Pi. NativePi reads and writes it through
-          Pi&apos;s own settings manager at user scope, so a change you make in
-          the Settings screen is a change the Pi command line sees immediately.
-          NativePi never writes Pi&apos;s configuration format itself, and it
-          exposes only the settings that mean something in a desktop window.
+          Agent settings shown in NativePi are read and written through Pi&apos;s
+          settings manager at user scope. The Pi command line sees those changes
+          immediately. Project-scope overrides remain managed through Pi.
         </p>
         <p>
-          Project-scope overrides remain the command line&apos;s business.
-          NativePi does not edit them.
-        </p>
-      </Prose>
-
-      <H2 id="git">Git</H2>
-      <Prose>
-        <p>
-          The context pane shows Git status and working-tree diffs beside the
-          transcript. You can stage individual hunks or whole files, create a
-          commit, push the current branch, and open a GitHub pull request through{" "}
-          <code>gh</code>. Pi can draft commit wording when asked. From the
-          composer you can switch or create a branch on a clean worktree, and from
-          the project menu you can add a worktree, which NativePi opens as a
-          project of its own.
+          NativePi bundles a pinned Pi version, so it may not match a separately
+          installed CLI version at every moment. Both still use Pi&apos;s normal
+          files and formats.
         </p>
       </Prose>
 
       <Note>
-        Git access stays narrow on purpose. NativePi does not merge, rebase,
-        discard changes, create checkpoints, roll back work, or rewrite history.
-        Those stay with your normal tools.
+        Uninstalling NativePi does not uninstall Pi data. Your agent workflow
+        remains available through the Pi command line because NativePi never
+        creates a second conversation store.
       </Note>
 
-      <H2 id="extensions">Pi packages and extensions</H2>
+      <H2 id="related">Related guides</H2>
       <Prose>
-        <p>
-          Normal Pi extensions run inside Pi, unchanged. NativePi can install,
-          update, remove, and reload Pi packages at user or project scope, and it
-          shows load errors rather than swallowing them.
-        </p>
-        <p>
-          Pi&apos;s own slash commands, prompt templates, and skills are offered
-          by name in the composer and run through Pi, including while a turn is
-          already in flight. An extension that wants to draw its own desktop UI
-          uses a shared, schema-validated protocol through the{" "}
-          <Link href="/docs/extension-api">graphical extension API</Link>.
-        </p>
+        <ul>
+          <li><Link href="/docs/sessions-and-storage">Sessions and storage</Link></li>
+          <li><Link href="/docs/packages-and-extensions">Packages and extensions</Link></li>
+          <li><a href="https://pi.dev/" target="_blank" rel="noreferrer noopener">Pi documentation</a></li>
+        </ul>
       </Prose>
-
-      <H2 id="terminals">Terminals</H2>
-      <Prose>
-        <p>
-          Each project can open integrated terminals in a resizable split. They
-          stay alive while hidden and while another project is in front. If
-          closing the window would stop an agent turn or a terminal, NativePi
-          names what it would stop before quitting.
-        </p>
-      </Prose>
-
-      <H2 id="local-server">Browser access</H2>
-      <Prose>
-        <p>
-          NativePi can open an access-token-protected HTTP and WebSocket server
-          that presents the same projects, chats, changes, and terminals in a
-          browser while the desktop app stays open. Start it for devices on your
-          local network, or create a temporary public link that reaches the same
-          server through a throwaway Cloudflare tunnel. The public link closes
-          itself after twelve hours. Either form runs until you stop it or
-          NativePi exits.
-        </p>
-      </Prose>
-
-      <Note tone="warning">
-        Access is off until you start it. Local access listens on this
-        computer&apos;s network interfaces, so your firewall, VPN, and router
-        decide which devices can reach it. Use local access only on networks you
-        trust. A public link dials out to Cloudflare; NativePi does not operate a
-        hosted relay, register a permanent address, or hold an account. One token
-        backs both links, so replacing it invalidates everything handed out so
-        far.
-      </Note>
     </>
   );
 }

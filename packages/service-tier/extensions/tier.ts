@@ -20,7 +20,6 @@ const CHOICES: { tier: ServiceTier; label: string; description: string }[] = [
 const FAST_MODEL_IDS = new Set(["gpt-5.4", "gpt-5.5", "gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra"]);
 
 const TIER_ENTRY = "service-tier";
-const LEGACY_TIER_ENTRY = "nativepi-service-tier";
 const TIER_STATUS = "service-tier";
 
 /**
@@ -151,7 +150,7 @@ export function persistedServiceTier(entries: readonly unknown[]) {
   for (let index = entries.length - 1; index >= 0; index--) {
     const entry = entries[index];
     if (!isRecord(entry) || entry["type"] !== "custom") continue;
-    if (entry["customType"] !== TIER_ENTRY && entry["customType"] !== LEGACY_TIER_ENTRY) continue;
+    if (entry["customType"] !== TIER_ENTRY) continue;
     const tier = asTier(isRecord(entry["data"]) ? entry["data"]["tier"] : undefined);
     if (tier) return tier;
   }

@@ -135,8 +135,8 @@ test("a later user turn cannot schedule another title", () => {
   expect(harness.names).toEqual([]);
 });
 
-test("uses the title model recorded by the legacy built-in extension", async () => {
-  const harness = createHarness("C:\\legacy-title-model.jsonl", [
+test("uses the persisted title model", async () => {
+  const harness = createHarness("C:\\title-model.jsonl", [
     { type: "custom", customType: "nativepi-title-generator", data: { modelSetting: "openai/gpt-5-mini" } },
   ]);
   harness.handlers.get("before_agent_start")?.({ prompt: "review the title flow" }, harness.context);

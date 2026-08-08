@@ -23,9 +23,9 @@ test("Fast is only offered for supported Codex models", () => {
   expect(supportsFastServiceTier({ provider: "openai", id: "gpt-5.6-sol" })).toBe(false);
 });
 
-test("uses the last tier recorded by the legacy built-in extension", () => {
+test("uses the last tier recorded in the session", () => {
   expect(persistedServiceTier([
     { type: "custom", customType: "service-tier", data: { tier: "standard" } },
-    { type: "custom", customType: "nativepi-service-tier", data: { tier: "fast" } },
+    { type: "custom", customType: "service-tier", data: { tier: "fast" } },
   ])).toBe("fast");
 });
