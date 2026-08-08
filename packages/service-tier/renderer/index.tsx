@@ -98,8 +98,8 @@ function ServiceTierControl({ context }: { context: RendererContext<typeof servi
         <CaretDownIcon data-icon="inline-end" />
       </MenuTrigger>
       <MenuContent side="top" style={{ width: "17rem", padding: "0.375rem" }}>
-        <MenuLabel>Response speed</MenuLabel>
         <MenuGroup>
+          <MenuLabel>Response speed</MenuLabel>
           {CHOICES.map((choice) => {
             const active = state.tier === choice.tier;
             const pending = saving === choice.tier;
