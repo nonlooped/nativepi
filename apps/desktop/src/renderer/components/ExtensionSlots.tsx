@@ -1,15 +1,41 @@
-import type { NativePiContext, SessionEntry as ExtSessionEntry, ToolResult } from "@nativepi/extension-api";
+import type {
+  ExtensionProtocol,
+  RendererActions,
+  RendererChannel,
+  RendererContext,
+  SessionEntry as ExtSessionEntry,
+  ToolResult,
+  ValueSchema,
+} from "@nativepi/extension-api";
 import type { ReactNode } from "react";
 import type { SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
+import { isJsonValue, type JsonValue } from "../../shared/json.ts";
 import { textOf } from "../../shared/messages.ts";
+import type { LoadedExtension } from "../lib/extensionHost.ts";
 import { subscribeToExtension } from "../lib/extensionHost.ts";
+import { absoluteProjectPath } from "../lib/paths.ts";
 import { rpc } from "../lib/rpc.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
+import { showExtensionNotification } from "../lib/toast.tsx";
 import ExtensionBoundary from "./ExtensionBoundary.tsx";
 import { SettingsSection } from "./settings/rows.tsx";
 import { TuiPane } from "./TuiSurface.tsx";
 
-type BaseContext = Omit<NativePiContext, "call" | "on">;
+type BaseContext = Pick<RendererContext, "project" | "session" | "agent">;
+
+const EMPTY_PROTOCOL: ExtensionProtocol = { methods: {}, events: {} };
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function parse<Output extends JsonValue | undefined>(schema: ValueSchema<Output>, value: unknown, label: string): Output {
+  try {
+    return schema.parse(value);
+  } catch (error) {
+    throw new Error(`${label}: ${errorMessage(error)}`, { cause: error });
+  }
+}
 
 /**
  * The channel half of an extension's context, made once per extension.
@@ -20,46 +46,130 @@ type BaseContext = Omit<NativePiContext, "call" | "on">;
  * rather than when they are built, which is also the correct reading — a call
  * fired from a click belongs to the session on screen then, not at render.
  */
-const bridges = new Map<string, Pick<NativePiContext, "call" | "on">>();
+const bridges = new Map<string, { protocol: ExtensionProtocol; channel: RendererChannel }>();
 
-function bridgeFor(extension: string): Pick<NativePiContext, "call" | "on"> {
+function bridgeFor(extension: string, protocol: ExtensionProtocol): RendererChannel {
   const existing = bridges.get(extension);
-  if (existing) return existing;
+  if (existing?.protocol === protocol) return existing.channel;
 
-  const bridge: Pick<NativePiContext, "call" | "on"> = {
-    call: async (method, params) => {
+  const channel = {
+    call: async (method: string, params?: JsonValue) => {
+      const schema = protocol.methods[method];
+      if (!schema) throw new Error(`Extension ${extension} has no declared method "${method}"`);
+      let parsedParams: JsonValue | undefined;
+      if (schema.params) parsedParams = parse(schema.params, params, `Invalid parameters for "${method}"`);
+      else if (params !== undefined) throw new Error(`Method "${method}" does not take parameters.`);
+      if (parsedParams !== undefined && !isJsonValue(parsedParams)) {
+        throw new Error(`Parameters for "${method}" did not parse to a JSON value.`);
+      }
       const { activeProjectPath: projectDir, activeSessionFile: sessionFile } = useAppStore.getState();
       if (!projectDir) throw new Error("No project is open");
-      const { result, error } = await rpc.request.callExtension({ projectDir, sessionFile, extension, method, params });
+      const { result, error } = await rpc.request.callExtension({
+        projectDir,
+        sessionFile,
+        extension,
+        method,
+        ...(parsedParams === undefined ? {} : { params: parsedParams }),
+      });
       if (error) throw new Error(error);
       const current = useAppStore.getState();
       if (current.activeProjectPath !== projectDir || current.activeSessionFile !== sessionFile) {
         throw new Error("Chat changed before the extension call completed");
       }
-      if (result === undefined) throw new Error("Extension call returned no result");
-      return result;
+      return parse(schema.result, result, `Invalid result from "${method}"`);
     },
-    on: (event, handler) =>
-      subscribeToExtension(extension, (name, payload) => {
-        if (name === event) handler(payload);
-      }),
+    on: (event: string, handler: (payload?: JsonValue) => void) => {
+      if (!(event in protocol.events)) throw new Error(`Extension ${extension} has no declared event "${event}"`);
+      const schema = protocol.events[event];
+      return subscribeToExtension(extension, (name, payload) => {
+        if (name !== event) return;
+        if (!schema) {
+          if (payload !== undefined) throw new Error(`Event "${event}" received an unexpected payload.`);
+          (handler as () => void)();
+          return;
+        }
+        (handler as (payload: JsonValue | undefined) => void)(parse(schema, payload, `Invalid payload for "${event}"`));
+      });
+    },
+  } as unknown as RendererChannel;
+  bridges.set(extension, { protocol, channel });
+  return channel;
+}
+
+const actions = new Map<string, RendererActions>();
+
+function projectRelativeFile(file: string): string {
+  const normalized = file.replace(/\\/g, "/");
+  if (!normalized || normalized.startsWith("/") || /^[a-z]:\//i.test(normalized)) {
+    throw new Error("Expected a project-relative file path.");
+  }
+  let depth = 0;
+  for (const part of normalized.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") depth -= 1;
+    else depth += 1;
+    if (depth < 0) throw new Error("The file is outside this project.");
+  }
+  return file;
+}
+
+function actionsFor(extension: string): RendererActions {
+  const existing = actions.get(extension);
+  if (existing) return existing;
+  const next: RendererActions = {
+    notify: (message, tone) => showExtensionNotification(`${extension}: ${message}`, tone),
+    insertIntoComposer: (text) => useAppStore.getState().insertIntoComposer(text),
+    openExternal: async (url) => {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error("Only http(s) URLs can be opened.");
+      const result = await rpc.request.openExternal({ url: parsed.href });
+      if (!result.ok) throw new Error("NativePi could not open that URL.");
+    },
+    openFile: async (file, location) => {
+      const state = useAppStore.getState();
+      if (!state.activeProjectPath) throw new Error("No project is open.");
+      const result = await rpc.request.openFileIn({
+        projectDir: state.activeProjectPath,
+        file: projectRelativeFile(file),
+        editorId: state.preferences.preferredEditorId,
+        ...location,
+      });
+      if (!result.ok) throw new Error(result.error ?? `NativePi could not open ${file}.`);
+    },
+    revealFile: async (file) => {
+      const projectDir = useAppStore.getState().activeProjectPath;
+      if (!projectDir) throw new Error("No project is open.");
+      const result = await rpc.request.showInFolder({ path: absoluteProjectPath(projectDir, projectRelativeFile(file)) });
+      if (!result.ok) throw new Error(`NativePi could not reveal ${file}.`);
+    },
+    copyText: async (text) => navigator.clipboard.writeText(text),
   };
-  bridges.set(extension, bridge);
-  return bridge;
+  actions.set(extension, next);
+  return next;
 }
 
-function contextFor(base: BaseContext, extension: string): NativePiContext {
-  return { ...base, ...bridgeFor(extension) };
+function contextFor(base: BaseContext, extension: LoadedExtension): RendererContext {
+  return {
+    ...base,
+    extension: { id: extension.id, name: extension.name },
+    channel: bridgeFor(extension.name, extension.renderer.protocol ?? EMPTY_PROTOCOL),
+    actions: actionsFor(extension.name),
+  };
 }
 
-function useNativePiContext(): BaseContext {
+function useRendererContext(): BaseContext {
   const projectDir = useAppStore((s) => s.activeProjectPath);
+  const projectName = useAppStore((s) => s.projects.find((project) => project.path === s.activeProjectPath)?.name);
   const sessionFile = useAppStore((s) => s.activeSessionFile);
   const sessionName = useAppStore((s) => activeConversation(s).sessionName);
-  const dark = typeof document !== "undefined" ? document.documentElement.classList.contains("dark") : true;
+  const running = useAppStore((s) => activeConversation(s).running);
+  const status = useAppStore((s) => s.activeProjectPath ? (s.piStatus[s.activeProjectPath] ?? "idle") : "idle");
+  const model = useAppStore((s) => s.model);
+  const thinkingLevel = useAppStore((s) => s.thinkingLevel);
   return {
-    session: projectDir ? { projectDir, sessionFile: sessionFile ?? undefined, sessionName } : null,
-    dark,
+    project: { path: projectDir ?? "", name: projectName ?? projectDir ?? "" },
+    session: { file: sessionFile, name: sessionName },
+    agent: { status, running, model, thinkingLevel },
   };
 }
 
@@ -72,12 +182,12 @@ function ExtensionContribution({ render }: { render: () => ReactNode }) {
 // channel functions. A new key remounts that work for a chat change, so a slow
 // response from the old chat has no component left to update.
 function sessionKey(ctx: BaseContext) {
-  return ctx.session?.sessionFile ?? "new";
+  return ctx.session.file ?? "new";
 }
 
 export function ExtensionToolResult({ call, result }: { call: ToolCall; result?: ToolResultMessage }) {
   const renderers = useAppStore((s) => s.extRenderers);
-  const base = useNativePiContext();
+  const base = useRendererContext();
 
   for (const ext of renderers) {
     const render = ext.renderer.tools?.[call.name];
@@ -92,7 +202,7 @@ export function ExtensionToolResult({ call, result }: { call: ToolCall; result?:
             render({
               call: { id: call.id, name: call.name, arguments: call.arguments },
               result: toolResult,
-              ctx: contextFor(base, ext.name),
+              context: contextFor(base, ext),
             })
           }
         />
@@ -104,14 +214,14 @@ export function ExtensionToolResult({ call, result }: { call: ToolCall; result?:
 
 export function ExtensionEntry({ entry }: { entry: SessionEntry }) {
   const renderers = useAppStore((s) => s.extRenderers);
-  const base = useNativePiContext();
+  const base = useRendererContext();
 
   for (const ext of renderers) {
     const render = ext.renderer.entries?.[entry.type];
     if (!render) continue;
     return (
       <ExtensionBoundary key={`${ext.id}:${entry.id}:${sessionKey(base)}`} name={ext.name}>
-        <ExtensionContribution render={() => render({ entry: entry as unknown as ExtSessionEntry, ctx: contextFor(base, ext.name) })} />
+        <ExtensionContribution render={() => render({ entry: entry as unknown as ExtSessionEntry, context: contextFor(base, ext) })} />
       </ExtensionBoundary>
     );
   }
@@ -130,7 +240,7 @@ export function ComposerWidgets({ placement }: { placement: "aboveComposer" | "b
   const renderers = useAppStore((s) => s.extRenderers);
   const widgets = useAppStore((s) => s.extWidgets);
   const surfaces = useAppStore((s) => s.extSurfaces);
-  const base = useNativePiContext();
+  const base = useRendererContext();
 
   const serializablePlacement = placement === "aboveComposer" ? "aboveEditor" : "belowEditor";
   const serializable = Object.entries(widgets).filter(([, w]) => w.placement === serializablePlacement);
@@ -155,8 +265,8 @@ export function ComposerWidgets({ placement }: { placement: "aboveComposer" | "b
         </div>
       ))}
       {graphical.map(({ ext, w }) => (
-        <ExtensionBoundary key={`${ext.id}:${w.key}:${sessionKey(base)}`} name={ext.name}>
-          <ExtensionContribution render={() => w.render(contextFor(base, ext.name))} />
+        <ExtensionBoundary key={`${ext.id}:${w.id}:${sessionKey(base)}`} name={ext.name}>
+          <ExtensionContribution render={() => w.render(contextFor(base, ext))} />
         </ExtensionBoundary>
       ))}
       {terminal.map((surface) => (
@@ -180,25 +290,25 @@ const WIDGET_ROWS = 3;
 
 export function ComposerControls() {
   const renderers = useAppStore((s) => s.extRenderers);
-  const base = useNativePiContext();
+  const base = useRendererContext();
   const controls = renderers.flatMap((ext) => (ext.renderer.composerControls ?? []).map((c) => ({ ext, c })));
 
   return controls.map(({ ext, c }) => (
-    <ExtensionBoundary key={`${ext.id}:${c.key}:${sessionKey(base)}`} name={ext.name}>
-      <ExtensionContribution render={() => c.render(contextFor(base, ext.name))} />
+    <ExtensionBoundary key={`${ext.id}:${c.id}:${sessionKey(base)}`} name={ext.name}>
+      <ExtensionContribution render={() => c.render(contextFor(base, ext))} />
     </ExtensionBoundary>
   ));
 }
 
 export function ExtensionSettings() {
   const renderers = useAppStore((s) => s.extRenderers);
-  const base = useNativePiContext();
+  const base = useRendererContext();
   const sections = renderers.flatMap((ext) => (ext.renderer.settings ?? []).map((s) => ({ ext, s })));
 
   return sections.map(({ ext, s }) => (
-    <SettingsSection key={`${ext.id}:${s.key}:${sessionKey(base)}`} heading={s.heading} description={s.description}>
+    <SettingsSection key={`${ext.id}:${s.id}:${sessionKey(base)}`} heading={s.heading} description={s.description}>
       <ExtensionBoundary name={ext.name}>
-        <ExtensionContribution render={() => s.render(contextFor(base, ext.name))} />
+        <ExtensionContribution render={() => s.render(contextFor(base, ext))} />
       </ExtensionBoundary>
     </SettingsSection>
   ));
@@ -206,17 +316,17 @@ export function ExtensionSettings() {
 
 export function ExtensionPanels() {
   const renderers = useAppStore((s) => s.extRenderers);
-  const base = useNativePiContext();
+  const base = useRendererContext();
   const panels = renderers.flatMap((ext) => (ext.renderer.panels ?? []).map((p) => ({ ext, p })));
   if (panels.length === 0) return null;
 
   return (
     <div className="flex flex-col">
       {panels.map(({ ext, p }) => (
-        <section key={`${ext.id}:${p.key}:${sessionKey(base)}`} className="border-b p-3">
+        <section key={`${ext.id}:${p.id}:${sessionKey(base)}`} className="border-b p-3">
           <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">{p.title}</h3>
           <ExtensionBoundary name={ext.name}>
-            <ExtensionContribution render={() => p.render(contextFor(base, ext.name))} />
+            <ExtensionContribution render={() => p.render(contextFor(base, ext))} />
           </ExtensionBoundary>
         </section>
       ))}

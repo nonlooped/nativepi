@@ -23,3 +23,18 @@ test("one broken extension event listener does not block the next listener", asy
 
   expect(calls).toEqual(['changed:{"count":1}']);
 });
+
+test("renderer definitions are rejected before contribution code can run", async () => {
+  Reflect.set(globalThis, "window", { location: { hash: "", protocol: "http:", host: "localhost" } });
+  const { validateRenderer } = await import("./extensionHost.ts");
+  const render = () => null;
+
+  expect(() => validateRenderer({ apiVersion: 2 })).toThrow("supports 1");
+  expect(() => validateRenderer({ apiVersion: 1, composerControls: [{ id: "same", render }, { id: "same", render }] }))
+    .toThrow('duplicate id "same"');
+  expect(() => validateRenderer({ apiVersion: 1, composerControls: [{ id: "missing-render" }] }))
+    .toThrow("composerControls.0.render");
+
+  expect(validateRenderer({ apiVersion: 1, panels: [{ id: "summary", title: "Summary", render }] }))
+    .toMatchObject({ apiVersion: 1, panels: [{ id: "summary", title: "Summary" }] });
+});
