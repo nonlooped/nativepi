@@ -1,6 +1,6 @@
 {
   "name": "@nativepi/meta",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Adds Meta as a provider for Muse Spark models via the Meta Model API, in Pi and in NativePi.",
   "author": "nonlooped",
   "license": "MIT",
