@@ -86,7 +86,7 @@ jobs:
           }
 
           if (git ls-remote --exit-code --tags origin "refs/tags/$tag") {
-            git fetch origin "refs/tags/$tag:refs/tags/$tag"
+            git fetch origin "refs/tags/${tag}:refs/tags/${tag}"
             if ((git rev-parse "$tag^{commit}") -ne (git rev-parse HEAD)) {
               throw "Tag $tag already points to a different commit"
             }
