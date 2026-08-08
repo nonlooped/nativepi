@@ -1,3 +1,14 @@
+interface DocsLink {
+  href: string;
+  label: string;
+  description: string;
+}
+
+interface DocsSection {
+  title: string;
+  links: readonly DocsLink[];
+}
+
 export const docsSections = [
   {
     title: "Getting started",
@@ -112,6 +123,11 @@ export const docsSections = [
         label: "Shared UI",
         description: "Use NativePi-styled controls, semantic CSS variables, dialogs, menus, and fields.",
       },
+      {
+        href: "/docs/extension-api/examples",
+        label: "Examples and recipes",
+        description: "Copy focused patterns for live state, failures, tool lifecycle UI, settings, and desktop actions.",
+      },
     ],
   },
   {
@@ -129,6 +145,6 @@ export const docsSections = [
       },
     ],
   },
-] as const;
+] as const satisfies readonly DocsSection[];
 
-export const docsLinks = docsSections.flatMap((section) => section.links);
+export const docsLinks = docsSections.flatMap<DocsLink>((section) => section.links);

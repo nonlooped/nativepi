@@ -67,9 +67,10 @@ shape Pi.
 
 Site scope:
 
-- Marketing surface (Persuade) plus a smaller documentation surface (Read).
-- Documentation is two general pages plus a complete reference for the
-  graphical extension API.
+- Marketing surface (Persuade) plus a task-focused documentation surface (Read).
+- Documentation covers installation and core desktop workflows, then provides
+  separate graphical extension guides, examples, contribution guides, migration
+  help, and API reference.
 - Deployed on Vercel from this monorepo at `apps/web`.
 - Dark only. The product is dark only; the site matches and ships no light
   theme and no theme toggle.

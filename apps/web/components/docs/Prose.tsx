@@ -18,8 +18,14 @@ export function Prose({
       className={cn(
         "measure",
         "[&_p]:mt-4 [&_p]:text-base [&_p]:leading-[1.7] [&_p]:text-silver",
-        "[&_ul]:mt-4 [&_ul]:space-y-2 [&_ol]:mt-4 [&_ol]:space-y-2",
-        "[&_li]:text-base [&_li]:leading-[1.7] [&_li]:text-silver",
+        "[&_ul]:mt-4 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:ps-5",
+        "[&_ol]:mt-4 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:ps-5",
+        "[&_li]:text-base [&_li]:leading-[1.7] [&_li]:text-silver [&_li]:marker:text-dim",
+        "[&_table]:w-full [&_table]:min-w-[36rem] [&_table]:border-collapse [&_table]:text-start",
+        "[&_th]:border-b [&_th]:border-hairline [&_th]:px-3 [&_th]:py-2.5",
+        "[&_th]:text-start [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-[0.06em] [&_th]:text-silver",
+        "[&_td]:border-b [&_td]:border-hairline [&_td]:px-3 [&_td]:py-3 [&_td]:align-top",
+        "[&_td]:text-sm [&_td]:leading-relaxed [&_td]:text-silver",
         "[&_strong]:font-semibold [&_strong]:text-chalk",
         "[&_a]:text-chalk [&_a]:underline [&_a]:decoration-hairline [&_a]:underline-offset-4",
         "hover:[&_a]:decoration-current",
@@ -93,6 +99,10 @@ export function Note({
     <aside
       className={cn(
         "measure mt-6 rounded-lg border p-4 text-sm leading-relaxed",
+        "[&_a]:text-chalk [&_a]:underline [&_a]:decoration-hairline [&_a]:underline-offset-4",
+        "hover:[&_a]:decoration-current",
+        "[&_code]:rounded-sm [&_code]:bg-white/[0.07] [&_code]:px-1 [&_code]:py-0.5",
+        "[&_code]:font-mono [&_code]:text-[0.875em] [&_code]:text-chalk",
         tone === "warning"
           ? "border-amber/30 bg-amber/[0.06] text-chalk"
           : "border-hairline bg-white/[0.03] text-silver",
