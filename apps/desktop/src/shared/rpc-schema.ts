@@ -242,6 +242,7 @@ const clamped = (fallback: number, min: number, max: number) =>
 export const preferencesSchema = z.object({
   notifyOnTurnEnd: z.boolean().catch(true),
   notificationSound: z.boolean().catch(true),
+  theme: z.enum(["system", "light", "dark"]).catch("system"),
   conversationWidth: z.enum(["narrow", "medium", "wide", "full"]).catch("medium"),
   interfaceScale: clamped(1, 0.8, 1.4),
   diffStyle: z.enum(["unified", "split"]).catch("unified"),

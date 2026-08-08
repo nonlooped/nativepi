@@ -26,6 +26,7 @@ export function useAppearance(): void {
   const scale = useAppStore((s) => s.preferences.interfaceScale);
   const width = useAppStore((s) => s.preferences.conversationWidth);
   const reducedMotion = useAppStore((s) => s.preferences.reducedMotion);
+  const theme = useAppStore((s) => s.preferences.theme);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -35,4 +36,21 @@ export function useAppearance(): void {
     if (reducedMotion === "system") root.removeAttribute("data-motion");
     else root.setAttribute("data-motion", reducedMotion === "always" ? "reduced" : "full");
   }, [scale, width, reducedMotion]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      const resolved = theme === "system" ? (media.matches ? "dark" : "light") : theme;
+      root.classList.toggle("dark", resolved === "dark");
+      try {
+        localStorage.setItem("nativepi-theme", theme);
+      } catch {}
+    };
+    apply();
+    if (theme === "system") {
+      media.addEventListener("change", apply);
+      return () => media.removeEventListener("change", apply);
+    }
+  }, [theme]);
 }

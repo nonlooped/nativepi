@@ -52,6 +52,20 @@ export default function AppearanceSettings() {
 
   return (
     <div className="flex flex-col gap-10">
+      <SettingsSection heading="Theme">
+        <ChoiceRow
+          label="Appearance"
+          description={`Choose how NativePi looks. System follows the ${system} setting.`}
+          value={preferences.theme}
+          options={[
+            { value: "system", label: "System" },
+            { value: "light", label: "Light" },
+            { value: "dark", label: "Dark" },
+          ]}
+          onChange={(value) => setPreference("theme", value)}
+        />
+      </SettingsSection>
+
       <SettingsSection heading="Layout">
         <ChoiceCards
           label="Conversation width"

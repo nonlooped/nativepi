@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <!-- `blob:` in script-src is what lets a graphical extension load: its
@@ -9,7 +9,7 @@
          privileges once loaded. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws: wss:"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws: wss:"
     />
     <!-- `interactive-widget=resizes-content` makes Chrome on Android shrink the
          layout viewport for the soft keyboard instead of sliding the page up,
@@ -20,6 +20,14 @@
       content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"
     />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect x='8' y='8' width='240' height='240' rx='48' fill='%2318181b'/%3E%3Crect x='9' y='9' width='238' height='238' rx='47' fill='none' stroke='%232f3036' stroke-width='2'/%3E%3Cpath fill='%239b9ba3' d='M52 76h76v24h-12v80H92v-56H68v56H44V84a8 8 0 0 1 8-8Z'/%3E%3Cpath fill='%23f0f0f2' d='M116 76h96v24h-16v80h-28v-80h-24v80h-28v-80h-8V76h8Z'/%3E%3C/svg%3E" />
+    <script>
+      try {
+        const t = localStorage.getItem("nativepi-theme");
+        const m = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const resolved = !t || t === "system" ? (m ? "dark" : "light") : t;
+        if (resolved === "dark") document.documentElement.classList.add("dark");
+      } catch {}
+    </script>
     <title>NativePi</title>
   </head>
   <body>
