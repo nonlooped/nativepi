@@ -19,7 +19,7 @@ import { activeConversation, useAppStore } from "../lib/store.ts";
 import { showExtensionNotification } from "../lib/toast.tsx";
 import ExtensionBoundary from "./ExtensionBoundary.tsx";
 import { SettingsSection } from "./settings/rows.tsx";
-import { TuiPane } from "./TuiSurface.tsx";
+import { TuiAutoPane, TuiPane } from "./TuiSurface.tsx";
 
 type BaseContext = Pick<RendererContext, "project" | "session" | "agent">;
 
@@ -272,8 +272,8 @@ export function ComposerWidgets({ placement }: { placement: "aboveComposer" | "b
         </ExtensionBoundary>
       ))}
       {terminal.map((surface) => (
-        <div key={surface.id} className="rounded-xl border bg-card/60 px-3 py-1.5">
-          <TuiPane surface={surface} rows={WIDGET_ROWS} />
+        <div key={surface.id} className="overflow-hidden rounded-xl border bg-card/60">
+          <TuiAutoPane surface={surface} maxRows={WIDGET_ROWS} />
         </div>
       ))}
     </div>
@@ -288,7 +288,7 @@ export function ComposerWidgets({ placement }: { placement: "aboveComposer" | "b
  * sits between the transcript and the composer where three lines is already
  * generous. Extensions with more to show have `panels`, or a `custom()` overlay.
  */
-const WIDGET_ROWS = 3;
+const WIDGET_ROWS = 6;
 
 export function ComposerControls() {
   const renderers = useAppStore((s) => s.extRenderers);

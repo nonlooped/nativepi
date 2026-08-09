@@ -47,7 +47,7 @@ import DiffView from "./DiffView.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 import { ExtensionEntry, ExtensionToolResult, useHasEntryRenderer, useHasToolRenderer } from "./ExtensionSlots.tsx";
 import FileContextMenu from "./FileContextMenu.tsx";
-import { TuiPane, TuiTimelineEntry } from "./TuiSurface.tsx";
+import { TuiAutoPane, TuiPane, TuiTimelineEntry } from "./TuiSurface.tsx";
 
 // @streamdown/code still publishes Shiki 3 token types while Streamdown resolves Shiki 4.
 const streamdownPlugins: { code: CodeHighlighterPlugin } = {
@@ -255,12 +255,12 @@ function TranscriptContent() {
  * place: inside the transcript's own column so it scrolls with the conversation
  * rather than pinning itself over it.
  */
-function ExtensionHeader() {
+export function ExtensionHeader() {
   const header = useAppStore((s) => s.extSurfaces.find((surface) => surface.placement === "header"));
-  return header ? <TuiPane surface={header} rows={HEADER_ROWS} /> : null;
+  return header ? <TuiAutoPane surface={header} maxRows={HEADER_ROWS} /> : null;
 }
 
-const HEADER_ROWS = 6;
+const HEADER_ROWS = 8;
 
 /**
  * The current frame of an extension's working indicator, or `null` for ours.
@@ -552,7 +552,7 @@ function EntryView({ entry }: { entry: SessionEntry }) {
   );
   if (terminal) {
     return (
-      <div className="overflow-hidden rounded-lg border bg-card/60 px-2 py-1.5">
+      <div className="overflow-hidden rounded-lg border">
         <TuiTimelineEntry surface={terminal} />
       </div>
     );
@@ -762,7 +762,6 @@ function AssistantResponse({
           </Collapsible.Panel>
         </Collapsible.Root>
       ) : null}
-      {changes.files.length > 0 ? <ChangeStrip changes={changes} /> : null}
       {finalText ? (
         <div data-response-text>
           <Streamdown
@@ -775,6 +774,7 @@ function AssistantResponse({
           </Streamdown>
         </div>
       ) : null}
+      {changes.files.length > 0 ? <ChangeStrip changes={changes} /> : null}
       {error && (
         <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
           <WarningIcon />

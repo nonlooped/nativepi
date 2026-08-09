@@ -49,6 +49,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
   const preparing = useAppStore(
     (s) => (activeProjectPath ? (s.preparing[draftKeyFor(activeProjectPath, activeSessionFile)] ?? 0) : 0),
   );
+  const editorSurface = useAppStore((s) => s.extSurfaces.find((surface) => surface.placement === "editor"));
 
   const [dropTarget, setDropTarget] = useState(false);
   const disabled = !activeProjectPath;
@@ -107,6 +108,28 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
     if (running) void enqueue(behavior);
     else void send();
   };
+
+  // A non-overlay `ctx.ui.custom()` replaces Pi's editor while it waits for an
+  // answer. Keep the same boundary here: the transcript and extension footer
+  // remain visible, while the ordinary composer yields its slot and keyboard.
+  if (editorSurface) {
+    return (
+      <div
+        className={cn(
+          "flex shrink-0 flex-col gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
+          prominent ? "w-full p-0" : cn(SCROLLBAR_GUTTER_OFFSET, "pt-2"),
+        )}
+      >
+        <ExtensionStatuses />
+        <ComposerWidgets placement="aboveComposer" />
+        <QueuedMessages />
+        <div className="mx-auto w-full max-w-(--conversation-width) overflow-hidden rounded-xl border bg-card/60 px-3 py-2">
+          <TuiAutoPane surface={editorSurface} maxRows={24} focus />
+        </div>
+        <ComposerWidgets placement="belowComposer" />
+      </div>
+    );
+  }
 
   return (
     // pb clears the iOS home indicator, which sits over the send button
