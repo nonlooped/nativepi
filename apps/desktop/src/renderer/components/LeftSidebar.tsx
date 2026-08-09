@@ -11,7 +11,6 @@ export default function LeftSidebar({
   actionIcon,
   actionLabel,
   onAction,
-  footerExtra,
   onClose,
   overlay = false,
 }: {
@@ -19,8 +18,6 @@ export default function LeftSidebar({
   actionIcon: ReactNode;
   actionLabel: string;
   onAction: () => void;
-  /** Sits opposite the primary footer action, for a second low-traffic entry point. */
-  footerExtra?: ReactNode;
   onClose: () => void;
   overlay?: boolean;
 }) {
@@ -54,7 +51,6 @@ export default function LeftSidebar({
           {actionIcon}
           {actionLabel}
         </Button>
-        {footerExtra}
       </div>
     </aside>
   );

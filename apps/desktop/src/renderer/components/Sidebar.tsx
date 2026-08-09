@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
-import { ChartLineUpIcon } from "@phosphor-icons/react/ChartLineUp";
 import { ChatCircleDotsIcon } from "@phosphor-icons/react/ChatCircleDots";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
@@ -152,26 +151,12 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
         openSettings();
         if (overlay) onClose();
       }}
-      footerExtra={
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            openSettings("Usage");
-            if (overlay) onClose();
-          }}
-          title="Token usage and cost"
-        >
-          <ChartLineUpIcon data-icon="inline-start" />
-          Usage
-        </Button>
-      }
       onClose={onClose}
       overlay={overlay}
     >
       {/* One primary action, one way in to full-text search. Everything else
           moved next to the thing it acts on: projects to the Projects header,
-          usage to the footer, per-chat actions to the row's context menu. */}
+          per-chat actions to the row's context menu. */}
       <div className={cn("flex flex-col gap-1.5 px-2 pb-2", NO_DRAG_REGION)}>
         <div className="flex items-center gap-1">
           <Button
