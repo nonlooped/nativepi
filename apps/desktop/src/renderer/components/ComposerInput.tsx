@@ -34,6 +34,7 @@ export default function ComposerInput({
   projectPath,
   placeholder,
   disabled,
+  autoFocus,
 }: {
   value: string;
   onChange: (text: string) => void;
@@ -42,6 +43,7 @@ export default function ComposerInput({
   projectPath: string | null;
   placeholder: string;
   disabled: boolean;
+  autoFocus?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
   // What this editor last reported. A draft equal to it is our own keystroke
@@ -101,6 +103,10 @@ export default function ComposerInput({
   }, [complete]);
 
   useEffect(() => {
+    if (autoFocus && !disabled) root.current?.focus();
+  }, [autoFocus, disabled]);
+
+  useEffect(() => {
     const element = root.current;
     if (!element || value === emitted.current) return;
     emitted.current = value;
@@ -142,6 +148,7 @@ export default function ComposerInput({
       <AutocompleteMenu state={complete} />
       <div
         ref={root}
+        data-composer-input=""
         contentEditable={!disabled}
         suppressContentEditableWarning
         role="textbox"

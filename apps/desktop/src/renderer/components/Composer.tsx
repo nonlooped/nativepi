@@ -50,6 +50,17 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
     (s) => (activeProjectPath ? (s.preparing[draftKeyFor(activeProjectPath, activeSessionFile)] ?? 0) : 0),
   );
   const editorSurface = useAppStore((s) => s.extSurfaces.find((surface) => surface.placement === "editor"));
+  const prevHadEditorSurface = useRef(!!editorSurface);
+  useEffect(() => {
+    if (prevHadEditorSurface.current && !editorSurface) {
+      const frame = requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>("[data-composer-input]")?.focus();
+      });
+      prevHadEditorSurface.current = !!editorSurface;
+      return () => cancelAnimationFrame(frame);
+    }
+    prevHadEditorSurface.current = !!editorSurface;
+  }, [editorSurface]);
 
   const [dropTarget, setDropTarget] = useState(false);
   const disabled = !activeProjectPath;
