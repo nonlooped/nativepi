@@ -27,6 +27,7 @@ import { Switch } from "@/components/ui/switch.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { rpc } from "./rpc.ts";
 import { ActionRow, SelectRow, SliderRow, SwitchRow, TextRow } from "../components/settings/rows.tsx";
+import ExtensionConversationTranscript from "../components/ExtensionConversationTranscript.tsx";
 
 
 // Re-exported to extensions through `__NATIVEPI_HOST__`, so the values they see
@@ -55,6 +56,7 @@ const extUi = {
   SettingsSelectRow: SelectRow,
   SettingsTextRow: TextRow,
   SettingsSliderRow: SliderRow,
+  ConversationTranscript: ExtensionConversationTranscript,
 };
 
 declare global {
@@ -137,6 +139,7 @@ const rendererSchema = z.object({
   entries: z.record(nameSchema, renderSchema).optional(),
   composerWidgets: z.array(keyedRenderSchema.extend({ placement: z.enum(["aboveComposer", "belowComposer"]) })).optional(),
   composerControls: z.array(keyedRenderSchema).optional(),
+  conversationViews: z.array(keyedRenderSchema.extend({ label: nameSchema, control: renderSchema.optional() })).optional(),
   panels: z.array(keyedRenderSchema.extend({ title: nameSchema })).optional(),
   settings: z.array(keyedRenderSchema.extend({ heading: nameSchema, description: z.string().max(2_000).optional() })).optional(),
 }).strict();
@@ -156,6 +159,7 @@ export function validateRenderer(value: unknown): NativePiRenderer {
   for (const [slot, contributions] of [
     ["composerWidgets", parsed.data.composerWidgets],
     ["composerControls", parsed.data.composerControls],
+    ["conversationViews", parsed.data.conversationViews],
     ["panels", parsed.data.panels],
     ["settings", parsed.data.settings],
   ] as const) {

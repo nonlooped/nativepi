@@ -34,7 +34,13 @@ test("renderer definitions are rejected before contribution code can run", async
     .toThrow('duplicate id "same"');
   expect(() => validateRenderer({ apiVersion: 1, composerControls: [{ id: "missing-render" }] }))
     .toThrow("composerControls.0.render");
+  expect(() => validateRenderer({
+    apiVersion: 1,
+    conversationViews: [{ id: "same", label: "First", render }, { id: "same", label: "Second", render }],
+  })).toThrow('duplicate id "same"');
 
+  expect(validateRenderer({ apiVersion: 1, conversationViews: [{ id: "agents", label: "Agents", render }] }))
+    .toMatchObject({ apiVersion: 1, conversationViews: [{ id: "agents", label: "Agents" }] });
   expect(validateRenderer({ apiVersion: 1, panels: [{ id: "summary", title: "Summary", render }] }))
     .toMatchObject({ apiVersion: 1, panels: [{ id: "summary", title: "Summary" }] });
 });
