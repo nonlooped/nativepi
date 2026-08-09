@@ -9,12 +9,6 @@ type TitleModelSetting = string;
 type TitleModel = NonNullable<ExtensionContext["model"]>;
 type ModelKey = Pick<TitleModel, "provider" | "id">;
 
-type PendingTitle = {
-  sessionFile: string;
-  prompt: string;
-  modelSetting: TitleModelSetting;
-};
-
 const TITLE_GENERATOR_ACTIVE = "active";
 const TITLE_GENERATOR_MAX_LENGTH = 80;
 const TITLE_MODEL_ENTRY = "nativepi-title-generator";
@@ -363,7 +357,6 @@ class TitleModelPicker extends Container {
 export default function titleGeneratorExtension(pi: ExtensionAPI): void {
   let activeSessionFile: string | undefined;
   let latest: ExtensionContext | undefined;
-  let pendingTitle: PendingTitle | undefined;
   let titleAbort: AbortController | undefined;
   let generationInFlight = false;
 
@@ -389,7 +382,6 @@ export default function titleGeneratorExtension(pi: ExtensionAPI): void {
     latest = context;
     titleAbort?.abort();
     titleAbort = undefined;
-    pendingTitle = undefined;
     generationInFlight = false;
     activeSessionFile = context.sessionManager.getSessionFile();
     emitState(context);
@@ -403,28 +395,20 @@ export default function titleGeneratorExtension(pi: ExtensionAPI): void {
   pi.on("before_agent_start", (event, context) => {
     latest = context;
     const sessionFile = context.sessionManager.getSessionFile();
-    if (!sessionFile) return;
-    if (pendingTitle || generationInFlight || context.sessionManager.getSessionName() || hasUserMessage(context)) return;
+    if (!sessionFile || generationInFlight || context.sessionManager.getSessionName() || hasUserMessage(context)) return;
     const prompt = titlePrompt(event.prompt);
     if (!prompt) return;
-    pendingTitle = { sessionFile, prompt, modelSetting: titleModelSettingFor(context) };
-  });
-
-  pi.on("agent_settled", (_event, context) => {
-    latest = context;
-    const candidate = pendingTitle;
-    if (!candidate || candidate.sessionFile !== activeSessionFile || generationInFlight) return;
-    pendingTitle = undefined;
+    const modelSetting = titleModelSettingFor(context);
     generationInFlight = true;
     const controller = new AbortController();
     titleAbort = controller;
     const timeout = setTimeout(() => controller.abort(), TITLE_TIMEOUT_MS);
     void (async () => {
       try {
-        const model = selectedModel(context, candidate.modelSetting);
+        const model = selectedModel(context, modelSetting);
         if (!model) return;
-        const title = await generateTitle(context, candidate.prompt, model, controller);
-        if (!title || activeSessionFile !== candidate.sessionFile || pi.getSessionName()) return;
+        const title = await generateTitle(context, prompt, model, controller);
+        if (!title || activeSessionFile !== sessionFile || pi.getSessionName()) return;
         pi.setSessionName(title);
       } catch {
         // Title generation is best effort; Pi's deterministic first-message fallback remains visible.
@@ -439,7 +423,6 @@ export default function titleGeneratorExtension(pi: ExtensionAPI): void {
   pi.on("session_shutdown", () => {
     titleAbort?.abort();
     titleAbort = undefined;
-    pendingTitle = undefined;
     generationInFlight = false;
     activeSessionFile = undefined;
     latest = undefined;
