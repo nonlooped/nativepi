@@ -117,7 +117,16 @@ export default function App() {
           composer's own "Connect a provider" button. */}
       <div className="h-full" inert={settingsOpen || undefined}>
       <ResizablePanelGroup orientation="horizontal">
-        {sidebarDocked ? <Sidebar onClose={() => setSidebarOpen(false)} /> : null}
+        {sidebarDocked ? (
+          <Sidebar
+            onClose={() => setSidebarOpen(false)}
+            onOpenSourceControl={() => {
+              if (layout === "wide") {
+                if (!contextPaneOpen) toggleContextPane();
+              } else setContextSheetOpen(true);
+            }}
+          />
+        ) : null}
         <ResizablePanel id="conversation" minSize="35%">
           <ResizablePanelGroup orientation="vertical">
           <ResizablePanel id="workspace" minSize="35%">
@@ -187,7 +196,11 @@ export default function App() {
           >
             <SheetTitle className="sr-only">Projects and chats</SheetTitle>
             <SheetDescription className="sr-only">Open a project or chat in NativePi.</SheetDescription>
-            <Sidebar overlay onClose={() => setSidebarSheetOpen(false)} />
+            <Sidebar
+              overlay
+              onClose={() => setSidebarSheetOpen(false)}
+              onOpenSourceControl={() => setContextSheetOpen(true)}
+            />
           </SheetContent>
         </Sheet>
       ) : null}
@@ -200,7 +213,7 @@ export default function App() {
             className="w-[min(42rem,92vw)] border-sidebar-border bg-sidebar p-0 sm:max-w-none"
           >
             <SheetTitle className="sr-only">Project context</SheetTitle>
-            <SheetDescription className="sr-only">Review Git changes and extension panels.</SheetDescription>
+            <SheetDescription className="sr-only">Manage source control, browse project files, and review extension panels.</SheetDescription>
             <ContextPane overlay onClose={() => setContextSheetOpen(false)} />
           </SheetContent>
         </Sheet>
@@ -374,8 +387,8 @@ function WorkspaceHeader({
           variant="ghost"
           size="icon-sm"
           onClick={onOpenContext}
-          title={withHint("Show changes pane", "toggleContextPane", keybindingOverrides)}
-          aria-label="Show changes pane"
+          title={withHint("Show source control", "toggleContextPane", keybindingOverrides)}
+          aria-label="Show source control"
           // Always false while rendered — the button leaves the header once the
           // pane is docked — but the attribute still tells assistive tech this
           // is a pane toggle, matching the terminal button beside it.
