@@ -348,6 +348,7 @@ The component system is compact and restrained, with soft geometry and explicit 
 ### Extension Surfaces
 
 - An extension's own React contributions use the tokens on this page like any other component, and are indistinguishable from NativePi's own surfaces.
+- A conversation-view contribution opens from the chat header and replaces the transcript and composer within the existing conversation pane. It is a full workspace surface, not a dialog, and keeps the normal pane header, reading measure, and responsive behavior.
 - A pi-tui component is the exception, and deliberately so: it is drawn by Pi in a terminal grid, so it appears as monospace text on a transparent ground inside NativePi's container, with the surrounding border, radius and padding supplied by the slot it sits in. The component's own colours are its author's; the frame around it is ours.
 
 **The Terminal-Stays-In-Its-Frame Rule.** Terminal-drawn extension UI never bleeds into the window's chrome. It gets a bounded pane: a dialog for a `custom()` component, a three-row card between transcript and composer for a widget, one row for a footer. Anything an extension sends as data rather than as a component, such as a working message, a spinner, or a status, is redrawn in NativePi's own type and palette instead.
