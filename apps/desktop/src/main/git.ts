@@ -62,11 +62,21 @@ export async function gitStatus(projectDir: string): Promise<GitStatus> {
     if (!record) continue;
     const x = record[0] ?? " ";
     const y = record[1] ?? " ";
-    let path = record.slice(3);
+    let filePath = record.slice(3);
+    let originalPath: string | undefined;
     // A rename entry is followed by its original path in the next NUL field.
-    if (x === "R" || y === "R") i++;
-    if (!path) continue;
-    files.push({ path, state: labelFor(x, y), staged: x !== " " && x !== "?", unstaged: y !== " " || x === "?" });
+    if (x === "R" || y === "R") {
+      originalPath = records[i + 1];
+      i++;
+    }
+    if (!filePath) continue;
+    files.push({
+      path: filePath,
+      ...(originalPath ? { originalPath } : {}),
+      state: labelFor(x, y),
+      staged: x !== " " && x !== "?" ,
+      unstaged: y !== " " || x === "?",
+    });
   }
 
   const numstat = await run(["diff", "--numstat", "HEAD"], projectDir);
@@ -202,8 +212,9 @@ async function unstage(projectDir: string, files: string[]) {
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
 }
 
-export async function gitUnstageFile(projectDir: string, file: string) {
-  return await unstage(projectDir, [file]);
+export async function gitUnstageFile(projectDir: string, file: string, originalPath?: string) {
+  const files = originalPath ? [file, originalPath] : [file];
+  return await unstage(projectDir, files);
 }
 
 export async function gitStageAll(projectDir: string) {

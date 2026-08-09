@@ -525,7 +525,7 @@ export type HostRequests = {
   gitHunks: { params: { projectDir: string; file: string; untracked: boolean }; response: { hunks: GitHunk[] } };
   gitStageHunk: { params: { projectDir: string; file: string; untracked: boolean; patch: string }; response: { ok: boolean; error?: string } };
   gitStageFile: { params: { projectDir: string; file: string }; response: { ok: boolean; error?: string } };
-  gitUnstageFile: { params: { projectDir: string; file: string }; response: { ok: boolean; error?: string } };
+  gitUnstageFile: { params: { projectDir: string; file: string; originalPath?: string }; response: { ok: boolean; error?: string } };
   gitStageAll: { params: { projectDir: string }; response: { ok: boolean; error?: string } };
   gitUnstageAll: { params: { projectDir: string }; response: { ok: boolean; error?: string } };
   gitGenerateCommitMessage: {

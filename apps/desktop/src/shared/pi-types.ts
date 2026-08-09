@@ -222,6 +222,7 @@ export interface SessionSearchResult {
 
 export interface GitChangedFile {
   path: string;
+  originalPath?: string;
   state: "modified" | "added" | "deleted" | "renamed" | "untracked";
   staged: boolean;
   unstaged: boolean;

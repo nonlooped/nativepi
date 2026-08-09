@@ -391,6 +391,7 @@ const gitMutationParamsSchema = z.object({
 });
 const gitHunkParamsSchema = z.object({ projectDir: z.string().min(1), file: z.string().min(1), untracked: z.boolean(), patch: z.string().min(1) });
 const gitFileParamsSchema = z.object({ projectDir: z.string().min(1), file: z.string().min(1) });
+const gitUnstageFileParamsSchema = z.object({ projectDir: z.string().min(1), file: z.string().min(1), originalPath: z.string().min(1).optional() });
 const gitCommitParamsSchema = z.object({ projectDir: z.string().min(1), message: z.string().trim().min(1).max(10_000) });
 const gitPrParamsSchema = z.object({ projectDir: z.string().min(1), title: z.string().trim().min(1).max(256), body: z.string().max(50_000) });
 const projectDirParamsSchema = z.object({ projectDir: z.string().min(1) });
@@ -1128,7 +1129,7 @@ const handlers: HandlerMap = {
     catch (err) { return { ok: false, error: errorMessage(err) }; }
   },
   gitUnstageFile: async (params) => {
-    try { const { projectDir, file } = gitFileParamsSchema.parse(params); return await gitUnstageFile(projectDir, file); }
+    try { const { projectDir, file, originalPath } = gitUnstageFileParamsSchema.parse(params); return await gitUnstageFile(projectDir, file, originalPath); }
     catch (err) { return { ok: false, error: errorMessage(err) }; }
   },
   gitStageAll: async ({ projectDir }) => await gitStageAll(projectDir),

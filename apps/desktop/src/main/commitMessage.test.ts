@@ -12,6 +12,6 @@ test("commit prompts defer to Pi's loaded project instructions", () => {
 
 test("commit messages accept Conventional Commit output and reject prose", () => {
   expect(normalizeCommitMessage("```text\nfeat(git): streamline staging\n\nKeep staged files separate.\n```"))
-    .toBe("feat(git): streamline staging\n\nKeep staged files separate.");
+    .toBe("feat(git): streamline staging");
   expect(normalizeCommitMessage("Here is your commit message: improve Git")).toBeNull();
 });

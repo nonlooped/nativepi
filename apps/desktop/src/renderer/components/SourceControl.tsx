@@ -173,7 +173,7 @@ export default function SourceControl({ projectDir, git }: { projectDir: string;
         disabled={busy !== null}
         onSelect={setSelected}
         onAll={() => void mutate(() => rpc.request.gitUnstageAll({ projectDir }))}
-        onFile={(file) => void mutate(() => rpc.request.gitUnstageFile({ projectDir, file: file.path }))}
+        onFile={(file) => void mutate(() => rpc.request.gitUnstageFile({ projectDir, file: file.path, originalPath: file.originalPath }))}
       />
       <FileGroup
         title="Changes"
@@ -412,7 +412,7 @@ function CommitRow({ commit }: { commit: GitCommit }) {
   const refs = commit.refs.flatMap((ref) => ref === "HEAD" ? [] : [ref.replace(/^HEAD -> /, "")]);
   return (
     <li className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-1 px-2 py-1.5 hover:bg-sidebar-accent/60" title={commit.hash}>
-      <span className="whitespace-pre font-mono text-xs leading-5 text-info" aria-hidden="true">{commit.graph.replace("*", "●")}</span>
+      <span className="whitespace-pre font-mono text-xs leading-5 text-info" aria-hidden="true">{commit.graph.replaceAll("*", "●")}</span>
       <div className="min-w-0">
         <p className="truncate text-xs font-medium">{commit.subject}</p>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 text-[0.6875rem] text-muted-foreground">
