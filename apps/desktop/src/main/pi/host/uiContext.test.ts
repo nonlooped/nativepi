@@ -51,6 +51,29 @@ test("a component takes over a key that was holding lines", () => {
   internals.dispose();
 });
 
+test("custom components replace the editor unless they explicitly request an overlay", async () => {
+  const { ui, sent, internals } = harness();
+
+  await ui.custom((_tui, _theme, _keybindings, done) => {
+    done(undefined);
+    return stubComponent();
+  });
+
+  await ui.custom(
+    (_tui, _theme, _keybindings, done) => {
+      done(undefined);
+      return stubComponent();
+    },
+    { overlay: true },
+  );
+
+  expect(sent.filter((frame) => frame.type === "nativepi_tui_open")).toMatchObject([
+    { surface: { placement: "editor" } },
+    { surface: { placement: "overlay" } },
+  ]);
+  internals.dispose();
+});
+
 test("a resync says everything a window arriving late has missed", () => {
   const { ui, sent, internals } = harness();
 

@@ -249,7 +249,11 @@ export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): 
       factory: Parameters<ExtensionUIContext["custom"]>[0],
       options?: Parameters<ExtensionUIContext["custom"]>[1],
     ): Promise<T> {
-      const { id, surface } = open("overlay", "Extension");
+      // Pi's ordinary custom component replaces its editor. Only `overlay: true`
+      // asks the TUI to float it over the screen, so preserve that distinction
+      // instead of turning every picker and question into a window-sized modal.
+      const overlay = options?.overlay === true;
+      const { id, surface } = open(overlay ? "overlay" : "editor", "Extension");
       try {
         return await new Promise<T>((resolve) => {
           let settled = false;
@@ -269,9 +273,8 @@ export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): 
             const overlayOptions =
               typeof options?.overlayOptions === "function" ? options.overlayOptions() : options?.overlayOptions;
             // `overlay: true` is the extension asking the TUI to position and size
-            // the component; anything else fills the surface, which is a modal in
-            // the window either way.
-            const handle = surface.mount(component, options?.overlay ? { options: overlayOptions } : undefined);
+            // the component; otherwise it occupies Pi's editor/composer slot.
+            const handle = surface.mount(component, overlay ? { options: overlayOptions } : undefined);
             if (handle) options?.onHandle?.(handle);
           })().catch((error: unknown) => {
             close(id);

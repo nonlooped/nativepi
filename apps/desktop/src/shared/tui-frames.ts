@@ -58,13 +58,13 @@ const authNoticeSchema = z.discriminatedUnion("kind", [
  * TypeScript types are inferred from it so neither can drift from the other.
  */
 
-const placementSchema = z.enum(["overlay", "aboveEditor", "belowEditor", "footer", "header", "timeline"]);
+const placementSchema = z.enum(["overlay", "editor", "aboveEditor", "belowEditor", "footer", "header", "timeline"]);
 
 /** Where a surface belongs in the window. */
 export type TuiPlacement = z.infer<typeof placementSchema>;
 
 /**
- * What the extension asked for, from `ctx.ui.custom()` or `ctx.ui.setWidget()`.
+ * What the extension asked for, from `ctx.ui.custom()`, `ctx.ui.setWidget()`, or another component slot.
  *
  * `key` is the extension's own name for the surface — the `setWidget` key, or a
  * word for the slot when it has none. It is shown to the user, so it is a name

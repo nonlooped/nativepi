@@ -35,6 +35,13 @@ test("a well-formed write parses and a truncated one does not", () => {
 });
 
 test("a surface has to name a placement the window has a slot for", () => {
+  expect(
+    tuiHostFrameSchema.safeParse({
+      type: "nativepi_tui_open",
+      surface: { id: "s1", placement: "editor", key: "probe" },
+    }).success,
+  ).toBe(true);
+
   const parsed = tuiHostFrameSchema.safeParse({
     type: "nativepi_tui_open",
     surface: { id: "s1", placement: "sidebar", key: "probe" },
