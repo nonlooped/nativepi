@@ -202,6 +202,10 @@ All graphical surfaces are optional and controlled by NativePi:
   composer. Keep it short; detailed content belongs in a panel or dialog.
 - `composerControls` adds one compact control beside the model and thinking
   controls.
+- `conversationViews` adds a full conversation-area view opened from a
+  NativePi-owned button in the chat header. The optional `control` renderer can
+  add an icon or live count inside that button; `label` remains its accessible
+  name.
 - `panels` adds a keyed, titled section to the project context pane.
 - `settings` adds a keyed section to **Settings → General**. NativePi draws its
   heading and description; the extension renders only the controls.
@@ -249,6 +253,8 @@ Import styled controls from `@nativepi/extension-api/ui`. NativePi currently
 provides:
 
 - `Button` and `Badge`
+- `ConversationTranscript` for NativePi-style user, assistant, thinking, and
+  tool messages inside a full-height conversation surface
 - `Input`, `Textarea`, `Label`, `Switch`, and `Separator`
 - `Field`, `FieldContent`, `FieldDescription`, `FieldError`, `FieldGroup`, and
   `FieldLabel`

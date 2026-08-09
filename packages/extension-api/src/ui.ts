@@ -166,6 +166,32 @@ export interface SettingsSliderRowProps {
   onChange: (value: number) => void;
 }
 
+export type ConversationContentBlock =
+  | { type: "text"; text: string }
+  | { type: "thinking"; text: string }
+  | {
+      type: "tool";
+      id: string;
+      name: string;
+      status: "running" | "completed" | "failed" | "cancelled";
+      arguments?: string;
+      result?: string;
+    };
+
+export interface ConversationMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: ConversationContentBlock[];
+  timestamp?: number;
+  error?: string;
+}
+
+export interface ConversationTranscriptProps extends StyledProps {
+  messages: ConversationMessage[];
+  running?: boolean;
+  empty?: ReactNode;
+}
+
 export const Button: ComponentType<ButtonProps> = pick("Button");
 export const Badge: ComponentType<BadgeProps> = pick("Badge");
 export const Input: ComponentType<ComponentProps<"input">> = pick("Input");
@@ -215,3 +241,4 @@ export const SettingsSwitchRow: ComponentType<SettingsSwitchRowProps> = pick("Se
 export const SettingsSelectRow: ComponentType<SettingsSelectRowProps> = pick("SettingsSelectRow");
 export const SettingsTextRow: ComponentType<SettingsTextRowProps> = pick("SettingsTextRow");
 export const SettingsSliderRow: ComponentType<SettingsSliderRowProps> = pick("SettingsSliderRow");
+export const ConversationTranscript: ComponentType<ConversationTranscriptProps> = pick("ConversationTranscript");
