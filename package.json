@@ -28,7 +28,7 @@
     "dist:mac": "cd apps/desktop && bun run dist:mac",
     "dist:linux": "cd apps/desktop && bun run dist:linux",
     "typecheck": "cd apps/desktop && bun run typecheck",
-    "typecheck:packages": "bun run --cwd packages/extension-api typecheck && bun run --cwd packages/meta typecheck && bun run --cwd packages/service-tier typecheck && bun run --cwd packages/subscription-usage typecheck && bun run --cwd packages/title-generator typecheck",
+    "typecheck:packages": "bun run --cwd packages/extension-api typecheck && bun run --cwd packages/mcp typecheck && bun run --cwd packages/meta typecheck && bun run --cwd packages/service-tier typecheck && bun run --cwd packages/subagents typecheck && bun run --cwd packages/subscription-usage typecheck && bun run --cwd packages/title-generator typecheck",
     "test": "bun test apps/desktop packages",
     "web:dev": "cd apps/web && bun run dev",
     "web:build": "cd apps/web && bun run build",

@@ -14,24 +14,27 @@ export async function shapeProviders(runtime: ModelRuntime): Promise<AuthProvide
   const storedType = new Map(stored.map((c) => [c.providerId, c.type]));
 
   const providers = await Promise.all(
-    runtime.getProviders().map(async (p): Promise<AuthProviderInfo> => {
+    runtime.getProviders().map(async (p) => {
       const status = runtime.getProviderAuthStatus(p.id);
+      const apiKeyLabel = p.auth?.apiKey?.name;
+      const oauthLabel = p.auth?.oauth?.loginLabel ?? p.auth?.oauth?.name;
+      const credentialType = storedType.get(p.id);
       return {
         id: p.id,
         name: p.name,
         supportsApiKey: !!p.auth?.apiKey?.login,
         supportsOAuth: !!p.auth?.oauth,
-        apiKeyLabel: p.auth?.apiKey?.name,
-        oauthLabel: p.auth?.oauth?.loginLabel ?? p.auth?.oauth?.name,
+        ...(apiKeyLabel === undefined ? {} : { apiKeyLabel }),
+        ...(oauthLabel === undefined ? {} : { oauthLabel }),
         configured: status.configured,
         // The same question Pi's own model list asks, so a provider offered here
         // and a provider offered in the picker are the same set. A credential
         // store that cannot be read is an unusable provider, not a crash.
         ready: await runtime.checkAuth(p.id).then(Boolean, () => false),
-        storedType: storedType.get(p.id),
-        authSource: status.source,
-        authLabel: status.label,
-      };
+        ...(credentialType === undefined ? {} : { storedType: credentialType }),
+        ...(status.source === undefined ? {} : { authSource: status.source }),
+        ...(status.label === undefined ? {} : { authLabel: status.label }),
+      } satisfies AuthProviderInfo;
     }),
   );
 

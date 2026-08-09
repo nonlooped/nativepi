@@ -41,8 +41,12 @@ Do not add:
 - Support for other agent harnesses.
 - Checkpoints, hidden commits, or anything that rewrites Git history.
 - A second durable conversation store or parallel Pi domain model.
-- Agent capabilities Pi does not have, such as subagents, built-in MCP support,
-  or per-tool permission rules.
+- Agent capabilities added inside NativePi itself that Pi does not have, such as
+  built-in subagents, MCP support, or per-tool permission rules.
+
+Optional Pi extension packages may provide additional agent capabilities. They
+must remain ordinary, separately installable Pi packages so Pi owns their tools,
+execution, configuration, and sessions in both the CLI and NativePi.
 
 The line is the agent, not the app. NativePi may add features Pi does not have,
 so long as they do not change what reaches the model or how turns are sequenced.

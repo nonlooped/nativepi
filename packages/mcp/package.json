@@ -1,0 +1,51 @@
+{
+  "name": "@nativepi/mcp",
+  "version": "1.0.0",
+  "description": "Connects MCP servers and exposes their tools to Pi and NativePi.",
+  "author": "nonlooped",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-coding-agent",
+    "nativepi",
+    "extension",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "files": [
+    "extensions",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "pi": {
+    "extensions": ["./extensions/mcp.ts"]
+  },
+  "homepage": "https://github.com/nonlooped/nativepi/tree/main/packages/mcp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nonlooped/nativepi.git",
+    "directory": "packages/mcp"
+  },
+  "bugs": {
+    "url": "https://github.com/nonlooped/nativepi/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.84.1",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.1",
+    "@types/bun": "^1.3.14",
+    "typescript": "^7.0.2"
+  }
+}

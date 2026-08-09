@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Optional MCP package exposing configured server tools through Pi (`packages/mcp`).
+- Optional asynchronous subagents package with model, thinking-level, cancellation, and concurrency controls (`packages/subagents`).
 - Web Analytics via Vercel Web Analytics (`feat(web): add Vercel Web Analytics`).
 
 ### Fixed

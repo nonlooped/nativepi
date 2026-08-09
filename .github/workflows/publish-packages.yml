@@ -115,12 +115,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - package: "@nativepi/service-tier"
-            directory: packages/service-tier
-          - package: "@nativepi/subscription-usage"
-            directory: packages/subscription-usage
+          - package: "@nativepi/mcp"
+            directory: packages/mcp
           - package: "@nativepi/meta"
             directory: packages/meta
+          - package: "@nativepi/service-tier"
+            directory: packages/service-tier
+          - package: "@nativepi/subagents"
+            directory: packages/subagents
+          - package: "@nativepi/subscription-usage"
+            directory: packages/subscription-usage
           - package: "@nativepi/title-generator"
             directory: packages/title-generator
     steps:
