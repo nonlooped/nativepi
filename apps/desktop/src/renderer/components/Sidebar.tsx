@@ -27,7 +27,6 @@ import WorktreeDialog from "./WorktreeDialog.tsx";
 import SessionMenu from "./SessionMenu.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
 import ChatSearchDialog from "./ChatSearchDialog.tsx";
-import UsageDashboardDialog from "./UsageDashboardDialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import {
@@ -67,7 +66,6 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const searchFocusRequest = useAppStore((s) => s.searchFocusRequest);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [usageOpen, setUsageOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [now, setNow] = useState(Date.now);
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
@@ -155,7 +153,15 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
         if (overlay) onClose();
       }}
       footerExtra={
-        <Button variant="ghost" size="sm" onClick={() => setUsageOpen(true)} title="Token usage and cost">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            openSettings("Usage");
+            if (overlay) onClose();
+          }}
+          title="Token usage and cost"
+        >
           <ChartLineUpIcon data-icon="inline-start" />
           Usage
         </Button>
@@ -420,7 +426,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
         }}
         onCancel={() => setPendingRemoval(null)}
       />
-      {usageOpen ? <UsageDashboardDialog onClose={() => setUsageOpen(false)} /> : null}
+
     </LeftSidebar>
   );
 }

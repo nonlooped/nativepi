@@ -621,7 +621,7 @@ function WelcomeScreen() {
             them. Open folder keeps the primary treatment: existing Pi users
             arrive with a credential already stored. */}
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button size="lg" variant="outline" onClick={openSettings}>
+          <Button size="lg" variant="outline" onClick={() => openSettings()}>
             <SlidersHorizontalIcon data-icon="inline-start" />
             Connect a provider
           </Button>

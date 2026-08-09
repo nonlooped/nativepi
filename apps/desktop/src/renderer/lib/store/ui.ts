@@ -11,6 +11,7 @@ let handoffId = 0;
 
 export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   settingsOpen: false,
+  settingsCategory: null,
   sidebarSize: 18,
   sidebarOpen: true,
   reopenLastProject: true,
@@ -25,7 +26,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   update: { status: "unsupported" },
   accessHandoffs: [],
 
-  openSettings: () => set({ settingsOpen: true }),
+  openSettings: (category) => set({ settingsOpen: true, ...(category ? { settingsCategory: category } : {}) }),
   closeSettings: () => set({ settingsOpen: false }),
 
   setSidebarSize: (sidebarSize) => {

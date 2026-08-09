@@ -153,9 +153,10 @@ export async function searchSessions(projectDirs: string[], rawQuery: string): P
  * read-only and works for chats that are not currently running.
  */
 export async function usageDashboard(projects: { path: string; name: string }[]): Promise<UsageDashboard> {
-  const daily = new Map<string, { cost: number; sessions: Set<string>; models: Map<string, number> }>();
-  const perProject = new Map<string, { name: string; cost: number }>();
-  const models = new Map<string, number>();
+  const daily = new Map<string, { cost: number; tokens: number; sessions: Set<string>; models: Map<string, { cost: number; tokens: number }> }>();
+  const perProject = new Map<string, { name: string; cost: number; tokens: number }>();
+  const models = new Map<string, { cost: number; tokens: number }>();
+  const totals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
   const usedSessions = new Set<string>();
   const billedEntries = new Set<string>();
   const sessionRecords = (await Promise.all(projects.map(async (project) =>
@@ -185,20 +186,31 @@ export async function usageDashboard(projects: { path: string; name: string }[])
 
       const date = usageDate(entry.message.timestamp, entry.timestamp);
       if (!date) continue;
+      const tokens = entry.message.usage?.totalTokens ?? 0;
+      const usage = entry.message.usage;
       billedEntries.add(billedEntry);
       usedSessions.add(session.path);
-      const dailyTotal = daily.get(date) ?? { cost: 0, sessions: new Set<string>(), models: new Map<string, number>() };
+      totals.input += usage?.input ?? 0;
+      totals.output += usage?.output ?? 0;
+      totals.cacheRead += usage?.cacheRead ?? 0;
+      totals.cacheWrite += usage?.cacheWrite ?? 0;
+      totals.total += tokens;
+      const dailyTotal = daily.get(date) ?? { cost: 0, tokens: 0, sessions: new Set<string>(), models: new Map<string, { cost: number; tokens: number }>() };
       dailyTotal.cost += cost;
+      dailyTotal.tokens += tokens;
       dailyTotal.sessions.add(session.path);
-      const projectTotal = perProject.get(project.path) ?? { name: project.name, cost: 0 };
+      const projectTotal = perProject.get(project.path) ?? { name: project.name, cost: 0, tokens: 0 };
       projectTotal.cost += cost;
+      projectTotal.tokens += tokens;
       perProject.set(project.path, projectTotal);
       const model = entry.message.provider && entry.message.model
         ? `${entry.message.provider}/${entry.message.model}`
         : entry.message.model ?? "Unknown model";
-      dailyTotal.models.set(model, (dailyTotal.models.get(model) ?? 0) + cost);
+      const prev = dailyTotal.models.get(model) ?? { cost: 0, tokens: 0 };
+      dailyTotal.models.set(model, { cost: prev.cost + cost, tokens: prev.tokens + tokens });
       daily.set(date, dailyTotal);
-      models.set(model, (models.get(model) ?? 0) + cost);
+      const mPrev = models.get(model) ?? { cost: 0, tokens: 0 };
+      models.set(model, { cost: mPrev.cost + cost, tokens: mPrev.tokens + tokens });
     }
   }
 
@@ -207,14 +219,15 @@ export async function usageDashboard(projects: { path: string; name: string }[])
     .map(([path, value]) => ({ path, ...value }))
     .toSorted(byCost);
   const modelTotals = [...models.entries()]
-    .map(([name, cost]) => ({ name, cost }))
+    .map(([name, value]) => ({ name, cost: value.cost, tokens: value.tokens }))
     .toSorted(byCost);
   const dailyTotals = [...daily.entries()]
     .map(([date, value]) => ({
       date,
       cost: value.cost,
+      tokens: value.tokens,
       sessions: value.sessions.size,
-      models: [...value.models.entries()].map(([name, cost]) => ({ name, cost })).toSorted(byCost),
+      models: [...value.models.entries()].map(([name, value]) => ({ name, cost: value.cost, tokens: value.tokens })).toSorted(byCost),
     }))
     .toSorted((a, b) => a.date.localeCompare(b.date));
 
@@ -224,6 +237,7 @@ export async function usageDashboard(projects: { path: string; name: string }[])
     daily: dailyTotals,
     projects: projectTotals,
     models: modelTotals,
+    tokens: totals,
   };
 }
 

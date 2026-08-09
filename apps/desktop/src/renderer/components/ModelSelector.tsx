@@ -52,7 +52,7 @@ export default function ModelSelector() {
       <Button
         variant="ghost"
         size="sm"
-        onClick={openSettings}
+        onClick={() => openSettings()}
         title={ready ? "Your connected providers reported no usable models" : undefined}
         className="h-8 gap-2 px-2 text-sm font-normal text-muted-foreground hover:text-foreground"
       >

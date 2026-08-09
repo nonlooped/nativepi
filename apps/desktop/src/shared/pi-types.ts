@@ -185,9 +185,10 @@ export interface SessionStats {
 export interface UsageDashboard {
   totalCost: number;
   sessions: number;
-  daily: { date: string; cost: number; sessions: number; models: { name: string; cost: number }[] }[];
-  projects: { path: string; name: string; cost: number }[];
-  models: { name: string; cost: number }[];
+  daily: { date: string; cost: number; tokens: number; sessions: number; models: { name: string; cost: number; tokens: number }[] }[];
+  projects: { path: string; name: string; cost: number; tokens: number }[];
+  models: { name: string; cost: number; tokens: number }[];
+  tokens: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
 }
 
 /** Pi's latest read-only context-window measurement. */

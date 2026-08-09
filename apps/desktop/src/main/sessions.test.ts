@@ -236,16 +236,18 @@ test("usageDashboard groups Pi-recorded cost by day, project, and model", async 
   expect(dashboard.totalCost).toBeCloseTo(0.35);
   expect(dashboard.sessions).toBe(2);
   expect(dashboard.daily).toEqual([
-    { date: "2026-01-02", cost: 0.12, sessions: 1, models: [{ name: "openai/gpt-5", cost: 0.12 }] },
+    { date: "2026-01-02", cost: 0.12, tokens: 2, sessions: 1, models: [{ name: "openai/gpt-5", cost: 0.12, tokens: 2 }] },
     {
       date: "2026-01-03",
       cost: 0.23,
+      tokens: 4,
       sessions: 2,
-      models: [{ name: "claude", cost: 0.2 }, { name: "openai/gpt-5", cost: 0.03 }],
+      models: [{ name: "claude", cost: 0.2, tokens: 2 }, { name: "openai/gpt-5", cost: 0.03, tokens: 2 }],
     },
   ]);
-  expect(dashboard.projects).toEqual([{ path: beta, name: "Beta", cost: 0.2 }, { path: alpha, name: "Alpha", cost: 0.15 }]);
-  expect(dashboard.models).toEqual([{ name: "claude", cost: 0.2 }, { name: "openai/gpt-5", cost: 0.15 }]);
+  expect(dashboard.projects).toEqual([{ path: beta, name: "Beta", cost: 0.2, tokens: 2 }, { path: alpha, name: "Alpha", cost: 0.15, tokens: 4 }]);
+  expect(dashboard.models).toEqual([{ name: "claude", cost: 0.2, tokens: 2 }, { name: "openai/gpt-5", cost: 0.15, tokens: 4 }]);
+  expect(dashboard.tokens).toEqual({ input: 3, output: 3, cacheRead: 0, cacheWrite: 0, total: 6 });
 });
 
 test("usageDashboard counts inherited billed entries once", async () => {

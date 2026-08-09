@@ -281,6 +281,7 @@ export interface AccessHandoff {
 
 export interface UiSlice {
   settingsOpen: boolean;
+  settingsCategory: string | null;
   sidebarSize: number;
   sidebarOpen: boolean;
   reopenLastProject: boolean;
@@ -299,7 +300,7 @@ export interface UiSlice {
   /** Links handed to another device since this window opened, newest first. */
   accessHandoffs: AccessHandoff[];
 
-  openSettings: () => void;
+  openSettings: (category?: string) => void;
   closeSettings: () => void;
   setSidebarSize: (size: number) => void;
   setSidebarOpen: (open: boolean) => void;

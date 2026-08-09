@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
 import { BrainIcon } from "@phosphor-icons/react/Brain";
+import { ChartLineUpIcon } from "@phosphor-icons/react/ChartLineUp";
 import { GearSixIcon } from "@phosphor-icons/react/GearSix";
 import { InfoIcon } from "@phosphor-icons/react/Info";
 import { KeyboardIcon } from "@phosphor-icons/react/Keyboard";
@@ -30,6 +31,7 @@ import GeneralSettings from "./settings/GeneralSettings.tsx";
 import KeybindSettings from "./settings/KeybindSettings.tsx";
 import ProviderSettings from "./settings/ProviderSettings.tsx";
 import TerminalSettings from "./settings/TerminalSettings.tsx";
+import UsageSettings from "./settings/UsageSettings.tsx";
 
 /**
  * The settings screen.
@@ -42,8 +44,9 @@ import TerminalSettings from "./settings/TerminalSettings.tsx";
  *
  * The order runs from what everyone touches to what almost nobody does.
  */
-const CATEGORIES = [
+export const CATEGORIES = [
   { name: "General", icon: GearSixIcon, blurb: "Startup, notifications, and chat titles." },
+  { name: "Usage", icon: ChartLineUpIcon, blurb: "Spend and tokens recorded in Pi session files." },
   { name: "Access", icon: WifiHighIcon, blurb: "Reach this window from another device." },
   { name: "Appearance", icon: PaintBrushIcon, blurb: "Layout, scale, diffs, and motion." },
   { name: "Agent", icon: BrainIcon, blurb: "How Pi runs a turn. Shared with the Pi command line." },
@@ -55,7 +58,7 @@ const CATEGORIES = [
   { name: "About", icon: InfoIcon, blurb: "Versions, updates, and where Pi keeps its files." },
 ] as const;
 
-type Category = (typeof CATEGORIES)[number]["name"];
+export type Category = (typeof CATEGORIES)[number]["name"];
 
 /** Categories backed by Pi's settings file, which is read when the screen opens. */
 const PI_BACKED = new Set<Category>(["Agent", "Terminal", "Advanced"]);
@@ -63,7 +66,12 @@ const PI_BACKED = new Set<Category>(["Agent", "Terminal", "Advanced"]);
 export default function Settings() {
   const closeSettings = useAppStore((s) => s.closeSettings);
   const loadPiSettings = useAppStore((s) => s.loadPiSettings);
-  const [category, setCategory] = useState<Category>("General");
+  const initialCategory = useAppStore((s) => s.settingsCategory) as Category | null;
+  const [category, setCategory] = useState<Category>((initialCategory as Category) ?? "General");
+
+  useEffect(() => {
+    if (initialCategory) setCategory(initialCategory as Category);
+  }, [initialCategory]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [railSheetOpen, setRailSheetOpen] = useState(false);
   const layout = useWorkspaceLayout();
@@ -148,13 +156,18 @@ export default function Settings() {
             <RunningAgentBadge />
           </header>
 
-          {/* One rail: the h1 used to sit in a 56rem container above 48rem content,
-              leaving a permanently ragged right edge. */}
-          <div className="mx-auto w-full max-w-3xl px-4 pb-16 pt-8 sm:px-10 sm:pt-12">
-            <div className="mb-8 flex flex-col gap-2 sm:mb-12">
-              <h1 className="font-heading text-2xl font-semibold tracking-tight">{category}</h1>
-              {blurb ? <p className="text-sm leading-6 text-body-muted-foreground">{blurb}</p> : null}
-            </div>
+          <div
+            className={cn(
+              "mx-auto w-full px-4 pb-16 pt-8 sm:px-10 sm:pt-12",
+              category === "Usage" ? "max-w-6xl" : "max-w-3xl",
+            )}
+          >
+            {category !== "Usage" ? (
+              <div className="mb-8 flex flex-col gap-2 sm:mb-12">
+                <h1 className="font-heading text-2xl font-semibold tracking-tight">{category}</h1>
+                {blurb ? <p className="text-sm leading-6 text-body-muted-foreground">{blurb}</p> : null}
+              </div>
+            ) : null}
 
             <CategoryPanel category={category} />
           </div>
@@ -225,6 +238,8 @@ function CategoryPanel({ category }: { category: Category }) {
   switch (category) {
     case "General":
       return <GeneralSettings />;
+    case "Usage":
+      return <UsageSettings />;
     case "Access":
       return <AccessSettings />;
     case "Appearance":
