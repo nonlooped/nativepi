@@ -15,6 +15,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   sidebarSize: 18,
   sidebarOpen: true,
   reopenLastProject: true,
+  commitMessageModel: "active",
   contextPaneOpen: false,
   contextPaneChosen: false,
   jumpRequest: 0,
@@ -46,6 +47,11 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
 
   setReopenLastProject: (reopenLastProject) => {
     set({ reopenLastProject });
+    persist(get);
+  },
+
+  setCommitMessageModel: (commitMessageModel) => {
+    set({ commitMessageModel });
     persist(get);
   },
 

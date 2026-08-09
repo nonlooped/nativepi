@@ -285,6 +285,7 @@ export interface UiSlice {
   sidebarSize: number;
   sidebarOpen: boolean;
   reopenLastProject: boolean;
+  commitMessageModel: string;
   contextPaneOpen: boolean;
   contextPaneChosen: boolean;
   jumpRequest: number;
@@ -306,6 +307,7 @@ export interface UiSlice {
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setReopenLastProject: (value: boolean) => void;
+  setCommitMessageModel: (model: string) => void;
   setPreference: <K extends keyof Preferences>(key: K, value: Preferences[K]) => void;
   setKeybinding: (id: ShortcutId, binding: string) => void;
   resetKeybinding: (id: ShortcutId) => void;
