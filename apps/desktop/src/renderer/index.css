@@ -334,6 +334,14 @@ html[data-shell="desktop"] .window-controls-clearance {
 
 .terminal-surface .xterm-viewport {
   background: transparent !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.terminal-surface .xterm-viewport::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .terminal-dock-enter {

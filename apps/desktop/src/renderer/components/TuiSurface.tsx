@@ -42,6 +42,7 @@ function useSurfaceTerminal(
     const container = containerRef.current;
     if (!container) return;
 
+    let disposed = false;
     const styles = getComputedStyle(document.documentElement);
     const terminal = new Terminal({
       // The component draws its own cursor when it wants one; xterm's would be a
@@ -70,7 +71,25 @@ function useSurfaceTerminal(
     terminal.open(container);
     // Everything drawn since the component's last full redraw, so a pane that
     // remounts shows what is there rather than waiting for the next keystroke.
-    const reportRows = () => onRows?.(Math.max(1, Math.min(maxRows, terminal.buffer.active.cursorY + 1)));
+    const reportRows = () => {
+      if (!onRows || disposed) return;
+      try {
+        const buffer = terminal.buffer.active;
+        let lastNonEmpty = 0;
+        for (let i = 0; i < buffer.length; i++) {
+          const line = buffer.getLine(i);
+          if (!line) continue;
+          if (line.translateToString(true).trim() !== "") lastNonEmpty = i + 1;
+        }
+        // Fallback for surfaces that draw only block characters with no trimmed text
+        // or for an empty buffer before the first write has been processed.
+        const cursorRows = buffer.baseY + buffer.cursorY + 1;
+        const contentRows = lastNonEmpty || cursorRows;
+        onRows(Math.max(1, Math.min(maxRows, contentRows)));
+      } catch {
+        return;
+      }
+    };
     terminal.write(surfaceBuffer(surface.id), reportRows);
 
     const offWrite = onSurfaceWrite(surface.id, (data) => terminal.write(data, reportRows));
@@ -83,7 +102,6 @@ function useSurfaceTerminal(
       });
     });
 
-    let disposed = false;
     let frame = 0;
     let focusFrame = 0;
     // An auto-sizing pane changes its own height from what the component drew,
@@ -141,7 +159,7 @@ function useSurfaceTerminal(
 }
 
 /**
- * The modal half: `ctx.ui.custom()`, which takes over the keyboard until answered.
+ * The modal half: `ctx.ui.custom()` with `overlay: true`, which takes over the keyboard until answered.
  *
  * Only one is shown at a time even if an extension opens two, because the second
  * one's component is waiting on a keyboard the first one holds — the same
@@ -206,17 +224,26 @@ export function TuiAutoPane({
   surface,
   maxRows = 24,
   scrollback = 0,
+  focus = false,
 }: {
   surface: TuiSurface;
   maxRows?: number;
   scrollback?: number;
+  focus?: boolean;
 }) {
   const projectDir = useAppStore((s) => s.activeProjectPath);
-  const [rows, setRows] = useState(1);
+  const [visibleRows, setVisibleRows] = useState(1);
   const containerRef = useSurfaceTerminal(surface, projectDir, {
+    // Pi always gets the slot's full grid. Feeding the currently visible height
+    // back to it traps a dynamic widget at its smallest render, because clipped
+    // rows can never be measured and made visible again.
     rows: maxRows,
-    focus: false,
-    onRows: setRows,
+    focus,
+    onRows: (next) =>
+      setVisibleRows((prev) => {
+        const clamped = Math.max(1, Math.min(maxRows, next));
+        return clamped === prev ? prev : clamped;
+      }),
     maxRows,
     scrollback,
   });
@@ -226,7 +253,7 @@ export function TuiAutoPane({
       role="group"
       aria-label={`${surface.key} (extension)`}
       className="terminal-surface w-full overflow-hidden"
-      style={{ height: `calc(${rows} * 1.2em)` }}
+      style={{ height: `calc(${visibleRows} * 1.2em)` }}
     />
   );
 }
