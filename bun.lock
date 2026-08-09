@@ -167,6 +167,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@nativepi/extension-api": "workspace:^",
+        "@phosphor-icons/react": "^2.1.10",
       },
       "devDependencies": {
         "@earendil-works/pi-ai": "0.84.1",

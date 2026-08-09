@@ -1,7 +1,9 @@
+import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { StringDecoder } from "node:string_decoder";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
@@ -18,7 +20,13 @@ import {
 import { connect } from "@nativepi/extension-api/host";
 import { z } from "@nativepi/extension-api/schema";
 import { Type } from "typebox";
-import { subagentsProtocol, type SubagentSettings } from "../types.ts";
+import {
+  subagentsProtocol,
+  type SubagentConversationBlock,
+  type SubagentConversationMessage,
+  type SubagentSettings,
+  type SubagentStatus,
+} from "../types.ts";
 
 const DEFAULT_MAX_CONCURRENCY = 6;
 const MAX_CONFIGURED_CONCURRENCY = 32;
@@ -65,10 +73,15 @@ const assistantMessageSchema = z.object({
 const eventSchema = z.object({
   type: z.string(),
   message: z.unknown().optional(),
+  assistantMessageEvent: z.unknown().optional(),
+  toolCallId: z.string().optional(),
+  toolName: z.string().optional(),
+  args: z.unknown().optional(),
+  result: z.unknown().optional(),
+  isError: z.boolean().optional(),
 }).passthrough();
 
 type Usage = z.infer<typeof usageSchema>;
-type JobStatus = "queued" | "running" | "cancelling" | "completed" | "failed" | "cancelled";
 type Job = {
   id: string;
   name?: string;
@@ -77,7 +90,7 @@ type Job = {
   thinkingLevel: typeof THINKING_LEVELS[number];
   cwd: string;
   projectTrusted: boolean;
-  status: JobStatus;
+  status: SubagentStatus;
   createdAt: number;
   startedAt?: number;
   finishedAt?: number;
@@ -86,6 +99,10 @@ type Job = {
   error?: string;
   usage: Usage;
   turns: number;
+  toolCount: number;
+  conversation: SubagentConversationMessage[];
+  messageSequence: number;
+  streamingMessageId?: string;
   usageReported: boolean;
   cancellationRequested: boolean;
   controller?: AbortController;
@@ -187,8 +204,57 @@ function assistantText(content: unknown[]) {
   ).join("");
 }
 
+function boundedText(text: string, max = DEFAULT_MAX_BYTES) {
+  return truncateHead(text, { maxBytes: max, maxLines: DEFAULT_MAX_LINES }).content;
+}
+
+function jsonText(value: unknown, max = 8_000) {
+  try {
+    const text = JSON.stringify(value, null, 2);
+    return text ? boundedText(text, max) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function toolResultText(value: unknown) {
+  if (!isRecord(value)) return jsonText(value);
+  const content = value["content"];
+  if (Array.isArray(content)) {
+    const text = content.flatMap((part) =>
+      isRecord(part) && part.type === "text" && typeof part.text === "string" ? [part.text] : [],
+    ).join("\n");
+    if (text) return boundedText(text);
+  }
+  return jsonText(value, DEFAULT_MAX_BYTES);
+}
+
+export function conversationBlocks(content: unknown[]) {
+  return content.flatMap((part): SubagentConversationBlock[] => {
+    if (!isRecord(part) || typeof part.type !== "string") return [];
+    if (part.type === "text" && typeof part.text === "string") {
+      return [{ type: "text", text: boundedText(part.text) }];
+    }
+    if (part.type === "thinking" && typeof part.thinking === "string") {
+      return [{ type: "thinking", text: boundedText(part.thinking) }];
+    }
+    if (part.type === "toolCall" && typeof part.id === "string" && typeof part.name === "string") {
+      const args = jsonText(part.arguments);
+      return [{
+        type: "tool",
+        id: part.id,
+        name: part.name,
+        status: "running",
+        ...(args ? { arguments: args } : {}),
+      }];
+    }
+    return [];
+  });
+}
+
 export function parseSubagentOutput(stdout: string) {
   const usage = emptyUsage();
+  const tools = new Set<string>();
   let output = "";
   let stopReason: string | undefined;
   let error: string | undefined;
@@ -199,7 +265,9 @@ export function parseSubagentOutput(stdout: string) {
     if (!line.trim()) continue;
     try {
       const event = eventSchema.safeParse(JSON.parse(line) as unknown);
-      if (!event.success || event.data.type !== "message_end") continue;
+      if (!event.success) continue;
+      if (event.data.type === "tool_execution_start" && event.data.toolCallId) tools.add(event.data.toolCallId);
+      if (event.data.type !== "message_end") continue;
       const message = assistantMessageSchema.safeParse(event.data.message);
       if (!message.success) continue;
       output = assistantText(message.data.content);
@@ -213,7 +281,7 @@ export function parseSubagentOutput(stdout: string) {
     }
   }
 
-  return { output, stopReason, error, model, usage, turns };
+  return { output, stopReason, error, model, usage, turns, toolCount: tools.size };
 }
 
 export function getPiInvocation(args: string[]) {
@@ -232,22 +300,256 @@ export function getPiInvocation(args: string[]) {
   return { command: "pi", args };
 }
 
-function terminalStatus(status: JobStatus) {
+export function createJsonLineReader(onLine: (line: string) => void) {
+  const decoder = new StringDecoder("utf8");
+  let output = "";
+  let pending = "";
+  const accept = (text: string, final: boolean) => {
+    output += text;
+    pending += text;
+    const lines = pending.split(/\r?\n/);
+    if (!final) pending = lines.pop() ?? "";
+    else pending = "";
+    for (const line of lines) if (line.trim()) onLine(line);
+  };
+  return {
+    push(chunk: Uint8Array) {
+      accept(decoder.write(Buffer.from(chunk)), false);
+    },
+    end() {
+      accept(decoder.end(), true);
+      return output;
+    },
+  };
+}
+
+function execStreaming(
+  command: string,
+  args: string[],
+  cwd: string,
+  signal: AbortSignal,
+  onLine: (line: string) => void,
+) {
+  return new Promise<{ stdout: string; stderr: string; code: number; killed: boolean }>((resolve) => {
+    const child = spawn(command, args, { cwd, shell: false, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+    const stdout = createJsonLineReader(onLine);
+    const stderrDecoder = new StringDecoder("utf8");
+    let stderr = "";
+    let killed = false;
+    let settled = false;
+    let forceTimer: ReturnType<typeof setTimeout> | undefined;
+    const kill = () => {
+      if (killed || settled) return;
+      killed = true;
+      child.kill("SIGTERM");
+      forceTimer = setTimeout(() => child.kill("SIGKILL"), SHUTDOWN_GRACE_MS);
+    };
+    const finish = (code: number) => {
+      if (settled) return;
+      settled = true;
+      if (forceTimer) clearTimeout(forceTimer);
+      signal.removeEventListener("abort", kill);
+      const stdoutText = stdout.end();
+      stderr += stderrDecoder.end();
+      resolve({ stdout: stdoutText, stderr, code, killed });
+    };
+
+    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += stderrDecoder.write(chunk);
+    });
+    child.once("error", (error) => {
+      stderr += errorMessage(error);
+      finish(1);
+    });
+    child.once("close", (code) => finish(code ?? 0));
+    if (signal.aborted) kill();
+    else signal.addEventListener("abort", kill, { once: true });
+  });
+}
+
+function terminalStatus(status: SubagentStatus) {
   return status === "completed" || status === "failed" || status === "cancelled";
 }
 
-function jobSnapshot(job: Job) {
+function findTool(job: Job, id: string) {
+  for (let messageIndex = job.conversation.length - 1; messageIndex >= 0; messageIndex--) {
+    const message = job.conversation[messageIndex]!;
+    const blockIndex = message.content.findIndex((block) => block.type === "tool" && block.id === id);
+    if (blockIndex >= 0) return { message, blockIndex };
+  }
+  return undefined;
+}
+
+function streamingMessage(job: Job) {
+  const existing = job.streamingMessageId
+    ? job.conversation.find((message) => message.id === job.streamingMessageId)
+    : undefined;
+  if (existing) return existing;
+  const message: SubagentConversationMessage = {
+    id: `${job.id}-assistant-${++job.messageSequence}`,
+    role: "assistant",
+    content: [],
+    timestamp: Date.now(),
+  };
+  job.streamingMessageId = message.id;
+  job.conversation.push(message);
+  return message;
+}
+
+function setStreamingBlock(message: SubagentConversationMessage, index: number, block: SubagentConversationBlock) {
+  while (message.content.length < index) message.content.push({ type: "text", text: "" });
+  message.content[index] = block;
+}
+
+function applyConversationEvent(job: Job, line: string) {
+  try {
+    const event = eventSchema.safeParse(JSON.parse(line) as unknown);
+    if (!event.success) return false;
+    if (event.data.type === "message_update" && isRecord(event.data.assistantMessageEvent)) {
+      const update = event.data.assistantMessageEvent;
+      const type = update["type"];
+      const index = update["contentIndex"];
+      if (typeof type !== "string" || typeof index !== "number" || !Number.isInteger(index) || index < 0) return false;
+      const message = streamingMessage(job);
+      const current = message.content[index];
+      if (type === "text_start") setStreamingBlock(message, index, { type: "text", text: "" });
+      else if (type === "text_delta" && typeof update["delta"] === "string") {
+        setStreamingBlock(message, index, {
+          type: "text",
+          text: boundedText(`${current?.type === "text" ? current.text : ""}${update["delta"]}`),
+        });
+      } else if (type === "text_end" && typeof update["content"] === "string") {
+        setStreamingBlock(message, index, { type: "text", text: boundedText(update["content"]) });
+      } else if (type === "thinking_start") setStreamingBlock(message, index, { type: "thinking", text: "" });
+      else if (type === "thinking_delta" && typeof update["delta"] === "string") {
+        setStreamingBlock(message, index, {
+          type: "thinking",
+          text: boundedText(`${current?.type === "thinking" ? current.text : ""}${update["delta"]}`),
+        });
+      } else if (type === "thinking_end" && typeof update["content"] === "string") {
+        setStreamingBlock(message, index, { type: "thinking", text: boundedText(update["content"]) });
+      } else if (type === "toolcall_end" && isRecord(update["toolCall"])) {
+        const tool = update["toolCall"];
+        if (typeof tool.id !== "string" || typeof tool.name !== "string") return false;
+        if (!findTool(job, tool.id)) job.toolCount += 1;
+        const args = jsonText(tool.arguments);
+        setStreamingBlock(message, index, {
+          type: "tool",
+          id: tool.id,
+          name: tool.name,
+          status: "running",
+          ...(args ? { arguments: args } : {}),
+        });
+      } else return false;
+      return true;
+    }
+    if (event.data.type === "message_end") {
+      const message = assistantMessageSchema.safeParse(event.data.message);
+      if (!message.success) return false;
+      const content = conversationBlocks(message.data.content);
+      if (content.length === 0 && !message.data.errorMessage) return false;
+      job.model = `${message.data.provider}/${message.data.model}`;
+      job.turns += 1;
+      addUsage(job.usage, message.data.usage);
+      const addedTools = content.filter((block) => block.type === "tool" && !findTool(job, block.id)).length;
+      job.toolCount += addedTools;
+      const current = job.streamingMessageId
+        ? job.conversation.find((candidate) => candidate.id === job.streamingMessageId)
+        : undefined;
+      const completed = {
+        id: current?.id ?? `${job.id}-assistant-${++job.messageSequence}`,
+        role: "assistant" as const,
+        content,
+        timestamp: Date.now(),
+        ...(message.data.errorMessage ? { error: message.data.errorMessage } : {}),
+      };
+      if (current) job.conversation[job.conversation.indexOf(current)] = completed;
+      else job.conversation.push(completed);
+      job.streamingMessageId = undefined;
+      return true;
+    }
+    if (event.data.type !== "tool_execution_start" && event.data.type !== "tool_execution_end") return false;
+    if (!event.data.toolCallId || !event.data.toolName) return false;
+    const found = findTool(job, event.data.toolCallId);
+    const args = jsonText(event.data.args);
+    const result = event.data.type === "tool_execution_end" ? toolResultText(event.data.result) : undefined;
+    const next: SubagentConversationBlock = {
+      type: "tool",
+      id: event.data.toolCallId,
+      name: event.data.toolName,
+      status: event.data.type === "tool_execution_start" ? "running" : event.data.isError ? "failed" : "completed",
+      ...(args ? { arguments: args } : {}),
+      ...(result ? { result } : {}),
+    };
+    if (found) {
+      const previous = found.message.content[found.blockIndex];
+      found.message.content[found.blockIndex] = {
+        ...previous,
+        ...next,
+        ...(previous?.type === "tool" && previous.arguments && !next.arguments
+          ? { arguments: previous.arguments }
+          : {}),
+      };
+    } else {
+      job.toolCount += 1;
+      job.conversation.push({
+        id: `${job.id}-assistant-${++job.messageSequence}`,
+        role: "assistant",
+        content: [next],
+        timestamp: Date.now(),
+      });
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function settleConversation(job: Job, status: SubagentStatus) {
+  for (const message of job.conversation) {
+    message.content = message.content.map((block) =>
+      block.type === "tool" && block.status === "running"
+        ? {
+            ...block,
+            status: status === "completed" ? "completed" : status === "cancelled" ? "cancelled" : "failed",
+            ...(status === "cancelled" ? { result: block.result ?? "Cancelled." } : {}),
+          }
+        : block,
+    );
+  }
+}
+
+function jobSummary(job: Job) {
   return {
     id: job.id,
-    name: job.name,
+    ...(job.name ? { name: job.name } : {}),
+    prompt: job.prompt,
     status: job.status,
     model: job.model,
     thinkingLevel: job.thinkingLevel,
     createdAt: job.createdAt,
-    startedAt: job.startedAt,
-    finishedAt: job.finishedAt,
-    error: job.error,
-    fullOutputFile: job.fullOutputFile,
+    ...(job.startedAt !== undefined ? { startedAt: job.startedAt } : {}),
+    ...(job.finishedAt !== undefined ? { finishedAt: job.finishedAt } : {}),
+    ...(job.error ? { error: job.error } : {}),
+    turns: job.turns,
+    toolCount: job.toolCount,
+    usage: {
+      input: job.usage.input,
+      output: job.usage.output,
+      cacheRead: job.usage.cacheRead,
+      cacheWrite: job.usage.cacheWrite,
+      totalTokens: job.usage.totalTokens,
+      cost: job.usage.cost.total,
+    },
+  };
+}
+
+function jobDetail(job: Job) {
+  return {
+    ...jobSummary(job),
+    ...(job.fullOutputFile ? { fullOutputFile: job.fullOutputFile } : {}),
+    conversation: job.conversation,
   };
 }
 
@@ -328,6 +630,11 @@ export default function subagentsExtension(pi: ExtensionAPI) {
     effectiveMaxConcurrency: maxConcurrency,
   });
 
+  const overviewState = () => ({
+    settings: settingsState(),
+    jobs: [...jobs.values()].map(jobSummary),
+  });
+
   const updateStatus = () => {
     if (!latest) return;
     const queued = [...jobs.values()].filter((job) => job.status === "queued").length;
@@ -342,6 +649,11 @@ export default function subagentsExtension(pi: ExtensionAPI) {
     );
   };
 
+  function publish() {
+    updateStatus();
+    ui.emit("changed", overviewState());
+  }
+
   const writeBoundedOutput = async (text: string, key: string) => {
     const truncation = truncateHead(text, { maxBytes: DEFAULT_MAX_BYTES, maxLines: DEFAULT_MAX_LINES });
     if (!truncation.truncated) return { text: truncation.content, file: undefined };
@@ -355,16 +667,24 @@ export default function subagentsExtension(pi: ExtensionAPI) {
     };
   };
 
-  const finishJob = (job: Job, status: JobStatus) => {
+  const finishJob = (job: Job, status: SubagentStatus) => {
     job.status = status;
     job.finishedAt = Date.now();
     job.controller = undefined;
+    settleConversation(job, status);
+    if (status === "failed" && job.error && !job.conversation.some((message) => message.error === job.error)) {
+      job.conversation.push({
+        id: `${job.id}-assistant-${++job.messageSequence}`,
+        role: "assistant",
+        content: [],
+        timestamp: job.finishedAt,
+        error: job.error,
+      });
+    }
     running = Math.max(0, running - 1);
     job.resolveDone();
-    if (closing && terminalStatus(status)) {
-      jobs.delete(job.id);
-    }
-    updateStatus();
+    if (closing && terminalStatus(status)) jobs.delete(job.id);
+    publish();
     pump();
   };
 
@@ -374,7 +694,7 @@ export default function subagentsExtension(pi: ExtensionAPI) {
     job.status = "running";
     job.startedAt = Date.now();
     running += 1;
-    updateStatus();
+    publish();
 
     const args = [
       "--mode", "json",
@@ -387,15 +707,25 @@ export default function subagentsExtension(pi: ExtensionAPI) {
       `Task:\n${job.prompt}`,
     ];
     const invocation = getPiInvocation(args);
+    let publishTimer: ReturnType<typeof setTimeout> | undefined;
+    const queuePublish = () => {
+      if (publishTimer) return;
+      publishTimer = setTimeout(() => {
+        publishTimer = undefined;
+        publish();
+      }, 100);
+    };
 
     try {
-      const result = await pi.exec(invocation.command, invocation.args, {
-        cwd: job.cwd,
-        signal: controller.signal,
-      });
+      const result = ui.connected
+        ? await execStreaming(invocation.command, invocation.args, job.cwd, controller.signal, (line) => {
+            if (applyConversationEvent(job, line)) queuePublish();
+          })
+        : await pi.exec(invocation.command, invocation.args, { cwd: job.cwd, signal: controller.signal });
       const parsed = parseSubagentOutput(result.stdout);
       job.usage = parsed.usage;
       job.turns = parsed.turns;
+      job.toolCount = Math.max(job.toolCount, parsed.toolCount);
       if (parsed.model) job.model = parsed.model;
 
       const bounded = await writeBoundedOutput(parsed.output, job.id);
@@ -419,6 +749,8 @@ export default function subagentsExtension(pi: ExtensionAPI) {
     } catch (error) {
       job.error = job.cancellationRequested ? "Cancelled." : errorMessage(error);
       finishJob(job, job.cancellationRequested ? "cancelled" : "failed");
+    } finally {
+      if (publishTimer) clearTimeout(publishTimer);
     }
   };
 
@@ -454,6 +786,23 @@ export default function subagentsExtension(pi: ExtensionAPI) {
     return turns > 0 ? total : undefined;
   };
 
+  const cancelJobs = (selected: Job[]) => {
+    for (const job of selected) {
+      if (job.status === "queued") {
+        job.status = "cancelled";
+        job.error = "Cancelled before starting.";
+        job.finishedAt = Date.now();
+        job.resolveDone();
+      } else if (job.status === "running") {
+        job.status = "cancelling";
+        job.cancellationRequested = true;
+        job.controller?.abort();
+      }
+    }
+    publish();
+    pump();
+  };
+
   const resultFor = async (
     selected: Job[],
     toolCallId: string,
@@ -464,21 +813,26 @@ export default function subagentsExtension(pi: ExtensionAPI) {
     const bounded = await writeBoundedOutput(full, `result-${toolCallId}`);
     return {
       content: [{ type: "text" as const, text: bounded.text }],
-      details: { jobs: selected.map(jobSnapshot), fullOutputFile: bounded.file },
+      details: { jobs: selected.map(jobSummary), fullOutputFile: bounded.file },
       usage: includeUsage ? takeUsage(selected) : undefined,
     };
   };
 
   const ui = connect("@nativepi/subagents", subagentsProtocol, {
-    state: settingsState,
+    overview: overviewState,
+    detail: ({ id }) => jobDetail(getJobs([id])[0]!),
+    cancel: ({ id }) => {
+      const job = getJobs([id])[0]!;
+      cancelJobs([job]);
+      return jobDetail(job);
+    },
     setMaxConcurrency: async ({ maxConcurrency: value }) => {
       await saveUserMaxConcurrency(value);
       userMaxConcurrency = value;
       maxConcurrency = projectMaxConcurrency ?? value;
-      const state = settingsState();
-      ui.emit("changed", state);
       pump();
-      return state;
+      publish();
+      return overviewState();
     },
   });
 
@@ -490,8 +844,7 @@ export default function subagentsExtension(pi: ExtensionAPI) {
     projectMaxConcurrency = settings.projectMaxConcurrency;
     maxConcurrency = settings.effectiveMaxConcurrency;
     for (const diagnostic of settings.diagnostics) context.ui.notify(diagnostic, "warning");
-    ui.emit("changed", settingsState());
-    updateStatus();
+    publish();
   });
 
   pi.on("session_shutdown", async (_event, context) => {
@@ -551,8 +904,10 @@ export default function subagentsExtension(pi: ExtensionAPI) {
       const done = new Promise<void>((resolve) => {
         resolveDone = resolve;
       });
+      const id = `sa-${++sequence}`;
+      const createdAt = Date.now();
       const job: Job = {
-        id: `sa-${++sequence}`,
+        id,
         name: params.name,
         prompt: params.prompt,
         model: `${model.provider}/${model.id}`,
@@ -560,22 +915,31 @@ export default function subagentsExtension(pi: ExtensionAPI) {
         cwd: context.cwd,
         projectTrusted: context.isProjectTrusted(),
         status: "queued",
-        createdAt: Date.now(),
+        createdAt,
         usage: emptyUsage(),
         turns: 0,
+        toolCount: 0,
+        conversation: [{
+          id: `${id}-user-1`,
+          role: "user",
+          content: [{ type: "text", text: params.prompt }],
+          timestamp: createdAt,
+        }],
+        messageSequence: 1,
         usageReported: false,
         cancellationRequested: false,
         done,
         resolveDone,
       };
       jobs.set(job.id, job);
+      publish();
       pump();
       return {
         content: [{
           type: "text",
           text: `${job.id} ${job.status}. Model: ${job.model}; thinking: ${job.thinkingLevel}.`,
         }],
-        details: { job: jobSnapshot(job) },
+        details: { job: jobSummary(job) },
       };
     },
   });
@@ -619,20 +983,7 @@ export default function subagentsExtension(pi: ExtensionAPI) {
     parameters: IdsParameters,
     async execute(toolCallId, params) {
       const selected = getJobs(params.ids);
-      for (const job of selected) {
-        if (job.status === "queued") {
-          job.status = "cancelled";
-          job.error = "Cancelled before starting.";
-          job.finishedAt = Date.now();
-          job.resolveDone();
-        } else if (job.status === "running") {
-          job.status = "cancelling";
-          job.cancellationRequested = true;
-          job.controller?.abort();
-        }
-      }
-      updateStatus();
-      pump();
+      cancelJobs(selected);
       return resultFor(selected, toolCallId, false);
     },
   });

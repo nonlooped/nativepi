@@ -4,6 +4,8 @@ import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import subagentsExtension, {
+  conversationBlocks,
+  createJsonLineReader,
   getPiInvocation,
   loadSubagentSettings,
   parseSubagentOutput,
@@ -209,4 +211,37 @@ test("JSON-mode output returns the final response and aggregates usage", () => {
   expect(parsed.usage.input).toBe(30);
   expect(parsed.usage.output).toBe(12);
   expect(parsed.usage.cost.total).toBeCloseTo(0.66);
+});
+
+test("streamed JSONL survives arbitrary byte boundaries", () => {
+  const lines: string[] = [];
+  const reader = createJsonLineReader((line) => lines.push(line));
+  const bytes = Buffer.from('{"text":"café"}\n{"type":"done"}', "utf8");
+  const split = bytes.indexOf(0xc3) + 1;
+
+  reader.push(bytes.subarray(0, 5));
+  reader.push(bytes.subarray(5, split));
+  reader.push(bytes.subarray(split, split + 2));
+  reader.push(bytes.subarray(split + 2));
+
+  expect(reader.end()).toBe('{"text":"café"}\n{"type":"done"}');
+  expect(lines).toEqual(['{"text":"café"}', '{"type":"done"}']);
+});
+
+test("assistant content becomes a complete graphical conversation", () => {
+  expect(conversationBlocks([
+    { type: "thinking", thinking: "I should inspect the entry point." },
+    { type: "text", text: "I’ll start by reading the file." },
+    { type: "toolCall", id: "tool-1", name: "read", arguments: { path: "src/index.ts" } },
+  ])).toEqual([
+    { type: "thinking", text: "I should inspect the entry point." },
+    { type: "text", text: "I’ll start by reading the file." },
+    {
+      type: "tool",
+      id: "tool-1",
+      name: "read",
+      status: "running",
+      arguments: "{\n  \"path\": \"src/index.ts\"\n}",
+    },
+  ]);
 });
