@@ -92,8 +92,8 @@ export const SHORTCUTS: ShortcutDef[] = [
   {
     id: "toggleContextPane",
     binding: "$mod+KeyJ",
-    label: "Toggle changes pane",
-    description: "Show or hide the Git changes pane.",
+    label: "Toggle source control",
+    description: "Show or hide source control.",
     group: "Navigation",
   },
   {

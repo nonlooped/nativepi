@@ -56,6 +56,7 @@ export class PiProcess {
     onEvent: (msg: PiMessage) => void,
     onExit: (code: number | null) => void,
     onFrame: (frame: TuiHostFrame) => void = () => {},
+    args: string[] = [],
   ) {
     this.projectDir = projectDir;
     this.onEvent = onEvent;
@@ -63,7 +64,7 @@ export class PiProcess {
 
     // Electron's process.execPath is the Electron binary; ELECTRON_RUN_AS_NODE
     // makes it behave as plain Node so the Pi host entry runs correctly.
-    this.proc = spawn(process.execPath, [resolvePiEntry()], {
+    this.proc = spawn(process.execPath, [resolvePiEntry(), ...args], {
       cwd: projectDir,
       env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
       stdio: ["pipe", "pipe", "pipe"],

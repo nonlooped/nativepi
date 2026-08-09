@@ -9,6 +9,7 @@ import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { FolderPlusIcon } from "@phosphor-icons/react/FolderPlus";
 import { FunnelSimpleIcon } from "@phosphor-icons/react/FunnelSimple";
 import { GearSixIcon } from "@phosphor-icons/react/GearSix";
+import { GitBranchIcon } from "@phosphor-icons/react/GitBranch";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
 import { PushPinIcon } from "@phosphor-icons/react/PushPin";
@@ -41,7 +42,15 @@ import { rpc } from "@/lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
 import { countMatches, groupChats } from "../lib/chatOrganization.ts";
 
-export default function Sidebar({ onClose, overlay = false }: { onClose: () => void; overlay?: boolean }) {
+export default function Sidebar({
+  onClose,
+  onOpenSourceControl,
+  overlay = false,
+}: {
+  onClose: () => void;
+  onOpenSourceControl: () => void;
+  overlay?: boolean;
+}) {
   const projects = useAppStore((s) => s.projects);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const projectChatCounts = useAppStore(
@@ -64,6 +73,7 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
   const editorId = useAppStore((s) => s.preferences.preferredEditorId);
   const searchFocusRequest = useAppStore((s) => s.searchFocusRequest);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
+  const changedFileCount = useAppStore((s) => s.git?.files.length ?? 0);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [now, setNow] = useState(Date.now);
@@ -154,9 +164,8 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
       onClose={onClose}
       overlay={overlay}
     >
-      {/* One primary action, one way in to full-text search. Everything else
-          moved next to the thing it acts on: projects to the Projects header,
-          per-chat actions to the row's context menu. */}
+      {/* Keep the primary chat action dominant while source control and search
+          remain one-click workspace destinations. */}
       <div className={cn("flex flex-col gap-1.5 px-2 pb-2", NO_DRAG_REGION)}>
         <div className="flex items-center gap-1">
           <Button
@@ -168,6 +177,24 @@ export default function Sidebar({ onClose, overlay = false }: { onClose: () => v
           >
             <NotePencilIcon data-icon="inline-start" />
             New chat
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-lg"
+            className="relative"
+            onClick={() => {
+              onOpenSourceControl();
+              if (overlay) onClose();
+            }}
+            aria-label="Open source control"
+            title={withHint("Open source control", "toggleContextPane", keybindingOverrides)}
+          >
+            <GitBranchIcon />
+            {changedFileCount > 0 ? (
+              <span className="absolute -right-1 -bottom-1 min-w-4 rounded-full bg-primary px-1 text-center text-[0.625rem] font-semibold leading-4 text-primary-foreground tabular-nums">
+                {changedFileCount > 99 ? "99+" : changedFileCount}
+              </span>
+            ) : null}
           </Button>
           <Button
             variant="outline"

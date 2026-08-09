@@ -8,6 +8,7 @@ import type {
   FileEntry,
   ForkPoint,
   GitBranch,
+  GitCommit,
   GitDiff,
   GitHunk,
   GitPrTarget,
@@ -278,6 +279,7 @@ export const nativePiStateSchema = z.object({
   lastChatByProject: z.record(z.string(), z.string()).catch({}),
   drafts: z.record(z.string(), z.string()).catch({}),
   favoriteModels: z.array(z.string()).catch([]),
+  commitMessageModel: z.string().min(1).max(500).catch("active"),
   pinnedChats: z
     .array(z.unknown())
     .catch([])
@@ -515,14 +517,24 @@ export type HostRequests = {
   terminalCloseProject: { params: { projectDir: string }; response: { ok: boolean } };
 
   gitStatus: { params: { projectDir: string }; response: { status: GitStatus } };
+  gitLog: { params: { projectDir: string }; response: { commits: GitCommit[] } };
   gitDiff: {
-    params: { projectDir: string; file: string; untracked: boolean };
+    params: { projectDir: string; file: string; untracked: boolean; staged?: boolean };
     response: { diff: GitDiff };
   };
   gitHunks: { params: { projectDir: string; file: string; untracked: boolean }; response: { hunks: GitHunk[] } };
   gitStageHunk: { params: { projectDir: string; file: string; untracked: boolean; patch: string }; response: { ok: boolean; error?: string } };
   gitStageFile: { params: { projectDir: string; file: string }; response: { ok: boolean; error?: string } };
+  gitUnstageFile: { params: { projectDir: string; file: string; originalPath?: string }; response: { ok: boolean; error?: string } };
+  gitStageAll: { params: { projectDir: string }; response: { ok: boolean; error?: string } };
+  gitUnstageAll: { params: { projectDir: string }; response: { ok: boolean; error?: string } };
+  gitGenerateCommitMessage: {
+    params: { projectDir: string; sessionFile?: string | null; model?: string };
+    response: { message?: string; error?: string };
+  };
   gitCommit: { params: { projectDir: string; message: string }; response: { ok: boolean; error?: string } };
+  gitPush: { params: { projectDir: string }; response: { ok: boolean; error?: string } };
+  gitSync: { params: { projectDir: string }; response: { ok: boolean; error?: string } };
   gitPrTarget: { params: { projectDir: string }; response: { target: GitPrTarget } };
   gitPushAndCreatePr: {
     params: { projectDir: string; title: string; body: string };

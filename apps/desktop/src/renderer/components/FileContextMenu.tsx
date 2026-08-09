@@ -18,19 +18,21 @@ export default function FileContextMenu({
   file,
   patch,
   untracked = false,
+  staged = false,
   children,
 }: {
   projectDir: string;
   file: string;
   patch?: string;
   untracked?: boolean;
+  staged?: boolean;
   children: ReactElement;
 }) {
   const editorId = useAppStore((s) => s.preferences.preferredEditorId);
   const absolutePath = absoluteProjectPath(projectDir, file);
 
   async function copyDiff() {
-    const text = patch ?? (await rpc.request.gitDiff({ projectDir, file, untracked })).diff.patch;
+    const text = patch ?? (await rpc.request.gitDiff({ projectDir, file, untracked, staged })).diff.patch;
     await navigator.clipboard.writeText(text);
   }
 

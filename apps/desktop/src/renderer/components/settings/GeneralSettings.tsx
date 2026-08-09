@@ -2,9 +2,10 @@ import { useState } from "react";
 import { BellIcon } from "@phosphor-icons/react/Bell";
 import { PowerIcon } from "@phosphor-icons/react/Power";
 import { Button } from "@/components/ui/button.tsx";
+import { modelKey } from "../../../shared/messages.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { ExtensionSettings } from "../ExtensionSlots.tsx";
-import { SettingsCard, SettingsSection, SwitchRow } from "./rows.tsx";
+import { SelectRow, SettingsCard, SettingsSection, SwitchRow } from "./rows.tsx";
 
 type Permission = NotificationPermission | "unsupported";
 
@@ -18,6 +19,21 @@ export default function GeneralSettings() {
   const notifyOnTurnEnd = useAppStore((s) => s.preferences.notifyOnTurnEnd);
   const notificationSound = useAppStore((s) => s.preferences.notificationSound);
   const setPreference = useAppStore((s) => s.setPreference);
+  const commitMessageModel = useAppStore((s) => s.commitMessageModel);
+  const setCommitMessageModel = useAppStore((s) => s.setCommitMessageModel);
+  const models = useAppStore((s) => s.models);
+  const providers = useAppStore((s) => s.providers);
+  const providerNames = new Map(providers.map((provider) => [provider.id, provider.name]));
+  const commitModelOptions = [
+    { value: "active", label: "Use current chat model" },
+    ...models.map((model) => ({
+      value: modelKey(model),
+      label: `${model.name ?? model.id} · ${providerNames.get(model.provider) ?? model.provider}`,
+    })),
+  ];
+  if (!commitModelOptions.some((option) => option.value === commitMessageModel)) {
+    commitModelOptions.push({ value: commitMessageModel, label: commitMessageModel });
+  }
 
   return (
     <div className="flex flex-col gap-10">
@@ -27,6 +43,16 @@ export default function GeneralSettings() {
           description="Return to the project you were working in when NativePi starts."
           checked={reopenLastProject}
           onChange={setReopenLastProject}
+        />
+      </SettingsSection>
+
+      <SettingsSection heading="Source control">
+        <SelectRow
+          label="Commit message model"
+          description="Draft Conventional Commit messages from staged changes. Pi also applies your project instructions."
+          value={commitMessageModel}
+          options={commitModelOptions}
+          onChange={setCommitMessageModel}
         />
       </SettingsSection>
 
