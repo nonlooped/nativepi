@@ -40,7 +40,8 @@
     "access": "public"
   },
   "dependencies": {
-    "@nativepi/extension-api": "workspace:^"
+    "@nativepi/extension-api": "workspace:^",
+    "@phosphor-icons/react": "^2.1.10"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
