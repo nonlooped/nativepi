@@ -8,7 +8,8 @@ import type { PiMessage } from "./pi/protocol.ts";
 import { deleteSession, listSessions, readSession, searchSessions, sessionMtime, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
 import { loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
-import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitPrTarget, gitPushAndCreatePr, gitStageFile, gitStageHunk, gitStatus } from "./git.ts";
+import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitLog, gitPrTarget, gitPush, gitPushAndCreatePr, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
+import { generateCommitMessage } from "./commitMessage.ts";
 import { getRepoHostContext } from "./repoHost.ts";
 import { repoHostContextSchema } from "../shared/repo-host-types.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
@@ -431,6 +432,7 @@ const prepareImagesParamsSchema = z.object({
  * what the window sends, so main is not the one place trusting either side.
  */
 const sessionPiParamsSchema = projectDirParamsSchema.extend({ sessionFile: z.string().min(1).nullable().optional() });
+const commitMessageParamsSchema = sessionPiParamsSchema.extend({ model: z.string().min(1).max(500).optional() });
 const tuiSendParamsSchema = sessionPiParamsSchema.extend({ frame: tuiClientFrameSchema });
 const tuiCompleteParamsSchema = sessionPiParamsSchema.extend({
   lines: z.array(z.string()).max(1000),
@@ -1114,7 +1116,8 @@ const handlers: HandlerMap = {
   },
 
   gitStatus: async ({ projectDir }) => ({ status: await gitStatus(projectDir) }),
-  gitDiff: async ({ projectDir, file, untracked }) => ({ diff: await gitDiff(projectDir, file, untracked) }),
+  gitLog: async ({ projectDir }) => ({ commits: await gitLog(projectDir) }),
+  gitDiff: async ({ projectDir, file, untracked, staged }) => ({ diff: await gitDiff(projectDir, file, untracked, staged) }),
   gitHunks: async ({ projectDir, file, untracked }) => ({ hunks: await gitHunks(projectDir, file, untracked) }),
   gitStageHunk: async (params) => {
     try { const { projectDir, file, untracked, patch } = gitHunkParamsSchema.parse(params); return await gitStageHunk(projectDir, file, untracked, patch); }
@@ -1124,10 +1127,35 @@ const handlers: HandlerMap = {
     try { const { projectDir, file } = gitFileParamsSchema.parse(params); return await gitStageFile(projectDir, file); }
     catch (err) { return { ok: false, error: errorMessage(err) }; }
   },
+  gitUnstageFile: async (params) => {
+    try { const { projectDir, file } = gitFileParamsSchema.parse(params); return await gitUnstageFile(projectDir, file); }
+    catch (err) { return { ok: false, error: errorMessage(err) }; }
+  },
+  gitStageAll: async ({ projectDir }) => await gitStageAll(projectDir),
+  gitUnstageAll: async ({ projectDir }) => await gitUnstageAll(projectDir),
+  gitGenerateCommitMessage: async (params) => {
+    try {
+      const { projectDir, sessionFile, model: selectedModel } = commitMessageParamsSchema.parse(params);
+      const diff = await gitStagedDiff(projectDir);
+      if (!diff) return { error: "Stage at least one change before generating a commit message." };
+      let model = selectedModel;
+      if (!model) {
+        const pi = await ensurePi(projectDir, sessionFile ?? undefined);
+        const state = await pi.request<RpcSessionState>({ type: "get_state" });
+        model = state.model ? `${state.model.provider}/${state.model.id}` : undefined;
+      }
+      if (!model) return { error: "Select a model before generating a commit message." };
+      return { message: await generateCommitMessage(projectDir, diff, model) };
+    } catch (err) {
+      return { error: errorMessage(err) };
+    }
+  },
   gitCommit: async (params) => {
     try { const { projectDir, message } = gitCommitParamsSchema.parse(params); return await gitCommit(projectDir, message); }
     catch (err) { return { ok: false, error: errorMessage(err) }; }
   },
+  gitPush: async ({ projectDir }) => await gitPush(projectDir),
+  gitSync: async ({ projectDir }) => await gitSync(projectDir),
   gitPrTarget: async ({ projectDir }) => ({ target: await gitPrTarget(projectDir) }),
   gitPushAndCreatePr: async (params) => {
     try { const { projectDir, title, body } = gitPrParamsSchema.parse(params); return await gitPushAndCreatePr(projectDir, title, body); }

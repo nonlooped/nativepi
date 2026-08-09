@@ -10,12 +10,17 @@ test("an empty object yields the full set of defaults", () => {
     lastChatByProject: {},
     drafts: {},
     favoriteModels: [],
+    commitMessageModel: "active",
     pinnedChats: [],
     panes: undefined,
     reopenLastProject: true,
     preferences: DEFAULT_PREFERENCES,
     keybindingOverrides: {},
   });
+});
+
+test("a corrupt commit message model falls back to the current chat model", () => {
+  expect(nativePiStateSchema.parse({ commitMessageModel: 42 }).commitMessageModel).toBe("active");
 });
 
 test("a corrupt keybinding overrides value costs the whole map, not the workspace", () => {
