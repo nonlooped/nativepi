@@ -18,6 +18,10 @@ pi install @nativepi/subagents
 
 `subagent_spawn` accepts an optional `model` as `provider/model` and an optional Pi `thinkingLevel`. If either is omitted, the parent chat's current value is used. The delegated prompt must be self-contained because the child cannot see the parent conversation.
 
+## NativePi interface
+
+NativePi adds a **Subagents** entry to the conversation header. It opens a full-size workspace for every child in the current chat, including queued, running, completed, failed, and cancelled work. Select a child to read its complete conversation with Pi—messages, reasoning, tool calls and results, errors, and final response—as it happens. Queued or running children can also be cancelled from the conversation header.
+
 ## Configure
 
 The default concurrency is 6. Set a user-level value in `~/.pi/agent/subagents.json`:
