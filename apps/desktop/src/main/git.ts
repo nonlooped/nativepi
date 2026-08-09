@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import type { GitBranch, GitDiff, GitHunk, GitPrTarget, GitStatus } from "../shared/pi-types.ts";
+import type { GitBranch, GitCommit, GitDiff, GitHunk, GitPrTarget, GitStatus } from "../shared/pi-types.ts";
 
 
 function run(args: string[], cwd: string): Promise<{ stdout: string; stderr: string; code: number }> {
@@ -39,12 +39,19 @@ function labelFor(x: string, y: string): GitStatus["files"][number]["state"] {
 export async function gitStatus(projectDir: string): Promise<GitStatus> {
   const inside = await run(["rev-parse", "--is-inside-work-tree"], projectDir);
   if (inside.code !== 0 || inside.stdout.trim() !== "true") {
-    return { isRepo: false, files: [], insertions: 0, deletions: 0 };
+    return { isRepo: false, files: [], insertions: 0, deletions: 0, ahead: 0, behind: 0 };
   }
 
-  const branchRes = await run(["rev-parse", "--abbrev-ref", "HEAD"], projectDir);
+  const [branchRes, headRes, upstreamRes] = await Promise.all([
+    run(["rev-parse", "--abbrev-ref", "HEAD"], projectDir),
+    run(["rev-parse", "--short", "HEAD"], projectDir),
+    run(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], projectDir),
+  ]);
   const branch = branchRes.stdout.trim();
   const detached = branch === "HEAD";
+  const upstream = upstreamRes.code === 0 ? upstreamRes.stdout.trim() || undefined : undefined;
+  const divergence = upstream ? await run(["rev-list", "--left-right", "--count", `HEAD...${upstream}`], projectDir) : null;
+  const [ahead = "0", behind = "0"] = divergence?.stdout.trim().split(/\s+/) ?? [];
 
   // NUL-delimited porcelain output is unambiguous even with odd filenames.
   const status = await run(["status", "--porcelain=v1", "--untracked-files=all", "-z"], projectDir);
@@ -82,18 +89,63 @@ export async function gitStatus(projectDir: string): Promise<GitStatus> {
     isRepo: true,
     branch: detached ? undefined : branch,
     detached,
+    head: headRes.code === 0 ? headRes.stdout.trim() || undefined : undefined,
+    upstream,
+    ahead: Number(ahead) || 0,
+    behind: Number(behind) || 0,
     files,
     insertions,
     deletions,
   };
 }
 
-export async function gitDiff(projectDir: string, file: string, untracked: boolean): Promise<GitDiff> {
+export async function gitLog(projectDir: string): Promise<GitCommit[]> {
+  const [log, localOnly] = await Promise.all([
+    run([
+      "log",
+      "HEAD",
+      "--all",
+      "--date-order",
+      "--max-count=50",
+      "--graph",
+      "--decorate=short",
+      "--format=%x1e%H%x00%h%x00%P%x00%an%x00%at%x00%s%x00%D",
+    ], projectDir),
+    run(["rev-list", "--max-count=5000", "HEAD", "--branches", "--not", "--remotes"], projectDir),
+  ]);
+  if (log.code !== 0) return [];
+  const unpushed = new Set(localOnly.stdout.split("\n").filter(Boolean));
+
+  return log.stdout.split("\n").flatMap((line): GitCommit[] => {
+    const separator = line.indexOf("\x1e");
+    if (separator < 0) return [];
+    const graph = line.slice(0, separator).trimEnd();
+    const [hash, shortHash, parents = "", author = "", seconds = "", subject = "", decorations = ""] = line
+      .slice(separator + 1)
+      .split("\0");
+    if (!hash) return [];
+    return [{
+      hash,
+      shortHash,
+      parents: parents ? parents.split(" ") : [],
+      author,
+      timestamp: new Date(Number(seconds) * 1000).toISOString(),
+      subject,
+      refs: decorations ? decorations.split(", ") : [],
+      graph,
+      pushed: !unpushed.has(hash),
+    }];
+  });
+}
+
+export async function gitDiff(projectDir: string, file: string, untracked: boolean, staged = false): Promise<GitDiff> {
   // `--no-index` diffs an untracked file against nothing so its content shows as
   // added; it exits non-zero by design, which `run` tolerates.
-  const args = untracked
-    ? ["diff", "--no-color", "--no-index", "--", "/dev/null", file]
-    : ["diff", "--no-color", "HEAD", "--", file];
+  const args = staged
+    ? ["diff", "--cached", "--no-color", "--", file]
+    : untracked
+      ? ["diff", "--no-color", "--no-index", "--", "/dev/null", file]
+      : ["diff", "--no-color", "--", file];
   const res = await run(args, projectDir);
   return { path: file, patch: res.stdout };
 }
@@ -142,11 +194,63 @@ export async function gitStageFile(projectDir: string, file: string): Promise<{ 
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
 }
 
+async function unstage(projectDir: string, files: string[]) {
+  const head = await run(["rev-parse", "--verify", "HEAD"], projectDir);
+  const result = head.code === 0
+    ? await run(["reset", "HEAD", "--", ...files], projectDir)
+    : await run(["rm", "-r", "--cached", "--", ...files], projectDir);
+  return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
+}
+
+export async function gitUnstageFile(projectDir: string, file: string) {
+  return await unstage(projectDir, [file]);
+}
+
+export async function gitStageAll(projectDir: string) {
+  const result = await run(["add", "-A"], projectDir);
+  return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
+}
+
+export async function gitUnstageAll(projectDir: string) {
+  return await unstage(projectDir, ["."]);
+}
+
+export async function gitStagedDiff(projectDir: string) {
+  const [stat, patch] = await Promise.all([
+    run(["diff", "--cached", "--stat", "--no-color"], projectDir),
+    run(["diff", "--cached", "--no-color", "--no-ext-diff", "--unified=3"], projectDir),
+  ]);
+  if (patch.code !== 0) throw new Error(failure(patch));
+  const diff = `${stat.stdout.trim()}\n\n${patch.stdout}`.trim();
+  const limit = 120_000;
+  return diff.length > limit ? `${diff.slice(0, limit)}\n\n[diff truncated]` : diff;
+}
+
 export async function gitCommit(projectDir: string, message: string): Promise<{ ok: boolean; error?: string }> {
   const staged = await run(["diff", "--cached", "--quiet"], projectDir);
   if (staged.code === 0) return { ok: false, error: "Stage at least one change before committing." };
   const result = await run(["commit", "-m", message], projectDir);
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
+}
+
+export async function gitPush(projectDir: string) {
+  const [branch, upstream] = await Promise.all([
+    run(["branch", "--show-current"], projectDir),
+    run(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], projectDir),
+  ]);
+  if (!branch.stdout.trim()) return { ok: false, error: "Check out a branch before pushing." };
+  const result = upstream.code === 0
+    ? await run(["push"], projectDir)
+    : await run(["push", "-u", "origin", "HEAD"], projectDir);
+  return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
+}
+
+export async function gitSync(projectDir: string) {
+  const upstream = await run(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], projectDir);
+  if (upstream.code !== 0) return await gitPush(projectDir);
+  const pull = await run(["pull", "--ff-only"], projectDir);
+  if (pull.code !== 0) return { ok: false, error: failure(pull) };
+  return await gitPush(projectDir);
 }
 
 /**

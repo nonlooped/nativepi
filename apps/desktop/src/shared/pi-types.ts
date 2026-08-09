@@ -230,9 +230,24 @@ export interface GitStatus {
   isRepo: boolean;
   branch?: string;
   detached?: boolean;
+  head?: string;
+  upstream?: string;
+  ahead: number;
+  behind: number;
   files: GitChangedFile[];
   insertions: number;
   deletions: number;
+}
+export interface GitCommit {
+  hash: string;
+  shortHash: string;
+  parents: string[];
+  author: string;
+  timestamp: string;
+  subject: string;
+  refs: string[];
+  graph: string;
+  pushed: boolean;
 }
 export interface GitDiff {
   path: string;

@@ -4,7 +4,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitHunks, gitStageFile, gitStageHunk, gitStatus } from "./git.ts";
+import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitLog, gitPush, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
 
 /**
  * These run against a real repository rather than a mocked `git`.
@@ -145,6 +145,84 @@ test("status totals include tracked and untracked text changes", async () => {
   await writeFile(path.join(dir, "new.txt"), "new\n", "utf8");
 
   expect(await gitStatus(dir)).toMatchObject({ insertions: 2, deletions: 0 });
+});
+
+test("source-control staging moves individual files or the whole working tree", async () => {
+  const dir = await repo();
+  await writeFile(path.join(dir, "a.txt"), "changed\n", "utf8");
+  await writeFile(path.join(dir, "new.txt"), "new\n", "utf8");
+
+  expect(await gitStageAll(dir)).toEqual({ ok: true });
+  expect((await gitStatus(dir)).files.every((file) => file.staged)).toBe(true);
+
+  expect(await gitUnstageFile(dir, "a.txt")).toEqual({ ok: true });
+  expect((await gitStatus(dir)).files.find((file) => file.path === "a.txt")).toMatchObject({ staged: false, unstaged: true });
+  expect((await gitStatus(dir)).files.find((file) => file.path === "new.txt")?.staged).toBe(true);
+
+  expect(await gitUnstageAll(dir)).toEqual({ ok: true });
+  expect((await gitStatus(dir)).files.every((file) => !file.staged && file.unstaged)).toBe(true);
+});
+
+test("unstaging also works before a repository has its first commit", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "nativepi-unborn-git-"));
+  execFileSync("git", ["init", "-b", "main"], { cwd: dir, stdio: "pipe" });
+  await writeFile(path.join(dir, "first.txt"), "first\n", "utf8");
+
+  expect(await gitStageAll(dir)).toEqual({ ok: true });
+  expect(await gitUnstageAll(dir)).toEqual({ ok: true });
+  expect((await gitStatus(dir)).files).toEqual([{ path: "first.txt", state: "untracked", staged: false, unstaged: true }]);
+});
+
+test("staged and unstaged views read their own side of a partially staged file", async () => {
+  const dir = await repo();
+  await writeFile(path.join(dir, "a.txt"), "staged\n", "utf8");
+  await gitStageFile(dir, "a.txt");
+  await writeFile(path.join(dir, "a.txt"), "unstaged\n", "utf8");
+
+  expect((await gitDiff(dir, "a.txt", false, true)).patch).toContain("+staged");
+  expect((await gitDiff(dir, "a.txt", false, true)).patch).not.toContain("+unstaged");
+  expect((await gitDiff(dir, "a.txt", false)).patch).toContain("+unstaged");
+  expect(await gitStagedDiff(dir)).toContain("+staged");
+  expect(await gitStagedDiff(dir)).not.toContain("+unstaged");
+});
+
+test("the commit graph distinguishes local commits from commits on a remote branch", async () => {
+  const dir = await repo();
+  const remote = await mkdtemp(path.join(tmpdir(), "nativepi-remote-"));
+  execFileSync("git", ["init", "--bare", remote], { stdio: "pipe" });
+  execFileSync("git", ["remote", "add", "origin", remote], { cwd: dir });
+  expect(await gitPush(dir)).toEqual({ ok: true });
+
+  await writeFile(path.join(dir, "a.txt"), "local\n", "utf8");
+  execFileSync("git", ["add", "a.txt"], { cwd: dir });
+  execFileSync("git", ["commit", "-m", "local change"], { cwd: dir });
+
+  const commits = await gitLog(dir);
+  expect(commits[0]).toMatchObject({ subject: "local change", pushed: false });
+  expect(commits.find((commit) => commit.subject === "init")).toMatchObject({ pushed: true });
+  expect(await gitStatus(dir)).toMatchObject({ upstream: "origin/main", ahead: 1, behind: 0 });
+});
+
+test("sync fast-forwards from the upstream branch before pushing", async () => {
+  const dir = await repo();
+  const remote = await mkdtemp(path.join(tmpdir(), "nativepi-sync-remote-"));
+  execFileSync("git", ["init", "--bare", remote], { stdio: "pipe" });
+  execFileSync("git", ["remote", "add", "origin", remote], { cwd: dir });
+  expect(await gitPush(dir)).toEqual({ ok: true });
+
+  const cloneParent = await mkdtemp(path.join(tmpdir(), "nativepi-sync-clone-"));
+  const clone = path.join(cloneParent, "checkout");
+  execFileSync("git", ["clone", "-b", "main", remote, clone], { stdio: "pipe" });
+  execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: clone });
+  execFileSync("git", ["config", "user.name", "Test"], { cwd: clone });
+  await writeFile(path.join(clone, "remote.txt"), "remote\n", "utf8");
+  execFileSync("git", ["add", "remote.txt"], { cwd: clone });
+  execFileSync("git", ["commit", "-m", "remote change"], { cwd: clone });
+  execFileSync("git", ["push"], { cwd: clone });
+
+  expect(await gitSync(dir)).toEqual({ ok: true });
+  expect(existsSync(path.join(dir, "remote.txt"))).toBe(true);
+  expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: dir, encoding: "utf8" }).trim()).toBe("remote change");
 });
 
 test("committing without staged changes is refused", async () => {
