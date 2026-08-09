@@ -366,7 +366,7 @@ function WorkspaceHeader({
         )}
       </div>
       {activeProjectPath ? (
-        <div className={`${NO_DRAG_REGION} flex items-center gap-1`}>
+        <div className={`${NO_DRAG_REGION} flex min-w-0 shrink items-center gap-1 overflow-hidden`}>
           <ExtensionConversationControls active={extensionView} onSelect={onSelectExtensionView} />
         </div>
       ) : null}
