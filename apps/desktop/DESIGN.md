@@ -313,6 +313,7 @@ The component system is compact and restrained, with soft geometry and explicit 
 ### Navigation
 
 - Project, chat, settings, and provider rows use full-width rounded targets with quiet hover fills.
+- Source control opens from the Git action beside the sidebar’s primary chat action, then uses the context pane for staged and unstaged groups, commit controls, and history.
 - Selected rows use Interactive Slate or Accent Slate without a bright brand accent.
 - Inline secondary actions stay hidden until row hover or keyboard focus when the action would otherwise crowd the list.
 - Project and chat management menus have no visible trigger; desktop users open them by right-clicking the row.
