@@ -1,6 +1,6 @@
 {
   "name": "@nativepi/subagents",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Adds asynchronous, isolated Pi subagents to Pi and NativePi.",
   "author": "nonlooped",
   "license": "MIT",
