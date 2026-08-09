@@ -66,6 +66,14 @@ defineRenderer({
       },
     },
   ],
+  conversationViews: [
+    {
+      id: "counter-history",
+      label: "Counter history",
+      control: (rendererContext) => rendererContext.project.name,
+      render: (rendererContext) => rendererContext.session.name ?? null,
+    },
+  ],
 });
 
 // @ts-expect-error The API version is an explicit compatibility contract.

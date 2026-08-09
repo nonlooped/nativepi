@@ -12,6 +12,7 @@ import { XIcon } from "@phosphor-icons/react/X";
 import Sidebar from "./components/Sidebar.tsx";
 import Transcript from "./components/Transcript.tsx";
 import Composer from "./components/Composer.tsx";
+import { ExtensionConversationControls, ExtensionConversationView } from "./components/ExtensionSlots.tsx";
 import ContextPane from "./components/ContextPane.tsx";
 import DropZone from "./components/DropZone.tsx";
 import ExtensionUi from "./components/ExtensionUi.tsx";
@@ -60,6 +61,7 @@ export default function App() {
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
   const [sidebarSheetOpen, setSidebarSheetOpen] = useState(false);
   const [contextSheetOpen, setContextSheetOpen] = useState(false);
+  const [extensionView, setExtensionView] = useState<string | null>(null);
   const layout = useWorkspaceLayout();
   const [startupError, setStartupError] = useState<string>();
   const terminalProjects = useAppStore((s) => s.terminalProjects);
@@ -86,6 +88,8 @@ export default function App() {
     setSidebarSheetOpen(false);
     setContextSheetOpen(false);
   }, [layout]);
+
+  useEffect(() => setExtensionView(null), [activeProjectPath, activeSessionFile]);
 
   useWorkspaceShortcuts(layout, setSidebarSheetOpen, setContextSheetOpen, toggleTerminal);
 
@@ -129,6 +133,8 @@ export default function App() {
               sidebarDocked={sidebarDocked}
               contextDocked={contextDocked}
               terminalOpen={terminalOpen}
+              extensionView={extensionView}
+              onSelectExtensionView={setExtensionView}
               onOpenSidebar={() => (layout === "compact" ? setSidebarSheetOpen(true) : setSidebarOpen(true))}
               onOpenContext={() => (layout === "wide" ? toggleContextPane() : setContextSheetOpen(true))}
               onToggleTerminal={toggleTerminal}
@@ -136,21 +142,25 @@ export default function App() {
             <PiStartingNotice />
 
             {activeProjectPath ? (
-              <div className="flex min-h-0 flex-1 flex-col">
-                {hasConversation ? (
-                  <Transcript key={activeSessionFile ?? "new"} />
-                ) : (
-                  <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-8 sm:px-6">
-                    <div className="my-auto flex w-full max-w-(--conversation-width) flex-col items-center gap-4">
-                      <h1 className="font-heading text-2xl font-semibold tracking-tight">What would you like to work on?</h1>
-                      <Composer prominent />
+              extensionView ? (
+                <ExtensionConversationView active={extensionView} onClose={() => setExtensionView(null)} />
+              ) : (
+                <div className="flex min-h-0 flex-1 flex-col">
+                  {hasConversation ? (
+                    <Transcript key={activeSessionFile ?? "new"} />
+                  ) : (
+                    <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-8 sm:px-6">
+                      <div className="my-auto flex w-full max-w-(--conversation-width) flex-col items-center gap-4">
+                        <h1 className="font-heading text-2xl font-semibold tracking-tight">What would you like to work on?</h1>
+                        <Composer prominent />
+                      </div>
                     </div>
-                  </div>
-                )}
-                {externalChange ? <ExternalChangeNotice /> : null}
-                {error ? <ErrorBanner /> : null}
-                {hasConversation ? <Composer /> : null}
-              </div>
+                  )}
+                  {externalChange ? <ExternalChangeNotice /> : null}
+                  {error ? <ErrorBanner /> : null}
+                  {hasConversation ? <Composer /> : null}
+                </div>
+              )
             ) : (
               <WelcomeScreen />
             )}
@@ -288,6 +298,8 @@ function WorkspaceHeader({
   sidebarDocked,
   contextDocked,
   terminalOpen,
+  extensionView,
+  onSelectExtensionView,
   onOpenSidebar,
   onOpenContext,
   onToggleTerminal,
@@ -296,6 +308,8 @@ function WorkspaceHeader({
   sidebarDocked: boolean;
   contextDocked: boolean;
   terminalOpen: boolean;
+  extensionView: string | null;
+  onSelectExtensionView: (key: string | null) => void;
   onOpenSidebar: () => void;
   onOpenContext: () => void;
   onToggleTerminal: () => void;
@@ -351,6 +365,11 @@ function WorkspaceHeader({
           <NativePiWordmark className="flex h-full items-center" />
         )}
       </div>
+      {activeProjectPath ? (
+        <div className={`${NO_DRAG_REGION} flex min-w-0 shrink items-center gap-1 overflow-hidden`}>
+          <ExtensionConversationControls active={extensionView} onSelect={onSelectExtensionView} />
+        </div>
+      ) : null}
       {/* Opens an editor on the machine running Pi, which is not the machine
           holding the phone — and it is the widest control in the header. It
           stays in the sidebar's project menu. */}

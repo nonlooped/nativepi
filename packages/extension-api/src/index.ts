@@ -116,6 +116,15 @@ export interface ContextPanel<Protocol extends ExtensionProtocol = ExtensionProt
   render: (context: RendererContext<Protocol>) => ReactNode;
 }
 
+/** A full conversation-area view opened from NativePi's chat header. */
+export interface ConversationView<Protocol extends ExtensionProtocol = ExtensionProtocol> {
+  id: string;
+  label: string;
+  /** Optional dynamic contents for the NativePi-owned header button. */
+  control?: (context: RendererContext<Protocol>) => ReactNode;
+  render: (context: RendererContext<Protocol>) => ReactNode;
+}
+
 /** A section in Settings → General whose durable state remains owned by Pi. */
 export interface SettingsSection<Protocol extends ExtensionProtocol = ExtensionProtocol> {
   id: string;
@@ -133,6 +142,7 @@ export interface NativePiRenderer<Protocol extends ExtensionProtocol = Extension
   entries?: Record<string, EntryRenderer<Protocol>>;
   composerWidgets?: ComposerWidget<Protocol>[];
   composerControls?: ComposerControl<Protocol>[];
+  conversationViews?: ConversationView<Protocol>[];
   panels?: ContextPanel<Protocol>[];
   settings?: SettingsSection<Protocol>[];
 }

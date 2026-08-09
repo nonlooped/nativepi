@@ -1,6 +1,7 @@
 import {
   Badge,
   Button,
+  ConversationTranscript,
   DialogClose,
   DialogTrigger,
   Field,
@@ -34,6 +35,16 @@ import {
     <SelectGroup><SelectItem value="one">One</SelectItem></SelectGroup>
   </SelectContent>
 </Select>;
+<ConversationTranscript
+  messages={[
+    { id: "user-1", role: "user", content: [{ type: "text", text: "Hello" }] },
+    {
+      id: "assistant-1",
+      role: "assistant",
+      content: [{ type: "tool", id: "tool-1", name: "read", status: "completed", result: "Done" }],
+    },
+  ]}
+/>;
 <SettingsSelectRow
   label="Mode"
   value="one"

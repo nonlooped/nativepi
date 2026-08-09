@@ -13,11 +13,13 @@ import { isJsonValue, type JsonValue } from "../../shared/json.ts";
 import { textOf } from "../../shared/messages.ts";
 import type { LoadedExtension } from "../lib/extensionHost.ts";
 import { subscribeToExtension } from "../lib/extensionHost.ts";
+import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
 import { absoluteProjectPath } from "../lib/paths.ts";
 import { rpc } from "../lib/rpc.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { showExtensionNotification } from "../lib/toast.tsx";
 import ExtensionBoundary from "./ExtensionBoundary.tsx";
+import { Button } from "@/components/ui/button.tsx";
 import { SettingsSection } from "./settings/rows.tsx";
 import { TuiAutoPane, TuiPane } from "./TuiSurface.tsx";
 
@@ -314,6 +316,91 @@ export function ExtensionSettings() {
       </ExtensionBoundary>
     </SettingsSection>
   ));
+}
+
+function conversationViewKey(extension: LoadedExtension, id: string) {
+  return `${extension.id}:${id}`;
+}
+
+export function ExtensionConversationControls({
+  active,
+  onSelect,
+}: {
+  active: string | null;
+  onSelect: (key: string | null) => void;
+}) {
+  const renderers = useAppStore((s) => s.extRenderers);
+  const base = useRendererContext();
+  const views = renderers.flatMap((ext) =>
+    (ext.renderer.conversationViews ?? []).map((view) => ({ ext, view, key: conversationViewKey(ext, view.id) })),
+  );
+
+  if (views.length === 0) return null;
+
+  return (
+    <div className="flex min-w-0 max-w-[min(32vw,22rem)] items-center gap-1 overflow-hidden">
+      {views.map(({ ext, view, key }) => (
+        <Button
+          key={`${key}:${sessionKey(base)}`}
+          variant={active === key ? "secondary" : "ghost"}
+          size="sm"
+          aria-pressed={active === key}
+          title={view.label}
+          className="max-w-32 min-w-0 shrink truncate"
+          onClick={() => onSelect(active === key ? null : key)}
+        >
+          <span className="min-w-0 truncate">
+            <ExtensionBoundary name={ext.name}>
+              <ExtensionContribution render={() => view.control?.(contextFor(base, ext)) ?? view.label} />
+            </ExtensionBoundary>
+          </span>
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+export function ExtensionConversationView({ active, onClose }: { active: string; onClose: () => void }) {
+  const renderers = useAppStore((s) => s.extRenderers);
+  const base = useRendererContext();
+  const found = renderers.flatMap((ext) =>
+    (ext.renderer.conversationViews ?? []).map((view) => ({ ext, view, key: conversationViewKey(ext, view.id) })),
+  ).find((entry) => entry.key === active);
+
+  if (!found) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3">
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <ArrowLeftIcon data-icon="inline-start" />
+            Back to chat
+          </Button>
+        </div>
+        <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
+          This view is no longer available. It may have been removed or renamed.
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3">
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          <ArrowLeftIcon data-icon="inline-start" />
+          Back to chat
+        </Button>
+        <span aria-hidden="true" className="text-muted-foreground/40">/</span>
+        <h2 className="truncate font-heading text-sm font-semibold" title={found.view.label}>
+          {found.view.label}
+        </h2>
+      </div>
+      <div className="min-h-0 flex-1">
+        <ExtensionBoundary key={`${found.key}:${sessionKey(base)}`} name={found.ext.name}>
+          <ExtensionContribution render={() => found.view.render(contextFor(base, found.ext))} />
+        </ExtensionBoundary>
+      </div>
+    </div>
+  );
 }
 
 export function ExtensionPanels() {

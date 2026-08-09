@@ -14,7 +14,7 @@ test("graphical renderers compile against host-provided API, schema, and React m
     await writeFile(path.join(root, "renderer.tsx"), `
       import { defineProtocol, defineRenderer } from "@nativepi/extension-api";
       import { z } from "@nativepi/extension-api/schema";
-      import { Button } from "@nativepi/extension-api/ui";
+      import { Button, ConversationTranscript } from "@nativepi/extension-api/ui";
       const protocol = defineProtocol({
         methods: { state: { result: z.object({ count: z.number().int() }) } },
         events: {},
@@ -23,6 +23,11 @@ test("graphical renderers compile against host-provided API, schema, and React m
         apiVersion: 1,
         protocol,
         composerControls: [{ id: "counter", render: () => <Button>Count</Button> }],
+        conversationViews: [{
+          id: "history",
+          label: "History",
+          render: () => <ConversationTranscript messages={[]} />,
+        }],
       });
     `);
 

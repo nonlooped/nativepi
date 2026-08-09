@@ -37,6 +37,7 @@ const UI_EXPORTS = [
   "Menu", "MenuTrigger", "MenuContent", "MenuGroup", "MenuLabel", "MenuItem", "MenuSeparator", "SettingsActionRow",
   "Select", "SelectContent", "SelectGroup", "SelectItem", "SelectLabel", "SelectSeparator", "SelectTrigger", "SelectValue",
   "SettingsSwitchRow", "SettingsSelectRow", "SettingsTextRow", "SettingsSliderRow",
+  "ConversationTranscript",
 ];
 
 const HOST_MODULES: Record<string, string[]> = {
