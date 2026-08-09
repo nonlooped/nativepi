@@ -1,6 +1,6 @@
 {
   "name": "@nativepi/service-tier",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Adds Standard and Fast response speeds for supported Codex models, in Pi and in NativePi.",
   "author": "nonlooped",
   "license": "MIT",
