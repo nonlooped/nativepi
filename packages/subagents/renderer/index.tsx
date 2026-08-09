@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
 import { RobotIcon } from "@phosphor-icons/react/Robot";
@@ -103,15 +103,21 @@ function duration(job: SubagentSummary, now: number) {
 }
 
 function useNarrowWorkspace() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [narrow, setNarrow] = useState(() => window.innerWidth < 720);
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const observer = new ResizeObserver(([entry]) => setNarrow((entry?.contentRect.width ?? 720) < 720));
-    observer.observe(element);
-    return () => observer.disconnect();
+  const [narrow, setNarrow] = useState(() => typeof window !== "undefined" ? window.innerWidth < 720 : false);
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
+  const ref = useCallback((node: HTMLDivElement | null) => {
+    setElement(node);
   }, []);
+  useEffect(() => {
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const width = entry?.contentRect.width ?? element.getBoundingClientRect().width;
+      setNarrow(width < 720);
+    });
+    observer.observe(element);
+    setNarrow(element.getBoundingClientRect().width < 720);
+    return () => observer.disconnect();
+  }, [element]);
   return { ref, narrow };
 }
 
@@ -294,8 +300,18 @@ function SubagentWorkspace({ context }: { context: Context }) {
   const [showDetail, setShowDetail] = useState(false);
   const { ref, narrow } = useNarrowWorkspace();
 
-  if (error) return <div style={{ padding: "1rem" }}><FieldError>{error}</FieldError></div>;
-  if (!overview) return <p style={{ ...muted, margin: "auto", fontSize: "0.8125rem" }}>Loading subagents…</p>;
+  if (error)
+    return (
+      <div ref={ref} style={{ display: "flex", height: "100%", padding: "1rem" }}>
+        <FieldError>{error}</FieldError>
+      </div>
+    );
+  if (!overview)
+    return (
+      <div ref={ref} style={{ display: "flex", height: "100%" }}>
+        <p style={{ ...muted, margin: "auto", fontSize: "0.8125rem" }}>Loading subagents…</p>
+      </div>
+    );
   if (overview.jobs.length === 0) return <div ref={ref} style={{ display: "flex", height: "100%" }}><EmptyJobs /></div>;
 
   const selected = overview.jobs.find((job) => job.id === selectedId) ?? overview.jobs.at(-1)!;
