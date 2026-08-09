@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CheckIcon } from "@phosphor-icons/react/Check";
-import { GaugeIcon } from "@phosphor-icons/react/Gauge";
 import { defineRenderer } from "@nativepi/extension-api";
 import type { RendererContext } from "@nativepi/extension-api";
 import {
-  Button,
   Menu,
   MenuContent,
   MenuGroup,
@@ -14,8 +12,6 @@ import {
   MenuTrigger,
 } from "@nativepi/extension-api/ui";
 import { serviceTierProtocol, type ServiceTier, type TierState } from "../types.ts";
-
-const MUTED = "var(--muted-foreground)";
 
 const CHOICES: { tier: ServiceTier; label: string; description: string }[] = [
   {
@@ -50,8 +46,7 @@ function ServiceTierControl({ context }: { context: RendererContext<typeof servi
 
   if (!state?.supported) return null;
 
-  const selected =
-    CHOICES.find((choice) => choice.tier === state.tier) ?? CHOICES[0];
+  const selected = CHOICES.find((choice) => choice.tier === state.tier) ?? CHOICES[0];
 
   const choose = (tier: ServiceTier) => {
     if (tier === state.tier || saving) return;
@@ -80,24 +75,12 @@ function ServiceTierControl({ context }: { context: RendererContext<typeof servi
       <MenuTrigger
         aria-label={`Response speed: ${selected.label}`}
         title={`Response speed: ${selected.label}`}
-        render={
-          <Button variant="ghost" size="lg" style={{ maxWidth: "8.5rem" }} />
-        }
+        className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <GaugeIcon data-icon="inline-start" />
-        <span
-          style={{
-            minWidth: 0,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {selected.label}
-        </span>
-        <CaretDownIcon data-icon="inline-end" />
+        <span className="truncate">{selected.label}</span>
+        <CaretDownIcon className="shrink-0 text-muted-foreground" />
       </MenuTrigger>
-      <MenuContent side="top" style={{ width: "17rem", padding: "0.375rem" }}>
+      <MenuContent side="top" className="w-64 p-1.5">
         <MenuGroup>
           <MenuLabel>Response speed</MenuLabel>
           {CHOICES.map((choice) => {
@@ -108,59 +91,21 @@ function ServiceTierControl({ context }: { context: RendererContext<typeof servi
                 key={choice.tier}
                 disabled={saving !== null}
                 onClick={() => choose(choice.tier)}
-                style={{
-                  alignItems: "flex-start",
-                  gap: "0.5rem",
-                  borderRadius: "0.375rem",
-                  padding: "0.5rem",
-                  background: active ? "var(--accent)" : undefined,
-                }}
+                className="items-start gap-2 rounded-md"
               >
-                <div
-                  style={{
-                    display: "flex",
-                    minWidth: 0,
-                    flex: 1,
-                    flexDirection: "column",
-                    gap: "0.125rem",
-                  }}
-                >
-                  <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>
-                    {choice.label}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "0.75rem",
-                      lineHeight: 1.5,
-                      color: MUTED,
-                    }}
-                  >
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="text-sm font-medium">{choice.label}</span>
+                  <span className="text-xs text-muted-foreground">
                     {pending ? "Updating response speed…" : choice.description}
                   </span>
                 </div>
-                {active ? (
-                  <CheckIcon
-                    style={{
-                      marginTop: "0.125rem",
-                      flexShrink: 0,
-                      color: "var(--success)",
-                    }}
-                  />
-                ) : null}
+                {active ? <CheckIcon className="mt-0.5 shrink-0 text-success" /> : null}
               </MenuItem>
             );
           })}
         </MenuGroup>
         {error ? (
-          <p
-            role="alert"
-            style={{
-              padding: "0.5rem",
-              fontSize: "0.75rem",
-              lineHeight: 1.5,
-              color: "var(--destructive)",
-            }}
-          >
+          <p role="alert" className="px-2 py-1 text-xs text-destructive">
             {error}
           </p>
         ) : null}

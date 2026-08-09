@@ -1,0 +1,299 @@
+import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
+import { ChartDonutIcon } from "@phosphor-icons/react/ChartDonut";
+import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
+import { PlugsConnectedIcon } from "@phosphor-icons/react/PlugsConnected";
+import { Button } from "@/components/ui/button.tsx";
+import { useAppStore } from "../../lib/store.ts";
+import { rpc } from "../../lib/rpc.ts";
+import { useRequest } from "../../lib/useRequest.ts";
+import { providerIconName } from "../../lib/providerIcons.ts";
+import BrandIcon from "../BrandIcon.tsx";
+
+type SubscriptionUsageLimit = {
+  label: string;
+  usedPercent: number;
+  resetAt?: string;
+  windowSeconds?: number;
+};
+
+type SubscriptionUsage = {
+  provider: string;
+  limits: SubscriptionUsageLimit[];
+};
+
+function providerLabel(provider: string) {
+  return provider === "github-copilot"
+    ? "GitHub Copilot"
+    : provider === "openai-codex"
+      ? "OpenAI Codex"
+      : provider === "kimi-coding"
+        ? "Kimi Code"
+        : provider === "anthropic"
+          ? "Anthropic"
+          : provider.charAt(0).toUpperCase() + provider.slice(1);
+}
+
+function pluralize(count: number, noun: string) {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+function toneColor(usedPercent: number) {
+  return usedPercent >= 90
+    ? "var(--destructive)"
+    : usedPercent >= 75
+      ? "var(--warning)"
+      : "var(--foreground)";
+}
+
+function countdown(resetAt?: string) {
+  if (!resetAt) return undefined;
+  const remaining = Date.parse(resetAt) - Date.now();
+  if (Number.isNaN(remaining)) return undefined;
+  if (remaining <= 0) return "Resets now";
+  const minutes = Math.round(remaining / 60_000);
+  if (minutes < 60) return `Resets in ${pluralize(minutes, "minute")}`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `Resets in ${pluralize(hours, "hour")}`;
+  return `Resets in ${pluralize(Math.round(hours / 24), "day")}`;
+}
+
+function resetTitle(resetAt?: string) {
+  if (!resetAt) return undefined;
+  const date = new Date(resetAt);
+  return Number.isNaN(date.valueOf()) ? resetAt : date.toLocaleString();
+}
+
+function pace(limit: SubscriptionUsageLimit) {
+  if (!limit.resetAt || !limit.windowSeconds) return undefined;
+  const reset = Date.parse(limit.resetAt);
+  if (Number.isNaN(reset)) return undefined;
+  const windowMs = limit.windowSeconds * 1000;
+  const elapsed = ((Date.now() - (reset - windowMs)) / windowMs) * 100;
+  if (elapsed <= 0 || elapsed >= 100) return undefined;
+  const drift = limit.usedPercent - elapsed;
+  return {
+    elapsed,
+    label: drift > 12 ? "At risk" : drift < -12 ? "Ahead of pace" : "On track",
+    color:
+      drift > 12 ? "var(--destructive)" : drift < -12 ? "var(--success)" : "var(--muted-foreground)",
+  };
+}
+
+export default function SubscriptionUsageSettings() {
+  const activeProjectPath = useAppStore((s) => s.activeProjectPath);
+  const activeSessionFile = useAppStore((s) => s.activeSessionFile);
+  const projects = useAppStore((s) => s.projects);
+  const projectDir = activeProjectPath ?? projects[0]?.path ?? null;
+
+  const request = useRequest(
+    async () => {
+      if (!projectDir) return { usages: [] as SubscriptionUsage[] };
+      const { result, error } = await rpc.request.callExtension({
+        projectDir,
+        sessionFile: activeSessionFile ?? null,
+        extension: "@nativepi/subscription-usage",
+        method: "usages",
+      });
+      if (error) throw new Error(error);
+      const parsed = result as { usages?: SubscriptionUsage[] } | null;
+      const usages = Array.isArray(parsed?.usages) ? parsed!.usages! : [];
+      // sort limits per provider for display
+      for (const usage of usages) {
+        usage.limits.sort((a, b) => b.usedPercent - a.usedPercent);
+      }
+      usages.sort((a, b) => {
+        const aMax = a.limits.reduce((m, l) => Math.max(m, l.usedPercent), 0);
+        const bMax = b.limits.reduce((m, l) => Math.max(m, l.usedPercent), 0);
+        return bMax - aMax;
+      });
+      return { usages };
+    },
+    [projectDir, activeSessionFile],
+  );
+
+  const usages = request.data?.usages ?? [];
+  const error = request.data ? null : request.error;
+
+  if (!projectDir) {
+    return (
+      <div className="flex flex-col gap-8">
+        <Header onRefresh={request.reload} loading={request.loading} />
+        <EmptyState
+          icon={<PlugsConnectedIcon size={20} />}
+          title="Open a project to view subscription usage"
+          description="Subscription limits are read through the active Pi session. Open a project and try again."
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      <Header onRefresh={request.reload} loading={request.loading} />
+
+      {error ? (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Unable to load subscription usage. {error}
+        </div>
+      ) : null}
+
+      {request.loading ? (
+        <div
+          className="flex min-h-60 items-center justify-center gap-2 rounded-xl border border-dashed border-border px-6 py-16 text-sm text-muted-foreground"
+          role="status"
+        >
+          <CircleNotchIcon className="animate-spin" />
+          Reading subscription limits…
+        </div>
+      ) : usages.length === 0 ? (
+        <EmptyState
+          title="No subscription limits to show"
+          description="Connect a supported provider — Anthropic, OpenAI Codex, Kimi Code, or GitHub Copilot — with a subscription account in Providers. Limits appear here once Pi can read them."
+        />
+      ) : (
+        <div className="grid gap-5 sm:grid-cols-2">
+          {usages.map((usage) => (
+            <ProviderCard key={usage.provider} usage={usage} />
+          ))}
+        </div>
+      )}
+
+      <p className="max-w-3xl text-xs leading-5 text-body-muted-foreground">
+        Subscription limits are reported by each provider and read by Pi using your stored OAuth session. They are not invoices and may lag behind actual use.
+      </p>
+    </div>
+  );
+}
+
+function Header({ onRefresh, loading }: { onRefresh: () => void; loading: boolean }) {
+  return (
+    <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-1.5">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">Subscriptions</h1>
+        <p className="text-sm leading-6 text-body-muted-foreground">
+          Usage limits for every connected provider that reports them.
+        </p>
+      </div>
+      <Button
+        variant="outline"
+        size="icon-lg"
+        onClick={onRefresh}
+        disabled={loading}
+        aria-label="Refresh subscription usage"
+        title="Refresh"
+        className="self-start sm:self-auto"
+      >
+        <ArrowClockwiseIcon className={loading ? "animate-spin" : undefined} />
+      </Button>
+    </header>
+  );
+}
+
+function ProviderCard({ usage }: { usage: SubscriptionUsage }) {
+  const sorted = [...usage.limits].sort((a, b) => b.usedPercent - a.usedPercent);
+  const mostConstrained = sorted[0];
+  const remaining = mostConstrained ? Math.max(0, 100 - mostConstrained.usedPercent) : undefined;
+
+  return (
+    <section className="flex flex-col rounded-xl border bg-card p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-foreground">
+            <BrandIcon name={providerIconName(usage.provider)} size={21} color />
+          </span>
+          <div>
+            <h2 className="text-sm font-semibold leading-none">{providerLabel(usage.provider)}</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {sorted.length === 0
+                ? "No limits reported"
+                : `${sorted.length} ${sorted.length === 1 ? "limit" : "limits"}`}
+            </p>
+          </div>
+        </div>
+        {remaining !== undefined ? (
+          <div className="text-right">
+            <p
+              className="font-mono text-lg font-medium tabular-nums leading-none"
+              style={{ color: toneColor(mostConstrained!.usedPercent) }}
+            >
+              {Math.round(remaining)}%
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">left</p>
+          </div>
+        ) : null}
+      </div>
+
+      {sorted.length === 0 ? (
+        <p className="mt-4 text-sm leading-5 text-muted-foreground">
+          This provider did not report any subscription limits. It may not have any, or the account has not used a quota yet.
+        </p>
+      ) : (
+        <div className="mt-5 flex flex-col gap-5">
+          {sorted.map((limit) => {
+            const left = Math.max(0, 100 - limit.usedPercent);
+            const reset = countdown(limit.resetAt);
+            const pacing = pace(limit);
+            return (
+              <div key={`${limit.label}-${limit.resetAt ?? ""}`} className="flex flex-col gap-2">
+                <div className="flex items-baseline justify-between gap-4">
+                  <p className="min-w-0 flex-1 truncate text-sm font-medium" title={limit.label}>
+                    {limit.label}
+                  </p>
+                  <p className="shrink-0 font-mono text-xs tabular-nums" style={{ color: toneColor(limit.usedPercent) }}>
+                    {Math.round(left)}% left
+                  </p>
+                </div>
+
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+                  <div
+                    className="h-full rounded-full transition-[width]"
+                    style={{ width: `${Math.min(100, Math.max(0, limit.usedPercent))}%`, background: toneColor(limit.usedPercent) }}
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                  <span className="text-muted-foreground" title={resetTitle(limit.resetAt)}>
+                    {reset ?? "No reset time reported"}
+                  </span>
+                  {pacing ? (
+                    <>
+                      <span className="text-muted-foreground/40" aria-hidden>
+                        ·
+                      </span>
+                      <span style={{ color: pacing.color }} className="font-medium">
+                        {pacing.label}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {Math.round(limit.usedPercent)}% used · {Math.round(pacing.elapsed)}% of window elapsed
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  description,
+}: {
+  icon?: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex min-h-60 flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 py-16 text-center">
+      <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        {icon ?? <ChartDonutIcon size={18} />}
+      </span>
+      <h2 className="mt-3 font-heading text-sm font-semibold">{title}</h2>
+      <p className="mt-1.5 max-w-md text-sm leading-6 text-body-muted-foreground">{description}</p>
+    </div>
+  );
+}

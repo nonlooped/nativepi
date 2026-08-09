@@ -171,20 +171,22 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           }
         />
         {/* Keep the controls that shape this reply on one compact line: model,
-            reasoning, context, then branch. Worktrees stay in project actions,
-            where their separate-project consequence is clearer. */}
+            reasoning, then branch. Context sits beside send, next to the action
+            it annotates. Worktrees stay in project actions, where their
+            separate-project consequence is clearer. */}
         <div className="flex items-end gap-1 px-1">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
             <AttachButton disabled={disabled} onPick={attach} />
             <ModelSelector />
             <ThinkingSelector />
-            <ContextWindow />
             <ComposerControls />
             {isRepo ? <GroupRule /> : null}
             <BranchSelector />
           </div>
-          {running ? <BehaviorSelector behavior={behavior} setBehavior={setBehavior} /> : null}
-          <Button
+          <div className="flex items-center gap-1">
+            <ContextWindow />
+            {running ? <BehaviorSelector behavior={behavior} setBehavior={setBehavior} /> : null}
+            <Button
             size="icon-lg"
             className="rounded-full disabled:bg-muted disabled:text-muted-foreground/40 disabled:opacity-100 disabled:shadow-none"
             onClick={submit}
@@ -196,6 +198,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
                 sending, so it does not wear the same glyph. */}
             {steering ? <ArrowBendUpRightIcon weight="bold" /> : <PaperPlaneRightIcon weight="fill" />}
           </Button>
+          </div>
         </div>
       </div>
       {/* The first composer gets only the two keys needed to begin. Commands,

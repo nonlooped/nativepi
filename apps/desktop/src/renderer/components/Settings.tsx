@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
 import { BrainIcon } from "@phosphor-icons/react/Brain";
+import { ChartDonutIcon } from "@phosphor-icons/react/ChartDonut";
 import { ChartLineUpIcon } from "@phosphor-icons/react/ChartLineUp";
 import { GearSixIcon } from "@phosphor-icons/react/GearSix";
 import { InfoIcon } from "@phosphor-icons/react/Info";
@@ -30,6 +31,7 @@ import AppearanceSettings from "./settings/AppearanceSettings.tsx";
 import GeneralSettings from "./settings/GeneralSettings.tsx";
 import KeybindSettings from "./settings/KeybindSettings.tsx";
 import ProviderSettings from "./settings/ProviderSettings.tsx";
+import SubscriptionUsageSettings from "./settings/SubscriptionUsageSettings.tsx";
 import TerminalSettings from "./settings/TerminalSettings.tsx";
 import UsageSettings from "./settings/UsageSettings.tsx";
 
@@ -47,6 +49,7 @@ import UsageSettings from "./settings/UsageSettings.tsx";
 export const CATEGORIES = [
   { name: "General", icon: GearSixIcon, blurb: "Startup, notifications, and chat titles." },
   { name: "Usage", icon: ChartLineUpIcon, blurb: "Spend and tokens recorded in Pi session files." },
+  { name: "Subscriptions", icon: ChartDonutIcon, blurb: "Subscription limits for every connected provider." },
   { name: "Access", icon: WifiHighIcon, blurb: "Reach this window from another device." },
   { name: "Appearance", icon: PaintBrushIcon, blurb: "Layout, scale, diffs, and motion." },
   { name: "Agent", icon: BrainIcon, blurb: "How Pi runs a turn. Shared with the Pi command line." },
@@ -159,10 +162,10 @@ export default function Settings() {
           <div
             className={cn(
               "mx-auto w-full px-4 pb-16 pt-8 sm:px-10 sm:pt-12",
-              category === "Usage" ? "max-w-6xl" : "max-w-3xl",
+              category === "Usage" || category === "Subscriptions" ? "max-w-6xl" : "max-w-3xl",
             )}
           >
-            {category !== "Usage" ? (
+            {category !== "Usage" && category !== "Subscriptions" ? (
               <div className="mb-8 flex flex-col gap-2 sm:mb-12">
                 <h1 className="font-heading text-2xl font-semibold tracking-tight">{category}</h1>
                 {blurb ? <p className="text-sm leading-6 text-body-muted-foreground">{blurb}</p> : null}
@@ -240,6 +243,8 @@ function CategoryPanel({ category }: { category: Category }) {
       return <GeneralSettings />;
     case "Usage":
       return <UsageSettings />;
+    case "Subscriptions":
+      return <SubscriptionUsageSettings />;
     case "Access":
       return <AccessSettings />;
     case "Appearance":

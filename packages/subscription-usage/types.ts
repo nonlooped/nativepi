@@ -21,11 +21,19 @@ export const usageReadingSchema = z.object({
 });
 export type UsageReading = z.infer<typeof usageReadingSchema>;
 
+export const subscriptionUsagesSchema = z.object({
+  usages: z.array(subscriptionUsageSchema),
+});
+export type SubscriptionUsages = z.infer<typeof subscriptionUsagesSchema>;
+
 export const subscriptionUsageProtocol = defineProtocol({
   methods: {
     usage: {
       params: z.object({ providerId: z.string().min(1).optional() }).optional(),
       result: usageReadingSchema,
+    },
+    usages: {
+      result: subscriptionUsagesSchema,
     },
   },
   events: { changed: undefined },

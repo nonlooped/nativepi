@@ -7,6 +7,7 @@ import {
   subscriptionUsageProtocol,
   type SubscriptionUsage,
   type SubscriptionUsageLimit,
+  type SubscriptionUsages,
   type UsageReading,
 } from "../types.ts";
 
@@ -524,6 +525,14 @@ export default function subscriptionUsageExtension(pi: ExtensionAPI): void {
       if (!providerId) throw new Error("No model is selected.");
       const data = await getSubscriptionUsage(providerId, latest.modelRegistry);
       return { supported: data !== undefined, ...(data ? { usage: data } : {}) } satisfies UsageReading;
+    },
+    usages: async () => {
+      if (!latest) return { usages: [] } satisfies SubscriptionUsages;
+      const settled = await Promise.allSettled(
+        [...SUPPORTED_PROVIDERS].map((providerId) => getSubscriptionUsage(providerId, latest!.modelRegistry)),
+      );
+      const usages = settled.flatMap((result) => (result.status === "fulfilled" && result.value ? [result.value] : []));
+      return { usages } satisfies SubscriptionUsages;
     },
   });
 
