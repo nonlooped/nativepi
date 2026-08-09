@@ -384,7 +384,6 @@ export default function subagentsExtension(pi: ExtensionAPI) {
       "--thinking", job.thinkingLevel,
       "--exclude-tools", SUBAGENT_TOOL_NAMES.join(","),
       job.projectTrusted ? "--approve" : "--no-approve",
-      "--",
       `Task:\n${job.prompt}`,
     ];
     const invocation = getPiInvocation(args);
