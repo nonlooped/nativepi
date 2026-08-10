@@ -411,10 +411,8 @@ function CommitGraph({ projectDir, git }: { projectDir: string; git: GitStatus }
 function CommitRow({ commit }: { commit: GitCommit }) {
   const refs = commit.refs.flatMap((ref) => ref === "HEAD" ? [] : [ref.replace(/^HEAD -> /, "")]);
   return (
-    <li className="flex gap-2.5 px-2 py-1.5 hover:bg-sidebar-accent/60" title={commit.hash}>
-      <span className="flex w-4 shrink-0 justify-center pt-[0.6rem]" aria-hidden="true">
-        <span className="size-1.5 rounded-full bg-muted-foreground/40" />
-      </span>
+    <li className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-1 px-2 py-1.5 hover:bg-sidebar-accent/60" title={commit.hash}>
+      <span className="whitespace-pre font-mono text-xs leading-5 text-info" aria-hidden="true">{commit.graph.replaceAll("*", "●")}</span>
       <div className="min-w-0">
         <p className="truncate text-xs font-medium">{commit.subject}</p>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 text-[0.6875rem] text-muted-foreground">
