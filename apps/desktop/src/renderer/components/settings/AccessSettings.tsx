@@ -416,6 +416,7 @@ function RemoteAction({
   }
   return (
     <Button
+      variant="outline"
       size="xl"
       disabled={busy || status.state === "starting"}
       onClick={() => void onRun("remote", rpc.request.startRemoteAccess({}))}

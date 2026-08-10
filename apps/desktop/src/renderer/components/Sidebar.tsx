@@ -26,7 +26,6 @@ import ConfirmDialog from "./ConfirmDialog.tsx";
 import WorktreeDialog from "./WorktreeDialog.tsx";
 import SessionMenu from "./SessionMenu.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
-import ChatSearchDialog from "./ChatSearchDialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import {
@@ -44,10 +43,12 @@ import { countMatches, groupChats } from "../lib/chatOrganization.ts";
 
 export default function Sidebar({
   onClose,
+  onOpenSearch,
   onOpenSourceControl,
   overlay = false,
 }: {
   onClose: () => void;
+  onOpenSearch: () => void;
   onOpenSourceControl: () => void;
   overlay?: boolean;
 }) {
@@ -71,10 +72,8 @@ export default function Sidebar({
   const refreshSessions = useAppStore((s) => s.refreshSessions);
   const openTerminal = useAppStore((s) => s.openTerminal);
   const editorId = useAppStore((s) => s.preferences.preferredEditorId);
-  const searchFocusRequest = useAppStore((s) => s.searchFocusRequest);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const changedFileCount = useAppStore((s) => s.git?.files.length ?? 0);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [now, setNow] = useState(Date.now);
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
@@ -88,10 +87,6 @@ export default function Sidebar({
   useEffect(() => {
     if (activeProjectPath) expandProject(activeProjectPath);
   }, [activeProjectPath]);
-
-  useEffect(() => {
-    if (searchFocusRequest > 0) setSearchOpen(true);
-  }, [searchFocusRequest]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -186,12 +181,17 @@ export default function Sidebar({
               onOpenSourceControl();
               if (overlay) onClose();
             }}
+            disabled={!activeProjectPath}
             aria-label="Open source control"
-            title={withHint("Open source control", "toggleContextPane", keybindingOverrides)}
+            title={
+              activeProjectPath
+                ? withHint("Open source control", "toggleContextPane", keybindingOverrides)
+                : "Open a project to view source control"
+            }
           >
             <GitBranchIcon />
             {changedFileCount > 0 ? (
-              <span className="absolute -right-1 -bottom-1 min-w-4 rounded-full bg-primary px-1 text-center text-[0.625rem] font-semibold leading-4 text-primary-foreground tabular-nums">
+              <span className="absolute -right-1 -bottom-1 min-w-4 rounded-full bg-primary px-1 text-center text-xs font-semibold leading-4 text-primary-foreground tabular-nums">
                 {changedFileCount > 99 ? "99+" : changedFileCount}
               </span>
             ) : null}
@@ -199,7 +199,7 @@ export default function Sidebar({
           <Button
             variant="outline"
             size="icon-lg"
-            onClick={() => setSearchOpen(true)}
+            onClick={onOpenSearch}
             aria-label="Search all chats and messages"
             title={withHint("Search chats and messages", "search", keybindingOverrides)}
           >
@@ -413,11 +413,6 @@ export default function Sidebar({
       </div>
 
       <WorktreeDialog projectPath={worktreesFor} onClose={() => setWorktreesFor(null)} />
-      <ChatSearchDialog
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-        onNavigate={overlay ? onClose : undefined}
-      />
 
       <ConfirmDialog
         open={pendingRemoval !== null}

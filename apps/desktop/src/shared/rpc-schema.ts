@@ -245,7 +245,7 @@ export const preferencesSchema = z.object({
   notificationSound: z.boolean().catch(true),
   theme: z.enum(["system", "light", "dark"]).catch("system"),
   conversationWidth: z.enum(["narrow", "medium", "wide", "full"]).catch("medium"),
-  interfaceScale: clamped(1, 0.8, 1.4),
+  interfaceScale: clamped(1, 0.9, 1.4),
   diffStyle: z.enum(["unified", "split"]).catch("unified"),
   reducedMotion: z.enum(["system", "always", "never"]).catch("system"),
   terminalFontSize: clamped(13, 9, 24),

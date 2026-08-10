@@ -1,6 +1,6 @@
 ---
 name: NativePi Desktop
-description: A focused, dark desktop workspace for operating the Pi coding agent.
+description: A focused desktop workspace for operating the Pi coding agent in warm-paper light or graphite dark appearances.
 colors:
   workspace-ink: "oklch(0.155 0.004 285)"
   sidebar-graphite: "oklch(0.18 0.005 285.885)"
@@ -21,6 +21,15 @@ colors:
   border-hairline: "oklch(1 0 0 / 9%)"
   input-hairline: "oklch(1 0 0 / 15%)"
   focus-ring: "oklch(0.552 0.016 285.938)"
+  light-workspace-paper: "oklch(0.975 0.006 75)"
+  light-sidebar-paper: "oklch(0.96 0.007 75)"
+  light-raised-paper: "oklch(0.985 0.005 75)"
+  light-popover-paper: "oklch(0.99 0.004 75)"
+  light-soft-paper: "oklch(0.945 0.007 75)"
+  light-interactive-paper: "oklch(0.935 0.007 75)"
+  light-ink-text: "oklch(0.22 0.007 285)"
+  light-muted-graphite: "oklch(0.53 0.016 285.938)"
+  light-border-hairline: "oklch(0.895 0.008 75)"
 typography:
   wordmark:
     fontFamily: "Departure Mono, monospace"
@@ -158,14 +167,14 @@ components:
 
 **Creative North Star: "The Focused Desktop Workspace"**
 
-NativePi is a compact, dark operating surface that keeps projects, conversations, and code context visible without competing with the work. Its visual hierarchy comes from quiet graphite layers, precise spacing, restrained type, and native desktop structure rather than decorative branding.
+NativePi is a compact operating surface that keeps projects, conversations, and code context visible without competing with the work. Its visual hierarchy comes from quiet graphite layers in dark mode, warm-paper layers in light mode, precise spacing, restrained type, and native desktop structure rather than decorative branding.
 
 The system is calm, compact, and tactile. Soft geometry makes dense controls approachable, while explicit hover, focus, selected, running, and error states keep the interface legible during long agent sessions. This is a description of the incumbent system, not a mandate for a themed or ornamental visual world.
 
 **Key Characteristics:**
 
 - Dense three-pane desktop organization with a protected central conversation column.
-- Near-monochrome chrome with saturated color reserved for status and provider identity.
+- Near-monochrome graphite or warm-paper chrome with saturated color reserved for status and provider identity.
 - Compact controls, soft corners, hairline borders, and visible interaction feedback.
 - Ambient elevation only where a surface genuinely floats above the workspace.
 
@@ -173,12 +182,12 @@ Accessibility is not a design objective, differentiator, or release criterion. D
 
 ## Colors
 
-The palette is a cool graphite ladder: close neutral values separate workspace layers while high-contrast chalk text carries content.
+The palette has two deliberately tuned ladders. Dark mode uses cool graphite layers with chalk text; light mode uses warm-paper layers with graphite text. Both appearances use the same semantic token roles, status hues, and hierarchy rather than mechanically inverting one palette into the other.
 
 ### Primary
 
-- **Primary Chalk:** The light action surface used for the default button and strongest immediate actions.
-- **Button Ink:** Popover Graphite supplies dark text against Primary Chalk.
+- **Primary Chalk / Primary Ink:** Dark mode uses a light chalk action surface; light mode uses a graphite action surface. Either marks the strongest immediate action.
+- **Button Ink / Button Paper:** The foreground inverts with that action surface so the label remains high contrast.
 
 ### Secondary
 
@@ -194,23 +203,49 @@ The palette is a cool graphite ladder: close neutral values separate workspace l
 
 ### Neutral
 
-- **Workspace Ink:** The conversation canvas and deepest continuous background.
-- **Sidebar Graphite:** The left and right utility panes.
-- **Raised Graphite:** Composer and card surfaces that sit above the workspace.
-- **Popover Graphite:** Menus, dialogs, and floating detail surfaces.
-- **Soft Slate:** Muted fills and low-priority regions.
-- **Interactive Slate:** Secondary controls and selected sidebar rows.
-- **Accent Slate:** Stronger highlighted menu and navigation states.
-- **Chalk Text / Bright Text:** Primary reading and high-contrast overlay text.
-- **Muted Silver:** Secondary labels, timestamps, icons, and explanatory copy.
-- **Border Hairline / Input Hairline:** Low-contrast structural separation.
+- **Workspace Ink / Workspace Paper:** The conversation canvas and deepest continuous background.
+- **Sidebar Graphite / Sidebar Paper:** The left and right utility panes.
+- **Raised Graphite / Raised Paper:** Composer and card surfaces that sit above the workspace.
+- **Popover Graphite / Popover Paper:** Menus, dialogs, and floating detail surfaces.
+- **Soft Slate / Soft Paper:** Muted fills and low-priority regions.
+- **Interactive Slate / Interactive Paper:** Secondary controls and selected sidebar rows.
+- **Accent Slate / Accent Paper:** Stronger highlighted menu and navigation states.
+- **Chalk Text / Ink Text:** Primary reading and high-contrast overlay text.
+- **Muted Silver / Muted Graphite:** Secondary labels, timestamps, icons, and explanatory copy.
+- **Border Hairline / Input Hairline:** Low-contrast structural separation tuned separately for each appearance.
 - **Focus Ring:** Keyboard focus and active resize feedback.
+
+### Appearance Mapping
+
+| Semantic role | Light | Dark |
+| --- | --- | --- |
+| `background` | `oklch(0.975 0.006 75)` | `oklch(0.155 0.004 285)` |
+| `foreground` | `oklch(0.22 0.007 285)` | `oklch(0.94 0.004 285)` |
+| `card` | `oklch(0.985 0.005 75)` | `oklch(0.19 0.005 285)` |
+| `popover` | `oklch(0.99 0.004 75)` | `oklch(0.21 0.006 285.885)` |
+| `muted` | `oklch(0.945 0.007 75)` | `oklch(0.225 0.006 286.033)` |
+| `muted-foreground` | `oklch(0.53 0.016 285.938)` | `oklch(0.77 0.012 286.067)` |
+| `border` | `oklch(0.895 0.008 75)` | `oklch(1 0 0 / 9%)` |
+| `sidebar` | `oklch(0.96 0.007 75)` | `oklch(0.18 0.005 285.885)` |
+| `primary` | `oklch(0.22 0.007 285)` | `oklch(0.92 0.004 286.32)` |
+
+`apps/desktop/src/renderer/index.css` remains the source of truth for the complete token set. New surfaces use semantic Tailwind tokens rather than appearance-specific values or manual `dark:` overrides. Pure black and white are reserved for the neutral 10% outline drawn inside arbitrary image content.
+
+### Contrast Expectations
+
+- Verify every text/background pair in both appearances. Body and label text should meet WCAG AA `4.5:1` and APCA `|Lc| ≥ 75`; large text and non-body labels should meet `3:1` and APCA `|Lc| ≥ 60`.
+- Interactive boundaries, focus rings, and status indicators must remain distinguishable against the surface where they render. Color never carries file, trust, run, or error state without a word, icon, or shape.
+- Test translucent overlays against the lightest and darkest content they can cover. Increased-contrast mode widens foreground, border, focus, and status separation in both appearances.
+
+### Reference Screenshot
+
+The canonical workspace composition is shown in [`docs/assets/nativepi-home.png`](../../docs/assets/nativepi-home.png). Capture future product screenshots in both Light and Dark with the same project, chat, pane, and viewport state so appearance differences can be reviewed without layout differences.
 
 ### Named Rules
 
 **The Color-Is-Status Rule.** Keep application chrome neutral; use saturated hue only to communicate status, severity, file state, favorites, or an external provider identity.
 
-**The Close-Tone Rule.** Separate persistent panes with adjacent graphite tones and hairlines, not large contrast jumps.
+**The Close-Tone Rule.** Separate persistent panes with adjacent graphite or warm-paper tones and hairlines, not large contrast jumps.
 
 ## Typography
 
@@ -366,7 +401,7 @@ The component system is compact and restrained, with soft geometry and explicit 
 ### Do:
 
 - **Do** preserve the centered 48rem conversation and composer rail as the visual anchor.
-- **Do** build hierarchy with graphite tone, typography, spacing, and hairline separation before adding color or shadow.
+- **Do** build hierarchy with graphite or warm-paper tone, typography, spacing, and hairline separation before adding color or shadow.
 - **Do** keep controls compact while preserving visible keyboard focus and practical hit targets.
 - **Do** use Phosphor icons for application actions and provider marks only where provider identity is meaningful.
 - **Do** use the Material Icon Theme file-type mark wherever a specific file is named, so a path is recognizable before it is read.

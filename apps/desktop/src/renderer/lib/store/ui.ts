@@ -19,7 +19,6 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   contextPaneOpen: false,
   contextPaneChosen: false,
   jumpRequest: 0,
-  searchFocusRequest: 0,
   branchMenuRequested: false,
   terminalProjects: new Set(),
   preferences: DEFAULT_PREFERENCES,
@@ -107,7 +106,6 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   // Counters, not booleans: the view acts on each increment, so two consecutive
   // requests for the same thing are two separate scrolls rather than one.
   requestJumpToLatest: () => set((s) => ({ jumpRequest: s.jumpRequest + 1 })),
-  requestSearchFocus: () => set((s) => ({ searchFocusRequest: s.searchFocusRequest + 1 })),
   requestBranchMenu: () => {
     const projectPath = get().activeProjectPath;
     if (!projectPath || get().conversations[projectPath]?.running) return;

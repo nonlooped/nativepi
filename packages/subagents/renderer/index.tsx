@@ -349,7 +349,6 @@ function SubagentHeaderControl({ context }: { context: Context }) {
   ).length ?? 0;
   return (
     <>
-      <RobotIcon data-icon="inline-start" />
       <span>Subagents</span>
       {active > 0 ? <Badge variant="secondary">{active}</Badge> : null}
     </>

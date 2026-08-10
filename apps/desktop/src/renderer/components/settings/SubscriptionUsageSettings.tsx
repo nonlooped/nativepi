@@ -1,6 +1,7 @@
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { ChartDonutIcon } from "@phosphor-icons/react/ChartDonut";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
+import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { PlugsConnectedIcon } from "@phosphor-icons/react/PlugsConnected";
 import { Button } from "@/components/ui/button.tsx";
 import { useAppStore } from "../../lib/store.ts";
@@ -80,6 +81,7 @@ function pace(limit: SubscriptionUsageLimit) {
 }
 
 export default function SubscriptionUsageSettings() {
+  const addProject = useAppStore((s) => s.addProject);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const projects = useAppStore((s) => s.projects);
@@ -121,7 +123,13 @@ export default function SubscriptionUsageSettings() {
         <EmptyState
           icon={<PlugsConnectedIcon size={20} />}
           title="Open a project to view subscription usage"
-          description="Subscription limits are read through the active Pi session. Open a project and try again."
+          description="Subscription limits are read through the active Pi session."
+          action={
+            <Button variant="outline" onClick={() => void addProject()}>
+              <FolderOpenIcon data-icon="inline-start" />
+              Open project
+            </Button>
+          }
         />
       </div>
     );
@@ -282,10 +290,12 @@ function EmptyState({
   icon,
   title,
   description,
+  action,
 }: {
   icon?: React.ReactNode;
   title: string;
   description: string;
+  action?: React.ReactNode;
 }) {
   return (
     <div className="flex min-h-60 flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 py-16 text-center">
@@ -294,6 +304,7 @@ function EmptyState({
       </span>
       <h2 className="mt-3 font-heading text-sm font-semibold">{title}</h2>
       <p className="mt-1.5 max-w-md text-sm leading-6 text-body-muted-foreground">{description}</p>
+      {action ? <div className="mt-3">{action}</div> : null}
     </div>
   );
 }
