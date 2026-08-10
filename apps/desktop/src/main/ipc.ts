@@ -48,6 +48,7 @@ import {
   stopRemoteAccess,
 } from "./remoteAccess.ts";
 import { checkForUpdate, downloadUpdate, installUpdate, startUpdates, updateState } from "./updates.ts";
+import { devRuntimeStatus } from "./devRuntime.ts";
 
 /** One Pi process per session: Pi already permits concurrent sessions in a project. */
 const pis = new Map<string, PiProcess>();
@@ -928,6 +929,7 @@ const handlers: HandlerMap = {
   },
 
   versions: () => ({ pi: auth.PI_VERSION_STRING, app: app.getVersion() }),
+  devRuntimeStatus: () => devRuntimeStatus(),
   updateState: () => updateState(),
   checkForUpdate: () => checkForUpdate(),
   downloadUpdate: () => downloadUpdate(),

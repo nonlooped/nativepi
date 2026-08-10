@@ -187,6 +187,17 @@ export interface UpdateState {
   error?: string;
 }
 
+export interface DevRuntimeMarker {
+  generation: string;
+  startedAt: number;
+  gitHead?: string;
+  dirty: boolean;
+}
+
+export type DevRuntimeStatus =
+  | { development: false }
+  | { development: true; mainGeneration: string; expected?: DevRuntimeMarker };
+
 export type AuthPromptRequest =
   | { kind: "text"; message: string; placeholder?: string }
   | { kind: "secret"; message: string; placeholder?: string }
@@ -449,6 +460,7 @@ export type HostRequests = {
     response: { ok: boolean; error?: string };
   };
   versions: { params: Record<string, never>; response: { pi: string; app: string } };
+  devRuntimeStatus: { params: Record<string, never>; response: DevRuntimeStatus };
   updateState: { params: Record<string, never>; response: UpdateState };
   checkForUpdate: { params: Record<string, never>; response: UpdateState };
   downloadUpdate: { params: Record<string, never>; response: { ok: boolean; error?: string } };

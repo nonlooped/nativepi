@@ -13,8 +13,17 @@ const materialIcons = resolve(
   "icons",
 );
 
+// One ID is compiled into all three Electron contexts. The dev launcher also
+// writes it outside the process, which lets an older window discover that a
+// newer launch was attempted even when that attempt lost the port race.
+const devGeneration = process.env["NATIVEPI_DEV_GENERATION"] ?? "";
+const devDefine = {
+  __NATIVEPI_DEV_GENERATION__: JSON.stringify(devGeneration),
+};
+
 export default defineConfig({
   main: {
+    define: devDefine,
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
@@ -40,6 +49,7 @@ export default defineConfig({
     },
   },
   preload: {
+    define: devDefine,
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
@@ -56,6 +66,7 @@ export default defineConfig({
   },
   renderer: {
     root: "src/renderer",
+    define: devDefine,
     resolve: {
       alias: {
         "@": resolve("src/renderer"),

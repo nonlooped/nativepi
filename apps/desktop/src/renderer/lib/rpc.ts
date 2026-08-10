@@ -173,6 +173,7 @@ function createRemoteApi(): NativePiApi {
   };
 
   return {
+    devGeneration: "",
     // A browser hands over bytes, never a path, so every drop that depends on
     // one is inert here and the callers fall back to what a `File` can do.
     filePath: () => "",

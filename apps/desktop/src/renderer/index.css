@@ -46,13 +46,36 @@ body {
   overscroll-behavior: none;
 }
 
-/* Header clearance for the frameless window's minimise/maximise/close buttons.
-   `data-shell` is written by `main.tsx`. Served over the network there is no
-   frameless window, and 132px of reserved space in a 390px header is most of
-   the header — so the rule applies only in the desktop shell, and each header
-   keeps its own padding otherwise. */
+/* Header clearance for the frameless window controls. `data-shell` is written
+   by `main.tsx`, so the browser renderer keeps each header's ordinary padding.
+   Development adds its freshness badge to the three 44px control buttons. */
 html[data-shell="desktop"] .window-controls-clearance {
   padding-right: 132px;
+}
+
+html[data-shell="desktop"][data-runtime="development"] .window-controls-clearance {
+  padding-right: 204px;
+}
+
+/* A narrow right pane cannot share its first row with the window controls.
+   Move only its header below the title-bar row; the pane content still uses all
+   remaining height. The development threshold includes the freshness badge. */
+.context-pane {
+  container-type: inline-size;
+}
+
+@container (max-width: 23.25rem) {
+  html[data-shell="desktop"] .context-pane-header {
+    margin-top: 3rem;
+    padding-right: 0.5rem;
+  }
+}
+
+@container (max-width: 27.5rem) {
+  html[data-shell="desktop"][data-runtime="development"] .context-pane-header {
+    margin-top: 3rem;
+    padding-right: 0.5rem;
+  }
 }
 
 /* Keeps the composer optically centred under a transcript that reserves a

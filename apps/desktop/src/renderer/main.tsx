@@ -8,6 +8,10 @@ import { isDesktopShell } from "./lib/platform.ts";
 // someone's phone. Written before the first paint so no frame ever reserves
 // space for window controls that are not there.
 document.documentElement.dataset.shell = isDesktopShell ? "desktop" : "web";
+if (__NATIVEPI_DEV_GENERATION__) {
+  document.documentElement.dataset.runtime = "development";
+  document.title = `NativePi [DEV ${__NATIVEPI_DEV_GENERATION__.slice(0, 6)}]`;
+}
 
 // The soft keyboard shrinks the visual viewport without shrinking the layout
 // viewport, so a full-height shell keeps its bottom — the composer — underneath

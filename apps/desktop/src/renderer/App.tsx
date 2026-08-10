@@ -231,7 +231,7 @@ export default function App() {
           >
             <SheetTitle className="sr-only">Project context</SheetTitle>
             <SheetDescription className="sr-only">Manage source control, browse project files, and review extension panels.</SheetDescription>
-            <ContextPane overlay onClose={() => setContextSheetOpen(false)} />
+            <ContextPane onClose={() => setContextSheetOpen(false)} />
           </SheetContent>
         </Sheet>
       ) : null}

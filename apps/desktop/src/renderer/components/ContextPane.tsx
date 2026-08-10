@@ -46,7 +46,7 @@ function ViewSwitch({ files, onChange }: { files: boolean; onChange: (files: boo
   );
 }
 
-export default function ContextPane({ overlay = false, onClose }: { overlay?: boolean; onClose?: () => void }) {
+export default function ContextPane({ onClose }: { onClose?: () => void }) {
   const git = useAppStore((s) => s.git);
   const refreshGit = useAppStore((s) => s.refreshGit);
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
@@ -57,7 +57,9 @@ export default function ContextPane({ overlay = false, onClose }: { overlay?: bo
 
   return (
     <aside className="context-pane flex h-full min-w-0 flex-col bg-sidebar text-sidebar-foreground">
-      <div className={cn("flex h-12 shrink-0 items-center gap-1 pr-2 pl-3", !overlay && WINDOW_CONTROLS_CLEARANCE)}>
+      <div
+        className={cn("context-pane-header flex h-12 shrink-0 items-center gap-1 pr-2 pl-3", WINDOW_CONTROLS_CLEARANCE)}
+      >
         <ViewSwitch files={files} onChange={setFiles} />
         <div className="flex-1" />
         {!files ? (
