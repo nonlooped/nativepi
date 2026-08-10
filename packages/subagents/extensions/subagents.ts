@@ -20,6 +20,7 @@ import {
 import { connect } from "@nativepi/extension-api/host";
 import { z } from "@nativepi/extension-api/schema";
 import { Type } from "typebox";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import {
   subagentsProtocol,
   type SubagentConversationBlock,
@@ -27,6 +28,7 @@ import {
   type SubagentSettings,
   type SubagentStatus,
 } from "../types.ts";
+import { SubagentsPanel } from "./subagents-tui.ts";
 
 const DEFAULT_MAX_CONCURRENCY = 6;
 const MAX_CONFIGURED_CONCURRENCY = 32;
@@ -614,6 +616,46 @@ const IdsParameters = Type.Object({
   ids: Type.Array(Type.String(), { minItems: 1, maxItems: 64, description: "Subagent ids." }),
 });
 
+function parseSubagentCommandArgs(raw: string): { head: string; rest: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { head: "", rest: "" };
+  const space = trimmed.search(/\s/);
+  if (space === -1) return { head: trimmed.toLowerCase(), rest: "" };
+  return { head: trimmed.slice(0, space).toLowerCase(), rest: trimmed.slice(space + 1) };
+}
+
+function parseSpawnArgs(raw: string): { prompt: string; name?: string; model?: string; thinking?: string; error?: string } {
+  const tokens = (raw.match(/(?:[^\s"]+|"[^"]*")+/g) ?? [])
+    .map((token) => token.startsWith('"') && token.endsWith('"') ? token.slice(1, -1) : token);
+  const prompt: string[] = [];
+  let name: string | undefined;
+  let model: string | undefined;
+  let thinking: string | undefined;
+
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index]!;
+    if (!token.startsWith("--")) {
+      prompt.push(token);
+      continue;
+    }
+    if (!["--name", "--label", "--model", "--thinking"].includes(token)) {
+      return { prompt: "", error: `Unknown flag ${token}` };
+    }
+    const value = tokens[++index];
+    if (!value) return { prompt: "", error: `Missing value for ${token}` };
+    if (token === "--name" || token === "--label") name = value;
+    else if (token === "--model") model = value;
+    else {
+      if (!(THINKING_LEVELS as readonly string[]).includes(value)) {
+        return { prompt: "", error: `Invalid --thinking; use ${THINKING_LEVELS.join("|")}` };
+      }
+      thinking = value;
+    }
+  }
+
+  return { prompt: prompt.join(" ").trim(), name, model, thinking };
+}
+
 export default function subagentsExtension(pi: ExtensionAPI) {
   const jobs = new Map<string, Job>();
   let sequence = 0;
@@ -818,6 +860,54 @@ export default function subagentsExtension(pi: ExtensionAPI) {
     };
   };
 
+  const createJob = async (
+    params: { prompt: string; name?: string; model?: string; thinkingLevel?: string },
+    context: ExtensionContext,
+  ) => {
+    if (closing) throw new Error("The parent session is closing.");
+    const model = resolveModel(context, params.model);
+    const rawThinking = params.thinkingLevel ?? context.thinkingLevel ?? pi.getThinkingLevel();
+    const requestedThinking = typeof rawThinking === "string" && (THINKING_LEVELS as readonly string[]).includes(rawThinking)
+      ? (rawThinking as typeof THINKING_LEVELS[number])
+      : "off";
+    const thinkingLevel = model.reasoning ? requestedThinking : "off";
+    let resolveDone = () => {};
+    const done = new Promise<void>((resolve) => {
+      resolveDone = resolve;
+    });
+    const id = `sa-${++sequence}`;
+    const createdAt = Date.now();
+    const job: Job = {
+      id,
+      name: params.name,
+      prompt: params.prompt,
+      model: `${model.provider}/${model.id}`,
+      thinkingLevel,
+      cwd: context.cwd,
+      projectTrusted: context.isProjectTrusted(),
+      status: "queued",
+      createdAt,
+      usage: emptyUsage(),
+      turns: 0,
+      toolCount: 0,
+      conversation: [{
+        id: `${id}-user-1`,
+        role: "user",
+        content: [{ type: "text", text: params.prompt }],
+        timestamp: createdAt,
+      }],
+      messageSequence: 1,
+      usageReported: false,
+      cancellationRequested: false,
+      done,
+      resolveDone,
+    };
+    jobs.set(job.id, job);
+    publish();
+    pump();
+    return job;
+  };
+
   const ui = connect("@nativepi/subagents", subagentsProtocol, {
     overview: overviewState,
     detail: ({ id }) => jobDetail(getJobs([id])[0]!),
@@ -893,47 +983,7 @@ export default function subagentsExtension(pi: ExtensionAPI) {
     parameters: SpawnParameters,
     async execute(_toolCallId, params, signal, _onUpdate, context) {
       if (signal?.aborted) throw new Error("Subagent spawn cancelled.");
-      if (closing) throw new Error("The parent session is closing.");
-      const model = resolveModel(context, params.model);
-      const rawThinking = params.thinkingLevel ?? context.thinkingLevel ?? pi.getThinkingLevel();
-      const requestedThinking = typeof rawThinking === "string" && (THINKING_LEVELS as readonly string[]).includes(rawThinking)
-        ? (rawThinking as typeof THINKING_LEVELS[number])
-        : "off";
-      const thinkingLevel = model.reasoning ? requestedThinking : "off";
-      let resolveDone = () => {};
-      const done = new Promise<void>((resolve) => {
-        resolveDone = resolve;
-      });
-      const id = `sa-${++sequence}`;
-      const createdAt = Date.now();
-      const job: Job = {
-        id,
-        name: params.name,
-        prompt: params.prompt,
-        model: `${model.provider}/${model.id}`,
-        thinkingLevel,
-        cwd: context.cwd,
-        projectTrusted: context.isProjectTrusted(),
-        status: "queued",
-        createdAt,
-        usage: emptyUsage(),
-        turns: 0,
-        toolCount: 0,
-        conversation: [{
-          id: `${id}-user-1`,
-          role: "user",
-          content: [{ type: "text", text: params.prompt }],
-          timestamp: createdAt,
-        }],
-        messageSequence: 1,
-        usageReported: false,
-        cancellationRequested: false,
-        done,
-        resolveDone,
-      };
-      jobs.set(job.id, job);
-      publish();
-      pump();
+      const job = await createJob(params, context);
       return {
         content: [{
           type: "text",
@@ -987,4 +1037,185 @@ export default function subagentsExtension(pi: ExtensionAPI) {
       return resultFor(selected, toolCallId, false);
     },
   });
+
+  const openDashboard = async (context: ExtensionContext) => {
+    await context.ui.custom<unknown>((tui, theme, _keybindings, done) =>
+      new SubagentsPanel({
+        tui,
+        theme,
+        jobs: () => [...jobs.values()],
+        settings: settingsState,
+        parent: {
+          model: context.model ? `${context.model.provider}/${context.model.id}` : "No model selected",
+          thinking: context.thinkingLevel ?? pi.getThinkingLevel(),
+        },
+        spawn: async (prompt) => {
+          await createJob({ prompt }, context);
+        },
+        cancel: (id) => {
+          const job = jobs.get(id);
+          if (job) cancelJobs([job]);
+        },
+        setConcurrency: async (value) => {
+          await saveUserMaxConcurrency(value);
+          userMaxConcurrency = value;
+          maxConcurrency = projectMaxConcurrency ?? value;
+          pump();
+          publish();
+        },
+        close: () => done(undefined),
+      }),
+    );
+  };
+
+  const handleSubagentsCommand = async (args: string, context: ExtensionContext) => {
+    const { head, rest } = parseSubagentCommandArgs(args);
+    if (!head) {
+      await openDashboard(context);
+      return;
+    }
+    if (head === "help" || head === "--help" || head === "-h") {
+      context.ui.notify(
+        [
+          "subagents — manage isolated Pi subagents",
+          "",
+          "/subagents               open interactive dashboard",
+          "/subagents list          list all subagents",
+          "/subagents spawn <prompt> [--name LABEL] [--model provider/id] [--thinking LEVEL]  spawn a new child",
+          "/subagents status <id>   show one subagent's status + output",
+          "/subagents cancel <id>   cancel a queued/running child",
+          "/subagents concurrency <1-32>  set concurrent limit",
+          "/subagents help          show this help",
+        ].join("\n"),
+        "info",
+      );
+      return;
+    }
+    if (head === "list" || head === "ls") {
+      const all = [...jobs.values()];
+      if (all.length === 0) {
+        context.ui.notify("No subagents in this session yet — spawn one with /subagents spawn <prompt> or press n in the dashboard.", "info");
+        return;
+      }
+      const lines = all.map((job) => `${job.id} — ${job.status} · ${job.model} · ${job.name ?? truncateToWidth(job.prompt.replace(/\s+/g, " ").trim(), 48, "…")}`);
+      context.ui.notify(lines.join("\n"), "info");
+      return;
+    }
+    if (head === "status") {
+      const id = rest.trim().split(/\s+/)[0];
+      if (!id) {
+        context.ui.notify("Usage: /subagents status <id>", "warning");
+        return;
+      }
+      const job = jobs.get(id);
+      if (!job) {
+        context.ui.notify(`Unknown subagent id: ${id}`, "warning");
+        return;
+      }
+      const detail = formatJob(job, true);
+      context.ui.notify(detail, job.status === "failed" ? "error" : "info");
+      return;
+    }
+    if (head === "cancel") {
+      const ids = rest.trim().split(/\s+/).filter(Boolean);
+      if (ids.length === 0) {
+        context.ui.notify("Usage: /subagents cancel <id> [id ...]", "warning");
+        return;
+      }
+      try {
+        const selected = getJobs(ids);
+        cancelJobs(selected);
+        context.ui.notify(`Cancelled ${selected.length} subagent(s).`, "info");
+      } catch (err) {
+        context.ui.notify(errorMessage(err), "warning");
+      }
+      return;
+    }
+    if (head === "concurrency" || head === "limit") {
+      const value = Number(rest.trim());
+      if (!Number.isInteger(value) || value < 1 || value > 32) {
+        context.ui.notify(`Concurrency must be an integer 1–32 (current effective: ${maxConcurrency}).`, "warning");
+        return;
+      }
+      try {
+        await saveUserMaxConcurrency(value);
+        userMaxConcurrency = value;
+        maxConcurrency = projectMaxConcurrency ?? value;
+        pump();
+        publish();
+        context.ui.notify(`Concurrency set to ${value} (effective ${maxConcurrency}).`, "info");
+      } catch (err) {
+        context.ui.notify(errorMessage(err), "error");
+      }
+      return;
+    }
+    if (head === "spawn") {
+      const parsed = parseSpawnArgs(rest);
+      if (parsed.error) {
+        context.ui.notify(parsed.error, "warning");
+        return;
+      }
+      if (!parsed.prompt.trim()) {
+        context.ui.notify("Usage: /subagents spawn <prompt> [--name LABEL] [--model provider/id] [--thinking LEVEL]", "warning");
+        return;
+      }
+      try {
+        const job = await createJob({ prompt: parsed.prompt, name: parsed.name, model: parsed.model, thinkingLevel: parsed.thinking }, context);
+        context.ui.notify(`${job.id} queued — ${job.model} · thinking ${job.thinkingLevel}. Use /subagents to watch it live.`, "info");
+      } catch (err) {
+        context.ui.notify(errorMessage(err), "error");
+      }
+      return;
+    }
+    if (head === "dashboard" || head === "open") {
+      await openDashboard(context);
+      return;
+    }
+    // Bare prompt shorthand: treat whole trimmed args as prompt for quick spawn
+    if (args.trim().length > 8 && !args.trim().startsWith("--")) {
+      const maybePrompt = args.trim();
+      const looksLikeCommand = ["list", "spawn", "status", "cancel", "concurrency", "dashboard", "open", "help"].some((c) => maybePrompt.toLowerCase().startsWith(c));
+      if (!looksLikeCommand) {
+        try {
+          const job = await createJob({ prompt: maybePrompt }, context);
+          context.ui.notify(`${job.id} queued — ${job.model}. Use /subagents to watch.`, "info");
+        } catch (err) {
+          context.ui.notify(errorMessage(err), "error");
+        }
+        return;
+      }
+    }
+    context.ui.notify(`Unknown subcommand "${head}". Try /subagents help.`, "warning");
+  };
+
+  if (typeof (pi as unknown as { registerCommand?: unknown }).registerCommand === "function") {
+    (pi as unknown as { registerCommand: typeof pi.registerCommand }).registerCommand("subagents", {
+    description: "Manage asynchronous subagents — list, spawn, cancel, and watch them live",
+    getArgumentCompletions: (prefix) => {
+      const options = ["list", "spawn ", "status ", "cancel ", "concurrency ", "help", "dashboard"];
+      const filtered = options.filter((value) => value.startsWith(prefix.toLowerCase()));
+      if (filtered.length > 0) return filtered.map((value) => ({ value, label: value }));
+      const ids = [...jobs.keys()].filter((id) => id.startsWith(prefix));
+      return ids.length > 0 ? ids.map((value) => ({ value, label: value })) : null;
+    },
+    handler: handleSubagentsCommand,
+  });
+
+    (pi as unknown as { registerCommand: typeof pi.registerCommand }).registerCommand("subagent", {
+    description: "Alias for /subagents",
+    getArgumentCompletions(prefix) {
+      return [
+        "list",
+        "spawn ",
+        "status ",
+        "cancel ",
+        "concurrency ",
+        "help",
+      ]
+        .filter((value) => value.startsWith(prefix.toLowerCase()))
+        .map((value) => ({ value, label: value }));
+    },
+    handler: handleSubagentsCommand,
+  });
+  }
 }

@@ -3,6 +3,8 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { visibleWidth } from "@earendil-works/pi-tui";
+import { SubagentsPanel, type SubagentsPanelJob } from "../extensions/subagents-tui.ts";
 import subagentsExtension, {
   conversationBlocks,
   createJsonLineReader,
@@ -183,6 +185,35 @@ test("the pool runs no more than six default children at once", async () => {
   expect(waited.usage?.input).toBe(8);
 });
 
+test("the subagents command opens an inline panel instead of a modal", async () => {
+  let command: ((args: string, context: Record<string, unknown>) => Promise<void>) | undefined;
+  let dialogOptions: unknown = "not called";
+  const pi = {
+    on: () => {},
+    registerTool: () => {},
+    registerCommand: (name: string, registration: { handler: typeof command }) => {
+      if (name === "subagents") command = registration.handler;
+    },
+    getThinkingLevel: () => "high",
+    exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }),
+  };
+  subagentsExtension(pi as never);
+  const model = { provider: "anthropic", id: "claude-sonnet", reasoning: true };
+  const context = {
+    model,
+    thinkingLevel: "high",
+    ui: {
+      custom: async (_factory: unknown, options?: unknown) => {
+        dialogOptions = options;
+      },
+    },
+  };
+
+  await command?.("", context);
+
+  expect(dialogOptions).toBeUndefined();
+});
+
 test("JSON-mode output returns the final response and aggregates usage", () => {
   const message = (text: string, input: number, output: number) => JSON.stringify({
     type: "message_end",
@@ -226,6 +257,72 @@ test("streamed JSONL survives arbitrary byte boundaries", () => {
 
   expect(reader.end()).toBe('{"text":"café"}\n{"type":"done"}');
   expect(lines).toEqual(['{"text":"café"}', '{"type":"done"}']);
+});
+
+test("the TUI panel stays within narrow terminal widths", () => {
+  const panel = new SubagentsPanel({
+    tui: { requestRender: () => {} },
+    theme: {
+      fg: (_color: string, text: string) => text,
+      bg: (_color: string, text: string) => text,
+      bold: (text: string) => text,
+    } as never,
+    jobs: () => [],
+    settings: () => ({ userMaxConcurrency: 6, projectMaxConcurrency: null, effectiveMaxConcurrency: 6 }),
+    parent: { model: "anthropic/claude-sonnet", thinking: "high" },
+    spawn: async () => {},
+    cancel: () => {},
+    setConcurrency: async () => {},
+    close: () => {},
+  });
+
+  const lines = panel.render(40);
+
+  expect(lines.some((line) => line.includes("No subagents yet"))).toBe(true);
+  expect(lines.some((line) => line.includes("N new"))).toBe(true);
+  expect(lines.every((line) => visibleWidth(line) <= 40)).toBe(true);
+  panel.dispose();
+});
+
+test("stopping from the TUI requires confirmation", () => {
+  const job: SubagentsPanelJob = {
+    id: "sa-1",
+    name: "Review API",
+    prompt: "Review the API boundary",
+    status: "running",
+    model: "anthropic/claude-sonnet",
+    thinkingLevel: "high",
+    createdAt: Date.now(),
+    startedAt: Date.now(),
+    turns: 0,
+    toolCount: 0,
+    usage: { totalTokens: 0 },
+    conversation: [],
+  };
+  const cancelled: string[] = [];
+  const panel = new SubagentsPanel({
+    tui: { requestRender: () => {} },
+    theme: {
+      fg: (_color: string, text: string) => text,
+      bg: (_color: string, text: string) => text,
+      bold: (text: string) => text,
+    } as never,
+    jobs: () => [job],
+    settings: () => ({ userMaxConcurrency: 6, projectMaxConcurrency: null, effectiveMaxConcurrency: 6 }),
+    parent: { model: job.model, thinking: job.thinkingLevel },
+    spawn: async () => {},
+    cancel: (id) => cancelled.push(id),
+    setConcurrency: async () => {},
+    close: () => {},
+  });
+
+  panel.handleInput("x");
+  expect(cancelled).toEqual([]);
+  expect(panel.render(80).some((line) => line.includes("Stop Review API?"))).toBe(true);
+
+  panel.handleInput("\r");
+  expect(cancelled).toEqual(["sa-1"]);
+  panel.dispose();
 });
 
 test("assistant content becomes a complete graphical conversation", () => {

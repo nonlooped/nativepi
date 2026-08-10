@@ -22,6 +22,29 @@ pi install @nativepi/subagents
 
 NativePi adds a **Subagents** entry to the conversation header. It opens a full-size workspace for every child in the current chat, including queued, running, completed, failed, and cancelled work. Select a child to read its complete conversation with Pi—messages, reasoning, tool calls and results, errors, and final response—as it happens. Queued or running children can also be cancelled from the conversation header.
 
+## Terminal TUI
+
+Inside Pi's terminal you can control subagents without relying on the model. `/subagents` replaces the composer with a compact control panel, so it does not cover the conversation in a modal.
+
+- `↑` / `↓` — select a subagent
+- `Enter` — open its task, status, recent activity, and final-response preview
+- `N` — enter a task and start a child using the chat's model and thinking level
+- `X` — stop the selected child after confirmation
+- `L` — change the user concurrency limit
+- `Tab` — switch between All, Active, Queued, and Done
+- `Esc` — go back or close the panel
+
+For advanced spawning or scripting, use commands directly:
+
+- `/subagents list`
+- `/subagents spawn <prompt> [--name LABEL] [--model provider/id] [--thinking LEVEL]`
+- `/subagents status <id>`
+- `/subagents cancel <id> [id ...]`
+- `/subagents concurrency <n>`
+- `/subagent` is an alias for `/subagents`
+
+The panel updates live and shows status, duration, model, token count, tool count, and whether concurrency comes from the user default or a project override.
+
 ## Configure
 
 The default concurrency is 6. Set a user-level value in `~/.pi/agent/subagents.json`:
