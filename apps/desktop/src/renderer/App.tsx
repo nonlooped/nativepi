@@ -12,6 +12,7 @@ import { XIcon } from "@phosphor-icons/react/X";
 import Sidebar from "./components/Sidebar.tsx";
 import Transcript from "./components/Transcript.tsx";
 import Composer from "./components/Composer.tsx";
+import ChatSearchDialog from "./components/ChatSearchDialog.tsx";
 import { ExtensionConversationControls, ExtensionConversationView } from "./components/ExtensionSlots.tsx";
 import ContextPane from "./components/ContextPane.tsx";
 import DropZone from "./components/DropZone.tsx";
@@ -38,7 +39,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable.tsx";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet.tsx";
-import { DRAG_REGION, NO_DRAG_REGION, SCROLLBAR_GUTTER_OFFSET, WINDOW_CONTROLS_CLEARANCE } from "@/lib/utils.ts";
+import { DRAG_REGION, NO_DRAG_REGION, SCROLLBAR_GUTTER_OFFSET, WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { useTurnCompletionSignal } from "./lib/completion.ts";
 import { useAppearance } from "./lib/appearance.ts";
 import { useWorkspaceLayout, type WorkspaceLayout } from "./lib/layout.ts";
@@ -61,6 +62,7 @@ export default function App() {
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
   const [sidebarSheetOpen, setSidebarSheetOpen] = useState(false);
   const [contextSheetOpen, setContextSheetOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [extensionView, setExtensionView] = useState<string | null>(null);
   const layout = useWorkspaceLayout();
   const [startupError, setStartupError] = useState<string>();
@@ -91,7 +93,7 @@ export default function App() {
 
   useEffect(() => setExtensionView(null), [activeProjectPath, activeSessionFile]);
 
-  useWorkspaceShortcuts(layout, setSidebarSheetOpen, setContextSheetOpen, toggleTerminal);
+  useWorkspaceShortcuts(layout, setSidebarSheetOpen, setContextSheetOpen, setSearchOpen, toggleTerminal);
 
   if (startupError || !ready) {
     return (
@@ -124,6 +126,7 @@ export default function App() {
         {sidebarDocked ? (
           <Sidebar
             onClose={() => setSidebarOpen(false)}
+            onOpenSearch={() => setSearchOpen(true)}
             onOpenSourceControl={() => {
               if (layout === "wide") {
                 if (!contextPaneOpen) toggleContextPane();
@@ -209,6 +212,10 @@ export default function App() {
             <Sidebar
               overlay
               onClose={() => setSidebarSheetOpen(false)}
+              onOpenSearch={() => {
+                setSidebarSheetOpen(false);
+                setSearchOpen(true);
+              }}
               onOpenSourceControl={() => setContextSheetOpen(true)}
             />
           </SheetContent>
@@ -228,6 +235,12 @@ export default function App() {
           </SheetContent>
         </Sheet>
       ) : null}
+
+      <ChatSearchDialog
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onNavigate={() => setSidebarSheetOpen(false)}
+      />
 
       {settingsOpen ? (
         <div className="absolute inset-0 z-40 bg-background">
@@ -357,7 +370,7 @@ function WorkspaceHeader({
           <SidebarSimpleIcon />
         </Button>
       ) : null}
-      <div className="min-w-0 flex-1 self-stretch">
+      <div className="min-w-24 flex-1 self-stretch">
         {activeProjectPath ? (
           // The project half of the breadcrumb is the first thing to go when the
           // header runs out of room: the sidebar the user just came from already
@@ -379,7 +392,7 @@ function WorkspaceHeader({
         )}
       </div>
       {activeProjectPath ? (
-        <div className={`${NO_DRAG_REGION} flex min-w-0 shrink items-center gap-1 overflow-hidden`}>
+        <div className={cn(NO_DRAG_REGION, "flex min-w-0 shrink items-center gap-1 overflow-hidden max-[480px]:hidden")}>
           <ExtensionConversationControls active={extensionView} onSelect={onSelectExtensionView} />
         </div>
       ) : null}
@@ -387,7 +400,7 @@ function WorkspaceHeader({
           holding the phone — and it is the widest control in the header. It
           stays in the sidebar's project menu. */}
       {activeProjectPath && !compact ? <OpenWith projectDir={activeProjectPath} /> : null}
-      {activeProjectPath ? <ProjectStatus className={NO_DRAG_REGION} /> : null}
+      {activeProjectPath ? <ProjectStatus compact={compact} className={NO_DRAG_REGION} /> : null}
       {activeProjectPath ? (
         <Button
           variant="ghost"
@@ -396,7 +409,7 @@ function WorkspaceHeader({
           title={withHint(terminalOpen ? "Hide terminal" : "Show terminal", "toggleTerminal", keybindingOverrides)}
           aria-label={terminalOpen ? "Hide terminal" : "Show terminal"}
           aria-pressed={terminalOpen}
-          className={NO_DRAG_REGION}
+          className={cn(NO_DRAG_REGION, "max-[480px]:hidden")}
         >
           <TerminalWindowIcon />
         </Button>
@@ -426,6 +439,7 @@ function useWorkspaceShortcuts(
   layout: WorkspaceLayout,
   setSidebarSheetOpen: React.Dispatch<React.SetStateAction<boolean>>,
   setContextSheetOpen: React.Dispatch<React.SetStateAction<boolean>>,
+  setSearchOpen: React.Dispatch<React.SetStateAction<boolean>>,
   toggleTerminal: () => void,
 ) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -443,11 +457,9 @@ function useWorkspaceShortcuts(
   const newChat = useAppStore((s) => s.newChat);
   const importSession = useAppStore((s) => s.importSession);
   const selectAdjacentProject = useAppStore((s) => s.selectAdjacentProject);
-  const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const requestJumpToLatest = useAppStore((s) => s.requestJumpToLatest);
-  const requestSearchFocus = useAppStore((s) => s.requestSearchFocus);
   const cycleThinkingLevel = useAppStore((s) => s.cycleThinkingLevel);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const stopTurnBinding = bindingFor("stopTurn", keybindingOverrides);
@@ -485,9 +497,8 @@ function useWorkspaceShortcuts(
         }),
 
         search: always(() => {
-          if (layout === "compact") setSidebarSheetOpen(true);
-          else setSidebarOpen(true);
-          requestSearchFocus();
+          setSidebarSheetOpen(false);
+          setSearchOpen(true);
         }),
 
         jumpToLatest: always(requestJumpToLatest),
@@ -535,10 +546,9 @@ function useWorkspaceShortcuts(
     openSettings,
     projectRunning,
     requestJumpToLatest,
-    requestSearchFocus,
     running,
     selectAdjacentProject,
-    setSidebarOpen,
+    setSearchOpen,
     setSidebarSheetOpen,
     setContextSheetOpen,
     stopTurnBinding,
@@ -653,7 +663,7 @@ function WelcomeScreen() {
             them. Open folder keeps the primary treatment: existing Pi users
             arrive with a credential already stored. */}
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button size="lg" variant="outline" onClick={() => openSettings()}>
+          <Button size="lg" variant="outline" onClick={() => openSettings("Providers")}>
             <SlidersHorizontalIcon data-icon="inline-start" />
             Connect a provider
           </Button>

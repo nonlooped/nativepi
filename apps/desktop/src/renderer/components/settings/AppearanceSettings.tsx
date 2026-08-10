@@ -83,7 +83,7 @@ export default function AppearanceSettings() {
           label="Interface scale"
           description="Scales text, spacing and controls throughout NativePi."
           value={preferences.interfaceScale}
-          min={0.8}
+          min={0.9}
           max={1.4}
           step={0.05}
           format={(value) => `${Math.round(value * 100)}%`}

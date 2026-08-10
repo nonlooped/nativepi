@@ -13,6 +13,17 @@ export function absoluteProjectPath(projectDir: string, relativePath: string): s
   return `${projectDir.replace(/\/+$/, "")}/${relativePath.replace(/^\/+/, "")}`;
 }
 
+export function projectRelativePath(projectDir: string, filePath: string): string {
+  const project = projectDir.replace(/\\/g, "/").replace(/\/+$/, "");
+  const file = filePath.replace(/\\/g, "/").replace(/^\.\//, "");
+  const windowsStyle = /^[a-z]:\//i.test(project) || project.startsWith("//");
+  const comparableProject = windowsStyle ? project.toLowerCase() : project;
+  const comparableFile = windowsStyle ? file.toLowerCase() : file;
+  const prefix = `${comparableProject}/`;
+
+  return comparableFile.startsWith(prefix) ? file.slice(prefix.length) : file;
+}
+
 /**
  * The platform's own file manager, named the way its own users would name it.
  * Detected the same way `shortcuts.ts` detects macOS, so the two never disagree.

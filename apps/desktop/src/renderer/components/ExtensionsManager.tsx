@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
+import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
@@ -45,6 +46,7 @@ export function canReloadProjectAfterPackageChange(projectDir: string) {
 
 export default function ExtensionsManager() {
   const projectDir = useAppStore((s) => s.activeProjectPath);
+  const addProject = useAppStore((s) => s.addProject);
   const reloadExtensions = useAppStore((s) => s.reloadExtensions);
   const graphicalErrors = useAppStore((s) => s.extLoadErrors);
   // Reloading extensions restarts Pi, which ends whatever turn it is in the
@@ -71,9 +73,13 @@ export default function ExtensionsManager() {
 
   if (!projectDir) {
     return (
-      <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-        Open a project to manage its packages.
-      </p>
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-4 py-8 text-center">
+        <p className="text-sm text-muted-foreground">Open a project to manage its packages.</p>
+        <Button variant="outline" onClick={() => void addProject()}>
+          <FolderOpenIcon data-icon="inline-start" />
+          Open project
+        </Button>
+      </div>
     );
   }
 

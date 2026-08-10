@@ -9,7 +9,7 @@ import { DropdownMenu as Menu, DropdownMenuContent as MenuPopup, DropdownMenuGro
 import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 
-export default function ProjectStatus({ className }: { className?: string }) {
+export default function ProjectStatus({ compact = false, className }: { compact?: boolean; className?: string }) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const piStatus = useAppStore((s) => (s.activeProjectPath ? s.piStatus[s.activeProjectPath] : undefined));
   const trust = useAppStore((s) => s.trust);
@@ -32,7 +32,7 @@ export default function ProjectStatus({ className }: { className?: string }) {
             )}
           >
             <WarningCircleIcon weight="fill" />
-            <span>{health.label}</span>
+            <span className={cn(compact && "max-[480px]:hidden")}>{health.label}</span>
           </MenuTrigger>
           <MenuPopup align="end" className="w-72 p-1.5">
             <p className="px-2 pb-1.5 pt-1 text-xs text-muted-foreground">{health.detail}</p>
@@ -63,7 +63,7 @@ export default function ProjectStatus({ className }: { className?: string }) {
             )}
           >
             {trust.trusted ? <ShieldCheckIcon weight="fill" /> : <ShieldWarningIcon weight="fill" />}
-            <span>{trust.trusted ? "Trusted" : "Restricted"}</span>
+            <span className={cn(compact && "max-[480px]:hidden")}>{trust.trusted ? "Trusted" : "Restricted"}</span>
           </MenuTrigger>
           <MenuPopup align="end" className="w-80 p-1.5">
             <p className="px-2 pb-2 pt-1 text-xs leading-relaxed text-body-muted-foreground">

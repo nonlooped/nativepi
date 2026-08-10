@@ -58,7 +58,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 
 ## Boundaries and Constraints
 
-- NativePi's host is currently single-window and dark-only. Browser access requires an explicitly started server, the access token in the link, and the running desktop app. Remote Access is a throwaway Cloudflare quick tunnel created for one session and closed after twelve hours; NativePi does not operate a hosting service, register a permanent address, or hold an account of any kind.
+- NativePi's host is currently single-window. Its appearance can follow the operating system or use the warm-paper light theme or graphite dark theme explicitly. Browser access requires an explicitly started server, the access token in the link, and the running desktop app. Remote Access is a throwaway Cloudflare quick tunnel created for one session and closed after twelve hours; NativePi does not operate a hosting service, register a permanent address, or hold an account of any kind.
 - NativePi does not own an agent loop, make its own LLM requests, add agent tools, or support other harnesses.
 - Pi session files are the durable conversation source of truth. NativePi persists only pinned projects and chats, the last project and chat, text drafts, favorite models, pane state, source-control preferences, and its own interface preferences.
 - Agent configuration is Pi's. NativePi reads and writes it through Pi's own settings manager at user scope, so a change made here is a change the Pi command line sees; NativePi never writes Pi's configuration format itself, and exposes only the settings that have meaning in a desktop window. Project-scope overrides remain the Pi command line's business.

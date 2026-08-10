@@ -20,6 +20,7 @@ import { formatDuration, formatElapsed, pluralize } from "../lib/format.ts";
 import { useReducedMotion } from "../lib/motion.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { withHint } from "../lib/shortcuts.ts";
+import { projectRelativePath } from "../lib/paths.ts";
 import { Button } from "@/components/ui/button.tsx";
 import {
   MessageScroller,
@@ -851,12 +852,13 @@ function LineDelta({ added, removed, className }: { added: number; removed: numb
 
 function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; onToggle: () => void }) {
   const projectDir = useAppStore((s) => s.activeProjectPath);
-  const directory = fileDir(file.path);
+  const relativePath = projectDir ? projectRelativePath(projectDir, file.path) : file.path;
+  const directory = fileDir(relativePath);
   const hasDelta = file.added > 0 || file.removed > 0;
 
   return (
     <>
-      {projectDir ? <FileContextMenu projectDir={projectDir} file={file.path} patch={file.patch}>
+      {projectDir ? <FileContextMenu projectDir={projectDir} file={relativePath} patch={file.patch}>
       <button
         type="button"
         onClick={onToggle}
@@ -866,8 +868,8 @@ function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; 
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:cursor-default disabled:hover:bg-transparent"
       >
         <CaretRightIcon className={cn("shrink-0 text-muted-foreground transition-transform", open && "rotate-90", !file.patch && "invisible")} />
-        <FileTypeIcon path={file.path} className={cn(file.failed && "opacity-50 grayscale")} />
-        <span className="min-w-0 truncate font-medium">{fileName(file.path)}</span>
+        <FileTypeIcon path={relativePath} className={cn(file.failed && "opacity-50 grayscale")} />
+        <span className="min-w-0 truncate font-medium">{fileName(relativePath)}</span>
         {directory ? <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{directory}</span> : <span className="flex-1" />}
         {file.failed ? (
           <span className="shrink-0 rounded-sm bg-destructive/15 px-1.5 py-0.5 font-medium text-destructive">Failed</span>
@@ -1111,7 +1113,7 @@ function TranscriptImage({ image, name }: { image: { mimeType: string; data: str
           </>
         }
       >
-        <img src={src} alt={name} className="max-h-40 rounded-lg border object-contain" />
+        <img src={src} alt={name} className="max-h-40 rounded-lg object-contain outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
       </TranscriptContextMenu>
       <Dialog open={preview} onOpenChange={setPreview}>
         <DialogContent className="max-h-[90vh] max-w-[90vw] p-3">

@@ -37,6 +37,11 @@ test("a corrupt preference costs that preference, not the rest", () => {
   expect(state.preferences.terminalFontSize).toBe(18);
 });
 
+test("interface scale preserves a readable floor", () => {
+  const state = nativePiStateSchema.parse({ preferences: { interfaceScale: 0.8 } });
+  expect(state.preferences.interfaceScale).toBe(0.9);
+});
+
 test("a corrupt field costs that field, not the whole workspace", () => {
   const state = nativePiStateSchema.parse({
     projects: [{ path: "/a", name: "A" }],

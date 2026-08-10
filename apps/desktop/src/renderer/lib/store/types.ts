@@ -289,7 +289,6 @@ export interface UiSlice {
   contextPaneOpen: boolean;
   contextPaneChosen: boolean;
   jumpRequest: number;
-  searchFocusRequest: number;
   branchMenuRequested: boolean;
   terminalProjects: Set<string>;
   /** NativePi's own appearance and behavior preferences. Pi's live elsewhere. */
@@ -314,7 +313,6 @@ export interface UiSlice {
   resetAllKeybindings: () => void;
   toggleContextPane: () => void;
   requestJumpToLatest: () => void;
-  requestSearchFocus: () => void;
   requestBranchMenu: () => void;
   consumeBranchMenuRequest: () => void;
   openTerminal: (projectPath: string) => void;

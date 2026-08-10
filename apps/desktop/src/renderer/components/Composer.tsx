@@ -196,7 +196,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
             disabled
               ? "Open a project to begin"
               : blocked
-                ? "This chat changed outside NativePi — reload or duplicate it to continue"
+                ? "Add to your draft…"
                 : steering
                   ? "Steer this turn…"
                   : running
