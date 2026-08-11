@@ -8,7 +8,7 @@ import { StopIcon } from "@phosphor-icons/react/Stop";
 import { WarningIcon } from "@phosphor-icons/react/Warning";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { code } from "@streamdown/code";
-import { Streamdown, type CodeHighlighterPlugin } from "streamdown";
+import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
@@ -50,10 +50,7 @@ import { ExtensionEntry, ExtensionToolResult, useHasEntryRenderer, useHasToolRen
 import FileContextMenu from "./FileContextMenu.tsx";
 import { TuiAutoPane, TuiPane, TuiTimelineEntry } from "./TuiSurface.tsx";
 
-// @streamdown/code still publishes Shiki 3 token types while Streamdown resolves Shiki 4.
-const streamdownPlugins: { code: CodeHighlighterPlugin } = {
-  code: code as unknown as CodeHighlighterPlugin,
-};
+const streamdownPlugins = { code };
 
 export default function Transcript() {
   return (
@@ -74,7 +71,8 @@ function TranscriptContent() {
   const jumpRequest = useAppStore((s) => s.jumpRequest);
 
   const results = useMemo(() => toolResultsById(entries), [entries]);
-  const items = useMemo(() => transcriptItems(entries, streaming), [entries, streaming]);
+  const committed = useMemo(() => transcriptItems(entries), [entries]);
+  const items = appendStreaming(committed.items, streaming, committed.responseStartedAt);
 
   const { scrollToEnd } = useMessageScroller();
   const [transcriptSelection, setTranscriptSelection] = useState("");
@@ -487,7 +485,7 @@ type TranscriptItem =
       finishedAt?: string;
     };
 
-function transcriptItems(entries: SessionEntry[], streaming: AssistantMessage | null): TranscriptItem[] {
+function transcriptItems(entries: SessionEntry[]): { items: TranscriptItem[]; responseStartedAt?: string } {
   const items: TranscriptItem[] = [];
   let responseStartedAt: string | undefined;
 
@@ -526,25 +524,32 @@ function transcriptItems(entries: SessionEntry[], streaming: AssistantMessage | 
     });
   }
 
-  if (streaming) {
-    const last = items.at(-1);
-    if (last?.type === "response") {
-      items[items.length - 1] = {
-        ...last,
-        messages: [...last.messages, streaming],
-        finishedAt: undefined,
-      };
-    } else {
-      items.push({
-        type: "response",
-        id: "streaming-response",
-        messages: [streaming],
-        startedAt: responseStartedAt,
-      });
-    }
-  }
+  return { items, responseStartedAt };
+}
 
-  return items;
+function appendStreaming(
+  items: TranscriptItem[],
+  streaming: AssistantMessage | null,
+  responseStartedAt?: string,
+): TranscriptItem[] {
+  if (!streaming) return items;
+  const next = items.slice();
+  const last = next.at(-1);
+  if (last?.type === "response") {
+    next[next.length - 1] = {
+      ...last,
+      messages: [...last.messages, streaming],
+      finishedAt: undefined,
+    };
+  } else {
+    next.push({
+      type: "response",
+      id: "streaming-response",
+      messages: [streaming],
+      startedAt: responseStartedAt,
+    });
+  }
+  return next;
 }
 
 function EntryView({ entry }: { entry: SessionEntry }) {

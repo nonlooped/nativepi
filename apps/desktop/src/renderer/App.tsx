@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { tinykeys } from "tinykeys";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
@@ -11,23 +11,17 @@ import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { XIcon } from "@phosphor-icons/react/X";
 import Sidebar from "./components/Sidebar.tsx";
-import Transcript from "./components/Transcript.tsx";
 import Composer from "./components/Composer.tsx";
-import ChatSearchDialog from "./components/ChatSearchDialog.tsx";
-import { ExtensionConversationControls, ExtensionConversationView } from "./components/ExtensionSlots.tsx";
-import ContextPane from "./components/ContextPane.tsx";
+import { ExtensionConversationControls } from "./components/ExtensionSlots.tsx";
 import DropZone from "./components/DropZone.tsx";
 import ExtensionUi from "./components/ExtensionUi.tsx";
-import TuiOverlay from "./components/TuiSurface.tsx";
 import NativePiWordmark from "./components/NativePiWordmark.tsx";
 import ProjectStatus, { PiStartingNotice } from "./components/ProjectStatus.tsx";
 import QuitDialog from "./components/QuitDialog.tsx";
 import OpenWith from "./components/OpenWith.tsx";
-import Settings from "./components/Settings.tsx";
 import Toaster from "./components/Toaster.tsx";
 import TrustDialog from "./components/TrustDialog.tsx";
 import WindowControls from "./components/WindowControls.tsx";
-import TerminalDock from "./components/TerminalDock.tsx";
 import { activeConversation, useAppStore } from "./lib/store.ts";
 import { isRemote } from "./lib/rpc.ts";
 import { showHint } from "./lib/toast.tsx";
@@ -52,6 +46,14 @@ import { useTurnCompletionSignal } from "./lib/completion.ts";
 import { useAppearance } from "./lib/appearance.ts";
 import { useWorkspaceLayout, type WorkspaceLayout } from "./lib/layout.ts";
 
+const ChatSearchDialog = lazy(() => import("./components/ChatSearchDialog.tsx"));
+const ContextPane = lazy(() => import("./components/ContextPane.tsx"));
+const ExtensionConversationView = lazy(() => import("./components/ExtensionSlots.tsx").then((module) => ({ default: module.ExtensionConversationView })));
+const Settings = lazy(() => import("./components/Settings.tsx"));
+const TerminalDock = lazy(() => import("./components/TerminalDock.tsx"));
+const Transcript = lazy(() => import("./components/Transcript.tsx"));
+const TuiOverlay = lazy(() => import("./components/TuiSurface.tsx"));
+
 export default function App() {
   const init = useAppStore((s) => s.init);
   const ready = useAppStore((s) => s.ready);
@@ -75,6 +77,7 @@ export default function App() {
   const layout = useWorkspaceLayout();
   const [startupError, setStartupError] = useState<string>();
   const terminalProjects = useAppStore((s) => s.terminalProjects);
+  const hasTuiOverlay = useAppStore((s) => s.extSurfaces.some((surface) => surface.placement === "overlay"));
   const toggleProjectTerminal = useAppStore((s) => s.toggleTerminal);
   const sidebarDocked = layout !== "compact" && sidebarOpen;
   const contextDocked = layout === "wide" && contextPaneOpen;
@@ -165,11 +168,15 @@ export default function App() {
 
             {activeProjectPath ? (
               extensionView ? (
-                <ExtensionConversationView active={extensionView} onClose={() => setExtensionView(null)} />
+                <Suspense fallback={<SurfaceLoading label="Loading extension view…" />}>
+                  <ExtensionConversationView active={extensionView} onClose={() => setExtensionView(null)} />
+                </Suspense>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col">
                   {hasConversation ? (
-                    <Transcript key={activeSessionFile ?? "new"} />
+                    <Suspense fallback={<SurfaceLoading label="Loading conversation…" />}>
+                      <Transcript key={activeSessionFile ?? "new"} />
+                    </Suspense>
                   ) : (
                     <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-8 sm:px-6">
                       <div className="my-auto flex w-full max-w-(--conversation-width) flex-col items-center gap-4">
@@ -192,7 +199,9 @@ export default function App() {
             <>
               <ResizableHandle className="hover:bg-ring focus-visible:bg-ring" />
               <ResizablePanel id={`terminal-${activeProjectPath}`} defaultSize="34%" minSize="15%" maxSize="65%">
-                <TerminalDock key={activeProjectPath} projectDir={activeProjectPath} onMinimize={toggleTerminal} />
+                <Suspense fallback={<SurfaceLoading label="Loading terminal…" />}>
+                  <TerminalDock key={activeProjectPath} projectDir={activeProjectPath} onMinimize={toggleTerminal} />
+                </Suspense>
               </ResizablePanel>
             </>
           ) : null}
@@ -228,7 +237,11 @@ export default function App() {
                 }
               }}
             >
-              <ContextPane />
+              {contextPaneOpen ? (
+                <Suspense fallback={<SurfaceLoading label="Loading project context…" />}>
+                  <ContextPane />
+                </Suspense>
+              ) : null}
             </ResizablePanel>
           </>
         ) : null}
@@ -266,20 +279,30 @@ export default function App() {
           >
             <SheetTitle className="sr-only">Project context</SheetTitle>
             <SheetDescription className="sr-only">Manage source control, browse project files, and review extension panels.</SheetDescription>
-            <ContextPane onClose={() => setContextSheetOpen(false)} />
+            {contextSheetOpen ? (
+              <Suspense fallback={<SurfaceLoading label="Loading project context…" />}>
+                <ContextPane onClose={() => setContextSheetOpen(false)} />
+              </Suspense>
+            ) : null}
           </SheetContent>
         </Sheet>
       ) : null}
 
-      <ChatSearchDialog
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-        onNavigate={() => setSidebarSheetOpen(false)}
-      />
+      {searchOpen ? (
+        <Suspense fallback={null}>
+          <ChatSearchDialog
+            open
+            onOpenChange={setSearchOpen}
+            onNavigate={() => setSidebarSheetOpen(false)}
+          />
+        </Suspense>
+      ) : null}
 
       {settingsOpen ? (
         <div className="absolute inset-0 z-40 bg-background">
-          <Settings />
+          <Suspense fallback={<SurfaceLoading label="Loading settings…" />}>
+            <Settings />
+          </Suspense>
         </div>
       ) : null}
 
@@ -290,7 +313,19 @@ export default function App() {
       <TrustDialog />
       <QuitDialog />
       <ExtensionUi />
-      <TuiOverlay />
+      {hasTuiOverlay ? (
+        <Suspense fallback={null}>
+          <TuiOverlay />
+        </Suspense>
+      ) : null}
+    </div>
+  );
+}
+
+function SurfaceLoading({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-0 flex-1 items-center justify-center bg-background text-sm text-body-muted-foreground" role="status">
+      {label}
     </div>
   );
 }

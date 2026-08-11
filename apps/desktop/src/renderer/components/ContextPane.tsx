@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { GitPullRequestIcon } from "@phosphor-icons/react/GitPullRequest";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
@@ -49,6 +49,7 @@ function ViewSwitch({ files, onChange }: { files: boolean; onChange: (files: boo
 export default function ContextPane({ onClose }: { onClose?: () => void }) {
   const git = useAppStore((s) => s.git);
   const refreshGit = useAppStore((s) => s.refreshGit);
+  const refreshRepoHost = useAppStore((s) => s.refreshRepoHost);
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
@@ -57,6 +58,10 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
   const files = view === "files";
   const setFiles = (next: boolean) => setPreference("contextPaneView", next ? "files" : "source-control");
   const [pullRequestOpen, setPullRequestOpen] = useState(false);
+
+  useEffect(() => {
+    void refreshRepoHost();
+  }, [projectDir, refreshRepoHost]);
 
   return (
     <aside className="context-pane flex h-full min-w-48 flex-col bg-sidebar text-sidebar-foreground">

@@ -84,6 +84,7 @@ export default function Sidebar({
   const [worktreesFor, setWorktreesFor] = useState<string | null>(null);
   const [expandedProjects, setExpandedProjects] = useState(() => new Set(activeProjectPath ? [activeProjectPath] : []));
   const reducedMotion = useReducedMotion();
+  const watchedProjects = useRef(new Set<string>());
 
   // The project can also become active from outside this pane — the next/previous
   // project shortcuts, a dropped folder, a search result. Expanding only in this
@@ -99,11 +100,28 @@ export default function Sidebar({
   }, []);
 
   useEffect(() => {
-    for (const project of projects) {
-      void rpc.request.watchProjectSessions({ projectDir: project.path });
-      void refreshSessions(project.path);
+    const wanted = new Set(
+      projects
+        .filter((project) => project.path === activeProjectPath || expandedProjects.has(project.path))
+        .map((project) => project.path),
+    );
+    for (const path of wanted) {
+      if (watchedProjects.current.has(path)) continue;
+      watchedProjects.current.add(path);
+      void rpc.request.watchProjectSessions({ projectDir: path });
+      void refreshSessions(path);
     }
-  }, [projects, refreshSessions]);
+    for (const path of watchedProjects.current) {
+      if (wanted.has(path)) continue;
+      watchedProjects.current.delete(path);
+      void rpc.request.unwatchProjectSessions({ projectDir: path });
+    }
+  }, [activeProjectPath, expandedProjects, projects, refreshSessions]);
+
+  useEffect(() => () => {
+    for (const path of watchedProjects.current) void rpc.request.unwatchProjectSessions({ projectDir: path });
+    watchedProjects.current.clear();
+  }, []);
 
   function expandProject(path: string) {
     setExpandedProjects((expanded) => new Set(expanded).add(path));
@@ -468,7 +486,9 @@ function ChatList({
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const isNewChat = useAppStore((s) => s.isNewChat);
   const sessionLoadStatus = useAppStore((s) => s.sessionLoadStates[projectPath] ?? "unloaded");
-  const conversations = useAppStore((s) => s.conversations);
+  const runningStates = useAppStore(
+    useShallow((s) => sessions.map((session) => s.conversations[session.path]?.running ?? false)),
+  );
   const selectProject = useAppStore((s) => s.selectProject);
   const selectChat = useAppStore((s) => s.selectChat);
   const refreshSessions = useAppStore((s) => s.refreshSessions);
@@ -479,6 +499,7 @@ function ChatList({
   // visible reads as a bug; saying nothing while the query matched nothing reads
   // as one too.
   const matchCount = useMemo(() => countMatches(sessions, query), [sessions, query]);
+  const runningSessions = new Set(sessions.filter((_session, index) => runningStates[index]).map((session) => session.path));
 
   return (
     <MotionList className="flex flex-col gap-0.5" disabled={reducedMotion}>
@@ -531,7 +552,7 @@ function ChatList({
               <div className="flex flex-col gap-0.5">
                 {group.sessions.map((session) => {
                   const pinned = pinnedChats.includes(session.path);
-                  const running = conversations[session.path]?.running ?? false;
+                  const running = runningSessions.has(session.path);
                   const selected = session.path === activeSessionFile && !isNewChat;
                   return (
                     <SessionMenu

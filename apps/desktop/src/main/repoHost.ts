@@ -272,12 +272,9 @@ async function gitlabIssue(projectDir: string, number: number): Promise<RepoHost
  * (no CLI installed, not authenticated, no match) is quietly `null` rather
  * than an error state, matching how the Changes pane treats "not a repo".
  */
-export async function getRepoHostContext(projectDir: string): Promise<RepoHostContext | null> {
+async function loadRepoHostContext(projectDir: string, branch: string): Promise<RepoHostContext | null> {
   const host = await detectHost(projectDir);
   if (!host) return null;
-
-  const branchRes = await run("git", ["rev-parse", "--abbrev-ref", "HEAD"], projectDir);
-  const branch = branchRes.code === 0 ? branchRes.stdout.trim() : "";
 
   if (host === "github") {
     const pr = await githubPr(projectDir);
@@ -290,4 +287,20 @@ export async function getRepoHostContext(projectDir: string): Promise<RepoHostCo
   if (mr) return mr;
   const issueNumber = issueNumberFromBranch(branch);
   return issueNumber ? await gitlabIssue(projectDir, issueNumber) : null;
+}
+
+const repoHostCache = new Map<string, { revision: string; at: number; context: Promise<RepoHostContext | null> }>();
+const REPO_HOST_TTL_MS = 30_000;
+
+export async function getRepoHostContext(projectDir: string): Promise<RepoHostContext | null> {
+  const revision = await run("git", ["rev-parse", "HEAD", "--abbrev-ref", "HEAD"], projectDir);
+  if (revision.code !== 0) return null;
+  const key = revision.stdout.trim();
+  const cached = repoHostCache.get(projectDir);
+  if (cached?.revision === key && Date.now() - cached.at < REPO_HOST_TTL_MS) return cached.context;
+  const branch = key.split(/\r?\n/).at(-1) ?? "";
+  const context = loadRepoHostContext(projectDir, branch);
+  repoHostCache.set(projectDir, { revision: key, at: Date.now(), context });
+  if (repoHostCache.size > 20) repoHostCache.delete(repoHostCache.keys().next().value as string);
+  return context;
 }

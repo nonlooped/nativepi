@@ -39,7 +39,8 @@
   },
   "overrides": {
     "postcss": "8.5.25",
-    "sharp": "0.35.3"
+    "sharp": "0.35.3",
+    "shiki": "4.4.2"
   },
   "devDependencies": {
     "fallow": "^3.14.0",

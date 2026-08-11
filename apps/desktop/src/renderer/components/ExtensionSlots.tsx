@@ -7,7 +7,7 @@ import type {
   ToolResult,
   ValueSchema,
 } from "@nativepi/extension-api";
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import type { SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
 import { isJsonValue, type JsonValue } from "../../shared/json.ts";
 import { textOf } from "../../shared/messages.ts";
@@ -21,7 +21,8 @@ import { showExtensionNotification } from "../lib/toast.tsx";
 import ExtensionBoundary from "./ExtensionBoundary.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { SettingsSection } from "./settings/rows.tsx";
-import { TuiAutoPane, TuiPane } from "./TuiSurface.tsx";
+
+const TuiAutoPane = lazy(() => import("./TuiSurface.tsx").then((module) => ({ default: module.TuiAutoPane })));
 
 type BaseContext = Pick<RendererContext, "project" | "session" | "agent">;
 
@@ -275,7 +276,9 @@ export function ComposerWidgets({ placement }: { placement: "aboveComposer" | "b
       ))}
       {terminal.map((surface) => (
         <div key={surface.id} className="overflow-hidden rounded-xl border bg-card/60">
-          <TuiAutoPane surface={surface} maxRows={WIDGET_ROWS} />
+          <Suspense fallback={null}>
+            <TuiAutoPane surface={surface} maxRows={WIDGET_ROWS} />
+          </Suspense>
         </div>
       ))}
     </div>

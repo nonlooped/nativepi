@@ -1,7 +1,7 @@
 import { ArrowBendUpRightIcon, CaretDownIcon, CheckIcon, GitBranchIcon, PaperPlaneRightIcon, PlusIcon } from "../../shared/icons.ts"
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { PaperclipIcon } from "@phosphor-icons/react/Paperclip";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { AssistantMessage, ContextInspector as ContextInspectorData } from "../../shared/pi-types.ts";
 import { draftKeyFor } from "../../shared/messages.ts";
 import { ACCEPTED_IMAGE_TYPES } from "../lib/attachments.ts";
@@ -23,8 +23,9 @@ import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
 import ComposerAttachments from "./ComposerAttachments.tsx";
 import ComposerInput from "./ComposerInput.tsx";
 import { ComposerControls, ComposerWidgets } from "./ExtensionSlots.tsx";
-import { TuiAutoPane } from "./TuiSurface.tsx";
 import ModelSelector from "./ModelSelector.tsx";
+
+const TuiAutoPane = lazy(() => import("./TuiSurface.tsx").then((module) => ({ default: module.TuiAutoPane })));
 
 export default function Composer({ prominent = false }: { prominent?: boolean }) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -135,7 +136,9 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
         <ComposerWidgets placement="aboveComposer" />
         <QueuedMessages />
         <div className="mx-auto w-full max-w-(--conversation-width) overflow-hidden rounded-xl border bg-card/60 px-3 py-2">
-          <TuiAutoPane surface={editorSurface} maxRows={24} focus />
+          <Suspense fallback={null}>
+            <TuiAutoPane surface={editorSurface} maxRows={24} focus />
+          </Suspense>
         </div>
         <ComposerWidgets placement="belowComposer" />
       </div>
@@ -351,7 +354,9 @@ function ExtensionStatuses() {
   if (footer) {
     return (
       <div className="mx-auto w-full max-w-(--conversation-width) px-1">
-        <TuiAutoPane surface={footer} maxRows={1} />
+        <Suspense fallback={null}>
+          <TuiAutoPane surface={footer} maxRows={1} />
+        </Suspense>
       </div>
     );
   }
@@ -650,7 +655,7 @@ function BranchList({ onDone }: { onDone: () => void }) {
 
 function ContextWindow() {
   const entries = useAppStore((s) => activeConversation(s).entries);
-  const streaming = useAppStore((s) => activeConversation(s).streaming);
+  const liveTokens = useAppStore((s) => activeConversation(s).streaming?.usage?.totalTokens ?? 0);
   const model = useAppStore((s) => s.model);
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const sessionFile = useAppStore((s) => s.activeSessionFile);
@@ -659,7 +664,6 @@ function ContextWindow() {
   // Walking the whole transcript backwards on every keystroke in the composer is
   // what this used to do; the answer only changes when the transcript does.
   // Depend on token count, not the streaming object identity which changes per delta.
-  const liveTokens = streaming?.usage?.totalTokens ?? 0;
   const used = useMemo(() => {
     if (liveTokens) return liveTokens;
     for (let index = entries.length - 1; index >= 0; index--) {

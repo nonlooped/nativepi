@@ -376,3 +376,6 @@ export type PiEvent =
   | { type: "auto_retry_start"; attempt: number; maxAttempts: number; delayMs: number; errorMessage: string }
   | { type: "auto_retry_end"; success: boolean; attempt: number; finalError?: string }
   | { type: string; [key: string]: unknown };
+
+/** Display deltas coalesced by the host so the renderer commits at most once per frame. */
+export type PiEventBatch = { type: "nativepi_event_batch"; events: PiEvent[] };
