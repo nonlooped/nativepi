@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Combobox } from "@base-ui/react/combobox";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { ChatCircleDotsIcon } from "@phosphor-icons/react/ChatCircleDots";
@@ -34,6 +34,7 @@ export default function ChatSearchDialog({
   const [loading, setLoading] = useState(false);
   const [failure, setFailure] = useState(false);
   const [retryRequest, setRetryRequest] = useState(0);
+  const requestId = useId();
   const status = loading
     ? "Searching chats."
     : failure
@@ -56,7 +57,7 @@ export default function ChatSearchDialog({
     setLoading(true);
     setFailure(false);
     const timer = window.setTimeout(() => {
-      void rpc.request.searchSessions({ projectDirs: projects.map((project) => project.path), query: search })
+      void rpc.request.searchSessions({ requestId, projectDirs: projects.map((project) => project.path), query: search })
         .then(({ results: next }) => {
           if (!current) return;
           setResults(next);
@@ -67,12 +68,13 @@ export default function ChatSearchDialog({
         .finally(() => {
           if (current) setLoading(false);
         });
-    }, 150);
+    }, 300);
     return () => {
       current = false;
       window.clearTimeout(timer);
+      void rpc.request.cancelSearchSessions({ requestId });
     };
-  }, [open, projects, query, retryRequest]);
+  }, [open, projects, query, requestId, retryRequest]);
 
   function close() {
     onOpenChange(false);

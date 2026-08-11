@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, shell } from "electron";
 import { writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
@@ -180,6 +180,33 @@ function clientSessionFile(projectDir: string, pi: PiProcess) {
   return draftPis.get(projectDir) === pi ? undefined : pi.boundSessionFile;
 }
 
+const eventBatches = new Map<PiProcess, { projectDir: string; events: PiMessage[]; timer: ReturnType<typeof setTimeout> }>();
+
+function flushEventBatch(pi: PiProcess): void {
+  const batch = eventBatches.get(pi);
+  if (!batch) return;
+  clearTimeout(batch.timer);
+  eventBatches.delete(pi);
+  push("piEvent", {
+    projectDir: batch.projectDir,
+    sessionFile: clientSessionFile(batch.projectDir, pi),
+    event: { type: "nativepi_event_batch", events: batch.events },
+  });
+}
+
+function queueDisplayDelta(projectDir: string, pi: PiProcess, event: PiMessage): void {
+  const batch = eventBatches.get(pi);
+  if (batch) {
+    batch.events.push(event);
+    return;
+  }
+  eventBatches.set(pi, {
+    projectDir,
+    events: [event],
+    timer: setTimeout(() => flushEventBatch(pi), 16),
+  });
+}
+
 function forwardEvent(projectDir: string, pi: PiProcess, event: PiMessage): void {
   const sessionFile = pi.boundSessionFile ?? projectDir;
   if (event["type"] === "agent_start") markBusy(sessionFile, Number.POSITIVE_INFINITY);
@@ -194,6 +221,11 @@ function forwardEvent(projectDir: string, pi: PiProcess, event: PiMessage): void
     markBusy(sessionFile, Date.now() + SETTLE_GRACE_MS);
   }
   if (event["type"] === "message_end" || event["type"] === "agent_settled") notifySessionsChanged(projectDir);
+  if (event["type"] === "message_update") {
+    queueDisplayDelta(projectDir, pi, event);
+    return;
+  }
+  flushEventBatch(pi);
   push("piEvent", { projectDir, sessionFile: clientSessionFile(projectDir, pi), event });
 }
 
@@ -456,9 +488,11 @@ const terminalResizeParamsSchema = terminalIdParamsSchema.extend({
   rows: z.number().int().min(1).max(1000),
 });
 const searchSessionsParamsSchema = z.object({
+  requestId: z.string().min(1).max(100),
   projectDirs: z.array(z.string().min(1).max(32_767)).max(100),
   query: z.string().min(1).max(500),
 });
+const searchControllers = new Map<string, AbortController>();
 /** `path` may be empty: that is how the explorer asks for the project root. */
 const explorerDirParamsSchema = z.object({ projectDir: z.string().min(1).max(32_767), path: z.string().max(32_767) });
 /** Capped because it is a watcher each: an explorer with 500 folders open is already past useful. */
@@ -503,8 +537,20 @@ const handlers: HandlerMap = {
 
   listSessions: async ({ projectDir }) => ({ sessions: await listSessions(projectDir) }),
   searchSessions: async (params) => {
-    const { projectDirs, query } = searchSessionsParamsSchema.parse(params);
-    return { results: await searchSessions(projectDirs, query) };
+    const { requestId, projectDirs, query } = searchSessionsParamsSchema.parse(params);
+    searchControllers.get(requestId)?.abort();
+    const controller = new AbortController();
+    searchControllers.set(requestId, controller);
+    try {
+      return { results: await searchSessions(projectDirs, query, controller.signal) };
+    } finally {
+      if (searchControllers.get(requestId) === controller) searchControllers.delete(requestId);
+    }
+  },
+  cancelSearchSessions: ({ requestId }) => {
+    searchControllers.get(requestId)?.abort();
+    searchControllers.delete(requestId);
+    return { ok: true };
   },
   readSession: async ({ sessionFile }) => ({ entries: await readSession(sessionFile) }),
   watchProjectSessions: ({ projectDir }) => {
@@ -1392,17 +1438,14 @@ export async function invokeHostRequest<K extends HostRequestName>(
   return await handler(params ?? ({} as HostRequests[K]["params"]));
 }
 
-export function registerIpc(): void {
-  for (const name of Object.keys(handlers) as HostRequestName[]) {
-    ipcMain.removeHandler(name);
-    ipcMain.handle(name, (_event, params) => invokeHostRequest(name, params ?? {}));
-  }
+export function initializeHost(): void {
   // Started from here rather than from the window: `push` is what turns an
   // update into something the renderer can see, and it lives in this module.
   startUpdates((state) => push("updateState", state));
 }
 
 export async function stopAllPi(): Promise<void> {
+  for (const pi of eventBatches.keys()) flushEventBatch(pi);
   stopAllSessionWatches();
   for (const projectDir of projectSessionWatches.keys()) stopProjectSessionWatch(projectDir);
   for (const projectDir of [...explorerWatches.keys()]) stopExplorerWatches(projectDir);

@@ -5,7 +5,7 @@ import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { StopIcon } from "@phosphor-icons/react/Stop";
 import { WarningIcon } from "@phosphor-icons/react/Warning";
 import { code } from "@streamdown/code";
-import { Streamdown, type CodeHighlighterPlugin } from "streamdown";
+import { Streamdown } from "streamdown";
 import { useEffect, useRef, useState } from "react";
 import type {
   ConversationContentBlock,
@@ -24,9 +24,7 @@ import { Message } from "@/components/ui/message.tsx";
 import { Bubble, BubbleContent } from "@/components/ui/bubble.tsx";
 import { useReducedMotion } from "@/lib/motion.ts";
 
-const streamdownPlugins: { code: CodeHighlighterPlugin } = {
-  code: code as unknown as CodeHighlighterPlugin,
-};
+const streamdownPlugins = { code };
 
 type Turn = {
   id: string;

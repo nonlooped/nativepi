@@ -1,6 +1,7 @@
-import { existsSync, watch, type FSWatcher } from "node:fs";
-import { readFile, rm, stat } from "node:fs/promises";
+import { createReadStream, existsSync, watch, type FSWatcher } from "node:fs";
+import { open, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
+import { createInterface } from "node:readline";
 import { parseSessionEntries, SessionManager } from "@earendil-works/pi-coding-agent";
 import { chatTitle, displayPromptText, isAssistant, isUser, textOf } from "../shared/messages.ts";
 import type { FileEntry, SessionSearchResult, SessionSummary, UsageDashboard } from "../shared/pi-types.ts";
@@ -22,6 +23,7 @@ export async function readSession(sessionFile: string): Promise<FileEntry[]> {
 // Cache lastPrompt/providers by mtime so repeated listSessions (Sidebar mount + sessionsChanged)
 // does not re-read every file when only one changed.
 const sidebarFieldsCache = new Map<string, { mtimeMs: number; result: { lastPrompt: string; providers: string[] } }>();
+const sessionListCache = new Map<string, Promise<SessionSummary[]>>();
 
 async function sessionSidebarFields(sessionFile: string, knownMtimeMs?: number): Promise<{ lastPrompt: string; providers: string[] }> {
   const mtimeMs = knownMtimeMs ?? (await sessionMtime(sessionFile));
@@ -92,7 +94,18 @@ function promptSummary(content: unknown): string {
   return images === 1 ? "Image attachment" : images > 1 ? `${images} image attachments` : "Message without text";
 }
 
-export async function listSessions(projectDir: string): Promise<SessionSummary[]> {
+export function listSessions(projectDir: string): Promise<SessionSummary[]> {
+  const cached = sessionListCache.get(projectDir);
+  if (cached) return cached;
+  const listing = listSessionsUncached(projectDir);
+  sessionListCache.set(projectDir, listing);
+  void listing.catch(() => {
+    if (sessionListCache.get(projectDir) === listing) sessionListCache.delete(projectDir);
+  });
+  return listing;
+}
+
+async function listSessionsUncached(projectDir: string): Promise<SessionSummary[]> {
   const sessions = await SessionManager.list(projectDir);
   const filtered = sessions.filter((session) => session.messageCount > 0);
   // Process with limited concurrency so 200 files do not open at once (EMFILE)
@@ -123,10 +136,11 @@ export async function listSessions(projectDir: string): Promise<SessionSummary[]
   return results;
 }
 
-export async function searchSessions(projectDirs: string[], rawQuery: string): Promise<SessionSearchResult[]> {
+export async function searchSessions(projectDirs: string[], rawQuery: string, signal?: AbortSignal): Promise<SessionSearchResult[]> {
   const query = rawQuery.trim().toLocaleLowerCase();
   if (!query || projectDirs.length === 0) return [];
 
+  signal?.throwIfAborted();
   const summaries = (await Promise.all(projectDirs.map(async (projectDir) => {
     const sessions = await listSessions(projectDir);
     return sessions.map((session) => ({ projectDir, session, title: chatTitle(session) }));
@@ -144,25 +158,35 @@ export async function searchSessions(projectDirs: string[], rawQuery: string): P
       : [],
   );
 
-  for (const { projectDir, session, title } of summaries) {
-    if (results.length >= 50 || title.toLocaleLowerCase().includes(query)) continue;
-    const entries = await readSession(session.path).catch(() => []);
-    for (const entry of entries) {
-      if (entry.type !== "message" || (!isUser(entry.message) && !isAssistant(entry.message))) continue;
-      const text = textOf(entry.message.content);
-      const index = text.toLocaleLowerCase().indexOf(query);
-      if (index === -1) continue;
-      results.push({
-        projectDir,
-        sessionFile: session.path,
-        title,
-        modified: session.modified,
-        match: entry.message.role,
-        snippet: searchSnippet(text, index, rawQuery.trim().length),
-      });
-      break;
+  const candidates = summaries.filter(({ title }) => !title.toLocaleLowerCase().includes(query));
+  const concurrency = 4;
+  let cursor = 0;
+  async function searchNext(): Promise<void> {
+    while (results.length < 50) {
+      signal?.throwIfAborted();
+      const candidate = candidates[cursor++];
+      if (!candidate) return;
+      const { projectDir, session, title } = candidate;
+      const entries = await readSession(session.path).catch(() => []);
+      signal?.throwIfAborted();
+      for (const entry of entries) {
+        if (entry.type !== "message" || (!isUser(entry.message) && !isAssistant(entry.message))) continue;
+        const text = textOf(entry.message.content);
+        const index = text.toLocaleLowerCase().indexOf(query);
+        if (index === -1) continue;
+        results.push({
+          projectDir,
+          sessionFile: session.path,
+          title,
+          modified: session.modified,
+          match: entry.message.role,
+          snippet: searchSnippet(text, index, rawQuery.trim().length),
+        });
+        break;
+      }
     }
   }
+  await Promise.all(Array.from({ length: Math.min(concurrency, candidates.length) }, () => searchNext()));
 
   return results
     .toSorted((a, b) => Number(a.match !== "title") - Number(b.match !== "title") || b.modified.localeCompare(a.modified))
@@ -180,37 +204,41 @@ export async function usageDashboard(projects: { path: string; name: string }[])
   const models = new Map<string, { cost: number; tokens: number }>();
   const totals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
   const usedSessions = new Set<string>();
-  const billedEntries = new Set<string>();
+  const billedEntries = new Map<string, Set<string>>();
   const sessionRecords = (await Promise.all(projects.map(async (project) =>
-    Promise.all((await listSessions(project.path)).map(async (session) => ({ project, session, entries: await readSession(session.path) }))),
+    (await listSessions(project.path)).map((session) => ({ project, session })),
   ))).flat();
-  const recordsByPath = new Map(sessionRecords.map((record) => [path.resolve(record.session.path), record]));
+  const parentByPath = new Map<string, string | undefined>();
+  for (const { session } of sessionRecords) {
+    const header = await sessionHeader(session.path);
+    parentByPath.set(path.resolve(session.path), header?.parentSession);
+  }
 
   function lineageRoot(sessionFile: string, seen = new Set<string>()): string {
     const resolved = path.resolve(sessionFile);
     if (seen.has(resolved)) return resolved;
     seen.add(resolved);
-    const header = recordsByPath.get(resolved)?.entries.find((entry) => entry.type === "session");
-    const parentSession = header?.type === "session" && typeof header.parentSession === "string" ? header.parentSession : undefined;
-    return parentSession && recordsByPath.has(path.resolve(parentSession))
+    const parentSession = parentByPath.get(resolved);
+    return parentSession && parentByPath.has(path.resolve(parentSession))
       ? lineageRoot(parentSession, seen)
       : resolved;
   }
 
-  for (const { project, session, entries } of sessionRecords) {
+  for (const { project, session } of sessionRecords) {
     const root = lineageRoot(session.path);
-    for (const entry of entries) {
+    const lineageEntries = billedEntries.get(root) ?? new Set<string>();
+    billedEntries.set(root, lineageEntries);
+    for await (const entry of streamSession(session.path)) {
       if (entry.type !== "message" || !isAssistant(entry.message)) continue;
       const cost = entry.message.usage?.cost?.total;
       if (typeof cost !== "number" || !Number.isFinite(cost) || cost < 0) continue;
-      const billedEntry = `${root}\0${entry.id}`;
-      if (billedEntries.has(billedEntry)) continue;
+      if (lineageEntries.has(entry.id)) continue;
 
       const date = usageDate(entry.message.timestamp, entry.timestamp);
       if (!date) continue;
       const tokens = entry.message.usage?.totalTokens ?? 0;
       const usage = entry.message.usage;
-      billedEntries.add(billedEntry);
+      lineageEntries.add(entry.id);
       usedSessions.add(session.path);
       totals.input += usage?.input ?? 0;
       totals.output += usage?.output ?? 0;
@@ -263,6 +291,44 @@ export async function usageDashboard(projects: { path: string; name: string }[])
   };
 }
 
+async function* streamSession(sessionFile: string): AsyncGenerator<FileEntry> {
+  const input = createReadStream(sessionFile, { encoding: "utf8" });
+  const lines = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY });
+  try {
+    for await (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        yield JSON.parse(line) as FileEntry;
+      } catch {
+        // Match Pi's session parser: a malformed append does not hide the
+        // valid billed entries before or after it.
+      }
+    }
+  } finally {
+    lines.close();
+    input.destroy();
+  }
+}
+
+async function sessionHeader(sessionFile: string): Promise<{ parentSession?: string } | undefined> {
+  let file;
+  try {
+    file = await open(sessionFile, "r");
+    const buffer = Buffer.allocUnsafe(16 * 1024);
+    const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
+    const lineEnd = buffer.subarray(0, bytesRead).indexOf(0x0a);
+    const line = buffer.toString("utf8", 0, lineEnd === -1 ? bytesRead : lineEnd).trim();
+    const entry = JSON.parse(line) as { type?: unknown; parentSession?: unknown };
+    return entry.type === "session"
+      ? { ...(typeof entry.parentSession === "string" ? { parentSession: entry.parentSession } : {}) }
+      : undefined;
+  } catch {
+    return undefined;
+  } finally {
+    await file?.close();
+  }
+}
+
 function usageDate(messageTimestamp: number | undefined, entryTimestamp: string): string | null {
   const timestamp = typeof messageTimestamp === "number" ? messageTimestamp : Date.parse(entryTimestamp);
   if (!Number.isFinite(timestamp)) return null;
@@ -293,6 +359,7 @@ export async function deleteSession(projectDir: string, sessionFile: string): Pr
     throw new Error("That chat does not belong to this project.");
   }
   await rm(resolved, { force: true });
+  sessionListCache.delete(projectDir);
   sidebarFieldsCache.delete(resolved);
   sidebarFieldsCache.delete(sessionFile);
 }
@@ -309,7 +376,10 @@ export function watchProjectSessions(projectDir: string, onChange: () => void): 
   let stopped = false;
   const notify = () => {
     clearTimeout(timer);
-    timer = setTimeout(onChange, 150);
+    timer = setTimeout(() => {
+      sessionListCache.delete(projectDir);
+      onChange();
+    }, 150);
   };
   const watchDirectory = () => {
     watcher?.close();

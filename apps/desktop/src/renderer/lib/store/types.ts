@@ -14,6 +14,7 @@ import type {
   GitStatus,
   ModelInfo,
   PiEvent,
+  PiEventBatch,
   SessionEntry,
   SessionSummary,
   ThinkingLevel,
@@ -178,7 +179,7 @@ export interface ChatSlice {
   reloadActiveSession: () => Promise<void>;
   clearError: () => void;
 
-  onEvent: (payload: { projectDir: string; sessionFile?: string; event: PiEvent }) => void;
+  onEvent: (payload: { projectDir: string; sessionFile?: string; event: PiEvent | PiEventBatch }) => void;
   onPiError: (projectDir: string, message: string) => void;
   onSessionChangedExternally: (payload: { projectDir: string; sessionFile: string }) => void;
 }

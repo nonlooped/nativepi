@@ -130,21 +130,28 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     const trustCheck = rpc.request.checkTrust({ projectDir: path });
     trustCheck.catch(() => {});
 
-    await get().refreshSessions(path);
-
     // A chat still running in this project wins over the last-opened one: the
     // user coming back mid-run should land on the run, not beside it.
     const runningConv = Object.values(get().conversations).find(
       (conversation) => conversation.projectDir === path && conversation.running && conversation.sessionFile,
     );
     const last = runningConv?.sessionFile || getLastChat(path);
-    const sessions = get().sessionsByProject[path] ?? [];
-    if (last && sessions.some((s) => s.path === last)) {
-      await get().selectChat(last);
-    } else if (sessions[0]) {
-      await get().selectChat(sessions[0].path);
-    } else {
-      get().newChat();
+    const sessionsLoading = get().refreshSessions(path);
+    let openedLast = false;
+    if (last) {
+      try {
+        await get().selectChat(last);
+        openedLast = true;
+      } catch {
+        // A remembered chat may have been deleted outside NativePi. Discovery
+        // already running beside the read supplies the next valid choice.
+      }
+    }
+    await sessionsLoading;
+    if (!openedLast && get().activeProjectPath === path) {
+      const first = get().sessionsByProject[path]?.[0];
+      if (first) await get().selectChat(first.path);
+      else get().newChat();
     }
 
     // A project with local extensions/skills needs a trust decision before Pi

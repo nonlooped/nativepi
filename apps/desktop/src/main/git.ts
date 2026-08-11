@@ -45,28 +45,25 @@ function invalidateGitStatusCache(projectDir: string): void {
 export async function gitStatus(projectDir: string): Promise<GitStatus> {
   const cached = gitStatusCache.get(projectDir);
   if (cached && Date.now() - cached.at < GIT_STATUS_TTL_MS) return cached.status;
-  const inside = await run(["rev-parse", "--is-inside-work-tree"], projectDir);
-  if (inside.code !== 0 || inside.stdout.trim() !== "true") {
+  const [porcelain, headRes] = await Promise.all([
+    run(["status", "--porcelain=v1", "--branch", "--untracked-files=all", "-z"], projectDir),
+    run(["rev-parse", "--short", "HEAD"], projectDir),
+  ]);
+  if (porcelain.code !== 0) {
     const status: GitStatus = { isRepo: false, files: [], insertions: 0, deletions: 0, ahead: 0, behind: 0 };
     gitStatusCache.set(projectDir, { at: Date.now(), status });
     return status;
   }
 
-  const [branchRes, headRes, upstreamRes] = await Promise.all([
-    run(["rev-parse", "--abbrev-ref", "HEAD"], projectDir),
-    run(["rev-parse", "--short", "HEAD"], projectDir),
-    run(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], projectDir),
-  ]);
-  const branch = branchRes.stdout.trim();
-  const detached = branch === "HEAD";
-  const upstream = upstreamRes.code === 0 ? upstreamRes.stdout.trim() || undefined : undefined;
-  const divergence = upstream ? await run(["rev-list", "--left-right", "--count", `HEAD...${upstream}`], projectDir) : null;
-  const [ahead = "0", behind = "0"] = divergence?.stdout.trim().split(/\s+/) ?? [];
-
   // NUL-delimited porcelain output is unambiguous even with odd filenames.
-  const porcelain = await run(["status", "--porcelain=v1", "--untracked-files=all", "-z"], projectDir);
   const files: GitStatus["files"] = [];
   const records = porcelain.stdout.split("\0");
+  const branchStatus = records.shift()?.slice(3) ?? "";
+  const relation = branchStatus.split(" [", 1)[0] ?? "";
+  const [branchName, upstream] = relation.split("...", 2);
+  const detached = branchName === "HEAD (no branch)";
+  const ahead = Number(branchStatus.match(/ahead (\d+)/)?.[1]) || 0;
+  const behind = Number(branchStatus.match(/behind (\d+)/)?.[1]) || 0;
   for (let i = 0; i < records.length; i++) {
     const record = records[i];
     if (!record) continue;
@@ -107,12 +104,12 @@ export async function gitStatus(projectDir: string): Promise<GitStatus> {
 
   const result: GitStatus = {
     isRepo: true,
-    branch: detached ? undefined : branch,
+    branch: detached ? undefined : branchName?.replace(/^No commits yet on /, "") || undefined,
     detached,
     head: headRes.code === 0 ? headRes.stdout.trim() || undefined : undefined,
-    upstream,
-    ahead: Number(ahead) || 0,
-    behind: Number(behind) || 0,
+    upstream: upstream || undefined,
+    ahead,
+    behind,
     files,
     insertions,
     deletions,

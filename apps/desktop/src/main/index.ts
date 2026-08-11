@@ -1,6 +1,19 @@
-import { app, BrowserWindow, Menu, shell, type MenuItemConstructorOptions } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, shell, type MenuItemConstructorOptions } from "electron";
 import { join } from "node:path";
-import { quitBlocked, registerIpc, setMainWindow, stopAllPi } from "./ipc.ts";
+import type { HostRequestName, HostRequests } from "../shared/rpc-schema.ts";
+
+type Host = typeof import("./ipc.ts");
+let host: Host | undefined;
+let hostPromise: Promise<Host> | undefined;
+
+function loadHost(): Promise<Host> {
+  return hostPromise ??= import("./ipc.ts").then((loaded) => (host = loaded));
+}
+
+ipcMain.handle("nativepi:invoke", async (_event, name: HostRequestName, params: unknown) => {
+  const loaded = await loadHost();
+  return loaded.invokeHostRequest(name, (params ?? {}) as HostRequests[typeof name]["params"]);
+});
 
 // Not named `__dirname`: rolldown injects a CommonJS `__dirname` shim at the top
 // of the main bundle, and a same-named top-level const collides with it at load.
@@ -66,7 +79,7 @@ function createWindow(): void {
     },
   });
 
-  setMainWindow(win);
+  host?.setMainWindow(win);
 
   /**
    * Closing is where an agent turn and a shell die, so it is where the user is
@@ -87,10 +100,10 @@ function createWindow(): void {
 
   win.on("close", (event) => {
     if (quitting || !rendererAnswers || win.webContents.isCrashed()) return;
-    if (quitBlocked()) event.preventDefault();
+    if (host?.quitBlocked()) event.preventDefault();
   });
 
-  win.on("closed", () => setMainWindow(null));
+  win.on("closed", () => host?.setMainWindow(null));
 
   win.on("ready-to-show", () => win.show());
 
@@ -150,8 +163,11 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  registerIpc();
   createWindow();
+  void loadHost().then((loaded) => {
+    loaded.setMainWindow(BrowserWindow.getAllWindows()[0] ?? null);
+    loaded.initializeHost();
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -166,7 +182,7 @@ app.on("before-quit", (event) => {
   if (quitting) return;
   event.preventDefault();
   quitting = true;
-  void stopAllPi().finally(() => {
+  void loadHost().then((loaded) => loaded.stopAllPi()).finally(() => {
     if (relaunchAfterQuit) app.relaunch();
     app.quit();
   });

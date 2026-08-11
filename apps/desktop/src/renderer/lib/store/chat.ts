@@ -1,4 +1,4 @@
-import type { SessionEntry, ThinkingLevel } from "../../../shared/pi-types.ts";
+import type { PiEventBatch, SessionEntry, ThinkingLevel } from "../../../shared/pi-types.ts";
 import type { ExtensionUiRequest } from "../../../shared/pi-types.ts";
 import { isRemote, rpc } from "../rpc.ts";
 import { conversationFor, emptyConversation, patchConversation } from "./conversation.ts";
@@ -18,7 +18,7 @@ import { MAX_IMAGE_BYTES } from "../../../shared/images.ts";
 import type { ImageAttachment } from "../../../shared/rpc-schema.ts";
 import { togglePinnedPath } from "../chatOrganization.ts";
 import { dropAllSurfaces } from "../tuiSurfaces.ts";
-import { NO_EXTENSION_UI_STATE, type ChatSlice, type GetState, type PendingMessage, type SetState, type SliceCreator } from "./types.ts";
+import { NO_EXTENSION_UI_STATE, type ChatSlice, type Conversation, type GetState, type PendingMessage, type SetState, type SliceCreator } from "./types.ts";
 
 let pendingId = 1;
 const MAX_REMOTE_IMAGE_BATCH_BYTES = 48 * 1024 * 1024;
@@ -499,7 +499,19 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       if (event.type === "agent_settled") void get().refreshGit();
       else if (event.type === "message_end" && !gitRefreshedWithin(1000)) void get().refreshGit();
     }
-    const patch = { ...reduce(conv, event), projectDir, sessionFile: sessionFile ?? conv.sessionFile };
+    let eventPatch: Partial<Conversation>;
+    if (event.type === "nativepi_event_batch") {
+      let current = conv;
+      eventPatch = {};
+      for (const nextEvent of (event as PiEventBatch).events) {
+        const nextPatch = reduce(current, nextEvent);
+        eventPatch = { ...eventPatch, ...nextPatch };
+        current = { ...current, ...nextPatch };
+      }
+    } else {
+      eventPatch = reduce(conv, event);
+    }
+    const patch = { ...eventPatch, projectDir, sessionFile: sessionFile ?? conv.sessionFile };
     patchConversation(set, projectDir, sessionFile ?? null, patch);
     if (event.type === "agent_settled" && conv.runStartedAt !== null) {
       set((state) => ({

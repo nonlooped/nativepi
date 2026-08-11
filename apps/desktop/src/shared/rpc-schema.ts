@@ -18,6 +18,7 @@ import type {
   ModelInfo,
   PackageInfo,
   PiEvent,
+  PiEventBatch,
   ResolvedExtension,
   RpcSessionState,
   SessionStats,
@@ -317,9 +318,10 @@ export type HostRequests = {
   saveState: { params: { state: NativePiState }; response: { ok: boolean } };
   listSessions: { params: { projectDir: string }; response: { sessions: SessionSummary[] } };
   searchSessions: {
-    params: { projectDirs: string[]; query: string };
+    params: { requestId: string; projectDirs: string[]; query: string };
     response: { results: SessionSearchResult[] };
   };
+  cancelSearchSessions: { params: { requestId: string }; response: { ok: boolean } };
   readSession: { params: { sessionFile: string }; response: { entries: FileEntry[] } };
   ensurePi: { params: { projectDir: string; sessionFile?: string | null }; response: { ok: boolean; error?: string } };
   restartPi: { params: { projectDir: string }; response: { ok: boolean } };
@@ -652,7 +654,7 @@ export type HostRequests = {
 
 export type HostEvents = {
   piStatus: { projectDir: string; status: PiStatus; detail?: string };
-  piEvent: { projectDir: string; sessionFile?: string; event: PiEvent };
+  piEvent: { projectDir: string; sessionFile?: string; event: PiEvent | PiEventBatch };
   piError: { projectDir: string; message: string };
   sessionChangedExternally: { projectDir: string; sessionFile: string };
   sessionsChanged: { projectDir: string };

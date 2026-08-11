@@ -30,6 +30,30 @@ test("completion in an inactive project is not lost", () => {
   expect(useAppStore.getState().conversations["A:\\proj-a"]?.running).toBe(false);
 });
 
+test("coalesced display deltas commit in one conversation update", () => {
+  useAppStore.setState({ activeProjectPath: "A:\\proj-a", conversations: {} });
+  useAppStore.getState().onEvent({
+    projectDir: "A:\\proj-a",
+    event: { type: "message_start", message: { role: "assistant", content: [], timestamp: 1 } },
+  });
+
+  useAppStore.getState().onEvent({
+    projectDir: "A:\\proj-a",
+    event: {
+      type: "nativepi_event_batch",
+      events: [
+        { type: "message_update", assistantMessageEvent: { type: "text_start", contentIndex: 0 } },
+        { type: "message_update", assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "Hello" } },
+        { type: "message_update", assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: " world" } },
+      ],
+    },
+  });
+
+  expect(useAppStore.getState().conversations["A:\\proj-a"]?.streaming?.content).toEqual([
+    { type: "text", text: "Hello world" },
+  ]);
+});
+
 test("a Pi error in an inactive project lands on that project's conversation", () => {
   useAppStore.setState({ activeProjectPath: "B:\\proj-b", conversations: {} });
 

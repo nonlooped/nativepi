@@ -155,9 +155,6 @@ export function warmProject(set: SetState, get: GetState, path: string): void {
     }
   });
 
-  void get().refreshGit();
-  void get().refreshRepoHost();
-
   void loadGraphicalExtensions(path).then((res) => {
     if (get().activeProjectPath !== path) return;
     set({ extRenderers: res.extensions, extLoadErrors: res.errors });

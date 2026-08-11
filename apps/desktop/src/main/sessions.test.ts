@@ -358,6 +358,12 @@ test("searchSessions finds titles and user or assistant message text", async () 
   expect(userResults[0]).toMatchObject({ title: "Payment investigation", match: "user" });
 });
 
+test("searchSessions stops before scanning when cancelled", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  await expect(searchSessions(["C:\\cancelled"], "needle", controller.signal)).rejects.toThrow();
+});
+
 test("searchSnippet compacts whitespace and keeps context around long matches", () => {
   const text = `${"start ".repeat(20)}needle\n\n${"end ".repeat(30)}`;
   const snippet = searchSnippet(text, text.indexOf("needle"), "needle".length);

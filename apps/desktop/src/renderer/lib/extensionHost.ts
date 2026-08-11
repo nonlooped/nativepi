@@ -27,7 +27,16 @@ import { Switch } from "@/components/ui/switch.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { rpc } from "./rpc.ts";
 import { ActionRow, SelectRow, SliderRow, SwitchRow, TextRow } from "../components/settings/rows.tsx";
-import ExtensionConversationTranscript from "../components/ExtensionConversationTranscript.tsx";
+
+const LazyExtensionConversationTranscript = React.lazy(() => import("../components/ExtensionConversationTranscript.tsx"));
+
+function ExtensionConversationTranscript(props: React.ComponentProps<typeof LazyExtensionConversationTranscript>) {
+  return React.createElement(
+    React.Suspense,
+    { fallback: null },
+    React.createElement(LazyExtensionConversationTranscript, props),
+  );
+}
 
 
 // Re-exported to extensions through `__NATIVEPI_HOST__`, so the values they see
