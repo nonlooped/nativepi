@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { GitPullRequestIcon } from "@phosphor-icons/react/GitPullRequest";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
@@ -8,9 +8,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { withHint } from "../lib/shortcuts.ts";
 import { ExtensionPanels } from "./ExtensionSlots.tsx";
-import FileExplorer from "./FileExplorer.tsx";
-import PullRequestDialog from "./PullRequestDialog.tsx";
-import SourceControl from "./SourceControl.tsx";
+
+const FileExplorer = lazy(() => import("./FileExplorer.tsx"));
+const PullRequestDialog = lazy(() => import("./PullRequestDialog.tsx"));
+const SourceControl = lazy(() => import("./SourceControl.tsx"));
 
 function ViewSwitch({ files, onChange }: { files: boolean; onChange: (files: boolean) => void }) {
   return (
@@ -60,8 +61,8 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
   const [pullRequestOpen, setPullRequestOpen] = useState(false);
 
   useEffect(() => {
-    void refreshRepoHost();
-  }, [projectDir, refreshRepoHost]);
+    if (!files) void refreshRepoHost();
+  }, [files, projectDir, refreshRepoHost]);
 
   return (
     <aside className="context-pane flex h-full min-w-48 flex-col bg-sidebar text-muted-foreground">
@@ -106,17 +107,27 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {files ? (
-          projectDir ? <FileExplorer projectDir={projectDir} /> : <p className="px-3 py-4 text-xs text-muted-foreground">No project is open.</p>
+          projectDir ? (
+            <Suspense fallback={null}>
+              <FileExplorer projectDir={projectDir} />
+            </Suspense>
+          ) : <p className="px-3 py-4 text-xs text-muted-foreground">No project is open.</p>
         ) : !git ? (
           <p className="px-3 py-4 text-xs text-muted-foreground">Loading source control…</p>
         ) : !git.isRepo ? (
           <p className="px-3 py-4 text-xs text-muted-foreground">This folder is not a Git repository.</p>
         ) : projectDir ? (
-          <SourceControl projectDir={projectDir} git={git} />
+          <Suspense fallback={null}>
+            <SourceControl projectDir={projectDir} git={git} />
+          </Suspense>
         ) : null}
         <ExtensionPanels />
       </div>
-      <PullRequestDialog projectDir={pullRequestOpen ? projectDir : null} onClose={() => setPullRequestOpen(false)} />
+      {pullRequestOpen ? (
+        <Suspense fallback={null}>
+          <PullRequestDialog projectDir={projectDir} onClose={() => setPullRequestOpen(false)} />
+        </Suspense>
+      ) : null}
     </aside>
   );
 }

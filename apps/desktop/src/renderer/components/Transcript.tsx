@@ -10,7 +10,7 @@ import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { code } from "@streamdown/code";
 import { Streamdown } from "streamdown";
 import { toast } from "sonner";
-import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
 import { displayPrompt, imagesOf, isAssistant, isToolResult, isUser, textOf } from "../../shared/messages.ts";
 import { stripAnsi } from "../lib/ansi.ts";
@@ -46,13 +46,13 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { HOVER_REVEAL, cn } from "@/lib/utils.ts";
 import { copyDataImage } from "@/lib/clipboard.ts";
 import { rpc } from "@/lib/rpc.ts";
-import DiffView from "./DiffView.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 import { ExtensionEntry, ExtensionToolResult, useHasEntryRenderer, useHasToolRenderer } from "./ExtensionSlots.tsx";
 import FileContextMenu from "./FileContextMenu.tsx";
 import { TuiAutoPane, TuiPane, TuiTimelineEntry } from "./TuiSurface.tsx";
 
 const streamdownPlugins = { code };
+const DiffView = lazy(() => import("./DiffView.tsx"));
 
 export default function Transcript() {
   return (
@@ -933,7 +933,9 @@ function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; 
       </FileContextMenu> : null}
       {open && file.patch ? (
         <div className="max-h-96 overflow-auto border-t border-border/50 bg-background">
-          <DiffView patch={file.patch} className="py-1.5" />
+          <Suspense fallback={null}>
+            <DiffView patch={file.patch} className="py-1.5" />
+          </Suspense>
         </div>
       ) : null}
     </>
@@ -1041,7 +1043,9 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
           {header}
         </Collapsible.Trigger>
         <Collapsible.Panel className="max-h-96 overflow-auto border-t">
-          <DiffView patch={diffPatch} className="py-1.5" />
+          <Suspense fallback={null}>
+            <DiffView patch={diffPatch} className="py-1.5" />
+          </Suspense>
         </Collapsible.Panel>
       </Collapsible.Root>,
       call,

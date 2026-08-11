@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Collapsible } from "@base-ui/react/collapsible";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
@@ -25,12 +25,12 @@ import {
 import { Field, FieldLabel } from "@/components/ui/field.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { cn } from "@/lib/utils.ts";
-import DiffView from "./DiffView.tsx";
 import FileContextMenu from "./FileContextMenu.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 import RepoHostPanel from "./RepoHostPanel.tsx";
 
 type CommitAction = "commit" | "push" | "sync";
+const DiffView = lazy(() => import("./DiffView.tsx"));
 
 export default function SourceControl({ projectDir, git }: { projectDir: string; git: GitStatus }) {
   const refreshGit = useAppStore((s) => s.refreshGit);
@@ -330,7 +330,9 @@ function FileDiff({ file, projectDir, staged }: { file: GitChangedFile; projectD
           {!staged ? (
             <HunkActions projectDir={projectDir} file={file} stagedVersion={stagedVersion} onStaged={() => setStagedVersion((value) => value + 1)} />
           ) : null}
-          <DiffView patch={patch} />
+          <Suspense fallback={null}>
+            <DiffView patch={patch} />
+          </Suspense>
         </>
       )}
     </div>

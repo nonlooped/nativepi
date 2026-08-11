@@ -1,6 +1,5 @@
 import type { NativePiState } from "../../../shared/rpc-schema.ts";
 import { draftKeyFor, modelKey } from "../../../shared/messages.ts";
-import { loadGraphicalExtensions } from "../extensionHost.ts";
 import { isRemote, rpc } from "../rpc.ts";
 import type { GetState, SetState } from "./types.ts";
 
@@ -156,7 +155,7 @@ export function warmProject(set: SetState, get: GetState, path: string): void {
     }
   });
 
-  void loadGraphicalExtensions(path).then((res) => {
+  void import("../extensionHost.ts").then(({ loadGraphicalExtensions }) => loadGraphicalExtensions(path)).then((res) => {
     if (get().activeProjectPath !== path) return;
     set({ extRenderers: res.extensions, extLoadErrors: res.errors });
   });
