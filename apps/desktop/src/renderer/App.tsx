@@ -24,7 +24,6 @@ import TrustDialog from "./components/TrustDialog.tsx";
 import WindowControls from "./components/WindowControls.tsx";
 import { activeConversation, useAppStore } from "./lib/store.ts";
 import { isRemote } from "./lib/rpc.ts";
-import { showHint } from "./lib/toast.tsx";
 import { chatTitle } from "./lib/transcript.ts";
 import { bindingFor, bindings, hintFor, withHint } from "./lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -573,13 +572,6 @@ function useWorkspaceShortcuts(
 ) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const running = useAppStore((s) => activeConversation(s).running);
-  // A new chat has no session file yet, so it binds to whichever Pi the project
-  // already has — which is the one mid-turn. The sidebar button has always been
-  // disabled for this; the shortcut used to check only the open chat and let the
-  // second message land in the first chat's process.
-  const projectRunning = useAppStore((s) =>
-    Object.values(s.conversations).some((c) => c.projectDir === s.activeProjectPath && c.running),
-  );
   const abort = useAppStore((s) => s.abort);
   const openSettings = useAppStore((s) => s.openSettings);
   const closeSettings = useAppStore((s) => s.closeSettings);
@@ -642,10 +634,6 @@ function useWorkspaceShortcuts(
         toggleTerminal: withProject(toggleTerminal),
 
         newChat: withProject(() => {
-          if (projectRunning) {
-            showHint("Stop the current run before starting a new chat");
-            return;
-          }
           closeSettings();
           newChat();
         }),
@@ -673,7 +661,6 @@ function useWorkspaceShortcuts(
     layout,
     newChat,
     openSettings,
-    projectRunning,
     requestJumpToLatest,
     running,
     selectAdjacentProject,

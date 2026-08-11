@@ -160,10 +160,6 @@ export default function Sidebar({
     if (overlay) onClose();
   }
 
-  const activeBusy = activeProjectPath
-    ? projectBusyStates[projects.findIndex((project) => project.path === activeProjectPath)] ?? false
-    : false;
-
   return (
     <LeftSidebar
       actionIcon={<GearSixIcon data-icon="inline-start" />}
@@ -183,7 +179,7 @@ export default function Sidebar({
             size="lg"
             className="min-w-0 flex-1 justify-start"
             onClick={() => activeProjectPath && void startNewChat(activeProjectPath)}
-            disabled={!activeProjectPath || activeBusy}
+            disabled={!activeProjectPath}
             title={activeProjectPath ? withHint("New chat", "newChat", keybindingOverrides) : "Open a project to start a chat"}
           >
             <NotePencilIcon data-icon="inline-start" />
@@ -361,13 +357,8 @@ export default function Sidebar({
                     variant="ghost"
                     size="icon-xs"
                     onClick={() => void startNewChat(project.path)}
-                    disabled={busy}
                     aria-label={`New chat in ${project.name}`}
-                    title={
-                      busy
-                        ? "Stop the current run before starting a new chat"
-                        : withHint(`New chat in ${project.name}`, "newChat", keybindingOverrides)
-                    }
+                    title={withHint(`New chat in ${project.name}`, "newChat", keybindingOverrides)}
                     className={cn(
                       HOVER_REVEAL,
                       "shrink-0 group-hover:scale-100 group-hover:opacity-100 group-hover:blur-none group-focus-within:scale-100 group-focus-within:opacity-100 group-focus-within:blur-none",
@@ -377,7 +368,7 @@ export default function Sidebar({
                   </Button>
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-56">
-                  <ContextMenuItem onClick={() => void startNewChat(project.path)} disabled={busy}>
+                  <ContextMenuItem onClick={() => void startNewChat(project.path)}>
                     <NotePencilIcon /> New chat here
                   </ContextMenuItem>
                   <ContextMenuItem onClick={() => void importChat(project.path)}>
