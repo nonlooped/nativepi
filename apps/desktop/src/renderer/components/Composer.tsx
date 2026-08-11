@@ -776,7 +776,10 @@ function ContextInspector({
             </p>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-            <div className="h-full rounded-full bg-foreground transition-[width] duration-300 ease-out" style={{ width: `${percent}%` }} />
+            <div
+              className="h-full origin-left rounded-full bg-foreground transition-transform duration-300 ease-out"
+              style={{ transform: `scaleX(${percent / 100})` }}
+            />
           </div>
         </section>
 

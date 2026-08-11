@@ -71,8 +71,8 @@ function DownloadProgress({ percent }: { percent: number }) {
     <div className="mt-1 flex items-center gap-2">
       <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
         <div
-          className="h-full rounded-full bg-info transition-[width] duration-300 motion-reduce:transition-none"
-          style={{ width: `${percent}%` }}
+          className="h-full origin-left rounded-full bg-info transition-transform duration-300 motion-reduce:transition-none"
+          style={{ transform: `scaleX(${percent / 100})` }}
         />
       </div>
       <span className="w-8 text-right font-medium tabular-nums text-popover-foreground">{percent}%</span>
