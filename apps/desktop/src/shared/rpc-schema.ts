@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { PiPaths, PiSettings, PiSettingsPatch } from "./pi-settings.ts";
 import { jsonValueSchema, type JsonValue } from "./json.ts";
+import { customThemesSchema, NATIVE_THEME_ID } from "./themes.ts";
 import type {
   CommandInfo,
   ExtensionUiResponse,
@@ -256,6 +257,8 @@ export const preferencesSchema = z.object({
   notifyOnTurnEnd: z.boolean().catch(true),
   notificationSound: z.boolean().catch(true),
   theme: z.enum(["system", "light", "dark"]).catch("system"),
+  themeId: z.string().min(1).max(80).catch(NATIVE_THEME_ID),
+  customThemes: customThemesSchema,
   conversationWidth: z.enum(["narrow", "medium", "wide", "full"]).catch("medium"),
   interfaceScale: clamped(1, 0.9, 1.4),
   diffStyle: z.enum(["unified", "split"]).catch("unified"),

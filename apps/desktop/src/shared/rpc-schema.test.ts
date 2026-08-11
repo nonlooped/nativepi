@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { DEFAULT_PREFERENCES, extensionCallParamsSchema, nativePiStateSchema } from "./rpc-schema.ts";
+import { NATIVE_THEME } from "./themes.ts";
 
 test("an empty object yields the full set of defaults", () => {
   const state = nativePiStateSchema.parse({});
@@ -35,6 +36,21 @@ test("a corrupt preference costs that preference, not the rest", () => {
   expect(state.preferences.diffStyle).toBe("unified");
   expect(state.preferences.interfaceScale).toBe(1.4);
   expect(state.preferences.terminalFontSize).toBe(18);
+});
+
+test("corrupt custom themes do not cost the readable themes", () => {
+  const good = { ...NATIVE_THEME, id: "custom:good", name: "Good" };
+  const state = nativePiStateSchema.parse({
+    preferences: {
+      customThemes: [
+        good,
+        { ...good, id: "custom:bad", colors: { ...good.colors, light: { ...good.colors.light, background: "purple" } } },
+        good,
+      ],
+    },
+  });
+
+  expect(state.preferences.customThemes).toEqual([good]);
 });
 
 test("interface scale preserves a readable floor", () => {
