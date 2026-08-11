@@ -1,6 +1,6 @@
-import { app } from "electron";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { isTuiFrameType, tuiHostFrameSchema, type TuiClientFrame, type TuiHostFrame } from "../../shared/tui-frames.ts";
 import type { AuthProviderInfo } from "../../shared/rpc-schema.ts";
 import type { ContextInspector } from "../../shared/pi-types.ts";
@@ -33,7 +33,15 @@ import { drainLines, serializeCommand, type PiCommand, type PiMessage } from "./
  * entry plus the context that renders them — see `pi/host/entry.ts`.
  */
 function resolvePiEntry(): string {
-  return join(app.getAppPath(), "out", "main", "pi-host.js");
+  try {
+    // Importing electron at the top level breaks plain Node/Bun tests where
+    // the electron stub does not provide named ESM exports.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const electron = require("electron") as { app?: { getAppPath: () => string } };
+    const getAppPath = electron.app?.getAppPath;
+    if (getAppPath) return join(getAppPath.call(electron.app), "out", "main", "pi-host.js");
+  } catch {}
+  return fileURLToPath(new URL("./pi-host.js", import.meta.url));
 }
 
 let nextRequestId = 1;
