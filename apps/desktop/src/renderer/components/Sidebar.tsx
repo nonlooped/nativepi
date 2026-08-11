@@ -106,7 +106,9 @@ export default function Sidebar({
       if (watchedProjects.current.has(path)) continue;
       watchedProjects.current.add(path);
       void rpc.request.watchProjectSessions({ projectDir: path });
-      void refreshSessions(path);
+      if ((useAppStore.getState().sessionLoadStates[path] ?? "unloaded") === "unloaded") {
+        void refreshSessions(path);
+      }
     }
     // Host watchers are shared by every connected renderer, so collapsing in
     // this one only drops its local bookkeeping.

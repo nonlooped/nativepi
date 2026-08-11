@@ -41,7 +41,7 @@ test("chat history exposes a retryable failure before an empty successful load",
   expect(useAppStore.getState().sessionsByProject[projectPath]).toEqual([]);
 });
 
-test("selecting a project ignores a remembered chat outside its session list", async () => {
+test("selecting a project falls back when its remembered chat no longer exists", async () => {
   const projectPath = "C:\\project-with-stale-chat";
   const staleSession = "C:\\sessions\\stale.jsonl";
   const reads: string[] = [];
@@ -49,7 +49,7 @@ test("selecting a project ignores a remembered chat outside its session list", a
     if (channel === "listSessions") return { sessions: [] };
     if (channel === "readSession") {
       reads.push((params as { sessionFile: string }).sessionFile);
-      return { entries: [] };
+      throw new Error("missing session");
     }
     if (channel === "checkTrust") return { required: true, trusted: false };
     return {};
@@ -63,9 +63,41 @@ test("selecting a project ignores a remembered chat outside its session list", a
 
   await useAppStore.getState().selectProject(projectPath);
 
-  expect(reads).toEqual([]);
+  expect(reads).toEqual([staleSession]);
   expect(useAppStore.getState().activeSessionFile).toBeNull();
   expect(useAppStore.getState().isNewChat).toBeTrue();
+});
+
+test("a remembered chat opens before the complete history list finishes", async () => {
+  const projectPath = "C:\\fast-restore";
+  const sessionFile = "C:\\sessions\\remembered.jsonl";
+  let finishList!: (value: { sessions: [] }) => void;
+  const calls: string[] = [];
+  stubInvoke(async (channel) => {
+    calls.push(channel);
+    if (channel === "listSessions") {
+      return new Promise((resolve) => {
+        finishList = resolve as (value: { sessions: [] }) => void;
+      });
+    }
+    if (channel === "readSession") return { entries: [] };
+    if (channel === "checkTrust") return { required: true, trusted: false };
+    return {};
+  });
+
+  const [{ useAppStore }, { replaceLastChats }] = await Promise.all([
+    import("./store.ts"),
+    import("./store/internals.ts"),
+  ]);
+  useAppStore.setState({ sessionLoadStates: {}, sessionsByProject: {}, conversations: {} });
+  replaceLastChats({ [projectPath]: sessionFile });
+
+  await useAppStore.getState().selectProject(projectPath);
+
+  expect(useAppStore.getState().activeSessionFile).toBe(sessionFile);
+  expect(calls).toContain("readSession");
+  expect(calls).toContain("listSessions");
+  finishList({ sessions: [] });
 });
 
 test("local sidebar mutations do not wait for a session rescan", async () => {

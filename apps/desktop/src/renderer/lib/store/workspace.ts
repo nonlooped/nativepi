@@ -3,6 +3,7 @@ import { sanitizeOverrides } from "../shortcuts.ts";
 import { showHint } from "../toast.tsx";
 import { dropAllSurfaces } from "../tuiSurfaces.ts";
 import {
+  forgetLastChat,
   getLastChat,
   persist,
   replaceLastChats,
@@ -136,11 +137,23 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       (conversation) => conversation.projectDir === path && conversation.running && conversation.sessionFile,
     );
     const last = runningConv?.sessionFile || getLastChat(path);
-    await get().refreshSessions(path);
-    if (get().activeProjectPath === path) {
+    const historyLoaded = get().sessionLoadStates[path] === "loaded";
+    let selectedRememberedChat = false;
+    if (last && (!historyLoaded || get().sessionsByProject[path]?.some((session) => session.path === last))) {
+      if (!historyLoaded) {
+        set((state) => ({ sessionLoadStates: { ...state.sessionLoadStates, [path]: "loading" } }));
+      }
+      try {
+        await get().selectChat(last);
+        selectedRememberedChat = get().activeProjectPath === path && get().activeSessionFile === last;
+      } catch {
+        forgetLastChat(path);
+      }
+    }
+    if (!selectedRememberedChat && get().activeProjectPath === path) {
+      if (!historyLoaded) await get().refreshSessions(path);
       const sessions = get().sessionsByProject[path] ?? [];
-      if (last && sessions.some((session) => session.path === last)) await get().selectChat(last);
-      else if (sessions[0]) await get().selectChat(sessions[0].path);
+      if (sessions[0]) await get().selectChat(sessions[0].path);
       else get().newChat();
     }
 
@@ -154,6 +167,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     } else {
       warmProject(set, get, path);
     }
+    if (selectedRememberedChat && !historyLoaded) void get().refreshSessions(path);
   },
 
   selectAdjacentProject: async (direction) => {
