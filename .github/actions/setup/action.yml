@@ -1,11 +1,19 @@
 name: Setup
-description: Install Bun and project dependencies with caching
+description: Install Bun and project dependencies
 
 inputs:
+  bun-cache:
+    description: Restore Bun's package cache
+    required: false
+    default: "false"
   electron-cache:
     description: Cache Electron and electron-builder downloads (only needed for packaging jobs)
     required: false
     default: "false"
+  install-filter:
+    description: Limit installation to a Bun workspace filter
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -16,6 +24,7 @@ runs:
         bun-version: 1.3.14
 
     - name: Cache Bun packages
+      if: inputs.bun-cache == 'true'
       uses: actions/cache@v6
       with:
         path: ~/.bun/install/cache
@@ -40,4 +49,11 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      run: bun install --frozen-lockfile
+      env:
+        INSTALL_FILTER: ${{ inputs.install-filter }}
+      run: |
+        if [[ -n "$INSTALL_FILTER" ]]; then
+          bun install --frozen-lockfile --filter "$INSTALL_FILTER"
+        else
+          bun install --frozen-lockfile
+        fi

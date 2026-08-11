@@ -23,6 +23,8 @@ jobs:
     timeout-minutes: 5
     outputs:
       sha: ${{ steps.verify.outputs.sha }}
+      api: ${{ steps.verify.outputs.api }}
+      extensions: ${{ steps.verify.outputs.extensions }}
     steps:
       - name: Checkout verified candidate
         uses: actions/checkout@v7
@@ -30,6 +32,7 @@ jobs:
           # A manual dispatch always starts from main, never from the ref that
           # happened to open the Actions page. workflow_run has CI's exact SHA.
           ref: ${{ github.event.workflow_run.head_sha || 'main' }}
+          fetch-depth: 2
 
       - name: Verify successful main CI
         id: verify
@@ -59,9 +62,37 @@ jobs:
           }
           "sha=$sha" >> $env:GITHUB_OUTPUT
 
+          $extensions = @(
+            @{ package = "@nativepi/mcp"; directory = "packages/mcp" }
+            @{ package = "@nativepi/meta"; directory = "packages/meta" }
+            @{ package = "@nativepi/service-tier"; directory = "packages/service-tier" }
+            @{ package = "@nativepi/subagents"; directory = "packages/subagents" }
+            @{ package = "@nativepi/subscription-usage"; directory = "packages/subscription-usage" }
+            @{ package = "@nativepi/title-generator"; directory = "packages/title-generator" }
+          )
+
+          if ($env:EVENT_NAME -ne "workflow_dispatch") {
+            $changed = @(git diff --name-only HEAD^ HEAD -- "packages/*/package.json")
+            $extensions = @($extensions | Where-Object {
+              $changed -contains "$($_.directory)/package.json"
+            })
+            $apiChanged = $changed -contains "packages/extension-api/package.json"
+          } else {
+            $apiChanged = $true
+          }
+
+          $extensionMatrix = if ($extensions.Count -eq 0) {
+            "[]"
+          } else {
+            $extensions | ConvertTo-Json -Compress -AsArray
+          }
+          "api=$($apiChanged.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "extensions=$extensionMatrix" >> $env:GITHUB_OUTPUT
+
   publish-api:
     name: Publish @nativepi/extension-api
     needs: verify-main
+    if: needs.verify-main.outputs.api == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -117,24 +148,17 @@ jobs:
   publish-extension:
     name: Publish ${{ matrix.package }}
     needs: [verify-main, publish-api]
+    if: >-
+      always() &&
+      needs.verify-main.result == 'success' &&
+      (needs.publish-api.result == 'success' || needs.publish-api.result == 'skipped') &&
+      needs.verify-main.outputs.extensions != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - package: "@nativepi/mcp"
-            directory: packages/mcp
-          - package: "@nativepi/meta"
-            directory: packages/meta
-          - package: "@nativepi/service-tier"
-            directory: packages/service-tier
-          - package: "@nativepi/subagents"
-            directory: packages/subagents
-          - package: "@nativepi/subscription-usage"
-            directory: packages/subscription-usage
-          - package: "@nativepi/title-generator"
-            directory: packages/title-generator
+        include: ${{ fromJSON(needs.verify-main.outputs.extensions) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
