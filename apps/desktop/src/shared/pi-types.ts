@@ -319,6 +319,7 @@ export interface PackageInfo {
   source: string;
   scope: "user" | "project";
   filtered: boolean;
+  local: boolean;
   installedPath?: string;
 }
 export interface ResolvedExtension {

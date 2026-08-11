@@ -1,6 +1,10 @@
+import path from "node:path";
 import { piServices } from "./pi/services.ts";
 import type { PackageInfo, ResolvedExtension } from "../shared/pi-types.ts";
 
+export function isLocalPackageSource(source: string) {
+  return path.posix.isAbsolute(source) || path.win32.isAbsolute(source) || /^\.{1,2}[\\/]/.test(source);
+}
 
 export interface PackageListing {
   packages: PackageInfo[];
@@ -15,6 +19,7 @@ export async function listPackages(projectDir: string): Promise<PackageListing> 
     source: p.source,
     scope: p.scope,
     filtered: p.filtered,
+    local: isLocalPackageSource(p.source),
     installedPath: p.installedPath,
   }));
 
