@@ -105,6 +105,8 @@ html[data-shell="desktop"][data-runtime="development"] .window-controls-clearanc
 @media (hover: none) {
   .hover-reveal {
     opacity: 1 !important;
+    filter: none !important;
+    scale: 1 !important;
   }
 }
 
@@ -469,6 +471,17 @@ html:not(.dark) .conversation-shell {
   max-width: 100%;
   overflow-wrap: anywhere;
   background-color: color-mix(in oklch, var(--muted) 62%, transparent);
+}
+
+/* Collapsible desktop panes stay in the resizable layout so their last dragged
+   size survives. Animate the library-owned flex value only for state changes;
+   direct manipulation remains locked to the pointer. */
+[data-pane-motion] {
+  transition: flex-grow 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+[data-group]:has([data-separator="active"]) > [data-pane-motion] {
+  transition-duration: 0ms;
 }
 
 /* The OS preference, unless the user has overridden it in Settings. `data-motion`

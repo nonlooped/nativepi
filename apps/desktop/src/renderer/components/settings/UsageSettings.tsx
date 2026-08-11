@@ -8,6 +8,7 @@ import { rpc } from "../../lib/rpc.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { useRequest } from "../../lib/useRequest.ts";
 import { providerIconName } from "../../lib/providerIcons.ts";
+import { useReducedMotion } from "../../lib/motion.ts";
 import BrandIcon from "../BrandIcon.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart.tsx";
@@ -172,6 +173,7 @@ function Dashboard({ dashboard, range }: { dashboard: UsageDashboard; range: Ran
 
 function UsageChart({ daily, providers }: { daily: UsageDashboard["daily"]; providers: ReturnType<typeof groupByProvider> }) {
   const [metric, setMetric] = useState<ChartMetric>("cost");
+  const reducedMotion = useReducedMotion();
   const data = daily.map((day) => {
     const point: Record<string, string | number> = {
       date: day.date,
@@ -248,6 +250,7 @@ function UsageChart({ daily, providers }: { daily: UsageDashboard["daily"]; prov
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 3, strokeWidth: 2, fill: "var(--background)", stroke: providerColor(index) }}
+                isAnimationActive={!reducedMotion}
               />
             ))}
           </AreaChart>

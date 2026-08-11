@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { Button } from "@/components/ui/button.tsx";
-import { ResizableHandle, ResizablePanel } from "@/components/ui/resizable.tsx";
+import { ResizableHandle, ResizablePanel, useCollapsiblePanel } from "@/components/ui/resizable.tsx";
 import { DRAG_REGION, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import { useAppStore } from "@/lib/store.ts";
 import NativePiWordmark from "./NativePiWordmark.tsx";
@@ -12,6 +12,7 @@ export default function LeftSidebar({
   actionLabel,
   onAction,
   onClose,
+  open,
   overlay = false,
 }: {
   children: ReactNode;
@@ -19,13 +20,15 @@ export default function LeftSidebar({
   actionLabel: string;
   onAction: () => void;
   onClose: () => void;
+  open: boolean;
   overlay?: boolean;
 }) {
   const sidebarSize = useAppStore((s) => s.sidebarSize);
   const setSidebarSize = useAppStore((s) => s.setSidebarSize);
+  const panelRef = useCollapsiblePanel(open);
 
   const content = (
-    <aside className="sidebar-panel flex h-full min-w-0 flex-col bg-sidebar text-sidebar-foreground">
+    <aside className="sidebar-panel flex h-full min-w-[220px] flex-col bg-sidebar text-sidebar-foreground">
       {/* h-12 matches the conversation and context pane headers: three adjacent
           pane headers on two different baselines is a seam you cannot unsee. */}
       <div className={cn("flex h-12 shrink-0 items-center px-2", !overlay && DRAG_REGION)}>
@@ -61,14 +64,33 @@ export default function LeftSidebar({
     <>
       <ResizablePanel
         id="projects"
+        panelRef={panelRef}
+        collapsible
+        collapsedSize="0%"
         defaultSize={`${sidebarSize}%`}
         minSize="220px"
         maxSize="30%"
-        onResize={(size) => setSidebarSize(size.asPercentage)}
+        data-pane-motion="left"
+        inert={!open || undefined}
+        className={cn(
+          "h-full transition-[opacity,transform,filter] duration-200 ease-out",
+          open ? "translate-x-0 opacity-100 blur-none" : "pointer-events-none -translate-x-2 opacity-0 blur-[2px]",
+        )}
+        onResize={(size, _id, previousSize) => {
+          if (size.inPixels === 0) {
+            if (previousSize && previousSize.inPixels > 0 && open) onClose();
+          } else if (open) setSidebarSize(size.asPercentage);
+        }}
       >
         {content}
       </ResizablePanel>
-      <ResizableHandle className="hover:bg-ring focus-visible:bg-ring" />
+      <ResizableHandle
+        disabled={!open}
+        className={cn(
+          "transition-[width,opacity,background-color] duration-200 ease-out hover:bg-ring focus-visible:bg-ring",
+          !open && "w-0 opacity-0 after:hidden",
+        )}
+      />
     </>
   );
 }

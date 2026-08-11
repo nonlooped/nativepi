@@ -221,17 +221,34 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
             <ContextWindow />
             {running ? <BehaviorSelector behavior={behavior} setBehavior={setBehavior} /> : null}
             <Button
-            size="icon-lg"
-            className="rounded-full disabled:bg-muted disabled:text-muted-foreground/40 disabled:opacity-100 disabled:shadow-none"
-            onClick={submit}
-            disabled={!canSend}
-            title={sendLabel(running, steering)}
-            aria-label={sendLabel(running, steering)}
-          >
-            {/* Steering redirects the turn in flight; it is not the same act as
-                sending, so it does not wear the same glyph. */}
-            {steering ? <ArrowBendUpRightIcon weight="bold" /> : <PaperPlaneRightIcon weight="fill" />}
-          </Button>
+              size="icon-lg"
+              className="rounded-full shadow-sm shadow-foreground/10 hover:shadow-md hover:shadow-foreground/15 active:shadow-none disabled:bg-muted disabled:text-muted-foreground/40 disabled:opacity-100 disabled:shadow-none"
+              onClick={submit}
+              disabled={!canSend}
+              title={sendLabel(running, steering)}
+              aria-label={sendLabel(running, steering)}
+            >
+              {/* Steering redirects the turn in flight; it is not the same act as
+                  sending, so it does not wear the same glyph. */}
+              <span className="relative size-4" aria-hidden="true">
+                <span
+                  className={cn(
+                    "absolute inset-0 flex items-center justify-center transition-[opacity,filter,scale] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
+                    steering ? "scale-100 opacity-100 blur-0" : "scale-[0.25] opacity-0 blur-[4px]",
+                  )}
+                >
+                  <ArrowBendUpRightIcon weight="bold" />
+                </span>
+                <span
+                  className={cn(
+                    "flex items-center justify-center transition-[opacity,filter,scale] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
+                    steering ? "scale-[0.25] opacity-0 blur-[4px]" : "scale-100 opacity-100 blur-0",
+                  )}
+                >
+                  <PaperPlaneRightIcon weight="fill" />
+                </span>
+              </span>
+            </Button>
           </div>
         </div>
       </div>
@@ -745,7 +762,7 @@ function ContextInspector({
             </p>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-            <div className="h-full rounded-full bg-foreground transition-[width]" style={{ width: `${percent}%` }} />
+            <div className="h-full rounded-full bg-foreground transition-[width] duration-300 ease-out" style={{ width: `${percent}%` }} />
           </div>
         </section>
 

@@ -904,7 +904,7 @@ function MessageActions({ text, timestamp }: { text: string; timestamp: string }
     <div
       className={cn(
         HOVER_REVEAL,
-        "flex min-h-7 items-center gap-2 text-xs text-muted-foreground opacity-0 transition-opacity group-hover/message:opacity-100 group-focus-within/message:opacity-100",
+        "flex min-h-7 items-center gap-2 text-xs text-muted-foreground group-hover/message:scale-100 group-hover/message:opacity-100 group-hover/message:blur-0 group-focus-within/message:scale-100 group-focus-within/message:opacity-100 group-focus-within/message:blur-0",
       )}
     >
       <Button

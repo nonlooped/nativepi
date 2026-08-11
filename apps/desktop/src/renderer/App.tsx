@@ -37,6 +37,7 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
+  useCollapsiblePanel,
 } from "@/components/ui/resizable.tsx";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet.tsx";
 import { DRAG_REGION, NO_DRAG_REGION, SCROLLBAR_GUTTER_OFFSET, WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
@@ -71,6 +72,7 @@ export default function App() {
   const sidebarDocked = layout !== "compact" && sidebarOpen;
   const contextDocked = layout === "wide" && contextPaneOpen;
   const terminalOpen = activeProjectPath ? terminalProjects.has(activeProjectPath) : false;
+  const contextPanelRef = useCollapsiblePanel(contextPaneOpen, `${layout}:${activeProjectPath ?? ""}`);
 
   const toggleTerminal = () => {
     if (!activeProjectPath) return;
@@ -123,8 +125,9 @@ export default function App() {
           composer's own "Connect a provider" button. */}
       <div className="h-full" inert={settingsOpen || undefined}>
       <ResizablePanelGroup orientation="horizontal">
-        {sidebarDocked ? (
+        {layout !== "compact" ? (
           <Sidebar
+            open={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
             onOpenSearch={() => setSearchOpen(true)}
             onOpenSourceControl={() => {
@@ -189,10 +192,35 @@ export default function App() {
           </ResizablePanelGroup>
         </ResizablePanel>
 
-        {activeProjectPath && contextDocked ? (
+        {activeProjectPath && layout === "wide" ? (
           <>
-            <ResizableHandle className="hover:bg-ring focus-visible:bg-ring" />
-            <ResizablePanel id="context" defaultSize="24%" minSize="18%" maxSize="40%">
+            <ResizableHandle
+              disabled={!contextPaneOpen}
+              className={cn(
+                "transition-[width,opacity,background-color] duration-200 ease-out hover:bg-ring focus-visible:bg-ring",
+                !contextPaneOpen && "w-0 opacity-0 after:hidden",
+              )}
+            />
+            <ResizablePanel
+              id="context"
+              panelRef={contextPanelRef}
+              collapsible
+              collapsedSize="0%"
+              defaultSize="24%"
+              minSize="18%"
+              maxSize="40%"
+              data-pane-motion="right"
+              inert={!contextPaneOpen || undefined}
+              className={cn(
+                "h-full transition-[opacity,transform,filter] duration-200 ease-out",
+                contextPaneOpen ? "translate-x-0 opacity-100 blur-none" : "pointer-events-none translate-x-2 opacity-0 blur-[2px]",
+              )}
+              onResize={(size, _id, previousSize) => {
+                if (size.inPixels === 0 && previousSize && previousSize.inPixels > 0 && contextPaneOpen) {
+                  toggleContextPane();
+                }
+              }}
+            >
               <ContextPane />
             </ResizablePanel>
           </>

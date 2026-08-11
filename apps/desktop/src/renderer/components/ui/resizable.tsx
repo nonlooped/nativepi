@@ -1,4 +1,5 @@
 import * as ResizablePrimitive from "react-resizable-panels"
+import { useEffect } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -55,4 +56,18 @@ function ResizableHandle({
   )
 }
 
-export { ResizableHandle, ResizablePanel, ResizablePanelGroup }
+function useCollapsiblePanel(open: boolean, mountKey?: unknown) {
+  const panelRef = ResizablePrimitive.usePanelRef()
+
+  // The panel ref is assigned during layout, but its parent Group registers
+  // immediately afterward. Waiting for the passive phase keeps the imperative
+  // API behind both registrations (including React Strict Mode's replay).
+  useEffect(() => {
+    if (open) panelRef.current?.expand()
+    else panelRef.current?.collapse()
+  }, [open, panelRef, mountKey])
+
+  return panelRef
+}
+
+export { ResizableHandle, ResizablePanel, ResizablePanelGroup, useCollapsiblePanel }

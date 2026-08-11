@@ -56,7 +56,7 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
   const [pullRequestOpen, setPullRequestOpen] = useState(false);
 
   return (
-    <aside className="context-pane flex h-full min-w-0 flex-col bg-sidebar text-sidebar-foreground">
+    <aside className="context-pane flex h-full min-w-48 flex-col bg-sidebar text-sidebar-foreground">
       <div
         className={cn("context-pane-header flex h-12 shrink-0 items-center gap-1 pr-2 pl-3", WINDOW_CONTROLS_CLEARANCE)}
       >

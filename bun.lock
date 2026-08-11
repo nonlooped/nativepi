@@ -11,10 +11,11 @@
     },
     "apps/desktop": {
       "name": "@nativepi/desktop",
-      "version": "1.1.1",
+      "version": "1.6.0",
       "dependencies": {
         "@earendil-works/pi-coding-agent": "0.84.1",
         "@earendil-works/pi-tui": "0.84.1",
+        "@formkit/auto-animate": "^0.10.0",
         "@shadcn/react": "^0.2.1",
         "@xterm/addon-fit": "^0.11.0",
         "@xterm/xterm": "^6.0.0",
@@ -144,7 +145,7 @@
     },
     "packages/service-tier": {
       "name": "@nativepi/service-tier",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "dependencies": {
         "@nativepi/extension-api": "workspace:^",
         "@phosphor-icons/react": "^2.1.10",
@@ -164,7 +165,7 @@
     },
     "packages/subagents": {
       "name": "@nativepi/subagents",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@nativepi/extension-api": "workspace:^",
         "@phosphor-icons/react": "^2.1.10",
@@ -187,7 +188,7 @@
     },
     "packages/subscription-usage": {
       "name": "@nativepi/subscription-usage",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@nativepi/extension-api": "workspace:^",
         "@phosphor-icons/react": "^2.1.10",
@@ -500,6 +501,8 @@
     "@fontsource-variable/nunito-sans": ["@fontsource-variable/nunito-sans@5.3.0", "", {}, "sha512-Vk1PSfckNDwgw2yGcsvJP3o/0zEW8Rp6KzbD8Ql/6iRHQshnhhAjt+cSIfAUyp5vQuSlleGHFW2LfYaaex0diw=="],
 
     "@fontsource-variable/raleway": ["@fontsource-variable/raleway@5.3.0", "", {}, "sha512-aSV2k+V6Zz+od0dHpBOzkVxEzmgEdiXcxDfant39jLOx+T89dielQRrZylukwK3Fp+FY255gPqz67ruOfs1rqA=="],
+
+    "@formkit/auto-animate": ["@formkit/auto-animate@0.10.0", "", {}, "sha512-KGomRttjUfORuPUaR/ZGQw+6xfMrTM+sxnILv7JAd9AmabU9rg9i6gF/iC0Ih+QpKCubJpCA/1DX9UHKE8cX+A=="],
 
     "@google/genai": ["@google/genai@1.52.0", "", { "dependencies": { "google-auth-library": "^10.3.0", "p-retry": "^4.6.2", "protobufjs": "^7.5.4", "ws": "^8.18.0" }, "peerDependencies": { "@modelcontextprotocol/sdk": "^1.25.2" }, "optionalPeers": ["@modelcontextprotocol/sdk"] }, "sha512-gwSvbpiN/17O9TbsqSsE/OzZcpv5Fo4RQjdngGgogtuB9RsyJ8ZHhX5KjHj1bp5N9snN2eK8LDGXSaWW2hof8Q=="],
 

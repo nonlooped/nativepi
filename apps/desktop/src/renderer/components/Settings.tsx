@@ -117,12 +117,13 @@ export default function Settings() {
 
   return (
     <ResizablePanelGroup orientation="horizontal" className="bg-background text-foreground">
-      {railDocked ? (
+      {layout !== "compact" ? (
         <LeftSidebar
           actionIcon={<ArrowLeftIcon data-icon="inline-start" />}
           actionLabel="Back"
           onAction={closeSettings}
           onClose={() => setSidebarOpen(false)}
+          open={sidebarOpen}
         >
           {rail}
         </LeftSidebar>

@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import autoAnimate, { type AnimationController } from "@formkit/auto-animate";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
@@ -40,16 +41,19 @@ import { editorName, fileManagerName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
 import { countMatches, groupChats } from "../lib/chatOrganization.ts";
+import { useReducedMotion } from "../lib/motion.ts";
 
 export default function Sidebar({
   onClose,
   onOpenSearch,
   onOpenSourceControl,
+  open = true,
   overlay = false,
 }: {
   onClose: () => void;
   onOpenSearch: () => void;
   onOpenSourceControl: () => void;
+  open?: boolean;
   overlay?: boolean;
 }) {
   const projects = useAppStore((s) => s.projects);
@@ -79,6 +83,7 @@ export default function Sidebar({
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
   const [worktreesFor, setWorktreesFor] = useState<string | null>(null);
   const [expandedProjects, setExpandedProjects] = useState(() => new Set(activeProjectPath ? [activeProjectPath] : []));
+  const reducedMotion = useReducedMotion();
 
   // The project can also become active from outside this pane — the next/previous
   // project shortcuts, a dropped folder, a search result. Expanding only in this
@@ -157,6 +162,7 @@ export default function Sidebar({
         if (overlay) onClose();
       }}
       onClose={onClose}
+      open={open}
       overlay={overlay}
     >
       {/* Keep the primary chat action dominant while source control and search
@@ -257,7 +263,10 @@ export default function Sidebar({
         </Button>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-3">
+      <MotionList
+        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-3"
+        disabled={reducedMotion}
+      >
         {projects.length === 0 && (
           <button
             type="button"
@@ -354,7 +363,7 @@ export default function Sidebar({
                     }
                     className={cn(
                       HOVER_REVEAL,
-                      "shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+                      "shrink-0 group-hover:scale-100 group-hover:opacity-100 group-hover:blur-0 group-focus-within:scale-100 group-focus-within:opacity-100 group-focus-within:blur-0",
                     )}
                   >
                     <NotePencilIcon />
@@ -394,7 +403,7 @@ export default function Sidebar({
               {expanded ? (
                 <div
                   className={cn(
-                    "ml-3 mt-0.5 mb-1 border-l pl-1.5",
+                    "ml-3 mt-0.5 mb-1 animate-in border-l pl-1.5 duration-200 fade-in-0 slide-in-from-top-1",
                     active ? "border-sidebar-ring/50" : "border-sidebar-border",
                   )}
                 >
@@ -403,6 +412,7 @@ export default function Sidebar({
                     query={query}
                     now={now}
                     overrides={keybindingOverrides}
+                    reducedMotion={reducedMotion}
                     onNavigate={overlay ? onClose : undefined}
                   />
                 </div>
@@ -410,7 +420,7 @@ export default function Sidebar({
             </div>
           );
         })}
-      </div>
+      </MotionList>
 
       <WorktreeDialog projectPath={worktreesFor} onClose={() => setWorktreesFor(null)} />
 
@@ -443,12 +453,14 @@ function ChatList({
   query,
   now,
   overrides,
+  reducedMotion,
   onNavigate,
 }: {
   projectPath: string;
   query: string;
   now: number;
   overrides: KeybindingOverrides;
+  reducedMotion: boolean;
   onNavigate?: () => void;
 }) {
   const sessions = useAppStore((s) => s.sessionsByProject[projectPath] ?? EMPTY);
@@ -469,7 +481,7 @@ function ChatList({
   const matchCount = countMatches(sessions, query);
 
   return (
-    <div className="flex flex-col gap-0.5">
+    <MotionList className="flex flex-col gap-0.5" disabled={reducedMotion}>
       {isNewChat && projectPath === activeProjectPath && (
         <div className="flex items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1.5" role="status">
           <NotePencilIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
@@ -589,6 +601,41 @@ function ChatList({
           ) : null}
         </>
       ) : null}
+    </MotionList>
+  );
+}
+
+/** Preserve row position when projects and grouped chat history change. */
+function MotionList({
+  children,
+  className,
+  disabled,
+}: {
+  children: ReactNode;
+  className: string;
+  disabled: boolean;
+}) {
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const animationRef = useRef<AnimationController | null>(null);
+
+  useEffect(() => {
+    if (!nodeRef.current) return;
+    const animation = autoAnimate(nodeRef.current, { duration: 180, easing: "ease-out" });
+    animationRef.current = animation;
+    return () => {
+      animation.disable();
+      animationRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (disabled) animationRef.current?.disable();
+    else animationRef.current?.enable();
+  }, [disabled]);
+
+  return (
+    <div ref={nodeRef} className={className}>
+      {children}
     </div>
   );
 }

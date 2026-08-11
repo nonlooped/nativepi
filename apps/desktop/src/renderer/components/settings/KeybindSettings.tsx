@@ -121,7 +121,7 @@ export default function KeybindSettings() {
                       ) : (
                         <>
                           <PencilSimpleIcon
-                            className={cn(HOVER_REVEAL, "mr-auto size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100")}
+                            className={cn(HOVER_REVEAL, "mr-auto size-3 shrink-0 text-muted-foreground group-hover:scale-100 group-hover:opacity-100 group-hover:blur-0")}
                           />
                           {hint ? (
                             hint.split("+").map((key) => <Kbd key={key}>{key}</Kbd>)

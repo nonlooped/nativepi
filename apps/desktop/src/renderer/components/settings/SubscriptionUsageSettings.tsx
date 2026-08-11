@@ -254,7 +254,7 @@ function ProviderCard({ usage }: { usage: SubscriptionUsage }) {
 
                 <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
                   <div
-                    className="h-full rounded-full transition-[width]"
+                    className="h-full rounded-full transition-[width] duration-300 ease-out"
                     style={{ width: `${Math.min(100, Math.max(0, limit.usedPercent))}%`, background: toneColor(limit.usedPercent) }}
                   />
                 </div>

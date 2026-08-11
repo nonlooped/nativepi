@@ -273,8 +273,8 @@ function ModelRow({
         // ornament and competes with the model names being scanned.
         className={cn(
           HOVER_REVEAL,
-          "flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none group-hover/model:opacity-100 group-data-[highlighted]/model:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring",
-          favorite && "opacity-100",
+          "flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none group-hover/model:scale-100 group-hover/model:opacity-100 group-hover/model:blur-0 group-data-[highlighted]/model:scale-100 group-data-[highlighted]/model:opacity-100 group-data-[highlighted]/model:blur-0 hover:bg-muted hover:text-foreground focus-visible:scale-100 focus-visible:opacity-100 focus-visible:blur-0 focus-visible:ring-2 focus-visible:ring-ring",
+          favorite && "scale-100 opacity-100 blur-0",
         )}
       >
         <StarIcon
