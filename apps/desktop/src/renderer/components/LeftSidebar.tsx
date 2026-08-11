@@ -27,6 +27,11 @@ export default function LeftSidebar({
   const setSidebarSize = useAppStore((s) => s.setSidebarSize);
   const panelRef = useCollapsiblePanel(open);
 
+  function saveSidebarSize() {
+    const size = panelRef.current?.getSize();
+    if (size && size.inPixels > 0) setSidebarSize(size.asPercentage);
+  }
+
   const content = (
     <aside className="sidebar-panel flex h-full min-w-[220px] flex-col bg-sidebar text-muted-foreground">
       {/* h-12 matches the conversation and context pane headers: three adjacent
@@ -77,9 +82,7 @@ export default function LeftSidebar({
           open ? "translate-x-0 opacity-100 blur-none" : "pointer-events-none -translate-x-2 opacity-0 blur-[2px]",
         )}
         onResize={(size, _id, previousSize) => {
-          if (size.inPixels === 0) {
-            if (previousSize && previousSize.inPixels > 0 && open) onClose();
-          } else if (open) setSidebarSize(size.asPercentage);
+          if (size.inPixels === 0 && previousSize && previousSize.inPixels > 0 && open) onClose();
         }}
       >
         {content}
@@ -90,6 +93,8 @@ export default function LeftSidebar({
           "transition-[width,opacity,background-color] duration-200 ease-out hover:bg-ring focus-visible:bg-ring",
           !open && "w-0 opacity-0 after:hidden",
         )}
+        onPointerUp={saveSidebarSize}
+        onKeyUp={saveSidebarSize}
       />
     </>
   );
