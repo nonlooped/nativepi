@@ -293,10 +293,11 @@ function rememberPi(pi: PiProcess, sessionFile: string | undefined): void {
 }
 
 async function stopIdleProjectPis(projectDir: string, keep: PiProcess): Promise<void> {
+  const now = Date.now();
   const idle = [...pis.entries()].filter(([sessionFile, pi]) =>
     pi !== keep
     && pi.projectDir === projectDir
-    && busyUntil.get(sessionFile) !== Number.POSITIVE_INFINITY,
+    && now >= (busyUntil.get(sessionFile) ?? 0),
   );
   for (const [sessionFile, pi] of idle) {
     if (pis.get(sessionFile) === pi) pis.delete(sessionFile);
