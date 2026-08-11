@@ -28,7 +28,7 @@ export default function LeftSidebar({
   const panelRef = useCollapsiblePanel(open);
 
   const content = (
-    <aside className="sidebar-panel flex h-full min-w-[220px] flex-col bg-sidebar text-sidebar-foreground">
+    <aside className="sidebar-panel flex h-full min-w-[220px] flex-col bg-sidebar text-muted-foreground">
       {/* h-12 matches the conversation and context pane headers: three adjacent
           pane headers on two different baselines is a seam you cannot unsee. */}
       <div className={cn("flex h-12 shrink-0 items-center px-2", !overlay && DRAG_REGION)}>
@@ -46,11 +46,11 @@ export default function LeftSidebar({
           over this button. `env()` is 0 on every other platform. */}
       <div
         className={cn(
-          "flex shrink-0 items-center gap-1 border-t border-sidebar-border p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]",
+          "flex shrink-0 items-center gap-1 px-2 pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))]",
           NO_DRAG_REGION,
         )}
       >
-        <Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start" onClick={onAction}>
+        <Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start text-muted-foreground" onClick={onAction}>
           {actionIcon}
           {actionLabel}
         </Button>

@@ -111,17 +111,13 @@ export default function Sidebar({
       void rpc.request.watchProjectSessions({ projectDir: path });
       void refreshSessions(path);
     }
+    // Host watchers are shared by every connected renderer, so collapsing in
+    // this one only drops its local bookkeeping.
     for (const path of watchedProjects.current) {
       if (wanted.has(path)) continue;
       watchedProjects.current.delete(path);
-      void rpc.request.unwatchProjectSessions({ projectDir: path });
     }
   }, [activeProjectPath, expandedProjects, projects, refreshSessions]);
-
-  useEffect(() => () => {
-    for (const path of watchedProjects.current) void rpc.request.unwatchProjectSessions({ projectDir: path });
-    watchedProjects.current.clear();
-  }, []);
 
   function expandProject(path: string) {
     setExpandedProjects((expanded) => new Set(expanded).add(path));
@@ -183,11 +179,10 @@ export default function Sidebar({
       open={open}
       overlay={overlay}
     >
-      {/* Keep the primary chat action dominant while source control and search
-          remain one-click workspace destinations. */}
-      <div className={cn("flex flex-col gap-1.5 px-2 pb-2", NO_DRAG_REGION)}>
+      <div className={cn("flex flex-col gap-2 px-2 pb-3", NO_DRAG_REGION)}>
         <div className="flex items-center gap-1">
           <Button
+            variant="secondary"
             size="lg"
             className="min-w-0 flex-1 justify-start"
             onClick={() => activeProjectPath && void startNewChat(activeProjectPath)}
@@ -198,7 +193,7 @@ export default function Sidebar({
             New chat
           </Button>
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon-lg"
             className="relative"
             onClick={() => {
@@ -221,7 +216,7 @@ export default function Sidebar({
             ) : null}
           </Button>
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon-lg"
             onClick={onOpenSearch}
             aria-label="Search all chats and messages"
@@ -238,7 +233,7 @@ export default function Sidebar({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Filter chats"
             aria-label="Filter chat titles in the sidebar"
-            className="h-8 rounded-md pl-7 pr-7 [&::-webkit-search-cancel-button]:hidden"
+            className="h-8 rounded-md border-transparent bg-sidebar-accent/20 pl-7 pr-7 hover:bg-sidebar-accent/35 focus-visible:bg-input/30 [&::-webkit-search-cancel-button]:hidden"
           />
           {query ? (
             <Button
@@ -254,8 +249,8 @@ export default function Sidebar({
         </div>
       </div>
 
-      <div className={cn("flex h-7 items-center gap-0.5 px-2", NO_DRAG_REGION)}>
-        <span className="px-1 text-[0.6875rem] font-medium uppercase tracking-wider text-muted-foreground">
+      <div className={cn("flex h-6 items-center gap-0.5 px-2", NO_DRAG_REGION)}>
+        <span className="px-1 text-xs font-medium text-muted-foreground">
           Projects
         </span>
         <span className="flex-1" />
@@ -282,7 +277,7 @@ export default function Sidebar({
       </div>
 
       <MotionList
-        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-3"
+        className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-3"
         disabled={reducedMotion}
       >
         {projects.length === 0 && (
@@ -307,8 +302,8 @@ export default function Sidebar({
                   render={
                     <div
                       className={cn(
-                        "group flex h-8 items-center rounded-md pr-1 transition-colors hover:bg-sidebar-accent/65 focus-within:bg-sidebar-accent/65",
-                        active && "bg-sidebar-accent/50",
+                        "group flex h-8 items-center rounded-md pr-1 transition-colors hover:bg-sidebar-accent/40 focus-within:bg-sidebar-accent/40",
+                        active && "text-sidebar-accent-foreground",
                       )}
                     />
                   }
@@ -328,7 +323,7 @@ export default function Sidebar({
                       className={cn(
                         "text-muted-foreground transition-transform",
                         !expanded && "-rotate-90",
-                        active && "text-foreground",
+                        active && "text-sidebar-accent-foreground",
                       )}
                       weight="bold"
                     />
@@ -339,7 +334,7 @@ export default function Sidebar({
                     aria-current={active ? "page" : undefined}
                     className={cn(
                       "flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 text-left text-[0.8125rem] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
-                      active ? "font-semibold text-sidebar-accent-foreground" : "font-medium",
+                      active ? "font-medium text-sidebar-accent-foreground" : "font-normal text-muted-foreground/85",
                     )}
                     title={busy ? `${project.path} — agent running` : project.path}
                   >
@@ -381,7 +376,7 @@ export default function Sidebar({
                     }
                     className={cn(
                       HOVER_REVEAL,
-                      "shrink-0 group-hover:scale-100 group-hover:opacity-100 group-hover:blur-0 group-focus-within:scale-100 group-focus-within:opacity-100 group-focus-within:blur-0",
+                      "shrink-0 group-hover:scale-100 group-hover:opacity-100 group-hover:blur-none group-focus-within:scale-100 group-focus-within:opacity-100 group-focus-within:blur-none",
                     )}
                   >
                     <NotePencilIcon />
@@ -415,15 +410,9 @@ export default function Sidebar({
                   </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>
-              {/* A 220px sidebar cannot afford a deep nest: every pixel spent on
-                  indent comes straight out of the chat title. One hairline rail
-                  under the folder icon is enough to read as "inside". */}
               {expanded ? (
                 <div
-                  className={cn(
-                    "ml-3 mt-0.5 mb-1 animate-in border-l pl-1.5 duration-200 fade-in-0 slide-in-from-top-1",
-                    active ? "border-sidebar-ring/50" : "border-sidebar-border",
-                  )}
+                  className="ml-3 mt-1 mb-2 animate-in pl-2 duration-200 fade-in-0 slide-in-from-top-1"
                 >
                   <ChatList
                     projectPath={project.path}
@@ -502,9 +491,9 @@ function ChatList({
   const runningSessions = new Set(sessions.filter((_session, index) => runningStates[index]).map((session) => session.path));
 
   return (
-    <MotionList className="flex flex-col gap-0.5" disabled={reducedMotion}>
+    <MotionList className="flex flex-col gap-1" disabled={reducedMotion}>
       {isNewChat && projectPath === activeProjectPath && (
-        <div className="flex items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1.5" role="status">
+        <div className="flex items-center gap-1.5 rounded-md bg-sidebar-accent/65 px-1.5 py-1.5" role="status">
           <NotePencilIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
           <span className="truncate text-[0.8125rem] font-medium">New chat</span>
         </div>
@@ -546,10 +535,10 @@ function ChatList({
         <>
           {groups.map((group) => (
             <section key={group.label} aria-label={group.label} className="first:[&>h3]:pt-1">
-              <h3 className="px-1.5 pb-1 pt-2.5 text-[0.6875rem] font-medium uppercase tracking-wider text-muted-foreground/80">
+              <h3 className="px-1.5 pb-1 pt-3 text-xs font-normal text-muted-foreground/65">
                 {group.label}
               </h3>
-              <div className="flex flex-col gap-0.5">
+              <div className="flex flex-col gap-1">
                 {group.sessions.map((session) => {
                   const pinned = pinnedChats.includes(session.path);
                   const running = runningSessions.has(session.path);
@@ -572,7 +561,11 @@ function ChatList({
                         aria-current={selected ? "page" : undefined}
                         className={cn(
                           "flex min-w-0 flex-1 items-start gap-1.5 rounded-md px-1.5 py-1.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
-                          (selected || running) && "text-foreground",
+                          selected
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : running
+                              ? "bg-sidebar-accent/35 text-foreground"
+                              : "text-muted-foreground/80 hover:bg-sidebar-accent/35 hover:text-sidebar-foreground",
                         )}
                       >
                         {pinned ? (
@@ -582,12 +575,12 @@ function ChatList({
                           <span
                             className={cn(
                               "sidebar-chat-title truncate text-[0.8125rem] leading-5",
-                              selected ? "font-semibold" : "font-medium",
+                              selected ? "font-medium" : "font-normal",
                             )}
                           >
                             {chatTitle(session)}
                           </span>
-                          <span className="sidebar-chat-prompt truncate text-xs text-muted-foreground">
+                          <span className="sidebar-chat-prompt truncate text-xs text-muted-foreground/65">
                             {session.lastPrompt || "No user prompt"}
                           </span>
                         </span>
@@ -601,7 +594,7 @@ function ChatList({
                             aria-label="Agent running"
                           />
                         ) : null}
-                        <span className="sidebar-chat-time shrink-0 pt-0.5 text-[0.6875rem] leading-5 tabular-nums text-muted-foreground">
+                        <span className="sidebar-chat-time shrink-0 pt-0.5 text-[0.6875rem] leading-5 tabular-nums text-muted-foreground/65">
                           {timeAgo(session.modified, now)}
                         </span>
                       </button>

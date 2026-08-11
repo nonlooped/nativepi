@@ -118,11 +118,8 @@ export default function SessionMenu({
           render={
             <div
               className={cn(
-                // The selected row is marked by fill alone. An outline around a
-                // row this small reads as a stray artefact rather than a state.
-                "group/chat relative flex items-center rounded-md transition-colors hover:bg-sidebar-accent/60 focus-within:bg-sidebar-accent/60",
-                selected &&
-                  "bg-sidebar-accent text-sidebar-accent-foreground before:absolute before:inset-y-1 before:-left-1.5 before:w-0.5 before:rounded-full before:bg-primary",
+                "group/chat relative flex items-center rounded-md transition-colors hover:bg-sidebar-accent/40 focus-within:bg-sidebar-accent/40",
+                selected && "bg-sidebar-accent/65 text-sidebar-accent-foreground",
                 running && !selected && "bg-active/5",
               )}
             />

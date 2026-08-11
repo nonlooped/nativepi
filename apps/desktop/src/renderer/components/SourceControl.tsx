@@ -145,6 +145,7 @@ export default function SourceControl({ projectDir, git }: { projectDir: string;
         </Field>
         <div className="flex gap-1">
           <Button
+            variant={canCommit ? "default" : "ghost"}
             className="min-w-0 flex-1"
             onClick={() => void commit("commit")}
             disabled={!canCommit}
@@ -155,7 +156,7 @@ export default function SourceControl({ projectDir, git }: { projectDir: string;
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button variant="outline" size="icon" disabled={!canCommit} aria-label="More commit actions" title={commitDisabledReason ?? "More commit actions"} />}
+              render={<Button variant={canCommit ? "outline" : "ghost"} size="icon" disabled={!canCommit} aria-label="More commit actions" title={commitDisabledReason ?? "More commit actions"} />}
             >
               <CaretDownIcon />
             </DropdownMenuTrigger>
@@ -227,7 +228,7 @@ function FileGroup({
   if (files.length === 0) return null;
 
   return (
-    <Collapsible.Root open={open} onOpenChange={setOpen} className="border-t border-sidebar-border/70">
+    <Collapsible.Root open={open} onOpenChange={setOpen} className="mt-2">
       <div className="flex h-8 items-center gap-1 px-2">
         <Collapsible.Trigger className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-1 text-left text-xs font-semibold outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring">
           {open ? <CaretDownIcon /> : <CaretRightIcon />}
@@ -246,7 +247,7 @@ function FileGroup({
         </Button>
       </div>
       <Collapsible.Panel>
-        <div className="pb-1">
+        <div className="flex flex-col gap-0.5 px-1 pb-1">
           {files.map((file) => {
             const key = `${staged ? "staged" : "changed"}:${file.path}`;
             const active = selected === key;
@@ -254,7 +255,12 @@ function FileGroup({
             return (
               <div key={file.path}>
                 <FileContextMenu projectDir={projectDir} file={file.path} untracked={file.state === "untracked"} staged={staged}>
-                  <div className={cn("group flex min-h-8 items-center px-2", active && "bg-sidebar-accent text-sidebar-accent-foreground")}>
+                  <div
+                    className={cn(
+                      "group flex min-h-8 items-center rounded-md px-1.5 transition-colors hover:bg-sidebar-accent/35",
+                      active && "bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent",
+                    )}
+                  >
                     <button
                       type="button"
                       className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left text-xs outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
@@ -262,9 +268,9 @@ function FileGroup({
                       onClick={() => onSelect(active ? null : key)}
                       title={file.path}
                     >
-                      <FileTypeIcon path={file.path} />
+                      <FileTypeIcon path={file.path} className={cn("opacity-65", active && "opacity-100")} />
                       <span className="min-w-0 truncate font-medium">{name}</span>
-                      {directory ? <span className="min-w-0 flex-1 truncate text-muted-foreground">{directory}</span> : <span className="flex-1" />}
+                      {directory ? <span className="min-w-0 flex-1 truncate text-muted-foreground/60">{directory}</span> : <span className="flex-1" />}
                       <span
                         role="img"
                         aria-label={stateLabel(file.state)}
