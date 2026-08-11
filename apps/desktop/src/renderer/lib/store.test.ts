@@ -78,7 +78,10 @@ test("local sidebar mutations do not wait for a session rescan", async () => {
     return {};
   });
 
-  const { useAppStore } = await import("./store.ts");
+  const [{ useAppStore }, { emptyConversation }] = await Promise.all([
+    import("./store.ts"),
+    import("./store/conversation.ts"),
+  ]);
   const projectPath = "C:\\instant-sidebar";
   const session = {
     path: "C:\\instant-sidebar\\chat.jsonl",
@@ -96,6 +99,9 @@ test("local sidebar mutations do not wait for a session rescan", async () => {
     activeSessionFile: session.path,
     sessionsByProject: { [projectPath]: [session] },
     sessionLoadStates: { [projectPath]: "loaded" },
+    conversations: {
+      [session.path]: { ...emptyConversation(), projectDir: projectPath, sessionFile: session.path },
+    },
   });
 
   const renaming = useAppStore.getState().renameChat(session.path, "Renamed instantly");
@@ -107,6 +113,28 @@ test("local sidebar mutations do not wait for a session rescan", async () => {
   expect(useAppStore.getState().sessionsByProject[projectPath]).toEqual([]);
   finishDelete({ ok: true });
   await deleting;
+  expect(useAppStore.getState().conversations[session.path]).toBeUndefined();
+});
+
+test("switching chats releases settled transcripts but preserves live background runs", async () => {
+  stubInvoke(async (channel) => (channel === "readSession" ? { entries: [] } : {}));
+  const { useAppStore } = await import("./store.ts");
+  const { emptyConversation } = await import("./store/conversation.ts");
+  const projectPath = "C:\\conversation-memory";
+  useAppStore.setState({
+    activeProjectPath: projectPath,
+    activeSessionFile: "old.jsonl",
+    conversations: {
+      "old.jsonl": { ...emptyConversation(), projectDir: projectPath, sessionFile: "old.jsonl", entries: Array(100).fill({ type: "custom" }) },
+      "running.jsonl": { ...emptyConversation(), projectDir: projectPath, sessionFile: "running.jsonl", running: true },
+    },
+  });
+
+  await useAppStore.getState().selectChat("next.jsonl");
+
+  expect(useAppStore.getState().conversations["old.jsonl"]).toBeUndefined();
+  expect(useAppStore.getState().conversations["running.jsonl"]?.running).toBeTrue();
+  expect(useAppStore.getState().conversations["next.jsonl"]).toBeDefined();
 });
 
 test("the first message appears in the sidebar before the watcher refreshes", async () => {

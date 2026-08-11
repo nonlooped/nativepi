@@ -291,6 +291,18 @@ function rememberPi(pi: PiProcess, sessionFile: string | undefined): void {
   if (sessionFile) pis.set(sessionFile, pi);
 }
 
+async function stopIdleProjectPis(projectDir: string, keep: PiProcess): Promise<void> {
+  const idle = [...pis.entries()].filter(([sessionFile, pi]) =>
+    pi !== keep
+    && pi.projectDir === projectDir
+    && busyUntil.get(sessionFile) !== Number.POSITIVE_INFINITY,
+  );
+  for (const [sessionFile, pi] of idle) {
+    if (pis.get(sessionFile) === pi) pis.delete(sessionFile);
+  }
+  await Promise.all(idle.map(([, pi]) => pi.stop()));
+}
+
 function projectPi(projectDir: string, sessionFile?: string | null): PiProcess | undefined {
   if (sessionFile) return pis.get(sessionFile);
   return draftPis.get(projectDir) ?? [...pis.values()].find((pi) => pi.projectDir === projectDir);
@@ -321,7 +333,7 @@ function ensurePi(projectDir: string, sessionFile?: string, fresh = false): Prom
         // marker with the process rather than leaving this project looking
         // permanently busy to the watcher.
         if (pi.boundSessionFile) busyUntil.delete(pi.boundSessionFile);
-        if (![...pis.values(), ...startingPis.values()].some((other) => other.projectDir === projectDir)) {
+        if (![...pis.values(), ...draftPis.values(), ...startingPis.values()].some((other) => other.projectDir === projectDir)) {
           status(projectDir, "exited", `exit ${code ?? "?"}`);
         }
       },
@@ -569,7 +581,8 @@ const handlers: HandlerMap = {
   },
   ensurePi: async ({ projectDir, sessionFile }) => {
     try {
-      await ensurePi(projectDir, sessionFile ?? undefined);
+      const pi = await ensurePi(projectDir, sessionFile ?? undefined);
+      await stopIdleProjectPis(projectDir, pi);
       return { ok: true };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };

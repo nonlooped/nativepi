@@ -25,6 +25,20 @@ let pendingId = 1;
 const MAX_REMOTE_IMAGE_BATCH_BYTES = 48 * 1024 * 1024;
 const sessionRefreshes = new Map<string, Promise<void>>();
 
+function retainLiveConversations(conversations: Record<string, Conversation>, selectedKey: string) {
+  return Object.fromEntries(Object.entries(conversations).filter(([key, conversation]) =>
+    key === selectedKey
+    || conversation.running
+    || conversation.compacting
+    || conversation.pending.length > 0
+    || conversation.queue.steering.length > 0
+    || conversation.queue.followUp.length > 0
+    || conversation.retry !== null
+    || conversation.error !== undefined
+    || conversation.externalChange !== null,
+  ));
+}
+
 function patchSidebarSession(set: SetState, projectDir: string, sessionFile: string, patch: Partial<SessionSummary>) {
   set((state) => {
     const sessions = state.sessionsByProject[projectDir];
@@ -192,7 +206,11 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   selectChat: async (sessionFile) => {
     const projectPath = get().activeProjectPath;
     clearSessionExtensionUi(set);
-    set({ activeSessionFile: sessionFile, isNewChat: false });
+    set((state) => ({
+      activeSessionFile: sessionFile,
+      isNewChat: false,
+      conversations: retainLiveConversations(state.conversations, sessionFile),
+    }));
     reportActiveDraft(get);
     if (projectPath) {
       setLastChat(projectPath, sessionFile);
@@ -225,6 +243,9 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   newChat: () => {
     clearSessionExtensionUi(set);
     const projectDir = get().activeProjectPath;
+    if (projectDir) {
+      set((state) => ({ conversations: retainLiveConversations(state.conversations, projectDir) }));
+    }
     if (projectDir) {
       void rpc.request.watchSession({ projectDir, sessionFile: null });
       patchConversation(set, projectDir, null, () => ({ ...emptyConversation(), projectDir }));
@@ -497,9 +518,11 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     set((s) => {
       const { [sessionFile]: _draft, ...drafts } = s.drafts;
       const { [sessionFile]: _images, ...attachments } = s.attachments;
+      const { [sessionFile]: _conversation, ...conversations } = s.conversations;
       return {
         drafts,
         attachments,
+        conversations,
         pinnedChats: s.pinnedChats.filter((path) => path !== sessionFile),
       };
     });
