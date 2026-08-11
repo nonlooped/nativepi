@@ -47,37 +47,34 @@ type DialogKind = "rename" | "fork" | "tree" | "info" | "export" | "delete";
 export default function SessionMenu({
   projectPath,
   session,
-  selected = false,
+  selected,
+  running,
+  pinned,
   children,
 }: {
   projectPath: string;
   session: SessionSummary;
   /** Drives the row fill, which lives on the wrapper around the chat row. */
-  selected?: boolean;
+  selected: boolean;
+  running: boolean;
+  pinned: boolean;
   children: React.ReactElement;
 }) {
   const [dialog, setDialog] = useState<DialogKind | null>(null);
   const [exportPath, setExportPath] = useState<string>("");
 
-  const running = useAppStore((s) => s.conversations[session.path]?.running ?? false);
-  const activeSessionFile = useAppStore((s) => s.activeSessionFile);
-  const cloneChat = useAppStore((s) => s.cloneChat);
-  const deleteChat = useAppStore((s) => s.deleteChat);
-  const compactActive = useAppStore((s) => s.compactActive);
-  const selectProject = useAppStore((s) => s.selectProject);
-  const pinned = useAppStore((s) => s.pinnedChats.includes(session.path));
-  const togglePinnedChat = useAppStore((s) => s.togglePinnedChat);
-
   // A chat is off-limits while its own turn is in flight, whether or not it is
   // the one on screen. Requiring it to also be the active session left every
   // chat running in a background project freely deletable mid-run.
   const blocked = running;
-  const inProject = (action: () => void | Promise<void>) => () => {
-    void selectProject(projectPath).then(action);
+  const inProject = (action: () => unknown | Promise<unknown>) => () => {
+    const store = useAppStore.getState();
+    const select = store.activeProjectPath === projectPath ? Promise.resolve() : store.selectProject(projectPath);
+    void select.then(action);
   };
 
   async function doClone() {
-    await cloneChat(session.path);
+    await useAppStore.getState().cloneChat(session.path);
   }
 
   async function doExport() {
@@ -95,13 +92,13 @@ export default function SessionMenu({
 
   const actions = {
     blocked,
-    active: activeSessionFile === session.path,
+    active: selected,
     pinned,
-    togglePin: () => togglePinnedChat(session.path),
+    togglePin: () => useAppStore.getState().togglePinnedChat(session.path),
     rename: inProject(() => setDialog("rename")),
     fork: inProject(() => setDialog("fork")),
     clone: inProject(doClone),
-    compact: inProject(compactActive),
+    compact: inProject(() => useAppStore.getState().compactActive()),
     tree: inProject(() => setDialog("tree")),
     info: inProject(() => setDialog("info")),
     export: inProject(doExport),
@@ -118,7 +115,7 @@ export default function SessionMenu({
           render={
             <div
               className={cn(
-                "group/chat relative flex items-center rounded-md transition-colors hover:bg-sidebar-accent/40 focus-within:bg-sidebar-accent/40",
+                "group/chat relative flex items-center rounded-md transition-colors [contain-intrinsic-size:auto_2.75rem] [content-visibility:auto] hover:bg-sidebar-accent/40 focus-within:bg-sidebar-accent/40",
                 selected && "bg-sidebar-accent/65 text-sidebar-accent-foreground",
                 running && !selected && "bg-active/5",
               )}
@@ -132,24 +129,26 @@ export default function SessionMenu({
         </ContextMenuContent>
       </ContextMenu>
 
-      <ConfirmDialog
-        open={dialog === "delete"}
-        title="Delete this chat?"
-        description={
-          <>
-            <span className="font-medium text-foreground">{chatTitle(session)}</span> and its full history will be
-            removed from disk. This cannot be undone.
-          </>
-        }
-        detail={session.path}
-        confirmLabel="Delete chat"
-        destructive
-        onConfirm={() => {
-          setDialog(null);
-          void selectProject(projectPath).then(() => deleteChat(session.path));
-        }}
-        onCancel={() => setDialog(null)}
-      />
+      {dialog === "delete" ? (
+        <ConfirmDialog
+          open
+          title="Delete this chat?"
+          description={
+            <>
+              <span className="font-medium text-foreground">{chatTitle(session)}</span> and its full history will be
+              removed from disk. This cannot be undone.
+            </>
+          }
+          detail={session.path}
+          confirmLabel="Delete chat"
+          destructive
+          onConfirm={() => {
+            setDialog(null);
+            inProject(() => useAppStore.getState().deleteChat(session.path))();
+          }}
+          onCancel={() => setDialog(null)}
+        />
+      ) : null}
 
       {dialog === "rename" ? <RenameDialog session={session} onClose={() => setDialog(null)} /> : null}
       {dialog === "fork" ? <ForkDialog session={session} onClose={() => setDialog(null)} /> : null}

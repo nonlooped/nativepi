@@ -529,6 +529,8 @@ function ChatList({
                       projectPath={projectPath}
                       session={session}
                       selected={selected}
+                      running={running}
+                      pinned={pinned}
                     >
                       <button
                         type="button"
