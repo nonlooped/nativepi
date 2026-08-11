@@ -10,8 +10,14 @@ const MAX_BUFFER_SIZE = 2 * 1024 * 1024;
 type ManagedTerminal = TerminalSession & {
   process: IPty;
   output: string[];
+  outputStart: number;
   outputSize: number;
   sequence: number;
+  watchers: number;
+  pendingOutput: string;
+  pendingSequence: number;
+  pendingTimer?: ReturnType<typeof setTimeout>;
+  emitData: (payload: { projectDir: string; terminalId: string; data: string; sequence: number }) => void;
 };
 
 const terminals = new Map<string, ManagedTerminal>();
@@ -132,10 +138,23 @@ function spawnPty(projectDir: string, shellId: string | undefined): { pty: IPty;
   return { pty, resolvedShellId: shell.id };
 }
 
+function flushTerminalData(terminal: ManagedTerminal): void {
+  clearTimeout(terminal.pendingTimer);
+  terminal.pendingTimer = undefined;
+  if (!terminal.pendingOutput) return;
+  const data = terminal.pendingOutput;
+  terminal.pendingOutput = "";
+  terminal.emitData({
+    projectDir: terminal.projectDir,
+    terminalId: terminal.id,
+    data,
+    sequence: terminal.pendingSequence,
+  });
+}
+
 function attachHandlers(
   id: string,
   projectDir: string,
-  onData: (payload: { projectDir: string; terminalId: string; data: string; sequence: number }) => void,
   onExit: (payload: { projectDir: string; terminalId: string; exitCode: number }) => void,
 ): void {
   const terminal = terminals.get(id);
@@ -146,11 +165,18 @@ function attachHandlers(
     if (!current || current.process !== process) return;
     current.output.push(data);
     current.outputSize += data.length;
-    while (current.outputSize > MAX_BUFFER_SIZE && current.output.length > 1) {
-      current.outputSize -= current.output.shift()!.length;
+    while (current.outputSize > MAX_BUFFER_SIZE && current.output.length - current.outputStart > 1) {
+      current.outputSize -= current.output[current.outputStart++]!.length;
+    }
+    if (current.outputStart > 1024 && current.outputStart > current.output.length / 2) {
+      current.output = current.output.slice(current.outputStart);
+      current.outputStart = 0;
     }
     current.sequence += 1;
-    onData({ projectDir, terminalId: id, data, sequence: current.sequence });
+    if (current.watchers === 0) return;
+    current.pendingOutput += data;
+    current.pendingSequence = current.sequence;
+    current.pendingTimer ??= setTimeout(() => flushTerminalData(current), 16);
   });
 
   process.onExit(({ exitCode }) => {
@@ -158,6 +184,7 @@ function attachHandlers(
     if (!current || current.process !== process) return;
     current.exited = true;
     current.exitCode = exitCode;
+    flushTerminalData(current);
     onExit({ projectDir, terminalId: id, exitCode });
   });
 }
@@ -178,12 +205,17 @@ export function createTerminal(
     shellId: resolvedShellId,
     process: pty,
     output: [],
+    outputStart: 0,
     outputSize: 0,
     sequence: 0,
+    watchers: 0,
+    pendingOutput: "",
+    pendingSequence: 0,
+    emitData: onData,
     exited: false,
   };
   terminals.set(id, terminal);
-  attachHandlers(id, projectDir, onData, onExit);
+  attachHandlers(id, projectDir, onExit);
   return publicSession(terminal);
 }
 
@@ -208,24 +240,46 @@ export function restartTerminal(
   terminal.process = pty;
   terminal.shellId = resolvedShellId;
   terminal.output = [];
+  terminal.outputStart = 0;
   terminal.outputSize = 0;
   terminal.sequence = 0;
+  terminal.pendingOutput = "";
+  terminal.pendingSequence = 0;
+  clearTimeout(terminal.pendingTimer);
+  terminal.pendingTimer = undefined;
+  terminal.emitData = onData;
   terminal.exited = false;
   terminal.exitCode = undefined;
-  attachHandlers(terminalId, projectDir, onData, onExit);
+  attachHandlers(terminalId, projectDir, onExit);
   return publicSession(terminal);
 }
 
-export function terminalSnapshot(projectDir: string, terminalId: string): { output: string; sequence: number } {
+export function attachTerminal(projectDir: string, terminalId: string): { output: string; sequence: number } {
   const terminal = terminals.get(terminalId);
   if (!terminal || terminal.projectDir !== projectDir) throw new Error("Terminal not found");
-  return { output: terminal.output.join(""), sequence: terminal.sequence };
+  flushTerminalData(terminal);
+  terminal.watchers += 1;
+  return { output: terminal.output.slice(terminal.outputStart).join(""), sequence: terminal.sequence };
+}
+
+export function detachTerminal(projectDir: string, terminalId: string): void {
+  const terminal = terminals.get(terminalId);
+  if (!terminal || terminal.projectDir !== projectDir) return;
+  terminal.watchers = Math.max(0, terminal.watchers - 1);
+  if (terminal.watchers > 0) return;
+  clearTimeout(terminal.pendingTimer);
+  terminal.pendingTimer = undefined;
+  terminal.pendingOutput = "";
 }
 
 export function clearTerminal(projectDir: string, terminalId: string): void {
   const terminal = terminals.get(terminalId);
   if (!terminal || terminal.projectDir !== projectDir) return;
+  clearTimeout(terminal.pendingTimer);
+  terminal.pendingTimer = undefined;
+  terminal.pendingOutput = "";
   terminal.output = [];
+  terminal.outputStart = 0;
   terminal.outputSize = 0;
   // PSReadLine redraws the current prompt and any typed input after clearing,
   // so the fresh output remains replayable when the terminal surface remounts.
@@ -248,6 +302,7 @@ export function closeTerminal(projectDir: string, terminalId: string): void {
   const terminal = terminals.get(terminalId);
   if (!terminal || terminal.projectDir !== projectDir) return;
   terminals.delete(terminalId);
+  clearTimeout(terminal.pendingTimer);
   if (!terminal.exited) terminal.process.kill();
 }
 
@@ -261,6 +316,7 @@ export function stopAllTerminals(): void {
   const all = [...terminals.values()];
   terminals.clear();
   for (const terminal of all) {
+    clearTimeout(terminal.pendingTimer);
     if (!terminal.exited) terminal.process.kill();
   }
 }

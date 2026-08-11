@@ -512,9 +512,13 @@ export type HostRequests = {
     params: { projectDir: string; terminalId: string };
     response: { terminal: TerminalSession };
   };
-  terminalSnapshot: {
+  terminalAttach: {
     params: { projectDir: string; terminalId: string };
     response: { output: string; sequence: number };
+  };
+  terminalDetach: {
+    params: { projectDir: string; terminalId: string };
+    response: { ok: boolean };
   };
   terminalWrite: {
     params: { projectDir: string; terminalId: string; data: string };

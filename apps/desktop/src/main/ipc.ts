@@ -22,10 +22,12 @@ import { fileManagerName, listInstalledEditors, openFileIn, openProjectIn } from
 import { liveSettingsFor, piPaths, queuePiSettings, readPiSettings, writePiSettings } from "./piSettings.ts";
 import { piSettingsPatchSchema, type PiSettingsPatch } from "../shared/pi-settings.ts";
 import {
+  attachTerminal,
   clearTerminal,
   closeTerminal,
   closeProjectTerminals,
   createTerminal,
+  detachTerminal,
   listShellProfiles,
   listTerminals,
   liveTerminalProjects,
@@ -33,7 +35,6 @@ import {
   resizeTerminal,
   restartTerminal,
   stopAllTerminals,
-  terminalSnapshot,
   writeTerminal,
 } from "./terminal.ts";
 import { extensionCallParamsSchema, type AccessStatus, type HostEvents, type HostRequestName, type HostRequests, type PiStatus } from "../shared/rpc-schema.ts";
@@ -1149,9 +1150,14 @@ const handlers: HandlerMap = {
     push("terminalRestart", { projectDir, terminal });
     return { terminal };
   },
-  terminalSnapshot: (params) => {
+  terminalAttach: (params) => {
     const { projectDir, terminalId } = terminalIdParamsSchema.parse(params);
-    return terminalSnapshot(projectDir, terminalId);
+    return attachTerminal(projectDir, terminalId);
+  },
+  terminalDetach: (params) => {
+    const { projectDir, terminalId } = terminalIdParamsSchema.parse(params);
+    detachTerminal(projectDir, terminalId);
+    return { ok: true };
   },
   terminalWrite: (params) => {
     const { projectDir, terminalId, data } = terminalIdParamsSchema.extend({ data: z.string().max(64 * 1024) }).parse(params);

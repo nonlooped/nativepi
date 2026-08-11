@@ -489,7 +489,6 @@ function TerminalSurface({
       fontSize,
       lineHeight: 1.2,
       scrollback,
-      screenReaderMode: true,
       theme: currentTerminalColors(),
     });
     terminalRef.current = terminal;
@@ -556,7 +555,7 @@ function TerminalSurface({
       void rpc.request.terminalWrite({ projectDir, terminalId, data });
     });
 
-    void rpc.request.terminalSnapshot({ projectDir, terminalId }).then(
+    void rpc.request.terminalAttach({ projectDir, terminalId }).then(
       ({ output, sequence }) => {
         if (disposed) return;
         snapshotSequence = sequence;
@@ -606,6 +605,7 @@ function TerminalSurface({
       linkProvider.dispose();
       offData();
       offExit();
+      void rpc.request.terminalDetach({ projectDir, terminalId });
       terminal.dispose();
       terminalRef.current = null;
       fitRef.current = null;
