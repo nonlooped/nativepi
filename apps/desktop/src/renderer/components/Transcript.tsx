@@ -7,8 +7,6 @@ import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { StopIcon } from "@phosphor-icons/react/Stop";
 import { WarningIcon } from "@phosphor-icons/react/Warning";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
-import { code } from "@streamdown/code";
-import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
@@ -49,9 +47,9 @@ import { rpc } from "@/lib/rpc.ts";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 import { ExtensionEntry, ExtensionToolResult, useHasEntryRenderer, useHasToolRenderer } from "./ExtensionSlots.tsx";
 import FileContextMenu from "./FileContextMenu.tsx";
+import Markdown from "./Markdown.tsx";
 import { TuiAutoPane, TuiPane, TuiTimelineEntry } from "./TuiSurface.tsx";
 
-const streamdownPlugins = { code };
 const DiffView = lazy(() => import("./DiffView.tsx"));
 
 export default function Transcript() {
@@ -775,15 +773,12 @@ function AssistantResponse({
             {work.map((block, i) => {
               if (block.type === "text") {
                 return (
-                  <Streamdown
+                  <Markdown
                     key={i}
-                    caret="block"
-                    isAnimating={workIsStreaming && i === work.length - 1}
-                    mode={workIsStreaming ? "streaming" : "static"}
-                    plugins={streamdownPlugins}
+                    streaming={workIsStreaming && i === work.length - 1}
                   >
                     {block.text}
-                  </Streamdown>
+                  </Markdown>
                 );
               }
               if (block.type === "thinking") {
@@ -798,16 +793,13 @@ function AssistantResponse({
                   );
                 }
                 return (
-                  <Streamdown
+                  <Markdown
                     key={i}
-                    caret="block"
                     className="text-xs text-muted-foreground"
-                    isAnimating={workIsStreaming && i === work.length - 1}
-                    mode={workIsStreaming ? "streaming" : "static"}
-                    plugins={streamdownPlugins}
+                    streaming={workIsStreaming && i === work.length - 1}
                   >
                     {block.thinking}
-                  </Streamdown>
+                  </Markdown>
                 );
               }
               const result = results.get(block.id);
@@ -818,14 +810,7 @@ function AssistantResponse({
       ) : null}
       {finalText ? (
         <div data-response-text>
-          <Streamdown
-          caret="block"
-          isAnimating={streaming && !reduced}
-          mode={streaming ? "streaming" : "static"}
-          plugins={streamdownPlugins}
-        >
-          {finalText}
-          </Streamdown>
+          <Markdown streaming={streaming && !reduced}>{finalText}</Markdown>
         </div>
       ) : null}
       {changes.files.length > 0 ? <ChangeStrip changes={changes} /> : null}

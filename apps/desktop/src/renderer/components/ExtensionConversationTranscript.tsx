@@ -4,8 +4,6 @@ import { CheckIcon } from "@phosphor-icons/react/Check";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { StopIcon } from "@phosphor-icons/react/Stop";
 import { WarningIcon } from "@phosphor-icons/react/Warning";
-import { code } from "@streamdown/code";
-import { Streamdown } from "streamdown";
 import { useEffect, useRef, useState } from "react";
 import type {
   ConversationContentBlock,
@@ -23,8 +21,7 @@ import {
 import { Message } from "@/components/ui/message.tsx";
 import { Bubble, BubbleContent } from "@/components/ui/bubble.tsx";
 import { useReducedMotion } from "@/lib/motion.ts";
-
-const streamdownPlugins = { code };
+import Markdown from "./Markdown.tsx";
 
 type Turn = {
   id: string;
@@ -144,15 +141,15 @@ function WorkBlock({ block }: { block: ConversationContentBlock }) {
   if (block.type === "tool") return <ToolBlock block={block} />;
   if (block.type === "thinking") {
     return block.text ? (
-      <Streamdown className="text-xs text-muted-foreground" mode="static" plugins={streamdownPlugins}>
+      <Markdown className="text-xs text-muted-foreground">
         {block.text}
-      </Streamdown>
+      </Markdown>
     ) : <p className="text-xs italic text-muted-foreground">Thought privately</p>;
   }
   return (
-    <Streamdown className="text-sm text-muted-foreground" mode="static" plugins={streamdownPlugins}>
+    <Markdown className="text-sm text-muted-foreground">
       {block.text}
-    </Streamdown>
+    </Markdown>
   );
 }
 
@@ -198,14 +195,9 @@ function AssistantTurn({ turn, running }: { turn: Turn; running: boolean }) {
         </Collapsible.Root>
       ) : null}
       {finalText ? (
-        <Streamdown
-          caret="block"
-          isAnimating={running && !reduced}
-          mode={running && !reduced ? "streaming" : "static"}
-          plugins={streamdownPlugins}
-        >
+        <Markdown streaming={running && !reduced}>
           {finalText}
-        </Streamdown>
+        </Markdown>
       ) : null}
       {error ? (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">

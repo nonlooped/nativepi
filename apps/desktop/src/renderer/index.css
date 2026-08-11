@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "streamdown/styles.css";
+@import "katex/dist/katex.min.css";
 @import "@xterm/xterm/css/xterm.css";
 @import "@fontsource-variable/nunito-sans";
 @import "@fontsource-variable/raleway";
@@ -13,9 +13,6 @@
   font-weight: 400;
   font-display: swap;
 }
-
-@source "../../node_modules/streamdown/dist/*.js";
-@source "../../node_modules/@streamdown/code/dist/*.js";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -461,15 +458,258 @@ html:not(.dark) .conversation-shell {
     var(--background);
 }
 
-/* Keep short identifiers together, but still let a path longer than the whole
-   transcript rail wrap inside its pill. Streamdown supplies the semantic code
-   element; this only adjusts its inline presentation. */
-[data-response-text] :not(pre) > code,
-.streamdown :not(pre) > code {
+/* Markdown is intentionally styled here rather than by its parser. That keeps
+   transcripts on NativePi's type, shape and semantic color system. */
+.markdown {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.markdown > :first-child {
+  margin-block-start: 0;
+}
+
+.markdown > :last-child {
+  margin-block-end: 0;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown blockquote,
+.markdown .markdown-table,
+.markdown .markdown-code-block,
+.markdown .markdown-diagram,
+.markdown .markdown-diagram-error,
+.markdown .markdown-diagram-status,
+.markdown .katex-display {
+  margin-block: 0.75rem;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  margin-block: 1.25rem 0.5rem;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.markdown h1 { font-size: 1.375rem; }
+.markdown h2 { font-size: 1.1875rem; }
+.markdown h3 { font-size: 1.0625rem; }
+.markdown h4,
+.markdown h5,
+.markdown h6 { font-size: 0.9375rem; }
+
+.markdown ul,
+.markdown ol {
+  padding-inline-start: 1.375rem;
+}
+
+.markdown ul { list-style: disc; }
+.markdown ol { list-style: decimal; }
+.markdown li + li { margin-block-start: 0.25rem; }
+.markdown li > ul,
+.markdown li > ol { margin-block: 0.25rem; }
+
+.markdown input[type="checkbox"] {
+  margin-inline-end: 0.375rem;
+  accent-color: var(--primary);
+}
+
+.markdown blockquote {
+  border-inline-start: 2px solid var(--border);
+  padding-inline-start: 0.875rem;
+  color: var(--body-muted-foreground);
+}
+
+.markdown a {
+  color: var(--foreground);
+  font-weight: 550;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--foreground) 40%, transparent);
+  text-decoration-thickness: from-font;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.markdown a:hover {
+  text-decoration-color: currentColor;
+}
+
+.markdown strong { font-weight: 650; }
+.markdown hr { margin-block: 1.25rem; border-color: var(--border); }
+
+.markdown img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-block: 0.75rem;
+  border-radius: var(--radius-lg);
+  outline: 1px solid oklch(0 0 0 / 10%);
+  outline-offset: -1px;
+}
+
+.dark .markdown img {
+  outline-color: oklch(1 0 0 / 10%);
+}
+
+.markdown :not(pre) > code {
   display: inline-block;
   max-width: 100%;
+  padding-inline: 0.35em;
+  border-radius: var(--radius-sm);
   overflow-wrap: anywhere;
   background-color: color-mix(in oklch, var(--muted) 62%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.88em;
+}
+
+.markdown-code-block,
+.markdown-diagram,
+.markdown-diagram-error,
+.markdown-diagram-status {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklch, var(--card) 72%, transparent);
+}
+
+.markdown-code-header {
+  display: flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-inline: 0.75rem 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.markdown-code-block pre,
+.markdown-diagram-error pre {
+  margin: 0;
+  overflow: auto;
+  padding: 0.875rem 1rem;
+  background: color-mix(in oklch, var(--background) 45%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+.markdown-code-block pre code,
+.markdown-diagram-error pre code {
+  background: transparent;
+  font: inherit;
+}
+
+.markdown .hljs-comment,
+.markdown .hljs-quote { color: var(--muted-foreground); font-style: italic; }
+.markdown .hljs-keyword,
+.markdown .hljs-selector-tag,
+.markdown .hljs-literal,
+.markdown .hljs-type { color: var(--info); }
+.markdown .hljs-string,
+.markdown .hljs-regexp,
+.markdown .hljs-addition { color: var(--success); }
+.markdown .hljs-number,
+.markdown .hljs-symbol,
+.markdown .hljs-bullet { color: var(--warning); }
+.markdown .hljs-deletion,
+.markdown .hljs-meta { color: var(--destructive); }
+.markdown .hljs-title,
+.markdown .hljs-section,
+.markdown .hljs-function { color: var(--foreground); font-weight: 650; }
+.markdown .hljs-attr,
+.markdown .hljs-attribute,
+.markdown .hljs-variable,
+.markdown .hljs-template-variable { color: var(--body-muted-foreground); }
+
+.markdown-table {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.markdown-table table {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.markdown-table th,
+.markdown-table td {
+  border-inline-end: 1px solid var(--border);
+  border-block-end: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: start;
+  vertical-align: top;
+}
+
+.markdown-table th {
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+  font-weight: 650;
+}
+
+.markdown-table tr:last-child > * { border-block-end: 0; }
+.markdown-table tr > *:last-child { border-inline-end: 0; }
+
+.markdown-diagram {
+  overflow-x: auto;
+  padding: 1rem;
+}
+
+.markdown-diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
+.markdown-diagram-status,
+.markdown-diagram-error > span {
+  display: block;
+  padding: 0.75rem 1rem;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.markdown-diagram-error > span {
+  color: var(--destructive);
+}
+
+.markdown .katex-display {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 0.25rem;
+}
+
+.markdown-caret {
+  display: inline-block;
+  width: 0.45rem;
+  height: 1em;
+  margin-inline-start: 0.2rem;
+  vertical-align: -0.12em;
+  border-radius: 1px;
+  background: currentColor;
+  animation: markdown-caret 900ms steps(1, end) infinite;
+}
+
+@keyframes markdown-caret {
+  50% { opacity: 0; }
 }
 
 /* Resize the workspace with a lightweight linear layout transition while the
