@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import autoAnimate, { type AnimationController } from "@formkit/auto-animate";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
@@ -473,12 +473,12 @@ function ChatList({
   const selectChat = useAppStore((s) => s.selectChat);
   const refreshSessions = useAppStore((s) => s.refreshSessions);
   const pinnedChats = useAppStore((s) => s.pinnedChats);
-  const groups = groupChats(sessions, pinnedChats, query, activeSessionFile, now);
+  const groups = useMemo(() => groupChats(sessions, pinnedChats, query, activeSessionFile, now), [sessions, pinnedChats, query, activeSessionFile, now]);
   // The open chat stays on the list whatever the query, so the count of rows on
   // screen is not the count of matches. Saying nothing matched while one row is
   // visible reads as a bug; saying nothing while the query matched nothing reads
   // as one too.
-  const matchCount = countMatches(sessions, query);
+  const matchCount = useMemo(() => countMatches(sessions, query), [sessions, query]);
 
   return (
     <MotionList className="flex flex-col gap-0.5" disabled={reducedMotion}>

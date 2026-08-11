@@ -274,7 +274,13 @@ export function rankSkills(skills: SkillInfo[], query: string): SkillOption[] {
  * makes `lib/st` find `src/lib/store.ts` — and the row then highlights across
  * the directories, so it shows why it matched.
  */
+const fileRankCache = new Map<string, FileOption[]>();
 export function rankFiles(files: string[], query: string): FileOption[] {
+  // Query cache — files array is stable per project (only refreshes on demand) and query
+  // changes per keystroke. Hit rate is high when backspacing.
+  const cacheKey = `${files.length}:${query}`;
+  const cached = fileRankCache.get(cacheKey);
+  if (cached) return cached;
   const scored: { option: FileOption; score: number }[] = [];
 
   for (const file of files) {
@@ -300,8 +306,11 @@ export function rankFiles(files: string[], query: string): FileOption[] {
     });
   }
 
-  return scored
+  const result = scored
     .sort((a, b) => b.score - a.score || a.option.value.length - b.option.value.length || a.option.value.localeCompare(b.option.value))
     .slice(0, MAX_OPTIONS)
     .map((entry) => entry.option);
+  if (fileRankCache.size > 200) fileRankCache.clear();
+  fileRankCache.set(cacheKey, result);
+  return result;
 }

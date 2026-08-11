@@ -649,9 +649,10 @@ function ContextWindow() {
 
   // Walking the whole transcript backwards on every keystroke in the composer is
   // what this used to do; the answer only changes when the transcript does.
+  // Depend on token count, not the streaming object identity which changes per delta.
+  const liveTokens = streaming?.usage?.totalTokens ?? 0;
   const used = useMemo(() => {
-    const live = streaming?.usage?.totalTokens ?? 0;
-    if (live) return live;
+    if (liveTokens) return liveTokens;
     for (let index = entries.length - 1; index >= 0; index--) {
       const entry = entries[index];
       if (entry?.type !== "message") continue;
@@ -662,7 +663,7 @@ function ContextWindow() {
       }
     }
     return 0;
-  }, [entries, streaming]);
+  }, [entries, liveTokens]);
 
   const total = model?.contextWindow ?? 0;
   // Keyed on what can actually change the answer, not on `streaming` — which is

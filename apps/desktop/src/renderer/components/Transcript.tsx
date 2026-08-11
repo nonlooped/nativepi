@@ -73,8 +73,8 @@ function TranscriptContent() {
   const abortRetry = useAppStore((s) => s.abortRetry);
   const jumpRequest = useAppStore((s) => s.jumpRequest);
 
-  const results = toolResultsById(entries);
-  const items = transcriptItems(entries, streaming);
+  const results = useMemo(() => toolResultsById(entries), [entries]);
+  const items = useMemo(() => transcriptItems(entries, streaming), [entries, streaming]);
 
   const { scrollToEnd } = useMessageScroller();
   const [transcriptSelection, setTranscriptSelection] = useState("");
