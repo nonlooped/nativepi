@@ -291,6 +291,36 @@ test("watchProjectSessions detects chats created after the sidebar is open", asy
   expect(changes).toBeGreaterThan(0);
 });
 
+test("stopping a project session watch invalidates its cached listing", async () => {
+  const projectDir = await mkdtemp(path.join(tmpdir(), "nativepi-project-"));
+  await writeSession(projectDir, "first.jsonl", [
+    { type: "session", version: 3, id: "first", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
+    {
+      type: "message",
+      id: "1",
+      parentId: null,
+      timestamp: "2026-01-01T00:00:01Z",
+      message: { role: "user", content: "first", timestamp: 1767225601000 },
+    },
+  ]);
+  expect(await listSessions(projectDir)).toHaveLength(1);
+
+  const stop = watchProjectSessions(projectDir, () => {});
+  await writeSession(projectDir, "second.jsonl", [
+    { type: "session", version: 3, id: "second", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
+    {
+      type: "message",
+      id: "1",
+      parentId: null,
+      timestamp: "2026-01-01T00:00:01Z",
+      message: { role: "user", content: "second", timestamp: 1767225601000 },
+    },
+  ]);
+  stop();
+
+  expect(await listSessions(projectDir)).toHaveLength(2);
+});
+
 test("deleteSession refuses a file belonging to another project", async () => {
   const mine = await mkdtemp(path.join(tmpdir(), "nativepi-mine-"));
   const theirs = await mkdtemp(path.join(tmpdir(), "nativepi-theirs-"));

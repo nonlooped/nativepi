@@ -60,9 +60,8 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
   const [pullRequestOpen, setPullRequestOpen] = useState(false);
 
   useEffect(() => {
-    void refreshGit();
     void refreshRepoHost();
-  }, [projectDir, refreshGit, refreshRepoHost]);
+  }, [projectDir, refreshRepoHost]);
 
   return (
     <aside className="context-pane flex h-full min-w-48 flex-col bg-sidebar text-sidebar-foreground">

@@ -407,6 +407,7 @@ export function watchProjectSessions(projectDir: string, onChange: () => void): 
     stopped = true;
     clearTimeout(timer);
     watcher?.close();
+    sessionListCache.delete(projectDir);
   };
 }
 

@@ -116,6 +116,7 @@ export function draftKey(get: GetState): string {
  */
 export function warmProject(set: SetState, get: GetState, path: string): void {
   const sessionFile = get().activeSessionFile;
+  void get().refreshGit();
   void rpc.request.ensurePi({ projectDir: path, sessionFile: sessionFile ?? undefined });
 
   void rpc.request.getModels({ projectDir: path, sessionFile }).then((r) => {
