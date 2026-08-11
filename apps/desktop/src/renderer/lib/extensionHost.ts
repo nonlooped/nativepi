@@ -4,7 +4,6 @@ import * as JsxDevRuntime from "react/jsx-dev-runtime";
 import { defineProtocol, defineRenderer, extensionApiVersion, version } from "@nativepi/extension-api";
 import type { NativePiRenderer, ValueSchema } from "@nativepi/extension-api";
 import { z } from "zod";
-import type { JsonValue } from "../../shared/json.ts";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import {
@@ -85,40 +84,7 @@ function ensureHostGlobals(): void {
   };
 }
 
-/**
- * Who is listening for a given extension's events, keyed by package name.
- *
- * Module state rather than store state because nothing renders from it: frames
- * arrive on the store's event path and are handed straight to the components
- * that asked for them, which then set their own state.
- */
-const listeners = new Map<string, Set<(event: string, payload: JsonValue | undefined) => void>>();
-
-export function subscribeToExtension(
-  extension: string,
-  handler: (event: string, payload: JsonValue | undefined) => void,
-): () => void {
-  let set = listeners.get(extension);
-  if (!set) {
-    set = new Set();
-    listeners.set(extension, set);
-  }
-  set.add(handler);
-  return () => {
-    set.delete(handler);
-    if (set.size === 0) listeners.delete(extension);
-  };
-}
-
-export function dispatchExtensionEvent(extension: string, event: string, payload: JsonValue | undefined): void {
-  for (const handler of listeners.get(extension) ?? []) {
-    try {
-      handler(event, payload);
-    } catch (error) {
-      console.error(`[nativepi] extension ${extension} event listener failed`, error);
-    }
-  }
-}
+export { dispatchExtensionEvent, subscribeToExtension } from "./extensionEvents.ts";
 
 export interface LoadedExtension {
   id: string;

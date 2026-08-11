@@ -12,7 +12,7 @@ import type { SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-
 import { isJsonValue, type JsonValue } from "../../shared/json.ts";
 import { textOf } from "../../shared/messages.ts";
 import type { LoadedExtension } from "../lib/extensionHost.ts";
-import { subscribeToExtension } from "../lib/extensionHost.ts";
+import { subscribeToExtension } from "../lib/extensionEvents.ts";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
 import { absoluteProjectPath } from "../lib/paths.ts";
 import { rpc } from "../lib/rpc.ts";
