@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { Preferences } from "../../shared/rpc-schema.ts";
 import { useAppStore } from "./store.ts";
+import { applyTheme } from "./themes.ts";
 
 /**
  * Appearance preferences that are properties of the document, not of a component.
@@ -27,6 +28,8 @@ export function useAppearance(): void {
   const width = useAppStore((s) => s.preferences.conversationWidth);
   const reducedMotion = useAppStore((s) => s.preferences.reducedMotion);
   const theme = useAppStore((s) => s.preferences.theme);
+  const themeId = useAppStore((s) => s.preferences.themeId);
+  const customThemes = useAppStore((s) => s.preferences.customThemes);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -40,17 +43,11 @@ export function useAppearance(): void {
   useEffect(() => {
     const root = document.documentElement;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => {
-      const resolved = theme === "system" ? (media.matches ? "dark" : "light") : theme;
-      root.classList.toggle("dark", resolved === "dark");
-      try {
-        localStorage.setItem("nativepi-theme", theme);
-      } catch {}
-    };
-    apply();
+    const update = () => applyTheme(root, { ...useAppStore.getState().preferences, theme, themeId, customThemes }, media.matches);
+    update();
     if (theme === "system") {
-      media.addEventListener("change", apply);
-      return () => media.removeEventListener("change", apply);
+      media.addEventListener("change", update);
+      return () => media.removeEventListener("change", update);
     }
-  }, [theme]);
+  }, [theme, themeId, customThemes]);
 }

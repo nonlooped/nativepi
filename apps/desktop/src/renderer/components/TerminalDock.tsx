@@ -10,6 +10,7 @@ import { XIcon } from "@phosphor-icons/react/X";
 import { toast } from "sonner";
 import type { ShellProfile, TerminalSession } from "../../shared/rpc-schema.ts";
 import { findTerminalLinks } from "../lib/terminalLinks.ts";
+import { currentTerminalColors, THEME_CHANGE_EVENT } from "../lib/themes.ts";
 import { useAppStore } from "../lib/store.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -481,7 +482,6 @@ function TerminalSurface({
     cwdRef.current = projectDir;
     controlRef.current = "";
 
-    const styles = getComputedStyle(document.documentElement);
     const terminal = new Terminal({
       cursorBlink,
       cursorStyle: "block",
@@ -490,12 +490,7 @@ function TerminalSurface({
       lineHeight: 1.2,
       scrollback,
       screenReaderMode: true,
-      theme: {
-        background: styles.getPropertyValue("--background").trim(),
-        foreground: styles.getPropertyValue("--foreground").trim(),
-        cursor: styles.getPropertyValue("--foreground").trim(),
-        selectionBackground: styles.getPropertyValue("--accent").trim(),
-      },
+      theme: currentTerminalColors(),
     });
     terminalRef.current = terminal;
     // xterm has no copy binding of its own: Ctrl+Shift+C always copies, and plain
@@ -595,6 +590,10 @@ function TerminalSurface({
     };
     const observer = new ResizeObserver(resize);
     observer.observe(container);
+    const applyColors = () => {
+      terminal.options.theme = currentTerminalColors();
+    };
+    window.addEventListener(THEME_CHANGE_EVENT, applyColors);
     resize();
     terminal.focus();
 
@@ -602,6 +601,7 @@ function TerminalSurface({
       disposed = true;
       cancelAnimationFrame(frame);
       observer.disconnect();
+      window.removeEventListener(THEME_CHANGE_EVENT, applyColors);
       input.dispose();
       linkProvider.dispose();
       offData();

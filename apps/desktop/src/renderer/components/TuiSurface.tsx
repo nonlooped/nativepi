@@ -5,6 +5,7 @@ import type { TuiSurface } from "../../shared/tui-frames.ts";
 import { rpc } from "../lib/rpc.ts";
 import { useAppStore } from "../lib/store.ts";
 import { onSurfaceWrite, surfaceBuffer } from "../lib/tuiSurfaces.ts";
+import { currentTerminalColors, THEME_CHANGE_EVENT } from "../lib/themes.ts";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 
 /**
@@ -43,7 +44,6 @@ function useSurfaceTerminal(
     if (!container) return;
 
     let disposed = false;
-    const styles = getComputedStyle(document.documentElement);
     const terminal = new Terminal({
       // The component draws its own cursor when it wants one; xterm's would be a
       // second one, blinking in a place the component knows nothing about.
@@ -57,12 +57,7 @@ function useSurfaceTerminal(
       // entries are historical output and opt into retaining their full stream.
       scrollback,
       screenReaderMode: true,
-      theme: {
-        background: "rgba(0, 0, 0, 0)",
-        foreground: styles.getPropertyValue("--foreground").trim(),
-        cursor: styles.getPropertyValue("--foreground").trim(),
-        selectionBackground: styles.getPropertyValue("--accent").trim(),
-      },
+      theme: { ...currentTerminalColors(), background: "rgba(0, 0, 0, 0)" },
       allowTransparency: true,
     });
 
@@ -139,6 +134,10 @@ function useSurfaceTerminal(
     };
     const observer = new ResizeObserver(resize);
     observer.observe(container);
+    const applyColors = () => {
+      terminal.options.theme = { ...currentTerminalColors(), background: "rgba(0, 0, 0, 0)" };
+    };
+    window.addEventListener(THEME_CHANGE_EVENT, applyColors);
     resize();
     // The dialog installs its own focus trap after children mount. Focus on the
     // next frame so arrows and Escape belong to the terminal, not its close button.
@@ -149,6 +148,7 @@ function useSurfaceTerminal(
       cancelAnimationFrame(frame);
       cancelAnimationFrame(focusFrame);
       observer.disconnect();
+      window.removeEventListener(THEME_CHANGE_EVENT, applyColors);
       input.dispose();
       offWrite();
       terminal.dispose();
