@@ -1,9 +1,11 @@
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { Plugin } from "esbuild";
 import { piServices } from "./pi/services.ts";
 import type { GraphicalExtension } from "../shared/pi-types.ts";
+
+const extensionCache = new Map<string, { mtimeMs: number; result: GraphicalExtension }>();
 
 /**
  * React and `@nativepi/extension-api` are provided by NativePi: those specifiers
@@ -116,20 +118,37 @@ export async function loadGraphicalExtensions(projectDir: string): Promise<Graph
     const manifest = await readManifest(root);
     if (!manifest) return null;
     const entry = path.resolve(root, manifest.renderer);
+    // Reuse previous bundle if the entry file hasn't changed.
     try {
-      const result = await build({
-        entryPoints: [entry],
-        bundle: true,
-        format: "esm",
-        platform: "browser",
-        jsx: "automatic",
-        write: false,
-        logLevel: "silent",
-        plugins: [hostGlobalsPlugin],
-      });
-      return { id: root, name: manifest.name, code: result.outputFiles[0]?.text ?? "" };
-    } catch (err) {
-      return { id: root, name: manifest.name, code: "", error: err instanceof Error ? err.message : String(err) };
+      const mtimeMs = (await stat(entry)).mtimeMs;
+      const cached = extensionCache.get(entry);
+      if (cached && cached.mtimeMs === mtimeMs) return cached.result;
+      try {
+        const result = await build({
+          entryPoints: [entry],
+          bundle: true,
+          format: "esm",
+          platform: "browser",
+          jsx: "automatic",
+          write: false,
+          logLevel: "silent",
+          plugins: [hostGlobalsPlugin],
+        });
+        const built: GraphicalExtension = { id: root, name: manifest.name, code: result.outputFiles[0]?.text ?? "" };
+        extensionCache.set(entry, { mtimeMs, result: built });
+        if (extensionCache.size > 50) {
+          const first = extensionCache.keys().next().value as string | undefined;
+          if (first) extensionCache.delete(first);
+        }
+        return built;
+      } catch (err) {
+        const failed: GraphicalExtension = { id: root, name: manifest.name, code: "", error: err instanceof Error ? err.message : String(err) };
+        // Don't cache failures indefinitely — a syntax error may be fixed.
+        return failed;
+      }
+    } catch {
+      // Entry missing or unreadable — surface as empty.
+      return null;
     }
   }));
   return extensions.filter((extension): extension is GraphicalExtension => extension !== null);

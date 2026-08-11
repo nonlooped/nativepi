@@ -102,6 +102,8 @@ type RunningServer = {
 let running: RunningServer | undefined;
 
 const gzipAsync = promisify(gzip);
+// Cache gzipped responses by etag so the 1.5 MB entry chunk is not recompressed per request.
+const gzipCache = new Map<string, Buffer>();
 
 export function localServerStatus(): LocalAccessStatus {
   return {
@@ -408,9 +410,17 @@ async function serveRenderer(
   );
 
   if (compressible(file) && acceptsGzip(String(request.headers["accept-encoding"] ?? ""))) {
-    // Async: compressing the multi-megabyte entry chunk synchronously would
-    // stall the same event loop the RPC socket runs on.
-    content = await gzipAsync(content);
+    const cacheKey = `${file}:${etag}`;
+    let gzipped = gzipCache.get(cacheKey);
+    if (!gzipped) {
+      gzipped = await gzipAsync(content);
+      gzipCache.set(cacheKey, gzipped);
+      if (gzipCache.size > 64) {
+        const first = gzipCache.keys().next().value as string | undefined;
+        if (first) gzipCache.delete(first);
+      }
+    }
+    content = gzipped;
     response.setHeader("Content-Encoding", "gzip");
     response.setHeader("Vary", "Accept-Encoding");
   }

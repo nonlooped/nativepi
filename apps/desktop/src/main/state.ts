@@ -35,6 +35,6 @@ export async function saveState(state: NativePiState): Promise<void> {
   // Write-then-rename: a crash mid-write leaves the previous state intact rather
   // than a truncated file that would read as a fresh install.
   const tmp = `${stateFile()}.${process.pid}.tmp`;
-  await writeFile(tmp, JSON.stringify(normalize(state), null, 2), "utf8");
+  await writeFile(tmp, JSON.stringify(normalize(state)), "utf8");
   await rename(tmp, stateFile());
 }

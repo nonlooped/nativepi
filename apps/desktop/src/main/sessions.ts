@@ -19,7 +19,25 @@ export async function readSession(sessionFile: string): Promise<FileEntry[]> {
   return parseSessionEntries(await readFile(sessionFile, "utf8")) as FileEntry[];
 }
 
-async function sessionSidebarFields(sessionFile: string): Promise<{ lastPrompt: string; providers: string[] }> {
+// Cache lastPrompt/providers by mtime so repeated listSessions (Sidebar mount + sessionsChanged)
+// does not re-read every file when only one changed.
+const sidebarFieldsCache = new Map<string, { mtimeMs: number; result: { lastPrompt: string; providers: string[] } }>();
+
+async function sessionSidebarFields(sessionFile: string, knownMtimeMs?: number): Promise<{ lastPrompt: string; providers: string[] }> {
+  const mtimeMs = knownMtimeMs ?? (await sessionMtime(sessionFile));
+  const cached = sidebarFieldsCache.get(sessionFile);
+  if (cached && cached.mtimeMs === mtimeMs) return cached.result;
+  const result = await sessionSidebarFieldsUncached(sessionFile);
+  sidebarFieldsCache.set(sessionFile, { mtimeMs, result });
+  // Bound growth: a machine with thousands of sessions should not keep them all.
+  if (sidebarFieldsCache.size > 500) {
+    const first = sidebarFieldsCache.keys().next().value as string | undefined;
+    if (first) sidebarFieldsCache.delete(first);
+  }
+  return result;
+}
+
+async function sessionSidebarFieldsUncached(sessionFile: string): Promise<{ lastPrompt: string; providers: string[] }> {
   try {
     const contents = await readFile(sessionFile, "utf8");
     let lastPrompt = "";
@@ -76,29 +94,33 @@ function promptSummary(content: unknown): string {
 
 export async function listSessions(projectDir: string): Promise<SessionSummary[]> {
   const sessions = await SessionManager.list(projectDir);
-  return await Promise.all(
-    sessions
-      // A session with no messages is a chat the user started and never used; it
-      // exists on disk the moment Pi binds to it, so listing it would put a stray
-      // entry in the sidebar for every abandoned one.
-      .filter((session) => session.messageCount > 0)
-      .map(async (session) => {
-        const { lastPrompt, providers } = await sessionSidebarFields(session.path);
+  const filtered = sessions.filter((session) => session.messageCount > 0);
+  // Process with limited concurrency so 200 files do not open at once (EMFILE)
+  // and benefit from the mtime cache above.
+  const results: SessionSummary[] = [];
+  const concurrency = 10;
+  for (let i = 0; i < filtered.length; i += concurrency) {
+    const chunk = filtered.slice(i, i + concurrency);
+    const mapped = await Promise.all(
+      chunk.map(async (session) => {
+        const mtimeMs = session.modified.getTime();
+        const { lastPrompt, providers } = await sessionSidebarFields(session.path, mtimeMs);
         return {
           path: session.path,
           id: session.id,
           name: session.name,
-          // Pi substitutes a placeholder when a session has no readable user text;
-          // an empty string is what lets `chatTitle` fall back to "Untitled chat".
           firstMessage: session.firstMessage === "(no messages)" ? "" : session.firstMessage,
           lastPrompt,
           providers,
           messageCount: session.messageCount,
           created: session.created.toISOString(),
           modified: session.modified.toISOString(),
-        };
+        } as SessionSummary;
       }),
-  );
+    );
+    results.push(...mapped);
+  }
+  return results;
 }
 
 export async function searchSessions(projectDirs: string[], rawQuery: string): Promise<SessionSearchResult[]> {
@@ -271,6 +293,8 @@ export async function deleteSession(projectDir: string, sessionFile: string): Pr
     throw new Error("That chat does not belong to this project.");
   }
   await rm(resolved, { force: true });
+  sidebarFieldsCache.delete(resolved);
+  sidebarFieldsCache.delete(sessionFile);
 }
 
 /**

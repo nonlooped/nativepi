@@ -36,10 +36,20 @@ function labelFor(x: string, y: string): GitStatus["files"][number]["state"] {
   return "modified";
 }
 
+const gitStatusCache = new Map<string, { at: number; status: GitStatus }>();
+const GIT_STATUS_TTL_MS = 1500;
+function invalidateGitStatusCache(projectDir: string): void {
+  gitStatusCache.delete(projectDir);
+}
+
 export async function gitStatus(projectDir: string): Promise<GitStatus> {
+  const cached = gitStatusCache.get(projectDir);
+  if (cached && Date.now() - cached.at < GIT_STATUS_TTL_MS) return cached.status;
   const inside = await run(["rev-parse", "--is-inside-work-tree"], projectDir);
   if (inside.code !== 0 || inside.stdout.trim() !== "true") {
-    return { isRepo: false, files: [], insertions: 0, deletions: 0, ahead: 0, behind: 0 };
+    const status: GitStatus = { isRepo: false, files: [], insertions: 0, deletions: 0, ahead: 0, behind: 0 };
+    gitStatusCache.set(projectDir, { at: Date.now(), status });
+    return status;
   }
 
   const [branchRes, headRes, upstreamRes] = await Promise.all([
@@ -54,9 +64,9 @@ export async function gitStatus(projectDir: string): Promise<GitStatus> {
   const [ahead = "0", behind = "0"] = divergence?.stdout.trim().split(/\s+/) ?? [];
 
   // NUL-delimited porcelain output is unambiguous even with odd filenames.
-  const status = await run(["status", "--porcelain=v1", "--untracked-files=all", "-z"], projectDir);
+  const porcelain = await run(["status", "--porcelain=v1", "--untracked-files=all", "-z"], projectDir);
   const files: GitStatus["files"] = [];
-  const records = status.stdout.split("\0");
+  const records = porcelain.stdout.split("\0");
   for (let i = 0; i < records.length; i++) {
     const record = records[i];
     if (!record) continue;
@@ -95,7 +105,7 @@ export async function gitStatus(projectDir: string): Promise<GitStatus> {
     if (text) insertions += text.split(/\r\n|\r|\n/).length - (/[\r\n]$/.test(text) ? 1 : 0);
   }
 
-  return {
+  const result: GitStatus = {
     isRepo: true,
     branch: detached ? undefined : branch,
     detached,
@@ -107,6 +117,8 @@ export async function gitStatus(projectDir: string): Promise<GitStatus> {
     insertions,
     deletions,
   };
+  gitStatusCache.set(projectDir, { at: Date.now(), status: result });
+  return result;
 }
 
 export async function gitLog(projectDir: string): Promise<GitCommit[]> {
@@ -196,11 +208,13 @@ export async function gitStageHunk(
     });
     child.stdin?.end(selected.patch);
   });
+  if (result.code === 0) invalidateGitStatusCache(projectDir);
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
 }
 
 export async function gitStageFile(projectDir: string, file: string): Promise<{ ok: boolean; error?: string }> {
   const result = await run(["add", "--", file], projectDir);
+  if (result.code === 0) invalidateGitStatusCache(projectDir);
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
 }
 
@@ -209,6 +223,7 @@ async function unstage(projectDir: string, files: string[]) {
   const result = head.code === 0
     ? await run(["reset", "HEAD", "--", ...files], projectDir)
     : await run(["rm", "-r", "--cached", "--", ...files], projectDir);
+  if (result.code === 0) invalidateGitStatusCache(projectDir);
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
 }
 
@@ -219,6 +234,7 @@ export async function gitUnstageFile(projectDir: string, file: string, originalP
 
 export async function gitStageAll(projectDir: string) {
   const result = await run(["add", "-A"], projectDir);
+  if (result.code === 0) invalidateGitStatusCache(projectDir);
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
 }
 
@@ -241,6 +257,7 @@ export async function gitCommit(projectDir: string, message: string): Promise<{ 
   const staged = await run(["diff", "--cached", "--quiet"], projectDir);
   if (staged.code === 0) return { ok: false, error: "Stage at least one change before committing." };
   const result = await run(["commit", "-m", message], projectDir);
+  if (result.code === 0) invalidateGitStatusCache(projectDir);
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
 }
 
@@ -355,6 +372,7 @@ export async function gitCheckout(
   }
 
   const res = await run(create ? ["checkout", "-b", branch] : ["checkout", branch], projectDir);
+  if (res.code === 0) invalidateGitStatusCache(projectDir);
   return res.code === 0 ? { ok: true } : { ok: false, error: failure(res) };
 }
 
