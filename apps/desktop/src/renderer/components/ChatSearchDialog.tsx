@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Combobox } from "@base-ui/react/combobox";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { ChatCircleDotsIcon } from "@phosphor-icons/react/ChatCircleDots";
@@ -34,7 +34,7 @@ export default function ChatSearchDialog({
   const [loading, setLoading] = useState(false);
   const [failure, setFailure] = useState(false);
   const [retryRequest, setRetryRequest] = useState(0);
-  const requestId = useId();
+  const [requestId] = useState(() => crypto.getRandomValues(new Uint32Array(4)).join("-"));
   const status = loading
     ? "Searching chats."
     : failure
