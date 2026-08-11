@@ -12,7 +12,7 @@ let handoffId = 0;
 export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   settingsOpen: false,
   settingsCategory: null,
-  sidebarSize: 18,
+  sidebarSize: 14,
   sidebarOpen: true,
   reopenLastProject: true,
   commitMessageModel: "active",

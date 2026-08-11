@@ -233,7 +233,7 @@ const paneStateSchema = z.object({
   sidebarOpen: z.boolean().catch(true),
   // Clamped, not rejected: a size outside the resizable range would render the
   // sidebar unusable, and dropping the whole object over it loses the rest.
-  sidebarSize: z.number().finite().catch(18).pipe(z.transform((size) => Math.min(30, Math.max(14, size)))),
+  sidebarSize: z.number().finite().catch(14).pipe(z.transform((size) => Math.min(30, Math.max(14, size)))),
   contextPaneOpen: z.boolean().catch(false),
 });
 

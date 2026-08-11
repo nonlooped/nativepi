@@ -102,7 +102,7 @@ test("sidebar size is clamped rather than discarded", () => {
   expect(nativePiStateSchema.parse({ panes: { sidebarSize: 99 } }).panes?.sidebarSize).toBe(30);
   expect(nativePiStateSchema.parse({ panes: { sidebarSize: 2 } }).panes?.sidebarSize).toBe(14);
   expect(nativePiStateSchema.parse({ panes: { sidebarSize: 22 } }).panes?.sidebarSize).toBe(22);
-  expect(nativePiStateSchema.parse({ panes: { sidebarSize: Infinity } }).panes?.sidebarSize).toBe(18);
+  expect(nativePiStateSchema.parse({ panes: { sidebarSize: Infinity } }).panes?.sidebarSize).toBe(14);
 });
 
 test("graphical extension calls only accept JSON parameters", () => {
@@ -130,7 +130,7 @@ test("absent panes stay absent, so a first run can still open the pane itself", 
   expect(nativePiStateSchema.parse({}).panes).toBeUndefined();
   expect(nativePiStateSchema.parse({ panes: {} }).panes).toEqual({
     sidebarOpen: true,
-    sidebarSize: 18,
+    sidebarSize: 14,
     contextPaneOpen: false,
   });
 });

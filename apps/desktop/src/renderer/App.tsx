@@ -221,7 +221,7 @@ export default function App() {
               panelRef={contextPanelRef}
               collapsible
               collapsedSize="0%"
-              defaultSize="24%"
+              defaultSize="18%"
               minSize="18%"
               maxSize="40%"
               data-pane-motion="right"
