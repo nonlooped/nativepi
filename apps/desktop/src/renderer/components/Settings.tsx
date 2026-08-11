@@ -48,7 +48,7 @@ import UsageSettings from "./settings/UsageSettings.tsx";
  */
 export const CATEGORIES = [
   { name: "General", icon: GearSixIcon, blurb: "Startup, notifications, and chat titles." },
-  { name: "Appearance", icon: PaintBrushIcon, blurb: "Layout, scale, diffs, and motion." },
+  { name: "Appearance", icon: PaintBrushIcon, blurb: "Color schemes, layout, scale, diffs, and motion." },
   { name: "Agent", icon: BrainIcon, blurb: "How Pi runs a turn. Shared with the Pi command line." },
   { name: "Providers", icon: PlugsConnectedIcon, blurb: "Sign in to model providers. Pi stores the credentials." },
   { name: "Extensions", icon: PuzzlePieceIcon, blurb: "Pi packages and their NativePi surfaces." },

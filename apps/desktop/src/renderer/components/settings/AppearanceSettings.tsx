@@ -2,6 +2,7 @@ import { useAppStore } from "../../lib/store.ts";
 import { osName } from "../../lib/platform.ts";
 import { cn } from "@/lib/utils.ts";
 import { ChoiceCards, ChoiceRow, SettingsSection, SliderRow } from "./rows.tsx";
+import ThemeSettings from "./ThemeSettings.tsx";
 
 /** A stack of fake message lines, used to draw the width and diff previews. */
 function Lines({ widths, className }: { widths: string[]; className?: string }) {
@@ -53,17 +54,7 @@ export default function AppearanceSettings() {
   return (
     <div className="flex flex-col gap-10">
       <SettingsSection heading="Theme">
-        <ChoiceRow
-          label="Appearance"
-          description={`Choose how NativePi looks. System follows the ${system} setting.`}
-          value={preferences.theme}
-          options={[
-            { value: "system", label: "System" },
-            { value: "light", label: "Light" },
-            { value: "dark", label: "Dark" },
-          ]}
-          onChange={(value) => setPreference("theme", value)}
-        />
+        <ThemeSettings />
       </SettingsSection>
 
       <SettingsSection heading="Layout">

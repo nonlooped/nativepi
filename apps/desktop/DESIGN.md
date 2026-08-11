@@ -229,7 +229,9 @@ The palette has two deliberately tuned ladders. Dark mode uses cool graphite lay
 | `sidebar` | `oklch(0.96 0.007 75)` | `oklch(0.18 0.005 285.885)` |
 | `primary` | `oklch(0.22 0.007 285)` | `oklch(0.92 0.004 286.32)` |
 
-`apps/desktop/src/renderer/index.css` remains the source of truth for the complete token set. New surfaces use semantic Tailwind tokens rather than appearance-specific values or manual `dark:` overrides. Pure black and white are reserved for the neutral 10% outline drawn inside arbitrary image content.
+`apps/desktop/src/renderer/index.css` remains the source of truth for the default token set. A saved custom color scheme may override those same semantic roles at the document root; new surfaces still use semantic Tailwind tokens rather than reading a particular scheme or adding manual `dark:` overrides. Pure black and white are reserved for the neutral 10% outline drawn inside arbitrary image content.
+
+Settings offers ten built-in color schemes: NativePi, Midnight, Pine, Sand, Lilac, Ocean, Ember, Slate, Rose, and Cobalt. Each has independently tuned light and dark variants. A scheme replaces only the semantic color palette, so typography, shape, and spacing remain consistent while extension surfaces and terminals inherit the active colors.
 
 ### Contrast Expectations
 
@@ -298,7 +300,7 @@ The system uses ambient hierarchy. Persistent surfaces are flat and separated by
 - **Composer Float:** A broad, low-opacity ambient shadow plus a faint inset top highlight anchors the persistent rounded composer.
 - **Menu Lift:** A compact medium shadow distinguishes menus from the pane beneath them.
 - **Dialog Lift:** A larger shadow, dimmed backdrop, and subtle blur establish modal focus.
-- **Pane Edge:** An inset one-pixel edge separates the sidebar without making it look like a card.
+- **Pane Edge:** A single one-pixel resize edge separates the sidebar without making it look like a card.
 
 ### Named Rules
 
