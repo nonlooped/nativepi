@@ -224,7 +224,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
             <ContextWindow />
             <div
               className={cn(
-                "overflow-hidden transition-[max-width,opacity,transform] duration-200 ease-out",
+                "overflow-hidden transition-[opacity,translate] duration-200 ease-out",
                 running ? "max-w-[10rem] opacity-100 translate-x-0" : "max-w-0 opacity-0 translate-x-1 pointer-events-none",
               )}
               aria-hidden={!running}
