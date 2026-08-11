@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
+import { CubeIcon } from "@phosphor-icons/react/Cube";
+import { FileCodeIcon } from "@phosphor-icons/react/FileCode";
+import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
+import npmLogo from "material-icon-theme/icons/npm.svg?raw";
 import type { PackageInfo } from "../../shared/pi-types.ts";
 import { showHint } from "../lib/toast.tsx";
 import { useAppStore } from "../lib/store.ts";
@@ -36,6 +40,39 @@ function extensionLabel(path: string) {
   return extensionParts.join(":") || filename;
 }
 
+function packageLabel(source: string) {
+  return source.startsWith("npm:") ? source.slice(4) : source;
+}
+
+function scopeLabel(scope: string) {
+  return scope === "project" ? "Project" : "User";
+}
+
+function PackageSourceIcon({ source }: { source: string }) {
+  return (
+    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground" aria-hidden>
+      {source.startsWith("npm:") ? (
+        <span
+          className="size-5 [&>svg]:size-full"
+          // This is a compile-time asset from the pinned Material Icon Theme package.
+          dangerouslySetInnerHTML={{ __html: npmLogo }}
+        />
+      ) : (
+        <CubeIcon className="size-4" />
+      )}
+    </span>
+  );
+}
+
+function LocalSourceIcon({ source }: { source: string }) {
+  const isFile = /\.[cm]?[jt]sx?$/i.test(source);
+  return (
+    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground" aria-hidden>
+      {isFile ? <FileCodeIcon className="size-4" /> : <FolderIcon className="size-4" weight="fill" />}
+    </span>
+  );
+}
+
 export function canReloadProjectAfterPackageChange(projectDir: string) {
   const { activeProjectPath, conversations } = useAppStore.getState();
   return (
@@ -65,7 +102,9 @@ export default function ExtensionsManager() {
     async () => (projectDir ? await rpc.request.listPackages({ projectDir }) : null),
     [projectDir],
   );
-  const packages: PackageInfo[] | null = listing.data?.packages ?? null;
+  const packages = listing.data?.packages ?? null;
+  const installedPackages = packages?.filter((pkg) => !pkg.local) ?? null;
+  const localPackages = packages?.filter((pkg) => pkg.local) ?? null;
   const localExtensions = listing.data?.extensions.filter((extension) => extension.origin === "top-level") ?? null;
   const projectTrusted = listing.data?.projectTrusted ?? false;
   const errors = listing.data?.errors ?? [];
@@ -110,7 +149,7 @@ export default function ExtensionsManager() {
     if (res.ok) {
       setSource("");
       setInstalling(false);
-      await applyPackageChange(modifiedProjectDir, `${trimmed} installed`);
+      await applyPackageChange(modifiedProjectDir, `${packageLabel(trimmed)} installed`);
     } else {
       setActionError(res.error ?? "Unable to install the package. Try again.");
     }
@@ -123,18 +162,21 @@ export default function ExtensionsManager() {
     setBusy(pkg.source);
     setActionError(undefined);
     const res = await rpc.request.removePackage({ projectDir: modifiedProjectDir, source: pkg.source, scope: pkg.scope });
-    if (res.ok) await applyPackageChange(modifiedProjectDir, `${pkg.source} removed`);
+    if (res.ok) {
+      const label = pkg.local ? extensionLabel(pkg.source) : packageLabel(pkg.source);
+      await applyPackageChange(modifiedProjectDir, `${label} removed`);
+    }
     else setActionError(res.error ?? "Unable to remove the package. Try again.");
     setBusy(null);
   }
 
   async function update(pkg: PackageInfo) {
     const modifiedProjectDir = projectDir;
-    if (!modifiedProjectDir) return;
+    if (!modifiedProjectDir || pkg.local) return;
     setBusy(pkg.source);
     setActionError(undefined);
     const res = await rpc.request.updatePackage({ projectDir: modifiedProjectDir, source: pkg.source });
-    if (res.ok) await applyPackageChange(modifiedProjectDir, `${pkg.source} updated`);
+    if (res.ok) await applyPackageChange(modifiedProjectDir, `${packageLabel(pkg.source)} updated`);
     else setActionError(res.error ?? "Unable to update the package. Try again.");
     setBusy(null);
   }
@@ -147,13 +189,18 @@ export default function ExtensionsManager() {
   }
 
   return (
-    <div className="flex flex-col gap-10">
-      <section aria-labelledby="installed-heading" className="flex flex-col">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 id="installed-heading" className="font-heading text-sm font-semibold">
-            Pi extensions
-          </h2>
-          <div className="flex-1" />
+    <div className="flex flex-col gap-8">
+      <section aria-labelledby="installed-heading" className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-start gap-2">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+              <h2 id="installed-heading" className="font-heading text-sm font-semibold">
+                Installed packages
+              </h2>
+              {installedPackages ? <Badge variant="secondary">{installedPackages.length}</Badge> : null}
+            </div>
+            <p className="text-xs text-muted-foreground">Packages added from npm or Git.</p>
+          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -179,15 +226,12 @@ export default function ExtensionsManager() {
             onClick={() => setInstalling((open) => !open)}
           >
             <PlusIcon data-icon="inline-start" />
-            Install
+            Install package
           </Button>
         </div>
 
-        {/* Collapsed until asked for: a field, a scope and a button standing
-            permanently above the list is three controls for something most
-            people do twice. */}
         {installing ? (
-          <div className="mt-3 flex flex-col gap-2.5 rounded-xl border bg-card/40 p-4">
+          <div className="flex flex-col gap-2.5 rounded-xl border bg-card/40 p-4">
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 autoFocus
@@ -197,7 +241,7 @@ export default function ExtensionsManager() {
                   if (e.key === "Enter") void install();
                   if (e.key === "Escape") setInstalling(false);
                 }}
-                placeholder="npm package or git URL"
+                placeholder="npm package or Git URL"
                 aria-label="Package source"
                 className="min-w-0 flex-1"
               />
@@ -228,94 +272,150 @@ export default function ExtensionsManager() {
           </div>
         ) : null}
 
-        {actionError ? <p className="mt-3 text-sm text-destructive">{actionError}</p> : null}
+        {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
 
-        <div className="mt-3 flex flex-col">
-          {packages === null || localExtensions === null ? (
-            <p className="border-t py-5 text-sm text-muted-foreground">Loading…</p>
-          ) : packages.length === 0 && localExtensions.length === 0 ? (
-            <p className="border-t py-5 text-sm text-muted-foreground">No extensions installed or found locally.</p>
-          ) : (
-            <>
-              {packages.map((pkg) => (
-                <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
-                  <ContextMenuTrigger
-                    render={<div className="group flex items-center gap-3 border-t py-3 pr-1" />}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="truncate text-sm font-medium">{pkg.source}</span>
-                        {pkg.filtered ? <Badge variant="secondary">filtered</Badge> : null}
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {pkg.scope === "project" ? "This project" : "Your user account"}
-                      </span>
+        {installedPackages === null ? (
+          <p className="rounded-lg border border-dashed px-3 py-5 text-sm text-muted-foreground">Loading…</p>
+        ) : installedPackages.length === 0 ? (
+          <p className="rounded-lg border border-dashed px-3 py-5 text-sm text-muted-foreground">
+            No npm or Git packages installed.
+          </p>
+        ) : (
+          <div className="rounded-lg border bg-card/30 px-3">
+            {installedPackages.map((pkg) => (
+              <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
+                <ContextMenuTrigger render={<div className="group flex min-h-14 items-center gap-3 border-b py-2.5 last:border-b-0" />}>
+                  <PackageSourceIcon source={pkg.source} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-sm font-medium">{packageLabel(pkg.source)}</span>
+                      <Badge variant="outline">{scopeLabel(pkg.scope)}</Badge>
+                      {pkg.filtered ? <Badge variant="secondary">Filtered</Badge> : null}
                     </div>
-                    {busy === pkg.source ? (
-                      <CircleNotchIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
-                    ) : (
-                      <div
-                        className={cn(
-                          HOVER_REVEAL,
-                          "flex shrink-0 items-center gap-1 group-focus-within:scale-100 group-focus-within:opacity-100 group-focus-within:blur-none group-hover:scale-100 group-hover:opacity-100 group-hover:blur-none",
-                        )}
-                      >
-                        <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => void update(pkg)}>
-                          Update
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          disabled={busy !== null}
-                          onClick={() => setPendingRemoval(pkg)}
-                          title={`Remove ${pkg.source}`}
-                          aria-label={`Remove ${pkg.source}`}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <TrashIcon />
-                        </Button>
-                      </div>
-                    )}
-                  </ContextMenuTrigger>
-                  <ContextMenuContent className="w-48">
-                    <ContextMenuItem onClick={() => void navigator.clipboard.writeText(pkg.source)}>
-                      Copy source
-                    </ContextMenuItem>
-                    <ContextMenuItem
-                      disabled={!pkg.installedPath}
-                      onClick={() => pkg.installedPath && void rpc.request.showInFolder({ path: pkg.installedPath })}
+                  </div>
+                  {busy === pkg.source ? (
+                    <CircleNotchIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
+                  ) : (
+                    <div
+                      className={cn(
+                        HOVER_REVEAL,
+                        "flex shrink-0 items-center gap-1 group-focus-within:scale-100 group-focus-within:opacity-100 group-focus-within:blur-none group-hover:scale-100 group-hover:opacity-100 group-hover:blur-none",
+                      )}
                     >
-                      Reveal install folder
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
-              ))}
-              {localExtensions.map((extension) => (
-                <ContextMenu key={extension.path}>
-                  <ContextMenuTrigger render={<div className="flex items-center gap-3 border-t py-3 pr-1" />}>
-                    <div className="min-w-0 flex-1">
-                      <span title={extension.path} className="block truncate text-sm font-medium">
-                        {extensionLabel(extension.path)}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {extension.scope === "project" ? "This project" : "Your user account"}
-                        {extension.enabled ? "" : " · Disabled"}
-                      </span>
+                      <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => void update(pkg)}>
+                        Update
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={busy !== null}
+                        onClick={() => setPendingRemoval(pkg)}
+                        title={`Remove ${packageLabel(pkg.source)}`}
+                        aria-label={`Remove ${packageLabel(pkg.source)}`}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <TrashIcon />
+                      </Button>
                     </div>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent className="w-48">
-                    <ContextMenuItem onClick={() => void navigator.clipboard.writeText(extension.path)}>
-                      Copy path
-                    </ContextMenuItem>
-                    <ContextMenuItem onClick={() => void rpc.request.showInFolder({ path: extension.path })}>
-                      Reveal in folder
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
-              ))}
-            </>
-          )}
+                  )}
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-48">
+                  <ContextMenuItem onClick={() => void navigator.clipboard.writeText(pkg.source)}>Copy source</ContextMenuItem>
+                  <ContextMenuItem
+                    disabled={!pkg.installedPath}
+                    onClick={() => pkg.installedPath && void rpc.request.showInFolder({ path: pkg.installedPath })}
+                  >
+                    Reveal install folder
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section aria-labelledby="local-heading" className="flex flex-col gap-3">
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            <h2 id="local-heading" className="font-heading text-sm font-semibold">
+              Local extensions
+            </h2>
+            {localPackages && localExtensions ? (
+              <Badge variant="secondary">{localPackages.length + localExtensions.length}</Badge>
+            ) : null}
+          </div>
+          <p className="text-xs text-muted-foreground">Extensions loaded directly from files and folders on this computer.</p>
         </div>
+
+        {localPackages === null || localExtensions === null ? (
+          <p className="rounded-lg border border-dashed px-3 py-5 text-sm text-muted-foreground">Loading…</p>
+        ) : localPackages.length === 0 && localExtensions.length === 0 ? (
+          <p className="rounded-lg border border-dashed px-3 py-5 text-sm text-muted-foreground">No local extensions found.</p>
+        ) : (
+          <div className="rounded-lg border bg-card/30 px-3">
+            {localPackages.map((pkg) => (
+              <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
+                <ContextMenuTrigger render={<div className="group flex min-h-12 items-center gap-3 border-b py-2 last:border-b-0" />}>
+                  <LocalSourceIcon source={pkg.source} />
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <span title={pkg.source} className="truncate text-sm font-medium">
+                      {extensionLabel(pkg.source)}
+                    </span>
+                    <Badge variant="outline">{scopeLabel(pkg.scope)}</Badge>
+                    {pkg.filtered ? <Badge variant="secondary">Filtered</Badge> : null}
+                  </div>
+                  {busy === pkg.source ? (
+                    <CircleNotchIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={busy !== null}
+                      onClick={() => setPendingRemoval(pkg)}
+                      title={`Remove ${extensionLabel(pkg.source)}`}
+                      aria-label={`Remove ${extensionLabel(pkg.source)}`}
+                      className={cn(
+                        HOVER_REVEAL,
+                        "shrink-0 text-muted-foreground group-focus-within:scale-100 group-focus-within:opacity-100 group-focus-within:blur-none group-hover:scale-100 group-hover:opacity-100 group-hover:blur-none hover:text-destructive",
+                      )}
+                    >
+                      <TrashIcon />
+                    </Button>
+                  )}
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-48">
+                  <ContextMenuItem onClick={() => void navigator.clipboard.writeText(pkg.source)}>Copy path</ContextMenuItem>
+                  <ContextMenuItem
+                    disabled={!pkg.installedPath}
+                    onClick={() => pkg.installedPath && void rpc.request.showInFolder({ path: pkg.installedPath })}
+                  >
+                    Reveal in folder
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+            ))}
+            {localExtensions.map((extension) => (
+              <ContextMenu key={extension.path}>
+                <ContextMenuTrigger render={<div className="flex min-h-12 items-center gap-3 border-b py-2 last:border-b-0" />}>
+                  <LocalSourceIcon source={extension.path} />
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <span title={extension.path} className="truncate text-sm font-medium">
+                      {extensionLabel(extension.path)}
+                    </span>
+                    <Badge variant="outline">{scopeLabel(extension.scope)}</Badge>
+                    {!extension.enabled ? <Badge variant="secondary">Disabled</Badge> : null}
+                  </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-48">
+                  <ContextMenuItem onClick={() => void navigator.clipboard.writeText(extension.path)}>Copy path</ContextMenuItem>
+                  <ContextMenuItem onClick={() => void rpc.request.showInFolder({ path: extension.path })}>
+                    Reveal in folder
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+            ))}
+          </div>
+        )}
       </section>
 
       {graphicalErrors.length > 0 || errors.length > 0 ? (
@@ -345,11 +445,17 @@ export default function ExtensionsManager() {
         description={
           <>
             Pi will no longer load this package for{" "}
-            {pendingRemoval?.scope === "project" ? "this project" : "your user account"}. You can install it again from
-            the same source.
+            {pendingRemoval?.scope === "project" ? "this project" : "your user account"}. You can add it again from the
+            same source.
           </>
         }
-        detail={pendingRemoval?.source}
+        detail={
+          pendingRemoval
+            ? pendingRemoval.local
+              ? extensionLabel(pendingRemoval.source)
+              : packageLabel(pendingRemoval.source)
+            : undefined
+        }
         confirmLabel="Remove extension"
         destructive
         onConfirm={() => {
