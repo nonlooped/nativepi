@@ -3,6 +3,7 @@ import { getAgentDir, SettingsManager } from "@earendil-works/pi-coding-agent";
 import { app } from "electron";
 import { LIVE_SETTINGS, type PiPaths, type PiSettings, type PiSettingsPatch } from "../shared/pi-settings.ts";
 import type { ThinkingLevel } from "../shared/pi-types.ts";
+import { parse as parseCommand, quote as quoteCommand } from "shell-quote";
 import { piServices } from "./pi/services.ts";
 
 /**
@@ -94,7 +95,7 @@ export function readPiSettings(): PiSettings {
     httpIdleTimeoutMs: settings.getHttpIdleTimeoutMs(),
     shellPath: settings.getShellPath() ?? "",
     shellCommandPrefix: settings.getShellCommandPrefix() ?? "",
-    npmCommand: (settings.getNpmCommand() ?? []).join(" "),
+    npmCommand: quoteCommand(settings.getNpmCommand() ?? []),
     enabledModels: (settings.getEnabledModels() ?? []).join("\n"),
     defaultProjectTrust: settings.getDefaultProjectTrust(),
     blockImages: settings.getBlockImages(),
@@ -172,7 +173,11 @@ export async function writePiSettings(patch: PiSettingsPatch): Promise<void> {
     settings.setShellCommandPrefix(patch.shellCommandPrefix.trim() || undefined);
   }
   if (patch.npmCommand !== undefined) {
-    const command = list(patch.npmCommand);
+    const parsed = parseCommand(patch.npmCommand);
+    if (!parsed.every((part): part is string => typeof part === "string")) {
+      throw new Error("The npm command must contain only a command and arguments.");
+    }
+    const command = parsed.filter(Boolean);
     settings.setNpmCommand(command.length > 0 ? command : undefined);
   }
   if (patch.enabledModels !== undefined) {

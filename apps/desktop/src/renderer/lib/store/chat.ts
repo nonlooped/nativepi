@@ -11,6 +11,7 @@ import {
   persist,
   reportDraft,
   setLastChat,
+  warmProject,
 } from "./internals.ts";
 import { readAsBase64, toImageContent } from "../attachments.ts";
 import { showAttachmentsRejected } from "../toast.tsx";
@@ -19,11 +20,19 @@ import type { ImageAttachment } from "../../../shared/rpc-schema.ts";
 import { togglePinnedPath } from "../chatOrganization.ts";
 import { dropAllSurfaces } from "../tuiSurfaces.ts";
 import { isAssistant, isUser, sessionPromptSummary } from "../../../shared/messages.ts";
+import { draftKeyFor } from "../../../shared/messages.ts";
 import { NO_EXTENSION_UI_STATE, type ChatSlice, type Conversation, type GetState, type PendingMessage, type SetState, type SliceCreator } from "./types.ts";
 
 let pendingId = 1;
 const MAX_REMOTE_IMAGE_BATCH_BYTES = 48 * 1024 * 1024;
 const sessionRefreshes = new Map<string, Promise<void>>();
+const reboundDraftKeys = new Map<string, string>();
+const coldChatTokens = new Map<string, number>();
+let nextColdChatToken = 1;
+
+function currentDraftKey(key: string): string {
+  return reboundDraftKeys.get(key) ?? key;
+}
 
 function retainLiveConversations(conversations: Record<string, Conversation>, selectedKey: string) {
   return Object.fromEntries(Object.entries(conversations).filter(([key, conversation]) =>
@@ -59,6 +68,7 @@ function addSidebarSession(set: SetState, projectDir: string, session: SessionSu
 }
 
 function recordSidebarMessage(set: SetState, projectDir: string, sessionFile: string, message: AgentMessage) {
+  if (!isUser(message) && !isAssistant(message)) return;
   set((state) => {
     const sessions = state.sessionsByProject[projectDir];
     const index = sessions?.findIndex((session) => session.path === sessionFile) ?? -1;
@@ -143,6 +153,7 @@ function clearAttachments(set: SetState, key: string): void {
 /** Put images back under a key without disturbing whatever is there now. */
 function addAttachments(set: SetState, key: string, images: ImageAttachment[], atFront = false): void {
   if (images.length === 0) return;
+  key = currentDraftKey(key);
   set((s) => {
     const held = s.attachments[key] ?? [];
     const merged = atFront ? [...images, ...held] : [...held, ...images];
@@ -152,12 +163,17 @@ function addAttachments(set: SetState, key: string, images: ImageAttachment[], a
 
 /** One more, or one fewer, batch being read and resized for this draft. */
 function countPreparing(set: SetState, key: string, delta: number): void {
+  key = currentDraftKey(key);
   set((s) => {
     const count = (s.preparing[key] ?? 0) + delta;
     if (count > 0) return { preparing: { ...s.preparing, [key]: count } };
     const { [key]: _done, ...rest } = s.preparing;
     return { preparing: rest };
   });
+}
+
+function restoredDraft(sent: string, newer: string | undefined): string {
+  return newer ? `${sent}\n\n${newer}` : sent;
 }
 
 export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
@@ -205,10 +221,15 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
 
   selectChat: async (sessionFile) => {
     const projectPath = get().activeProjectPath;
+    if (projectPath) coldChatTokens.delete(projectPath);
     clearSessionExtensionUi(set);
     set((state) => ({
       activeSessionFile: sessionFile,
       isNewChat: false,
+      models: [],
+      model: undefined,
+      thinkingLevel: "off",
+      thinkingLevels: ["off"],
       conversations: retainLiveConversations(state.conversations, sessionFile),
     }));
     reportActiveDraft(get);
@@ -227,22 +248,38 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       // the path back into a project that kept working in the background, and
       // its conversation has been fed every event in the meantime.
       const conv = get().conversations[sessionFile];
-      if (conv && (conv.running || conv.error !== undefined)) return;
+      if (conv && (conv.running || conv.error !== undefined)) {
+        const trust = get().trust;
+        if (trust && (!trust.required || trust.trusted)) warmProject(set, get, projectPath);
+        return;
+      }
       patchConversation(set, projectPath, sessionFile, () => ({ ...emptyConversation(), projectDir: projectPath, sessionFile }));
     }
     const { entries } = await rpc.request.readSession({ sessionFile });
     if (get().activeSessionFile !== sessionFile || get().activeProjectPath !== projectPath) return;
     if (projectPath) {
+      const current = get().conversations[sessionFile];
+      if (current && (current.running || current.streaming || current.entries.length > 0)) {
+        const trust = get().trust;
+        if (trust && (!trust.required || trust.trusted)) warmProject(set, get, projectPath);
+        return;
+      }
       patchConversation(set, projectPath, sessionFile, {
         entries: entries.filter((e): e is SessionEntry => e.type !== "session"),
         sessionName: sessionInfoName(entries),
       });
+      const trust = get().trust;
+      if (trust && (!trust.required || trust.trusted)) warmProject(set, get, projectPath);
     }
   },
 
   newChat: () => {
     clearSessionExtensionUi(set);
     const projectDir = get().activeProjectPath;
+    if (projectDir) {
+      reboundDraftKeys.delete(draftKeyFor(projectDir, null));
+      coldChatTokens.set(projectDir, nextColdChatToken++);
+    }
     if (projectDir) {
       set((state) => ({ conversations: retainLiveConversations(state.conversations, projectDir) }));
     }
@@ -371,15 +408,28 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       errorRecovery: undefined,
       runStartedAt: pendingEntry ? Date.now() : c.runStartedAt,
     }));
+    const optimisticConversation = conversationFor(get(), projectDir, s.activeSessionFile);
+    const coldChatToken = s.activeSessionFile
+      ? undefined
+      : (coldChatTokens.get(projectDir) ?? (() => {
+          const token = nextColdChatToken++;
+          coldChatTokens.set(projectDir, token);
+          return token;
+        })());
     get().setDraft("");
     clearAttachments(set, key);
 
-    const res = await rpc.request.submit({
-      projectDir,
-      sessionFile: s.activeSessionFile,
-      message: text,
-      images: images.map(toImageContent),
-    });
+    let res: Awaited<ReturnType<typeof rpc.request.submit>>;
+    try {
+      res = await rpc.request.submit({
+        projectDir,
+        sessionFile: s.activeSessionFile,
+        message: text,
+        images: images.map(toImageContent),
+      });
+    } catch (error) {
+      res = { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
     if (!res.ok) {
       patchConversation(set, projectDir, s.activeSessionFile, (c) => ({
         pending: c.pending.filter((p) => p.id !== pendingEntry?.id),
@@ -391,7 +441,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       // would send a message about a screenshot that is no longer attached. They
       // go in front of whatever was attached while the send was in flight — the
       // composer stayed usable, and those images are for the next message.
-      set((st) => ({ drafts: { ...st.drafts, [key]: text } }));
+      set((st) => ({ drafts: { ...st.drafts, [key]: restoredDraft(text, st.drafts[key]) } }));
       addAttachments(set, key, images, true);
       return;
     }
@@ -411,14 +461,54 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
         });
       }
       if (!s.activeSessionFile) {
+        const sameColdChat = coldChatTokens.get(projectDir) === coldChatToken;
+        if (sameColdChat) reboundDraftKeys.set(draftKeyFor(projectDir, null), res.sessionFile);
         set((state) => {
-          const { [projectDir]: draft, ...conversations } = state.conversations;
-          return { conversations: { ...conversations, [res.sessionFile!]: { ...(draft ?? emptyConversation()), projectDir, sessionFile: res.sessionFile! } } };
+          const projectConversation = state.conversations[projectDir];
+          const conversations = { ...state.conversations };
+          const draftConversation = sameColdChat ? projectConversation : optimisticConversation;
+          if (sameColdChat) delete conversations[projectDir];
+          const sessionConversation = conversations[res.sessionFile!];
+          const pending = [...(sessionConversation?.pending ?? [])];
+          for (const item of draftConversation?.pending ?? []) {
+            if (!pending.some((candidate) => candidate.id === item.id)) pending.push(item);
+          }
+          const coldDraftKey = draftKeyFor(projectDir, null);
+          const coldDraft = sameColdChat ? state.drafts[coldDraftKey] : undefined;
+          const coldAttachments = sameColdChat ? state.attachments[coldDraftKey] : undefined;
+          const coldPreparing = sameColdChat ? state.preparing[coldDraftKey] : undefined;
+          const drafts = { ...state.drafts };
+          const attachments = { ...state.attachments };
+          const preparing = { ...state.preparing };
+          if (sameColdChat) {
+            delete drafts[coldDraftKey];
+            delete attachments[coldDraftKey];
+            delete preparing[coldDraftKey];
+          }
+          return {
+            conversations: {
+              ...conversations,
+              [res.sessionFile!]: {
+                ...(draftConversation ?? emptyConversation()),
+                ...(sessionConversation ?? {}),
+                pending,
+                projectDir,
+                sessionFile: res.sessionFile!,
+              },
+            },
+            drafts: coldDraft === undefined ? drafts : { ...drafts, [res.sessionFile!]: coldDraft },
+            attachments: coldAttachments === undefined ? attachments : { ...attachments, [res.sessionFile!]: coldAttachments },
+            preparing: coldPreparing === undefined ? preparing : { ...preparing, [res.sessionFile!]: coldPreparing },
+          };
         });
       }
       setLastChat(projectDir, res.sessionFile);
       persist(get);
-      if (get().activeProjectPath === projectDir && get().activeSessionFile !== res.sessionFile) {
+      if (
+        get().activeProjectPath === projectDir
+        && get().activeSessionFile === null
+        && coldChatTokens.get(projectDir) === coldChatToken
+      ) {
         set({ activeSessionFile: res.sessionFile, isNewChat: false });
         void rpc.request.watchSession({ projectDir, sessionFile: res.sessionFile });
       }
@@ -446,21 +536,26 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
      * asks. Sending every `/` message this way lets Pi make that call rather
      * than NativePi guessing which kind of command it is holding.
      */
-    const res = text.startsWith("/")
-      ? await rpc.request.submit({
-          projectDir,
-          sessionFile,
-          message: text,
-          images: images.map(toImageContent),
-          streamingBehavior: behavior,
-        })
-      : await rpc.request.enqueue({ projectDir, sessionFile: sessionFile!, behavior, message: text, images: images.map(toImageContent) });
+    let res: { ok: boolean; error?: string };
+    try {
+      res = text.startsWith("/")
+        ? await rpc.request.submit({
+            projectDir,
+            sessionFile,
+            message: text,
+            images: images.map(toImageContent),
+            streamingBehavior: behavior,
+          })
+        : await rpc.request.enqueue({ projectDir, sessionFile: sessionFile!, behavior, message: text, images: images.map(toImageContent) });
+    } catch (error) {
+      res = { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
     if (!res.ok) {
       patchConversation(set, projectDir, sessionFile, {
         error: res.error ?? "Failed to queue message",
         errorRecovery: "retrySend",
       });
-      set((st) => ({ drafts: { ...st.drafts, [key]: text } }));
+      set((st) => ({ drafts: { ...st.drafts, [key]: restoredDraft(text, st.drafts[key]) } }));
       addAttachments(set, key, images, true);
     }
   },
@@ -468,7 +563,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   abort: () => {
     const projectDir = get().activeProjectPath;
     const sessionFile = get().activeSessionFile;
-    if (projectDir && sessionFile) void rpc.request.abort({ projectDir, sessionFile });
+    if (projectDir) void rpc.request.abort({ projectDir, sessionFile });
   },
 
   abortRetry: () => {
@@ -573,7 +668,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       const request = event as ExtensionUiRequest;
       const isPrompt = request.method === "select" || request.method === "confirm" || request.method === "input" || request.method === "editor";
       const isActiveSession = projectDir === s.activeProjectPath && (sessionFile ?? null) === (s.activeSessionFile ?? null);
-      if (isActiveSession || isPrompt) applyExtensionUi(set, get, projectDir, request);
+      if (isActiveSession || isPrompt) applyExtensionUi(set, get, projectDir, sessionFile ?? null, request);
       return;
     }
     if (event.type === "thinking_level_changed") {
@@ -616,20 +711,30 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       recordSidebarMessage(set, projectDir, sessionFile, finalizedMessage);
     }
     if (event.type === "agent_settled" && conv.runStartedAt !== null) {
-      set((state) => ({
-        extensionPromptsByProject: { ...state.extensionPromptsByProject, [projectDir]: [] },
-        ...(projectDir === state.activeProjectPath ? { extPrompts: [] } : {}),
-      }));
+      set((state) => {
+        const prompts = (state.extensionPromptsByProject[projectDir] ?? [])
+          .filter((prompt) => prompt.sessionFile !== (sessionFile ?? null));
+        return {
+          extensionPromptsByProject: { ...state.extensionPromptsByProject, [projectDir]: prompts },
+          ...(projectDir === state.activeProjectPath ? { extPrompts: prompts } : {}),
+        };
+      });
     }
   },
 
-  onPiError: (projectDir, message) => {
+  onPiError: (projectDir, message, sessionFile) => {
     // The draft was cleared by the submit that succeeded, so there is nothing
     // to re-send; restarting Pi is the recovery that actually applies.
-    patchConversation(set, projectDir, get().activeProjectPath === projectDir ? get().activeSessionFile : null, {
+    const running = Object.values(get().conversations).find((conversation) =>
+      conversation.projectDir === projectDir && (conversation.running || conversation.pending.length > 0),
+    );
+    const target = sessionFile ?? running?.sessionFile
+      ?? (get().activeProjectPath === projectDir ? get().activeSessionFile : null);
+    patchConversation(set, projectDir, target, {
       error: message,
       errorRecovery: "restartPi",
       running: false,
+      streaming: null,
       runStartedAt: null,
     });
   },

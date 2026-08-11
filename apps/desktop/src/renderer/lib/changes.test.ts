@@ -39,6 +39,11 @@ describe("diffPatchFor", () => {
     expect(patch).toBe("--- /dev/null\n+++ x\n@@ -0,0 +1,2 @@\n+a\n+b");
   });
 
+  test("does not count the sentinel after a newline-terminated write", () => {
+    const patch = diffPatchFor(toolCall("1", "write", { path: "x", content: "a\nb\n" }));
+    expect(countPatchLines(patch!)).toEqual({ added: 2, removed: 0 });
+  });
+
   test("has no patch for a write with no path", () => {
     expect(diffPatchFor(toolCall("1", "write", { content: "a\nb" }))).toBeUndefined();
   });

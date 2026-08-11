@@ -501,7 +501,8 @@ function BranchSelector() {
   const isRepo = useAppStore((s) => s.git?.isRepo ?? false);
   const branch = useAppStore((s) => s.git?.branch);
   const detached = useAppStore((s) => s.git?.detached ?? false);
-  const running = useAppStore((s) => activeConversation(s).running);
+  const running = useAppStore((s) => Object.values(s.conversations)
+    .some((conversation) => conversation.projectDir === s.activeProjectPath && conversation.running));
   const branchMenuRequested = useAppStore((s) => s.branchMenuRequested);
   const consumeBranchMenuRequest = useAppStore((s) => s.consumeBranchMenuRequest);
   const [open, setOpen] = useState(false);

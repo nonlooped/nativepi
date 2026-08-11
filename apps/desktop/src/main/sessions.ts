@@ -316,10 +316,12 @@ async function sessionHeader(sessionFile: string): Promise<{ parentSession?: str
   }
 }
 
+const usageDateFormatter = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" });
+
 function usageDate(messageTimestamp: number | undefined, entryTimestamp: string): string | null {
   const timestamp = typeof messageTimestamp === "number" ? messageTimestamp : Date.parse(entryTimestamp);
   if (!Number.isFinite(timestamp)) return null;
-  const parts = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(timestamp);
+  const parts = usageDateFormatter.formatToParts(timestamp);
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value;
   const year = part("year");
   const month = part("month");

@@ -26,6 +26,7 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
     markGitRefreshed();
     const { status } = await rpc.request.gitStatus({ projectDir: path });
     if (get().activeProjectPath !== path) return;
+    if (!status) return;
     set({ git: status });
     // First run only: a repo that already has changes is the one case where
     // opening the pane unprompted tells the user something they wanted to know.
@@ -62,8 +63,8 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
   respondExtension: ({ value, confirmed, cancel }) => {
     const s = get();
     const current = s.extPrompts[0];
-    const projectDir = s.activeProjectPath;
-    if (!current || !projectDir) return;
+    if (!current) return;
+    const { projectDir, sessionFile } = current;
     const response = cancel
       ? ({ type: "extension_ui_response", id: current.id, cancelled: true } as const)
       : current.method === "confirm"
@@ -74,7 +75,7 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
       extPrompts: prompts,
       extensionPromptsByProject: { ...s.extensionPromptsByProject, [projectDir]: prompts },
     });
-    void rpc.request.extensionRespond({ projectDir, sessionFile: s.activeSessionFile, response });
+    void rpc.request.extensionRespond({ projectDir, sessionFile, response });
   },
 
   /**

@@ -108,6 +108,9 @@ function createRemoteApi(): NativePiApi {
   let nextRequestId = 0;
   let socket: WebSocket | undefined;
   let connection: Promise<WebSocket> | undefined;
+  let connectedOnce = false;
+  let retryDelay = 500;
+  let retryTimer: number | undefined;
   const pending = new Map<string, {
     resolve: (value: unknown) => void;
     reject: (reason: Error) => void;
@@ -140,7 +143,10 @@ function createRemoteApi(): NativePiApi {
         const message = parsed.data;
         if (message.type === "ready") {
           ready = true;
+          retryDelay = 500;
           resolveConnection(next);
+          if (connectedOnce) window.location.reload();
+          connectedOnce = true;
           return;
         }
         if (message.type === "response") {
@@ -167,6 +173,11 @@ function createRemoteApi(): NativePiApi {
         pending.clear();
         socket = undefined;
         connection = undefined;
+        window.clearTimeout(retryTimer);
+        retryTimer = window.setTimeout(() => {
+          void connect().catch(() => {});
+        }, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 10_000);
       });
     });
     return connection;

@@ -10,7 +10,7 @@ import type {
 import { draftKeyFor, isAssistant } from "../../../shared/messages.ts";
 import { stripAnsi } from "../ansi.ts";
 import { showExtensionNotification } from "../toast.tsx";
-import type { Conversation, GetState, SetState } from "./types.ts";
+import type { Conversation, ExtensionPrompt, GetState, SetState } from "./types.ts";
 
 /** Fold one Pi event into a conversation patch. Pure, so it can be read as a table. */
 export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
@@ -190,14 +190,21 @@ export function sessionInfoName(entries: FileEntry[]): string | undefined {
 }
 
 /** Apply an extension's UI request — a dialog, a status line, a widget, a toast. */
-export function applyExtensionUi(set: SetState, get: GetState, projectDir: string, req: ExtensionUiRequest): void {
+export function applyExtensionUi(
+  set: SetState,
+  get: GetState,
+  projectDir: string,
+  sessionFile: string | null,
+  req: ExtensionUiRequest,
+): void {
   switch (req.method) {
     case "select":
     case "confirm":
     case "input":
     case "editor":
       set((s) => {
-        const prompts = [...(s.extensionPromptsByProject[projectDir] ?? []), req];
+        const prompt = { ...req, projectDir, sessionFile } as ExtensionPrompt;
+        const prompts = [...(s.extensionPromptsByProject[projectDir] ?? []), prompt];
         return {
           extensionPromptsByProject: { ...s.extensionPromptsByProject, [projectDir]: prompts },
           ...(projectDir === s.activeProjectPath ? { extPrompts: prompts } : {}),

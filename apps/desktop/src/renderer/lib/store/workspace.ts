@@ -11,6 +11,8 @@ import {
 } from "./internals.ts";
 import { NO_EXTENSION_UI_STATE, type SliceCreator, type WorkspaceSlice } from "./types.ts";
 
+let projectSelection = 0;
+
 export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => ({
   ready: false,
   projects: [],
@@ -65,7 +67,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     // Stop any turn still running in this project before its state goes away,
     // whether or not the project is the one on screen.
     for (const conversation of Object.values(get().conversations)) {
-      if (conversation.projectDir === path && conversation.running && conversation.sessionFile) {
+      if (conversation.projectDir === path && (conversation.running || conversation.pending.length > 0)) {
         await rpc.request.abort({ projectDir: path, sessionFile: conversation.sessionFile });
       }
     }
@@ -88,6 +90,8 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
   },
 
   selectProject: async (path) => {
+    const selection = ++projectSelection;
+    const stillSelected = () => selection === projectSelection && get().activeProjectPath === path;
     // The previous project's conversation is left alone: it keeps folding in
     // events while off screen, and is picked back up on return.
     const extPrompts = get().extensionPromptsByProject[path] ?? [];
@@ -145,12 +149,12 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       }
       try {
         await get().selectChat(last);
-        selectedRememberedChat = get().activeProjectPath === path && get().activeSessionFile === last;
+        selectedRememberedChat = stillSelected() && get().activeSessionFile === last;
       } catch {
         forgetLastChat(path);
       }
     }
-    if (!selectedRememberedChat && get().activeProjectPath === path) {
+    if (!selectedRememberedChat && stillSelected()) {
       if (!historyLoaded) await get().refreshSessions(path);
       const sessions = get().sessionsByProject[path] ?? [];
       if (sessions[0]) await get().selectChat(sessions[0].path);
@@ -160,7 +164,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     // A project with local extensions/skills needs a trust decision before Pi
     // loads them. Ask first; warm Pi only once the user has decided.
     const trust = await trustCheck;
-    if (get().activeProjectPath !== path) return;
+    if (!stillSelected()) return;
     set({ trust });
     if (trust.required && !trust.trusted) {
       set({ trustPrompt: { projectPath: path } });

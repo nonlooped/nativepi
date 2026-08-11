@@ -134,6 +134,8 @@ export type TuiCompletionEdit = z.infer<typeof tuiCompletionEditSchema>;
 
 /** Frames the Pi host writes to the app. */
 export const tuiHostFrameSchema = z.discriminatedUnion("type", [
+  /** Keeps main-process routing aligned when an extension replaces the session. */
+  z.object({ type: z.literal("nativepi_tui_session"), sessionFile: z.string().min(1).max(32_767) }),
   z.object({ type: z.literal("nativepi_tui_open"), surface: surfaceSchema }),
   z.object({ type: z.literal("nativepi_tui_write"), surfaceId: z.string().min(1).max(64), data: z.string() }),
   z.object({ type: z.literal("nativepi_tui_close"), surfaceId: z.string().min(1).max(64) }),

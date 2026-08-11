@@ -41,11 +41,16 @@ export default function PullRequestDialog({ projectDir, onClose }: { projectDir:
     if (!projectDir || !title.trim()) return;
     setBusy(true);
     setError(null);
-    const result = await rpc.request.gitPushAndCreatePr({ projectDir, title, body });
-    setBusy(false);
-    if (!result.ok) return setError(result.error ?? "GitHub CLI could not open the pull request.");
-    if (result.url) window.open(result.url, "_blank", "noopener,noreferrer");
-    onClose();
+    try {
+      const result = await rpc.request.gitPushAndCreatePr({ projectDir, title, body });
+      if (!result.ok) return setError(result.error ?? "GitHub CLI could not open the pull request.");
+      if (result.url) window.open(result.url, "_blank", "noopener,noreferrer");
+      onClose();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "GitHub CLI could not open the pull request.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   const canOpen = Boolean(title.trim()) && !busy && target !== null && !target.blocker;

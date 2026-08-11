@@ -60,17 +60,23 @@ export class PiProcess {
   private pending = new Map<string, { resolve: (data: unknown) => void; reject: (err: Error) => void }>();
   private frameWaiters = new Map<string, { resolve: (data: unknown) => void; reject: (err: Error) => void }>();
   private buffer = "";
+  private readonly ended: Promise<void>;
+  private resolveEnded!: () => void;
+  private stopping = false;
 
   constructor(
     projectDir: string,
     onEvent: (msg: PiMessage) => void,
-    onExit: (code: number | null) => void,
+    onExit: (code: number | null, error?: Error, expected?: boolean) => void,
     onFrame: (frame: TuiHostFrame) => void = () => {},
     args: string[] = [],
   ) {
     this.projectDir = projectDir;
     this.onEvent = onEvent;
     this.onFrame = onFrame;
+    this.ended = new Promise((resolve) => {
+      this.resolveEnded = resolve;
+    });
 
     // Electron's process.execPath is the Electron binary; ELECTRON_RUN_AS_NODE
     // makes it behave as plain Node so the Pi host entry runs correctly.
@@ -94,10 +100,16 @@ export class PiProcess {
       if (chunk.trim()) console.error(`[pi ${projectDir}]`, chunk.trimEnd());
     });
 
-    this.proc.on("exit", (code) => {
-      this.rejectAll(new Error(`Pi exited (${code ?? "?"})`));
-      onExit(code);
-    });
+    let finished = false;
+    const finish = (code: number | null, error?: Error) => {
+      if (finished) return;
+      finished = true;
+      this.rejectAll(error ?? new Error(`Pi exited (${code ?? "?"})`));
+      this.resolveEnded();
+      onExit(code, error, this.stopping);
+    };
+    this.proc.on("error", (error) => finish(null, error));
+    this.proc.on("exit", (code) => finish(code));
   }
 
   private dispatch(msg: PiMessage): void {
@@ -251,14 +263,14 @@ export class PiProcess {
   }
 
   async stop(): Promise<void> {
+    this.stopping = true;
     try {
       this.proc.stdin.end();
     } catch {
     }
-    if (!this.proc.killed) this.proc.kill();
-    await new Promise<void>((resolve) => {
-      if (this.proc.exitCode !== null) resolve();
-      else this.proc.once("exit", () => resolve());
-    });
+    try {
+      if (!this.proc.killed) this.proc.kill();
+    } catch {}
+    await this.ended;
   }
 }

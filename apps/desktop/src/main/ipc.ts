@@ -101,7 +101,14 @@ function status(projectDir: string, status: PiStatus, detail?: string): void {
  */
 const busyUntil = new Map<string, number>();
 const SETTLE_GRACE_MS = 3000;
-const sessionWatches = new Map<string, { projectDir: string; mtimeMs: number; stop: () => void }>();
+type SessionWatch = {
+  projectDir: string;
+  mtimeMs: number;
+  pendingMtimeMs?: number;
+  notifyTimer?: ReturnType<typeof setTimeout>;
+  stop: () => void;
+};
+const sessionWatches = new Map<string, SessionWatch>();
 const projectSessionWatches = new Map<string, () => void>();
 const sessionNotificationTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -173,6 +180,40 @@ function markBusy(projectDir: string, until: number): void {
   busyUntil.set(projectDir, until);
 }
 
+function scheduleSuppressedSessionCheck(sessionFile: string): void {
+  const watch = sessionWatches.get(sessionFile);
+  const until = busyUntil.get(sessionFile) ?? 0;
+  if (!watch?.pendingMtimeMs || until === Number.POSITIVE_INFINITY) return;
+  clearTimeout(watch.notifyTimer);
+  watch.notifyTimer = setTimeout(() => {
+    if (sessionWatches.get(sessionFile) !== watch || watch.pendingMtimeMs === undefined) return;
+    if (Date.now() < (busyUntil.get(sessionFile) ?? 0)) return scheduleSuppressedSessionCheck(sessionFile);
+    watch.mtimeMs = watch.pendingMtimeMs;
+    watch.pendingMtimeMs = undefined;
+    push("sessionChangedExternally", { projectDir: watch.projectDir, sessionFile });
+  }, Math.max(0, until - Date.now()) + 10);
+}
+
+function acknowledgePiSessionWrite(sessionFile: string): void {
+  setTimeout(() => {
+    void sessionMtime(sessionFile).then((mtimeMs) => {
+      const watch = sessionWatches.get(sessionFile);
+      if (!watch) return;
+      watch.mtimeMs = mtimeMs;
+      watch.pendingMtimeMs = undefined;
+      clearTimeout(watch.notifyTimer);
+      watch.notifyTimer = undefined;
+    }).catch(() => {});
+  }, 25);
+}
+
+function projectHasActiveRun(projectDir: string): boolean {
+  return [...new Set([...pis.values(), ...draftPis.values(), ...startingPis.values()])]
+    .some((pi) => pi.projectDir === projectDir
+      && (busyUntil.get(pi.boundSessionFile ?? projectDir) === Number.POSITIVE_INFINITY
+        || busyUntil.get(projectDir) === Number.POSITIVE_INFINITY));
+}
+
 /** Session path the window should match this process against. */
 function clientSessionFile(projectDir: string, pi: PiProcess) {
   // A blank chat's draft Pi already has a hidden session file on disk, but the
@@ -216,11 +257,15 @@ function forwardEvent(projectDir: string, pi: PiProcess, event: PiMessage): void
   // of those emit anything while they wait. `agent_settled` is the event Pi
   // documents as "nothing will start again on its own", so it is the only one
   // that hands the project back.
-  else if (event["type"] === "agent_settled") markBusy(sessionFile, Date.now() + SETTLE_GRACE_MS);
+  else if (event["type"] === "agent_settled") {
+    markBusy(sessionFile, Date.now() + SETTLE_GRACE_MS);
+    scheduleSuppressedSessionCheck(sessionFile);
+  }
   // Any Pi message means Pi is alive and touching this project right now.
   else if (busyUntil.get(sessionFile) !== Number.POSITIVE_INFINITY) {
     markBusy(sessionFile, Date.now() + SETTLE_GRACE_MS);
   }
+  if (event["type"] !== "agent_settled") acknowledgePiSessionWrite(sessionFile);
   if (event["type"] === "message_update") {
     queueDisplayDelta(projectDir, pi, event);
     return;
@@ -247,9 +292,11 @@ let quitConfirmed = false;
 
 export function quitBlocked(): boolean {
   if (quitConfirmed) return false;
-  const runs = [...pis.entries()]
-    .filter(([sessionFile]) => busyUntil.get(sessionFile) === Number.POSITIVE_INFINITY)
-    .map(([, pi]) => pi.projectDir);
+  const livePis = [...new Set([...pis.values(), ...draftPis.values(), ...startingPis.values()])];
+  const runs = livePis
+    .filter((pi) => busyUntil.get(pi.boundSessionFile ?? pi.projectDir) === Number.POSITIVE_INFINITY
+      || busyUntil.get(pi.projectDir) === Number.POSITIVE_INFINITY)
+    .map((pi) => pi.projectDir);
   const terminals = liveTerminalProjects();
   const viewers = localServerStatus().clients.length;
   if (runs.length === 0 && terminals.length === 0 && viewers === 0) return false;
@@ -259,12 +306,16 @@ export function quitBlocked(): boolean {
 
 function stopSessionWatch(sessionFile: string): void {
   const watch = sessionWatches.get(sessionFile);
+  clearTimeout(watch?.notifyTimer);
   watch?.stop();
   sessionWatches.delete(sessionFile);
 }
 
 function stopAllSessionWatches(): void {
-  for (const watch of sessionWatches.values()) watch.stop();
+  for (const watch of sessionWatches.values()) {
+    clearTimeout(watch.notifyTimer);
+    watch.stop();
+  }
   sessionWatches.clear();
 }
 
@@ -273,6 +324,10 @@ function errorMessage(err: unknown): string {
 }
 
 function forwardPiFrame(projectDir: string, pi: PiProcess, frame: TuiHostFrame): void {
+  if (frame.type === "nativepi_tui_session") {
+    rememberPi(pi, frame.sessionFile);
+    return;
+  }
   if (frame.type === "nativepi_tui_auth_prompt") {
     push("authPrompt", { projectDir, id: frame.id, prompt: frame.prompt });
     return;
@@ -307,7 +362,9 @@ async function stopIdleProjectPis(projectDir: string, keep: PiProcess): Promise<
 
 function projectPi(projectDir: string, sessionFile?: string | null): PiProcess | undefined {
   if (sessionFile) return pis.get(sessionFile);
-  return draftPis.get(projectDir) ?? [...pis.values()].find((pi) => pi.projectDir === projectDir);
+  return draftPis.get(projectDir)
+    ?? [...startingPis.values()].find((pi) => pi.projectDir === projectDir)
+    ?? [...pis.values()].find((pi) => pi.projectDir === projectDir);
 }
 
 function ensurePi(projectDir: string, sessionFile?: string, fresh = false): Promise<PiProcess> {
@@ -320,10 +377,11 @@ function ensurePi(projectDir: string, sessionFile?: string, fresh = false): Prom
   const startup = (async () => {
     status(projectDir, "starting", projectDir);
     let pi!: PiProcess;
+    let startupFailureReported = false;
     pi = new PiProcess(
       projectDir,
       (msg) => forwardEvent(projectDir, pi, msg),
-      (code) => {
+      (code, processError, expected) => {
         // Panes belong to the process that drew them: a Pi that dies takes its
         // surfaces with it, and the window has to be told or they stay on screen
         // with nothing behind them.
@@ -335,6 +393,15 @@ function ensurePi(projectDir: string, sessionFile?: string, fresh = false): Prom
         // marker with the process rather than leaving this project looking
         // permanently busy to the watcher.
         if (pi.boundSessionFile) busyUntil.delete(pi.boundSessionFile);
+        busyUntil.delete(projectDir);
+        if (!expected && !startupFailureReported) {
+          startupFailureReported = true;
+          push("piError", {
+            projectDir,
+            sessionFile: clientSessionFile(projectDir, pi),
+            message: processError?.message ?? `Pi exited (${code ?? "?"})`,
+          });
+        }
         if (![...pis.values(), ...draftPis.values(), ...startingPis.values()].some((other) => other.projectDir === projectDir)) {
           status(projectDir, "exited", `exit ${code ?? "?"}`);
         }
@@ -350,16 +417,32 @@ function ensurePi(projectDir: string, sessionFile?: string, fresh = false): Prom
       } else {
         rememberPi(pi, state.sessionFile);
       }
-    } catch {
+      if (!sessionFile) draftPis.set(projectDir, pi);
+      status(projectDir, "ready");
+      return pi;
+    } catch (error) {
+      const message = errorMessage(error);
+      if (!startupFailureReported) {
+        startupFailureReported = true;
+        push("piError", { projectDir, sessionFile, message });
+      }
+      await pi.stop();
+      status(projectDir, "error", message);
+      throw error;
+    } finally {
+      if (startingPis.get(key) === pi) startingPis.delete(key);
     }
-    startingPis.delete(key);
-    if (!sessionFile) draftPis.set(projectDir, pi);
-    status(projectDir, "ready");
-    starting.delete(key);
-    return pi;
   })();
 
   starting.set(key, startup);
+  void startup.then(
+    () => {
+      if (starting.get(key) === startup) starting.delete(key);
+    },
+    () => {
+      if (starting.get(key) === startup) starting.delete(key);
+    },
+  );
   return startup;
 }
 
@@ -592,7 +675,7 @@ const handlers: HandlerMap = {
   },
 
   restartPi: async ({ projectDir }) => {
-    const all = [...new Set([...pis.values(), ...startingPis.values()].filter((pi) => pi.projectDir === projectDir))];
+    const all = [...new Set([...pis.values(), ...draftPis.values(), ...startingPis.values()].filter((pi) => pi.projectDir === projectDir))];
     draftPis.delete(projectDir);
     for (const pi of all) if (pi.boundSessionFile) pis.delete(pi.boundSessionFile);
     await Promise.all(all.map((pi) => pi.stop()));
@@ -608,7 +691,7 @@ const handlers: HandlerMap = {
    * settings the file now holds.
   */
   restartAllPi: async () => {
-    const all = [...new Set([...pis.values(), ...startingPis.values()])];
+    const all = [...new Set([...pis.values(), ...draftPis.values(), ...startingPis.values()])];
     pis.clear();
     draftPis.clear();
     starting.clear();
@@ -658,19 +741,25 @@ const handlers: HandlerMap = {
         if (draftPis.get(projectDir) === pi) draftPis.delete(projectDir);
       }
       if (sessionFile) markBusy(sessionFile, Number.POSITIVE_INFINITY);
-      pi.send({ type: "prompt", message, images, streamingBehavior });
+      await pi.request({ type: "prompt", message, images, streamingBehavior });
+      if (sessionFile) busyUntil.delete(projectDir);
       return { ok: true, sessionFile: sessionFile ?? undefined };
     } catch (err) {
       markBusy(sessionFile ?? projectDir, Date.now() + SETTLE_GRACE_MS);
+      if (sessionFile) busyUntil.delete(projectDir);
       return { ok: false, error: errorMessage(err) };
     }
   },
 
-  enqueue: ({ projectDir, sessionFile, behavior, message, images }) => {
+  enqueue: async ({ projectDir, sessionFile, behavior, message, images }) => {
     const pi = pis.get(sessionFile);
     if (!pi) return { ok: false, error: "Pi is not running" };
-    pi.send({ type: behavior === "steer" ? "steer" : "follow_up", message, images });
-    return { ok: true };
+    try {
+      await pi.request({ type: behavior === "steer" ? "steer" : "follow_up", message, images });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
   },
 
   prepareImages: async (params) => {
@@ -682,8 +771,8 @@ const handlers: HandlerMap = {
     }
   },
 
-  abort: ({ sessionFile }) => {
-    pis.get(sessionFile)?.send({ type: "abort" });
+  abort: ({ projectDir, sessionFile }) => {
+    projectPi(projectDir, sessionFile)?.send({ type: "abort" });
     return { ok: true };
   },
 
@@ -796,15 +885,19 @@ const handlers: HandlerMap = {
     stopSessionWatch(sessionFile);
 
     const baseline = await sessionMtime(sessionFile);
-    const entry = {
+    const entry: SessionWatch = {
       projectDir,
       mtimeMs: baseline,
       stop: () => {},
     };
     entry.stop = watchSessionFile(sessionFile, (mtimeMs) => {
       if (sessionWatches.get(sessionFile) !== entry || mtimeMs === entry.mtimeMs) return;
+      if (Date.now() < (busyUntil.get(sessionFile) ?? 0)) {
+        entry.pendingMtimeMs = mtimeMs;
+        scheduleSuppressedSessionCheck(sessionFile);
+        return;
+      }
       entry.mtimeMs = mtimeMs;
-      if (Date.now() < (busyUntil.get(sessionFile) ?? 0)) return; // Our own Pi wrote it.
       push("sessionChangedExternally", { projectDir, sessionFile });
     });
     sessionWatches.set(sessionFile, entry);
@@ -1236,6 +1329,7 @@ const handlers: HandlerMap = {
   gitCheckout: async (params) => {
     try {
       const { projectDir, branch, create } = gitMutationParamsSchema.parse(params);
+      if (projectHasActiveRun(projectDir)) return { ok: false, error: "Stop every run in this project before switching branches." };
       return await gitCheckout(projectDir, branch, create);
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
@@ -1436,7 +1530,10 @@ async function ensureLocalAccess(localNetwork: boolean): Promise<void> {
 async function startRemoteAccessForCurrentServer(): Promise<void> {
   const connection = localServerConnection();
   if (!connection) throw new Error("NativePi could not start its access server.");
-  await startRemoteAccess(connection.port, connection.token, join(app.getPath("userData"), "bin"));
+  await startRemoteAccess(connection.port, connection.token, join(app.getPath("userData"), "bin"), async () => {
+    if (!localServerStatus().running) await stopLocalServer();
+    setSleepBlocked(localServerConnection() !== undefined);
+  });
 }
 
 function accessStatus(localError?: string): AccessStatus {
@@ -1477,9 +1574,10 @@ export async function stopAllPi(): Promise<void> {
   await stopRemoteAccess();
   await stopLocalServer();
   setSleepBlocked(false);
-  const all = [...pis.values()];
+  const all = [...new Set([...pis.values(), ...draftPis.values(), ...startingPis.values()])];
   pis.clear();
   draftPis.clear();
   starting.clear();
+  startingPis.clear();
   await Promise.all(all.map((pi) => pi.stop()));
 }

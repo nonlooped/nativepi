@@ -559,6 +559,7 @@ function useWorkspaceShortcuts(
 ) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const running = useAppStore((s) => activeConversation(s).running);
+  const settingsOpen = useAppStore((s) => s.settingsOpen);
   const abort = useAppStore((s) => s.abort);
   const openSettings = useAppStore((s) => s.openSettings);
   const closeSettings = useAppStore((s) => s.closeSettings);
@@ -593,7 +594,8 @@ function useWorkspaceShortcuts(
           // Escape belongs to a single-line field first — it clears or closes
           // whatever the user is typing in. The composer is a textarea, so
           // stopping a run while writing the next message still works.
-          if (running && (stopTurnBinding !== "Escape" || !(event.target instanceof HTMLInputElement))) {
+          const modalOpen = settingsOpen || document.querySelector('[role="dialog"]') !== null;
+          if (!modalOpen && running && (stopTurnBinding !== "Escape" || !(event.target instanceof HTMLInputElement))) {
             event.preventDefault();
             abort();
           }
@@ -655,6 +657,7 @@ function useWorkspaceShortcuts(
     setSidebarSheetOpen,
     setContextSheetOpen,
     stopTurnBinding,
+    settingsOpen,
     toggleContextPane,
     toggleTerminal,
     toggleSidebar,

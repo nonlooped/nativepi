@@ -360,7 +360,7 @@ export type HostRequests = {
     params: { files: { name: string; mimeType: string; data: string }[] };
     response: { images: ImageAttachment[]; rejected: string[] };
   };
-  abort: { params: { projectDir: string; sessionFile: string }; response: { ok: boolean } };
+  abort: { params: { projectDir: string; sessionFile: string | null }; response: { ok: boolean } };
   getModels: { params: { projectDir: string; sessionFile?: string | null }; response: { models: ModelInfo[]; error?: string } };
   getState: { params: { projectDir: string; sessionFile?: string | null }; response: { state?: RpcSessionState; error?: string } };
   getThinkingLevels: {
@@ -662,7 +662,7 @@ export type HostRequests = {
 export type HostEvents = {
   piStatus: { projectDir: string; status: PiStatus; detail?: string };
   piEvent: { projectDir: string; sessionFile?: string; event: PiEvent | PiEventBatch };
-  piError: { projectDir: string; message: string };
+  piError: { projectDir: string; sessionFile?: string; message: string };
   sessionChangedExternally: { projectDir: string; sessionFile: string };
   sessionsChanged: { projectDir: string };
   /** A watched folder's contents changed. `path` is relative, `""` being the root. */

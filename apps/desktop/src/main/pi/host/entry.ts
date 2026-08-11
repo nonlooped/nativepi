@@ -250,12 +250,29 @@ function installUiContext(): void {
       if (lastEditorFrame) internals?.handle(lastEditorFrame);
       // "tui" is what extensions guard `custom()` and component factories behind,
       // and with the surfaces above that guard is now true.
-      bindings = { ...bindings, uiContext: wrapped, mode: "tui" };
+      const actions = (bindings as Parameters<typeof bind>[0]).commandContextActions;
+      const reload = actions?.reload;
+      bindings = {
+        ...bindings,
+        uiContext: wrapped,
+        mode: "tui",
+        ...(actions && reload ? {
+          commandContextActions: {
+            ...actions,
+            reload: async () => {
+              installed?.dispose();
+              await reload();
+              installed?.bindSession(this);
+            },
+          },
+        } : {}),
+      } as Parameters<typeof bind>[0];
     }
     return bind.call(this, bindings as Parameters<typeof bind>[0]).then(() => {
       // Renderers are registered before bind, while session_start may append the
       // first custom entry during bind. Attach only after both are complete.
       installed?.bindSession(this);
+      if (this.sessionFile) send({ type: "nativepi_tui_session", sessionFile: this.sessionFile });
     });
   } as typeof bind;
 }

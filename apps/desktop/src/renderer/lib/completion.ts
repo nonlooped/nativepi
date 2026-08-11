@@ -1,43 +1,45 @@
-import { useEffect, useRef } from "react";
-import { formatElapsed, pluralize } from "./format.ts";
-import { activeConversation, useAppStore } from "./store.ts";
+import { useEffect } from "react";
+import { formatElapsed } from "./format.ts";
+import { useAppStore } from "./store.ts";
 
+function notifyFinished(elapsed: string, sound: boolean): void {
+  if (typeof Notification === "undefined" || Notification.permission === "denied") return;
+  if (Notification.permission === "default") {
+    void Notification.requestPermission();
+    return;
+  }
+  try {
+    new Notification("NativePi", {
+      body: elapsed ? `Finished in ${elapsed}` : "The agent finished its turn.",
+      silent: !sound,
+    });
+  } catch {}
+}
+
+/** Notify for any chat that finishes, including work continuing in the background. */
 export function useTurnCompletionSignal(): void {
-  const running = useAppStore((s) => activeConversation(s).running);
-  const wasRunning = useRef(false);
-  const startedAt = useRef<number | null>(null);
-
   useEffect(() => {
-    if (running) {
-      wasRunning.current = true;
-      startedAt.current = activeConversation(useAppStore.getState()).runStartedAt ?? Date.now();
-      return;
-    }
-    if (!wasRunning.current) return;
-    wasRunning.current = false;
+    const initial = useAppStore.getState();
+    const running = new Map(Object.entries(initial.conversations).map(([key, conversation]) => [
+      key,
+      { running: conversation.running, startedAt: conversation.runStartedAt },
+    ]));
 
-    const state = useAppStore.getState();
-    const elapsed = startedAt.current ? formatElapsed(Date.now() - startedAt.current) : "";
-    startedAt.current = null;
-    if (!state.preferences.notifyOnTurnEnd) return;
-    if (document.hasFocus()) return;
-    if (typeof Notification === "undefined" || Notification.permission === "denied") return;
-    if (Notification.permission === "default") {
-      void Notification.requestPermission();
-      return;
-    }
-
-    const changed = state.git?.isRepo ? state.git.files.length : 0;
-    const detail = [elapsed && `Finished in ${elapsed}`, changed > 0 && `${pluralize(changed, "file")} changed`]
-      .filter(Boolean)
-      .join(" · ");
-
-    try {
-      new Notification("NativePi", {
-        body: detail || "The agent finished its turn.",
-        silent: !state.preferences.notificationSound,
-      });
-    } catch {
-    }
-  }, [running]);
+    return useAppStore.subscribe((state) => {
+      for (const [key, conversation] of Object.entries(state.conversations)) {
+        const previous = running.get(key);
+        running.set(key, { running: conversation.running, startedAt: conversation.runStartedAt });
+        if (!previous?.running || conversation.running) continue;
+        if (!state.preferences.notifyOnTurnEnd) continue;
+        const activeKey = state.activeSessionFile ?? state.activeProjectPath;
+        const foreground = conversation.projectDir === state.activeProjectPath && key === activeKey;
+        if (foreground && document.hasFocus()) continue;
+        const elapsed = previous.startedAt ? formatElapsed(Date.now() - previous.startedAt) : "";
+        notifyFinished(elapsed, state.preferences.notificationSound);
+      }
+      for (const key of running.keys()) {
+        if (!state.conversations[key]) running.delete(key);
+      }
+    });
+  }, []);
 }

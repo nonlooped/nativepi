@@ -30,7 +30,15 @@ export async function loadState(): Promise<NativePiState> {
   }
 }
 
-export async function saveState(state: NativePiState): Promise<void> {
+let saveQueue = Promise.resolve();
+
+export function saveState(state: NativePiState): Promise<void> {
+  const next = saveQueue.then(() => writeState(state));
+  saveQueue = next.catch(() => {});
+  return next;
+}
+
+async function writeState(state: NativePiState): Promise<void> {
   await mkdir(dataDir(), { recursive: true });
   // Write-then-rename: a crash mid-write leaves the previous state intact rather
   // than a truncated file that would read as a fresh install.

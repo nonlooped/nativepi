@@ -540,7 +540,10 @@ function ChatList({
                           const select = projectPath === activeProjectPath
                             ? Promise.resolve()
                             : selectProject(projectPath);
-                          void select.then(() => selectChat(session.path)).then(onNavigate).catch(() => undefined);
+                          void select.then(() => {
+                            if (useAppStore.getState().activeProjectPath !== projectPath) return;
+                            return selectChat(session.path);
+                          }).then(onNavigate).catch(() => undefined);
                         }}
                         aria-current={selected ? "page" : undefined}
                         className={cn(

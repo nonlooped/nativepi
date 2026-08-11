@@ -8,6 +8,7 @@ import { createProjectContextSlice } from "./store/projectContext.ts";
 import { createUiSlice } from "./store/ui.ts";
 import { createWorkspaceSlice } from "./store/workspace.ts";
 import type { AppState } from "./store/types.ts";
+import { flushPersist } from "./store/internals.ts";
 
 /**
  * One store, assembled from slices.
@@ -27,6 +28,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   ...createUiSlice(set, get),
 }));
 
+window.addEventListener?.("beforeunload", () => flushPersist(useAppStore.getState));
+
 /**
  * Route host events into the store.
  *
@@ -37,7 +40,9 @@ export const useAppStore = create<AppState>((set, get) => ({
  */
 rpc.events.on("piStatus", ({ projectDir, status }) => useAppStore.getState().onStatus(projectDir, status));
 rpc.events.on("piEvent", (payload) => useAppStore.getState().onEvent(payload));
-rpc.events.on("piError", ({ projectDir, message }) => useAppStore.getState().onPiError(projectDir, message));
+rpc.events.on("piError", ({ projectDir, sessionFile, message }) =>
+  useAppStore.getState().onPiError(projectDir, message, sessionFile),
+);
 rpc.events.on("sessionChangedExternally", (payload) =>
   useAppStore.getState().onSessionChangedExternally(payload),
 );

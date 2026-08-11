@@ -37,7 +37,7 @@ import type { KeybindingOverrides, ShortcutId } from "../shortcuts.ts";
 export type ExtensionPrompt = Extract<
   ExtensionUiRequest,
   { method: "select" | "confirm" | "input" | "editor" }
->;
+> & { projectDir: string; sessionFile: string | null };
 
 export interface ExtensionWidget {
   lines: string[];
@@ -180,7 +180,7 @@ export interface ChatSlice {
   clearError: () => void;
 
   onEvent: (payload: { projectDir: string; sessionFile?: string; event: PiEvent | PiEventBatch }) => void;
-  onPiError: (projectDir: string, message: string) => void;
+  onPiError: (projectDir: string, message: string, sessionFile?: string) => void;
   onSessionChangedExternally: (payload: { projectDir: string; sessionFile: string }) => void;
 }
 

@@ -7,6 +7,7 @@ import {
   VERSION as PI_VERSION,
 } from "@earendil-works/pi-coding-agent";
 import { isProjectTrusted } from "./pi/services.ts";
+import { hasProjectGraphicalRenderer } from "./extensions.ts";
 import type { AuthNotice, AuthProviderInfo, AuthPromptRequest } from "../shared/rpc-schema.ts";
 import { toNotice, toPromptRequest } from "../shared/providerAuth.ts";
 import { shapeProviders } from "../shared/providerShape.ts";
@@ -100,9 +101,12 @@ export async function logout(providerId: string): Promise<void> {
  * by default, so NativePi surfaces the prompt and records the decision in Pi's
  * trust store; the Pi process then honors it on start.
  */
-export function checkTrust(projectDir: string): { required: boolean; trusted: boolean } {
+export async function checkTrust(projectDir: string): Promise<{ required: boolean; trusted: boolean }> {
   try {
-    return { required: hasTrustRequiringProjectResources(projectDir), trusted: isProjectTrusted(projectDir) };
+    return {
+      required: hasTrustRequiringProjectResources(projectDir) || await hasProjectGraphicalRenderer(projectDir),
+      trusted: isProjectTrusted(projectDir),
+    };
   } catch {
     // Fail open: without a decision Pi still runs untrusted, so never block.
     return { required: false, trusted: false };

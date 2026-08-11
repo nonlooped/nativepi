@@ -1,5 +1,7 @@
 export async function copyDataImage(src: string): Promise<void> {
-  const source = await fetch(src).then((response) => response.blob());
+  const response = await fetch(src);
+  if (!response.ok) throw new Error(`Could not load image (${response.status})`);
+  const source = await response.blob();
   const bitmap = await createImageBitmap(source);
   const canvas = document.createElement("canvas");
   canvas.width = bitmap.width;

@@ -102,6 +102,7 @@ export async function startRemoteAccess(
   port: number,
   token: string,
   binDir: string,
+  onExpire?: () => Promise<void>,
 ): Promise<RemoteAccessStatus> {
   if (tunnel) return status;
 
@@ -132,6 +133,7 @@ export async function startRemoteAccess(
     expiry = setTimeout(() => {
       void stopRemoteAccess().then(() => {
         status = { state: "idle", error: "The public link reached its twelve hour limit and was closed." };
+        return onExpire?.();
       });
     }, LINK_LIFETIME_MS);
   } catch (error) {

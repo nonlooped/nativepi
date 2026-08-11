@@ -452,6 +452,8 @@ function TerminalSurface({
   const cwdRef = useRef(projectDir);
   const controlRef = useRef("");
   const [selection, setSelection] = useState("");
+  const [attachError, setAttachError] = useState(false);
+  const [attachAttempt, setAttachAttempt] = useState(0);
   const fontSize = useAppStore((s) => s.preferences.terminalFontSize);
   const scrollback = useAppStore((s) => s.preferences.terminalScrollback);
   const cursorBlink = useAppStore((s) => s.preferences.terminalCursorBlink);
@@ -570,7 +572,9 @@ function TerminalSurface({
         live = true;
         noticeIfAlreadyExited(terminal);
       },
-      () => {},
+      () => {
+        if (!disposed) setAttachError(true);
+      },
     );
 
     let frame = 0;
@@ -617,7 +621,7 @@ function TerminalSurface({
     // now applied to the live terminal below: dragging the font-size slider
     // rebuilt this once per step, and renaming a tab threw away the selection
     // and scroll position of a shell that had not moved.
-  }, [projectDir, terminalId, restartCount]);
+  }, [projectDir, terminalId, restartCount, attachAttempt]);
 
   // Preferences, applied in place rather than by reconstruction.
   useEffect(() => {
@@ -633,7 +637,19 @@ function TerminalSurface({
   return (
     <ContextMenu>
       <ContextMenuTrigger
-        render={<div ref={containerRef} className="terminal-surface min-h-0 flex-1 px-2 py-1.5" />}
+        render={
+          <div ref={containerRef} className="terminal-surface relative min-h-0 flex-1 px-2 py-1.5">
+            {attachError ? (
+              <div className="absolute inset-0 z-10 grid place-content-center gap-2 bg-background/90 text-center text-sm">
+                <span>Could not attach to this terminal.</span>
+                <Button size="sm" variant="outline" onClick={() => {
+                  setAttachError(false);
+                  setAttachAttempt((attempt) => attempt + 1);
+                }}>Retry</Button>
+              </div>
+            ) : null}
+          </div>
+        }
         onContextMenuCapture={() => setSelection(terminalRef.current?.getSelection() ?? "")}
       />
       <ContextMenuContent className="w-48">

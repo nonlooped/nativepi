@@ -161,14 +161,12 @@ function useSurfaceTerminal(
 /**
  * The modal half: `ctx.ui.custom()` with `overlay: true`, which takes over the keyboard until answered.
  *
- * Only one is shown at a time even if an extension opens two, because the second
- * one's component is waiting on a keyboard the first one holds — the same
- * ordering the terminal imposes, and the same rule the dialog queue already uses
- * for Pi's own extension prompts.
+ * Only the topmost is shown. If it closes, the previous overlay resumes with its
+ * existing terminal state and focus, matching a normal modal stack.
  */
 export default function TuiOverlay() {
   const projectDir = useAppStore((s) => s.activeProjectPath);
-  const surface = useAppStore((s) => s.extSurfaces.find((candidate) => candidate.placement === "overlay"));
+  const surface = useAppStore((s) => s.extSurfaces.findLast((candidate) => candidate.placement === "overlay"));
   return surface ? <TuiOverlayDialog key={surface.id} surface={surface} projectDir={projectDir} /> : null;
 }
 

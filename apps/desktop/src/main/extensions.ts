@@ -2,10 +2,10 @@ import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { Plugin } from "esbuild";
-import { piServices } from "./pi/services.ts";
+import { isProjectTrusted, piServices } from "./pi/services.ts";
 import type { GraphicalExtension } from "../shared/pi-types.ts";
 
-const extensionCache = new Map<string, { mtimeMs: number; result: GraphicalExtension }>();
+const extensionCache = new Map<string, { inputs: Map<string, number>; result: GraphicalExtension }>();
 
 /**
  * React and `@nativepi/extension-api` are provided by NativePi: those specifiers
@@ -107,7 +107,25 @@ async function readManifest(root: string): Promise<{ name: string; renderer: str
   }
 }
 
-export async function loadGraphicalExtensions(projectDir: string): Promise<GraphicalExtension[]> {
+export async function hasProjectGraphicalRenderer(projectDir: string): Promise<boolean> {
+  return (await readManifest(projectDir)) !== null;
+}
+
+async function inputsAreCurrent(inputs: Map<string, number>): Promise<boolean> {
+  for (const [file, previous] of inputs) {
+    try {
+      if ((await stat(file)).mtimeMs !== previous) return false;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+export async function loadGraphicalExtensions(
+  projectDir: string,
+  projectTrusted = isProjectTrusted(projectDir),
+): Promise<GraphicalExtension[]> {
   // child_process cannot launch esbuild's executable from app.asar. Its package
   // is deliberately unpacked for distribution, so point esbuild at that copy.
   // esbuild reads ESBUILD_BINARY_PATH once while its module evaluates, so it
@@ -115,14 +133,15 @@ export async function loadGraphicalExtensions(projectDir: string): Promise<Graph
   configureEsbuildBinary();
   const { build } = await import("esbuild");
   const extensions = await Promise.all(candidateRoots(projectDir).map(async (root) => {
+    if (root === projectDir && !projectTrusted) return null;
     const manifest = await readManifest(root);
     if (!manifest) return null;
     const entry = path.resolve(root, manifest.renderer);
     // Reuse previous bundle if the entry file hasn't changed.
     try {
-      const mtimeMs = (await stat(entry)).mtimeMs;
+      await stat(entry);
       const cached = extensionCache.get(entry);
-      if (cached && cached.mtimeMs === mtimeMs) return cached.result;
+      if (cached && await inputsAreCurrent(cached.inputs)) return cached.result;
       try {
         const result = await build({
           entryPoints: [entry],
@@ -131,11 +150,19 @@ export async function loadGraphicalExtensions(projectDir: string): Promise<Graph
           platform: "browser",
           jsx: "automatic",
           write: false,
+          metafile: true,
+          absWorkingDir: root,
           logLevel: "silent",
           plugins: [hostGlobalsPlugin],
         });
         const built: GraphicalExtension = { id: root, name: manifest.name, code: result.outputFiles[0]?.text ?? "" };
-        extensionCache.set(entry, { mtimeMs, result: built });
+        const inputs = new Map<string, number>();
+        for (const input of Object.keys(result.metafile.inputs)) {
+          if (input.startsWith("nativepi-host:")) continue;
+          const file = path.resolve(root, input);
+          inputs.set(file, (await stat(file)).mtimeMs);
+        }
+        extensionCache.set(entry, { inputs, result: built });
         if (extensionCache.size > 50) {
           const first = extensionCache.keys().next().value as string | undefined;
           if (first) extensionCache.delete(first);

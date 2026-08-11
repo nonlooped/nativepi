@@ -7,8 +7,10 @@ import {
   useEffect,
   useId,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
+import DOMPurify from "dompurify";
 import ReactMarkdown, { type Components, type Options } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
@@ -17,6 +19,7 @@ import remarkMath from "remark-math";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
 import { rpc } from "@/lib/rpc.ts";
+import { useAppStore } from "@/lib/store.ts";
 import { THEME_CHANGE_EVENT } from "@/lib/themes.ts";
 
 const streamingContext = createContext(false);
@@ -25,9 +28,44 @@ const rehypePlugins: NonNullable<Options["rehypePlugins"]> = [
   [rehypeHighlight, { detect: false, ignoreMissing: true, plainText: ["mermaid"] }],
   [rehypeKatex, { strict: false, throwOnError: false }],
 ];
-const streamingRehypePlugins: NonNullable<Options["rehypePlugins"]> = [];
-
 let mermaidImport: Promise<typeof import("mermaid")> | undefined;
+let mermaidRender = 1;
+let themeVersion = 0;
+const themeListeners = new Set<() => void>();
+let stopThemeListener: (() => void) | undefined;
+
+function subscribeTheme(listener: () => void): () => void {
+  themeListeners.add(listener);
+  if (!stopThemeListener) {
+    const update = () => {
+      themeVersion += 1;
+      for (const notify of themeListeners) notify();
+    };
+    window.addEventListener(THEME_CHANGE_EVENT, update);
+    stopThemeListener = () => window.removeEventListener(THEME_CHANGE_EVENT, update);
+  }
+  return () => {
+    themeListeners.delete(listener);
+    if (themeListeners.size === 0) {
+      stopThemeListener?.();
+      stopThemeListener = undefined;
+    }
+  };
+}
+
+function loadMermaid(): Promise<typeof import("mermaid")> {
+  mermaidImport ??= import("mermaid").catch((error) => {
+    mermaidImport = undefined;
+    throw error;
+  });
+  return mermaidImport;
+}
+
+function sourceHash(source: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < source.length; i += 1) hash = Math.imul(hash ^ source.charCodeAt(i), 16777619);
+  return (hash >>> 0).toString(36);
+}
 
 function textOf(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);
@@ -72,22 +110,15 @@ function CopyCodeButton({ code }: { code: string }) {
 
 function MermaidDiagram({ source }: { source: string }) {
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
-  const [themeVersion, setThemeVersion] = useState(0);
+  const currentThemeVersion = useSyncExternalStore(subscribeTheme, () => themeVersion);
   const [result, setResult] = useState<{ source: string; svg?: string; error?: string }>({ source });
-
-  useEffect(() => {
-    const update = () => setThemeVersion((version) => version + 1);
-    window.addEventListener(THEME_CHANGE_EVENT, update);
-    return () => window.removeEventListener(THEME_CHANGE_EVENT, update);
-  }, []);
 
   useEffect(() => {
     let active = true;
     setResult({ source });
     void (async () => {
       try {
-        mermaidImport ??= import("mermaid");
-        const { default: mermaid } = await mermaidImport;
+        const { default: mermaid } = await loadMermaid();
         mermaid.initialize({
           startOnLoad: false,
           securityLevel: "strict",
@@ -95,8 +126,13 @@ function MermaidDiagram({ source }: { source: string }) {
           theme: document.documentElement.classList.contains("dark") ? "dark" : "default",
           fontFamily: "inherit",
         });
-        const { svg } = await mermaid.render(`nativepi-mermaid-${id}`, source);
-        if (active) setResult({ source, svg });
+        const renderId = `nativepi-mermaid-${id}-${currentThemeVersion}-${sourceHash(source)}-${mermaidRender++}`;
+        const { svg } = await mermaid.render(renderId, source);
+        const safeSvg = DOMPurify.sanitize(svg, {
+          USE_PROFILES: { svg: true, svgFilters: true },
+          FORBID_TAGS: ["script", "foreignObject"],
+        });
+        if (active) setResult({ source, svg: safeSvg });
       } catch {
         if (active) setResult({ source, error: "Diagram could not be rendered." });
       }
@@ -104,7 +140,7 @@ function MermaidDiagram({ source }: { source: string }) {
     return () => {
       active = false;
     };
-  }, [id, source, themeVersion]);
+  }, [currentThemeVersion, id, source]);
 
   if (result.source !== source || (!result.svg && !result.error)) {
     return <div className="markdown-diagram-status">Rendering diagram…</div>;
@@ -146,13 +182,27 @@ const components: Components = {
         href={href}
         rel="noreferrer"
         onClick={(event) => {
-          event.preventDefault();
+          if (!href || href.startsWith("#")) return;
           try {
             const url = new URL(href ?? "");
             if (url.protocol === "https:" || url.protocol === "http:") {
+              event.preventDefault();
               void rpc.request.openExternal({ url: url.href });
             }
-          } catch {}
+          } catch {
+            const state = useAppStore.getState();
+            if (!state.activeProjectPath) return;
+            let file = href.split(/[?#]/, 1)[0] ?? href;
+            try {
+              file = decodeURIComponent(file);
+            } catch {}
+            event.preventDefault();
+            void rpc.request.openFileIn({
+              projectDir: state.activeProjectPath,
+              file,
+              editorId: state.preferences.preferredEditorId,
+            });
+          }
         }}
       >
         {children}
@@ -180,7 +230,7 @@ export default function Markdown({
         <ReactMarkdown
           components={components}
           remarkPlugins={remarkPlugins}
-          rehypePlugins={streaming ? streamingRehypePlugins : rehypePlugins}
+          rehypePlugins={rehypePlugins}
           skipHtml
         >
           {children}

@@ -75,3 +75,35 @@ test("a failed send gives its images back without dropping ones attached since",
   expect(s.drafts[key]).toBe("look at this");
   expect(s.attachments[key]?.map((i) => i.id)).toEqual(["sent", "next"]);
 });
+
+test("an image prepared while a cold submit binds follows the new session", async () => {
+  const key = `new:${A}`;
+  let finishSubmit!: (response: { ok: true; sessionFile: string }) => void;
+  let finishPrepare!: () => void;
+  stubInvoke(async (channel) => {
+    if (channel === "submit") return new Promise((resolve) => (finishSubmit = resolve as typeof finishSubmit));
+    if (channel === "prepareImages") {
+      await new Promise<void>((resolve) => (finishPrepare = resolve));
+      return { images: [image("late")], rejected: [] };
+    }
+    return {};
+  });
+  useAppStore.setState({
+    activeProjectPath: A,
+    activeSessionFile: null,
+    conversations: {},
+    drafts: { [key]: "Start" },
+    attachments: {},
+    preparing: {},
+  });
+
+  const sending = useAppStore.getState().send();
+  const attaching = useAppStore.getState().attach([pngFile("late.png")]);
+  await Promise.resolve();
+  finishSubmit({ ok: true, sessionFile: "new.jsonl" });
+  await sending;
+  finishPrepare();
+  await attaching;
+
+  expect(useAppStore.getState().attachments["new.jsonl"]?.map((item) => item.id)).toEqual(["late"]);
+});

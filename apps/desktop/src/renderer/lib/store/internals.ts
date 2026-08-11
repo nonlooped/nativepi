@@ -2,6 +2,7 @@ import type { NativePiState } from "../../../shared/rpc-schema.ts";
 import { draftKeyFor, modelKey } from "../../../shared/messages.ts";
 import { isRemote, rpc } from "../rpc.ts";
 import type { GetState, SetState } from "./types.ts";
+import { patchConversation } from "./conversation.ts";
 
 /**
  * State the store keeps but never renders.
@@ -70,33 +71,43 @@ export function gitRefreshedWithin(ms: number): boolean {
  */
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
+function persistedState(get: GetState): NativePiState {
+  const s = get();
+  const map = { ...lastChatByProject };
+  if (s.activeProjectPath && s.activeSessionFile) map[s.activeProjectPath] = s.activeSessionFile;
+  return {
+    version: 1,
+    projects: s.projects,
+    lastProjectPath: s.activeProjectPath ?? undefined,
+    lastChatByProject: map,
+    drafts: s.drafts,
+    favoriteModels: s.favoriteModels ?? [],
+    commitMessageModel: s.commitMessageModel,
+    pinnedChats: s.pinnedChats,
+    panes: {
+      sidebarOpen: s.sidebarOpen,
+      sidebarSize: s.sidebarSize,
+      contextPaneOpen: s.contextPaneOpen,
+    },
+    reopenLastProject: s.reopenLastProject,
+    preferences: s.preferences,
+    keybindingOverrides: s.keybindingOverrides,
+  };
+}
+
+export function flushPersist(get: GetState): void {
+  if (isRemote) return;
+  clearTimeout(saveTimer);
+  saveTimer = undefined;
+  void rpc.request.saveState({ state: persistedState(get) });
+}
+
 export function persist(get: GetState): void {
   if (isRemote) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const s = get();
-    const map = { ...lastChatByProject };
-    if (s.activeProjectPath && s.activeSessionFile) map[s.activeProjectPath] = s.activeSessionFile;
-
-    const state: NativePiState = {
-      version: 1,
-      projects: s.projects,
-      lastProjectPath: s.activeProjectPath ?? undefined,
-      lastChatByProject: map,
-      drafts: s.drafts,
-      favoriteModels: s.favoriteModels ?? [],
-      commitMessageModel: s.commitMessageModel,
-      pinnedChats: s.pinnedChats,
-      panes: {
-        sidebarOpen: s.sidebarOpen,
-        sidebarSize: s.sidebarSize,
-        contextPaneOpen: s.contextPaneOpen,
-      },
-      reopenLastProject: s.reopenLastProject,
-      preferences: s.preferences,
-      keybindingOverrides: s.keybindingOverrides,
-    };
-    void rpc.request.saveState({ state });
+    saveTimer = undefined;
+    void rpc.request.saveState({ state: persistedState(get) });
   }, 250);
 }
 
@@ -143,6 +154,11 @@ export function warmProject(set: SetState, get: GetState, path: string): void {
       return;
     }
     set({ model: r.state.model, thinkingLevel: r.state.thinkingLevel });
+    patchConversation(set, path, sessionFile, {
+      running: r.state.isStreaming,
+      compacting: r.state.isCompacting,
+      runStartedAt: r.state.isStreaming ? (get().conversations[sessionFile ?? path]?.runStartedAt ?? Date.now()) : null,
+    });
     const loadedModel = r.state.model ? modelKey(r.state.model) : undefined;
     const levels = await rpc.request.getThinkingLevels({ projectDir: path, sessionFile });
     const activeModel = get().model;
