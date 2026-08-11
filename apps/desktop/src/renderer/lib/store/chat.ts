@@ -1,4 +1,4 @@
-import type { PiEventBatch, SessionEntry, ThinkingLevel } from "../../../shared/pi-types.ts";
+import type { PiEventBatch, SessionEntry, SessionSummary, ThinkingLevel } from "../../../shared/pi-types.ts";
 import type { ExtensionUiRequest } from "../../../shared/pi-types.ts";
 import { isRemote, rpc } from "../rpc.ts";
 import { conversationFor, emptyConversation, patchConversation } from "./conversation.ts";
@@ -23,6 +23,35 @@ import { NO_EXTENSION_UI_STATE, type ChatSlice, type Conversation, type GetState
 let pendingId = 1;
 const MAX_REMOTE_IMAGE_BATCH_BYTES = 48 * 1024 * 1024;
 const sessionRefreshes = new Map<string, Promise<void>>();
+
+function patchSidebarSession(set: SetState, projectDir: string, sessionFile: string, patch: Partial<SessionSummary>) {
+  set((state) => {
+    const sessions = state.sessionsByProject[projectDir];
+    const index = sessions?.findIndex((session) => session.path === sessionFile) ?? -1;
+    if (index < 0 || !sessions) return {};
+    const next = [...sessions];
+    next[index] = { ...next[index]!, ...patch };
+    return { sessionsByProject: { ...state.sessionsByProject, [projectDir]: next } };
+  });
+}
+
+function addSidebarSession(set: SetState, projectDir: string, session: SessionSummary) {
+  set((state) => {
+    const sessions = state.sessionsByProject[projectDir];
+    if (!sessions || sessions.some((existing) => existing.path === session.path)) return {};
+    return { sessionsByProject: { ...state.sessionsByProject, [projectDir]: [session, ...sessions] } };
+  });
+}
+
+function removeSidebarSession(set: SetState, get: GetState, projectDir: string, sessionFile: string): SessionSummary | undefined {
+  const removed = get().sessionsByProject[projectDir]?.find((session) => session.path === sessionFile);
+  set((state) => {
+    const sessions = state.sessionsByProject[projectDir];
+    if (!sessions || !sessions.some((session) => session.path === sessionFile)) return {};
+    return { sessionsByProject: { ...state.sessionsByProject, [projectDir]: sessions.filter((session) => session.path !== sessionFile) } };
+  });
+  return removed;
+}
 
 function clearSessionExtensionUi(set: SetState) {
   dropAllSurfaces();
@@ -322,6 +351,21 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     if (res.sessionFile) {
       patchConversation(set, projectDir, res.sessionFile, { projectDir, sessionFile: res.sessionFile });
       if (!s.activeSessionFile) {
+        const timestamp = new Date().toISOString();
+        addSidebarSession(set, projectDir, {
+          path: res.sessionFile,
+          // The watcher replaces this temporary summary with Pi's authoritative
+          // metadata as soon as the first message is persisted.
+          id: res.sessionFile,
+          firstMessage: text,
+          lastPrompt: text,
+          providers: [],
+          messageCount: 1,
+          created: timestamp,
+          modified: timestamp,
+        });
+      }
+      if (!s.activeSessionFile) {
         set((state) => {
           const { [projectDir]: draft, ...conversations } = state.conversations;
           return { conversations: { ...conversations, [res.sessionFile!]: { ...(draft ?? emptyConversation()), projectDir, sessionFile: res.sessionFile! } } };
@@ -332,7 +376,6 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       if (get().activeProjectPath === projectDir && get().activeSessionFile !== res.sessionFile) {
         set({ activeSessionFile: res.sessionFile, isNewChat: false });
         void rpc.request.watchSession({ projectDir, sessionFile: res.sessionFile });
-        void get().refreshSessions(projectDir);
       }
     }
   },
@@ -392,12 +435,15 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   renameChat: async (sessionFile, name) => {
     const projectDir = get().activeProjectPath;
     if (!projectDir) return { ok: false, error: "No active project" };
+    const previousName = get().sessionsByProject[projectDir]?.find((session) => session.path === sessionFile)?.name;
+    patchSidebarSession(set, projectDir, sessionFile, { name });
     const res = await rpc.request.renameChat({ projectDir, sessionFile, name });
     if (res.ok) {
-      await get().refreshSessions(projectDir);
       if (get().activeSessionFile === sessionFile) {
         patchConversation(set, projectDir, sessionFile, { sessionName: name });
       }
+    } else {
+      patchSidebarSession(set, projectDir, sessionFile, { name: previousName });
     }
     return res;
   },
@@ -416,8 +462,12 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   deleteChat: async (sessionFile) => {
     const projectDir = get().activeProjectPath;
     if (!projectDir) return { ok: false, error: "No active project" };
+    const removed = removeSidebarSession(set, get, projectDir, sessionFile);
     const res = await rpc.request.deleteChat({ projectDir, sessionFile });
-    if (!res.ok) return res;
+    if (!res.ok) {
+      if (removed) addSidebarSession(set, projectDir, removed);
+      return res;
+    }
 
     if (getLastChat(projectDir) === sessionFile) forgetLastChat(projectDir);
     set((s) => {
@@ -429,7 +479,6 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
         pinnedChats: s.pinnedChats.filter((path) => path !== sessionFile),
       };
     });
-    await get().refreshSessions(projectDir);
     if (get().activeSessionFile === sessionFile) {
       const next = get().sessionsByProject[projectDir]?.[0];
       if (next) await get().selectChat(next.path);
