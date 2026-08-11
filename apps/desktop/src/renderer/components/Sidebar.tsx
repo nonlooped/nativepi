@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import autoAnimate, { type AnimationController } from "@formkit/auto-animate";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
@@ -41,7 +40,6 @@ import { editorName, fileManagerName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
 import { countMatches, groupChats } from "../lib/chatOrganization.ts";
-import { useReducedMotion } from "../lib/motion.ts";
 
 export default function Sidebar({
   onClose,
@@ -83,7 +81,6 @@ export default function Sidebar({
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
   const [worktreesFor, setWorktreesFor] = useState<string | null>(null);
   const [expandedProjects, setExpandedProjects] = useState(() => new Set(activeProjectPath ? [activeProjectPath] : []));
-  const reducedMotion = useReducedMotion();
   const watchedProjects = useRef(new Set<string>());
 
   // The project can also become active from outside this pane — the next/previous
@@ -276,10 +273,7 @@ export default function Sidebar({
         </Button>
       </div>
 
-      <MotionList
-        className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-3"
-        disabled={reducedMotion}
-      >
+      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-3">
         {projects.length === 0 && (
           <button
             type="button"
@@ -411,15 +405,12 @@ export default function Sidebar({
                 </ContextMenuContent>
               </ContextMenu>
               {expanded ? (
-                <div
-                  className="ml-3 mt-1 mb-2 animate-in pl-2 duration-200 fade-in-0 slide-in-from-top-1"
-                >
+                <div className="ml-3 mt-1 mb-2 pl-2">
                   <ChatList
                     projectPath={project.path}
                     query={query}
                     now={now}
                     overrides={keybindingOverrides}
-                    reducedMotion={reducedMotion}
                     onNavigate={overlay ? onClose : undefined}
                   />
                 </div>
@@ -427,7 +418,7 @@ export default function Sidebar({
             </div>
           );
         })}
-      </MotionList>
+      </div>
 
       <WorktreeDialog projectPath={worktreesFor} onClose={() => setWorktreesFor(null)} />
 
@@ -460,14 +451,12 @@ function ChatList({
   query,
   now,
   overrides,
-  reducedMotion,
   onNavigate,
 }: {
   projectPath: string;
   query: string;
   now: number;
   overrides: KeybindingOverrides;
-  reducedMotion: boolean;
   onNavigate?: () => void;
 }) {
   const sessions = useAppStore((s) => s.sessionsByProject[projectPath] ?? EMPTY);
@@ -491,7 +480,7 @@ function ChatList({
   const runningSessions = new Set(sessions.filter((_session, index) => runningStates[index]).map((session) => session.path));
 
   return (
-    <MotionList className="flex flex-col gap-1" disabled={reducedMotion}>
+    <div className="flex flex-col gap-1">
       {isNewChat && projectPath === activeProjectPath && (
         <div className="flex items-center gap-1.5 rounded-md bg-sidebar-accent/65 px-1.5 py-1.5" role="status">
           <NotePencilIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
@@ -615,41 +604,6 @@ function ChatList({
           ) : null}
         </>
       ) : null}
-    </MotionList>
-  );
-}
-
-/** Preserve row position when projects and grouped chat history change. */
-function MotionList({
-  children,
-  className,
-  disabled,
-}: {
-  children: ReactNode;
-  className: string;
-  disabled: boolean;
-}) {
-  const nodeRef = useRef<HTMLDivElement>(null);
-  const animationRef = useRef<AnimationController | null>(null);
-
-  useEffect(() => {
-    if (!nodeRef.current) return;
-    const animation = autoAnimate(nodeRef.current, { duration: 180, easing: "ease-out" });
-    animationRef.current = animation;
-    return () => {
-      animation.disable();
-      animationRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (disabled) animationRef.current?.disable();
-    else animationRef.current?.enable();
-  }, [disabled]);
-
-  return (
-    <div ref={nodeRef} className={className}>
-      {children}
     </div>
   );
 }
