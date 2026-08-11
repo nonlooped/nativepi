@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { SessionEntry, SessionSummary } from "../../shared/pi-types.ts";
-import { displayPromptText, textOf } from "../../shared/messages.ts";
+import { displayPrompt, displayPromptText, textOf } from "../../shared/messages.ts";
 import { chatTitle, toolArgSummary, toolResultsById } from "./transcript.ts";
 
 function session(firstMessage: string, name?: string): SessionSummary {
@@ -56,6 +56,20 @@ test("displayPromptText strips skill and file markup for sidebar previews", () =
   expect(displayPromptText('<skill name="releasing" location="C:\\skills\\releasing\\SKILL.md">\nRelease…')).toBe(
     "releasing",
   );
+  expect(
+    displayPromptText(
+      '<skill name="review">instructions</skill>\n<file name="C:\\project\\App.tsx">source</file>\nreview this file',
+    ),
+  ).toBe("review this file");
+  expect(
+    displayPrompt('<skill name="releasing">instructions</skill>\n<skill name="shadcn">instructions</skill>'),
+  ).toEqual({ text: "", skills: ["releasing", "shadcn"], files: [], fallback: "releasing" });
+  expect(displayPrompt('@src/renderer/App.tsx explain this')).toEqual({
+    text: "explain this",
+    skills: [],
+    files: ["src/renderer/App.tsx"],
+    fallback: "App.tsx",
+  });
 });
 
 test("textOf flattens string and block content, ignoring non-text blocks", () => {

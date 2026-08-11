@@ -17,43 +17,66 @@ import type {
 } from "./pi-types.ts";
 
 /**
- * Human-readable user prompt text, without composer machinery.
+ * Human-readable user prompt details, without composer machinery.
  *
  * Messages often wrap the real request in skill/file markup or lead with
  * `/skill:`, `/command`, or `@path` tokens. Sidebar titles and previews should
  * show the user's words, not that markup.
  */
-export function displayPromptText(raw: string): string {
-  const text = raw.trim();
-  const skill = /^<skill name="([^"]+)"[^>]*>[\s\S]*?<\/skill>(?:\s*([\s\S]+))?$/.exec(text);
-  if (skill) return skill[2]?.trim() || skill[1] || "";
-  // Truncated skill markup (e.g. a length-bounded preview) has no closing tag.
-  const skillOpen = /^<skill name="([^"]+)"/.exec(text);
-  if (skillOpen) return skillOpen[1] || "";
+export function displayPrompt(raw: string): { text: string; skills: string[]; files: string[]; fallback: string } {
+  let text = raw.trim();
+  let fallback = "";
+  const skills: string[] = [];
+  const files: string[] = [];
 
-  const file = /^<file name="([^"]+)">[\s\S]*?<\/file>\s*([\s\S]*)$/.exec(text);
-  if (file) {
-    const request = file[2]?.trim();
-    if (request) return request;
-    return file[1]?.split(/[\\/]/).at(-1) || "";
+  const remember = (kind: "skill" | "file", name: string) => {
+    const label = kind === "file" ? name.split(/[\\/]/).at(-1)! : name;
+    fallback ||= label;
+    const items = kind === "skill" ? skills : files;
+    const value = kind === "file" ? name : label;
+    if (!items.includes(value)) items.push(value);
+  };
+
+  // Pi stores expanded skill and file contents in the user message so the
+  // agent can read them. They are prompt machinery, not the user's request.
+  // Remove every leading expansion: a skill can be invoked alongside files.
+  while (text) {
+    const expansion = /^<(skill|file) name="([^"]+)"[^>]*>[\s\S]*?<\/\1>\s*/.exec(text);
+    if (expansion) {
+      remember(expansion[1] as "skill" | "file", expansion[2]!);
+      text = text.slice(expansion[0].length).trimStart();
+      continue;
+    }
+
+    // A bounded preview may contain only the start of an expansion.
+    const expansionOpen = /^<(skill|file) name="([^"]+)"/.exec(text);
+    if (expansionOpen) {
+      remember(expansionOpen[1] as "skill" | "file", expansionOpen[2]!);
+      return { text: "", skills, files, fallback };
+    }
+    break;
   }
-  const fileOpen = /^<file name="([^"]+)"/.exec(text);
-  if (fileOpen) return fileOpen[1]?.split(/[\\/]/).at(-1) || "";
 
   const lines = text.split(/\r?\n/);
   let first = lines[0]?.trim() ?? "";
-  let fallback = "";
   while (first) {
     const token = /^(\/skill:|\/|@)(\S+)(?:\s+|$)/.exec(first);
     if (!token) break;
-    fallback ||= token[1] === "@" ? token[2]!.split(/[\\/]/).at(-1)! : token[2]!;
+    if (token[1] === "/skill:") remember("skill", token[2]!);
+    else if (token[1] === "@") remember("file", token[2]!);
+    else fallback ||= token[2]!;
     first = first.slice(token[0].length).trimStart();
   }
   if (first) {
     lines[0] = first;
-    return lines.join("\n").trim();
+    return { text: lines.join("\n").trim(), skills, files, fallback };
   }
-  return lines.slice(1).join("\n").trim() || fallback;
+  return { text: lines.slice(1).join("\n").trim(), skills, files, fallback };
+}
+
+export function displayPromptText(raw: string): string {
+  const prompt = displayPrompt(raw);
+  return prompt.text || prompt.fallback;
 }
 
 export function chatTitle(session: SessionSummary): string {
