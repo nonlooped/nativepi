@@ -1,7 +1,7 @@
 {
   "name": "nativepi",
   "private": true,
-  "version": "1.8.1",
+  "version": "1.9.0",
   "description": "A free, open-source desktop interface for the Pi coding agent on Windows, macOS, and Linux.",
   "author": "nonlooped",
   "license": "MIT",
