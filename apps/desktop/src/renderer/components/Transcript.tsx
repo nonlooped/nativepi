@@ -12,7 +12,7 @@ import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
-import { imagesOf, isAssistant, isToolResult, isUser, textOf } from "../../shared/messages.ts";
+import { displayPrompt, imagesOf, isAssistant, isToolResult, isUser, textOf } from "../../shared/messages.ts";
 import { stripAnsi } from "../lib/ansi.ts";
 import { toolArgSummary, toolResultsById } from "../lib/transcript.ts";
 import { diffPatchFor, fileDir, fileName, turnChanges, type FileChange } from "../lib/changes.ts";
@@ -21,6 +21,8 @@ import { useReducedMotion } from "../lib/motion.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { withHint } from "../lib/shortcuts.ts";
 import { projectRelativePath } from "../lib/paths.ts";
+import { CHIP_CLASS } from "../lib/composerDom.ts";
+import { fileIconSvg } from "../lib/fileIcons.ts";
 import { Button } from "@/components/ui/button.tsx";
 import {
   MessageScroller,
@@ -566,7 +568,8 @@ function EntryView({ entry }: { entry: SessionEntry }) {
   if (entry.type === "message") {
     const message = entry.message;
     if (isUser(message)) {
-      return <UserBubble entryId={entry.id} text={textOf(message.content)} images={imagesOf(message.content)} timestamp={entry.timestamp} />;
+      const prompt = displayPrompt(textOf(message.content));
+      return <UserBubble entryId={entry.id} text={prompt.text || (prompt.skills.length || prompt.files.length ? "" : prompt.fallback)} skills={prompt.skills} files={prompt.files} images={imagesOf(message.content)} timestamp={entry.timestamp} />;
     }
     return null; // toolResult messages render inline under their tool call.
   }
@@ -582,15 +585,52 @@ function CustomEntry({ entry }: { entry: SessionEntry }) {
   return <ExtensionEntry entry={entry} />;
 }
 
+function PromptSkillChip({ skill }: { skill: string }) {
+  return (
+    <span className={CHIP_CLASS.skill} title={`Skill: ${skill}`} aria-label={`Skill: ${skill}`}>
+      <svg viewBox="0 0 16 16" aria-hidden="true" className="size-3 shrink-0">
+        <path fill="currentColor" d="M9.6 1 3 8.6h3.6L6 15l6.6-7.6H9L9.6 1Z" />
+      </svg>
+      {skill}
+    </span>
+  );
+}
+
+function PromptFileChip({ file }: { file: string }) {
+  const icon = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    let current = true;
+    icon.current?.replaceChildren();
+    void fileIconSvg(file).then((svg) => {
+      if (current && icon.current) icon.current.innerHTML = svg;
+    });
+    return () => {
+      current = false;
+    };
+  }, [file]);
+
+  return (
+    <span className={CHIP_CLASS.file} title={file} aria-label={`File: ${file}`}>
+      <span ref={icon} aria-hidden="true" className="inline-flex size-4 shrink-0 select-none [&>svg]:size-full" />
+      {fileName(file)}
+    </span>
+  );
+}
+
 function UserBubble({
   entryId,
   text,
+  skills = [],
+  files = [],
   images = [],
   timestamp,
   pending = false,
 }: {
   entryId?: string;
   text: string;
+  skills?: string[];
+  files?: string[];
   /** Anything with base64 and a mime type: a sent attachment or one still in flight. */
   images?: { mimeType: string; data: string }[];
   timestamp?: string;
@@ -606,6 +646,12 @@ function UserBubble({
       <Message align="end" className="justify-end">
       <Bubble variant="secondary" align="end" className={cn("max-w-[85%]", pending && "opacity-60")}>
         <BubbleContent className="rounded-2xl rounded-br-md px-4 py-3 text-sm leading-6 whitespace-pre-wrap">
+        {skills.length > 0 || files.length > 0 ? (
+          <div className={cn("flex flex-wrap justify-end gap-1.5", (images.length > 0 || text) && "pb-2")}>
+            {skills.map((skill) => <PromptSkillChip key={skill} skill={skill} />)}
+            {files.map((file) => <PromptFileChip key={file} file={file} />)}
+          </div>
+        ) : null}
         {images.length > 0 ? (
           // Sized to be recognisable, not to be studied: the bubble is a record
           // of what was sent, and the agent's reading of it is what follows.
