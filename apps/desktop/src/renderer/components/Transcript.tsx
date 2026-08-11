@@ -146,7 +146,7 @@ function TranscriptContent() {
         >
         <MessageScroller className="min-h-0 flex-1">
           <MessageScrollerViewport aria-label="Conversation transcript" aria-live="off">
-            <MessageScrollerContent className={cn("mx-auto w-full max-w-(--conversation-width) px-4 py-5", (running || runDone) && "pb-16")}>
+            <MessageScrollerContent className={cn("mx-auto w-full max-w-(--conversation-width) gap-8 px-4 py-6", (running || runDone) && "pb-16")}>
           <MessageScrollerItem scrollAnchor>
             <ExtensionHeader />
           </MessageScrollerItem>
@@ -828,15 +828,15 @@ function ChangeStrip({ changes }: { changes: ReturnType<typeof turnChanges> }) {
   return (
     <section
       aria-label="Files changed in this turn"
-      className="overflow-hidden rounded-lg border border-border bg-card/40"
+      className="overflow-hidden rounded-lg bg-card/40 p-1"
     >
-      <h3 className="flex items-center gap-2 border-b px-3 py-2 text-xs font-medium">
+      <h3 className="flex items-center gap-2 px-2 py-1.5 text-xs font-medium">
         {pluralize(changes.files.length, "file")} changed
         {hasDelta ? <LineDelta added={changes.added} removed={changes.removed} /> : null}
       </h3>
-      <ul className="flex flex-col">
+      <ul className="flex flex-col gap-0.5">
         {changes.files.map((file) => (
-          <li key={file.path} className="border-b last:border-b-0">
+          <li key={file.path} className={cn("overflow-hidden rounded-md", open === file.path && "bg-background/45")}>
             <ChangeRow file={file} open={open === file.path} onToggle={() => setOpen(open === file.path ? null : file.path)} />
           </li>
         ))}
@@ -870,7 +870,7 @@ function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; 
         aria-expanded={open}
         disabled={!file.patch}
         title={file.path}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:cursor-default disabled:hover:bg-transparent"
+        className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:cursor-default disabled:hover:bg-transparent"
       >
         <CaretRightIcon className={cn("shrink-0 text-muted-foreground transition-transform", open && "rotate-90", !file.patch && "invisible")} />
         <FileTypeIcon path={relativePath} className={cn(file.failed && "opacity-50 grayscale")} />
@@ -884,7 +884,7 @@ function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; 
       </button>
       </FileContextMenu> : null}
       {open && file.patch ? (
-        <div className="max-h-96 overflow-auto border-t bg-background">
+        <div className="max-h-96 overflow-auto border-t border-border/50 bg-background">
           <DiffView patch={file.patch} className="py-1.5" />
         </div>
       ) : null}
@@ -909,7 +909,7 @@ function MessageActions({ text, timestamp }: { text: string; timestamp: string }
     <div
       className={cn(
         HOVER_REVEAL,
-        "flex min-h-7 items-center gap-2 text-xs text-muted-foreground group-hover/message:scale-100 group-hover/message:opacity-100 group-hover/message:blur-0 group-focus-within/message:scale-100 group-focus-within/message:opacity-100 group-focus-within/message:blur-0",
+        "flex min-h-7 items-center gap-2 text-xs text-muted-foreground group-hover/message:scale-100 group-hover/message:opacity-100 group-hover/message:blur-none group-focus-within/message:scale-100 group-focus-within/message:opacity-100 group-focus-within/message:blur-none",
       )}
     >
       <Button

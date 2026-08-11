@@ -257,7 +257,7 @@ export default function ExtensionsManager() {
                       <div
                         className={cn(
                           HOVER_REVEAL,
-                          "flex shrink-0 items-center gap-1 group-focus-within:scale-100 group-focus-within:opacity-100 group-focus-within:blur-0 group-hover:scale-100 group-hover:opacity-100 group-hover:blur-0",
+                          "flex shrink-0 items-center gap-1 group-focus-within:scale-100 group-focus-within:opacity-100 group-focus-within:blur-none group-hover:scale-100 group-hover:opacity-100 group-hover:blur-none",
                         )}
                       >
                         <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => void update(pkg)}>

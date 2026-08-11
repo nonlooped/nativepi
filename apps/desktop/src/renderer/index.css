@@ -384,7 +384,6 @@ html[data-shell="desktop"][data-runtime="development"] .window-controls-clearanc
 .sidebar-panel {
   container-name: sidebar;
   container-type: inline-size;
-  box-shadow: inset -1px 0 var(--sidebar-border);
 }
 
 /* Keep chat titles readable when the resizable project pane approaches its

@@ -180,7 +180,7 @@ export default function ComposerInput({
         // root font size, which an absolute length ignores — the composer was
         // the one piece of text in the window that did not scale with it.
         className={cn(
-          "max-h-56 min-h-12 w-full overflow-y-auto whitespace-pre-wrap break-words px-2.5 py-2 text-[0.9375rem] leading-relaxed outline-none",
+          "max-h-56 min-h-16 w-full overflow-y-auto whitespace-pre-wrap break-words px-2.5 py-2 text-[0.9375rem] leading-relaxed outline-none",
           disabled && "cursor-not-allowed opacity-50",
         )}
       />
