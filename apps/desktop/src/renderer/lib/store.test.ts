@@ -40,3 +40,30 @@ test("chat history exposes a retryable failure before an empty successful load",
   expect(useAppStore.getState().sessionLoadStates[projectPath]).toBe("loaded");
   expect(useAppStore.getState().sessionsByProject[projectPath]).toEqual([]);
 });
+
+test("selecting a project ignores a remembered chat outside its session list", async () => {
+  const projectPath = "C:\\project-with-stale-chat";
+  const staleSession = "C:\\sessions\\stale.jsonl";
+  const reads: string[] = [];
+  stubInvoke(async (channel, params) => {
+    if (channel === "listSessions") return { sessions: [] };
+    if (channel === "readSession") {
+      reads.push((params as { sessionFile: string }).sessionFile);
+      return { entries: [] };
+    }
+    if (channel === "checkTrust") return { required: true, trusted: false };
+    return {};
+  });
+
+  const [{ useAppStore }, { replaceLastChats }] = await Promise.all([
+    import("./store.ts"),
+    import("./store/internals.ts"),
+  ]);
+  replaceLastChats({ [projectPath]: staleSession });
+
+  await useAppStore.getState().selectProject(projectPath);
+
+  expect(reads).toEqual([]);
+  expect(useAppStore.getState().activeSessionFile).toBeNull();
+  expect(useAppStore.getState().isNewChat).toBeTrue();
+});

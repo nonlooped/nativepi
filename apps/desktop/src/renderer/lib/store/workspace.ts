@@ -136,21 +136,11 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       (conversation) => conversation.projectDir === path && conversation.running && conversation.sessionFile,
     );
     const last = runningConv?.sessionFile || getLastChat(path);
-    const sessionsLoading = get().refreshSessions(path);
-    let openedLast = false;
-    if (last) {
-      try {
-        await get().selectChat(last);
-        openedLast = true;
-      } catch {
-        // A remembered chat may have been deleted outside NativePi. Discovery
-        // already running beside the read supplies the next valid choice.
-      }
-    }
-    await sessionsLoading;
-    if (!openedLast && get().activeProjectPath === path) {
-      const first = get().sessionsByProject[path]?.[0];
-      if (first) await get().selectChat(first.path);
+    await get().refreshSessions(path);
+    if (get().activeProjectPath === path) {
+      const sessions = get().sessionsByProject[path] ?? [];
+      if (last && sessions.some((session) => session.path === last)) await get().selectChat(last);
+      else if (sessions[0]) await get().selectChat(sessions[0].path);
       else get().newChat();
     }
 
