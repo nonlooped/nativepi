@@ -148,7 +148,7 @@ function TranscriptContent() {
         >
         <MessageScroller className="min-h-0 flex-1">
           <MessageScrollerViewport aria-label="Conversation transcript" aria-live="off">
-            <MessageScrollerContent className="mx-auto w-full max-w-(--conversation-width) px-4 py-5">
+            <MessageScrollerContent className={cn("mx-auto w-full max-w-(--conversation-width) px-4 py-5", (running || runDone) && "pb-16")}>
           <MessageScrollerItem scrollAnchor>
             <ExtensionHeader />
           </MessageScrollerItem>

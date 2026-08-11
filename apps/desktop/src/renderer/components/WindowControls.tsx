@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircleIcon } from "@phosphor-icons/react/CheckCircle";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
+import { XIcon } from "@phosphor-icons/react/X";
 import type { DevRuntimeStatus } from "../../shared/rpc-schema.ts";
 import { devFreshness, type DevFreshness } from "../lib/devFreshness.ts";
 import { isRemote, rpc } from "../lib/rpc.ts";
@@ -134,6 +135,10 @@ function DevFreshnessIndicator() {
 
   const details = indicatorDetails(state);
   const warning = state.freshness === "stale" || state.freshness === "unverified";
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    if (warning) setDismissed(false);
+  }, [warning, state.freshness]);
 
   return (
     <>
@@ -157,7 +162,7 @@ function DevFreshnessIndicator() {
         </Badge>
       </div>
 
-      {warning ? (
+      {warning && !dismissed ? (
         <div
           role="alert"
           className="absolute top-14 right-3 flex w-[min(24rem,calc(100vw-1.5rem))] items-start gap-3 rounded-lg border border-warning/30 bg-popover p-3 text-sm shadow-lg"
@@ -166,15 +171,22 @@ function DevFreshnessIndicator() {
           <div className="min-w-0 flex-1">
             <p className="font-semibold">{details.heading}</p>
             <p className="mt-0.5 text-body-muted-foreground">{details.description}</p>
-            <Button
-              size="sm"
-              variant="outline"
-              className="mt-2"
-              onClick={() => void rpc.request.windowClose({})}
-            >
-              Close window
-            </Button>
+            <div className="mt-2 flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void rpc.request.windowClose({})}
+              >
+                Close window
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setDismissed(true)}>
+                Dismiss
+              </Button>
+            </div>
           </div>
+          <Button variant="ghost" size="icon-xs" aria-label="Dismiss warning" title="Dismiss" onClick={() => setDismissed(true)} className="shrink-0">
+            <XIcon />
+          </Button>
         </div>
       ) : null}
     </>

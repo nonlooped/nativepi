@@ -107,6 +107,7 @@ export default function SourceControl({ projectDir, git }: { projectDir: string;
   }
 
   const canCommit = Boolean(message.trim()) && stagedFiles.length > 0 && busy === null;
+  const commitDisabledReason = busy !== null ? "Working…" : stagedFiles.length === 0 ? "Stage changes first" : !message.trim() ? "Add a commit message" : undefined;
   const canGenerate = stagedFiles.length > 0 && !generating;
 
   return (
@@ -143,11 +144,19 @@ export default function SourceControl({ projectDir, git }: { projectDir: string;
           />
         </Field>
         <div className="flex gap-1">
-          <Button className="min-w-0 flex-1" onClick={() => void commit("commit")} disabled={!canCommit}>
+          <Button
+            className="min-w-0 flex-1"
+            onClick={() => void commit("commit")}
+            disabled={!canCommit}
+            title={commitDisabledReason}
+            aria-label={commitDisabledReason ? `Commit — ${commitDisabledReason}` : "Commit"}
+          >
             {busy === "commit" ? "Committing…" : "Commit"}
           </Button>
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="outline" size="icon" disabled={!canCommit} aria-label="More commit actions" />}>
+            <DropdownMenuTrigger
+              render={<Button variant="outline" size="icon" disabled={!canCommit} aria-label="More commit actions" title={commitDisabledReason ?? "More commit actions"} />}
+            >
               <CaretDownIcon />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -176,7 +185,7 @@ export default function SourceControl({ projectDir, git }: { projectDir: string;
         onFile={(file) => void mutate(() => rpc.request.gitUnstageFile({ projectDir, file: file.path, originalPath: file.originalPath }))}
       />
       <FileGroup
-        title="Changes"
+        title="Unstaged changes"
         files={changedFiles}
         staged={false}
         projectDir={projectDir}
@@ -256,7 +265,12 @@ function FileGroup({
                       <FileTypeIcon path={file.path} />
                       <span className="min-w-0 truncate font-medium">{name}</span>
                       {directory ? <span className="min-w-0 flex-1 truncate text-muted-foreground">{directory}</span> : <span className="flex-1" />}
-                      <span className={cn("w-4 shrink-0 text-center font-mono font-semibold", stateColor(file.state))} title={stateLabel(file.state)}>
+                      <span
+                        role="img"
+                        aria-label={stateLabel(file.state)}
+                        className={cn("w-4 shrink-0 text-center font-mono font-semibold", stateColor(file.state))}
+                        title={stateLabel(file.state)}
+                      >
                         {stateBadge(file.state)}
                       </span>
                     </button>

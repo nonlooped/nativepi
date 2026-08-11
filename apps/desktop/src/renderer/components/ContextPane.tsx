@@ -52,7 +52,10 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
-  const [files, setFiles] = useState(false);
+  const view = useAppStore((s) => s.preferences.contextPaneView);
+  const setPreference = useAppStore((s) => s.setPreference);
+  const files = view === "files";
+  const setFiles = (next: boolean) => setPreference("contextPaneView", next ? "files" : "source-control");
   const [pullRequestOpen, setPullRequestOpen] = useState(false);
 
   return (
@@ -78,8 +81,8 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
               size="icon-sm"
               onClick={() => setPullRequestOpen(true)}
               disabled={!git?.isRepo}
-              title="Open pull request"
-              aria-label="Open pull request"
+              title={git?.isRepo ? "Open pull request" : "Not a Git repository"}
+              aria-label={git?.isRepo ? "Open pull request" : "Open pull request — not a Git repository"}
             >
               <GitPullRequestIcon />
             </Button>

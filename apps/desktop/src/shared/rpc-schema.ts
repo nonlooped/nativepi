@@ -264,6 +264,7 @@ export const preferencesSchema = z.object({
   terminalCursorBlink: z.boolean().catch(true),
   preferredEditorId: z.string().min(1).catch("explorer"),
   preferredShellId: z.string().catch(""),
+  contextPaneView: z.enum(["source-control", "files"]).catch("source-control"),
 });
 
 export type Preferences = z.infer<typeof preferencesSchema>;

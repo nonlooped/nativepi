@@ -59,12 +59,16 @@ function ResizableHandle({
 function useCollapsiblePanel(open: boolean, mountKey?: unknown) {
   const panelRef = ResizablePrimitive.usePanelRef()
 
-  // The panel ref is assigned during layout, but its parent Group registers
-  // immediately afterward. Waiting for the passive phase keeps the imperative
-  // API behind both registrations (including React Strict Mode's replay).
+  // Responsive layout changes can unregister a panel after its imperative ref
+  // is assigned but before its Group constraints settle. Coalesce rapid
+  // changes to the next frame so stale layouts never call into that gap.
   useEffect(() => {
-    if (open) panelRef.current?.expand()
-    else panelRef.current?.collapse()
+    const frame = requestAnimationFrame(() => {
+      if (open) panelRef.current?.expand()
+      else panelRef.current?.collapse()
+    })
+
+    return () => cancelAnimationFrame(frame)
   }, [open, panelRef, mountKey])
 
   return panelRef

@@ -219,7 +219,16 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           </div>
           <div className="flex items-center gap-1">
             <ContextWindow />
-            {running ? <BehaviorSelector behavior={behavior} setBehavior={setBehavior} /> : null}
+            <div
+              className={cn(
+                "overflow-hidden transition-[max-width,opacity,transform] duration-200 ease-out",
+                running ? "max-w-[10rem] opacity-100 translate-x-0" : "max-w-0 opacity-0 translate-x-1 pointer-events-none",
+              )}
+              aria-hidden={!running}
+              inert={!running || undefined}
+            >
+              <BehaviorSelector behavior={behavior} setBehavior={setBehavior} />
+            </div>
             <Button
               size="icon-lg"
               className="rounded-full shadow-sm shadow-foreground/10 hover:shadow-md hover:shadow-foreground/15 active:shadow-none disabled:bg-muted disabled:text-muted-foreground/40 disabled:opacity-100 disabled:shadow-none"
@@ -520,7 +529,7 @@ function BranchSelector() {
         <span className="truncate">{label}</span>
         <CaretDownIcon className="shrink-0 text-muted-foreground" />
       </MenuTrigger>
-      <MenuPopup side="top" className="max-h-none w-72 overflow-hidden p-0">
+      <MenuPopup side="top" className="max-h-none w-[min(20rem,calc(100vw-2rem))] overflow-hidden p-0">
         {/* Mounted only while open, so every opening reads the branches fresh:
             the user may have committed or branched in a terminal since. */}
         {open ? <BranchList onDone={() => setOpen(false)} /> : null}

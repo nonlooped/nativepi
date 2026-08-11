@@ -4,6 +4,7 @@ import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
+import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { SlidersHorizontalIcon } from "@phosphor-icons/react/SlidersHorizontal";
 import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
@@ -31,8 +32,14 @@ import { activeConversation, useAppStore } from "./lib/store.ts";
 import { isRemote } from "./lib/rpc.ts";
 import { showHint } from "./lib/toast.tsx";
 import { chatTitle } from "./lib/transcript.ts";
-import { bindingFor, bindings, withHint } from "./lib/shortcuts.ts";
+import { bindingFor, bindings, hintFor, withHint } from "./lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.tsx";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -420,7 +427,7 @@ function WorkspaceHeader({
         )}
       </div>
       {activeProjectPath ? (
-        <div className={cn(NO_DRAG_REGION, "flex min-w-0 shrink items-center gap-1 overflow-hidden max-[480px]:hidden")}>
+        <div className={cn(NO_DRAG_REGION, "hidden min-w-0 shrink items-center gap-1 overflow-hidden min-[480px]:flex")}>
           <ExtensionConversationControls active={extensionView} onSelect={onSelectExtensionView} />
         </div>
       ) : null}
@@ -437,10 +444,20 @@ function WorkspaceHeader({
           title={withHint(terminalOpen ? "Hide terminal" : "Show terminal", "toggleTerminal", keybindingOverrides)}
           aria-label={terminalOpen ? "Hide terminal" : "Show terminal"}
           aria-pressed={terminalOpen}
-          className={cn(NO_DRAG_REGION, "max-[480px]:hidden")}
+          className={cn(NO_DRAG_REGION, "hidden min-[480px]:flex")}
         >
           <TerminalWindowIcon />
         </Button>
+      ) : null}
+      {activeProjectPath ? (
+        <div className={cn(NO_DRAG_REGION, "min-[480px]:hidden")}>
+          <HeaderCompactOverflow
+            terminalOpen={terminalOpen}
+            onToggleTerminal={onToggleTerminal}
+            extensionView={extensionView}
+            onSelectExtensionView={onSelectExtensionView}
+          />
+        </div>
       ) : null}
       {activeProjectPath && !contextDocked ? (
         <Button
@@ -459,6 +476,57 @@ function WorkspaceHeader({
         </Button>
       ) : null}
     </header>
+  );
+}
+
+function HeaderCompactOverflow({
+  terminalOpen,
+  onToggleTerminal,
+  extensionView,
+  onSelectExtensionView,
+}: {
+  terminalOpen: boolean;
+  onToggleTerminal: () => void;
+  extensionView: string | null;
+  onSelectExtensionView: (key: string | null) => void;
+}) {
+  const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
+  const extRenderers = useAppStore((s) => s.extRenderers);
+  const extensionViews = extRenderers.flatMap((ext) =>
+    (ext.renderer.conversationViews ?? []).map((view) => ({
+      ext,
+      view,
+      key: `${ext.id}:${view.id}`,
+    })),
+  );
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={<Button variant="ghost" size="icon-sm" aria-label="More workspace actions" title="More workspace actions" />}
+      >
+        <DotsThreeIcon weight="bold" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        {extensionViews.length > 0
+          ? extensionViews.map(({ view, key }) => (
+              <DropdownMenuItem
+                key={key}
+                onClick={() => onSelectExtensionView(extensionView === key ? null : key)}
+                className="gap-2"
+              >
+                {view.label}
+                {extensionView === key ? <span className="ml-auto text-xs text-success">Active</span> : null}
+              </DropdownMenuItem>
+            ))
+          : null}
+        {extensionViews.length > 0 ? <div className="my-1 h-px bg-border/50" aria-hidden /> : null}
+        <DropdownMenuItem onClick={onToggleTerminal} className="gap-2">
+          <TerminalWindowIcon />
+          {terminalOpen ? "Hide terminal" : "Show terminal"}
+          <span className="ml-auto text-xs text-muted-foreground">{hintFor("toggleTerminal", keybindingOverrides)}</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

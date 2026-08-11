@@ -202,6 +202,7 @@ export default function TerminalDock({
         >
           <TrashIcon />
         </Button>
+        <div aria-hidden="true" className="mx-0.5 h-4 w-px shrink-0 bg-sidebar-border" />
         <Button variant="ghost" size="icon-xs" onClick={onMinimize} title="Hide terminal panel" aria-label="Hide terminal panel">
           <XIcon />
         </Button>

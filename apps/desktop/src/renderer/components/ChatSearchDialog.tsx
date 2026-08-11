@@ -240,7 +240,7 @@ function highlight(value: string, rawQuery: string): ReactNode {
   let match = lower.indexOf(needle);
   while (match >= 0) {
     if (match > start) parts.push(value.slice(start, match));
-    parts.push(<mark key={`${match}-${parts.length}`} className="rounded-sm bg-foreground/15 px-0.5 text-inherit">{value.slice(match, match + query.length)}</mark>);
+    parts.push(<mark key={`${match}-${parts.length}`} className="rounded-sm bg-foreground/20 px-0.5 text-inherit ring-1 ring-foreground/10">{value.slice(match, match + query.length)}</mark>);
     start = match + query.length;
     match = lower.indexOf(needle, start);
   }

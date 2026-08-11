@@ -313,7 +313,7 @@ function highlightMatch(value: string, rawQuery: string) {
   return (
     <>
       {value.slice(0, index)}
-      <mark className="rounded-sm bg-foreground/15 px-0.5 text-inherit">{value.slice(index, index + query.length)}</mark>
+      <mark className="rounded-sm bg-foreground/20 px-0.5 text-inherit ring-1 ring-foreground/10">{value.slice(index, index + query.length)}</mark>
       {value.slice(index + query.length)}
     </>
   );

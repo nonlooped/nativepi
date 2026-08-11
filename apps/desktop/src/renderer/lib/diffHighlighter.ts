@@ -7,6 +7,6 @@ export function diffHighlighterReady(): boolean {
 }
 
 export function primeDiffHighlighter(): Promise<void> {
-  priming ??= preloadHighlighter({ themes: ["pierre-dark"], langs: [] });
+  priming ??= preloadHighlighter({ themes: ["pierre-dark", "pierre-light"], langs: [] });
   return priming;
 }
