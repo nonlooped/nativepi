@@ -1,4 +1,4 @@
-import type { PiEventBatch, SessionEntry, SessionSummary, ThinkingLevel } from "../../../shared/pi-types.ts";
+import type { AgentMessage, PiEventBatch, SessionEntry, SessionSummary, ThinkingLevel } from "../../../shared/pi-types.ts";
 import type { ExtensionUiRequest } from "../../../shared/pi-types.ts";
 import { isRemote, rpc } from "../rpc.ts";
 import { conversationFor, emptyConversation, patchConversation } from "./conversation.ts";
@@ -18,6 +18,7 @@ import { MAX_IMAGE_BYTES } from "../../../shared/images.ts";
 import type { ImageAttachment } from "../../../shared/rpc-schema.ts";
 import { togglePinnedPath } from "../chatOrganization.ts";
 import { dropAllSurfaces } from "../tuiSurfaces.ts";
+import { isAssistant, isUser, sessionPromptSummary } from "../../../shared/messages.ts";
 import { NO_EXTENSION_UI_STATE, type ChatSlice, type Conversation, type GetState, type PendingMessage, type SetState, type SliceCreator } from "./types.ts";
 
 let pendingId = 1;
@@ -40,6 +41,31 @@ function addSidebarSession(set: SetState, projectDir: string, session: SessionSu
     const sessions = state.sessionsByProject[projectDir];
     if (!sessions || sessions.some((existing) => existing.path === session.path)) return {};
     return { sessionsByProject: { ...state.sessionsByProject, [projectDir]: [session, ...sessions] } };
+  });
+}
+
+function recordSidebarMessage(set: SetState, projectDir: string, sessionFile: string, message: AgentMessage) {
+  set((state) => {
+    const sessions = state.sessionsByProject[projectDir];
+    const index = sessions?.findIndex((session) => session.path === sessionFile) ?? -1;
+    if (index < 0 || !sessions) return {};
+    const session = sessions[index]!;
+    const timestamp = typeof message.timestamp === "number" && Number.isFinite(message.timestamp)
+      ? new Date(message.timestamp).toISOString()
+      : new Date().toISOString();
+    const providers = isAssistant(message) && message.provider
+      ? [message.provider, ...session.providers.filter((provider) => provider !== message.provider)]
+      : session.providers;
+    const firstSubmittedMessage = session.id === session.path && session.messageCount === 1 && isUser(message);
+    const next = [...sessions];
+    next[index] = {
+      ...session,
+      lastPrompt: isUser(message) ? sessionPromptSummary(message.content) : session.lastPrompt,
+      providers,
+      messageCount: session.messageCount + (firstSubmittedMessage ? 0 : 1),
+      modified: timestamp,
+    };
+    return { sessionsByProject: { ...state.sessionsByProject, [projectDir]: next } };
   });
 }
 
@@ -354,8 +380,6 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
         const timestamp = new Date().toISOString();
         addSidebarSession(set, projectDir, {
           path: res.sessionFile,
-          // The watcher replaces this temporary summary with Pi's authoritative
-          // metadata as soon as the first message is persisted.
           id: res.sessionFile,
           firstMessage: text,
           lastPrompt: text,
@@ -562,6 +586,12 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     }
     const patch = { ...eventPatch, projectDir, sessionFile: sessionFile ?? conv.sessionFile };
     patchConversation(set, projectDir, sessionFile ?? null, patch);
+    const finalizedMessage = event.type === "message_end"
+      ? (event as { message?: AgentMessage }).message
+      : undefined;
+    if (sessionFile && finalizedMessage) {
+      recordSidebarMessage(set, projectDir, sessionFile, finalizedMessage);
+    }
     if (event.type === "agent_settled" && conv.runStartedAt !== null) {
       set((state) => ({
         extensionPromptsByProject: { ...state.extensionPromptsByProject, [projectDir]: [] },

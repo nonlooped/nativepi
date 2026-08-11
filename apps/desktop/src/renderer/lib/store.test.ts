@@ -110,7 +110,11 @@ test("local sidebar mutations do not wait for a session rescan", async () => {
 });
 
 test("the first message appears in the sidebar before the watcher refreshes", async () => {
-  stubInvoke(async (channel) => (channel === "submit" ? { ok: true, sessionFile: "C:\\new-sidebar\\chat.jsonl" } : {}));
+  stubInvoke(async (channel) => {
+    if (channel === "submit") return { ok: true, sessionFile: "C:\\new-sidebar\\chat.jsonl" };
+    if (channel === "gitStatus") return { status: { isRepo: false, branch: "", ahead: 0, behind: 0, files: [] } };
+    return {};
+  });
 
   const { useAppStore } = await import("./store.ts");
   const projectPath = "C:\\new-sidebar";
@@ -131,5 +135,79 @@ test("the first message appears in the sidebar before the watcher refreshes", as
   expect(useAppStore.getState().sessionsByProject[projectPath]?.[0]).toMatchObject({
     path: "C:\\new-sidebar\\chat.jsonl",
     firstMessage: "Start this chat now",
+    messageCount: 1,
+  });
+
+  useAppStore.getState().onEvent({
+    projectDir: projectPath,
+    sessionFile: "C:\\new-sidebar\\chat.jsonl",
+    event: {
+      type: "message_end",
+      message: { role: "user", content: "Start this chat now", timestamp: Date.now() },
+    },
+  });
+  expect(useAppStore.getState().sessionsByProject[projectPath]?.[0]?.messageCount).toBe(1);
+});
+
+test("Pi message events keep the sidebar summary current without a session rescan", async () => {
+  stubInvoke(async (channel) => {
+    if (channel === "listSessions") throw new Error("A local turn must not rescan session history");
+    if (channel === "gitStatus") return { status: { isRepo: false, branch: "", ahead: 0, behind: 0, files: [] } };
+    return {};
+  });
+
+  const { useAppStore } = await import("./store.ts");
+  const projectPath = "C:\\live-sidebar";
+  const sessionFile = "C:\\live-sidebar\\chat.jsonl";
+  useAppStore.setState({
+    activeProjectPath: projectPath,
+    activeSessionFile: sessionFile,
+    sessionsByProject: {
+      [projectPath]: [{
+        path: sessionFile,
+        id: "chat",
+        firstMessage: "First prompt",
+        lastPrompt: "First prompt",
+        providers: ["openai"],
+        messageCount: 3,
+        created: "2026-01-01T00:00:00.000Z",
+        modified: "2026-01-01T00:00:00.000Z",
+      }],
+    },
+    sessionLoadStates: { [projectPath]: "loaded" },
+    conversations: {},
+  });
+
+  useAppStore.getState().onEvent({
+    projectDir: projectPath,
+    sessionFile,
+    event: {
+      type: "message_end",
+      message: {
+        role: "user",
+        content: '<skill name="releasing">instructions</skill>\n\nShip it',
+        timestamp: Date.parse("2026-02-01T00:00:00.000Z"),
+      },
+    },
+  });
+  useAppStore.getState().onEvent({
+    projectDir: projectPath,
+    sessionFile,
+    event: {
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [],
+        provider: "anthropic",
+        timestamp: Date.parse("2026-02-01T00:00:01.000Z"),
+      },
+    },
+  });
+
+  expect(useAppStore.getState().sessionsByProject[projectPath]?.[0]).toMatchObject({
+    lastPrompt: "Ship it",
+    providers: ["anthropic", "openai"],
+    messageCount: 5,
+    modified: "2026-02-01T00:00:01.000Z",
   });
 });

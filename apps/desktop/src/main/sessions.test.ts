@@ -270,8 +270,13 @@ test("usageDashboard counts inherited billed entries once", async () => {
 
 test("watchProjectSessions detects chats created after the sidebar is open", async () => {
   const projectDir = await mkdtemp(path.join(tmpdir(), "nativepi-project-"));
+  await mkdir(sessionDirFor(projectDir), { recursive: true });
   let changes = 0;
-  const stop = watchProjectSessions(projectDir, () => { changes += 1; });
+  let changedSession: string | undefined;
+  const stop = watchProjectSessions(projectDir, (sessionFile) => {
+    changes += 1;
+    changedSession = sessionFile;
+  });
 
   await writeSession(projectDir, "new-chat.jsonl", [
     { type: "session", version: 3, id: "new-chat", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
@@ -289,6 +294,7 @@ test("watchProjectSessions detects chats created after the sidebar is open", asy
   }
   stop();
   expect(changes).toBeGreaterThan(0);
+  expect(changedSession).toBe(sessionDirFor(projectDir) + path.sep + "new-chat.jsonl");
 });
 
 test("stopping a project session watch invalidates its cached listing", async () => {

@@ -220,7 +220,6 @@ function forwardEvent(projectDir: string, pi: PiProcess, event: PiMessage): void
   else if (busyUntil.get(sessionFile) !== Number.POSITIVE_INFINITY) {
     markBusy(sessionFile, Date.now() + SETTLE_GRACE_MS);
   }
-  if (event["type"] === "message_end" || event["type"] === "agent_settled") notifySessionsChanged(projectDir);
   if (event["type"] === "message_update") {
     queueDisplayDelta(projectDir, pi, event);
     return;
@@ -555,7 +554,10 @@ const handlers: HandlerMap = {
   readSession: async ({ sessionFile }) => ({ entries: await readSession(sessionFile) }),
   watchProjectSessions: ({ projectDir }) => {
     if (!projectSessionWatches.has(projectDir)) {
-      projectSessionWatches.set(projectDir, watchProjectSessions(projectDir, () => notifySessionsChanged(projectDir)));
+      projectSessionWatches.set(projectDir, watchProjectSessions(projectDir, (sessionFile) => {
+        if (sessionFile && Date.now() < (busyUntil.get(sessionFile) ?? 0)) return;
+        notifySessionsChanged(projectDir);
+      }));
     }
     return { ok: true };
   },

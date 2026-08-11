@@ -79,6 +79,19 @@ export function displayPromptText(raw: string): string {
   return prompt.text || prompt.fallback;
 }
 
+export function sessionPromptSummary(content: unknown): string {
+  const normalized = displayPromptText(textOf(content)).replace(/\s+/g, " ").trim();
+  if (normalized) {
+    const characters = [...normalized];
+    return characters.length <= 160 ? normalized : `${characters.slice(0, 159).join("")}…`;
+  }
+
+  const images = Array.isArray(content)
+    ? content.filter((item) => item && typeof item === "object" && (item as { type?: unknown }).type === "image").length
+    : 0;
+  return images === 1 ? "Image attachment" : images > 1 ? `${images} image attachments` : "Message without text";
+}
+
 export function chatTitle(session: SessionSummary): string {
   if (session.name) return session.name;
   const text = displayPromptText(session.firstMessage);

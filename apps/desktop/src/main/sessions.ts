@@ -3,7 +3,7 @@ import { open, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { parseSessionEntries, SessionManager } from "@earendil-works/pi-coding-agent";
-import { chatTitle, displayPromptText, isAssistant, isUser, textOf } from "../shared/messages.ts";
+import { chatTitle, isAssistant, isUser, sessionPromptSummary, textOf } from "../shared/messages.ts";
 import type { FileEntry, SessionSearchResult, SessionSummary, UsageDashboard } from "../shared/pi-types.ts";
 
 /**
@@ -55,7 +55,7 @@ async function sessionSidebarFieldsUncached(sessionFile: string): Promise<{ last
       try {
         const entry = JSON.parse(line) as { type?: unknown; message?: unknown; provider?: unknown };
         if (entry.type === "message") {
-          if (!lastPrompt && isUser(entry.message)) lastPrompt = promptSummary(entry.message.content);
+          if (!lastPrompt && isUser(entry.message)) lastPrompt = sessionPromptSummary(entry.message.content);
           if (isAssistant(entry.message) && typeof entry.message.provider === "string") {
             rememberProvider(entry.message.provider, providers, seen);
           }
@@ -79,19 +79,6 @@ function rememberProvider(provider: string, providers: string[], seen: Set<strin
   if (!provider || seen.has(provider)) return;
   seen.add(provider);
   providers.push(provider);
-}
-
-function promptSummary(content: unknown): string {
-  const normalized = displayPromptText(textOf(content)).replace(/\s+/g, " ").trim();
-  if (normalized) {
-    const characters = [...normalized];
-    return characters.length <= 160 ? normalized : `${characters.slice(0, 159).join("")}…`;
-  }
-
-  const images = Array.isArray(content)
-    ? content.filter((item) => item && typeof item === "object" && (item as { type?: unknown }).type === "image").length
-    : 0;
-  return images === 1 ? "Image attachment" : images > 1 ? `${images} image attachments` : "Message without text";
 }
 
 export function listSessions(projectDir: string): Promise<SessionSummary[]> {
@@ -369,18 +356,10 @@ export async function deleteSession(projectDir: string, sessionFile: string): Pr
  * created. Pi owns the directory layout; `SessionManager.create` gives us its
  * computed default rather than duplicating its path encoding.
  */
-export function watchProjectSessions(projectDir: string, onChange: () => void): () => void {
+export function watchProjectSessions(projectDir: string, onChange: (sessionFile?: string) => void): () => void {
   const sessionDir = SessionManager.create(projectDir).getSessionDir();
   let watcher: FSWatcher | undefined;
-  let timer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
-  const notify = () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      sessionListCache.delete(projectDir);
-      onChange();
-    }, 150);
-  };
   const watchDirectory = () => {
     watcher?.close();
     let directory = sessionDir;
@@ -391,10 +370,14 @@ export function watchProjectSessions(projectDir: string, onChange: () => void): 
     }
     const watchingSessions = directory === sessionDir;
     try {
-      watcher = watch(directory, { persistent: false }, () => {
+      watcher = watch(directory, { persistent: false }, (_event, filename) => {
         if (stopped) return;
         watchDirectory();
-        if (watchingSessions || existsSync(sessionDir)) notify();
+        if (watchingSessions || existsSync(sessionDir)) {
+          const changedSession = watchingSessions && filename ? path.join(sessionDir, filename.toString()) : undefined;
+          sessionListCache.delete(projectDir);
+          onChange(changedSession);
+        }
       });
       watcher.on("error", () => watcher?.close());
     } catch {
@@ -405,7 +388,6 @@ export function watchProjectSessions(projectDir: string, onChange: () => void): 
   watchDirectory();
   return () => {
     stopped = true;
-    clearTimeout(timer);
     watcher?.close();
     sessionListCache.delete(projectDir);
   };
