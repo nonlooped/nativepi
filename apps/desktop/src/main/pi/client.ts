@@ -1,5 +1,6 @@
-import { fileURLToPath } from "node:url";
+import { app } from "electron";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { join } from "node:path";
 import { isTuiFrameType, tuiHostFrameSchema, type TuiClientFrame, type TuiHostFrame } from "../../shared/tui-frames.ts";
 import type { AuthProviderInfo } from "../../shared/rpc-schema.ts";
 import type { ContextInspector } from "../../shared/pi-types.ts";
@@ -24,14 +25,15 @@ import { drainLines, serializeCommand, type PiCommand, type PiMessage } from "./
  */
 
 /**
- * NativePi's Pi entry point, which sits beside this bundle in `out/main`.
+ * NativePi's Pi entry point, resolved from the application root so main-process
+ * code splitting cannot change where the launcher looks for it.
  *
  * Pi's own `rpc-entry` is not used: it builds an extension UI context that drops
  * every pi-tui component, and the context is not injectable. `pi-host` is that
  * entry plus the context that renders them — see `pi/host/entry.ts`.
  */
 function resolvePiEntry(): string {
-  return fileURLToPath(new URL("./pi-host.js", import.meta.url));
+  return join(app.getAppPath(), "out", "main", "pi-host.js");
 }
 
 let nextRequestId = 1;
