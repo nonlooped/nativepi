@@ -472,11 +472,11 @@ html:not(.dark) .conversation-shell {
   background-color: color-mix(in oklch, var(--muted) 62%, transparent);
 }
 
-/* Collapsible desktop panes stay in the resizable layout so their last dragged
-   size survives. Animate the library-owned flex value only for state changes;
-   direct manipulation remains locked to the pointer. */
+/* Resize the workspace with a lightweight linear layout transition while the
+   pane itself slides independently. Direct manipulation stays locked to the
+   pointer rather than easing behind it. */
 [data-pane-motion] {
-  transition: flex-grow 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: flex-grow 200ms linear;
 }
 
 [data-group]:has([data-separator="active"]) > [data-pane-motion] {

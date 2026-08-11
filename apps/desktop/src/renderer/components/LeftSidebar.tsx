@@ -78,8 +78,8 @@ export default function LeftSidebar({
         data-pane-motion="left"
         inert={!open || undefined}
         className={cn(
-          "h-full transition-[opacity,transform,filter] duration-200 ease-out",
-          open ? "translate-x-0 opacity-100 blur-none" : "pointer-events-none -translate-x-2 opacity-0 blur-[2px]",
+          "h-full transition-[opacity,translate] duration-200 ease-linear",
+          open ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-full opacity-0",
         )}
         onResize={(size, _id, previousSize) => {
           if (size.inPixels === 0 && previousSize && previousSize.inPixels > 0 && open) onClose();
@@ -90,7 +90,7 @@ export default function LeftSidebar({
       <ResizableHandle
         disabled={!open}
         className={cn(
-          "transition-[width,opacity,background-color] duration-200 ease-out hover:bg-ring focus-visible:bg-ring",
+          "transition-[width,opacity,background-color] duration-200 ease-linear hover:bg-ring focus-visible:bg-ring",
           !open && "w-0 opacity-0 after:hidden",
         )}
         onPointerUp={saveSidebarSize}
