@@ -147,6 +147,15 @@ test("status totals include tracked and untracked text changes", async () => {
   expect(await gitStatus(dir)).toMatchObject({ insertions: 2, deletions: 0 });
 });
 
+test("concurrent status callers share one repository scan", async () => {
+  const dir = await repo();
+  await writeFile(path.join(dir, "new.txt"), "one\ntwo\n", "utf8");
+
+  const [first, second] = await Promise.all([gitStatus(dir), gitStatus(dir)]);
+
+  expect(first).toBe(second);
+});
+
 test("source-control staging moves individual files or the whole working tree", async () => {
   const dir = await repo();
   await writeFile(path.join(dir, "a.txt"), "changed\n", "utf8");

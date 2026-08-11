@@ -1,6 +1,5 @@
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { createReadStream, existsSync } from "node:fs";
 import path from "node:path";
 import type { GitBranch, GitCommit, GitDiff, GitHunk, GitPrTarget, GitStatus } from "../shared/pi-types.ts";
 
@@ -37,22 +36,70 @@ function labelFor(x: string, y: string): GitStatus["files"][number]["state"] {
 }
 
 const gitStatusCache = new Map<string, { at: number; status: GitStatus }>();
+const gitStatusRequests = new Map<string, Promise<GitStatus>>();
 const GIT_STATUS_TTL_MS = 1500;
 function invalidateGitStatusCache(projectDir: string): void {
   gitStatusCache.delete(projectDir);
+  gitStatusRequests.delete(projectDir);
 }
 
-export async function gitStatus(projectDir: string): Promise<GitStatus> {
+export function gitStatus(projectDir: string): Promise<GitStatus> {
   const cached = gitStatusCache.get(projectDir);
-  if (cached && Date.now() - cached.at < GIT_STATUS_TTL_MS) return cached.status;
+  if (cached && Date.now() - cached.at < GIT_STATUS_TTL_MS) return Promise.resolve(cached.status);
+  const current = gitStatusRequests.get(projectDir);
+  if (current) return current;
+  const request = readGitStatus(projectDir).then((status) => {
+    if (gitStatusRequests.get(projectDir) === request) {
+      gitStatusCache.set(projectDir, { at: Date.now(), status });
+    }
+    return status;
+  });
+  gitStatusRequests.set(projectDir, request);
+  void request.finally(() => {
+    if (gitStatusRequests.get(projectDir) === request) gitStatusRequests.delete(projectDir);
+  });
+  return request;
+}
+
+async function textLineCount(file: string): Promise<number> {
+  let breaks = 0;
+  let hasContent = false;
+  let lastWasBreak = false;
+  let pendingCr = false;
+  try {
+    for await (const chunk of createReadStream(file)) {
+      if (chunk.includes(0)) return 0;
+      for (const byte of chunk) {
+        hasContent = true;
+        if (byte === 10) {
+          breaks += 1;
+          pendingCr = false;
+          lastWasBreak = true;
+        } else if (byte === 13) {
+          if (pendingCr) breaks += 1;
+          pendingCr = true;
+          lastWasBreak = true;
+        } else {
+          if (pendingCr) breaks += 1;
+          pendingCr = false;
+          lastWasBreak = false;
+        }
+      }
+    }
+  } catch {
+    return 0;
+  }
+  if (pendingCr) breaks += 1;
+  return hasContent ? breaks + (lastWasBreak ? 0 : 1) : 0;
+}
+
+async function readGitStatus(projectDir: string): Promise<GitStatus> {
   const [porcelain, headRes] = await Promise.all([
     run(["status", "--porcelain=v1", "--branch", "--untracked-files=all", "-z"], projectDir),
     run(["rev-parse", "--short", "HEAD"], projectDir),
   ]);
   if (porcelain.code !== 0) {
-    const status: GitStatus = { isRepo: false, files: [], insertions: 0, deletions: 0, ahead: 0, behind: 0 };
-    gitStatusCache.set(projectDir, { at: Date.now(), status });
-    return status;
+    return { isRepo: false, files: [], insertions: 0, deletions: 0, ahead: 0, behind: 0 };
   }
 
   // NUL-delimited porcelain output is unambiguous even with odd filenames.
@@ -94,12 +141,12 @@ export async function gitStatus(projectDir: string): Promise<GitStatus> {
     if (added && added !== "-") insertions += Number(added) || 0;
     if (removed && removed !== "-") deletions += Number(removed) || 0;
   }
-  for (const file of files) {
-    if (file.state !== "untracked") continue;
-    const content = await readFile(path.join(projectDir, file.path));
-    if (content.includes(0)) continue;
-    const text = content.toString("utf8");
-    if (text) insertions += text.split(/\r\n|\r|\n/).length - (/[\r\n]$/.test(text) ? 1 : 0);
+  const untracked = files.filter((file) => file.state === "untracked");
+  for (let index = 0; index < untracked.length; index += 4) {
+    const counts = await Promise.all(
+      untracked.slice(index, index + 4).map((file) => textLineCount(path.join(projectDir, file.path))),
+    );
+    insertions += counts.reduce((total, count) => total + count, 0);
   }
 
   const result: GitStatus = {
@@ -114,7 +161,6 @@ export async function gitStatus(projectDir: string): Promise<GitStatus> {
     insertions,
     deletions,
   };
-  gitStatusCache.set(projectDir, { at: Date.now(), status: result });
   return result;
 }
 

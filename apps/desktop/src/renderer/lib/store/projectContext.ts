@@ -1,5 +1,4 @@
 import { insertAtComposerCaret } from "../composerInsert.ts";
-import { dispatchExtensionEvent } from "../extensionHost.ts";
 import { rpc } from "../rpc.ts";
 import { showHint } from "../toast.tsx";
 import { dropAllSurfaces, dropSurface, retainSurfaceHistory, writeSurface } from "../tuiSurfaces.ts";
@@ -159,7 +158,9 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
         if (!insertAtComposerCaret(frame.text)) get().insertIntoComposer(frame.text);
         return;
       case "nativepi_tui_ext_event":
-        dispatchExtensionEvent(frame.extension, frame.event, frame.payload);
+        void import("../extensionHost.ts").then(({ dispatchExtensionEvent }) => {
+          dispatchExtensionEvent(frame.extension, frame.event, frame.payload);
+        });
         return;
     }
   },
