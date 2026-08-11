@@ -723,7 +723,9 @@ function AssistantResponse({
     .join("") ?? "";
   const reduced = useReducedMotion();
   const workIsStreaming = streaming && !finalText && !reduced;
-  const [workOpen, setWorkOpen] = useState(streaming);
+  const startedAtMs = startedAt ? Date.parse(startedAt) : Number.NaN;
+  const elapsed = useElapsed(streaming && Number.isFinite(startedAtMs) ? startedAtMs : null);
+  const [workOpen, setWorkOpen] = useState(false);
   // A panel the reader opened for themselves is theirs to close. Without this,
   // the end of the turn shut the work section under anyone who had expanded it
   // to watch a tool run — which is the moment they most wanted it open.
@@ -766,7 +768,7 @@ function AssistantResponse({
           }}
         >
           <Collapsible.Trigger className="group flex items-center gap-1.5 rounded-sm py-1 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
-            <span>{streaming ? "Working…" : `Worked for ${formatDuration(startedAt, finishedAt)}`}</span>
+            <span>{streaming ? (elapsed ? `Working · ${elapsed}` : "Working") : `Worked for ${formatDuration(startedAt, finishedAt)}`}</span>
             <CaretRightIcon className="transition-transform group-data-[panel-open]:rotate-90" />
           </Collapsible.Trigger>
           <Collapsible.Panel className="mt-3 flex flex-col gap-3 border-b border-border/60 pb-4">

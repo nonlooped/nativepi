@@ -73,6 +73,19 @@ function elapsed(start?: number, end?: number) {
   return `${minutes}m ${seconds % 60}s`;
 }
 
+function useElapsed(startedAt?: number): string {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!startedAt) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [startedAt]);
+
+  return elapsed(startedAt, now);
+}
+
 function ToolBlock({ block }: { block: Extract<ConversationContentBlock, { type: "tool" }> }) {
   const [open, setOpen] = useState(block.status === "running" || block.status === "failed");
   const openedByReader = useRef(false);
@@ -145,21 +158,21 @@ function WorkBlock({ block }: { block: ConversationContentBlock }) {
 
 function AssistantTurn({ turn, running }: { turn: Turn; running: boolean }) {
   const final = turn.assistants.at(-1);
+  const error = turn.assistants.reduce<string | undefined>((current, message) => message.error ?? current, undefined);
   const reduced = useReducedMotion();
   const finalHasTool = final?.content.some((block) => block.type === "tool") ?? false;
   const finalText = final && !finalHasTool ? messageText(final) : "";
   const work = turn.assistants.flatMap((message) =>
     message.content.filter((block) => message !== final || finalHasTool || block.type !== "text"),
   );
-  const error = turn.assistants.findLast((message) => message.error)?.error;
-  const [workOpen, setWorkOpen] = useState(running || !!error);
+  const [workOpen, setWorkOpen] = useState(false);
   const openedByReader = useRef(false);
   useEffect(() => {
-    if (running || error) setWorkOpen(true);
-    else if (!openedByReader.current) setWorkOpen(false);
-  }, [error, running]);
+    if (!running && !openedByReader.current) setWorkOpen(false);
+  }, [running]);
   const tools = work.filter((block) => block.type === "tool").length;
   const timing = elapsed(turn.user?.timestamp, final?.timestamp);
+  const liveElapsed = useElapsed(running ? turn.user?.timestamp : undefined);
 
   if (turn.assistants.length === 0 && !running) return null;
   return (
@@ -174,7 +187,7 @@ function AssistantTurn({ turn, running }: { turn: Turn; running: boolean }) {
           }}
         >
           <Collapsible.Trigger className="group flex items-center gap-1.5 rounded-sm py-1 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
-            <span>{running ? "Working…" : timing ? `Worked for ${timing}` : tools > 0 ? `Used ${tools} ${tools === 1 ? "tool" : "tools"}` : "Work"}</span>
+            <span>{running ? (liveElapsed ? `Working · ${liveElapsed}` : "Working") : timing ? `Worked for ${timing}` : tools > 0 ? `Used ${tools} ${tools === 1 ? "tool" : "tools"}` : "Work"}</span>
             <CaretRightIcon className="transition-transform group-data-[panel-open]:rotate-90" />
           </Collapsible.Trigger>
           <Collapsible.Panel className="mt-3 flex flex-col gap-3 border-b border-border/60 pb-4">
