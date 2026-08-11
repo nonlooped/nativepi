@@ -95,6 +95,9 @@ export default defineConfig({
             // `@phosphor-icons/react` and every other `*.react` package.
             if (/node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return "react";
             if (id.includes("@xterm")) return "terminal";
+            if (id.includes("recharts")) return "charts";
+            if (id.includes("@phosphor-icons") || id.includes("@lobehub") || id.includes("material-icon-theme")) return "icons";
+            if (id.includes("zod")) return "vendor";
             // Deliberately not shiki: its ~600 language grammars are already
             // dynamically imported one at a time, and naming them here would
             // collapse the lot into a single 22 MB chunk.
