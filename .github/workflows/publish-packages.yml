@@ -36,18 +36,26 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           $sha = git rev-parse HEAD
-          $runs = gh api "repos/$env:GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&status=completed&per_page=100" |
-            ConvertFrom-Json
-          $verified = $runs.workflow_runs | Where-Object {
-            $_.head_sha -eq $sha -and
-            $_.head_branch -eq "main" -and
-            $_.event -eq "push" -and
-            $_.conclusion -eq "success"
-          }
-          if (-not $verified) {
-            throw "Ref $sha is not a successfully verified main CI run"
+          if ($env:EVENT_NAME -eq "workflow_run") {
+            if ($sha -ne $env:WORKFLOW_SHA) {
+              throw "Checked out $sha instead of verified workflow ref $env:WORKFLOW_SHA"
+            }
+          } else {
+            $runs = gh api "repos/$env:GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&status=completed&per_page=100" |
+              ConvertFrom-Json
+            $verified = $runs.workflow_runs | Where-Object {
+              $_.head_sha -eq $sha -and
+              $_.head_branch -eq "main" -and
+              $_.event -eq "push" -and
+              $_.conclusion -eq "success"
+            }
+            if (-not $verified) {
+              throw "Ref $sha is not a successfully verified main CI run"
+            }
           }
           "sha=$sha" >> $env:GITHUB_OUTPUT
 
