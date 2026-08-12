@@ -136,7 +136,7 @@
       ]
     },
     "dmg": {
-      "artifactName": "${productName}-${version}.${ext}"
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "linux": {
       "icon": "resources/icon.png",
