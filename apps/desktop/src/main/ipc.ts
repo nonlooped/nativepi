@@ -744,6 +744,10 @@ const handlers: HandlerMap = {
       }
       if (sessionFile) markBusy(sessionFile, Number.POSITIVE_INFINITY);
       await pi.request({ type: "prompt", message, images, streamingBehavior });
+      if (sessionFile && busyUntil.get(sessionFile) === Number.POSITIVE_INFINITY) {
+        markBusy(sessionFile, Date.now() + SETTLE_GRACE_MS);
+        scheduleSuppressedSessionCheck(sessionFile);
+      }
       if (sessionFile) busyUntil.delete(projectDir);
       return { ok: true, sessionFile: sessionFile ?? undefined };
     } catch (err) {
