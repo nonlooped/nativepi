@@ -201,7 +201,6 @@ function acknowledgePiSessionWrite(sessionFile: string): void {
       const watch = sessionWatches.get(sessionFile);
       if (!watch) return;
       watch.mtimeMs = mtimeMs;
-      watch.pendingMtimeMs = undefined;
       clearTimeout(watch.notifyTimer);
       watch.notifyTimer = undefined;
     }).catch(() => {});
