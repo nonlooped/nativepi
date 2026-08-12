@@ -5,6 +5,7 @@ import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 import { PiProcess } from "./pi/client.ts";
 import type { PiMessage } from "./pi/protocol.ts";
+import { isProjectTrusted } from "./pi/services.ts";
 import { deleteSession, listSessions, readSession, searchSessions, sessionMtime, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
 import { loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
@@ -407,6 +408,7 @@ function ensurePi(projectDir: string, sessionFile?: string, fresh = false): Prom
         }
       },
       (frame) => forwardPiFrame(projectDir, pi, frame),
+      isProjectTrusted(projectDir) ? [] : ["--no-approve"],
     );
     startingPis.set(key, pi);
     try {

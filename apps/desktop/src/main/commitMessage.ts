@@ -1,5 +1,6 @@
 import type { PiMessage } from "./pi/protocol.ts";
 import { PiProcess } from "./pi/client.ts";
+import { isProjectTrusted } from "./pi/services.ts";
 
 const COMMIT_TIMEOUT_MS = 30_000;
 const COMMIT_SUBJECT_PATTERN = /^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([^)\r\n]+\))?!?: \S.+$/;
@@ -73,7 +74,10 @@ export async function generateCommitMessage(projectDir: string, diff: string, mo
     },
     (code) => finish(new Error(`Pi exited before generating a commit message (${code ?? "?"}).`)),
     undefined,
-    ["--no-session", "--no-tools", "--model", model, "--thinking", "off"],
+    [
+      ...isProjectTrusted(projectDir) ? [] : ["--no-approve"],
+      "--no-session", "--no-tools", "--model", model, "--thinking", "off",
+    ],
   );
   const timeout = setTimeout(() => finish(new Error("Commit-message generation timed out. Try again.")), COMMIT_TIMEOUT_MS);
 
