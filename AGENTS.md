@@ -162,7 +162,8 @@ suppress, or work around it.
 - Use shadcn chat primitives for conversation scrolling, messages, attachments,
   and markers.
 - Preserve the accessibility requirements of dialogs, sheets, fields, and menus.
-- Keep the UI dark-only unless the product scope changes.
+- Support the existing light, dark, and system appearances. Use semantic tokens
+  so every built-in and custom color scheme works in both appearances.
 
 Using shadcn does not require wrapping every element in a Card. Prefer a clear,
 dense desktop interface over a generic dashboard appearance.

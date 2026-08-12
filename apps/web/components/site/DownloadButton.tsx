@@ -54,7 +54,7 @@ export function DownloadButton() {
   return (
     <Button href={site.downloads[platform]} variant="primary" external={false}>
       <Icon className="size-4" />
-      {`Download for ${label}`}
+      {`Downloads for ${label}`}
     </Button>
   );
 }

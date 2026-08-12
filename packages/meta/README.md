@@ -18,6 +18,8 @@ Then select a Muse Spark model in Pi (`/model`) or in NativePi's model picker. T
 
 ## Models
 
+All three models accept text and image input.
+
 - `muse-spark-1.1` — Muse Spark 1.1, 1,000,000 context / 32,000 max output, reasoning with encrypted-content replay
 - `muse-spark-1.2` — Muse Spark 1.2, 1,048,576 context / 131,072 max output
 - `muse-spark-1.2-contributor` — Muse Spark 1.2 Contributor, same context/output as 1.2 at contributor pricing

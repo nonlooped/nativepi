@@ -1,14 +1,10 @@
-import desktopPackage from "../../desktop/package.json";
-
 /**
- * Every fact on the site comes from here, and every fact here comes from
- * PRODUCT.md, the README, or source. Nothing in this file may be a claim the
- * project cannot back: no download counts, no star counts, no benchmarks.
+ * Shared site metadata, release links, and provider data. Every claim here must
+ * be backed by PRODUCT.md, the README, or source: no download counts, star
+ * counts, or benchmarks.
  */
 
-const releaseTag = `v${desktopPackage.version}`;
-const releaseDownload = (asset: string) =>
-  `https://github.com/nonlooped/nativepi/releases/download/${releaseTag}/${asset}`;
+const latestRelease = "https://github.com/nonlooped/nativepi/releases/latest";
 
 export const site = {
   name: "NativePi",
@@ -18,11 +14,11 @@ export const site = {
   url: "https://nativepi.vercel.app",
   repo: "https://github.com/nonlooped/nativepi",
   releases: "https://github.com/nonlooped/nativepi/releases",
-  releasesLatest: "https://github.com/nonlooped/nativepi/releases/latest",
+  releasesLatest: latestRelease,
   downloads: {
-    windows: releaseDownload(`NativePi-Setup-${desktopPackage.version}.exe`),
-    macos: releaseDownload(`NativePi-${desktopPackage.version}.dmg`),
-    linux: releaseDownload(`NativePi-${desktopPackage.version}.AppImage`),
+    windows: latestRelease,
+    macos: latestRelease,
+    linux: latestRelease,
   },
   issues: "https://github.com/nonlooped/nativepi/issues",
   license: "https://github.com/nonlooped/nativepi/blob/main/LICENSE",

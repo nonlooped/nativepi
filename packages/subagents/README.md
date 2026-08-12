@@ -16,7 +16,7 @@ pi install @nativepi/subagents
 - `subagent_wait` waits for selected children and returns their final responses.
 - `subagent_cancel` cancels queued or running children.
 
-`subagent_spawn` accepts an optional `model` as `provider/model` and an optional Pi `thinkingLevel`. If either is omitted, the parent chat's current value is used. The delegated prompt must be self-contained because the child cannot see the parent conversation.
+`subagent_spawn` accepts an optional `model` as a model ID or `provider/model`; an unqualified ID must be unique in the available catalog. It also accepts an optional Pi `thinkingLevel`. If either is omitted, the parent chat's current value is used. The delegated prompt must be self-contained because the child cannot see the parent conversation.
 
 ## NativePi interface
 
@@ -47,7 +47,7 @@ The panel updates live and shows status, duration, model, token count, tool coun
 
 ## Configure
 
-The default concurrency is 6. Set a user-level value in `~/.pi/agent/subagents.json`:
+The default concurrency is 6, and `maxConcurrency` must be an integer from 1 through 32. Set a user-level value in `~/.pi/agent/subagents.json`:
 
 ```json
 {

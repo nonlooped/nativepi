@@ -3,8 +3,8 @@ import { cn } from "@/lib/cn";
 /**
  * The NativePi wordmark, set in Departure Mono and drawn as outlines so it never
  * depends on the webfont having loaded. Paths are lifted verbatim from
- * docs/assets/nativepi-wordmark.svg; only the fills change, because this surface
- * is dark only and has no light mode to answer to.
+ * docs/assets/nativepi-wordmark.svg; only the fills change to match this site's
+ * fixed dark presentation.
  *
  * Per the Wordmark-Only Departure Rule, this is the single place Departure Mono
  * letterforms appear on the site.

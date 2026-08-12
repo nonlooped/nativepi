@@ -244,8 +244,9 @@ render.
 - `revealFile(file)` — project-relative, platform file manager
 - `copyText(text)`
 
-Failures reject instead of silently succeeding. Handle them where the user can
-act on the outcome.
+The Promise-returning actions (`openExternal`, `openFile`, `revealFile`, and
+`copyText`) reject on failure. Handle those failures where the user can act on
+the outcome.
 
 ## Native UI components
 
@@ -322,8 +323,8 @@ The version-1 contract intentionally replaces the experimental raw channel:
   `context.channel.on`.
 - Rename contribution `key` fields to `id`.
 - Read `context.project`, `context.session`, and `context.agent` instead of the
-  old nullable session object. The removed `dark` flag was always true because
-  NativePi is dark-only.
+  old nullable session object. The removed `dark` flag is replaced by semantic
+  color variables that follow NativePi's light, dark, and custom appearances.
 - Delete renderer-side response type guards that duplicate protocol schemas.
 
 NativePi rejects an old renderer with a compatibility error instead of trying

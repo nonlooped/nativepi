@@ -61,7 +61,8 @@ export default function SessionsAndStoragePage() {
         </ul>
         <p>
           It does not put conversations or credentials in that state file and
-          does not send telemetry.
+          does not send NativePi-owned desktop telemetry. Pi&apos;s optional
+          analytics remain a Pi setting.
         </p>
       </Prose>
 

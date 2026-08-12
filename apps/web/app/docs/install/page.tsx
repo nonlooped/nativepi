@@ -30,8 +30,12 @@ export default function InstallPage() {
         </p>
         <ul>
           <li><strong>Windows:</strong> <code>NativePi-Setup-*.exe</code></li>
-          <li><strong>macOS:</strong> <code>NativePi-*.dmg</code></li>
-          <li><strong>Linux:</strong> <code>NativePi-*.AppImage</code></li>
+          <li>
+            <strong>macOS:</strong> choose the x64 or arm64 <code>NativePi-*.dmg</code>
+          </li>
+          <li>
+            <strong>Linux:</strong> choose the x64 or arm64 <code>NativePi-*.AppImage</code>
+          </li>
         </ul>
       </Prose>
 
@@ -65,8 +69,8 @@ export default function InstallPage() {
       <H2 id="updates">Updates</H2>
       <Prose>
         <p>
-          NativePi checks GitHub Releases for a newer version. It notifies you
-          first; downloading and installing remain explicit actions. Installing
+          NativePi checks GitHub Releases at startup and periodically for a
+          newer version. It notifies you first; downloading and installing remain explicit actions. Installing
           an update stops active agent turns and terminals before the app
           restarts.
         </p>

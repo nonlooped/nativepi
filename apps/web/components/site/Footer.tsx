@@ -46,7 +46,10 @@ export function Footer() {
         </div>
 
         <div className="mt-8 flex flex-col gap-4 border-t border-hairline pt-6 text-xs leading-relaxed text-silver lg:flex-row lg:items-center lg:justify-between">
-          <p>MIT licensed. Built by {site.author}. No account. No telemetry.</p>
+          <p>
+            MIT licensed. Built by {site.author}. No app account. No desktop
+            telemetry.
+          </p>
           <p className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <a
               href={site.repo}

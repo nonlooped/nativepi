@@ -38,10 +38,10 @@ body:
       required: true
 
   - type: input
-    id: windows
+    id: operating-system
     attributes:
-      label: Windows version
-      placeholder: Windows 11 24H2
+      label: Operating system and version
+      placeholder: Windows 11 24H2, macOS 15.6, or Ubuntu 24.04
     validations:
       required: true
 

@@ -41,17 +41,20 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Streaming text, thinking, tool activity, file-change summaries, rich diffs, retries, steering, follow-ups, queues, and abort controls.
 - Images attached to a message by paste, drag and drop, or the file picker, resized by Pi before they are sent and shown in the transcript alongside the message they went with.
 - Drag and drop as an entry point throughout the window: a folder dropped anywhere becomes a project, a Pi session file is imported as a chat, and files dropped on the composer attach as images or become `@` mentions of their path.
+- A live project file explorer with lazy folder expansion, Git-state indicators, opening files in the preferred editor, revealing them in the system file manager, copying paths, and inserting file or folder mentions into the composer.
+- Rich transcript Markdown with tables, task lists, syntax-highlighted copyable code, math, sanitized Mermaid diagrams, external links, and project-file links that open in the preferred editor.
 - Pi-backed model and thinking-level selection, favorite models, provider authentication, and project trust controls.
-- Source control with separate staged and unstaged file groups, file or hunk staging, inline commits, commit-and-push or fast-forward sync, a local/remote commit graph, clean-worktree branch switching or creation, worktrees added as NativePi projects, and opening a GitHub pull request through `gh`, with Pi able to draft Conventional Commit wording through the current or configured model without adding a chat turn.
+- Source control with separate staged and unstaged file groups, file or hunk staging, inline commits, commit-and-push or fast-forward sync, a local/remote commit graph, clean-worktree branch switching or creation, worktrees added as NativePi projects, and opening a GitHub pull request through `gh`, inspecting the current pull request's description, checks, comments, linked issues, and base comparison, with Pi able to draft Conventional Commit wording through the current or configured model without adding a chat turn.
 - User- and project-scoped Pi package installation, update, removal, reload, and load-error display.
 - NativePi packages can provide the same extension capability in the window and Pi's terminal TUI through graphical tool, entry, composer-widget, composer-control, conversation-view, settings, and context-panel contributions.
 - Normal Pi extension UI requests plus optional graphical tool, entry, composer-widget, composer-control, conversation-view, settings-section, and context-panel contributions through `@nativepi/extension-api`.
 - Pi's terminal extension UI, shown rather than skipped: a component an extension opens with `ctx.ui.custom()` replaces the composer or appears as a dialog when it explicitly requests an overlay, while component widgets, footers, and headers take their matching place in the window, working messages and spinners are drawn in NativePi's own type, and an extension's autocomplete provider offers its suggestions in the composer.
 - Pi's own slash commands — extension commands, prompt templates, and skills — offered by name in the composer and run through Pi, including while a turn is in flight.
 - Responsive project and context panes, keyboard shortcuts that can be rebound in Settings by pressing the keys, reduced-motion handling, and standard accessible desktop controls.
-- Project-scoped integrated terminals with resizable splits that remain alive while hidden or while another project is active.
+- Project-scoped integrated terminals with selectable shells and resizable splits that remain alive while hidden or while another project is active. Splits can be renamed, duplicated, restarted, or closed, and terminal URLs and file locations open in the browser or preferred editor.
 - A quit confirmation that names the agent turns, terminals, and connected browsers closing the window would end, so neither a run nor someone else's session is stopped by accident.
 - A settings screen covering NativePi's own appearance and notification preferences, ten built-in color schemes with light and dark variants, named custom color schemes with editable semantic colors plus JSON import/export, a user-scope editor for the Pi settings that mean something in a desktop window, an editable shortcut list, the paths to Pi's own files, and a redacted diagnostics report copied for bug reports.
+- Local usage dashboards for model-reported cost, tokens, sessions, providers, models, projects, and daily activity read from Pi session files, plus subscription-limit dashboards for connected providers that report quota usage through Pi.
 - On-demand, access-token-protected browser access to the same projects, chats, changes, and terminals, either on the local network or through a temporary public link the user creates in one click, while the desktop app remains open.
 - Access the owner can account for: how many devices are connected and over which link, whether the public address still answers, a record of every link this window has copied or shown as a QR code, and explicit controls to replace the token or revoke access outright.
 - Self-updating from the published GitHub release: a notification when a newer version exists, a download the user starts, and an install that stops the running work before it restarts the app.
@@ -66,9 +69,10 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Git mutation is deliberately narrow: branch checkout and creation require a clean worktree, and worktrees may be added. NativePi can stage or unstage files and individual hunks, create commits, push the current branch, fast-forward it before pushing, and open a GitHub pull request through `gh`; it can ask Pi to draft commit wording in a separate ephemeral run that loads the user's normal project instructions. NativePi does not create merge commits, rebase, discard changes, create checkpoints, roll back work, or rewrite history.
 - Normal Pi extensions run unchanged. Optional graphical extensions contribute only through controlled NativePi UI slots and are trusted code, not sandboxed code.
 - Terminal extension components are drawn by Pi and displayed, not reimplemented: NativePi runs the component in the Pi process and shows what it draws, so it looks as its author wrote it rather than as NativePi would have styled it. Two parts of Pi's terminal UI have no equivalent here and keep Pi's documented no-op: raw terminal input, and replacing the input editor, which in this window is the composer.
-- NativePi has no cloud sync, collaboration, remote projects, SSH launching, product accounts, paid features, or telemetry.
+- NativePi has no cloud sync, collaboration, remote projects, SSH launching, product accounts, paid features, or NativePi-owned telemetry. Pi's own optional anonymous usage analytics remain a Pi setting and can be configured from the desktop settings screen.
+- Usage totals are local estimates recorded in Pi session files, not provider invoices. Subscription limits are provider-reported and may lag actual use.
 - Project and chat management in the left sidebar is intentionally exposed through row context menus. Desktop users right-click a project or chat; NativePi does not add an overflow button or another visible trigger for those menus.
-- NativePi is MIT licensed. GitHub publishes Windows, macOS, and Linux installers, currently without code signing or notarization, so SmartScreen warnings on Windows and Gatekeeper warnings on macOS are expected.
+- NativePi is MIT licensed. GitHub publishes a Windows NSIS installer, macOS x64 and arm64 DMG/ZIP builds, and Linux x64 and arm64 AppImages. Builds are currently unsigned and macOS builds are not notarized, so Windows SmartScreen and macOS Gatekeeper warnings are expected.
 
 ## Brand Commitments
 
@@ -90,7 +94,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 2. Serve new and experienced users together: make the basic path obvious and reveal advanced Pi capabilities progressively.
 3. Protect local work: keep Pi sessions authoritative, preserve drafts, and fail conservatively around external session changes.
 4. Prefer direct, understandable behavior over speculative infrastructure or hidden automation.
-5. Keep user trust explicit through local-by-default operation, no telemetry, honest extension trust boundaries, and narrowly scoped Git operations.
+5. Keep user trust explicit through local-by-default operation, no NativePi-owned telemetry, honest extension trust boundaries, and narrowly scoped Git operations.
 
 ## Accessibility Scope
 

@@ -1,7 +1,6 @@
 version: 2
 updates:
-  # Bun workspace: root bun.lock covers the root package,
-  # apps/desktop, and packages/extension-api manifests.
+  # The root bun.lock covers the complete apps/* and packages/* workspace.
   - package-ecosystem: "bun"
     directory: "/"
     schedule:

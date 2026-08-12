@@ -107,7 +107,8 @@ channel.method("setEnabled", update);`}
         <p>
           The old nullable session object is now a stable shape. A new chat uses
           <code> context.session.file: null</code>. The old <code>dark</code> flag
-          was removed because NativePi is dark-only.
+          was removed because renderers style against semantic color variables,
+          which update with NativePi&apos;s light, dark, and custom appearances.
         </p>
       </Prose>
 

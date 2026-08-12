@@ -52,7 +52,8 @@ storage, their own login. NativePi takes the opposite approach.
   storage and remain interchangeable with the Pi CLI. NativePi does not create
   a second conversation store.
 - **Local by default.** No account, no cloud store of your sessions, no
-  telemetry, no NativePi servers. Optional browser access is something you start.
+  NativePi-owned desktop telemetry, no NativePi servers. Optional browser
+  access is something you start.
 - **Free and open source.** MIT licensed, from the app down to the extension
   contract.
 
@@ -65,7 +66,7 @@ storage, their own login. NativePi takes the opposite approach.
 | **Stay in control mid-run** | Send, steer, queue a follow-up, or stop the agent from the same workspace. |
 | **The right model for the moment** | Use Pi's providers, models, and thinking levels without rebuilding your configuration. |
 | **Full session workflows** | Create, resume, rename, fork, clone, import, export, compact, and inspect session history. |
-| **Review code in context** | Inspect Git status and rich diffs alongside the transcript, stage hunks, commit, push, and open a GitHub pull request. |
+| **Review code in context** | Inspect Git status and rich diffs alongside the transcript, stage hunks, commit, push, and open a pull request with an installed and authenticated GitHub CLI. |
 | **Work on the right branch** | Switch or create branches from the composer, and add worktrees from the project menu as projects of their own. |
 | **Manage extensions visually** | Install, update, remove, and reload Pi packages; extensions can opt into richer desktop presentation through the graphical API. |
 
@@ -73,7 +74,8 @@ storage, their own login. NativePi takes the opposite approach.
 
 Download the latest installer for your platform from
 [GitHub Releases](https://github.com/nonlooped/nativepi/releases): an `.exe`
-for Windows, a `.dmg` for macOS, or an `.AppImage` for Linux. Releases are
+for Windows, an x64 or arm64 `.dmg` for macOS, or an x64 or arm64
+`.AppImage` for Linux. Releases are
 currently unsigned (and, on macOS, not notarized), so Windows SmartScreen and
 macOS Gatekeeper will warn on first launch.
 
@@ -103,8 +105,8 @@ contract lives in `packages/extension-api`.
 ### Test and build
 
 ```sh
-cd apps/desktop && bun test   # run the test suite
-cd ../.. && bun run build     # build the app
+bun run test                  # run desktop and package tests
+bun run build                 # build the app
 bun run pack                  # package without installer
 bun run dist:win              # build the Windows installer
 bun run dist:mac              # build the macOS installer
@@ -163,7 +165,7 @@ NativePi can also install and manage Pi packages at user or project scope. To
 draw with React instead, an extension imports `@nativepi/extension-api` and adds
 a `nativepi.renderer` entry to its manifest. NativePi compiles that browser entry
 with esbuild and loads its tool, entry, composer-widget, composer-control,
-settings-section, and context-panel contributions behind error boundaries. The
+conversation-view, settings-section, and context-panel contributions behind error boundaries. The
 graphical extension API is versioned (`apiVersion: 1`); NativePi rejects an
 incompatible renderer at load time.
 

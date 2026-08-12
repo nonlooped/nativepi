@@ -8,7 +8,7 @@
 
 ## Checklist
 
-- [ ] `bun run typecheck`, `bun run test`, and `bun run build` pass
+- [ ] The applicable desktop, package, and web checks listed in `CONTRIBUTING.md` pass
 - [ ] Commit titles follow Conventional Commits, with no body
 - [ ] No version bumps in `package.json`
 - [ ] No `package-lock.json`, `pnpm-lock.yaml`, or `yarn.lock` added

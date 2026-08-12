@@ -12,15 +12,15 @@ colors:
   chalk-text: "oklch(0.94 0.004 285)"
   bright-text: "oklch(0.985 0 0)"
   primary-chalk: "oklch(0.92 0.004 286.32)"
-  muted-silver: "oklch(0.64 0.012 286.067)"
-  destructive-coral: "oklch(0.704 0.191 22.216)"
+  muted-silver: "oklch(0.77 0.012 286.067)"
+  destructive-coral: "oklch(0.85 0.191 22.216)"
   favorite-gold: "oklch(0.82 0.16 85)"
-  success-green: "oklch(0.72 0.17 145)"
+  success-green: "oklch(0.75 0.17 145)"
   warning-amber: "oklch(0.78 0.14 75)"
-  info-blue: "oklch(0.74 0.12 235)"
+  info-blue: "oklch(0.76 0.12 235)"
   border-hairline: "oklch(1 0 0 / 9%)"
   input-hairline: "oklch(1 0 0 / 15%)"
-  focus-ring: "oklch(0.552 0.016 285.938)"
+  focus-ring: "oklch(0.6 0.016 285.938)"
   light-workspace-paper: "oklch(0.975 0.006 75)"
   light-sidebar-paper: "oklch(0.96 0.007 75)"
   light-raised-paper: "oklch(0.985 0.005 75)"
@@ -146,7 +146,7 @@ components:
     typography: "{typography.composer}"
     rounded: "{rounded.3xl}"
     padding: "0.5rem 0.75rem 0.75rem"
-    width: "48rem"
+    width: "var(--conversation-width), defaulting to 48rem"
   user-message:
     backgroundColor: "{colors.interactive-slate}"
     textColor: "{colors.bright-text}"
@@ -229,7 +229,7 @@ The palette has two deliberately tuned ladders. Dark mode uses cool graphite lay
 | `sidebar` | `oklch(0.96 0.007 75)` | `oklch(0.18 0.005 285.885)` |
 | `primary` | `oklch(0.22 0.007 285)` | `oklch(0.92 0.004 286.32)` |
 
-`apps/desktop/src/renderer/index.css` remains the source of truth for the default token set. A saved custom color scheme may override those same semantic roles at the document root; new surfaces still use semantic Tailwind tokens rather than reading a particular scheme or adding manual `dark:` overrides. Pure black and white are reserved for the neutral 10% outline drawn inside arbitrary image content.
+`apps/desktop/src/renderer/index.css` remains the source of truth for the default token set. A saved custom color scheme may override those same semantic roles at the document root; new surfaces still use semantic Tailwind tokens rather than reading a particular scheme or adding manual `dark:` overrides. Pure black or white should not be used as general application chrome. Neutral image outlines may use translucent black or white, and QR codes use a white quiet zone for reliable scanning.
 
 Settings offers ten built-in color schemes: NativePi, Midnight, Pine, Sand, Lilac, Ocean, Ember, Slate, Rose, and Cobalt. Each has independently tuned light and dark variants. A scheme replaces only the semantic color palette, so typography, shape, and spacing remain consistent while extension surfaces and terminals inherit the active colors.
 
@@ -279,9 +279,11 @@ The canonical workspace composition is shown in [`docs/assets/nativepi-home.png`
 
 The application uses a full-height, resizable three-pane desktop frame. The project sidebar ranges from 14% to 30% of the window. The context pane defaults to 28% and ranges from 20% to 45%. The conversation panel retains at least 35% and is the protected center of gravity.
 
-Transcript and composer content share a centered 48rem maximum width, keeping message measure and actions aligned. Settings uses that same 48rem rail for both its heading and its content, so the two share one right edge. Every pane header is 3rem high — one baseline across the sidebar, conversation, context pane, and Settings — which is what the frameless Windows drag region and custom window controls need.
+Transcript and composer content share a centered, user-selectable maximum width: 40rem, 48rem by default, 60rem, or the full conversation pane. Most Settings categories use a centered 48rem rail; the Usage and Subscriptions dashboards use a wider 72rem rail for charts and tables. Every pane header is 3rem high — one baseline across the sidebar, conversation, context pane, and Settings — which is what the frameless Windows drag region and custom window controls need.
 
 Spacing follows the quarter-rem Tailwind rhythm plus its half-steps: eighth-rem for tightly bound text pairs (a label above its description), five-eighths-rem as the standard inset for dense controls, half-rem and three-quarter-rem gaps for control clusters, and one- to one-and-a-half-rem spacing between content groups. Values off that ladder are drift, not intent. One-pixel resizable hairlines define persistent pane boundaries.
+
+Usage and Subscriptions are deliberate wide-layout exceptions: they expand to a 72rem rail for charts, provider cards, and tabular breakdowns while retaining the same header and responsive category navigation.
 
 The implementation collapses either side pane to protect conversation space and constrains large menus to the viewport. Below 1100px the context pane moves into a right sheet; below 900px project navigation and the settings category rail also move into left sheets. These compact layouts preserve the conversation and composer rather than attempting to turn the desktop application into a separate mobile interface.
 
@@ -361,7 +363,7 @@ The component system is compact and restrained, with soft geometry and explicit 
 ### Motion
 
 - Motion reinforces state; it never carries it alone. Every animated indicator has a text or shape equivalent that survives the animation being removed.
-- `prefers-reduced-motion: reduce` neutralizes animation globally and components swap in static equivalents (a filled dot for a spinner, a still caret for a streaming one).
+- `prefers-reduced-motion: reduce`, or the explicit Reduced setting, neutralizes animation and transitions globally. Important run indicators use static equivalents where available; other animated indicators remain visible but still.
 
 **The Information-Survives-Stillness Rule.** If freezing every animation would leave a state unreadable, the state is under-built — add the word, not more motion.
 

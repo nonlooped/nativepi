@@ -41,8 +41,8 @@ Metadata, `robots.txt`, and `sitemap.xml` all read `site.url` from there.
   app in `public/app/window.png`. Retake it when the interface changes.
 - `components/sections/` the rest of the marketing page.
 - `components/docs/` read-mode typography and navigation.
-- `lib/site.ts` every fact and link the site states. Nothing on the site may
-  claim anything this file does not.
+- `lib/site.ts` shared metadata, release/download URLs, provider data, and
+  common external links.
 
 `DESIGN.md` records the visual system and `PRODUCT.md` records product truth.
 Both are the authority when the two disagree with the code.

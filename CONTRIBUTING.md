@@ -47,8 +47,11 @@ Run the checks that CI runs:
 
 ```sh
 bun run typecheck
+bun run typecheck:packages
 bun run test
 bun run build
+cd apps/web && bun run lint && bun run typecheck
+cd ../.. && bun run web:build
 ```
 
 A few conventions that will otherwise cost you a review round:

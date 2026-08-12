@@ -101,7 +101,8 @@ export function Interchange() {
           </div>
 
           <p className="mt-4 text-sm leading-relaxed text-silver">
-            No product account. No cloud conversation store. No telemetry.
+            No product account. No cloud conversation store. No NativePi-owned
+            desktop telemetry.
           </p>
         </div>
       </div>

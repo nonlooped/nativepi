@@ -10,4 +10,4 @@ It does not reorder calls or guess whether operations are independent. The model
 pi install @nativepi/throughput
 ```
 
-Run `/throughput` in a session to see its calls-per-response and single-call-response rate. Higher calls per response and a lower single-call rate indicate fewer model round-trips; compare sessions doing similar work rather than unrelated tasks.
+Run `/throughput` to see tool calls per tool-calling assistant response and the percentage of tool-calling responses that contained exactly one call. More calls per response and a lower single-call rate indicate fewer model round-trips; compare sessions doing similar work rather than unrelated tasks.

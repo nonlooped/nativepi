@@ -34,6 +34,6 @@ Create `~/.pi/agent/mcp.json` for user-level servers:
 
 A trusted project can add or override servers by name in `.pi/mcp.json`. Project entries take precedence over user entries. Relative `cwd` values are resolved from the directory containing the configuration file.
 
-The extension supports stdio and Streamable HTTP servers. Run `/reload` after changing configuration. Server tools are registered as `mcp_<server>_<tool>` names so tools from different servers cannot collide.
+The extension supports stdio and Streamable HTTP servers. Run `/reload` after changing configuration. Server tools receive sanitized names prefixed with `mcp_<server>_`; names are limited to 64 characters and receive a hash suffix when truncation or collisions require it.
 
 Only MCP tools are exposed. MCP resources and prompts are not loaded.
