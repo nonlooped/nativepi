@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -128,6 +128,19 @@ test("a hunk that changed after display is not staged by a stale selection", asy
   await writeFile(path.join(dir, "a.txt"), "one\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\nb\n", "utf8");
 
   expect(await gitStageHunk(dir, "a.txt", false, first!.patch)).toEqual({ ok: false, error: "That change is no longer available. Refresh and try again." });
+});
+
+test("repository-relative files stay correct when a nested folder is opened", async () => {
+  const dir = await repo();
+  const nested = path.join(dir, "sub");
+  await mkdir(nested);
+  await writeFile(path.join(dir, "same.txt"), "root\n", "utf8");
+  await writeFile(path.join(nested, "same.txt"), "nested\n", "utf8");
+
+  const files = (await gitStatus(nested)).files.map((file) => file.path);
+  expect(files).toEqual(["same.txt", "sub/same.txt"]);
+  expect(await gitStageFile(nested, "same.txt")).toEqual({ ok: true });
+  expect(execFileSync("git", ["diff", "--cached", "--name-only"], { cwd: dir, encoding: "utf8" }).trim()).toBe("same.txt");
 });
 
 test("a file without textual hunks can still be staged", async () => {

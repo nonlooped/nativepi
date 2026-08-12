@@ -94,9 +94,10 @@ async function textLineCount(file: string): Promise<number> {
 }
 
 async function readGitStatus(projectDir: string): Promise<GitStatus> {
+  const root = (await run(["rev-parse", "--show-toplevel"], projectDir)).stdout.trim() || projectDir;
   const [porcelain, headRes] = await Promise.all([
-    run(["status", "--porcelain=v1", "--branch", "--untracked-files=all", "-z"], projectDir),
-    run(["rev-parse", "--short", "HEAD"], projectDir),
+    run(["status", "--porcelain=v1", "--branch", "--untracked-files=all", "-z"], root),
+    run(["rev-parse", "--short", "HEAD"], root),
   ]);
   if (porcelain.code !== 0) {
     return { isRepo: false, files: [], insertions: 0, deletions: 0, ahead: 0, behind: 0 };
@@ -133,7 +134,7 @@ async function readGitStatus(projectDir: string): Promise<GitStatus> {
     });
   }
 
-  const numstat = await run(["diff", "--numstat", "HEAD"], projectDir);
+  const numstat = await run(["diff", "--numstat", "HEAD"], root);
   let insertions = 0;
   let deletions = 0;
   for (const line of numstat.stdout.split("\n")) {
@@ -144,7 +145,7 @@ async function readGitStatus(projectDir: string): Promise<GitStatus> {
   const untracked = files.filter((file) => file.state === "untracked");
   for (let index = 0; index < untracked.length; index += 4) {
     const counts = await Promise.all(
-      untracked.slice(index, index + 4).map((file) => textLineCount(path.join(projectDir, file.path))),
+      untracked.slice(index, index + 4).map((file) => textLineCount(path.join(root, file.path))),
     );
     insertions += counts.reduce((total, count) => total + count, 0);
   }
@@ -204,6 +205,7 @@ export async function gitLog(projectDir: string): Promise<GitCommit[]> {
 }
 
 export async function gitDiff(projectDir: string, file: string, untracked: boolean, staged = false): Promise<GitDiff> {
+  const root = (await run(["rev-parse", "--show-toplevel"], projectDir)).stdout.trim() || projectDir;
   // `--no-index` diffs an untracked file against nothing so its content shows as
   // added; it exits non-zero by design, which `run` tolerates.
   const args = staged
@@ -211,16 +213,17 @@ export async function gitDiff(projectDir: string, file: string, untracked: boole
     : untracked
       ? ["diff", "--no-color", "--no-index", "--", "/dev/null", file]
       : ["diff", "--no-color", "--", file];
-  const res = await run(args, projectDir);
+  const res = await run(args, root);
   return { path: file, patch: res.stdout };
 }
 
 export async function gitHunks(projectDir: string, file: string, untracked: boolean): Promise<GitHunk[]> {
+  const root = (await run(["rev-parse", "--show-toplevel"], projectDir)).stdout.trim() || projectDir;
   const res = await run(
     untracked
       ? ["diff", "--no-color", "--unified=0", "--no-index", "--", "/dev/null", file]
       : ["diff", "--no-color", "--unified=0", "--", file],
-    projectDir,
+    root,
   );
   const starts = [...res.stdout.matchAll(/^@@/gm)].map((match) => match.index ?? 0);
   if (starts.length === 0) return [];
@@ -237,12 +240,13 @@ export async function gitStageHunk(
   untracked: boolean,
   patch: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const hunks = await gitHunks(projectDir, file, untracked);
+  const root = (await run(["rev-parse", "--show-toplevel"], projectDir)).stdout.trim() || projectDir;
+  const hunks = await gitHunks(root, file, untracked);
   const selected = hunks.find((hunk) => hunk.patch === patch);
   if (!selected) return { ok: false, error: "That change is no longer available. Refresh and try again." };
   const result = await new Promise<{ stdout: string; stderr: string; code: number }>((resolve) => {
     const child = execFile("git", ["apply", "--cached", "--unidiff-zero", "-"], {
-      cwd: projectDir,
+      cwd: root,
       maxBuffer: 32 * 1024 * 1024,
       windowsHide: true,
     }, (err, stdout, stderr) => {
@@ -256,16 +260,18 @@ export async function gitStageHunk(
 }
 
 export async function gitStageFile(projectDir: string, file: string): Promise<{ ok: boolean; error?: string }> {
-  const result = await run(["add", "--", file], projectDir);
+  const root = (await run(["rev-parse", "--show-toplevel"], projectDir)).stdout.trim() || projectDir;
+  const result = await run(["add", "--", file], root);
   if (result.code === 0) invalidateGitStatusCache(projectDir);
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
 }
 
 async function unstage(projectDir: string, files: string[]) {
-  const head = await run(["rev-parse", "--verify", "HEAD"], projectDir);
+  const root = (await run(["rev-parse", "--show-toplevel"], projectDir)).stdout.trim() || projectDir;
+  const head = await run(["rev-parse", "--verify", "HEAD"], root);
   const result = head.code === 0
-    ? await run(["reset", "HEAD", "--", ...files], projectDir)
-    : await run(["rm", "-r", "--cached", "--", ...files], projectDir);
+    ? await run(["reset", "HEAD", "--", ...files], root)
+    : await run(["rm", "-r", "--cached", "--", ...files], root);
   if (result.code === 0) invalidateGitStatusCache(projectDir);
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
 }
