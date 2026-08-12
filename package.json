@@ -22,7 +22,7 @@
     "packages/*"
   ],
   "scripts": {
-    "postinstall": "cd apps/desktop && bun run install-electron",
+    "postinstall": "cd apps/desktop && (bun run install-electron || (sleep 2 && bun run install-electron))",
     "dev": "cd apps/desktop && bun run dev",
     "build": "cd apps/desktop && bun run build",
     "pack": "cd apps/desktop && bun run pack",
