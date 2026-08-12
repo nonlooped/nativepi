@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-08-13
+
+### Added
+- Organize chats into focus and finished groups.
+- Export a diagnostics archive from Settings.
+- Showcase current desktop capabilities on the website.
+
+### Changed
+- Make New chat the primary sidebar action and start finished chats collapsed.
+
 ### Fixed
 - Require explicit project trust before opening a workspace.
 - Preserve chat and session state through concurrent writes, cancelled switches, and asynchronous navigation.
@@ -15,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Retire stale session watchers and bound remote terminal backpressure.
 - Bundle and run package-manager tooling through Electron's Node runtime in packaged builds.
 - Enable macOS update checks and publish distinct artifacts for every supported architecture.
+- Address desktop interface audit findings.
 
 ### Performance
 - Stream session history and search parsing.
@@ -501,7 +512,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial NativePi desktop wrapper for the Pi coding agent (Electron + electron-vite + Bun + React 19.2 + Vite 8 + Tailwind CSS 4 + shadcn/ui + Zustand + Zod).
 - Project bootstrap, README and logo assets, build and release automation.
 
-[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.12.1...HEAD
+[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/nonlooped/nativepi/compare/v1.12.1...v1.13.0
 [1.12.1]: https://github.com/nonlooped/nativepi/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/nonlooped/nativepi/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/nonlooped/nativepi/compare/v1.10.0...v1.11.0
