@@ -54,24 +54,18 @@ html[data-shell="desktop"][data-runtime="development"] .window-controls-clearanc
   padding-right: 204px;
 }
 
-/* A narrow right pane cannot share its first row with the window controls.
-   Move only its header below the title-bar row; the pane content still uses all
-   remaining height. The development threshold includes the freshness badge. */
+/* The project pane keeps its navigation below the title-bar row, so window
+   controls never push its actions into a different position. The container
+   query only simplifies labels when the resizable pane reaches its floor. */
 .context-pane {
+  container-name: context-pane;
   container-type: inline-size;
 }
 
-@container (max-width: 23.25rem) {
-  html[data-shell="desktop"] .context-pane-header {
-    margin-top: 3rem;
-    padding-right: 0.5rem;
-  }
-}
-
-@container (max-width: 27.5rem) {
-  html[data-shell="desktop"][data-runtime="development"] .context-pane-header {
-    margin-top: 3rem;
-    padding-right: 0.5rem;
+@container context-pane (max-width: 17rem) {
+  .context-pane-tab-label,
+  .context-file-directory {
+    display: none;
   }
 }
 

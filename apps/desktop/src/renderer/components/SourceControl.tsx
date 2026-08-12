@@ -4,6 +4,8 @@ import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
 import { GitBranchIcon } from "@phosphor-icons/react/GitBranch";
+import { GitCommitIcon } from "@phosphor-icons/react/GitCommit";
+import { GitPullRequestIcon } from "@phosphor-icons/react/GitPullRequest";
 import { MinusIcon } from "@phosphor-icons/react/Minus";
 import { SparkleIcon } from "@phosphor-icons/react/Sparkle";
 import type { GitChangedFile, GitCommit, GitStatus } from "../../shared/pi-types.ts";
@@ -22,7 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx";
-import { Field, FieldLabel } from "@/components/ui/field.tsx";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { cn } from "@/lib/utils.ts";
 import FileContextMenu from "./FileContextMenu.tsx";
@@ -32,7 +34,15 @@ import RepoHostPanel from "./RepoHostPanel.tsx";
 type CommitAction = "commit" | "push" | "sync";
 const DiffView = lazy(() => import("./DiffView.tsx"));
 
-export default function SourceControl({ projectDir, git }: { projectDir: string; git: GitStatus }) {
+export default function SourceControl({
+  projectDir,
+  git,
+  onOpenPullRequest,
+}: {
+  projectDir: string;
+  git: GitStatus;
+  onOpenPullRequest: () => void;
+}) {
   const refreshGit = useAppStore((s) => s.refreshGit);
   const commitMessageModel = useAppStore((s) => s.commitMessageModel);
   const sessionFile = useAppStore((s) => activeConversation(s).sessionFile);
@@ -111,25 +121,64 @@ export default function SourceControl({ projectDir, git }: { projectDir: string;
   const canGenerate = stagedFiles.length > 0 && !generating;
 
   return (
-    <>
-      <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground">
-        <GitBranchIcon className="shrink-0" />
-        <span className="min-w-0 flex-1 truncate font-medium text-foreground">
-          {git.detached ? "No branch (detached)" : (git.branch ?? "—")}
-        </span>
-        {git.ahead > 0 ? <span className="tabular-nums" title={`${git.ahead} commits ahead`}>↑{git.ahead}</span> : null}
-        {git.behind > 0 ? <span className="tabular-nums" title={`${git.behind} commits behind`}>↓{git.behind}</span> : null}
-        {git.upstream ? <span className="max-w-28 truncate font-mono text-[0.6875rem]" title={git.upstream}>{git.upstream}</span> : null}
-      </div>
+    <div className="flex flex-col pb-5">
+      <section className="flex flex-col gap-3 px-3 pb-4">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
+            <GitBranchIcon />
+          </div>
+          <div className="min-w-0 flex-1 pt-0.5">
+            <p className="truncate text-sm font-semibold text-foreground">
+              {git.detached ? "Detached HEAD" : (git.branch ?? "No branch")}
+            </p>
+            <p className="truncate font-mono text-[0.6875rem] leading-4 text-muted-foreground" title={git.upstream}>
+              {git.upstream ?? "No upstream branch"}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => void refreshGit()}
+              title="Refresh changes"
+              aria-label="Refresh changes"
+            >
+              <ArrowClockwiseIcon />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onOpenPullRequest}
+              title="Open a pull request"
+              aria-label="Open a pull request"
+            >
+              <GitPullRequestIcon />
+            </Button>
+          </div>
+        </div>
 
-      <div className="flex flex-col gap-2 px-2 pb-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="secondary">{git.files.length} {git.files.length === 1 ? "file" : "files"}</Badge>
+          {git.insertions > 0 ? <Badge variant="outline" className="text-success">+{git.insertions}</Badge> : null}
+          {git.deletions > 0 ? <Badge variant="outline" className="text-destructive">−{git.deletions}</Badge> : null}
+          {git.ahead > 0 ? <Badge variant="outline">↑ {git.ahead} ahead</Badge> : null}
+          {git.behind > 0 ? <Badge variant="outline">↓ {git.behind} behind</Badge> : null}
+        </div>
+      </section>
+
+      <section className="mx-3 flex flex-col gap-3 rounded-xl bg-muted/55 p-3">
+        <div className="flex items-center gap-2">
+          <GitCommitIcon className="text-foreground" />
+          <h3 className="flex-1 font-heading text-sm font-semibold text-foreground">Create a commit</h3>
+          <Badge variant="secondary">{stagedFiles.length} staged</Badge>
+        </div>
         <Field>
-          <div className="flex items-center gap-2 px-1">
-            <FieldLabel htmlFor="source-control-message" className="text-xs">Message</FieldLabel>
+          <div className="flex items-center gap-2">
+            <FieldLabel htmlFor="source-control-message">Commit message</FieldLabel>
             <span className="flex-1" />
-            <Button variant="ghost" size="xs" onClick={() => void generate()} disabled={!canGenerate} title="Generate with Pi">
+            <Button variant="ghost" size="xs" onClick={() => void generate()} disabled={!canGenerate} title="Generate a commit message with Pi">
               <SparkleIcon data-icon="inline-start" />
-              {generating ? "Generating…" : "Generate"}
+              {generating ? "Writing…" : "Write with Pi"}
             </Button>
           </div>
           <Textarea
@@ -139,43 +188,44 @@ export default function SourceControl({ projectDir, git }: { projectDir: string;
             onKeyDown={(event) => {
               if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && canCommit) void commit("commit");
             }}
-            placeholder="Describe the staged changes"
-            className="min-h-16 resize-none text-sm"
+            placeholder="Summarize the staged changes"
+            className="min-h-20 resize-none text-sm"
           />
+          {stagedFiles.length === 0 ? <FieldDescription>Stage at least one file to create a commit.</FieldDescription> : null}
         </Field>
-        <div className="flex gap-1">
+        <div className="flex gap-1.5">
           <Button
-            variant={canCommit ? "default" : "ghost"}
+            variant={canCommit ? "default" : "outline"}
             className="min-w-0 flex-1"
             onClick={() => void commit("commit")}
             disabled={!canCommit}
             title={commitDisabledReason}
-            aria-label={commitDisabledReason ? `Commit — ${commitDisabledReason}` : "Commit"}
+            aria-label={commitDisabledReason ? `Commit — ${commitDisabledReason}` : "Commit staged changes"}
           >
-            {busy === "commit" ? "Committing…" : "Commit"}
+            {busy === "commit" ? "Committing…" : "Commit staged changes"}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button variant={canCommit ? "outline" : "ghost"} size="icon" disabled={!canCommit} aria-label="More commit actions" title={commitDisabledReason ?? "More commit actions"} />}
+              render={<Button variant="outline" size="icon" disabled={!canCommit} aria-label="More commit actions" title={commitDisabledReason ?? "More commit actions"} />}
             >
               <CaretDownIcon />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuGroup>
-                <DropdownMenuItem onClick={() => void commit("commit")}>Commit</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void commit("commit")}>Commit staged changes</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => void commit("push")}>Commit and push</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => void commit("sync")}>Commit and sync</DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        {error ? <p role="alert" className="whitespace-pre-wrap px-1 text-xs text-destructive">{error}</p> : null}
-      </div>
+        {error ? <p role="alert" className="whitespace-pre-wrap text-xs leading-5 text-destructive">{error}</p> : null}
+      </section>
 
       <RepoHostPanel />
 
       <FileGroup
-        title="Staged Changes"
+        title="Staged"
         files={stagedFiles}
         staged
         projectDir={projectDir}
@@ -186,7 +236,7 @@ export default function SourceControl({ projectDir, git }: { projectDir: string;
         onFile={(file) => void mutate(() => rpc.request.gitUnstageFile({ projectDir, file: file.path, originalPath: file.originalPath }))}
       />
       <FileGroup
-        title="Unstaged changes"
+        title="Changes"
         files={changedFiles}
         staged={false}
         projectDir={projectDir}
@@ -197,9 +247,14 @@ export default function SourceControl({ projectDir, git }: { projectDir: string;
         onFile={(file) => void mutate(() => rpc.request.gitStageFile({ projectDir, file: file.path }))}
       />
 
-      {git.files.length === 0 ? <p className="px-3 py-3 text-xs text-muted-foreground">No changes in the working tree.</p> : null}
+      {git.files.length === 0 ? (
+        <div className="px-6 py-8 text-center">
+          <p className="text-sm font-medium text-foreground">Working tree is clean</p>
+          <p className="mt-1 text-xs leading-5 text-body-muted-foreground">New file changes will appear here.</p>
+        </div>
+      ) : null}
       <CommitGraph projectDir={projectDir} git={git} />
-    </>
+    </div>
   );
 }
 
@@ -228,26 +283,27 @@ function FileGroup({
   if (files.length === 0) return null;
 
   return (
-    <Collapsible.Root open={open} onOpenChange={setOpen} className="mt-2">
-      <div className="flex h-8 items-center gap-1 px-2">
-        <Collapsible.Trigger className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-1 text-left text-xs font-semibold outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+    <Collapsible.Root open={open} onOpenChange={setOpen} className="flex flex-col gap-1 px-3 pt-5">
+      <div className="flex h-7 items-center gap-1">
+        <Collapsible.Trigger className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
           {open ? <CaretDownIcon /> : <CaretRightIcon />}
           <span className="truncate">{title}</span>
-          <span className="font-normal tabular-nums text-muted-foreground">{files.length}</span>
+          <Badge variant="secondary">{files.length}</Badge>
         </Collapsible.Trigger>
         <Button
           variant="ghost"
-          size="icon-xs"
+          size="xs"
           onClick={onAll}
           disabled={disabled}
           title={staged ? "Unstage all changes" : "Stage all changes"}
           aria-label={staged ? "Unstage all changes" : "Stage all changes"}
         >
-          {staged ? <MinusIcon /> : <PlusIcon />}
+          {staged ? <MinusIcon data-icon="inline-start" /> : <PlusIcon data-icon="inline-start" />}
+          {staged ? "Unstage all" : "Stage all"}
         </Button>
       </div>
       <Collapsible.Panel>
-        <div className="flex flex-col gap-0.5 px-1 pb-1">
+        <div className="flex flex-col gap-0.5">
           {files.map((file) => {
             const key = `${staged ? "staged" : "changed"}:${file.path}`;
             const active = selected === key;
@@ -257,20 +313,20 @@ function FileGroup({
                 <FileContextMenu projectDir={projectDir} file={file.path} untracked={file.state === "untracked"} staged={staged}>
                   <div
                     className={cn(
-                      "group flex min-h-8 items-center rounded-md px-1.5 transition-colors hover:bg-sidebar-accent/35",
+                      "group/file flex min-h-9 items-center rounded-lg px-2 transition-colors hover:bg-sidebar-accent/45",
                       active && "bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent",
                     )}
                   >
                     <button
                       type="button"
-                      className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left text-xs outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                      className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left text-xs outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
                       aria-expanded={active}
                       onClick={() => onSelect(active ? null : key)}
                       title={file.path}
                     >
                       <FileTypeIcon path={file.path} className={cn("opacity-65", active && "opacity-100")} />
                       <span className="min-w-0 truncate font-medium">{name}</span>
-                      {directory ? <span className="min-w-0 flex-1 truncate text-muted-foreground/60">{directory}</span> : <span className="flex-1" />}
+                      {directory ? <span className="context-file-directory min-w-0 flex-1 truncate text-muted-foreground/65">{directory}</span> : <span className="flex-1" />}
                       <span
                         role="img"
                         aria-label={stateLabel(file.state)}
@@ -283,7 +339,7 @@ function FileGroup({
                     <Button
                       variant="ghost"
                       size="icon-xs"
-                      className="ml-0.5 shrink-0"
+                      className="ml-0.5 shrink-0 opacity-60 group-hover/file:opacity-100 group-focus-within/file:opacity-100"
                       onClick={() => onFile(file)}
                       disabled={disabled}
                       title={staged ? `Unstage ${file.path}` : `Stage ${file.path}`}
@@ -312,7 +368,7 @@ function FileDiff({ file, projectDir, staged }: { file: GitChangedFile; projectD
   const patch = data?.diff.patch ?? null;
 
   return (
-    <div className="border-y bg-background">
+    <div className="mt-1 overflow-hidden rounded-lg border bg-background">
       {error ? (
         <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-destructive">
           <span className="min-w-0 flex-1">Unable to load this diff.</span>
@@ -372,7 +428,7 @@ function HunkActions({
   }
 
   return (
-    <div className="border-b px-2 py-1.5">
+    <div className="border-b px-2 py-2">
       <Collapsible.Root open={partsOpen} onOpenChange={setPartsOpen}>
         {data.hunks.length > 1 ? (
           <Collapsible.Trigger className="group flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
@@ -407,12 +463,12 @@ function CommitGraph({ projectDir, git }: { projectDir: string; git: GitStatus }
   const commits = data?.commits ?? null;
 
   return (
-    <Collapsible.Root open={open} onOpenChange={setOpen} className="border-t border-sidebar-border/70">
-      <div className="flex h-8 items-center gap-1 px-2">
-        <Collapsible.Trigger className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-1 text-left text-xs font-semibold outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+    <Collapsible.Root open={open} onOpenChange={setOpen} className="flex flex-col gap-1 px-3 pt-5">
+      <div className="flex h-7 items-center gap-1">
+        <Collapsible.Trigger className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
           {open ? <CaretDownIcon /> : <CaretRightIcon />}
-          Graph
-          {commits ? <span className="font-normal tabular-nums text-muted-foreground">{commits.length}</span> : null}
+          History
+          {commits ? <Badge variant="secondary">{commits.length}</Badge> : null}
         </Collapsible.Trigger>
         {error ? (
           <Button variant="ghost" size="icon-xs" onClick={reload} title="Reload commit graph" aria-label="Reload commit graph">
@@ -421,10 +477,10 @@ function CommitGraph({ projectDir, git }: { projectDir: string; git: GitStatus }
         ) : null}
       </div>
       <Collapsible.Panel>
-        {error ? <p className="px-3 py-2 text-xs text-destructive">Unable to load the commit graph.</p> : null}
-        {!error && commits === null ? <p className="px-3 py-2 text-xs text-muted-foreground">Loading graph…</p> : null}
-        {commits?.length === 0 ? <p className="px-3 py-2 text-xs text-muted-foreground">No commits yet.</p> : null}
-        {commits ? <ul className="pb-2">{commits.map((commit) => <CommitRow key={commit.hash} commit={commit} />)}</ul> : null}
+        {error ? <p className="py-2 text-xs text-destructive">Unable to load commit history.</p> : null}
+        {!error && commits === null ? <p className="py-2 text-xs text-muted-foreground">Loading history…</p> : null}
+        {commits?.length === 0 ? <p className="py-2 text-xs text-muted-foreground">No commits yet.</p> : null}
+        {commits ? <ul className="flex flex-col gap-0.5">{commits.map((commit) => <CommitRow key={commit.hash} commit={commit} />)}</ul> : null}
       </Collapsible.Panel>
     </Collapsible.Root>
   );
@@ -433,7 +489,7 @@ function CommitGraph({ projectDir, git }: { projectDir: string; git: GitStatus }
 function CommitRow({ commit }: { commit: GitCommit }) {
   const refs = commit.refs.flatMap((ref) => ref === "HEAD" ? [] : [ref.replace(/^HEAD -> /, "")]);
   return (
-    <li className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-1 px-2 py-1.5 hover:bg-sidebar-accent/60" title={commit.hash}>
+    <li className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-1 rounded-lg px-2 py-2 hover:bg-sidebar-accent/50" title={commit.hash}>
       <span className="whitespace-pre font-mono text-xs leading-5 text-info" aria-hidden="true">{commit.graph.replaceAll("*", "●")}</span>
       <div className="min-w-0">
         <p className="truncate text-xs font-medium">{commit.subject}</p>

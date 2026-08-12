@@ -14,6 +14,7 @@ export default function LeftSidebar({
   onClose,
   open,
   overlay = false,
+  layoutKey,
 }: {
   children: ReactNode;
   actionIcon: ReactNode;
@@ -22,10 +23,12 @@ export default function LeftSidebar({
   onClose: () => void;
   open: boolean;
   overlay?: boolean;
+  /** Reapply the collapsed state after a sibling pane changes the group layout. */
+  layoutKey?: unknown;
 }) {
   const sidebarSize = useAppStore((s) => s.sidebarSize);
   const setSidebarSize = useAppStore((s) => s.setSidebarSize);
-  const panelRef = useCollapsiblePanel(open);
+  const panelRef = useCollapsiblePanel(open, layoutKey);
 
   function saveSidebarSize() {
     const size = panelRef.current?.getSize();

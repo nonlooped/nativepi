@@ -47,12 +47,14 @@ export default function Sidebar({
   onOpenSourceControl,
   open = true,
   overlay = false,
+  layoutKey,
 }: {
   onClose: () => void;
   onOpenSearch: () => void;
   onOpenSourceControl: () => void;
   open?: boolean;
   overlay?: boolean;
+  layoutKey?: unknown;
 }) {
   const projects = useAppStore((s) => s.projects);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -173,6 +175,7 @@ export default function Sidebar({
       onClose={onClose}
       open={open}
       overlay={overlay}
+      layoutKey={layoutKey}
     >
       <div className={cn("flex flex-col gap-2 px-2 pb-3", NO_DRAG_REGION)}>
         <div className="flex items-center gap-1">

@@ -10,6 +10,7 @@ import type { RepoHostCheck, RepoHostCompareFile, RepoHostContext } from "../../
 import { useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { Button } from "@/components/ui/button.tsx";
+import { Badge } from "@/components/ui/badge.tsx";
 import { cn } from "@/lib/utils.ts";
 
 const PASSING_CHECK = new Set(["success", "neutral", "skipped"]);
@@ -24,24 +25,31 @@ export default function RepoHostPanel() {
   const toggle = (key: string) => setOpen((s) => ({ ...s, [key]: !s[key] }));
 
   return (
-    <div className="border-t px-2 py-2">
-      <button
-        type="button"
-        onClick={() => void rpc.request.openExternal({ url: context.url })}
-        className="flex w-full items-center gap-1.5 rounded-md px-1 py-1.5 text-left hover:bg-sidebar-accent"
-        title="Open in browser"
-      >
-        <GitPullRequestIcon className="shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate text-xs font-medium">
-          #{context.number} {context.title}
-        </span>
-        <StateBadge context={context} />
-        <ArrowSquareOutIcon className="shrink-0 text-muted-foreground" />
-      </button>
-
-      {context.author ? (
-        <p className="px-1 pb-1 text-xs text-muted-foreground">by {context.author}</p>
-      ) : null}
+    <section className="px-3 pt-5">
+      <div className="flex flex-col gap-2.5 rounded-xl border border-border/70 bg-background/35 p-3">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <GitPullRequestIcon className="mt-0.5 shrink-0 text-foreground" />
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <h3 className="min-w-0 flex-1 truncate font-heading text-sm font-semibold text-foreground" title={context.title}>
+                {context.title}
+              </h3>
+              <StateBadge context={context} />
+            </div>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              Pull request #{context.number}{context.author ? ` by ${context.author}` : ""}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => void rpc.request.openExternal({ url: context.url })}
+            title="Open pull request in browser"
+            aria-label="Open pull request in browser"
+          >
+            <ArrowSquareOutIcon />
+          </Button>
+        </div>
 
       {context.body ? (
         <Section
@@ -50,7 +58,7 @@ export default function RepoHostPanel() {
           onToggle={() => toggle("body")}
           onInsert={() => insertIntoComposer(context.body ?? "")}
         >
-          <p className="whitespace-pre-wrap px-1 pb-1 text-xs text-body-muted-foreground">{context.body}</p>
+          <p className="whitespace-pre-wrap px-1 pb-1 text-xs leading-5 text-body-muted-foreground">{context.body}</p>
         </Section>
       ) : null}
 
@@ -68,7 +76,7 @@ export default function RepoHostPanel() {
         <Section title={`Comments (${context.comments.length})`} expanded={!!open["comments"]} onToggle={() => toggle("comments")}>
           <ul className="flex flex-col gap-1.5 px-1 pb-1">
             {context.comments.map((comment, i) => (
-              <li key={i} className="rounded-md border bg-background/35 p-2 text-xs">
+              <li key={i} className="rounded-lg bg-muted/50 p-2 text-xs">
                 <div className="mb-1 flex items-center gap-1.5 text-muted-foreground">
                   <span className="font-medium text-foreground">{comment.author ?? "someone"}</span>
                   {comment.reviewState ? <span>{comment.reviewState.toLowerCase().replace(/_/g, " ")}</span> : null}
@@ -78,7 +86,7 @@ export default function RepoHostPanel() {
                     size="xs"
                     onClick={() => insertIntoComposer(comment.body)}
                   >
-                    Insert into composer
+                    Add to message
                   </Button>
                 </div>
                 {comment.body ? <p className="whitespace-pre-wrap text-body-muted-foreground">{comment.body}</p> : null}
@@ -128,7 +136,8 @@ export default function RepoHostPanel() {
           ) : null}
         </Section>
       ) : null}
-    </div>
+      </div>
+    </section>
   );
 }
 
@@ -147,19 +156,19 @@ function Section({
 }) {
   return (
     <div>
-      <div className="flex items-center gap-1 px-1">
+      <div className="flex items-center gap-1">
         <button
           type="button"
           onClick={onToggle}
           aria-expanded={expanded}
-          className="flex flex-1 items-center gap-1 rounded px-0.5 py-1 text-left text-xs font-medium text-muted-foreground hover:bg-sidebar-accent"
+          className="flex flex-1 items-center gap-1 rounded-md px-1 py-1 text-left text-xs font-medium text-muted-foreground hover:bg-sidebar-accent"
         >
           {expanded ? <CaretDownIcon /> : <CaretRightIcon />}
           {title}
         </button>
         {onInsert ? (
           <Button variant="ghost" size="xs" onClick={onInsert}>
-            Insert into composer
+            Add to message
           </Button>
         ) : null}
       </div>
@@ -178,7 +187,7 @@ function StateBadge({ context }: { context: RepoHostContext }) {
         : context.draft
           ? "text-muted-foreground"
           : "text-active";
-  return <span className={cn("shrink-0 text-xs font-medium capitalize", color)}>{label}</span>;
+  return <Badge variant="outline" className={cn("capitalize", color)}>{label}</Badge>;
 }
 
 function CheckRow({ check }: { check: RepoHostCheck }) {

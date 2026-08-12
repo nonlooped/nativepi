@@ -413,10 +413,10 @@ export function ExtensionPanels() {
   if (panels.length === 0) return null;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-5 px-3 pt-5 pb-6">
       {panels.map(({ ext, p }) => (
-        <section key={`${ext.id}:${p.id}:${sessionKey(base)}`} className="border-b p-3">
-          <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">{p.title}</h3>
+        <section key={`${ext.id}:${p.id}:${sessionKey(base)}`} className="flex flex-col gap-2">
+          <h3 className="font-heading text-sm font-semibold text-foreground">{p.title}</h3>
           <ExtensionBoundary name={ext.name}>
             <ExtensionContribution render={() => p.render(contextFor(base, ext))} />
           </ExtensionBoundary>
