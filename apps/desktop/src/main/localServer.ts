@@ -150,6 +150,7 @@ export async function startLocalServer(
 
   rpcWebSockets.on("connection", (socket, request) => {
     rpcSockets.add(socket);
+    const terminalAttachments = new Set<string>();
     let authenticated = false;
     const authTimer = setTimeout(() => socket.close(1008, "Authentication required"), 5000);
 
@@ -179,9 +180,17 @@ export async function startLocalServer(
         if (parsed.type !== "request") return;
         const name = parsed.name as HostRequestName;
         try {
+          const params = (parsed.params ?? {}) as never;
           const result = Object.hasOwn(desktopOnlyResponses, name)
             ? desktopOnlyResponses[name]
-            : await options.invoke(name, (parsed.params ?? {}) as never);
+            : await options.invoke(name, params);
+          if (name === "terminalAttach") {
+            const { projectDir, terminalId } = params as HostRequests["terminalAttach"]["params"];
+            terminalAttachments.add(`${projectDir}\0${terminalId}`);
+          } else if (name === "terminalDetach") {
+            const { projectDir, terminalId } = params as HostRequests["terminalDetach"]["params"];
+            terminalAttachments.delete(`${projectDir}\0${terminalId}`);
+          }
           socket.send(JSON.stringify({ type: "response", id: parsed.id, result }));
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -195,6 +204,10 @@ export async function startLocalServer(
       rpcSockets.delete(socket);
       authenticatedRpcSockets.delete(socket);
       clients.delete(socket);
+      for (const attachment of terminalAttachments) {
+        const [projectDir, terminalId] = attachment.split("\0");
+        if (projectDir && terminalId) void options.invoke("terminalDetach", { projectDir, terminalId });
+      }
     });
   });
 
@@ -223,7 +236,7 @@ export async function startLocalServer(
   const unsubscribe = options.subscribe((name, payload) => {
     const message = JSON.stringify({ type: "event", name, payload });
     for (const socket of authenticatedRpcSockets) {
-      if (socket.readyState === WebSocket.OPEN) socket.send(message);
+      if (socket.readyState === WebSocket.OPEN && socket.bufferedAmount < 1024 * 1024) socket.send(message);
     }
   });
 
