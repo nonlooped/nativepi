@@ -36,12 +36,12 @@
     "@fontsource-variable/nunito-sans": "^5.3.0",
     "@fontsource-variable/raleway": "^5.3.0",
     "@tailwindcss/postcss": "^4.1.13",
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.0",
-    "postcss": "^8.5.25",
+    "postcss": "^8.5.26",
     "tailwindcss": "^4.1.13",
     "typescript": "^6"
   }

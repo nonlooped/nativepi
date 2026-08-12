@@ -47,6 +47,6 @@
   },
   "devDependencies": {
     "fallow": "^3.14.0",
-    "react-doctor": "^0.9.4"
+    "react-doctor": "^0.9.11"
   }
 }
