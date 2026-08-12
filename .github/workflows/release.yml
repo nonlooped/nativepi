@@ -151,10 +151,17 @@ jobs:
           if-no-files-found: error
 
   macos-installer:
-    name: Build macOS Installer & Publish
+    name: Build macOS ${{ matrix.arch }} Installer
     needs: release
     if: needs.release.outputs.publish == 'true'
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-latest
+          - arch: x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     env:
       # No Apple Developer ID configured; skip signing and notarization.
@@ -172,13 +179,13 @@ jobs:
           install-filter: "@nativepi/desktop"
 
       - name: Build macOS installer
-        run: bun run dist:mac --publish never
+        run: bun run dist:mac --${{ matrix.arch }} --publish never
         working-directory: apps/desktop
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v7
         with:
-          name: nativepi-macos-installer
+          name: nativepi-macos-${{ matrix.arch }}-installer
           path: |
             apps/desktop/release/*.dmg
             apps/desktop/release/*.zip
@@ -187,10 +194,17 @@ jobs:
           if-no-files-found: error
 
   linux-installer:
-    name: Build Linux Installer & Publish
+    name: Build Linux ${{ matrix.arch }} Installer
     needs: release
     if: needs.release.outputs.publish == 'true'
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -205,13 +219,13 @@ jobs:
           install-filter: "@nativepi/desktop"
 
       - name: Build Linux installer
-        run: bun run dist:linux --publish never
+        run: bun run dist:linux --${{ matrix.arch }} --publish never
         working-directory: apps/desktop
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v7
         with:
-          name: nativepi-linux-installer
+          name: nativepi-linux-${{ matrix.arch }}-installer
           path: |
             apps/desktop/release/*.AppImage
             apps/desktop/release/*.blockmap
