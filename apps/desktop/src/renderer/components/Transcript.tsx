@@ -5,8 +5,10 @@ import { CircleIcon } from "@phosphor-icons/react/Circle";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { StopIcon } from "@phosphor-icons/react/Stop";
+import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { WarningIcon } from "@phosphor-icons/react/Warning";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
+import { WrenchIcon } from "@phosphor-icons/react/Wrench";
 import { toast } from "sonner";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
@@ -21,6 +23,7 @@ import { withHint } from "../lib/shortcuts.ts";
 import { projectRelativePath } from "../lib/paths.ts";
 import { CHIP_CLASS } from "../lib/composerDom.ts";
 import { fileIconSvg } from "../lib/fileIcons.ts";
+import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import {
   MessageScroller,
@@ -156,7 +159,7 @@ function TranscriptContent() {
               // synthetic streaming one to its committed entry id mid-turn, and
               // keying on that would remount the block and discard whichever
               // tool panels the user had opened while watching it run.
-              <MessageScrollerItem key={`response:${index}`} scrollAnchor>
+              <MessageScrollerItem key={`response:${index}`} scrollAnchor className="[content-visibility:auto] [contain-intrinsic-size:auto_200px]">
                 <AssistantResponse
                   messages={item.messages}
                   results={results}
@@ -166,7 +169,7 @@ function TranscriptContent() {
                 />
               </MessageScrollerItem>
             ) : (
-              <MessageScrollerItem key={item.entry.id}>
+              <MessageScrollerItem key={item.entry.id} className="[content-visibility:auto] [contain-intrinsic-size:auto_100px]">
                 <EntryView entry={item.entry} />
               </MessageScrollerItem>
             ),
@@ -778,7 +781,7 @@ function AssistantResponse({
             <span>{streaming ? (elapsed ? `Working · ${elapsed}` : "Working") : `Worked for ${formatDuration(startedAt, finishedAt)}`}</span>
             <CaretRightIcon className="transition-transform group-data-[panel-open]:rotate-90" />
           </Collapsible.Trigger>
-          <Collapsible.Panel keepMounted={keepWorkMounted} className="mt-3 flex flex-col gap-3 border-b border-border/60 pb-4">
+          <Collapsible.Panel keepMounted={keepWorkMounted} className="mt-2.5 flex flex-col gap-2 pb-2">
             {work.map((block, i) => {
               if (block.type === "text") {
                 return (
@@ -987,95 +990,106 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
 
   if (hasExtRenderer) return <ExtensionToolResult call={call} result={result} />;
 
+  let path = "";
+  for (const key of ["path", "file_path", "filePath"]) {
+    const value = call.arguments[key];
+    if (typeof value === "string" && value) {
+      path = value;
+      break;
+    }
+  }
+
+  const errorOutput = output || "The tool reported an error with no output.";
+  const panel = failed ? (
+    <pre className="max-h-72 overflow-auto border-t border-destructive/25 bg-background/30 px-3 py-2.5 font-mono text-xs leading-5 whitespace-pre-wrap text-body-muted-foreground">
+      {errorOutput}
+    </pre>
+  ) : diffPatch ? (
+    <div className="max-h-96 overflow-auto border-t border-border/50 bg-background/30">
+      <Suspense fallback={null}>
+        <DiffView patch={diffPatch} className="py-1.5" />
+      </Suspense>
+    </div>
+  ) : output ? (
+    <pre className="max-h-72 overflow-auto border-t border-border/50 bg-background/30 px-3 py-2.5 font-mono text-xs leading-5 whitespace-pre-wrap text-body-muted-foreground">
+      {output}
+    </pre>
+  ) : null;
+
   const header = (
     <>
-      <span className="font-medium">{call.name}</span>
-      {summary && <span className="truncate font-mono text-muted-foreground">{summary}</span>}
-      {running && (
-        <span className="ml-auto flex shrink-0 items-center gap-1.5 text-muted-foreground">
+      <span
+        className={cn(
+          "flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/70 text-muted-foreground",
+          failed && "bg-destructive/10 text-destructive",
+        )}
+      >
+        {path ? (
+          <FileTypeIcon path={path} size={16} className={cn(failed && "opacity-60 grayscale")} />
+        ) : call.name === "bash" ? (
+          <TerminalWindowIcon className="size-4" />
+        ) : (
+          <WrenchIcon className="size-4" />
+        )}
+      </span>
+      <span className="shrink-0 font-mono font-medium text-foreground">{call.name}</span>
+      {summary ? (
+        <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{summary}</span>
+      ) : (
+        <span className="flex-1" />
+      )}
+      {running ? (
+        <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
           {/* The word carries the state; the motion only reinforces it, so
               removing the motion loses nothing. */}
           {reduced ? <CircleIcon weight="fill" /> : <CircleNotchIcon className="animate-spin" />}
-          running…
+          Running
         </span>
-      )}
-      {failed && (
-        <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-sm bg-destructive/15 px-1.5 py-0.5 font-medium text-destructive">
-          <WarningCircleIcon weight="fill" />
+      ) : failed ? (
+        <Badge variant="destructive">
+          <WarningCircleIcon weight="fill" data-icon="inline-start" />
           Failed
+        </Badge>
+      ) : (
+        <span className="shrink-0 text-success" aria-label="Completed" title="Completed">
+          <CheckIcon />
         </span>
       )}
+      {panel ? (
+        <CaretRightIcon className="shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-90" />
+      ) : null}
     </>
   );
 
   // A failed tool call is the loudest thing in a turn, not the quietest: it is
   // bordered in coral and opens itself, because a failed `edit` and a failed
   // `ls` cannot look the same.
-  if (failed) {
-    return wrapToolMenu(
-      <Collapsible.Root open={open} onOpenChange={setOpen} className="rounded-lg border border-destructive/40 bg-destructive/5">
-        <Collapsible.Trigger className="group flex w-full items-center gap-2 px-3 py-2 text-xs outline-none hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-          <CaretRightIcon className="shrink-0 text-destructive transition-transform group-data-[panel-open]:rotate-90" />
-          {header}
-        </Collapsible.Trigger>
-        <Collapsible.Panel className="max-h-72 overflow-auto border-t border-destructive/30 px-2.5 py-2 font-mono text-xs whitespace-pre-wrap text-destructive">
-          {output || "The tool reported an error with no output."}
-        </Collapsible.Panel>
-      </Collapsible.Root>,
-      call,
-      output || "The tool reported an error with no output.",
-      open,
-      setOpen,
-    );
-  }
-
-  if (diffPatch) {
-    return wrapToolMenu(
-      <Collapsible.Root open={open} onOpenChange={setOpen} className="rounded-lg border bg-card/40">
-        <Collapsible.Trigger className="group flex w-full items-center gap-2 px-3 py-2 text-xs outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-          <CaretRightIcon className="shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-90" />
-          {header}
-        </Collapsible.Trigger>
-        <Collapsible.Panel className="max-h-96 overflow-auto border-t">
-          <Suspense fallback={null}>
-            <DiffView patch={diffPatch} className="py-1.5" />
-          </Suspense>
-        </Collapsible.Panel>
-      </Collapsible.Root>,
-      call,
-      output || diffPatch,
-      open,
-      setOpen,
-    );
-  }
-
-  if (!output) {
-    return wrapToolMenu(
-      <div className="rounded-lg border bg-card/40">
-        <div className="flex items-center gap-2 px-3 py-2 text-xs">{header}</div>
-      </div>,
-      call,
-      "",
-      open,
-      setOpen,
-    );
-  }
-
-  return wrapToolMenu(
-    <Collapsible.Root open={open} onOpenChange={setOpen} className="rounded-lg border bg-card/40">
-      <Collapsible.Trigger className="group flex w-full items-center gap-2 px-3 py-2 text-xs outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-        <CaretRightIcon className="shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-90" />
+  const tool = panel ? (
+    <Collapsible.Root
+      open={open}
+      onOpenChange={setOpen}
+      className={cn(
+        "overflow-hidden rounded-lg border border-border/60 bg-card/30 transition-[background-color,border-color] data-[panel-open]:bg-card/50",
+        failed && "border-destructive/45 bg-destructive/5 data-[panel-open]:bg-destructive/5",
+      )}
+    >
+      <Collapsible.Trigger
+        className={cn(
+          "group flex min-h-10 w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-xs outline-none transition-colors hover:bg-muted/35 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+          failed && "hover:bg-destructive/10",
+        )}
+      >
         {header}
       </Collapsible.Trigger>
-      <Collapsible.Panel className="max-h-72 overflow-auto border-t px-2.5 py-2 font-mono text-xs whitespace-pre-wrap text-body-muted-foreground">
-        {output}
-      </Collapsible.Panel>
-    </Collapsible.Root>,
-    call,
-    output,
-    open,
-    setOpen,
+      <Collapsible.Panel>{panel}</Collapsible.Panel>
+    </Collapsible.Root>
+  ) : (
+    <div className="rounded-lg border border-border/60 bg-card/30">
+      <div className="flex min-h-10 items-center gap-2.5 px-2.5 py-1.5 text-xs">{header}</div>
+    </div>
   );
+
+  return wrapToolMenu(tool, call, failed ? errorOutput : output || diffPatch || "", open, setOpen);
 }
 
 function wrapToolMenu(
