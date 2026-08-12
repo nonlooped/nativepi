@@ -662,6 +662,9 @@ const handlers: HandlerMap = {
   },
   unwatchProjectSessions: ({ projectDir }) => {
     stopProjectSessionWatch(projectDir);
+    for (const [sessionFile, entry] of sessionWatches) {
+      if (entry.projectDir === projectDir) stopSessionWatch(sessionFile);
+    }
     clearTimeout(sessionNotificationTimers.get(projectDir));
     sessionNotificationTimers.delete(projectDir);
     return { ok: true };
@@ -888,6 +891,9 @@ const handlers: HandlerMap = {
   watchSession: async ({ projectDir, sessionFile }) => {
     if (!sessionFile) return { ok: true };
     if (sessionWatches.get(sessionFile)?.projectDir === projectDir) return { ok: true };
+    for (const [watchedFile, entry] of sessionWatches) {
+      if (entry.projectDir === projectDir) stopSessionWatch(watchedFile);
+    }
     stopSessionWatch(sessionFile);
 
     const baseline = await sessionMtime(sessionFile);
@@ -905,6 +911,8 @@ const handlers: HandlerMap = {
       }
       entry.mtimeMs = mtimeMs;
       push("sessionChangedExternally", { projectDir, sessionFile });
+    }, () => {
+      if (sessionWatches.get(sessionFile) === entry) sessionWatches.delete(sessionFile);
     });
     sessionWatches.set(sessionFile, entry);
     return { ok: true };

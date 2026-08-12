@@ -410,7 +410,11 @@ export async function sessionMtime(sessionFile: string): Promise<number> {
  * turns too; attribution is the caller's job (it knows whether its Pi is busy).
  * Coalesced on a short timer because a single append can emit several events.
  */
-export function watchSessionFile(sessionFile: string, onChange: (mtimeMs: number) => void): () => void {
+export function watchSessionFile(
+  sessionFile: string,
+  onChange: (mtimeMs: number) => void,
+  onError: () => void = () => {},
+): () => void {
   let watcher: FSWatcher;
   try {
     watcher = watch(sessionFile, { persistent: false });
@@ -422,7 +426,10 @@ export function watchSessionFile(sessionFile: string, onChange: (mtimeMs: number
     clearTimeout(timer);
     timer = setTimeout(() => void sessionMtime(sessionFile).then(onChange), 150);
   });
-  watcher.on("error", () => watcher.close());
+  watcher.on("error", () => {
+    watcher.close();
+    onError();
+  });
   return () => {
     clearTimeout(timer);
     watcher.close();
