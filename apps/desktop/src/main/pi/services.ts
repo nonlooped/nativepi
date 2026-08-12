@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import {
   DefaultPackageManager,
   getAgentDir,
@@ -37,6 +38,9 @@ export function piServices(projectDir: string): PiServices {
   const settings = SettingsManager.create(projectDir, agentDir, {
     projectTrusted: isProjectTrusted(projectDir),
   });
+  if (!settings.getNpmCommand()) {
+    settings.setNpmCommand([process.execPath, createRequire(import.meta.url).resolve("npm/bin/npm-cli.js")]);
+  }
   return {
     pm: new DefaultPackageManager({ cwd: projectDir, agentDir, settingsManager: settings }),
     settings,
