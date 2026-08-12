@@ -7,14 +7,140 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Optional MCP package exposing configured server tools through Pi (`packages/mcp`).
-- Optional asynchronous subagents package with model, thinking-level, cancellation, and concurrency controls (`packages/subagents`).
-- Web Analytics via Vercel Web Analytics (`feat(web): add Vercel Web Analytics`).
+## [1.12.1] - 2026-08-12
 
 ### Fixed
-- Disable auto-update on unsigned macOS to prevent visible errors.
-- CI release fetch now preserves the tag in the refspec (`fix(ci): preserve release tag in fetch refspec`).
+- Retry Electron binary downloads in release CI after transient failures.
+
+## [1.12.0] - 2026-08-12
+
+### Added
+- Interactive questions through the optional ask-user extension.
+- Tool batching through the optional throughput extension.
+- Folder mentions in the composer.
+- Markdown rendering for user messages.
+
+### Changed
+- Redesign the project pane.
+- Register the ask-user and throughput extension workspaces.
+
+## [1.11.0] - 2026-08-12
+
+### Changed
+- Replace the transcript markdown renderer with richer streaming-friendly rendering.
+
+### Fixed
+- Preserve the session write grace period.
+- Address desktop interface audit findings and regressions.
+
+### Performance
+- Restore chats before loading history and avoid rescanning session history after local turns.
+- Reclaim idle chat resources and remove per-chat sidebar subscriptions.
+- Suspend and batch hidden terminal output.
+- Defer heavy workspace modules, isolate extension event handling, deduplicate Git status scans, and streamline CI publishing.
+
+## [1.10.0] - 2026-08-11
+
+### Added
+- Distinguish installed extension packages from local extensions and label local path sources.
+- Render skill and file mentions as chips in user messages.
+- Show live elapsed time while a turn is running.
+
+### Fixed
+- Allow parallel chats within a project.
+- Update sidebar sessions without rescanning and persist sidebar width after resizing.
+
+### Changed
+- Tighten the default sidebar and context pane widths.
+- Simplify pane, composer, list, progress, and modal motion treatments.
+
+## [1.9.0] - 2026-08-11
+
+### Added
+- Ten built-in color schemes with settings, import/export, and contrast checks.
+- Apply the selected color scheme to the desktop interface and integrated terminals.
+
+### Fixed
+- Resolve Pi's entry point from the packaged app path while keeping resolution testable outside Electron.
+- Select chats only after their project's session list loads.
+- Generate stable chat-search request IDs.
+- Avoid a release workflow verification race.
+
+### Changed
+- Polish the transcript, composer, sidebar, project list, session rows, and source control interface.
+
+## [1.8.1] - 2026-08-11
+
+### Performance
+- Optimize desktop rendering and state-management hot paths.
+
+## [1.8.0] - 2026-08-11
+
+### Changed
+- Polish responsive layouts, diff theming, and source control details.
+
+## [1.7.0] - 2026-08-11
+
+### Added
+- Cohesive interface motion and collapsible pane transitions.
+
+### Performance
+- Cache Git status, extension bundles, compression, and session metadata in the main process.
+- Optimize transcript, sidebar, and autocomplete rendering.
+- Split renderer bundles for charts, icons, and Zod.
+
+## [1.6.0] - 2026-08-11
+
+### Added
+- Detect stale development windows and show a freshness indicator.
+
+### Fixed
+- Address desktop interface audit findings.
+
+## [1.5.0] - 2026-08-10
+
+### Added
+- Source control with staged groups, commit history, upstream tracking, and Pi-generated Conventional Commit messages.
+- Graphical extension conversation views and transcripts.
+- Rich subagent conversation history, overview UI, terminal dashboard, and slash commands.
+- Extension composer editor slots and dynamic terminal-surface sizing.
+
+### Fixed
+- Generate chat titles when prompts are submitted.
+- Handle missing extension conversation views and overflowing headers.
+- Address source control review findings.
+
+### Documentation
+- Document source control and graphical extension conversation views in the product and design guides.
+
+## [1.4.0] - 2026-08-09
+
+### Added
+- A Subscriptions settings page with aggregated usage and simplified controls.
+
+### Fixed
+- Publish the subagents package with a registry-compatible extension API range.
+- Remove an unsupported argument separator that broke subagent invocation.
+
+### Changed
+- Remove the redundant usage button from the sidebar footer.
+
+## [1.3.0] - 2026-08-09
+
+### Added
+- Promote the usage dashboard to Settings and add token metrics.
+
+## [1.2.0] - 2026-08-09
+
+### Added
+- Light mode with an appearance switcher and refined light palette.
+- Optional MCP package exposing configured server tools through Pi (`packages/mcp`).
+- Optional asynchronous subagents package with model, thinking-level, cancellation, and concurrency controls (`packages/subagents`).
+- Vercel Web Analytics for the website.
+
+### Fixed
+- Disable auto-update on unsigned macOS builds to prevent visible errors.
+- Preserve release tags when CI fetches release refs.
 
 ## [1.1.1] - 2026-08-09
 
@@ -359,7 +485,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial NativePi desktop wrapper for the Pi coding agent (Electron + electron-vite + Bun + React 19.2 + Vite 8 + Tailwind CSS 4 + shadcn/ui + Zustand + Zod).
 - Project bootstrap, README and logo assets, build and release automation.
 
-[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.12.1...HEAD
+[1.12.1]: https://github.com/nonlooped/nativepi/compare/v1.12.0...v1.12.1
+[1.12.0]: https://github.com/nonlooped/nativepi/compare/v1.11.0...v1.12.0
+[1.11.0]: https://github.com/nonlooped/nativepi/compare/v1.10.0...v1.11.0
+[1.10.0]: https://github.com/nonlooped/nativepi/compare/v1.9.0...v1.10.0
+[1.9.0]: https://github.com/nonlooped/nativepi/compare/v1.8.1...v1.9.0
+[1.8.1]: https://github.com/nonlooped/nativepi/compare/v1.8.0...v1.8.1
+[1.8.0]: https://github.com/nonlooped/nativepi/compare/v1.7.0...v1.8.0
+[1.7.0]: https://github.com/nonlooped/nativepi/compare/v1.6.0...v1.7.0
+[1.6.0]: https://github.com/nonlooped/nativepi/compare/v1.5.0...v1.6.0
+[1.5.0]: https://github.com/nonlooped/nativepi/compare/v1.4.0...v1.5.0
+[1.4.0]: https://github.com/nonlooped/nativepi/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/nonlooped/nativepi/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/nonlooped/nativepi/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/nonlooped/nativepi/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/nonlooped/nativepi/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/nonlooped/nativepi/compare/v0.21.0...v1.0.0
