@@ -265,7 +265,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
         </div>
       </div>
       {/* The first composer gets only the two keys needed to begin. Commands,
-          skills, and file mentions remain discoverable when their trigger is
+          skills, and file and folder mentions remain discoverable when their trigger is
           typed, without turning an otherwise quiet starting point into a guide.
           Hidden on a touch screen, where naming two keystrokes is advice about a
           keyboard the reader does not have. */}

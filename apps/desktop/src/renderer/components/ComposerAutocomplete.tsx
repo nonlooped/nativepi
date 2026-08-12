@@ -1,3 +1,4 @@
+import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { LightningIcon } from "@phosphor-icons/react/Lightning";
 import { PuzzlePieceIcon } from "@phosphor-icons/react/PuzzlePiece";
 import { TerminalIcon } from "@phosphor-icons/react/Terminal";
@@ -22,7 +23,7 @@ import { cn } from "@/lib/utils.ts";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 
 /**
- * `/` for Pi commands, `$` for skills and `@` for files, inline in the composer.
+ * `/` for Pi commands, `$` for skills and `@` for files and folders, inline in the composer.
  *
  * The menu is a listbox the textarea drives: focus never leaves the message the
  * user is writing, so the arrow keys and Enter are borrowed while it is open and
@@ -289,7 +290,7 @@ const EXTENSION_DEBOUNCE_MS = 120;
 const MENU_LABELS: Record<TriggerKind, { title: string; empty: string }> = {
   command: { title: "Commands", empty: "No matching command." },
   skill: { title: "Skills", empty: "No matching skill." },
-  file: { title: "Files in this project", empty: "No matching file." },
+  file: { title: "Files and folders in this project", empty: "No matching file or folder." },
   extension: { title: "From an extension", empty: "No matching suggestion." },
 };
 
@@ -389,7 +390,12 @@ function Row({
         activeRow ? "bg-accent text-accent-foreground" : "text-foreground",
       )}
     >
-      {option.kind === "file" ? (
+      {option.kind === "file" && option.dir ? (
+        <FolderIcon
+          className={cn("size-4 shrink-0", activeRow ? "text-foreground" : "text-muted-foreground")}
+          weight="fill"
+        />
+      ) : option.kind === "file" ? (
         <FileTypeIcon path={option.value} />
       ) : (
         <Icon className={cn("size-4 shrink-0", activeRow ? "text-foreground" : "text-muted-foreground")} weight="fill" />

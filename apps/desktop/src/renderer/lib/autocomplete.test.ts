@@ -47,8 +47,30 @@ test("the file named for the query outranks the one that merely contains it", ()
 
 test("a file row splits into the name and the directory holding it", () => {
   const [row] = rankFiles(["src/renderer/Composer.tsx"], "comp");
-  expect(row).toMatchObject({ label: "Composer.tsx", detail: "src/renderer" });
-  expect(rankFiles(["README.md"], "read")[0]).toMatchObject({ label: "README.md", detail: "" });
+  expect(row).toMatchObject({ label: "Composer.tsx", detail: "src/renderer", dir: false });
+  expect(rankFiles(["README.md"], "read")[0]).toMatchObject({ label: "README.md", detail: "", dir: false });
+});
+
+test("folders implied by files are offered as their own rows", () => {
+  const ranked = rankFiles(["packages/mcp/LICENSE", "apps/desktop/src/main/packages.ts"], "packages");
+  const folder = ranked.find((row) => row.value === "packages");
+  expect(folder).toMatchObject({ label: "packages", detail: "", dir: true });
+  expect(ranked[0]?.value).toBe("packages");
+});
+
+test("a folder named for the query outranks files that only sit under it", () => {
+  const ranked = rankFiles(["src/lib/store.ts", "src/index.ts"], "src");
+  expect(ranked[0]).toMatchObject({ value: "src", label: "src", detail: "", dir: true });
+});
+
+test("a trailing slash still selects the folder", () => {
+  const ranked = rankFiles(["src/lib/store.ts", "src/index.ts"], "src/");
+  expect(ranked[0]).toMatchObject({ value: "src", dir: true });
+});
+
+test("a nested folder row splits like a file row", () => {
+  const ranked = rankFiles(["packages/mcp/LICENSE"], "mcp");
+  expect(ranked[0]).toMatchObject({ value: "packages/mcp", label: "mcp", detail: "packages", dir: true });
 });
 
 test("skills rank by name and carry their description for the row", () => {

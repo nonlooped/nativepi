@@ -184,6 +184,8 @@ export interface FileOption {
   /** The directory it sits in, or "" at the root. */
   detail: string;
   positions: number[];
+  /** A parent directory implied by the file list, offered as its own `@` target. */
+  dir: boolean;
 }
 
 /**
@@ -266,7 +268,24 @@ export function rankSkills(skills: SkillInfo[], query: string): SkillOption[] {
 }
 
 /**
- * Rank files, trying the name before the whole path.
+ * Every parent directory a file path implies.
+ *
+ * The `@` list is built from files (`git ls-files` or a walk), so folders are
+ * never enumerated on their own. Reconstructing them here is what lets `@src`
+ * offer the directory, not only the files sitting under it.
+ */
+function folderPaths(files: string[]): string[] {
+  const dirs = new Set<string>();
+  for (const file of files) {
+    for (let end = file.lastIndexOf("/"); end > 0; end = file.lastIndexOf("/", end - 1)) {
+      dirs.add(file.slice(0, end));
+    }
+  }
+  return [...dirs];
+}
+
+/**
+ * Rank files and their parent folders, trying the name before the whole path.
  *
  * The name is tried first and worth more, because typing `store` means the file
  * called store, not every file underneath a `store/`. Only when the name alone
@@ -276,35 +295,41 @@ export function rankSkills(skills: SkillInfo[], query: string): SkillOption[] {
  */
 const fileRankCache = new Map<string, FileOption[]>();
 export function rankFiles(files: string[], query: string): FileOption[] {
+  // A trailing slash is how people say "the folder", not a character in the name.
+  const needle = query.replace(/\/+$/, "");
   // Query cache — files array is stable per project (only refreshes on demand) and query
   // changes per keystroke. Hit rate is high when backspacing.
-  const cacheKey = `${files.length}:${query}`;
+  const cacheKey = `${files.length}:${needle}`;
   const cached = fileRankCache.get(cacheKey);
   if (cached) return cached;
   const scored: { option: FileOption; score: number }[] = [];
 
-  for (const file of files) {
-    const baseStart = file.lastIndexOf("/") + 1;
-    const base = file.slice(baseStart);
-    const byName = fuzzyMatch(base, query);
+  const consider = (path: string, dir: boolean) => {
+    const baseStart = path.lastIndexOf("/") + 1;
+    const base = path.slice(baseStart);
+    const byName = fuzzyMatch(base, needle);
     const match = byName
       ? { score: byName.score + 12, positions: byName.positions.map((position) => position + baseStart) }
-      : fuzzyMatch(file, query);
-    if (!match) continue;
+      : fuzzyMatch(path, needle);
+    if (!match) return;
     // Shallow paths win ties: the file at the top of a project is more often the
     // one meant than its namesake six directories down.
-    const depth = file.split("/").length - 1;
+    const depth = path.split("/").length - 1;
     scored.push({
       option: {
         kind: "file",
-        value: file,
+        value: path,
         label: base,
-        detail: baseStart === 0 ? "" : file.slice(0, baseStart - 1),
+        detail: baseStart === 0 ? "" : path.slice(0, baseStart - 1),
         positions: match.positions,
+        dir,
       },
       score: match.score - depth,
     });
-  }
+  };
+
+  for (const file of files) consider(file, false);
+  for (const folder of folderPaths(files)) consider(folder, true);
 
   const result = scored
     .sort((a, b) => b.score - a.score || a.option.value.length - b.option.value.length || a.option.value.localeCompare(b.option.value))
