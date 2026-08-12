@@ -414,7 +414,8 @@ function ensurePi(projectDir: string, sessionFile?: string, fresh = false): Prom
     try {
       const state = await pi.request<RpcSessionState>({ type: "get_state" });
       if (sessionFile && state.sessionFile !== sessionFile) {
-        await pi.request({ type: "switch_session", sessionPath: sessionFile });
+        const switched = await pi.request<{ cancelled: boolean }>({ type: "switch_session", sessionPath: sessionFile });
+        if (switched.cancelled) throw new Error("Session switch was cancelled");
         rememberPi(pi, sessionFile);
       } else {
         rememberPi(pi, state.sessionFile);
