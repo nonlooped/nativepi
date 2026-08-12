@@ -49,6 +49,7 @@ let nextRequestId = 1;
 /** How long the composer waits for an extension's completions before giving up. */
 const FRAME_REQUEST_TIMEOUT_MS = 2000;
 const EXTENSION_CALL_TIMEOUT_MS = 30_000;
+const STOP_TIMEOUT_MS = 5000;
 
 export class PiProcess {
   readonly projectDir: string;
@@ -109,6 +110,7 @@ export class PiProcess {
       onExit(code, error, this.stopping);
     };
     this.proc.on("error", (error) => finish(null, error));
+    this.proc.stdin.on("error", (error) => finish(null, error));
     this.proc.on("exit", (code) => finish(code));
   }
 
@@ -271,6 +273,15 @@ export class PiProcess {
     try {
       if (!this.proc.killed) this.proc.kill();
     } catch {}
-    await this.ended;
+    const timedOut = await Promise.race([
+      this.ended.then(() => false),
+      new Promise<true>((resolve) => setTimeout(() => resolve(true), STOP_TIMEOUT_MS)),
+    ]);
+    if (timedOut) {
+      try {
+        this.proc.kill("SIGKILL");
+      } catch {}
+      await this.ended;
+    }
   }
 }
