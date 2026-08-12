@@ -316,9 +316,15 @@ export async function gitPush(projectDir: string) {
     run(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], projectDir),
   ]);
   if (!branch.stdout.trim()) return { ok: false, error: "Check out a branch before pushing." };
-  const result = upstream.code === 0
-    ? await run(["push"], projectDir)
-    : await run(["push", "-u", "origin", "HEAD"], projectDir);
+  let args = ["push"];
+  if (upstream.code !== 0) {
+    const name = branch.stdout.trim();
+    const configured = await run(["config", "--get", `branch.${name}.pushRemote`], projectDir);
+    const pushDefault = configured.stdout.trim() || (await run(["config", "--get", "remote.pushDefault"], projectDir)).stdout.trim();
+    const branchRemote = pushDefault || (await run(["config", "--get", `branch.${name}.remote`], projectDir)).stdout.trim();
+    args = ["push", "-u", branchRemote || "origin", "HEAD"];
+  }
+  const result = await run(args, projectDir);
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
 }
 

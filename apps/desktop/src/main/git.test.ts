@@ -225,6 +225,21 @@ test("the commit graph distinguishes local commits from commits on a remote bran
   expect(await gitStatus(dir)).toMatchObject({ upstream: "origin/main", ahead: 1, behind: 0 });
 });
 
+test("first push honors Git's configured default remote", async () => {
+  const dir = await repo();
+  const origin = await mkdtemp(path.join(tmpdir(), "nativepi-origin-"));
+  const publish = await mkdtemp(path.join(tmpdir(), "nativepi-publish-"));
+  execFileSync("git", ["init", "--bare", origin], { stdio: "pipe" });
+  execFileSync("git", ["init", "--bare", publish], { stdio: "pipe" });
+  execFileSync("git", ["remote", "add", "origin", origin], { cwd: dir });
+  execFileSync("git", ["remote", "add", "publish", publish], { cwd: dir });
+  execFileSync("git", ["config", "remote.pushDefault", "publish"], { cwd: dir });
+
+  expect(await gitPush(dir)).toEqual({ ok: true });
+  expect(execFileSync("git", ["rev-parse", "refs/heads/main"], { cwd: publish, encoding: "utf8" })).toBeTruthy();
+  expect(() => execFileSync("git", ["rev-parse", "refs/heads/main"], { cwd: origin, stdio: "pipe" })).toThrow();
+});
+
 test("sync fast-forwards from the upstream branch before pushing", async () => {
   const dir = await repo();
   const remote = await mkdtemp(path.join(tmpdir(), "nativepi-sync-remote-"));
