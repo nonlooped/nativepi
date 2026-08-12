@@ -124,7 +124,7 @@ export default function AdvancedSettings() {
 
           <SettingsSection
             heading="Pi's telemetry"
-            description="NativePi collects nothing and sends nothing. These two switches belong to Pi, and are here so you can see and change what it does."
+            description="NativePi has no product telemetry of its own. These switches belong to Pi and control what Pi reports."
           >
             <SwitchRow
               label="Report package installs"

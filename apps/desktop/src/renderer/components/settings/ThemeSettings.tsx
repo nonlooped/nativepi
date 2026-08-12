@@ -307,9 +307,9 @@ function ThemeEditor({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl overflow-hidden">
         <form
-          className="flex min-h-0 flex-col gap-5"
+          className="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden"
           onSubmit={(event) => {
             event.preventDefault();
             if (parsed.success && contrastIssues.length === 0) onSave(parsed.data);
@@ -320,62 +320,66 @@ function ThemeEditor({
             <DialogDescription>Changes stay in NativePi and take effect when you save.</DialogDescription>
           </DialogHeader>
 
-          <ThemePreview colors={draft.colors[variant]} />
+          <div className="min-h-0 flex-1 overflow-y-auto pe-1">
+            <div className="flex flex-col gap-5">
+              <ThemePreview colors={draft.colors[variant]} />
 
-          <FieldGroup>
-            <Field data-invalid={nameInvalid || undefined}>
-              <FieldLabel htmlFor="theme-name">Name</FieldLabel>
-              <Input
-                id="theme-name"
-                value={draft.name}
-                aria-invalid={nameInvalid || undefined}
-                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-              />
-              {nameInvalid ? <FieldError>Use a name between 1 and 60 characters.</FieldError> : null}
-            </Field>
+              <FieldGroup>
+                <Field data-invalid={nameInvalid || undefined}>
+                  <FieldLabel htmlFor="theme-name">Name</FieldLabel>
+                  <Input
+                    id="theme-name"
+                    value={draft.name}
+                    aria-invalid={nameInvalid || undefined}
+                    onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                  />
+                  {nameInvalid ? <FieldError>Use a name between 1 and 60 characters.</FieldError> : null}
+                </Field>
 
-            <Field>
-              <FieldLabel>Variant</FieldLabel>
-              <FieldDescription>Edit both variants before saving. This switch only changes the editor preview.</FieldDescription>
-              <Segmented
-                label="Variant"
-                value={variant}
-                options={[{ value: "light", label: "Light" }, { value: "dark", label: "Dark" }]}
-                onChange={setVariant}
-              />
-            </Field>
+                <Field>
+                  <FieldLabel>Variant</FieldLabel>
+                  <FieldDescription>Edit both variants before saving. This switch only changes the editor preview.</FieldDescription>
+                  <Segmented
+                    label="Variant"
+                    value={variant}
+                    options={[{ value: "light", label: "Light" }, { value: "dark", label: "Dark" }]}
+                    onChange={setVariant}
+                  />
+                </Field>
 
-            {COLOR_GROUPS.map((group) => (
-              <FieldSet key={group.legend}>
-                <FieldLegend>{group.legend}</FieldLegend>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {group.fields.map((field) => (
-                    <ColorField
-                      key={field.key}
-                      label={field.label}
-                      value={draft.colors[variant][field.key]}
-                      onChange={(value) => setDraft({
-                        ...draft,
-                        colors: {
-                          ...draft.colors,
-                          [variant]: { ...draft.colors[variant], [field.key]: value },
-                        },
-                      })}
-                    />
-                  ))}
+                {COLOR_GROUPS.map((group) => (
+                  <FieldSet key={group.legend}>
+                    <FieldLegend>{group.legend}</FieldLegend>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {group.fields.map((field) => (
+                        <ColorField
+                          key={field.key}
+                          label={field.label}
+                          value={draft.colors[variant][field.key]}
+                          onChange={(value) => setDraft({
+                            ...draft,
+                            colors: {
+                              ...draft.colors,
+                              [variant]: { ...draft.colors[variant], [field.key]: value },
+                            },
+                          })}
+                        />
+                      ))}
+                    </div>
+                  </FieldSet>
+                ))}
+              </FieldGroup>
+
+              {contrastIssues.length > 0 ? (
+                <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                  <p className="font-medium">Improve the contrast before saving:</p>
+                  <ul className="mt-1 list-disc pl-5">
+                    {contrastIssues.map((issue) => <li key={issue}>{issue}</li>)}
+                  </ul>
                 </div>
-              </FieldSet>
-            ))}
-          </FieldGroup>
-
-          {contrastIssues.length > 0 ? (
-            <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-              <p className="font-medium">Improve the contrast before saving:</p>
-              <ul className="mt-1 list-disc pl-5">
-                {contrastIssues.map((issue) => <li key={issue}>{issue}</li>)}
-              </ul>
+              ) : null}
             </div>
-          ) : null}
+          </div>
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>

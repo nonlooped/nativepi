@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+declare module "apca-w3" {
+  export function APCAcontrast(textLuminance: number, backgroundLuminance: number): number;
+  export function sRGBtoY(rgb: [number, number, number]): number;
+}
+
 declare const __NATIVEPI_DEV_GENERATION__: string;
 
 // The icon theme's manifest, typed by hand: it is a 450 kB JSON file, and the

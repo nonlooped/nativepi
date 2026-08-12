@@ -132,7 +132,7 @@ function ProviderRail({
   onSelect: (id: string) => void;
 }) {
   return (
-    <div className="flex w-14 shrink-0 flex-col items-center gap-2 border-r py-3">
+    <div className="flex w-14 shrink-0 flex-col items-center gap-2 overflow-y-auto border-r py-3 [scrollbar-gutter:stable]">
       <button
         type="button"
         title="Favorites"

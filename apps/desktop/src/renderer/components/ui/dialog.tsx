@@ -27,7 +27,7 @@ function DialogContent({
           // screen narrower than 28rem, and its rounded corners with it. It also
           // caps its height: a confirm dialog on a phone in landscape is taller
           // than the viewport.
-          "fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-lg border bg-popover p-5 text-popover-foreground shadow-lg outline-none transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] data-[ending-style]:scale-98 data-[ending-style]:opacity-0 data-[starting-style]:scale-98 data-[starting-style]:opacity-0",
+          "fixed top-1/2 left-1/2 z-50 flex max-h-[calc(var(--app-height,100dvh)-2rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border bg-popover p-5 text-popover-foreground shadow-lg outline-none transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] data-[ending-style]:scale-98 data-[ending-style]:opacity-0 data-[starting-style]:scale-98 data-[starting-style]:opacity-0",
           className,
         )}
       >
@@ -46,11 +46,11 @@ function DialogContent({
 }
 
 function DialogHeader({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={cn("flex flex-col gap-1", className)}>{children}</div>;
+  return <div className={cn("flex shrink-0 flex-col gap-1", className)}>{children}</div>;
 }
 
 function DialogFooter({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={cn("flex items-center justify-end gap-2", className)}>{children}</div>;
+  return <div className={cn("flex shrink-0 items-center justify-end gap-2", className)}>{children}</div>;
 }
 
 export {

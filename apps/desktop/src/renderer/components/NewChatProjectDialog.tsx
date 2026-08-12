@@ -79,7 +79,7 @@ export default function NewChatProjectDialog({
             />
           </div>
 
-          <Combobox.List className="flex max-h-[min(24rem,calc(100dvh-9rem))] min-h-32 flex-col gap-0.5 overflow-y-auto p-2">
+          <Combobox.List className="flex max-h-[min(24rem,calc(var(--app-height,100dvh)-9rem))] min-h-32 flex-col gap-0.5 overflow-y-auto p-2">
             {matches.length > 0 ? (
               <div className="px-2 pb-1 pt-0.5 text-xs font-medium text-muted-foreground">Projects</div>
             ) : null}

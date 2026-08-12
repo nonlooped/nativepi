@@ -46,6 +46,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog.tsx";
 import { HOVER_REVEAL, cn } from "@/lib/utils.ts";
 import { copyDataImage } from "@/lib/clipboard.ts";
+import { ContextualIcon } from "@/components/ui/contextual-icon.tsx";
 import { rpc } from "@/lib/rpc.ts";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 import { ExtensionEntry, ExtensionToolResult, useHasEntryRenderer, useHasToolRenderer } from "./ExtensionSlots.tsx";
@@ -967,7 +968,7 @@ function MessageActions({ text, timestamp }: { text: string; timestamp: string }
         title={copied ? "Copied" : "Copy message"}
         onClick={() => void navigator.clipboard.writeText(text).then(() => setCopied(true))}
       >
-        {copied ? <CheckIcon className="text-success" /> : <CopyIcon />}
+        <ContextualIcon active={copied} activeIcon={<CheckIcon className="text-success" />} inactiveIcon={<CopyIcon />} />
       </Button>
       <span aria-live="polite">{copied ? "Copied" : time ? <time dateTime={date.toISOString()}>{time}</time> : null}</span>
     </div>
@@ -1181,10 +1182,10 @@ function TranscriptImage({ image, name }: { image: { mimeType: string; data: str
         <img src={src} alt={name} className="max-h-40 rounded-lg object-contain outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
       </TranscriptContextMenu>
       <Dialog open={preview} onOpenChange={setPreview}>
-        <DialogContent className="max-h-[90vh] max-w-[90vw] p-3">
+        <DialogContent className="max-w-[90vw] p-3">
           <DialogTitle className="sr-only">{name}</DialogTitle>
           <DialogDescription className="sr-only">Full-size image preview</DialogDescription>
-          <img src={src} alt={name} className="max-h-[calc(90vh-1.5rem)] w-full object-contain" />
+          <img src={src} alt={name} className="max-h-[calc(var(--app-height,100dvh)-3.5rem)] w-full object-contain outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
         </DialogContent>
       </Dialog>
     </>

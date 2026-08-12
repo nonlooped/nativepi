@@ -17,7 +17,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { cn } from "@/lib/utils.ts";
 
 const ALL_PROJECTS = "all-projects";
-const PROVIDER_COLORS = ["var(--foreground)", "var(--warning)", "var(--info)", "var(--success)"];
+const PROVIDER_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)"];
 
 type Range = "7" | "30" | "90" | "all";
 type ChartMetric = "cost" | "tokens";
@@ -165,7 +165,7 @@ function Dashboard({ dashboard, range }: { dashboard: UsageDashboard; range: Ran
       </section>
 
       <p className="max-w-3xl text-xs leading-5 text-body-muted-foreground">
-        Costs and tokens come from the usage records Pi writes to session files on this device. Forked sessions count inherited cost once. NativePi does not send this data anywhere.
+        Costs and tokens come from the usage records Pi writes to session files on this device. Forked sessions count inherited cost once. NativePi stores these totals locally and does not submit them as product telemetry.
       </p>
     </div>
   );

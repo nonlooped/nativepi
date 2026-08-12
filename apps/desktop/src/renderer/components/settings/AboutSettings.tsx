@@ -117,8 +117,8 @@ export default function AboutSettings() {
       <div className="flex flex-col gap-4">
         <NativePiWordmark display />
         <p className="max-w-prose text-sm leading-6 text-body-muted-foreground">
-          Pi runs the agent and owns your providers, credentials and sessions. NativePi gives it a window. Everything
-          stays on this computer.
+          Pi runs the agent and owns your providers, credentials and sessions. NativePi gives it a window and stores
+          its own settings locally. Browser access and update checks connect only when those features are used.
         </p>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <span className="font-mono text-xs text-muted-foreground">

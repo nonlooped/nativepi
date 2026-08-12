@@ -121,7 +121,7 @@ export default function ChatSearchDialog({
           </div>
 
           <p className="sr-only" role="status">{status}</p>
-          <Combobox.List className="flex min-h-48 max-h-[min(30rem,calc(100dvh-8rem))] flex-col gap-0.5 overflow-y-auto p-2">
+          <Combobox.List className="flex min-h-48 max-h-[min(30rem,calc(var(--app-height,100dvh)-8rem))] flex-col gap-0.5 overflow-y-auto p-2">
           {!query.trim() ? (
             <SearchState
               icon={<MagnifyingGlassIcon />}

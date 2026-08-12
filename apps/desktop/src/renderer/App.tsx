@@ -478,7 +478,7 @@ function WorkspaceHeader({
         )}
       </div>
       {activeProjectPath ? (
-        <div className={cn(NO_DRAG_REGION, "hidden min-w-0 shrink items-center gap-1 overflow-hidden min-[480px]:flex")}>
+        <div className={cn(NO_DRAG_REGION, "hidden min-w-0 shrink items-center gap-1 min-[480px]:flex")}>
           <ExtensionConversationControls active={extensionView} onSelect={onSelectExtensionView} />
         </div>
       ) : null}
@@ -790,7 +790,7 @@ function WelcomeScreen() {
             Sign in with a subscription or paste an API key. If you have already done this in Pi, skip it.
           </OnboardingStep>
           <OnboardingStep index={2} title="Open a project folder">
-            The agent reads and edits files in that folder, and nothing outside it.
+            Pi starts in that folder and can access anything your user account and trusted extensions can access.
           </OnboardingStep>
           <OnboardingStep index={3} title="Describe a task">
             Watch the run, review the files it changed, and steer it while it works.

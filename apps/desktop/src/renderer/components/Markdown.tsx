@@ -18,6 +18,7 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { Button } from "@/components/ui/button.tsx";
+import { ContextualIcon } from "@/components/ui/contextual-icon.tsx";
 import { cn } from "@/lib/utils.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { useAppStore } from "@/lib/store.ts";
@@ -104,7 +105,7 @@ function CopyCodeButton({ code }: { code: string }) {
       size="icon-xs"
       onClick={() => void copy()}
     >
-      {copied ? <CheckIcon /> : <CopyIcon />}
+      <ContextualIcon active={copied} activeIcon={<CheckIcon />} inactiveIcon={<CopyIcon />} />
     </Button>
   );
 }

@@ -27,7 +27,7 @@
         const resolved = !t || t === "system" ? (m ? "dark" : "light") : t;
         if (resolved === "dark") document.documentElement.classList.add("dark");
         const cached = JSON.parse(localStorage.getItem("nativepi-theme-cache") || "null");
-        if (cached && cached.version === 2 && cached.appearance === resolved && cached.properties) {
+        if (cached && cached.version === 3 && cached.appearance === resolved && cached.properties) {
           for (const [property, value] of Object.entries(cached.properties)) {
             if (property.startsWith("--") && typeof value === "string") {
               document.documentElement.style.setProperty(property, value);

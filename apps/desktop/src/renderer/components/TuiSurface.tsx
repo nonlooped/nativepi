@@ -193,7 +193,7 @@ function TuiOverlayDialog({ surface, projectDir }: { surface: TuiSurface; projec
         if (!open && details.reason !== "escape-key") cancel();
       }}
     >
-      <DialogContent className="flex h-[min(90dvh,64rem)] w-[min(96vw,112rem)] max-w-none flex-col">
+      <DialogContent className="flex h-[min(calc(var(--app-height,100dvh)-2rem),64rem)] w-[min(96vw,112rem)] max-w-none flex-col">
         <DialogHeader>
           <DialogTitle className="font-heading text-base font-semibold">{surface.key}</DialogTitle>
           <DialogDescription className="text-sm text-body-muted-foreground">

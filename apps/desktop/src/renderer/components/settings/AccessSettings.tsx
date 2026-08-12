@@ -11,6 +11,7 @@ import { StopIcon } from "@phosphor-icons/react/Stop";
 import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button.tsx";
+import { ContextualIcon } from "@/components/ui/contextual-icon.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
 import { cn } from "@/lib/utils.ts";
@@ -123,9 +124,12 @@ export default function AccessSettings() {
               status.local.running ? rpc.request.stopLocalAccess({}) : rpc.request.startLocalAccess({}),
             )}
           >
-            {status.local.running
-              ? <StopIcon weight="fill" data-icon="inline-start" />
-              : <PlayIcon weight="fill" data-icon="inline-start" />}
+            <ContextualIcon
+              data-icon="inline-start"
+              active={status.local.running}
+              activeIcon={<StopIcon weight="fill" />}
+              inactiveIcon={<PlayIcon weight="fill" />}
+            />
             {busy === "local" ? "Working…" : status.local.running ? "Stop" : "Start"}
           </Button>
         }
@@ -357,7 +361,7 @@ function LinkPanel({
           aria-label={copied ? "Link copied" : "Copy this link"}
           onClick={() => void onCopy(scope, link)}
         >
-          {copied ? <CheckIcon className="text-success" /> : <CopyIcon />}
+          <ContextualIcon active={copied} activeIcon={<CheckIcon className="text-success" />} inactiveIcon={<CopyIcon />} />
         </Button>
       </div>
 
@@ -472,7 +476,7 @@ function health(status: RemoteAccessStatus): string {
   const when = status.checkedAt ? `, checked ${ago(status.checkedAt)}` : "";
   return status.reachable
     ? `The address answered${when}. Stop remote access when you are done.`
-    : `The address did not answer${when}. Cloudflare may still be re-routing it; replace the token if it does not clear.`;
+    : `The address did not answer${when}. Cloudflare may still be re-routing it; stop and restart remote access if it does not clear.`;
 }
 
 function ago(at: number): string {

@@ -301,7 +301,6 @@ export function AutocompleteMenu({ state }: { state: ComposerAutocomplete }) {
     <div
       className={cn(
         "absolute bottom-full left-0 right-0 z-40 mb-2 overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-xl",
-        "duration-150 animate-in fade-in-0 slide-in-from-bottom-1",
       )}
     >
       <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5">

@@ -341,7 +341,7 @@ export function ExtensionConversationControls({
   if (views.length === 0) return null;
 
   return (
-    <div className="flex min-w-0 max-w-[min(32vw,22rem)] items-center gap-1 overflow-hidden">
+    <div className="flex min-w-0 max-w-[min(32vw,22rem)] items-center gap-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
       {views.map(({ ext, view, key }) => (
         <Button
           key={`${key}:${sessionKey(base)}`}
@@ -349,7 +349,7 @@ export function ExtensionConversationControls({
           size="sm"
           aria-pressed={active === key}
           title={view.label}
-          className="max-w-32 min-w-0 shrink truncate"
+          className="max-w-32 min-w-0 shrink-0 truncate"
           onClick={() => onSelect(active === key ? null : key)}
         >
           <span className="min-w-0 truncate">

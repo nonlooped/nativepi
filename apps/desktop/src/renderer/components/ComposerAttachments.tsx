@@ -66,7 +66,7 @@ function ComposerAttachment({ image, onRemove }: { image: ImageAttachment; onRem
       <ContextMenu>
         <ContextMenuTrigger render={<Attachment size="sm" />}>
           <AttachmentMedia variant="image">
-            <img src={src} alt="" />
+            <img src={src} alt="" className="outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
           </AttachmentMedia>
           <AttachmentContent>
             <AttachmentTitle title={image.name}>{image.name}</AttachmentTitle>
@@ -84,10 +84,10 @@ function ComposerAttachment({ image, onRemove }: { image: ImageAttachment; onRem
         </ContextMenuContent>
       </ContextMenu>
       <Dialog open={preview} onOpenChange={setPreview}>
-        <DialogContent className="max-h-[90vh] max-w-[90vw] p-3">
+        <DialogContent className="max-w-[90vw] p-3">
           <DialogTitle className="sr-only">{image.name}</DialogTitle>
           <DialogDescription className="sr-only">Full-size image preview</DialogDescription>
-          <img src={src} alt={image.name} className="max-h-[calc(90vh-1.5rem)] w-full object-contain" />
+          <img src={src} alt={image.name} className="max-h-[calc(var(--app-height,100dvh)-3.5rem)] w-full object-contain outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
         </DialogContent>
       </Dialog>
     </>
