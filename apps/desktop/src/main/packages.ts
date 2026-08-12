@@ -40,26 +40,40 @@ export async function listPackages(projectDir: string): Promise<PackageListing> 
   return { packages, extensions, projectTrusted: settings.isProjectTrusted(), errors };
 }
 
-export async function installPackage(projectDir: string, source: string, scope: "user" | "project"): Promise<void> {
-  const { pm, settings } = piServices(projectDir);
-  if (scope === "project" && !settings.isProjectTrusted()) {
-    throw new Error("Project is not trusted. Trust the folder before installing project-scoped packages.");
-  }
-  await pm.installAndPersist(source, { local: scope === "project" });
-  await settings.flush();
+let mutations: Promise<unknown> = Promise.resolve();
+
+function mutate(task: () => Promise<void>) {
+  const run = mutations.then(task, task);
+  mutations = run.catch(() => undefined);
+  return run;
 }
 
-export async function removePackage(projectDir: string, source: string, scope: "user" | "project"): Promise<void> {
-  const { pm, settings } = piServices(projectDir);
-  if (scope === "project" && !settings.isProjectTrusted()) {
-    throw new Error("Project is not trusted. Trust the folder before changing project-scoped packages.");
-  }
-  const removed = await pm.removeAndPersist(source, { local: scope === "project" });
-  await settings.flush();
-  if (!removed) throw new Error(`No matching package found for ${source}`);
+export function installPackage(projectDir: string, source: string, scope: "user" | "project") {
+  return mutate(async () => {
+    const { pm, settings } = piServices(projectDir);
+    if (scope === "project" && !settings.isProjectTrusted()) {
+      throw new Error("Project is not trusted. Trust the folder before installing project-scoped packages.");
+    }
+    await pm.installAndPersist(source, { local: scope === "project" });
+    await settings.flush();
+  });
 }
 
-export async function updatePackage(projectDir: string, source?: string): Promise<void> {
-  const { pm } = piServices(projectDir);
-  await pm.update(source);
+export function removePackage(projectDir: string, source: string, scope: "user" | "project") {
+  return mutate(async () => {
+    const { pm, settings } = piServices(projectDir);
+    if (scope === "project" && !settings.isProjectTrusted()) {
+      throw new Error("Project is not trusted. Trust the folder before changing project-scoped packages.");
+    }
+    const removed = await pm.removeAndPersist(source, { local: scope === "project" });
+    await settings.flush();
+    if (!removed) throw new Error(`No matching package found for ${source}`);
+  });
+}
+
+export function updatePackage(projectDir: string, source?: string) {
+  return mutate(async () => {
+    const { pm } = piServices(projectDir);
+    await pm.update(source);
+  });
 }
