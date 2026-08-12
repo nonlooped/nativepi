@@ -24,6 +24,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     replaceLastChats(loaded.lastChatByProject ?? {});
     const reopenLastProject = loaded.reopenLastProject ?? true;
     const restoreProject = reopenLastProject ? (loaded.lastProjectPath ?? null) : null;
+    const focusStartedAt = loaded.focusStartedAt ?? new Date().toISOString();
     set({
       ready: true,
       projects: loaded.projects,
@@ -31,6 +32,9 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       favoriteModels: loaded.favoriteModels ?? [],
       commitMessageModel: loaded.commitMessageModel,
       pinnedChats: loaded.pinnedChats ?? [],
+      finishedChats: loaded.finishedChats ?? {},
+      focusedChats: loaded.focusedChats ?? [],
+      focusStartedAt,
       activeProjectPath: restoreProject,
       reopenLastProject,
       preferences: loaded.preferences,
@@ -42,6 +46,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       // may open the pane itself once it knows the repo has changes.
       contextPaneChosen: loaded.panes !== undefined,
     });
+    if (!loaded.focusStartedAt) persist(get);
     if (!restoreProject) void get().loadProviders();
     // Read once as well as subscribing: the first check runs while the window
     // is still loading, so its result may already have been pushed and missed.

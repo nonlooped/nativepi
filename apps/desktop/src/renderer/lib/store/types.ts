@@ -136,6 +136,12 @@ export interface ChatSlice {
   activeSessionFile: string | null;
   isNewChat: boolean;
   pinnedChats: string[];
+  /** Chats the user has removed from the focus queue, keyed by completion time. */
+  finishedChats: Record<string, string>;
+  /** Older chats the user explicitly returned to focus. */
+  focusedChats: string[];
+  /** Existing chats before this feature shipped begin finished, not as a giant inbox. */
+  focusStartedAt: string;
 
   /** Conversation runtime per session file, active or not. */
   conversations: Record<string, Conversation>;
@@ -157,6 +163,8 @@ export interface ChatSlice {
 
   refreshSessions: (projectPath: string) => Promise<void>;
   togglePinnedChat: (sessionFile: string) => void;
+  finishChat: (sessionFile: string) => void;
+  returnChatToFocus: (sessionFile: string) => void;
   selectChat: (sessionFile: string) => Promise<void>;
   newChat: () => void;
   importSession: (projectDir?: string, sourceFile?: string) => Promise<boolean>;

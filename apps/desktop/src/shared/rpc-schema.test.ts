@@ -13,6 +13,9 @@ test("an empty object yields the full set of defaults", () => {
     favoriteModels: [],
     commitMessageModel: "active",
     pinnedChats: [],
+    finishedChats: {},
+    focusedChats: [],
+    focusStartedAt: undefined,
     panes: undefined,
     reopenLastProject: true,
     preferences: DEFAULT_PREFERENCES,
@@ -122,6 +125,26 @@ test("graphical extension calls only accept JSON parameters", () => {
       params: 1n,
     }).success,
   ).toBe(false);
+});
+
+test("focus organization keeps only readable persisted values", () => {
+  const state = nativePiStateSchema.parse({
+    focusedChats: ["one.jsonl", "one.jsonl", 42],
+    focusStartedAt: "2026-08-12T10:00:00.000Z",
+  });
+  expect(state.focusedChats).toEqual(["one.jsonl"]);
+  expect(state.focusStartedAt).toBe("2026-08-12T10:00:00.000Z");
+});
+
+test("finished chats keep only paths with valid completion timestamps", () => {
+  expect(
+    nativePiStateSchema.parse({
+      finishedChats: {
+        "one.jsonl": "2026-08-12T10:00:00.000Z",
+        broken: "not-a-date",
+      },
+    }).finishedChats,
+  ).toEqual({ "one.jsonl": "2026-08-12T10:00:00.000Z" });
 });
 
 test("absent panes stay absent, so a first run can still open the pane itself", () => {

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { SessionSummary } from "../../shared/pi-types.ts";
-import { countMatches, groupChats, togglePinnedPath } from "./chatOrganization.ts";
+import { countMatches, groupChats, isChatFinished, togglePinnedPath } from "./chatOrganization.ts";
 
 const NOW = new Date(2026, 6, 30, 12).getTime();
 
@@ -66,6 +66,14 @@ test("filtering by title keeps the selected chat visible as an orientation ancho
 test("pinning is reversible and does not reorder the stored paths", () => {
   expect(togglePinnedPath(["one"], "two")).toEqual(["one", "two"]);
   expect(togglePinnedPath(["one", "two"], "one")).toEqual(["two"]);
+});
+
+test("existing chats start finished while chats created afterward enter focus", () => {
+  const startedAt = "2026-07-30T10:00:00.000Z";
+  expect(isChatFinished("2026-07-30T09:00:00.000Z", "old", startedAt, undefined, [])).toBe(true);
+  expect(isChatFinished("2026-07-30T11:00:00.000Z", "new", startedAt, undefined, [])).toBe(false);
+  expect(isChatFinished("2026-07-30T11:00:00.000Z", "done", startedAt, startedAt, [])).toBe(true);
+  expect(isChatFinished("2026-07-30T09:00:00.000Z", "old", startedAt, undefined, ["old"])).toBe(false);
 });
 
 test("counts matches without the open chat the list always keeps", () => {

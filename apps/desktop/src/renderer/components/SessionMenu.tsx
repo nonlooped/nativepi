@@ -2,6 +2,8 @@ import { ArrowSquareOutIcon } from "@phosphor-icons/react/ArrowSquareOut";
 import { ArrowsInSimpleIcon } from "@phosphor-icons/react/ArrowsInSimple";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
+import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react/ArrowCounterClockwise";
+import { CheckCircleIcon } from "@phosphor-icons/react/CheckCircle";
 import { ExportIcon } from "@phosphor-icons/react/Export";
 import { GitForkIcon } from "@phosphor-icons/react/GitFork";
 import { InfoIcon } from "@phosphor-icons/react/Info";
@@ -50,6 +52,7 @@ export default function SessionMenu({
   selected,
   running,
   pinned,
+  finished = false,
   children,
 }: {
   projectPath: string;
@@ -58,6 +61,7 @@ export default function SessionMenu({
   selected: boolean;
   running: boolean;
   pinned: boolean;
+  finished?: boolean;
   children: React.ReactElement;
 }) {
   const [dialog, setDialog] = useState<DialogKind | null>(null);
@@ -95,6 +99,11 @@ export default function SessionMenu({
     active: selected,
     pinned,
     togglePin: () => useAppStore.getState().togglePinnedChat(session.path),
+    toggleFinished: () =>
+      finished
+        ? useAppStore.getState().returnChatToFocus(session.path)
+        : useAppStore.getState().finishChat(session.path),
+    finished,
     rename: inProject(() => setDialog("rename")),
     fork: inProject(() => setDialog("fork")),
     clone: inProject(doClone),
@@ -166,6 +175,8 @@ type SessionActions = {
   active: boolean;
   pinned: boolean;
   togglePin: () => void;
+  toggleFinished: () => void;
+  finished: boolean;
   rename: () => void;
   fork: () => void;
   clone: () => void;
@@ -203,6 +214,13 @@ function sessionItems(actions: SessionActions): SessionItem[] {
       label: actions.pinned ? "Unpin chat" : "Pin chat",
       icon: actions.pinned ? <PushPinSlashIcon /> : <PushPinIcon />,
       onClick: actions.togglePin,
+    },
+    {
+      kind: "item",
+      label: actions.finished ? "Return to focus" : "Mark finished",
+      icon: actions.finished ? <ArrowCounterClockwiseIcon /> : <CheckCircleIcon />,
+      onClick: actions.toggleFinished,
+      disabled: actions.blocked,
     },
     { kind: "item", label: "Rename", icon: <PencilSimpleIcon />, onClick: actions.rename },
     { kind: "section", label: "Continue" },

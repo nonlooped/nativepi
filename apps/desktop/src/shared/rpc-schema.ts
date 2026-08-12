@@ -304,6 +304,28 @@ export const nativePiStateSchema = z.object({
         ...new Set(entries.filter((entry): entry is string => typeof entry === "string" && entry.length > 0)),
       ]),
     ),
+  finishedChats: z
+    .record(z.string(), z.unknown())
+    .catch({})
+    .pipe(
+      z.transform((entries) =>
+        Object.fromEntries(
+          Object.entries(entries).filter(
+            (entry): entry is [string, string] =>
+              entry[0].length > 0 && typeof entry[1] === "string" && !Number.isNaN(Date.parse(entry[1])),
+          ),
+        ),
+      ),
+    ),
+  focusedChats: z
+    .array(z.unknown())
+    .catch([])
+    .pipe(
+      z.transform((entries) => [
+        ...new Set(entries.filter((entry): entry is string => typeof entry === "string" && entry.length > 0)),
+      ]),
+    ),
+  focusStartedAt: z.string().datetime().optional().catch(undefined),
   panes: paneStateSchema.optional().catch(undefined),
   reopenLastProject: z.boolean().catch(true),
   preferences: preferencesSchema.catch(DEFAULT_PREFERENCES),

@@ -46,6 +46,7 @@ import { useAppearance } from "./lib/appearance.ts";
 import { useWorkspaceLayout, type WorkspaceLayout } from "./lib/layout.ts";
 
 const ChatSearchDialog = lazy(() => import("./components/ChatSearchDialog.tsx"));
+const NewChatProjectDialog = lazy(() => import("./components/NewChatProjectDialog.tsx"));
 const ContextPane = lazy(() => import("./components/ContextPane.tsx"));
 const ExtensionConversationView = lazy(() => import("./components/ExtensionSlots.tsx").then((module) => ({ default: module.ExtensionConversationView })));
 const Settings = lazy(() => import("./components/Settings.tsx"));
@@ -72,6 +73,7 @@ export default function App() {
   const [sidebarSheetOpen, setSidebarSheetOpen] = useState(false);
   const [contextSheetOpen, setContextSheetOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [newChatProjectOpen, setNewChatProjectOpen] = useState(false);
   const [extensionView, setExtensionView] = useState<string | null>(null);
   const layout = useWorkspaceLayout();
   const [startupError, setStartupError] = useState<string>();
@@ -104,7 +106,14 @@ export default function App() {
 
   useEffect(() => setExtensionView(null), [activeProjectPath, activeSessionFile]);
 
-  useWorkspaceShortcuts(layout, setSidebarSheetOpen, setContextSheetOpen, setSearchOpen, toggleTerminal);
+  useWorkspaceShortcuts(
+    layout,
+    setSidebarSheetOpen,
+    setContextSheetOpen,
+    setSearchOpen,
+    setNewChatProjectOpen,
+    toggleTerminal,
+  );
 
   if (startupError || !ready) {
     return (
@@ -140,11 +149,7 @@ export default function App() {
             layoutKey={contextDocked}
             onClose={() => setSidebarOpen(false)}
             onOpenSearch={() => setSearchOpen(true)}
-            onOpenSourceControl={() => {
-              if (layout === "wide") {
-                if (!contextPaneOpen) toggleContextPane();
-              } else setContextSheetOpen(true);
-            }}
+            onOpenNewChat={() => setNewChatProjectOpen(true)}
           />
         ) : null}
         <ResizablePanel id="conversation" minSize="35%">
@@ -262,7 +267,10 @@ export default function App() {
                 setSidebarSheetOpen(false);
                 setSearchOpen(true);
               }}
-              onOpenSourceControl={() => setContextSheetOpen(true)}
+              onOpenNewChat={() => {
+                setSidebarSheetOpen(false);
+                setNewChatProjectOpen(true);
+              }}
             />
           </SheetContent>
         </Sheet>
@@ -291,6 +299,16 @@ export default function App() {
           <ChatSearchDialog
             open
             onOpenChange={setSearchOpen}
+            onNavigate={() => setSidebarSheetOpen(false)}
+          />
+        </Suspense>
+      ) : null}
+
+      {newChatProjectOpen ? (
+        <Suspense fallback={null}>
+          <NewChatProjectDialog
+            open
+            onOpenChange={setNewChatProjectOpen}
             onNavigate={() => setSidebarSheetOpen(false)}
           />
         </Suspense>
@@ -569,6 +587,7 @@ function useWorkspaceShortcuts(
   setSidebarSheetOpen: React.Dispatch<React.SetStateAction<boolean>>,
   setContextSheetOpen: React.Dispatch<React.SetStateAction<boolean>>,
   setSearchOpen: React.Dispatch<React.SetStateAction<boolean>>,
+  setNewChatProjectOpen: React.Dispatch<React.SetStateAction<boolean>>,
   toggleTerminal: () => void,
 ) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -577,7 +596,6 @@ function useWorkspaceShortcuts(
   const abort = useAppStore((s) => s.abort);
   const openSettings = useAppStore((s) => s.openSettings);
   const closeSettings = useAppStore((s) => s.closeSettings);
-  const newChat = useAppStore((s) => s.newChat);
   const importSession = useAppStore((s) => s.importSession);
   const selectAdjacentProject = useAppStore((s) => s.selectAdjacentProject);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
@@ -636,9 +654,10 @@ function useWorkspaceShortcuts(
 
         toggleTerminal: withProject(toggleTerminal),
 
-        newChat: withProject(() => {
+        newChat: always(() => {
           closeSettings();
-          newChat();
+          setSidebarSheetOpen(false);
+          setNewChatProjectOpen(true);
         }),
 
         importChat: withProject(() => {
@@ -662,12 +681,12 @@ function useWorkspaceShortcuts(
     importSession,
     keybindingOverrides,
     layout,
-    newChat,
     openSettings,
     requestJumpToLatest,
     running,
     selectAdjacentProject,
     setSearchOpen,
+    setNewChatProjectOpen,
     setSidebarSheetOpen,
     setContextSheetOpen,
     stopTurnBinding,

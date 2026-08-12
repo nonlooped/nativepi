@@ -84,6 +84,9 @@ function persistedState(get: GetState): NativePiState {
     favoriteModels: s.favoriteModels ?? [],
     commitMessageModel: s.commitMessageModel,
     pinnedChats: s.pinnedChats,
+    finishedChats: s.finishedChats,
+    focusedChats: s.focusedChats,
+    focusStartedAt: s.focusStartedAt,
     panes: {
       sidebarOpen: s.sidebarOpen,
       sidebarSize: s.sidebarSize,

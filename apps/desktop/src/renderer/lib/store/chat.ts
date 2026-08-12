@@ -182,6 +182,9 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   activeSessionFile: null,
   isNewChat: false,
   pinnedChats: [],
+  finishedChats: {},
+  focusedChats: [],
+  focusStartedAt: new Date().toISOString(),
   conversations: {},
   sendBehavior: "followUp",
   drafts: {},
@@ -215,7 +218,36 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   },
 
   togglePinnedChat: (sessionFile) => {
-    set((s) => ({ pinnedChats: togglePinnedPath(s.pinnedChats, sessionFile) }));
+    set((s) => {
+      const pinning = !s.pinnedChats.includes(sessionFile);
+      if (!pinning) return { pinnedChats: togglePinnedPath(s.pinnedChats, sessionFile) };
+      const { [sessionFile]: _finished, ...finishedChats } = s.finishedChats;
+      return {
+        pinnedChats: togglePinnedPath(s.pinnedChats, sessionFile),
+        finishedChats,
+        focusedChats: [...new Set([...s.focusedChats, sessionFile])],
+      };
+    });
+    persist(get);
+  },
+
+  finishChat: (sessionFile) => {
+    set((s) => ({
+      finishedChats: { ...s.finishedChats, [sessionFile]: new Date().toISOString() },
+      focusedChats: s.focusedChats.filter((path) => path !== sessionFile),
+      pinnedChats: s.pinnedChats.filter((path) => path !== sessionFile),
+    }));
+    persist(get);
+  },
+
+  returnChatToFocus: (sessionFile) => {
+    set((s) => {
+      const { [sessionFile]: _finished, ...finishedChats } = s.finishedChats;
+      return {
+        finishedChats,
+        focusedChats: [...new Set([...s.focusedChats, sessionFile])],
+      };
+    });
     persist(get);
   },
 
@@ -619,6 +651,10 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
         attachments,
         conversations,
         pinnedChats: s.pinnedChats.filter((path) => path !== sessionFile),
+        finishedChats: Object.fromEntries(
+          Object.entries(s.finishedChats).filter(([path]) => path !== sessionFile),
+        ),
+        focusedChats: s.focusedChats.filter((path) => path !== sessionFile),
       };
     });
     if (get().activeSessionFile === sessionFile) {

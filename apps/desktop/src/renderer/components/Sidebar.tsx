@@ -2,140 +2,210 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
-import { ChatCircleDotsIcon } from "@phosphor-icons/react/ChatCircleDots";
+import { CheckCircleIcon } from "@phosphor-icons/react/CheckCircle";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
-import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { FolderPlusIcon } from "@phosphor-icons/react/FolderPlus";
-import { FunnelSimpleIcon } from "@phosphor-icons/react/FunnelSimple";
+import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
 import { GearSixIcon } from "@phosphor-icons/react/GearSix";
-import { GitBranchIcon } from "@phosphor-icons/react/GitBranch";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
 import { PushPinIcon } from "@phosphor-icons/react/PushPin";
 import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
-import { XIcon } from "@phosphor-icons/react/X";
 import type { Project } from "../../shared/rpc-schema.ts";
 import type { SessionSummary } from "../../shared/pi-types.ts";
 import { useAppStore } from "../lib/store.ts";
 import { timeAgo } from "../lib/format.ts";
 import { chatTitle } from "../lib/transcript.ts";
-import { hintFor, withHint, type KeybindingOverrides } from "../lib/shortcuts.ts";
+import { withHint } from "../lib/shortcuts.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 import WorktreeDialog from "./WorktreeDialog.tsx";
 import SessionMenu from "./SessionMenu.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Input } from "@/components/ui/input.tsx";
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu.tsx";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.tsx";
+import { Separator } from "@/components/ui/separator.tsx";
 import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import { editorName, fileManagerName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
-import { countMatches, groupChats } from "../lib/chatOrganization.ts";
+import { isChatFinished } from "../lib/chatOrganization.ts";
+
+interface SidebarChat {
+  project: Project;
+  session: SessionSummary;
+  running: boolean;
+  pinned: boolean;
+  finished: boolean;
+  selected: boolean;
+}
 
 export default function Sidebar({
   onClose,
   onOpenSearch,
-  onOpenSourceControl,
+  onOpenNewChat,
   open = true,
   overlay = false,
   layoutKey,
 }: {
   onClose: () => void;
   onOpenSearch: () => void;
-  onOpenSourceControl: () => void;
+  onOpenNewChat: () => void;
   open?: boolean;
   overlay?: boolean;
   layoutKey?: unknown;
 }) {
   const projects = useAppStore((s) => s.projects);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
-  const projectChatCounts = useAppStore(
+  const activeSessionFile = useAppStore((s) => s.activeSessionFile);
+  const isNewChat = useAppStore((s) => s.isNewChat);
+  const sessionsByProject = useAppStore((s) => s.sessionsByProject);
+  const sessionLoadStates = useAppStore((s) => s.sessionLoadStates);
+  const pinnedChats = useAppStore((s) => s.pinnedChats);
+  const finishedChats = useAppStore((s) => s.finishedChats);
+  const focusedChats = useAppStore((s) => s.focusedChats);
+  const focusStartedAt = useAppStore((s) => s.focusStartedAt);
+  const runningBySession = useAppStore(
     useShallow((s) =>
-      s.projects.map((project) =>
-        s.sessionLoadStates[project.path] === "loaded" ? s.sessionsByProject[project.path]?.length ?? 0 : null,
+      Object.fromEntries(
+        Object.entries(s.conversations).map(([path, conversation]) => [path, conversation.running]),
       ),
     ),
   );
   const addProject = useAppStore((s) => s.addProject);
   const openSettings = useAppStore((s) => s.openSettings);
   const selectProject = useAppStore((s) => s.selectProject);
+  const selectChat = useAppStore((s) => s.selectChat);
   const removeProject = useAppStore((s) => s.removeProject);
-  const projectBusyStates = useAppStore(
-    useShallow((s) => s.projects.map((project) => Object.values(s.conversations).some((conversation) => conversation.projectDir === project.path && conversation.running))),
-  );
   const importSession = useAppStore((s) => s.importSession);
   const refreshSessions = useAppStore((s) => s.refreshSessions);
   const openTerminal = useAppStore((s) => s.openTerminal);
+  const finishChat = useAppStore((s) => s.finishChat);
+  const returnChatToFocus = useAppStore((s) => s.returnChatToFocus);
   const editorId = useAppStore((s) => s.preferences.preferredEditorId);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
-  const changedFileCount = useAppStore((s) => s.git?.files.length ?? 0);
-  const [query, setQuery] = useState("");
+  const [scope, setScope] = useState<string | null>(null);
+  const [finishedOpen, setFinishedOpen] = useState(true);
+  const [finishedLimit, setFinishedLimit] = useState(12);
   const [now, setNow] = useState(Date.now);
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
   const [worktreesFor, setWorktreesFor] = useState<string | null>(null);
-  const [expandedProjects, setExpandedProjects] = useState(() => new Set(activeProjectPath ? [activeProjectPath] : []));
   const watchedProjects = useRef(new Set<string>());
-
-  // The project can also become active from outside this pane — the next/previous
-  // project shortcuts, a dropped folder, a search result. Expanding only in this
-  // component's own click handler left those routes selecting a project whose
-  // chats stayed shut.
-  useEffect(() => {
-    if (activeProjectPath) expandProject(activeProjectPath);
-  }, [activeProjectPath]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
 
+  // A flat focus queue needs every pinned project's shell list. Pi's session
+  // files remain the source of truth; this only keeps their summaries warm.
   useEffect(() => {
-    const wanted = new Set(
-      projects
-        .filter((project) => project.path === activeProjectPath || expandedProjects.has(project.path))
-        .map((project) => project.path),
-    );
+    const wanted = new Set(projects.map((project) => project.path));
     for (const path of wanted) {
-      if (watchedProjects.current.has(path)) continue;
-      watchedProjects.current.add(path);
-      void rpc.request.watchProjectSessions({ projectDir: path });
+      if (!watchedProjects.current.has(path)) {
+        watchedProjects.current.add(path);
+        void rpc.request.watchProjectSessions({ projectDir: path });
+      }
       if ((useAppStore.getState().sessionLoadStates[path] ?? "unloaded") === "unloaded") {
         void refreshSessions(path);
       }
     }
-    // Host watchers are shared by every connected renderer, so collapsing in
-    // this one only drops its local bookkeeping.
     for (const path of watchedProjects.current) {
       if (wanted.has(path)) continue;
       watchedProjects.current.delete(path);
     }
-  }, [activeProjectPath, expandedProjects, projects, refreshSessions]);
+  }, [projects, refreshSessions]);
 
-  function expandProject(path: string) {
-    setExpandedProjects((expanded) => new Set(expanded).add(path));
+  useEffect(() => {
+    if (scope && !projects.some((project) => project.path === scope)) setScope(null);
+  }, [projects, scope]);
+
+  const allChats = useMemo(() => {
+    const pinned = new Set(pinnedChats);
+    const chats: SidebarChat[] = [];
+    for (const project of projects) {
+      if (scope && project.path !== scope) continue;
+      for (const session of sessionsByProject[project.path] ?? []) {
+        const selected = project.path === activeProjectPath && session.path === activeSessionFile && !isNewChat;
+        const running = runningBySession[session.path] ?? false;
+        const isPinned = pinned.has(session.path);
+        chats.push({
+          project,
+          session,
+          running,
+          pinned: isPinned,
+          finished: isChatFinished(
+            session.created,
+            session.path,
+            focusStartedAt,
+            finishedChats[session.path],
+            focusedChats,
+          ),
+          selected,
+        });
+      }
+    }
+    return chats;
+  }, [
+    activeProjectPath,
+    activeSessionFile,
+    finishedChats,
+    focusedChats,
+    focusStartedAt,
+    isNewChat,
+    pinnedChats,
+    projects,
+    runningBySession,
+    scope,
+    sessionsByProject,
+  ]);
+
+  const { focusChats, finished } = useMemo(() => {
+    const pinnedOrder = new Map(pinnedChats.map((path, index) => [path, index]));
+    const focusChats = allChats
+      .filter((chat) => !chat.finished)
+      .toSorted((left, right) => {
+        if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
+        if (left.pinned && right.pinned) {
+          return (pinnedOrder.get(left.session.path) ?? 0) - (pinnedOrder.get(right.session.path) ?? 0);
+        }
+        return Date.parse(right.session.modified) - Date.parse(left.session.modified);
+      });
+    const finished = allChats
+      .filter((chat) => chat.finished)
+      .toSorted(
+        (left, right) =>
+          Date.parse(finishedChats[right.session.path] ?? right.session.modified) -
+          Date.parse(finishedChats[left.session.path] ?? left.session.modified),
+      );
+    return { focusChats, finished };
+  }, [allChats, finishedChats, pinnedChats]);
+
+  const scopedProject = scope ? projects.find((project) => project.path === scope) ?? null : null;
+  const loading = projects.some((project) => {
+    const state = sessionLoadStates[project.path] ?? "unloaded";
+    return state === "unloaded" || state === "loading";
+  });
+  const failedProjects = projects.filter((project) => sessionLoadStates[project.path] === "failed");
+
+  async function selectChatAndClose(chat: SidebarChat) {
+    if (chat.project.path !== activeProjectPath) await selectProject(chat.project.path);
+    if (useAppStore.getState().activeProjectPath !== chat.project.path) return;
+    await selectChat(chat.session.path);
+    if (overlay) onClose();
   }
 
-  function toggleProject(path: string) {
-    setExpandedProjects((expanded) => {
-      const next = new Set(expanded);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  }
-
-  async function selectProjectAndClose(path: string) {
-    expandProject(path);
-    await selectProject(path);
+  async function startNewChat(path: string) {
+    if (path !== activeProjectPath) await selectProject(path);
+    useAppStore.getState().newChat();
     if (overlay) onClose();
   }
 
@@ -144,15 +214,7 @@ export default function Sidebar({
     if (overlay) onClose();
   }
 
-  async function startNewChat(path: string) {
-    expandProject(path);
-    if (path !== activeProjectPath) await selectProject(path);
-    useAppStore.getState().newChat();
-    if (overlay) onClose();
-  }
-
   async function importChat(path: string) {
-    expandProject(path);
     if (path !== activeProjectPath) await selectProject(path);
     await importSession(path);
     if (overlay) onClose();
@@ -162,6 +224,17 @@ export default function Sidebar({
     if (path !== activeProjectPath) await selectProject(path);
     openTerminal(path);
     if (overlay) onClose();
+  }
+
+  function markFinished(chat: SidebarChat) {
+    const currentIndex = focusChats.findIndex((item) => item.session.path === chat.session.path);
+    const next = [...focusChats.slice(currentIndex + 1), ...focusChats.slice(0, currentIndex)].find(
+      (item) => item.session.path !== chat.session.path,
+    );
+    finishChat(chat.session.path);
+    if (!chat.selected) return;
+    if (next) void selectChatAndClose(next);
+    else void startNewChat(chat.project.path);
   }
 
   return (
@@ -177,254 +250,148 @@ export default function Sidebar({
       overlay={overlay}
       layoutKey={layoutKey}
     >
-      <div className={cn("flex flex-col gap-2 px-2 pb-3", NO_DRAG_REGION)}>
+      <div className={cn("flex flex-col gap-1 px-2 pb-2", NO_DRAG_REGION)}>
         <div className="flex items-center gap-1">
           <Button
-            variant="secondary"
-            size="lg"
-            className="min-w-0 flex-1 justify-start"
-            onClick={() => activeProjectPath && void startNewChat(activeProjectPath)}
-            disabled={!activeProjectPath}
-            title={activeProjectPath ? withHint("New chat", "newChat", keybindingOverrides) : "Open a project to start a chat"}
-          >
-            <NotePencilIcon data-icon="inline-start" />
-            New chat
-          </Button>
-          <Button
             variant="ghost"
-            size="icon-lg"
-            className="relative"
-            onClick={() => {
-              onOpenSourceControl();
-              if (overlay) onClose();
-            }}
-            disabled={!activeProjectPath}
-            aria-label="Open source control"
-            title={
-              activeProjectPath
-                ? withHint("Open source control", "toggleContextPane", keybindingOverrides)
-                : "Open a project to view source control"
-            }
-          >
-            <GitBranchIcon />
-            {changedFileCount > 0 ? (
-              <span className="absolute -right-1 -bottom-1 min-w-4 rounded-full bg-primary px-1 text-center text-xs font-semibold leading-4 text-primary-foreground tabular-nums">
-                {changedFileCount > 99 ? "99+" : changedFileCount}
-              </span>
-            ) : null}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-lg"
+            size="sm"
+            className="min-w-0 flex-1 justify-start text-muted-foreground"
             onClick={onOpenSearch}
-            aria-label="Search all chats and messages"
             title={withHint("Search chats and messages", "search", keybindingOverrides)}
           >
-            <MagnifyingGlassIcon />
+            <MagnifyingGlassIcon data-icon="inline-start" />
+            Search
           </Button>
-        </div>
-        <div className="relative">
-          <FunnelSimpleIcon className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Filter chats"
-            aria-label="Filter chat titles in the sidebar"
-            className="h-8 rounded-md border-transparent bg-sidebar-accent/20 pl-7 pr-7 hover:bg-sidebar-accent/35 focus-visible:bg-input/30 [&::-webkit-search-cancel-button]:hidden"
-          />
-          {query ? (
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className="absolute right-1 top-1/2 -translate-y-1/2"
-              onClick={() => setQuery("")}
-              aria-label="Clear filter"
-            >
-              <XIcon />
-            </Button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className={cn("flex h-6 items-center gap-0.5 px-2", NO_DRAG_REGION)}>
-        <span className="px-1 text-xs font-medium text-muted-foreground">
-          Projects
-        </span>
-        <span className="flex-1" />
-        {activeProjectPath ? (
           <Button
             variant="ghost"
-            size="icon-xs"
-            onClick={() => void importSession().then(() => overlay && onClose())}
-            aria-label="Import an existing chat"
-            title={withHint("Import an existing chat", "importChat", keybindingOverrides)}
+            size="icon-sm"
+            onClick={onOpenNewChat}
+            aria-label="New chat"
+            title={withHint("New chat", "newChat", keybindingOverrides)}
           >
-            <UploadSimpleIcon />
+            <NotePencilIcon />
           </Button>
-        ) : null}
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={() => void addProjectAndClose()}
-          aria-label="Add project"
-          title="Add a project folder"
-        >
-          <FolderPlusIcon />
-        </Button>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start text-muted-foreground" />}>
+              <FolderIcon data-icon="inline-start" />
+              <span className="truncate">{scopedProject?.name ?? "All projects"}</span>
+              <CaretDownIcon data-icon="inline-end" className="ml-auto" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => setScope(null)}>
+                  <FolderIcon /> All projects
+                </DropdownMenuItem>
+                {projects.map((project) => (
+                  <DropdownMenuItem key={project.path} onClick={() => setScope(project.path)}>
+                    <FolderIcon /> <span className="truncate">{project.name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {activeProjectPath ? (
+            <ProjectActionsDropdown
+              project={scopedProject ?? projects.find((project) => project.path === activeProjectPath) ?? null}
+              editorId={editorId}
+              onNewChat={startNewChat}
+              onImport={importChat}
+              onTerminal={showTerminal}
+              onWorktrees={setWorktreesFor}
+              onRemove={setPendingRemoval}
+            />
+          ) : null}
+          <Button variant="ghost" size="icon-sm" onClick={() => void addProjectAndClose()} aria-label="Add project" title="Add a project folder">
+            <FolderPlusIcon />
+          </Button>
+        </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-3">
-        {projects.length === 0 && (
-          <button
-            type="button"
-            onClick={() => void addProjectAndClose()}
-            className="flex items-center gap-2 rounded-md border border-dashed px-2.5 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:border-sidebar-ring focus-visible:ring-2 focus-visible:ring-sidebar-ring/30 focus-visible:outline-none"
-          >
-            <FolderPlusIcon className="shrink-0" />
-            Open your first folder
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3">
+        <div className="flex flex-col gap-0.5">
+          {focusChats.map((chat) => (
+            <FocusChatRow
+              key={chat.session.path}
+              chat={chat}
+              now={now}
+              onSelect={() => void selectChatAndClose(chat)}
+              onFinish={() => markFinished(chat)}
+            />
+          ))}
+        </div>
+
+        {loading && focusChats.length === 0 ? (
+          <ChatHistoryState icon={<CircleNotchIcon className="animate-spin" />} title="Gathering your chats" detail="Reading Pi session history across your projects." />
+        ) : null}
+        {failedProjects.length > 0 ? (
+          <ChatHistoryState
+            icon={<WarningCircleIcon className="text-warning" weight="fill" />}
+            title={`Could not read ${failedProjects.length === 1 ? failedProjects[0]!.name : `${failedProjects.length} projects`}`}
+            detail="Retry to include their chats in this focus view."
+            role="alert"
+            action={
+              <Button variant="ghost" size="sm" className="text-warning hover:bg-warning/15 hover:text-warning" onClick={() => failedProjects.forEach((project) => void refreshSessions(project.path))}>
+                <ArrowClockwiseIcon data-icon="inline-start" /> Retry
+              </Button>
+            }
+          />
+        ) : null}
+        {!loading && projects.length === 0 ? (
+          <button type="button" onClick={() => void addProjectAndClose()} className="flex items-center gap-2 rounded-lg border border-dashed px-2.5 py-3 text-left text-xs text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none">
+            <FolderPlusIcon className="shrink-0" /> Open your first folder
           </button>
-        )}
-        {projects.map((project, index) => {
-          const busy = projectBusyStates[index] ?? false;
-          const active = project.path === activeProjectPath;
-          const expanded = expandedProjects.has(project.path);
-          const chatCount = projectChatCounts[index] ?? null;
-          return (
-            <div key={project.path} className="flex flex-col">
-              <ContextMenu>
-                <ContextMenuTrigger
-                  render={
-                    <div
-                      className={cn(
-                        "group flex h-8 items-center rounded-md pr-1 transition-colors hover:bg-sidebar-accent/40 focus-within:bg-sidebar-accent/40",
-                        active && "text-sidebar-accent-foreground",
-                      )}
-                    />
-                  }
-                >
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      toggleProject(project.path);
-                    }}
-                    aria-label={`${expanded ? "Collapse" : "Expand"} ${project.name}`}
-                    aria-expanded={expanded}
-                    className="ml-0.5 shrink-0 hover:bg-transparent"
-                  >
-                    <CaretDownIcon
-                      className={cn(
-                        "text-muted-foreground transition-transform",
-                        !expanded && "-rotate-90",
-                        active && "text-sidebar-accent-foreground",
-                      )}
-                      weight="bold"
-                    />
-                  </Button>
+        ) : null}
+        {!loading && projects.length > 0 && focusChats.length === 0 && finished.length === 0 ? (
+          <p className="px-2 py-8 text-center text-xs leading-relaxed text-muted-foreground">
+            Your focus is clear. Start a chat when you are ready.
+          </p>
+        ) : null}
+
+        {finished.length > 0 ? (
+          <section className="mt-3" aria-label="Finished chats">
+            <button type="button" onClick={() => setFinishedOpen((value) => !value)} aria-expanded={finishedOpen} className="flex h-8 w-full items-center gap-2 rounded-md px-1 text-left text-xs text-muted-foreground hover:text-sidebar-foreground">
+              <CheckCircleIcon weight="fill" />
+              <span className="font-medium">Finished</span>
+              <Separator className="mx-1 flex-1" />
+              <CaretDownIcon className={cn("transition-transform", !finishedOpen && "-rotate-90")} weight="bold" />
+            </button>
+            {finishedOpen ? (
+              <div className="flex flex-col gap-0.5 pt-1">
+                {finished.slice(0, finishedLimit).map((chat) => (
+                  <FinishedChatRow
+                    key={chat.session.path}
+                    chat={chat}
+                    now={now}
+                    onSelect={() => void selectChatAndClose(chat)}
+                    onReturn={() => returnChatToFocus(chat.session.path)}
+                  />
+                ))}
+                {finished.length > finishedLimit ? (
                   <button
                     type="button"
-                    onClick={() => void selectProjectAndClose(project.path)}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 text-left text-[0.8125rem] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
-                      active ? "font-medium text-sidebar-accent-foreground" : "font-normal text-muted-foreground/85",
-                    )}
-                    title={busy ? `${project.path} — agent running` : project.path}
+                    className="flex h-8 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
+                    onClick={() => setFinishedLimit((limit) => limit + 25)}
                   >
-                    {expanded ? (
-                      <FolderOpenIcon
-                        className={cn("size-3.5 shrink-0", active ? "text-foreground" : "text-muted-foreground")}
-                        weight={active ? "fill" : "regular"}
-                      />
-                    ) : (
-                      <FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                    )}
-                    <span className="truncate">{project.name}</span>
-                    {busy ? (
-                      <span
-                        role="status"
-                        aria-label={`Agent running in ${project.name}`}
-                        className="size-1.5 shrink-0 animate-pulse rounded-full bg-active ring-2 ring-active/20"
-                      />
-                    ) : null}
+                    <span className="text-base leading-none">+</span>
+                    Show {Math.min(25, finished.length - finishedLimit)} more
                   </button>
-                  {chatCount !== null ? (
-                    <span
-                      className="shrink-0 px-1 text-[0.6875rem] tabular-nums text-muted-foreground"
-                      title={`${chatCount} ${chatCount === 1 ? "chat" : "chats"}`}
-                    >
-                      {chatCount}
-                    </span>
-                  ) : null}
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={() => void startNewChat(project.path)}
-                    aria-label={`New chat in ${project.name}`}
-                    title={withHint(`New chat in ${project.name}`, "newChat", keybindingOverrides)}
-                    className={cn(
-                      HOVER_REVEAL,
-                      "shrink-0 group-hover:scale-100 group-hover:opacity-100 group-hover:blur-none group-focus-within:scale-100 group-focus-within:opacity-100 group-focus-within:blur-none",
-                    )}
-                  >
-                    <NotePencilIcon />
-                  </Button>
-                </ContextMenuTrigger>
-                <ContextMenuContent className="w-56">
-                  <ContextMenuItem onClick={() => void startNewChat(project.path)}>
-                    <NotePencilIcon /> New chat here
-                  </ContextMenuItem>
-                  <ContextMenuItem onClick={() => void importChat(project.path)}>
-                    <UploadSimpleIcon /> Import an existing chat
-                  </ContextMenuItem>
-                  <ContextMenuSeparator />
-                  <ContextMenuItem onClick={() => void rpc.request.openProjectIn({ projectDir: project.path, editorId })}>
-                    Open in {editorName(editorId)}
-                  </ContextMenuItem>
-                  <ContextMenuItem onClick={() => void rpc.request.showInFolder({ path: project.path })}>
-                    Reveal in {fileManagerName()}
-                  </ContextMenuItem>
-                  <ContextMenuItem onClick={() => void showTerminal(project.path)}>Open terminal here</ContextMenuItem>
-                  <ContextMenuItem
-                    onClick={() => void navigator.clipboard.writeText(project.path).then(() => showHint("Path copied"))}
-                  >
-                    Copy path
-                  </ContextMenuItem>
-                  <ContextMenuSeparator />
-                  <ContextMenuItem onClick={() => setWorktreesFor(project.path)}>Worktrees…</ContextMenuItem>
-                  <ContextMenuSeparator />
-                  <ContextMenuItem variant="destructive" onClick={() => setPendingRemoval(project)}>
-                    Remove from NativePi
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
-              {expanded ? (
-                <div className="ml-3 mt-1 mb-2 pl-2">
-                  <ChatList
-                    projectPath={project.path}
-                    query={query}
-                    now={now}
-                    overrides={keybindingOverrides}
-                    onNavigate={overlay ? onClose : undefined}
-                  />
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
       </div>
 
       <WorktreeDialog projectPath={worktreesFor} onClose={() => setWorktreesFor(null)} />
-
       <ConfirmDialog
         open={pendingRemoval !== null}
         title="Remove this project?"
         description={
           <>
-            NativePi will stop tracking <span className="font-medium text-foreground">{pendingRemoval?.name}</span> and
-            close its chats. Nothing is deleted from disk — your files and Pi session history stay where they are.
+            NativePi will stop tracking <span className="font-medium text-foreground">{pendingRemoval?.name}</span> and close its chats. Nothing is deleted from disk.
           </>
         }
         detail={pendingRemoval?.path}
@@ -437,175 +404,147 @@ export default function Sidebar({
         }}
         onCancel={() => setPendingRemoval(null)}
       />
-
     </LeftSidebar>
   );
 }
 
-function ChatList({
-  projectPath,
-  query,
+function FocusChatRow({
+  chat,
   now,
-  overrides,
-  onNavigate,
+  onSelect,
+  onFinish,
 }: {
-  projectPath: string;
-  query: string;
+  chat: SidebarChat;
   now: number;
-  overrides: KeybindingOverrides;
-  onNavigate?: () => void;
+  onSelect: () => void;
+  onFinish: () => void;
 }) {
-  const sessions = useAppStore((s) => s.sessionsByProject[projectPath] ?? EMPTY);
-  const activeProjectPath = useAppStore((s) => s.activeProjectPath);
-  const activeSessionFile = useAppStore((s) => s.activeSessionFile);
-  const isNewChat = useAppStore((s) => s.isNewChat);
-  const sessionLoadStatus = useAppStore((s) => s.sessionLoadStates[projectPath] ?? "unloaded");
-  const runningStates = useAppStore(
-    useShallow((s) => sessions.map((session) => s.conversations[session.path]?.running ?? false)),
-  );
-  const selectProject = useAppStore((s) => s.selectProject);
-  const selectChat = useAppStore((s) => s.selectChat);
-  const refreshSessions = useAppStore((s) => s.refreshSessions);
-  const pinnedChats = useAppStore((s) => s.pinnedChats);
-  const groups = useMemo(() => groupChats(sessions, pinnedChats, query, activeSessionFile, now), [sessions, pinnedChats, query, activeSessionFile, now]);
-  // The open chat stays on the list whatever the query, so the count of rows on
-  // screen is not the count of matches. Saying nothing matched while one row is
-  // visible reads as a bug; saying nothing while the query matched nothing reads
-  // as one too.
-  const matchCount = useMemo(() => countMatches(sessions, query), [sessions, query]);
-  const runningSessions = new Set(sessions.filter((_session, index) => runningStates[index]).map((session) => session.path));
-
   return (
-    <div className="flex flex-col gap-1">
-      {isNewChat && projectPath === activeProjectPath && (
-        <div className="flex items-center gap-1.5 rounded-md bg-sidebar-accent/65 px-1.5 py-1.5" role="status">
-          <NotePencilIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-          <span className="truncate text-[0.8125rem] font-medium">New chat</span>
-        </div>
-      )}
-      {sessionLoadStatus === "unloaded" ? (
-        <ChatHistoryState
-          icon={<ChatCircleDotsIcon />}
-          title="Preparing chat history"
-          detail="NativePi has not read this project's chats yet."
-        />
-      ) : null}
-      {sessionLoadStatus === "loading" ? (
-        <ChatHistoryState
-          icon={<CircleNotchIcon className="animate-spin" />}
-          title="Loading chat history"
-          detail="Reading chats from this project."
-        />
-      ) : null}
-      {sessionLoadStatus === "failed" ? (
-        <ChatHistoryState
-          icon={<WarningCircleIcon className="text-warning" weight="fill" />}
-          title="Unable to load chat history"
-          detail="Check that the project's Pi sessions are available, then try again."
-          role="alert"
-          action={
+    <SessionMenu projectPath={chat.project.path} session={chat.session} selected={chat.selected} running={chat.running} pinned={chat.pinned}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onSelect}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onSelect();
+          }
+        }}
+        aria-current={chat.selected ? "page" : undefined}
+        className={cn(
+          "group/focus relative flex min-h-14 w-full flex-col justify-center gap-1 overflow-hidden rounded-lg px-2.5 py-1.5 text-left text-sidebar-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
+          chat.selected ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/40",
+        )}
+      >
+        <span className={cn("absolute inset-y-2 left-0 w-0.5 rounded-full", chat.running ? "bg-active" : chat.selected ? "bg-sidebar-foreground/30" : "bg-transparent")} />
+        <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          <FolderIcon className="size-3.5 shrink-0" weight={chat.selected ? "fill" : "regular"} />
+          <span className="truncate font-medium">{chat.project.name}</span>
+          {chat.pinned ? <PushPinIcon className="size-3 shrink-0 text-favorite" weight="fill" aria-label="Pinned" /> : null}
+          <span className="ml-auto shrink-0 tabular-nums">{timeAgo(chat.session.modified, now)}</span>
+        </span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-[0.8125rem] font-medium leading-5">{chatTitle(chat.session)}</span>
+          {chat.running ? (
+            <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-xs font-medium text-active" role="status">
+              <CircleNotchIcon className="size-3 animate-spin" /> Working
+            </span>
+          ) : (
             <Button
               variant="ghost"
-              size="sm"
-              className="shrink-0 text-warning hover:bg-warning/15 hover:text-warning"
-              onClick={() => void refreshSessions(projectPath)}
+              size="icon-xs"
+              className={cn(HOVER_REVEAL, "ml-auto shrink-0 group-hover/focus:scale-100 group-hover/focus:opacity-100 group-hover/focus:blur-none group-focus-visible/focus:scale-100 group-focus-visible/focus:opacity-100 group-focus-visible/focus:blur-none")}
+              onClick={(event) => {
+                event.stopPropagation();
+                onFinish();
+              }}
+              aria-label="Mark finished"
+              title="Mark finished"
             >
-              <ArrowClockwiseIcon data-icon="inline-start" />
-              Try again
+              <CheckCircleIcon />
             </Button>
+          )}
+        </span>
+      </div>
+    </SessionMenu>
+  );
+}
+
+function FinishedChatRow({
+  chat,
+  now,
+  onSelect,
+  onReturn,
+}: {
+  chat: SidebarChat;
+  now: number;
+  onSelect: () => void;
+  onReturn: () => void;
+}) {
+  return (
+    <SessionMenu projectPath={chat.project.path} session={chat.session} selected={chat.selected} running={false} pinned={chat.pinned} finished>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onSelect}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onSelect();
           }
-        />
-      ) : null}
-      {sessionLoadStatus === "loaded" ? (
-        <>
-          {groups.map((group) => (
-            <section key={group.label} aria-label={group.label} className="first:[&>h3]:pt-1">
-              <h3 className="px-1.5 pb-1 pt-3 text-xs font-normal text-muted-foreground/65">
-                {group.label}
-              </h3>
-              <div className="flex flex-col gap-1">
-                {group.sessions.map((session) => {
-                  const pinned = pinnedChats.includes(session.path);
-                  const running = runningSessions.has(session.path);
-                  const selected = session.path === activeSessionFile && !isNewChat;
-                  return (
-                    <SessionMenu
-                      key={session.path}
-                      projectPath={projectPath}
-                      session={session}
-                      selected={selected}
-                      running={running}
-                      pinned={pinned}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const select = projectPath === activeProjectPath
-                            ? Promise.resolve()
-                            : selectProject(projectPath);
-                          void select.then(() => {
-                            if (useAppStore.getState().activeProjectPath !== projectPath) return;
-                            return selectChat(session.path);
-                          }).then(onNavigate).catch(() => undefined);
-                        }}
-                        aria-current={selected ? "page" : undefined}
-                        className={cn(
-                          "flex min-w-0 flex-1 items-start gap-1.5 rounded-md px-1.5 py-1.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
-                          selected
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : running
-                              ? "bg-sidebar-accent/35 text-foreground"
-                              : "text-muted-foreground/80 hover:bg-sidebar-accent/35 hover:text-sidebar-foreground",
-                        )}
-                      >
-                        {pinned ? (
-                          <PushPinIcon className="mt-px size-3.5 shrink-0 text-favorite" weight="fill" aria-hidden />
-                        ) : null}
-                        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                          <span
-                            className={cn(
-                              "sidebar-chat-title truncate text-[0.8125rem] leading-5",
-                              selected ? "font-medium" : "font-normal",
-                            )}
-                          >
-                            {chatTitle(session)}
-                          </span>
-                          <span className="sidebar-chat-prompt truncate text-xs text-muted-foreground/65">
-                            {session.lastPrompt || "No user prompt"}
-                          </span>
-                        </span>
-                        {/* A spinner rather than a "Running" pill: at the pane's
-                            narrow floor the pill was wider than the title it
-                            was reporting on. */}
-                        {running ? (
-                          <CircleNotchIcon
-                            className="mt-1 size-3 shrink-0 animate-spin text-active"
-                            role="status"
-                            aria-label="Agent running"
-                          />
-                        ) : null}
-                        <span className="sidebar-chat-time shrink-0 pt-0.5 text-[0.6875rem] leading-5 tabular-nums text-muted-foreground/65">
-                          {timeAgo(session.modified, now)}
-                        </span>
-                      </button>
-                    </SessionMenu>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-          {sessions.length === 0 ? (
-            <p className="px-1.5 py-1.5 text-xs leading-relaxed text-muted-foreground">
-              {`No chats yet. Press ${hintFor("newChat", overrides)} to start one.`}
-            </p>
-          ) : query.trim() && matchCount === 0 ? (
-            <p className="px-1.5 py-1.5 text-xs leading-relaxed text-muted-foreground">
-              No chat titles match this filter. Search messages instead.
-            </p>
-          ) : null}
-        </>
-      ) : null}
-    </div>
+        }}
+        aria-current={chat.selected ? "page" : undefined}
+        className={cn("group/finished flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs text-muted-foreground outline-none hover:bg-sidebar-accent/40 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset", chat.selected && "bg-sidebar-accent text-sidebar-accent-foreground")}
+      >
+        <FolderIcon className="size-3.5 shrink-0 opacity-60" />
+        <span className="min-w-0 flex-1 truncate">{chatTitle(chat.session)}</span>
+        <span className="sidebar-chat-time shrink-0 tabular-nums text-muted-foreground/60">{timeAgo(chat.session.modified, now)}</span>
+        <Button variant="ghost" size="icon-xs" className={cn(HOVER_REVEAL, "shrink-0 group-hover/finished:scale-100 group-hover/finished:opacity-100 group-hover/finished:blur-none group-focus-visible/finished:scale-100 group-focus-visible/finished:opacity-100 group-focus-visible/finished:blur-none")} onClick={(event) => { event.stopPropagation(); onReturn(); }} aria-label="Return chat to focus" title="Return to focus">
+          <ArrowClockwiseIcon />
+        </Button>
+      </div>
+    </SessionMenu>
+  );
+}
+
+function ProjectActionsDropdown({
+  project,
+  editorId,
+  onNewChat,
+  onImport,
+  onTerminal,
+  onWorktrees,
+  onRemove,
+}: {
+  project: Project | null;
+  editorId: string;
+  onNewChat: (path: string) => Promise<void>;
+  onImport: (path: string) => Promise<void>;
+  onTerminal: (path: string) => Promise<void>;
+  onWorktrees: (path: string) => void;
+  onRemove: (project: Project) => void;
+}) {
+  if (!project) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`${project.name} actions`} />}>
+        <DotsThreeIcon weight="bold" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem onClick={() => void onNewChat(project.path)}><NotePencilIcon /> New chat here</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void onImport(project.path)}><UploadSimpleIcon /> Import an existing chat</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => void rpc.request.openProjectIn({ projectDir: project.path, editorId })}>Open in {editorName(editorId)}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void rpc.request.showInFolder({ path: project.path })}>Reveal in {fileManagerName()}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void onTerminal(project.path)}>Open terminal here</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void navigator.clipboard.writeText(project.path).then(() => showHint("Path copied"))}>Copy path</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => onWorktrees(project.path)}>Worktrees…</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onClick={() => onRemove(project)}>Remove from NativePi</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -623,13 +562,8 @@ function ChatHistoryState({
   role?: "status" | "alert";
 }) {
   return (
-    <div
-      role={role}
-      className="flex flex-wrap items-start gap-2 rounded-md border border-dashed border-sidebar-border px-2 py-2 text-xs"
-    >
-      <span className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true">
-        {icon}
-      </span>
+    <div role={role} className="mt-1 flex flex-wrap items-start gap-2 rounded-lg border border-dashed border-sidebar-border px-2 py-2 text-xs">
+      <span className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden>{icon}</span>
       <span className="min-w-0 flex-1">
         <span className="block font-medium text-foreground">{title}</span>
         <span className="mt-0.5 block leading-relaxed text-muted-foreground">{detail}</span>
@@ -638,7 +572,3 @@ function ChatHistoryState({
     </div>
   );
 }
-
-const EMPTY: SessionSummary[] = [];
-
-

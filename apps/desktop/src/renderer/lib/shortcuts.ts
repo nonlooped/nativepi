@@ -30,7 +30,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: "newChat",
     binding: "$mod+Shift+KeyN",
     label: "New chat",
-    description: "Start a fresh chat in the active project.",
+    description: "Choose a project and start a fresh chat.",
     group: "Chat",
   },
   {
