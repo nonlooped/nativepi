@@ -154,9 +154,8 @@ export async function searchSessions(projectDirs: string[], rawQuery: string, si
       const candidate = candidates[cursor++];
       if (!candidate) return;
       const { projectDir, session, title } = candidate;
-      const entries = await readSession(session.path).catch(() => []);
-      signal?.throwIfAborted();
-      for (const entry of entries) {
+      for await (const entry of streamSession(session.path)) {
+        signal?.throwIfAborted();
         if (entry.type !== "message" || (!isUser(entry.message) && !isAssistant(entry.message))) continue;
         const text = textOf(entry.message.content);
         const index = text.toLocaleLowerCase().indexOf(query);
