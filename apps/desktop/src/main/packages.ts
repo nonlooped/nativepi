@@ -43,7 +43,16 @@ export async function listPackages(projectDir: string): Promise<PackageListing> 
 let mutations: Promise<unknown> = Promise.resolve();
 
 function mutate(task: () => Promise<void>) {
-  const run = mutations.then(task, task);
+  const run = mutations.then(async () => {
+    const previous = process.env["ELECTRON_RUN_AS_NODE"];
+    process.env["ELECTRON_RUN_AS_NODE"] = "1";
+    try {
+      await task();
+    } finally {
+      if (previous === undefined) delete process.env["ELECTRON_RUN_AS_NODE"];
+      else process.env["ELECTRON_RUN_AS_NODE"] = previous;
+    }
+  });
   mutations = run.catch(() => undefined);
   return run;
 }
