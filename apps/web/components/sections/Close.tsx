@@ -3,6 +3,7 @@ import {
   CodeIcon,
   LayoutIcon,
   RowsIcon,
+  SquaresFourIcon,
   SidebarSimpleIcon,
   WrenchIcon,
 } from "@phosphor-icons/react/dist/ssr";
@@ -23,9 +24,9 @@ const slots = [
     Icon: RowsIcon,
   },
   {
-    name: "Settings sections",
-    detail: "Give an extension a native place to configure itself.",
-    Icon: CodeIcon,
+    name: "Conversation views",
+    detail: "Open a complete extension workspace in the conversation area.",
+    Icon: SquaresFourIcon,
   },
   {
     name: "Context panels",
@@ -38,9 +39,9 @@ const slots = [
     Icon: LayoutIcon,
   },
   {
-    name: "Shared UI primitives",
-    detail: "Buttons, dialogs, menus, and settings rows that match the window.",
-    Icon: SidebarSimpleIcon,
+    name: "Panels & settings",
+    detail: "Keep project context visible and give configuration a native home.",
+    Icon: CodeIcon,
   },
 ];
 
@@ -61,9 +62,9 @@ export function Close() {
 
           <div className="lg:pt-8">
             <p className="text-base leading-relaxed text-silver">
-              NativePi extends Pi&apos;s package model with a small graphical API.
-              Build interface contributions without replacing the agent or
-              maintaining a separate integration.
+              NativePi presents Pi&apos;s terminal extension UI and also offers a
+              typed graphical API. Build native React contributions without
+              replacing the agent or maintaining a separate integration.
             </p>
             <p className="mt-4 text-sm leading-relaxed text-silver">
               <span className="font-medium text-chalk">API version 1.</span>{" "}

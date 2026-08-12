@@ -142,8 +142,8 @@ Key characteristics:
   actions, and installer caveat.
 - The real NativePi screenshot shown immediately after the proposition at its
   native 16:9 ratio.
-- A short linear argument about Pi compatibility, data ownership, and graphical
-  extensions.
+- A short capability inventory followed by the argument about provider
+  compatibility, data ownership, and extensions.
 - Near-monochrome graphite. Saturated hue keeps the same meaning it has in the
   app.
 
@@ -189,9 +189,10 @@ breadcrumb, or status pane competes with the proposition.
 
 The screenshot then spans up to 96rem with 1rem mobile and 1.5rem larger-screen
 gutters. It always remains 16:9, uncropped, until it naturally becomes too small
-to inspect on a phone. Supporting arguments use one flexible copy column and an
-optional 24rem proof column. At narrower widths those columns stack in reading
-order.
+to inspect on a phone. A flat two-column capability inventory follows it and
+summarizes the current project loop without turning each feature into a card.
+Supporting arguments use one flexible copy column and an optional 24rem proof
+column. At narrower widths those columns stack in reading order.
 
 Docs are Read mode. They keep a fixed navigation rail on wide screens, a 68ch
 measure, generous heading space, syntax highlighting, and anchored headings.
@@ -237,6 +238,13 @@ sit on one quiet line below the actions.
 Use the screenshot of the running app without overlays, retouching, cropping,
 tilt, caption bar, or staged animation. It follows the proposition directly so
 the visitor sees evidence before the next argument begins.
+
+### Capability inventory
+
+Use six concise rows to cover source control, concurrent chats, terminals,
+branches and worktrees, browser access, and customization. Rows share one flat
+bordered list; icons stay neutral and the section makes no claim that cannot be
+traced to the desktop product document.
 
 ### Provider marks
 

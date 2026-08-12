@@ -18,6 +18,12 @@ export function Header() {
 
         <nav aria-label="Primary" className="flex items-center gap-1">
           <Link
+            href="/#features"
+            className="hidden min-h-11 items-center rounded-md px-3 text-sm text-silver transition-colors duration-150 hover:bg-white/[0.05] hover:text-chalk sm:inline-flex"
+          >
+            Features
+          </Link>
+          <Link
             href="/docs"
             className="inline-flex min-h-11 items-center rounded-md px-3 text-sm text-silver transition-colors duration-150 hover:bg-white/[0.05] hover:text-chalk"
           >

@@ -41,8 +41,9 @@ extensions, queues, compaction, and sessions. NativePi renders what Pi returns.
 The claim a neighboring product cannot truthfully copy: nothing is locked in.
 Sessions and credentials stay in Pi's normal storage in `~/.pi/agent` and remain
 fully interchangeable with the Pi CLI. There is no second conversation store, no
-product account, no cloud sync of your sessions, and no telemetry. Uninstalling
-NativePi leaves the Pi workflow exactly as it was.
+product account, no cloud sync of your sessions, and no NativePi-owned desktop
+telemetry. The website uses Vercel Web Analytics. Uninstalling NativePi leaves
+the Pi workflow exactly as it was.
 
 The second differentiator is that NativePi extends Pi's extension API into a
 graphical one, so the app itself is hackable by the same people who already
@@ -61,7 +62,7 @@ shape Pi.
   required, and existing Pi credentials, configuration, and sessions are reused.
 - The graphical extension API is published as `@nativepi/extension-api` at
   contract version 1 (`apiVersion: 1`). NativePi rejects an incompatible bundle
-  at load time.
+  at load time, and current slots include full conversation-area views.
 
 ## Capabilities and Constraints
 
@@ -72,33 +73,46 @@ Site scope:
   separate graphical extension guides, examples, contribution guides, migration
   help, and API reference.
 - Deployed on Vercel from this monorepo at `apps/web`.
-- Dark only. The product is dark only; the site matches and ships no light
-  theme and no theme toggle.
+- The marketing site remains dark-only. The desktop app supports light, dark,
+  and system appearances, ten built-in color schemes, and user-created schemes.
 
 Product facts the site may state, all sourced from the desktop PRODUCT.md and
 README:
 
-- Projects, chat discovery, and opening folders in installed editors.
+- Projects, chat discovery, a live project file explorer, and opening folders
+  or files in installed editors.
 - Session workflows: new, resume, rename, clone, fork, delete, import, HTML
   export, session tree, statistics, compaction.
 - Streamed text, thinking, tool activity, file-change summaries, rich diffs,
   retries, steering, follow-ups, queues, and abort.
-- Image attachments by paste, drag and drop, or file picker.
+- Image attachments by paste, drag and drop, or file picker; file and folder
+  mentions in the composer; and rich Markdown in user and assistant messages.
 - Pi-backed model and thinking-level selection, favorite models, provider
   authentication, project trust.
-- Git status and working-tree diffs, clean-worktree branch switch or creation,
-  worktrees added as projects, hunk or file staging, commits, push, and opening
-  a GitHub pull request through `gh`.
-- Pi package install, update, removal, and reload at user or project scope.
-- Pi slash commands, prompt templates, and skills offered in the composer.
-- Project-scoped integrated terminals that survive being hidden.
-- On-demand, access-token-protected browser access to the same workspace, either
-  on the local network or through a temporary public Cloudflare link the user
-  starts, while the desktop app remains open.
+- Source control with staged and unstaged groups, file or hunk staging, inline
+  commits, Pi-drafted Conventional Commit wording, push or fast-forward sync, a
+  local and remote commit graph, clean-worktree branch switching or creation,
+  worktrees added as projects, and GitHub pull requests opened through `gh`.
+- Pi package install, update, removal, reload, and load-error display at user or
+  project scope.
+- Pi slash commands, prompt templates, skills, and extension autocomplete in the
+  composer, including while a turn is running.
+- Normal Pi terminal extension UI in the desktop window, plus optional graphical
+  tool, entry, composer, conversation-view, settings, and context contributions.
+- Project-scoped integrated terminals with selectable shells and resizable
+  splits that survive being hidden or switching projects.
+- Local usage and provider-reported subscription-limit dashboards.
+- Settings for appearance, notifications, Pi options, rebindable shortcuts, ten
+  built-in color schemes, and editable custom schemes with JSON import/export.
+- On-demand, access-token-protected browser access to projects, chats, changes,
+  and terminals on the local network or through a temporary public Cloudflare
+  link, with connection accounting and token replacement or revocation.
+- User-started self-updates from published GitHub releases.
 
 Boundaries the site must not blur:
 
-- Windows, macOS, and Linux; single window, dark only.
+- Windows, macOS, and Linux; single window. The app supports light, dark, and
+  system appearances while the website remains dark-only.
 - No agent loop of its own, no LLM requests of its own, no added agent tools,
   no support for other harnesses.
 - Git mutation is narrow: branch checkout and creation on a clean worktree,
@@ -106,7 +120,9 @@ Boundaries the site must not blur:
   request through `gh`. No merging, rebasing, discarding, checkpointing, or
   history rewriting.
 - No cloud sync of sessions, collaboration, remote projects, product accounts,
-  paid tiers, or telemetry. Optional browser access is started by the user and
+  paid tiers, or NativePi-owned desktop telemetry. Pi's optional analytics
+  remain Pi configuration, and the marketing site uses Vercel Web Analytics.
+  Optional browser access is started by the user and
   is not a NativePi hosting service.
 
 ## Brand Commitments
@@ -149,8 +165,8 @@ of the running app, and it is the only depiction of the product the site makes.
    reimplements it.
 4. Respect the visitor's autonomy the way the product respects their machine:
    no dark patterns, no manufactured urgency, no gated content.
-5. The site's own behavior should model the product's claims. Local by default,
-   fast, no trackers, works without an account.
+5. The site's own behavior should model the product's claims: fast, no account,
+   no cloud session storage, and only the disclosed Vercel Web Analytics.
 
 ## Accessibility & Inclusion
 
