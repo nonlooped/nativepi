@@ -39,7 +39,8 @@ export function piServices(projectDir: string): PiServices {
     projectTrusted: isProjectTrusted(projectDir),
   });
   if (!settings.getNpmCommand()) {
-    settings.setNpmCommand([process.execPath, createRequire(import.meta.url).resolve("npm/bin/npm-cli.js")]);
+    const npmPackage = createRequire(import.meta.url).resolve("npm/package.json");
+    settings.setNpmCommand([process.execPath, npmPackage.replace("package.json", "bin/npm-cli.js")]);
   }
   return {
     pm: new DefaultPackageManager({ cwd: projectDir, agentDir, settingsManager: settings }),
