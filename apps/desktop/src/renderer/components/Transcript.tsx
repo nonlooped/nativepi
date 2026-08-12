@@ -159,7 +159,7 @@ function TranscriptContent() {
               // synthetic streaming one to its committed entry id mid-turn, and
               // keying on that would remount the block and discard whichever
               // tool panels the user had opened while watching it run.
-              <MessageScrollerItem key={`response:${index}`} scrollAnchor className="[content-visibility:auto] [contain-intrinsic-size:auto_200px]">
+              <MessageScrollerItem key={`response:${index}`} scrollAnchor>
                 <AssistantResponse
                   messages={item.messages}
                   results={results}
@@ -169,7 +169,7 @@ function TranscriptContent() {
                 />
               </MessageScrollerItem>
             ) : (
-              <MessageScrollerItem key={item.entry.id} className="[content-visibility:auto] [contain-intrinsic-size:auto_100px]">
+              <MessageScrollerItem key={item.entry.id}>
                 <EntryView entry={item.entry} />
               </MessageScrollerItem>
             ),
