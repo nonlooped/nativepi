@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.2] - 2026-08-12
+
 ### Fixed
 - Require explicit project trust before opening a workspace.
 - Preserve chat and session state through concurrent writes, cancelled switches, and asynchronous navigation.
@@ -498,7 +500,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial NativePi desktop wrapper for the Pi coding agent (Electron + electron-vite + Bun + React 19.2 + Vite 8 + Tailwind CSS 4 + shadcn/ui + Zustand + Zod).
 - Project bootstrap, README and logo assets, build and release automation.
 
-[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.12.1...HEAD
+[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.12.2...HEAD
+[1.12.2]: https://github.com/nonlooped/nativepi/compare/v1.12.1...v1.12.2
 [1.12.1]: https://github.com/nonlooped/nativepi/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/nonlooped/nativepi/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/nonlooped/nativepi/compare/v1.10.0...v1.11.0
