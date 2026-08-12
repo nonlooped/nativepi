@@ -643,14 +643,14 @@ function UserBubble({
       <span className="sr-only">You{pending ? " (sending)" : ""}:</span>
       <Message align="end" className="justify-end">
       <Bubble variant="secondary" align="end" className={cn("max-w-[85%]", pending && "opacity-60")}>
-        <BubbleContent className="rounded-2xl rounded-br-md px-4 py-3 text-sm leading-6 whitespace-pre-wrap">
-        {skills.length > 0 || files.length > 0 ? (
+        <BubbleContent className="rounded-2xl rounded-br-md px-4 py-3 text-sm leading-6">
+          {skills.length > 0 || files.length > 0 ? (
           <div className={cn("flex flex-wrap justify-end gap-1.5", (images.length > 0 || text) && "pb-2")}>
             {skills.map((skill) => <PromptSkillChip key={skill} skill={skill} />)}
             {files.map((file) => <PromptFileChip key={file} file={file} />)}
           </div>
-        ) : null}
-        {images.length > 0 ? (
+          ) : null}
+          {images.length > 0 ? (
           // Sized to be recognisable, not to be studied: the bubble is a record
           // of what was sent, and the agent's reading of it is what follows.
           <div className={cn("flex flex-wrap justify-end gap-2", text && "pb-2")}>
@@ -662,8 +662,8 @@ function UserBubble({
               />
             ))}
           </div>
-        ) : null}
-        {text}
+          ) : null}
+          {text ? <Markdown>{text}</Markdown> : null}
         </BubbleContent>
       </Bubble>
       </Message>

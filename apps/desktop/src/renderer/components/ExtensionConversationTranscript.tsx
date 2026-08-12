@@ -53,8 +53,8 @@ function UserMessage({ message }: { message: ConversationMessage }) {
       <span className="sr-only">You:</span>
       <Message align="end" className="justify-end">
         <Bubble variant="secondary" align="end" className="max-w-[85%]">
-          <BubbleContent className="rounded-2xl rounded-br-md px-4 py-3 text-sm leading-6 whitespace-pre-wrap">
-            {messageText(message)}
+          <BubbleContent className="rounded-2xl rounded-br-md px-4 py-3 text-sm leading-6">
+            <Markdown>{messageText(message)}</Markdown>
           </BubbleContent>
         </Bubble>
       </Message>
