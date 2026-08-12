@@ -6,7 +6,7 @@ import { Code } from "@/components/site/Code";
 
 export const metadata: Metadata = {
   title: "Extension contribution slots",
-  description: "Choose between NativePi tool, entry, composer, context panel, and settings contribution slots.",
+  description: "Choose between NativePi tool, entry, composer, conversation view, context panel, and settings contribution slots.",
 };
 
 export default function ContributionsPage() {
@@ -51,6 +51,11 @@ export default function ContributionsPage() {
                 <td>Forms or multi-step interactions</td>
               </tr>
               <tr>
+                <td><code>conversationViews</code></td>
+                <td>A complete extension workspace opened from the chat header</td>
+                <td>Small controls or turn feedback</td>
+              </tr>
+              <tr>
                 <td><code>panels</code></td>
                 <td>Project information consulted beside the transcript</td>
                 <td>Urgent turn feedback</td>
@@ -76,6 +81,7 @@ export default function ContributionsPage() {
   entries: {},
   composerWidgets: [],
   composerControls: [],
+  conversationViews: [],
   panels: [],
   settings: [],
 });`}
@@ -98,9 +104,11 @@ export default function ContributionsPage() {
           are identified by package plus contribution ID.
         </p>
         <p>
-          Contributions cannot replace navigation, routing, the transcript, the
-          composer, or the agent loop. Use Pi APIs for anything that changes
-          model context, tools, commands, sessions, or turn sequencing.
+          Contributions cannot replace application navigation, routing, or the
+          agent loop. A conversation view may replace the transcript and composer
+          within the existing conversation pane while it is open. Use Pi APIs
+          for anything that changes model context, tools, commands, sessions, or
+          turn sequencing.
         </p>
       </Prose>
 

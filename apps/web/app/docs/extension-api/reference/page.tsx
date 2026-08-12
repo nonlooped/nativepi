@@ -66,6 +66,7 @@ interface NativePiRenderer<Protocol extends ExtensionProtocol = ExtensionProtoco
   entries?: Record<string, EntryRenderer<Protocol>>;
   composerWidgets?: ComposerWidget<Protocol>[];
   composerControls?: ComposerControl<Protocol>[];
+  conversationViews?: ConversationView<Protocol>[];
   panels?: ContextPanel<Protocol>[];
   settings?: SettingsSection<Protocol>[];
 }`}
@@ -186,6 +187,13 @@ interface SessionEntry {
 
 interface ComposerControl<Protocol extends ExtensionProtocol = ExtensionProtocol> {
   id: string;
+  render: (context: RendererContext<Protocol>) => ReactNode;
+}
+
+interface ConversationView<Protocol extends ExtensionProtocol = ExtensionProtocol> {
+  id: string;
+  label: string;
+  control?: (context: RendererContext<Protocol>) => ReactNode;
   render: (context: RendererContext<Protocol>) => ReactNode;
 }
 

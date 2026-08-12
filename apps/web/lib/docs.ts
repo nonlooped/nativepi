@@ -63,6 +63,11 @@ export const docsSections = [
         label: "Browser access",
         description: "Share the running workspace over your local network or a temporary public link.",
       },
+      {
+        href: "/docs/settings-and-customization",
+        label: "Settings and customization",
+        description: "Choose an appearance, build color schemes, rebind shortcuts, and manage desktop and Pi settings.",
+      },
     ],
   },
   {

@@ -38,9 +38,10 @@ export default function GitPage() {
       <H2 id="push">Push and open a pull request</H2>
       <Prose>
         <p>
-          Push the current branch from the Git surface. When the GitHub CLI is
-          installed and authenticated, NativePi can open a GitHub pull request
-          through <code>gh</code>.
+          Push the current branch from the Git surface, or fast-forward it from
+          its remote before pushing. The commit graph shows local and remote
+          history. When the GitHub CLI is installed and authenticated, NativePi
+          can open a GitHub pull request through <code>gh</code>.
         </p>
       </Prose>
 

@@ -70,9 +70,9 @@ pi install -l ./relative/project-package`}
         <p>
           A package can additionally declare a browser renderer through{" "}
           <code>nativepi.renderer</code>. That renderer adds React UI to
-          controlled transcript, composer, context-pane, and settings slots. It
-          does not replace Pi&apos;s extension entry or change what reaches the
-          model.
+          controlled transcript, composer, conversation-view, context-pane, and
+          settings slots. It does not replace Pi&apos;s extension entry or change
+          what reaches the model.
         </p>
         <p>
           Start with the <Link href="/docs/extension-api">extension API overview</Link>{" "}
