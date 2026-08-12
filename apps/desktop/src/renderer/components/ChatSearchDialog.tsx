@@ -86,7 +86,10 @@ export default function ChatSearchDialog({
     const select = result.projectDir === activeProjectPath
       ? Promise.resolve()
       : selectProject(result.projectDir);
-    void select.then(() => selectChat(result.sessionFile)).then(onNavigate).catch(() => undefined);
+    void select.then(() => {
+      if (useAppStore.getState().activeProjectPath !== result.projectDir) return;
+      return selectChat(result.sessionFile).then(onNavigate);
+    }).catch(() => undefined);
   }
 
   return (

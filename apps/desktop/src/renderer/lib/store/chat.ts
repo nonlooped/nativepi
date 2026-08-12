@@ -594,7 +594,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     const res = await rpc.request.cloneChat({ projectDir, sessionFile });
     if (res.ok && res.sessionFile) {
       await get().refreshSessions(projectDir);
-      await get().selectChat(res.sessionFile);
+      if (get().activeProjectPath === projectDir) await get().selectChat(res.sessionFile);
     }
     return res;
   },
@@ -637,7 +637,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     if (res.ok && res.sessionFile) {
       if (res.text) set((s) => ({ drafts: { ...s.drafts, [res.sessionFile!]: res.text! } }));
       await get().refreshSessions(projectDir);
-      await get().selectChat(res.sessionFile);
+      if (get().activeProjectPath === projectDir) await get().selectChat(res.sessionFile);
     }
     return res;
   },
