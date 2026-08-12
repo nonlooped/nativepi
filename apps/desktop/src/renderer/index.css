@@ -408,12 +408,6 @@ html[data-shell="desktop"][data-runtime="development"] .window-controls-clearanc
 
 /* Keep chat titles readable when the resizable project pane approaches its
    floor. The title and running state stay; only supporting context gives way. */
-@container sidebar (max-width: 19rem) {
-  .sidebar-chat-prompt {
-    display: none;
-  }
-}
-
 @container sidebar (max-width: 15rem) {
   .sidebar-chat-time {
     display: none;

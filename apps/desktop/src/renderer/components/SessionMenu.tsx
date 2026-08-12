@@ -124,7 +124,10 @@ export default function SessionMenu({
           render={
             <div
               className={cn(
-                "group/chat relative flex items-center rounded-md transition-colors [contain-intrinsic-size:auto_2.75rem] [content-visibility:auto] hover:bg-sidebar-accent/40 focus-within:bg-sidebar-accent/40",
+                "group/chat relative flex items-center transition-colors [content-visibility:auto] hover:bg-sidebar-accent/40 focus-within:bg-sidebar-accent/40",
+                finished
+                  ? "rounded-md [contain-intrinsic-size:auto_2.25rem]"
+                  : "rounded-lg [contain-intrinsic-size:auto_3.5rem]",
                 selected && "bg-sidebar-accent/65 text-sidebar-accent-foreground",
                 running && !selected && "bg-active/5",
               )}

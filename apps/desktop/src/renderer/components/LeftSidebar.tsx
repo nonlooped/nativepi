@@ -36,7 +36,12 @@ export default function LeftSidebar({
   }
 
   const content = (
-    <aside className="sidebar-panel flex h-full min-w-[220px] flex-col bg-sidebar text-muted-foreground">
+    <aside
+      className={cn(
+        "sidebar-panel flex h-full min-w-0 flex-col bg-sidebar text-muted-foreground",
+        !overlay && "min-w-[220px]",
+      )}
+    >
       {/* h-12 matches the conversation and context pane headers: three adjacent
           pane headers on two different baselines is a seam you cannot unsee. */}
       <div className={cn("flex h-12 shrink-0 items-center px-2", !overlay && DRAG_REGION)}>

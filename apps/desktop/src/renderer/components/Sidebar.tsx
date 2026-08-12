@@ -93,7 +93,7 @@ export default function Sidebar({
   const editorId = useAppStore((s) => s.preferences.preferredEditorId);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const [scope, setScope] = useState<string | null>(null);
-  const [finishedOpen, setFinishedOpen] = useState(true);
+  const [finishedOpen, setFinishedOpen] = useState(false);
   const [finishedLimit, setFinishedLimit] = useState(12);
   const [now, setNow] = useState(Date.now);
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
@@ -250,26 +250,26 @@ export default function Sidebar({
       overlay={overlay}
       layoutKey={layoutKey}
     >
-      <div className={cn("flex flex-col gap-1 px-2 pb-2", NO_DRAG_REGION)}>
+      <div className={cn("flex flex-col gap-2 px-2 pb-2", NO_DRAG_REGION)}>
         <div className="flex items-center gap-1">
           <Button
-            variant="ghost"
-            size="sm"
-            className="min-w-0 flex-1 justify-start text-muted-foreground"
-            onClick={onOpenSearch}
-            title={withHint("Search chats and messages", "search", keybindingOverrides)}
+            variant="secondary"
+            size="default"
+            className="min-w-0 flex-1 justify-start"
+            onClick={onOpenNewChat}
+            title={withHint("New chat", "newChat", keybindingOverrides)}
           >
-            <MagnifyingGlassIcon data-icon="inline-start" />
-            Search
+            <NotePencilIcon data-icon="inline-start" />
+            New chat
           </Button>
           <Button
             variant="ghost"
-            size="icon-sm"
-            onClick={onOpenNewChat}
-            aria-label="New chat"
-            title={withHint("New chat", "newChat", keybindingOverrides)}
+            size="icon"
+            onClick={onOpenSearch}
+            aria-label="Search chats and messages"
+            title={withHint("Search chats and messages", "search", keybindingOverrides)}
           >
-            <NotePencilIcon />
+            <MagnifyingGlassIcon />
           </Button>
         </div>
 
@@ -311,18 +311,6 @@ export default function Sidebar({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3">
-        <div className="flex flex-col gap-0.5">
-          {focusChats.map((chat) => (
-            <FocusChatRow
-              key={chat.session.path}
-              chat={chat}
-              now={now}
-              onSelect={() => void selectChatAndClose(chat)}
-              onFinish={() => markFinished(chat)}
-            />
-          ))}
-        </div>
-
         {loading && focusChats.length === 0 ? (
           <ChatHistoryState icon={<CircleNotchIcon className="animate-spin" />} title="Gathering your chats" detail="Reading Pi session history across your projects." />
         ) : null}
@@ -339,6 +327,26 @@ export default function Sidebar({
             }
           />
         ) : null}
+
+        {focusChats.length > 0 ? (
+          <div className="flex h-8 shrink-0 items-center gap-2 px-2 text-xs">
+            <h2 className="font-medium text-sidebar-foreground">Focus</h2>
+            <span className="tabular-nums text-muted-foreground/70">{focusChats.length}</span>
+          </div>
+        ) : null}
+        <div className="flex flex-col gap-0.5">
+          {focusChats.map((chat) => (
+            <FocusChatRow
+              key={chat.session.path}
+              chat={chat}
+              now={now}
+              showProject={!scopedProject}
+              onSelect={() => void selectChatAndClose(chat)}
+              onFinish={() => markFinished(chat)}
+            />
+          ))}
+        </div>
+
         {!loading && projects.length === 0 ? (
           <button type="button" onClick={() => void addProjectAndClose()} className="flex items-center gap-2 rounded-lg border border-dashed px-2.5 py-3 text-left text-xs text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none">
             <FolderPlusIcon className="shrink-0" /> Open your first folder
@@ -355,6 +363,7 @@ export default function Sidebar({
             <button type="button" onClick={() => setFinishedOpen((value) => !value)} aria-expanded={finishedOpen} className="flex h-8 w-full items-center gap-2 rounded-md px-1 text-left text-xs text-muted-foreground hover:text-sidebar-foreground">
               <CheckCircleIcon weight="fill" />
               <span className="font-medium">Finished</span>
+              <span className="tabular-nums text-muted-foreground/70">{finished.length}</span>
               <Separator className="mx-1 flex-1" />
               <CaretDownIcon className={cn("transition-transform", !finishedOpen && "-rotate-90")} weight="bold" />
             </button>
@@ -411,11 +420,13 @@ export default function Sidebar({
 function FocusChatRow({
   chat,
   now,
+  showProject,
   onSelect,
   onFinish,
 }: {
   chat: SidebarChat;
   now: number;
+  showProject: boolean;
   onSelect: () => void;
   onFinish: () => void;
 }) {
@@ -426,24 +437,16 @@ function FocusChatRow({
         tabIndex={0}
         onClick={onSelect}
         onKeyDown={(event) => {
+          if (event.currentTarget !== event.target) return;
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             onSelect();
           }
         }}
         aria-current={chat.selected ? "page" : undefined}
-        className={cn(
-          "group/focus relative flex min-h-14 w-full flex-col justify-center gap-1 overflow-hidden rounded-lg px-2.5 py-1.5 text-left text-sidebar-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset",
-          chat.selected ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/40",
-        )}
+        className="group/focus relative flex min-h-14 w-full flex-col justify-center gap-1 overflow-hidden rounded-lg px-2.5 py-1.5 text-left text-sidebar-foreground outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
       >
         <span className={cn("absolute inset-y-2 left-0 w-0.5 rounded-full", chat.running ? "bg-active" : chat.selected ? "bg-sidebar-foreground/30" : "bg-transparent")} />
-        <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-          <FolderIcon className="size-3.5 shrink-0" weight={chat.selected ? "fill" : "regular"} />
-          <span className="truncate font-medium">{chat.project.name}</span>
-          {chat.pinned ? <PushPinIcon className="size-3 shrink-0 text-favorite" weight="fill" aria-label="Pinned" /> : null}
-          <span className="ml-auto shrink-0 tabular-nums">{timeAgo(chat.session.modified, now)}</span>
-        </span>
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate text-[0.8125rem] font-medium leading-5">{chatTitle(chat.session)}</span>
           {chat.running ? (
@@ -465,6 +468,16 @@ function FocusChatRow({
               <CheckCircleIcon />
             </Button>
           )}
+        </span>
+        <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          {showProject ? (
+            <>
+              <FolderIcon className="size-3.5 shrink-0" weight={chat.selected ? "fill" : "regular"} />
+              <span className="sidebar-chat-project truncate font-medium">{chat.project.name}</span>
+            </>
+          ) : null}
+          {chat.pinned ? <PushPinIcon className="size-3 shrink-0 text-favorite" weight="fill" aria-label="Pinned" /> : null}
+          <span className="sidebar-chat-time ml-auto shrink-0 tabular-nums">{timeAgo(chat.session.modified, now)}</span>
         </span>
       </div>
     </SessionMenu>
@@ -489,13 +502,14 @@ function FinishedChatRow({
         tabIndex={0}
         onClick={onSelect}
         onKeyDown={(event) => {
+          if (event.currentTarget !== event.target) return;
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             onSelect();
           }
         }}
         aria-current={chat.selected ? "page" : undefined}
-        className={cn("group/finished flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs text-muted-foreground outline-none hover:bg-sidebar-accent/40 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset", chat.selected && "bg-sidebar-accent text-sidebar-accent-foreground")}
+        className="group/finished flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs text-muted-foreground outline-none hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
       >
         <FolderIcon className="size-3.5 shrink-0 opacity-60" />
         <span className="min-w-0 flex-1 truncate">{chatTitle(chat.session)}</span>
@@ -564,7 +578,7 @@ function ChatHistoryState({
   return (
     <div role={role} className="mt-1 flex flex-wrap items-start gap-2 rounded-lg border border-dashed border-sidebar-border px-2 py-2 text-xs">
       <span className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden>{icon}</span>
-      <span className="min-w-0 flex-1">
+      <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">
         <span className="block font-medium text-foreground">{title}</span>
         <span className="mt-0.5 block leading-relaxed text-muted-foreground">{detail}</span>
       </span>
