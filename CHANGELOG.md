@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Require explicit project trust before opening a workspace.
+- Preserve chat and session state through concurrent writes, cancelled switches, and asynchronous navigation.
+- Anchor Git paths at the repository root and honor the selected push remote.
+- Serialize package changes and contain Pi process failures without leaving commands busy.
+- Retire stale session watchers and bound remote terminal backpressure.
+- Bundle and run package-manager tooling through Electron's Node runtime in packaged builds.
+- Enable macOS update checks and publish distinct artifacts for every supported architecture.
+
+### Performance
+- Stream session history and search parsing.
+- Skip offscreen transcript rendering and reuse transcript visibility tracking.
+
 ## [1.12.1] - 2026-08-12
 
 ### Fixed
