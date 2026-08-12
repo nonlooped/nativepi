@@ -2,7 +2,7 @@ import { createReadStream, existsSync, watch, type FSWatcher } from "node:fs";
 import { open, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { createInterface } from "node:readline";
-import { parseSessionEntries, SessionManager } from "@earendil-works/pi-coding-agent";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { chatTitle, isAssistant, isUser, sessionPromptSummary, textOf } from "../shared/messages.ts";
 import type { FileEntry, SessionSearchResult, SessionSummary, UsageDashboard } from "../shared/pi-types.ts";
 
@@ -16,8 +16,10 @@ import type { FileEntry, SessionSearchResult, SessionSummary, UsageDashboard } f
  * file for outside writes, and refusing to delete anything outside the project.
  */
 
-export async function readSession(sessionFile: string): Promise<FileEntry[]> {
-  return parseSessionEntries(await readFile(sessionFile, "utf8")) as FileEntry[];
+export async function readSession(sessionFile: string) {
+  const entries: FileEntry[] = [];
+  for await (const entry of streamSession(sessionFile)) entries.push(entry);
+  return entries;
 }
 
 // Cache lastPrompt/providers by mtime so repeated listSessions (Sidebar mount + sessionsChanged)
