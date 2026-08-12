@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
 import { isDesktopShell } from "./lib/platform.ts";
+import { rpc } from "./lib/rpc.ts";
 
 // Whether this document is the frameless Electron window or a browser tab on
 // someone's phone. Written before the first paint so no frame ever reserves
@@ -11,6 +12,24 @@ document.documentElement.dataset.shell = isDesktopShell ? "desktop" : "web";
 if (__NATIVEPI_DEV_GENERATION__) {
   document.documentElement.dataset.runtime = "development";
   document.title = `NativePi [DEV ${__NATIVEPI_DEV_GENERATION__.slice(0, 6)}]`;
+}
+
+if (isDesktopShell) {
+  window.addEventListener("error", (event) => {
+    void rpc.request.reportRendererError({
+      kind: "error",
+      message: event.message || "Unknown renderer error",
+      stack: event.error instanceof Error ? event.error.stack : undefined,
+    }).catch(() => {});
+  });
+  window.addEventListener("unhandledrejection", (event) => {
+    const error = event.reason;
+    void rpc.request.reportRendererError({
+      kind: "unhandledRejection",
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    }).catch(() => {});
+  });
 }
 
 // The soft keyboard shrinks the visual viewport without shrinking the layout

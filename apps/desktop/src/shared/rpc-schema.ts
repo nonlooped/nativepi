@@ -466,6 +466,14 @@ export type HostRequests = {
     response: { ok: boolean; error?: string };
   };
   versions: { params: Record<string, never>; response: { pi: string; app: string } };
+  exportDiagnostics: {
+    params: { projectDir?: string };
+    response: { ok: boolean; text?: string; error?: string };
+  };
+  reportRendererError: {
+    params: { kind: "error" | "unhandledRejection"; message: string; stack?: string };
+    response: { ok: boolean };
+  };
   devRuntimeStatus: { params: Record<string, never>; response: DevRuntimeStatus };
   updateState: { params: Record<string, never>; response: UpdateState };
   checkForUpdate: { params: Record<string, never>; response: UpdateState };

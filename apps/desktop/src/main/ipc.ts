@@ -33,6 +33,7 @@ import {
   listTerminals,
   liveTerminalProjects,
   renameTerminal,
+  terminalDiagnostics,
   resizeTerminal,
   restartTerminal,
   stopAllTerminals,
@@ -51,6 +52,7 @@ import {
 } from "./remoteAccess.ts";
 import { checkForUpdate, downloadUpdate, installUpdate, startUpdates, updateState } from "./updates.ts";
 import { devRuntimeStatus } from "./devRuntime.ts";
+import { createDiagnosticsReport, recordRendererCrash } from "./diagnostics.ts";
 
 /** One Pi process per session: Pi already permits concurrent sessions in a project. */
 const pis = new Map<string, PiProcess>();
@@ -576,6 +578,12 @@ const tuiApplyParamsSchema = tuiCompleteParamsSchema.extend({
   prefix: z.string().max(200),
 });
 const terminalIdParamsSchema = projectDirParamsSchema.extend({ terminalId: z.string().min(1) });
+const exportDiagnosticsParamsSchema = z.object({ projectDir: z.string().min(1).max(32_767).optional() });
+const rendererErrorParamsSchema = z.object({
+  kind: z.enum(["error", "unhandledRejection"]),
+  message: z.string().max(20_000),
+  stack: z.string().max(100_000).optional(),
+});
 const terminalCreateParamsSchema = projectDirParamsSchema.extend({
   shellId: z.string().optional(),
   name: z.string().optional(),
@@ -1099,6 +1107,47 @@ const handlers: HandlerMap = {
   },
 
   versions: () => ({ pi: auth.PI_VERSION_STRING, app: app.getVersion() }),
+  exportDiagnostics: async (params) => {
+    try {
+      const { projectDir } = exportDiagnosticsParamsSchema.parse(params);
+      const state = await loadState();
+      let piSettings: ReturnType<typeof readPiSettings> | undefined;
+      let piSettingsError: string | undefined;
+      try {
+        piSettings = readPiSettings();
+      } catch (error) {
+        piSettingsError = errorMessage(error);
+      }
+      let packages: Awaited<ReturnType<typeof listPackages>> | undefined;
+      let packageError: string | undefined;
+      try {
+        packages = await listPackages(projectDir ?? app.getPath("home"));
+      } catch (error) {
+        packageError = errorMessage(error);
+      }
+      return {
+        ok: true,
+        text: await createDiagnosticsReport({
+          appVersion: app.getVersion(),
+          piVersion: auth.PI_VERSION_STRING,
+          projectDir,
+          state,
+          piSettings,
+          piSettingsError,
+          packages,
+          packageError,
+          terminal: terminalDiagnostics(),
+        }),
+      };
+    } catch (error) {
+      return { ok: false, error: errorMessage(error) };
+    }
+  },
+  reportRendererError: (params) => {
+    const { kind, message, stack } = rendererErrorParamsSchema.parse(params);
+    recordRendererCrash(kind, message, stack);
+    return { ok: true };
+  },
   devRuntimeStatus: () => devRuntimeStatus(),
   updateState: () => updateState(),
   checkForUpdate: () => checkForUpdate(),

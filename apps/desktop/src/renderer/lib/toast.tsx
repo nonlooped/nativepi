@@ -48,6 +48,17 @@ export function showDropRejected(message: string): void {
   toast.warning(message, { closeButton: true, duration: 6000 });
 }
 
+export function showDiagnosticsCopied(): void {
+  toast.success("Diagnostics copied", {
+    description: "Review the redacted report before sharing it.",
+    duration: 5000,
+  });
+}
+
+export function showDiagnosticsExportFailed(message: string): void {
+  toast.error("Unable to export diagnostics", { description: message, closeButton: true });
+}
+
 /**
  * Surface a message from a Pi extension.
  *

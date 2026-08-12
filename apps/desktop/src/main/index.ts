@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, shell, type MenuItemConstructorOptions } from "electron";
 import { join } from "node:path";
 import type { HostRequestName, HostRequests } from "../shared/rpc-schema.ts";
+import { installDiagnostics, recordRendererCrash, recordRendererLog } from "./diagnostics.ts";
 
 type Host = typeof import("./ipc.ts");
 let host: Host | undefined;
@@ -20,6 +21,7 @@ ipcMain.handle("nativepi:invoke", async (_event, name: HostRequestName, params: 
 const mainDir = import.meta.dirname;
 
 app.setName("NativePi");
+installDiagnostics();
 
 /**
  * One NativePi at a time.
@@ -96,7 +98,13 @@ function createWindow(): void {
   let rendererAnswers = true;
   win.on("unresponsive", () => (rendererAnswers = false));
   win.on("responsive", () => (rendererAnswers = true));
-  win.webContents.on("render-process-gone", () => (rendererAnswers = false));
+  win.webContents.on("console-message", (_event, level, message) => recordRendererLog(level, message));
+  win.webContents.on("render-process-gone", (_event, details) => {
+    rendererAnswers = false;
+    if (details.reason !== "clean-exit") {
+      recordRendererCrash("render-process-gone", `${details.reason} (exit ${details.exitCode})`);
+    }
+  });
 
   win.on("close", (event) => {
     if (quitting || !rendererAnswers || win.webContents.isCrashed()) return;

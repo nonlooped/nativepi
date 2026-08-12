@@ -117,6 +117,38 @@ export function liveTerminalProjects(): string[] {
   return [...terminals.values()].filter((terminal) => !terminal.exited).map((terminal) => terminal.projectDir);
 }
 
+export type TerminalDiagnostics = {
+  backend: "node-pty";
+  available: boolean;
+  shells: ShellProfile[];
+  sessions: { shellId: string; exited: boolean; exitCode?: number; attached: boolean }[];
+  error?: string;
+};
+
+export function terminalDiagnostics(): TerminalDiagnostics {
+  try {
+    return {
+      backend: "node-pty",
+      available: true,
+      shells: listShellProfiles(),
+      sessions: [...terminals.values()].map((terminal) => ({
+        shellId: terminal.shellId,
+        exited: terminal.exited,
+        exitCode: terminal.exitCode,
+        attached: terminal.watchers > 0,
+      })),
+    };
+  } catch (error) {
+    return {
+      backend: "node-pty",
+      available: false,
+      shells: [],
+      sessions: [],
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 function nextTerminalName(projectDir: string): string {
   const used = new Set(
     [...terminals.values()].filter((terminal) => terminal.projectDir === projectDir).map((terminal) => terminal.name),

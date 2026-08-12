@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { ArrowSquareOutIcon } from "@phosphor-icons/react/ArrowSquareOut";
+import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import type { UpdateState } from "../../../shared/rpc-schema.ts";
@@ -6,6 +8,7 @@ import { fileManagerName } from "../../lib/paths.ts";
 import { isRemote, rpc } from "../../lib/rpc.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { useRequest } from "../../lib/useRequest.ts";
+import { showDiagnosticsCopied, showDiagnosticsExportFailed } from "../../lib/toast.tsx";
 import NativePiWordmark from "../NativePiWordmark.tsx";
 import { ReadonlyRow, SettingsCard, SettingsSection, type CardTone } from "./rows.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -92,6 +95,22 @@ function Updates() {
 export default function AboutSettings() {
   const versions = useRequest(() => rpc.request.versions({}), []);
   const paths = useRequest(() => rpc.request.piPaths({}), []);
+  const activeProjectPath = useAppStore((state) => state.activeProjectPath);
+  const [exporting, setExporting] = useState(false);
+
+  const exportDiagnostics = async () => {
+    setExporting(true);
+    try {
+      const result = await rpc.request.exportDiagnostics({ projectDir: activeProjectPath ?? undefined });
+      if (!result.ok || !result.text) throw new Error(result.error ?? "The diagnostic report was empty.");
+      await navigator.clipboard.writeText(result.text);
+      showDiagnosticsCopied();
+    } catch (error) {
+      showDiagnosticsExportFailed(error instanceof Error ? error.message : String(error));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -113,6 +132,21 @@ export default function AboutSettings() {
       </div>
 
       <Updates />
+
+      {!isRemote ? (
+        <SettingsCard
+          icon={<CopyIcon />}
+          title="Diagnostics"
+          status="Ready to copy"
+          description="Copy versions, system details, recent logs, crash information, packages, terminal status, and redacted configuration for a bug report."
+          action={
+            <Button size="xl" variant="outline" disabled={exporting} onClick={() => void exportDiagnostics()}>
+              <CopyIcon data-icon="inline-start" />
+              {exporting ? "Exporting…" : "Export diagnostics"}
+            </Button>
+          }
+        />
+      ) : null}
 
       <SettingsSection
         heading="Where Pi keeps things"
