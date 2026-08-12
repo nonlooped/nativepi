@@ -12,7 +12,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactElement
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
 import { displayPrompt, imagesOf, isAssistant, isToolResult, isUser, textOf } from "../../shared/messages.ts";
 import { stripAnsi } from "../lib/ansi.ts";
-import { toolArgSummary, toolResultsById } from "../lib/transcript.ts";
+import { hasPendingGraphicalTool, toolArgSummary, toolResultsById } from "../lib/transcript.ts";
 import { diffPatchFor, fileDir, fileName, turnChanges, type FileChange } from "../lib/changes.ts";
 import { formatDuration, formatElapsed, pluralize } from "../lib/format.ts";
 import { useReducedMotion } from "../lib/motion.ts";
@@ -721,6 +721,15 @@ function AssistantResponse({
     .join("") ?? "";
   const reduced = useReducedMotion();
   const workIsStreaming = streaming && !finalText && !reduced;
+  const extensionRenderers = useAppStore((s) => s.extRenderers);
+  const graphicalToolNames = useMemo(
+    () => new Set(extensionRenderers.flatMap((extension) => Object.keys(extension.renderer.tools ?? {}))),
+    [extensionRenderers],
+  );
+  // A running graphical tool may open a portal (for example, ask-user's
+  // question dialog). Keep just that pending tool mounted without exposing the
+  // rest of the collapsed work panel.
+  const keepWorkMounted = hasPendingGraphicalTool(work, results, graphicalToolNames);
   const startedAtMs = startedAt ? Date.parse(startedAt) : Number.NaN;
   const elapsed = useElapsed(streaming && Number.isFinite(startedAtMs) ? startedAtMs : null);
   const [workOpen, setWorkOpen] = useState(false);
@@ -769,7 +778,7 @@ function AssistantResponse({
             <span>{streaming ? (elapsed ? `Working · ${elapsed}` : "Working") : `Worked for ${formatDuration(startedAt, finishedAt)}`}</span>
             <CaretRightIcon className="transition-transform group-data-[panel-open]:rotate-90" />
           </Collapsible.Trigger>
-          <Collapsible.Panel className="mt-3 flex flex-col gap-3 border-b border-border/60 pb-4">
+          <Collapsible.Panel keepMounted={keepWorkMounted} className="mt-3 flex flex-col gap-3 border-b border-border/60 pb-4">
             {work.map((block, i) => {
               if (block.type === "text") {
                 return (

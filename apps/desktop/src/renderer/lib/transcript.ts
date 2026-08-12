@@ -1,5 +1,6 @@
 import type {
   AgentMessage,
+  AssistantContent,
   SessionEntry,
   ToolResultMessage,
 } from "../../shared/pi-types.ts";
@@ -29,5 +30,15 @@ export function toolArgSummary(name: string, args: Record<string, unknown>): str
   return (
     first("path", "file_path", "filePath", "command", "cmd", "pattern", "query", "url") ??
     ""
+  );
+}
+
+export function hasPendingGraphicalTool(
+  work: readonly AssistantContent[],
+  results: ReadonlyMap<string, unknown>,
+  graphicalToolNames: ReadonlySet<string>,
+): boolean {
+  return work.some(
+    (block) => block.type === "toolCall" && !results.has(block.id) && graphicalToolNames.has(block.name),
   );
 }

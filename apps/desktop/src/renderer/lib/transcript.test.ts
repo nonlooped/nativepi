@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { SessionEntry, SessionSummary } from "../../shared/pi-types.ts";
 import { displayPrompt, displayPromptText, textOf } from "../../shared/messages.ts";
-import { chatTitle, toolArgSummary, toolResultsById } from "./transcript.ts";
+import { chatTitle, hasPendingGraphicalTool, toolArgSummary, toolResultsById } from "./transcript.ts";
 
 function session(firstMessage: string, name?: string): SessionSummary {
   return {
@@ -111,4 +111,15 @@ test("toolArgSummary surfaces the primary argument by common key names", () => {
   expect(toolArgSummary("edit", { file_path: "/a/b.ts" })).toBe("/a/b.ts");
   expect(toolArgSummary("grep", { pattern: "foo" })).toBe("foo");
   expect(toolArgSummary("unknown", { other: 1 })).toBe("");
+});
+
+test("pending graphical tools stay mounted while the work panel is collapsed", () => {
+  const work = [
+    { type: "thinking" as const, thinking: "Need a decision" },
+    { type: "toolCall" as const, id: "ask-1", name: "ask_user", arguments: {} },
+  ];
+
+  expect(hasPendingGraphicalTool(work, new Map(), new Set(["ask_user"]))).toBe(true);
+  expect(hasPendingGraphicalTool(work, new Map([["ask-1", {}]]), new Set(["ask_user"]))).toBe(false);
+  expect(hasPendingGraphicalTool(work, new Map(), new Set(["other_tool"]))).toBe(false);
 });
