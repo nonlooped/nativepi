@@ -100,6 +100,27 @@
         "typescript": "^6",
       },
     },
+    "packages/ask-user": {
+      "name": "@nativepi/ask-user",
+      "version": "1.0.0",
+      "dependencies": {
+        "@nativepi/extension-api": "workspace:^",
+        "@phosphor-icons/react": "^2.1.10",
+      },
+      "devDependencies": {
+        "@earendil-works/pi-coding-agent": "0.84.1",
+        "@earendil-works/pi-tui": "0.84.1",
+        "@types/bun": "^1.3.14",
+        "@types/react": "^19.2.18",
+        "react": "^19.2.0",
+        "typescript": "^7.0.2",
+      },
+      "peerDependencies": {
+        "@earendil-works/pi-coding-agent": "^0.84.1",
+        "@earendil-works/pi-tui": "^0.84.1",
+        "typebox": "*",
+      },
+    },
     "packages/extension-api": {
       "name": "@nativepi/extension-api",
       "version": "1.0.0",
@@ -209,6 +230,19 @@
       "peerDependencies": {
         "@earendil-works/pi-coding-agent": "^0.84.1",
         "@earendil-works/pi-tui": "^0.84.1",
+      },
+    },
+    "packages/throughput": {
+      "name": "@nativepi/throughput",
+      "version": "1.0.0",
+      "devDependencies": {
+        "@earendil-works/pi-coding-agent": "0.84.1",
+        "@types/bun": "^1.3.14",
+        "@types/react": "^19.2.18",
+        "typescript": "^7.0.2",
+      },
+      "peerDependencies": {
+        "@earendil-works/pi-coding-agent": "^0.84.1",
       },
     },
     "packages/title-generator": {
@@ -630,6 +664,8 @@
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.1.6", "", { "dependencies": { "@tybys/wasm-util": "^0.10.3" }, "peerDependencies": { "@emnapi/core": "^1.7.1", "@emnapi/runtime": "^1.7.1" } }, "sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg=="],
 
+    "@nativepi/ask-user": ["@nativepi/ask-user@workspace:packages/ask-user"],
+
     "@nativepi/desktop": ["@nativepi/desktop@workspace:apps/desktop"],
 
     "@nativepi/extension-api": ["@nativepi/extension-api@workspace:packages/extension-api"],
@@ -643,6 +679,8 @@
     "@nativepi/subagents": ["@nativepi/subagents@workspace:packages/subagents"],
 
     "@nativepi/subscription-usage": ["@nativepi/subscription-usage@workspace:packages/subscription-usage"],
+
+    "@nativepi/throughput": ["@nativepi/throughput@workspace:packages/throughput"],
 
     "@nativepi/title-generator": ["@nativepi/title-generator@workspace:packages/title-generator"],
 
