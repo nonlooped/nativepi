@@ -8,6 +8,7 @@ import {
   useId,
   useState,
   useSyncExternalStore,
+  type MouseEvent,
   type ReactNode,
 } from "react";
 import DOMPurify from "dompurify";
@@ -174,6 +175,34 @@ function MarkdownPre({ children }: { children?: ReactNode }) {
   );
 }
 
+export function handleMarkdownLink(event: Pick<MouseEvent<HTMLAnchorElement>, "preventDefault">, href?: string) {
+  if (!href) {
+    event.preventDefault();
+    return;
+  }
+  if (href.startsWith("#")) return;
+  try {
+    const url = new URL(href);
+    if (url.protocol === "https:" || url.protocol === "http:") {
+      event.preventDefault();
+      void rpc.request.openExternal({ url: url.href });
+    }
+  } catch {
+    const state = useAppStore.getState();
+    if (!state.activeProjectPath) return;
+    let file = href.split(/[?#]/, 1)[0] ?? href;
+    try {
+      file = decodeURIComponent(file);
+    } catch {}
+    event.preventDefault();
+    void rpc.request.openFileIn({
+      projectDir: state.activeProjectPath,
+      file,
+      editorId: state.preferences.preferredEditorId,
+    });
+  }
+}
+
 const components: Components = {
   a({ node: _node, href, children, ...props }) {
     return (
@@ -181,29 +210,7 @@ const components: Components = {
         {...props}
         href={href}
         rel="noreferrer"
-        onClick={(event) => {
-          if (!href || href.startsWith("#")) return;
-          try {
-            const url = new URL(href ?? "");
-            if (url.protocol === "https:" || url.protocol === "http:") {
-              event.preventDefault();
-              void rpc.request.openExternal({ url: url.href });
-            }
-          } catch {
-            const state = useAppStore.getState();
-            if (!state.activeProjectPath) return;
-            let file = href.split(/[?#]/, 1)[0] ?? href;
-            try {
-              file = decodeURIComponent(file);
-            } catch {}
-            event.preventDefault();
-            void rpc.request.openFileIn({
-              projectDir: state.activeProjectPath,
-              file,
-              editorId: state.preferences.preferredEditorId,
-            });
-          }
-        }}
+        onClick={(event) => handleMarkdownLink(event, href)}
       >
         {children}
       </a>

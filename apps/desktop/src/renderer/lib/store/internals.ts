@@ -120,9 +120,9 @@ export function draftKey(get: GetState): string {
 /**
  * Bring a project up: start Pi, then load what depends on it.
  *
- * Every result is discarded if the user has moved to another project in the
- * meantime, and the model checks additionally guard against a slow `get_state`
- * overwriting a model the user picked while it was in flight.
+ * Every result is discarded if the user has moved to another project or chat in
+ * the meantime, and the model checks additionally guard against a slow
+ * `get_state` overwriting a model the user picked while it was in flight.
  */
 export function warmProject(set: SetState, get: GetState, path: string): void {
   const sessionFile = get().activeSessionFile;
@@ -130,7 +130,7 @@ export function warmProject(set: SetState, get: GetState, path: string): void {
   void rpc.request.ensurePi({ projectDir: path, sessionFile: sessionFile ?? undefined });
 
   void rpc.request.getModels({ projectDir: path, sessionFile }).then((r) => {
-    if (get().activeProjectPath === path) set({ models: r.models });
+    if (get().activeProjectPath === path && get().activeSessionFile === sessionFile) set({ models: r.models });
   });
 
   // The main process's provider list comes from a standalone `ModelRuntime`
@@ -138,7 +138,7 @@ export function warmProject(set: SetState, get: GetState, path: string): void {
   // registers (e.g. a custom-model bridge) is invisible until it's merged in
   // from this project's own session, which did run activation.
   void rpc.request.getSessionProviders({ projectDir: path, sessionFile }).then((r) => {
-    if (get().activeProjectPath !== path || r.error) return;
+    if (get().activeProjectPath !== path || get().activeSessionFile !== sessionFile || r.error) return;
     set({ providers: r.providers, providersLoaded: true });
   });
 
@@ -148,6 +148,7 @@ export function warmProject(set: SetState, get: GetState, path: string): void {
     const selectedModel = get().model;
     if (
       get().activeProjectPath !== path ||
+      get().activeSessionFile !== sessionFile ||
       !r.state ||
       (selectedModel ? modelKey(selectedModel) : undefined) !== modelBeforeLoad
     ) {
@@ -164,6 +165,7 @@ export function warmProject(set: SetState, get: GetState, path: string): void {
     const activeModel = get().model;
     if (
       get().activeProjectPath === path &&
+      get().activeSessionFile === sessionFile &&
       (activeModel ? modelKey(activeModel) : undefined) === loadedModel &&
       levels.levels.length > 0
     ) {
