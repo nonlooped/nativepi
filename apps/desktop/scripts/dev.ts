@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 const markerPath = join(tmpdir(), "nativepi-dev-run.json");
 const generation = randomUUID();
 const startedAt = Date.now();
+const web = process.argv.includes("--web");
 
 function git(...args: string[]) {
   const result = Bun.spawnSync(["git", ...args], {
@@ -26,12 +27,15 @@ const temporaryPath = `${markerPath}.${process.pid}`;
 await writeFile(temporaryPath, JSON.stringify(marker), "utf8");
 await rename(temporaryPath, markerPath);
 
+const env = {
+  ...process.env,
+  NATIVEPI_DEV_GENERATION: generation,
+  ...(web ? { NATIVEPI_WEB_DEV_PORT: "5174" } : {}),
+};
+
 const child = Bun.spawn([process.execPath, "x", "electron-vite", "dev"], {
   cwd: process.cwd(),
-  env: {
-    ...process.env,
-    NATIVEPI_DEV_GENERATION: generation,
-  },
+  env,
   stdin: "inherit",
   stdout: "inherit",
   stderr: "inherit",

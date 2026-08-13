@@ -38,6 +38,9 @@ bun install
 bun run dev
 ```
 
+For browser development, `bun run dev:web` runs the live renderer against the
+real local NativePi host instead of fixture data.
+
 The desktop application lives in `apps/desktop`. The public graphical extension
 contract lives in `packages/extension-api`.
 

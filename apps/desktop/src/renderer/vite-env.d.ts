@@ -6,6 +6,7 @@ declare module "apca-w3" {
 }
 
 declare const __NATIVEPI_DEV_GENERATION__: string;
+declare const __NATIVEPI_WEB_RPC_URL__: string;
 
 // The icon theme's manifest, typed by hand: it is a 450 kB JSON file, and the
 // three maps below are all this app reads out of it.

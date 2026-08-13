@@ -104,7 +104,9 @@ const allowedEvents: Record<HostEventName, true> = {
 };
 
 function createRemoteApi(): NativePiApi {
-  const token = new URLSearchParams(window.location.hash.slice(1)).get("token");
+  const token = __NATIVEPI_WEB_RPC_URL__
+    ? __NATIVEPI_DEV_GENERATION__
+    : new URLSearchParams(window.location.hash.slice(1)).get("token");
   let nextRequestId = 0;
   let socket: WebSocket | undefined;
   let connection: Promise<WebSocket> | undefined;
@@ -124,7 +126,9 @@ function createRemoteApi(): NativePiApi {
 
     connection = new Promise<WebSocket>((resolveConnection, rejectConnection) => {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const next = new WebSocket(`${protocol}//${window.location.host}/rpc`);
+      const next = new WebSocket(
+        __NATIVEPI_WEB_RPC_URL__ || `${protocol}//${window.location.host}/rpc`,
+      );
       socket = next;
       let ready = false;
 
@@ -184,7 +188,7 @@ function createRemoteApi(): NativePiApi {
   };
 
   return {
-    devGeneration: "",
+    devGeneration: __NATIVEPI_WEB_RPC_URL__ ? __NATIVEPI_DEV_GENERATION__ : "",
     // A browser hands over bytes, never a path, so every drop that depends on
     // one is inert here and the callers fall back to what a `File` can do.
     filePath: () => "",

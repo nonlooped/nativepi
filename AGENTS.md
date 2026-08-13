@@ -203,7 +203,7 @@ asks. Push and report the commit; let CI run in the background.
 
 ## Running the App
 
-Do not start a dev server, `electron-vite dev`, preview server, or any
+Do not start a dev server, `electron-vite dev`, the packaged app, or any other
 long-lived app process on your own initiative.
 
 A single NativePi window appears as several OS processes: the Vite dev server on
@@ -213,6 +213,12 @@ in use` can leave a stale instance serving old state, which looks convincingly
 like a data bug. When behavior seems impossible, suspect a leftover process
 before suspecting the code. Do not leave background processes running once a
 task is finished.
+
+`bun run dev:web` starts the normal Vite renderer on port 5173 and a loopback-only
+NativePi host on port 5174. It uses real project, session, and Pi data without
+opening an Electron window; it is not a fixture preview. It owns the same local
+state and Pi processes as the desktop app, so do not run both at once, and stop
+the command when testing finishes.
 
 ## Subagents
 

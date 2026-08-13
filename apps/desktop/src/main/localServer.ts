@@ -26,6 +26,8 @@ export interface LocalServerOptions {
   rendererDir: string;
   invoke: Invoke;
   subscribe: Subscribe;
+  port?: number;
+  token?: string;
 }
 
 const clientMessageSchema = z.discriminatedUnion("type", [
@@ -125,7 +127,7 @@ export async function startLocalServer(
   if (running?.localNetwork === localNetwork) return localServerStatus();
   if (running) await stopLocalServer();
 
-  const token = randomBytes(24).toString("base64url");
+  const token = options.token ?? randomBytes(24).toString("base64url");
   const rpcSockets = new Set<WebSocket>();
   const authenticatedRpcSockets = new Set<WebSocket>();
   const clients = new Map<WebSocket, AccessClient>();
@@ -222,7 +224,7 @@ export async function startLocalServer(
     };
     http.once("error", onError);
     http.once("listening", onListening);
-    http.listen(0, localNetwork ? "::" : "127.0.0.1");
+    http.listen(options.port ?? 0, localNetwork ? "::" : "127.0.0.1");
   });
 
   if (!http.address() || typeof http.address() === "string") {

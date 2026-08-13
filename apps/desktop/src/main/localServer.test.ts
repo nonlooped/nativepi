@@ -37,10 +37,12 @@ describe("local server", () => {
           pushEvent = undefined;
         };
       },
+      token: "development-token",
     });
 
     const link = new URL(status.link!);
     const token = new URLSearchParams(link.hash.slice(1)).get("token");
+    expect(token).toBe("development-token");
     const origin = `http://127.0.0.1:${link.port}`;
     expect(await (await fetch(origin)).text()).toContain("NativePi remote");
 

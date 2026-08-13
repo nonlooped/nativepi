@@ -24,6 +24,7 @@
   "scripts": {
     "postinstall": "cd apps/desktop && (bun run install-electron || (sleep 2 && bun run install-electron))",
     "dev": "cd apps/desktop && bun run dev",
+    "dev:web": "cd apps/desktop && bun run dev:web",
     "build": "cd apps/desktop && bun run build",
     "pack": "cd apps/desktop && bun run pack",
     "dist": "cd apps/desktop && bun run dist",

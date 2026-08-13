@@ -99,6 +99,10 @@ bun install
 bun run dev
 ```
 
+Use `bun run dev:web` to run the same renderer in a browser with hot reload and
+the real local NativePi host, Pi sessions, and project data. It binds the host
+bridge to loopback and does not open an Electron window.
+
 The desktop application lives in `apps/desktop`; the public graphical extension
 contract lives in `packages/extension-api`.
 

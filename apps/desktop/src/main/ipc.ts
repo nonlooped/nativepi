@@ -1590,6 +1590,19 @@ async function ensureLocalAccess(localNetwork: boolean): Promise<void> {
   }, localNetwork);
 }
 
+// Vite still needs the real NativePi host when its renderer is in a browser.
+// Reuse the browser transport, but keep this development bridge on loopback and
+// out of the Local Access lifecycle and settings.
+export async function startWebDevelopmentHost(port: number, token: string): Promise<void> {
+  await startLocalServer({
+    rendererDir: resolve(import.meta.dirname, "../renderer"),
+    invoke: invokeHostRequest,
+    subscribe: subscribeHostEvents,
+    port,
+    token,
+  }, false);
+}
+
 async function startRemoteAccessForCurrentServer(): Promise<void> {
   const connection = localServerConnection();
   if (!connection) throw new Error("NativePi could not start its access server.");

@@ -17,8 +17,12 @@ const materialIcons = resolve(
 // writes it outside the process, which lets an older window discover that a
 // newer launch was attempted even when that attempt lost the port race.
 const devGeneration = process.env["NATIVEPI_DEV_GENERATION"] ?? "";
+const webDevelopmentPort = process.env["NATIVEPI_WEB_DEV_PORT"] ?? "";
 const devDefine = {
   __NATIVEPI_DEV_GENERATION__: JSON.stringify(devGeneration),
+  __NATIVEPI_WEB_RPC_URL__: JSON.stringify(
+    webDevelopmentPort ? `ws://127.0.0.1:${webDevelopmentPort}/rpc` : "",
+  ),
 };
 
 export default defineConfig({

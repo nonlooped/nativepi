@@ -19,6 +19,7 @@
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "bun run scripts/dev.ts",
+    "dev:web": "bun run scripts/dev.ts --web",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
