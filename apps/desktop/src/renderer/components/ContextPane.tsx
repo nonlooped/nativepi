@@ -58,7 +58,7 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
   }, [view, projectDir, refreshRepoHost]);
 
   return (
-    <aside className="context-pane flex h-full min-w-48 flex-col bg-sidebar text-muted-foreground">
+    <aside className="context-pane flex h-full min-w-0 flex-col bg-sidebar text-muted-foreground">
       <header
         className={cn(
           "flex h-12 shrink-0 items-center px-3",

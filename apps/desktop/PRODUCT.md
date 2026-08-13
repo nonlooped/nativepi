@@ -32,7 +32,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Existing Pi credentials, configuration, sessions, packages, skills, prompts, and extensions remain in Pi's normal storage and remain usable by the Pi CLI.
 - NativePi keeps one Pi process per active chat, so chats in the same project and different projects may run concurrently.
 - Conversations open directly from Pi session files without waiting for a Pi process to start. Drafts remain editable and are restored if a cold send fails.
-- Narrow windows move project navigation and project context into sheets so the conversation and composer remain usable.
+- Narrow windows move the context pane into a sheet. On a phone, project navigation moves there too so the conversation and composer remain usable.
 
 ## Current Capabilities
 

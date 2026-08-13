@@ -307,9 +307,9 @@ function ThemeEditor({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl overflow-hidden">
+      <DialogContent className="max-w-2xl">
         <form
-          className="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden"
+          className="flex flex-col gap-5"
           onSubmit={(event) => {
             event.preventDefault();
             if (parsed.success && contrastIssues.length === 0) onSave(parsed.data);
@@ -320,8 +320,7 @@ function ThemeEditor({
             <DialogDescription>Changes stay in NativePi and take effect when you save.</DialogDescription>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 overflow-y-auto pe-1">
-            <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-5">
               <ThemePreview colors={draft.colors[variant]} />
 
               <FieldGroup>
@@ -378,7 +377,6 @@ function ThemeEditor({
                   </ul>
                 </div>
               ) : null}
-            </div>
           </div>
 
           <DialogFooter>
@@ -397,8 +395,8 @@ function ThemePreview({ colors }: { colors: ThemeColors }) {
       style={themePreviewStyle(colors)}
       className="overflow-hidden rounded-xl border border-border bg-background font-sans text-foreground"
     >
-      <div className="grid min-h-32 grid-cols-[7rem_1fr]">
-        <div className="border-e border-border bg-sidebar p-3">
+      <div className="grid min-h-32 grid-cols-1 sm:grid-cols-[7rem_1fr]">
+        <div className="border-b border-border bg-sidebar p-3 sm:border-e sm:border-b-0">
           <p className="font-heading text-xs font-semibold">Projects</p>
           <div className="mt-2 rounded-md bg-accent px-2 py-1.5 text-xs">NativePi</div>
           <p className="mt-2 truncate font-mono text-[0.625rem] text-muted-foreground">src/renderer</p>

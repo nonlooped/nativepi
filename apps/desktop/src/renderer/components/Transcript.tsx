@@ -182,7 +182,7 @@ function TranscriptContent() {
           ))}
           {retry && (
             <MessageScrollerItem>
-              <div role="alert" className="mx-auto flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+              <div role="alert" className="mx-auto flex flex-wrap items-center gap-3 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
                 <WarningCircleIcon className="shrink-0" />
                 <span className="min-w-0">
                   Retrying after an error (attempt {retry.attempt} of {retry.maxAttempts})
@@ -322,7 +322,7 @@ function RunStatusBar({
   return (
     <div
       className={cn(
-        "pointer-events-auto flex max-w-[calc(100%-2rem)] items-center rounded-full border bg-popover py-1 pr-1 text-xs text-popover-foreground shadow-lg",
+        "pointer-events-auto flex max-w-[calc(100%-2rem)] min-w-0 items-center rounded-full border bg-popover py-1 pr-1 text-xs text-popover-foreground shadow-lg",
         progress ? "gap-2 pl-3" : "pl-1",
       )}
     >
@@ -351,10 +351,10 @@ function RunStatusBar({
           ) : null}
           {changed > 0 ? (
             <>
-              <span aria-hidden="true" className="text-muted-foreground/50">
+              <span aria-hidden="true" className="hidden text-muted-foreground/50 min-[380px]:inline">
                 ·
               </span>
-              <span className="shrink-0 truncate text-muted-foreground">{pluralize(changed, "file")} changed</span>
+              <span className="hidden shrink-0 truncate text-muted-foreground min-[380px]:inline">{pluralize(changed, "file")} changed</span>
             </>
           ) : null}
         </>
@@ -385,7 +385,7 @@ function RunStatusBar({
  */
 function RunDoneBar({ elapsed, files, stopped }: { elapsed: string; files: number; stopped: boolean }) {
   return (
-    <div className="pointer-events-auto flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full border bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-lg">
+    <div className="pointer-events-auto flex max-w-[calc(100%-2rem)] min-w-0 items-center gap-2 rounded-full border bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-lg">
       {stopped ? (
         <StopIcon weight="fill" className="shrink-0 text-muted-foreground" />
       ) : (
@@ -396,10 +396,10 @@ function RunDoneBar({ elapsed, files, stopped }: { elapsed: string; files: numbe
       </span>
       {files > 0 ? (
         <>
-          <span aria-hidden="true" className="text-muted-foreground/50">
+          <span aria-hidden="true" className="hidden text-muted-foreground/50 min-[380px]:inline">
             ·
           </span>
-          <span className="shrink-0 truncate text-muted-foreground">{pluralize(files, "file")} changed</span>
+          <span className="hidden shrink-0 truncate text-muted-foreground min-[380px]:inline">{pluralize(files, "file")} changed</span>
         </>
       ) : null}
     </div>

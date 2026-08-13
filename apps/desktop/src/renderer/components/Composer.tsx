@@ -129,7 +129,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
       <div
         className={cn(
           "flex shrink-0 flex-col gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
-          prominent ? "w-full p-0" : cn(SCROLLBAR_GUTTER_OFFSET, "pt-2"),
+          prominent ? "w-full px-0 pt-0" : cn(SCROLLBAR_GUTTER_OFFSET, "pt-2"),
         )}
       >
         <ExtensionStatuses />
@@ -151,7 +151,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
     <div
       className={cn(
         "flex shrink-0 flex-col gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
-        prominent ? "w-full p-0" : cn(SCROLLBAR_GUTTER_OFFSET, "pt-2"),
+        prominent ? "w-full px-0 pt-0" : cn(SCROLLBAR_GUTTER_OFFSET, "pt-2"),
       )}
     >
       <ExtensionStatuses />
@@ -463,7 +463,7 @@ function ThinkingSelector() {
       <MenuTrigger
         title={withHint("How much the model reasons before answering", "cycleThinking", keybindingOverrides)}
         aria-label={`Reasoning level: ${thinkingLabel(thinkingLevel)}`}
-        className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         {/* "Off" alone is an adjective with no noun: beside a model name it reads
             as if something about the model is switched off. */}
@@ -529,7 +529,7 @@ function BranchSelector() {
         disabled={running}
         title={running ? "Stop the current run before switching branches" : "Switch branch"}
         aria-label={`Branch: ${label}`}
-        className="flex h-8 max-w-48 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+        className="flex h-8 min-w-0 max-w-48 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
       >
         <GitBranchIcon className="shrink-0" />
         <span className="truncate">{label}</span>

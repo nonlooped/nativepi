@@ -3,22 +3,31 @@ import { useEffect, useState } from "react";
 /**
  * How much room the window has for panes.
  *
- * `wide` docks both side panes, `narrow` moves the context pane into a sheet,
- * and `compact` moves project navigation there too. The thresholds live here
- * rather than in Tailwind breakpoints because the settings screen and the
- * workspace have to agree on them.
+ * `wide` docks both side panes, `narrow` keeps the project sidebar and sheets
+ * the context pane, and `compact` sheets project navigation too.
+ *
+ * The desktop window cannot shrink below 720px, so `compact` is for a phone
+ * (or a browser tab that narrow) rather than a resized NativePi window. A
+ * tablet or a 720px desktop window is `narrow`: two columns, conversation
+ * protected, context in a sheet.
+ *
+ * The thresholds live here rather than in Tailwind breakpoints because the
+ * settings screen and the workspace have to agree on them.
  */
 export type WorkspaceLayout = "wide" | "narrow" | "compact";
 
-const COMPACT_MAX = 899;
-const NARROW_MAX = 1099;
-const PHONE_MAX = 639;
+export const COMPACT_MAX = 639;
+export const NARROW_MAX = 1099;
+
+export function workspaceLayoutFor(width: number): WorkspaceLayout {
+  if (width <= COMPACT_MAX) return "compact";
+  if (width <= NARROW_MAX) return "narrow";
+  return "wide";
+}
 
 function currentWorkspaceLayout(): WorkspaceLayout {
   if (typeof window === "undefined") return "wide";
-  if (window.matchMedia(`(max-width: ${COMPACT_MAX}px)`).matches) return "compact";
-  if (window.matchMedia(`(max-width: ${NARROW_MAX}px)`).matches) return "narrow";
-  return "wide";
+  return workspaceLayoutFor(window.innerWidth);
 }
 
 export function useWorkspaceLayout(): WorkspaceLayout {
@@ -41,15 +50,5 @@ export function useWorkspaceLayout(): WorkspaceLayout {
 }
 
 export function usePhoneLayout(): boolean {
-  const [phone, setPhone] = useState(() => typeof window !== "undefined" && window.matchMedia(`(max-width: ${PHONE_MAX}px)`).matches);
-
-  useEffect(() => {
-    const media = window.matchMedia(`(max-width: ${PHONE_MAX}px)`);
-    const update = () => setPhone(media.matches);
-    media.addEventListener("change", update);
-    update();
-    return () => media.removeEventListener("change", update);
-  }, []);
-
-  return phone;
+  return useWorkspaceLayout() === "compact";
 }

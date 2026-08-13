@@ -173,9 +173,9 @@ export default function SourceControl({
           <Badge variant="secondary">{stagedFiles.length} staged</Badge>
         </div>
         <Field>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <FieldLabel htmlFor="source-control-message">Commit message</FieldLabel>
-            <span className="flex-1" />
+            <span className="min-w-0 flex-1" />
             <Button variant="ghost" size="xs" onClick={() => void generate()} disabled={!canGenerate} title="Generate a commit message with Pi">
               <SparkleIcon data-icon="inline-start" />
               {generating ? "Writing…" : "Write with Pi"}

@@ -185,7 +185,7 @@ export default function App() {
                   ) : (
                     <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-8 sm:px-6">
                       <div className="my-auto flex w-full max-w-(--conversation-width) flex-col items-center gap-4">
-                        <h1 className="font-heading text-2xl font-semibold tracking-tight">What would you like to work on?</h1>
+                        <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">What would you like to work on?</h1>
                         <Composer prominent />
                       </div>
                     </div>
@@ -281,7 +281,7 @@ export default function App() {
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="w-[min(42rem,92vw)] border-sidebar-border bg-sidebar p-0 sm:max-w-none"
+            className="w-[min(28rem,92vw)] border-sidebar-border bg-sidebar p-0 sm:max-w-none"
           >
             <SheetTitle className="sr-only">Project context</SheetTitle>
             <SheetDescription className="sr-only">Manage source control, browse project files, and review extension panels.</SheetDescription>
@@ -456,7 +456,7 @@ function WorkspaceHeader({
           <SidebarSimpleIcon />
         </Button>
       ) : null}
-      <div className="min-w-24 flex-1 self-stretch">
+      <div className="min-w-0 flex-1 self-stretch">
         {activeProjectPath ? (
           // The project half of the breadcrumb is the first thing to go when the
           // header runs out of room: the sidebar the user just came from already
@@ -708,7 +708,7 @@ function ErrorBanner() {
     <div className={`mx-auto w-full max-w-(--conversation-width) px-4 pb-2 ${SCROLLBAR_GUTTER_OFFSET}`}>
       <div
         role="alert"
-        className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
+        className="flex flex-wrap items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
       >
         <WarningCircleIcon weight="fill" className="mt-0.5 shrink-0" />
         {/* A plain-language headline first: the raw message below is often a
@@ -773,7 +773,7 @@ function WelcomeScreen() {
       <div className="my-auto flex max-w-md flex-col items-center gap-6 text-center">
         <NativePiWordmark display />
         <div className="flex flex-col gap-2">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">Start building with NativePi</h1>
+          <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">Start building with NativePi</h1>
           {/* The first question an existing Pi user has is whether this is a
               second setup to maintain. It is not, and that is worth saying
               before the three steps ask them to connect anything. */}

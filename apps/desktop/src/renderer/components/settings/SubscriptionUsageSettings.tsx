@@ -177,7 +177,7 @@ function Header({ onRefresh, loading }: { onRefresh: () => void; loading: boolea
   return (
     <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="flex flex-col gap-1.5">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">Subscriptions</h1>
+        <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">Subscriptions</h1>
         <p className="text-sm leading-6 text-body-muted-foreground">
           Usage limits for every connected provider that reports them.
         </p>

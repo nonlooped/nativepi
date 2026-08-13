@@ -67,7 +67,7 @@ export default function ModelSelector() {
       <MenuTrigger
         disabled={models.length === 0}
         title={models.length === 0 ? "Loading models from Pi…" : "Change model"}
-        className="flex h-8 max-w-56 items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+        className="flex h-8 min-w-0 max-w-56 items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
       >
         {model ? <ModelProviderIcon provider={model.provider} /> : null}
         <span className="truncate">{models.length === 0 ? "Loading models…" : label}</span>

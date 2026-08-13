@@ -39,7 +39,7 @@ export default function UsageSettings() {
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex flex-col gap-1.5">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">Usage</h1>
+          <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">Usage</h1>
           <p className="text-sm text-body-muted-foreground">{period}</p>
         </div>
 
@@ -75,11 +75,12 @@ export default function UsageSettings() {
               size="sm"
               spacing={0}
               aria-label="Date range"
+              className="min-w-0 flex-1 sm:flex-none"
             >
-              <ToggleGroupItem value="7">7 days</ToggleGroupItem>
-              <ToggleGroupItem value="30">30 days</ToggleGroupItem>
-              <ToggleGroupItem value="90">90 days</ToggleGroupItem>
-              <ToggleGroupItem value="all">All</ToggleGroupItem>
+              <ToggleGroupItem value="7" className="flex-1 px-2 sm:flex-none">7 days</ToggleGroupItem>
+              <ToggleGroupItem value="30" className="flex-1 px-2 sm:flex-none">30 days</ToggleGroupItem>
+              <ToggleGroupItem value="90" className="flex-1 px-2 sm:flex-none">90 days</ToggleGroupItem>
+              <ToggleGroupItem value="all" className="flex-1 px-2 sm:flex-none">All</ToggleGroupItem>
             </ToggleGroup>
             <Button
               variant="outline"

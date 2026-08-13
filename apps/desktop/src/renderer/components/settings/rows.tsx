@@ -241,7 +241,7 @@ export function Segmented<T extends string>({
       }}
       spacing={0}
       aria-label={label}
-      className={cn("h-10 w-full rounded-md border p-0.5 sm:w-auto", className)}
+      className={cn("h-auto min-h-10 w-full flex-wrap rounded-md border p-0.5 sm:h-10 sm:w-auto sm:flex-nowrap", className)}
     >
       {options.map((option) => (
         <ToggleGroupItem

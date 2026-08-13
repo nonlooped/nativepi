@@ -139,7 +139,7 @@ export function PiStartingNotice() {
         role="status"
         aria-live="polite"
         className={cn(
-          "flex items-center gap-2 rounded-full bg-popover py-1.5 pr-3 pl-2.5 text-xs text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-150",
+          "flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-full bg-popover py-1.5 pr-3 pl-2.5 text-xs text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-150",
           phase === "entering"
             ? "animate-in fade-in-0 slide-in-from-top-1"
             : "animate-out fade-out-0 slide-out-to-top-1",

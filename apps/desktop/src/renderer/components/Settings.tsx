@@ -155,7 +155,7 @@ export default function Settings() {
                 </Button>
               </>
             ) : null}
-            <span className="text-xs font-medium text-muted-foreground">Settings / {category}</span>
+            <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">Settings / {category}</span>
             <div className="flex-1" />
             <RunningAgentBadge />
           </header>
@@ -168,7 +168,7 @@ export default function Settings() {
           >
             {category !== "Usage" && category !== "Subscriptions" ? (
               <div className="mb-8 flex flex-col gap-2 sm:mb-12">
-                <h1 className="font-heading text-2xl font-semibold tracking-tight">{category}</h1>
+                <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">{category}</h1>
                 {blurb ? <p className="text-sm leading-6 text-body-muted-foreground">{blurb}</p> : null}
               </div>
             ) : null}
