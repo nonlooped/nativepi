@@ -83,8 +83,8 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
           variant="ghost"
           size="icon"
           onClick={onClose ?? toggleContextPane}
-          title={withHint("Hide project pane", "toggleContextPane", keybindingOverrides)}
-          aria-label="Hide project pane"
+          title={withHint("Hide files and changes", "toggleContextPane", keybindingOverrides)}
+          aria-label="Hide files and changes"
         >
           <SidebarSimpleIcon className="-scale-x-100" />
         </Button>

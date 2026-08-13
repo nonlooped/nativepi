@@ -294,7 +294,7 @@ export default function AccessSettings() {
             </DialogDescription>
           </DialogHeader>
           {/* The code needs a light quiet zone to scan against a dark app. */}
-          <div className="mx-auto rounded-md bg-white p-3">
+          <div className="mx-auto rounded-md bg-qr-background p-3">
             {showing ? <QRCodeSVG value={showing.link} size={192} /> : null}
           </div>
           <p className="font-mono text-xs break-all text-muted-foreground">{showing?.link}</p>

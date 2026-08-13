@@ -5,10 +5,12 @@ import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
+import { GitDiffIcon } from "@phosphor-icons/react/GitDiff";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { SlidersHorizontalIcon } from "@phosphor-icons/react/SlidersHorizontal";
 import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
+import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
 import { XIcon } from "@phosphor-icons/react/X";
 import Sidebar from "./components/Sidebar.tsx";
 import Composer from "./components/Composer.tsx";
@@ -18,15 +20,16 @@ import ExtensionUi from "./components/ExtensionUi.tsx";
 import NativePiWordmark from "./components/NativePiWordmark.tsx";
 import ProjectStatus, { PiStartingNotice } from "./components/ProjectStatus.tsx";
 import QuitDialog from "./components/QuitDialog.tsx";
-import OpenWith from "./components/OpenWith.tsx";
 import Toaster from "./components/Toaster.tsx";
 import TrustDialog from "./components/TrustDialog.tsx";
 import WindowControls from "./components/WindowControls.tsx";
 import { activeConversation, useAppStore } from "./lib/store.ts";
+import { startNewChatFlow } from "./lib/newChat.ts";
 import { isRemote } from "./lib/rpc.ts";
 import { chatTitle } from "./lib/transcript.ts";
 import { bindingFor, bindings, hintFor, withHint } from "./lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
+import { Input } from "@/components/ui/input.tsx";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,7 +43,7 @@ import {
   useCollapsiblePanel,
 } from "@/components/ui/resizable.tsx";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet.tsx";
-import { DRAG_REGION, NO_DRAG_REGION, SCROLLBAR_GUTTER_OFFSET, WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
+import { DRAG_REGION, NO_DRAG_REGION, SCROLLBAR_GUTTER_OFFSET, TRAFFIC_LIGHTS_CLEARANCE, WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { useTurnCompletionSignal } from "./lib/completion.ts";
 import { useAppearance } from "./lib/appearance.ts";
 import { useWorkspaceLayout, type WorkspaceLayout } from "./lib/layout.ts";
@@ -58,6 +61,9 @@ export default function App() {
   const init = useAppStore((s) => s.init);
   const ready = useAppStore((s) => s.ready);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
+  const activeProjectName = useAppStore(
+    (s) => s.projects.find((project) => project.path === s.activeProjectPath)?.name,
+  );
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const error = useAppStore((s) => activeConversation(s).error);
   const externalChange = useAppStore((s) => activeConversation(s).externalChange);
@@ -66,6 +72,7 @@ export default function App() {
     return c.entries.length > 0 || !!c.streaming || c.pending.length > 0 || c.running;
   });
   const settingsOpen = useAppStore((s) => s.settingsOpen);
+  const closeSettings = useAppStore((s) => s.closeSettings);
   const contextPaneOpen = useAppStore((s) => s.contextPaneOpen);
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
@@ -84,6 +91,7 @@ export default function App() {
   const contextDocked = layout === "wide" && contextPaneOpen;
   const contextPanelRef = useCollapsiblePanel(contextPaneOpen, layout === "wide" ? activeProjectPath : null);
   const terminalOpen = activeProjectPath ? terminalProjects.has(activeProjectPath) : false;
+  const branchMenuRequested = useAppStore((s) => s.branchMenuRequested);
 
   const toggleTerminal = () => {
     if (!activeProjectPath) return;
@@ -105,6 +113,10 @@ export default function App() {
   }, [layout]);
 
   useEffect(() => setExtensionView(null), [activeProjectPath, activeSessionFile]);
+
+  useEffect(() => {
+    if (branchMenuRequested && layout !== "wide") setContextSheetOpen(true);
+  }, [branchMenuRequested, layout]);
 
   useWorkspaceShortcuts(
     layout,
@@ -136,7 +148,7 @@ export default function App() {
   }
 
   return (
-    <div className="relative h-full overflow-hidden bg-background text-foreground">
+    <div className="app-viewport relative h-full overflow-hidden bg-background text-foreground">
       {/* Settings is an overlay, not a replacement. It used to early-return over
           the whole app, unmounting the transcript, composer and run status while
           an agent was mid-edit — and its most likely entry point is the
@@ -149,7 +161,7 @@ export default function App() {
             layoutKey={contextDocked}
             onClose={() => setSidebarOpen(false)}
             onOpenSearch={() => setSearchOpen(true)}
-            onOpenNewChat={() => setNewChatProjectOpen(true)}
+            onOpenNewChat={() => startNewChatFlow(() => setNewChatProjectOpen(true))}
           />
         ) : null}
         <ResizablePanel id="conversation" minSize="35%">
@@ -185,7 +197,9 @@ export default function App() {
                   ) : (
                     <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-8 sm:px-6">
                       <div className="my-auto flex w-full max-w-(--conversation-width) flex-col items-center gap-4">
-                        <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">What would you like to work on?</h1>
+                        <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">
+                          Working in {activeProjectName ?? "this project"}
+                        </h1>
                         <Composer prominent />
                       </div>
                     </div>
@@ -218,7 +232,7 @@ export default function App() {
             <ResizableHandle
               disabled={!contextPaneOpen}
               className={cn(
-                "transition-[width,opacity,background-color] duration-200 ease-linear hover:bg-ring focus-visible:bg-ring",
+                "transition-[opacity,background-color] duration-200 ease-out hover:bg-ring focus-visible:bg-ring",
                 !contextPaneOpen && "w-0 opacity-0 after:hidden",
               )}
             />
@@ -233,7 +247,7 @@ export default function App() {
               data-pane-motion="right"
               inert={!contextPaneOpen || undefined}
               className={cn(
-                "h-full transition-[opacity,translate] duration-200 ease-linear",
+                "h-full transition-[opacity,translate] duration-200 ease-out",
                 contextPaneOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-full opacity-0",
               )}
               onResize={(size, _id, previousSize) => {
@@ -269,7 +283,7 @@ export default function App() {
               }}
               onOpenNewChat={() => {
                 setSidebarSheetOpen(false);
-                setNewChatProjectOpen(true);
+                startNewChatFlow(() => setNewChatProjectOpen(true));
               }}
             />
           </SheetContent>
@@ -284,7 +298,7 @@ export default function App() {
             className="w-[min(28rem,92vw)] border-sidebar-border bg-sidebar p-0 sm:max-w-none"
           >
             <SheetTitle className="sr-only">Project context</SheetTitle>
-            <SheetDescription className="sr-only">Manage source control, browse project files, and review extension panels.</SheetDescription>
+            <SheetDescription className="sr-only">Browse files and changes, and review extension panels.</SheetDescription>
             {contextSheetOpen ? (
               <Suspense fallback={<SurfaceLoading label="Loading project context…" />}>
                 <ContextPane onClose={() => setContextSheetOpen(false)} />
@@ -315,10 +329,21 @@ export default function App() {
       ) : null}
 
       {settingsOpen ? (
-        <div className="absolute inset-0 z-40 bg-background">
-          <Suspense fallback={<SurfaceLoading label="Loading settings…" />}>
-            <Settings />
-          </Suspense>
+        <div
+          className="fixed inset-0 z-40 bg-overlay p-0 sm:p-5"
+          onClick={closeSettings}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Settings"
+            className="settings-viewport h-full w-full overflow-hidden bg-background sm:rounded-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Suspense fallback={<SurfaceLoading label="Loading settings…" />}>
+              <Settings />
+            </Suspense>
+          </div>
         </div>
       ) : null}
 
@@ -439,10 +464,12 @@ function WorkspaceHeader({
   );
   const title = isNewChat ? "New chat" : activeSession ? chatTitle(activeSession) : "Untitled chat";
   const compact = layout === "compact";
+  const sharing = useAppStore((s) => s.accessHandoffs.length > 0);
+  const openSettings = useAppStore((s) => s.openSettings);
 
   return (
     <header
-      className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-2 pr-2 pl-2 sm:pl-5 ${contextDocked ? "" : WINDOW_CONTROLS_CLEARANCE}`}
+      className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-2 pr-2 pl-2 sm:pl-5 ${sidebarDocked ? "" : TRAFFIC_LIGHTS_CLEARANCE} ${contextDocked ? "" : WINDOW_CONTROLS_CLEARANCE}`}
     >
       {!sidebarDocked ? (
         <Button
@@ -469,9 +496,13 @@ function WorkspaceHeader({
             <span aria-hidden="true" className="hidden shrink-0 text-muted-foreground/50 sm:inline">
               /
             </span>
-            <span className="min-w-0 max-w-80 truncate" title={title}>
-              {title}
-            </span>
+            {activeSession && !isNewChat ? (
+              <ChatTitle sessionPath={activeSession.path} title={title} />
+            ) : (
+              <span className="min-w-0 max-w-80 truncate" title={title}>
+                {title}
+              </span>
+            )}
           </div>
         ) : (
           <NativePiWordmark className="flex h-full items-center" />
@@ -482,10 +513,18 @@ function WorkspaceHeader({
           <ExtensionConversationControls active={extensionView} onSelect={onSelectExtensionView} />
         </div>
       ) : null}
-      {/* Opens an editor on the machine running Pi, which is not the machine
-          holding the phone — and it is the widest control in the header. It
-          stays in the sidebar's project menu. */}
-      {activeProjectPath && !compact ? <OpenWith projectDir={activeProjectPath} /> : null}
+      {sharing ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => openSettings("Access")}
+          title="A remote access link was shared from this window"
+          className={NO_DRAG_REGION}
+        >
+          <WifiHighIcon data-icon="inline-start" />
+          Sharing
+        </Button>
+      ) : null}
       {activeProjectPath ? <ProjectStatus compact={compact} className={NO_DRAG_REGION} /> : null}
       {activeProjectPath ? (
         <Button
@@ -515,18 +554,86 @@ function WorkspaceHeader({
           variant="ghost"
           size="icon-sm"
           onClick={onOpenContext}
-          title={withHint("Show source control", "toggleContextPane", keybindingOverrides)}
-          aria-label="Show source control"
+          title={withHint("Show files and changes", "toggleContextPane", keybindingOverrides)}
+          aria-label="Show files and changes"
           // Always false while rendered — the button leaves the header once the
           // pane is docked — but the attribute still tells assistive tech this
           // is a pane toggle, matching the terminal button beside it.
           aria-pressed={false}
           className={NO_DRAG_REGION}
         >
-          <SidebarSimpleIcon className="-scale-x-100" />
+          <GitDiffIcon />
         </Button>
       ) : null}
     </header>
+  );
+}
+
+function ChatTitle({ sessionPath, title }: { sessionPath: string; title: string }) {
+  const renameChat = useAppStore((s) => s.renameChat);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(title);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setName(title);
+  }, [editing, title]);
+
+  async function save() {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === title) {
+      setEditing(false);
+      setName(title);
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await renameChat(sessionPath, trimmed);
+      if (res.ok) setEditing(false);
+      else setName(title);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        title="Rename chat"
+        aria-label={`Rename ${title}`}
+        onClick={() => setEditing(true)}
+        className={cn(
+          NO_DRAG_REGION,
+          "min-w-0 max-w-80 truncate rounded-md px-1 py-0.5 text-left outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
+        )}
+      >
+        {title}
+      </button>
+    );
+  }
+
+  return (
+    <Input
+      autoFocus
+      value={name}
+      disabled={saving}
+      aria-label="Chat name"
+      onChange={(event) => setName(event.target.value)}
+      onBlur={() => void save()}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          void save();
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setName(title);
+          setEditing(false);
+        }
+      }}
+      className={cn(NO_DRAG_REGION, "h-7 max-w-80 min-w-32 px-2 text-sm")}
+    />
   );
 }
 
@@ -657,7 +764,7 @@ function useWorkspaceShortcuts(
         newChat: always(() => {
           closeSettings();
           setSidebarSheetOpen(false);
-          setNewChatProjectOpen(true);
+          startNewChatFlow(() => setNewChatProjectOpen(true));
         }),
 
         importChat: withProject(() => {

@@ -399,7 +399,7 @@ function ThemePreview({ colors }: { colors: ThemeColors }) {
         <div className="border-b border-border bg-sidebar p-3 sm:border-e sm:border-b-0">
           <p className="font-heading text-xs font-semibold">Projects</p>
           <div className="mt-2 rounded-md bg-accent px-2 py-1.5 text-xs">NativePi</div>
-          <p className="mt-2 truncate font-mono text-[0.625rem] text-muted-foreground">src/renderer</p>
+          <p className="mt-2 truncate font-mono text-xs text-muted-foreground">src/renderer</p>
         </div>
         <div className="flex min-w-0 flex-col justify-between p-3">
           <div>

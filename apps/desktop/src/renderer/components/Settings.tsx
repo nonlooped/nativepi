@@ -19,7 +19,7 @@ import { isRemote } from "../lib/rpc.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.tsx";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet.tsx";
-import { DRAG_REGION, NO_DRAG_REGION, WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
+import { DRAG_REGION, NO_DRAG_REGION, TRAFFIC_LIGHTS_CLEARANCE, WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { useWorkspaceLayout } from "../lib/layout.ts";
 import ExtensionsManager from "./ExtensionsManager.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
@@ -47,17 +47,17 @@ import UsageSettings from "./settings/UsageSettings.tsx";
  * The order runs from what everyone touches to what almost nobody does.
  */
 export const CATEGORIES = [
-  { name: "General", icon: GearSixIcon, blurb: "Startup, notifications, and chat titles." },
   { name: "Appearance", icon: PaintBrushIcon, blurb: "Color schemes, layout, scale, diffs, and motion." },
-  { name: "Agent", icon: BrainIcon, blurb: "How Pi runs a turn. Shared with the Pi command line." },
   { name: "Providers", icon: PlugsConnectedIcon, blurb: "Sign in to model providers. Pi stores the credentials." },
+  { name: "Agent", icon: BrainIcon, blurb: "How Pi runs a turn. Shared with the Pi command line." },
+  { name: "Keyboard", icon: KeyboardIcon, blurb: "Every shortcut, and how to change it." },
+  { name: "General", icon: GearSixIcon, blurb: "Startup and notifications." },
   { name: "Extensions", icon: PuzzlePieceIcon, blurb: "Pi packages and their NativePi surfaces." },
   { name: "Terminal", icon: TerminalWindowIcon, blurb: "The terminal panel, and the shell Pi runs commands in." },
   { name: "Access", icon: WifiHighIcon, blurb: "Reach this window from another device." },
   { name: "Usage", icon: ChartLineUpIcon, blurb: "Spend and tokens recorded in Pi session files." },
   { name: "Subscriptions", icon: ChartDonutIcon, blurb: "Subscription limits for every connected provider." },
   { name: "Advanced", icon: SlidersHorizontalIcon, blurb: "Trust, networking, and what Pi reports." },
-  { name: "Keyboard", icon: KeyboardIcon, blurb: "Every shortcut, and how to change it." },
   { name: "About", icon: InfoIcon, blurb: "Versions, updates, and where Pi keeps its files." },
 ] as const;
 
@@ -70,7 +70,7 @@ export default function Settings() {
   const closeSettings = useAppStore((s) => s.closeSettings);
   const loadPiSettings = useAppStore((s) => s.loadPiSettings);
   const initialCategory = useAppStore((s) => s.settingsCategory) as Category | null;
-  const [category, setCategory] = useState<Category>((initialCategory as Category) ?? "General");
+  const [category, setCategory] = useState<Category>((initialCategory as Category) ?? "Appearance");
 
   useEffect(() => {
     if (initialCategory) setCategory(initialCategory as Category);
@@ -132,7 +132,12 @@ export default function Settings() {
       <ResizablePanel id="settings" minSize="35%">
         <main className="h-full min-w-0 overflow-y-auto">
           <header
-            className={cn("flex h-12 items-center gap-2 px-4 sm:px-10", WINDOW_CONTROLS_CLEARANCE, DRAG_REGION)}
+            className={cn(
+              "flex h-12 items-center gap-2 px-5 sm:px-10",
+              WINDOW_CONTROLS_CLEARANCE,
+              !railDocked && TRAFFIC_LIGHTS_CLEARANCE,
+              DRAG_REGION,
+            )}
           >
             {!railDocked ? (
               <>
@@ -162,13 +167,13 @@ export default function Settings() {
 
           <div
             className={cn(
-              "mx-auto w-full px-4 pb-16 pt-8 sm:px-10 sm:pt-12",
+              "mx-auto w-full px-5 pb-16 pt-8 sm:px-10 sm:pt-12",
               category === "Usage" || category === "Subscriptions" ? "max-w-6xl" : "max-w-3xl",
             )}
           >
             {category !== "Usage" && category !== "Subscriptions" ? (
               <div className="mb-8 flex flex-col gap-2 sm:mb-12">
-                <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">{category}</h1>
+                <h1 className="font-heading text-2xl font-semibold tracking-tight">{category}</h1>
                 {blurb ? <p className="text-sm leading-6 text-body-muted-foreground">{blurb}</p> : null}
               </div>
             ) : null}

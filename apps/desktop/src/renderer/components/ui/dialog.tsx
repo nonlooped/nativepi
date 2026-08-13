@@ -20,7 +20,7 @@ function DialogContent({
 }) {
   return (
     <BaseDialog.Portal>
-      <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-black/70 transition-opacity duration-200 ease-out data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+      <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-overlay transition-opacity duration-200 ease-out data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
       <BaseDialog.Popup
         className={cn(
           // `max-w-md` alone leaves a dialog flush against both edges of any

@@ -11,7 +11,7 @@ function ResizablePanelGroup({
     <ResizablePrimitive.Group
       data-slot="resizable-panel-group"
       className={cn(
-        "flex h-full w-full aria-[orientation=vertical]:flex-col",
+        "panel-group-viewport flex h-full w-full aria-[orientation=vertical]:flex-col",
         className
       )}
       {...props}
@@ -19,7 +19,7 @@ function ResizablePanelGroup({
   )
 }
 
-function ResizablePanel({ style, ...props }: ResizablePrimitive.PanelProps) {
+function ResizablePanel({ className, style, ...props }: ResizablePrimitive.PanelProps) {
   // The library gives its inner content wrapper an inline `overflow: auto`, which
   // a class cannot override. Every panel here is a full-height shell that owns its
   // own scroller, so that wrapper only ever let the whole shell — header, timeline
@@ -27,6 +27,7 @@ function ResizablePanel({ style, ...props }: ResizablePrimitive.PanelProps) {
   return (
     <ResizablePrimitive.Panel
       data-slot="resizable-panel"
+      className={cn("panel-viewport", className)}
       style={{ overflow: "hidden", minHeight: 0, ...style }}
       {...props}
     />

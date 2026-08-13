@@ -92,14 +92,14 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
 /* Keeps the composer optically centred under a transcript that reserves a
    classic scrollbar gutter. Touch platforms overlay their scrollbars, so there
    is no gutter to compensate for and the padding returns to matching the
-   left-hand `px-4` of every element that uses this. */
+   left-hand `px-5` of every element that uses this. */
 .scrollbar-gutter-offset {
-  padding-right: 26px;
+  padding-right: 30px;
 }
 
 @media (pointer: coarse) {
   .scrollbar-gutter-offset {
-    padding-right: 1rem;
+    padding-right: 1.25rem;
   }
 }
 
@@ -221,6 +221,8 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   --border: oklch(0.895 0.008 75);
   --input: oklch(0.895 0.008 75);
   --ring: oklch(0.62 0.015 286.067);
+  --overlay: oklch(0 0 0 / 58%);
+  --qr-background: oklch(1 0 0);
   --chart-1: #2458b8;
   --chart-2: #7540a8;
   --chart-3: #a84b19;
@@ -341,6 +343,8 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
+  --color-qr-background: var(--qr-background);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
@@ -387,9 +391,7 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
 }
 
 .conversation-shell {
-  background:
-    radial-gradient(circle at 50% -20%, color-mix(in oklch, var(--foreground) 4%, transparent), transparent 38%),
-    var(--background);
+  background: var(--background);
 }
 
 .terminal-surface .xterm,
@@ -440,7 +442,7 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   white-space: nowrap;
   color: var(--foreground);
   font-family: "Departure Mono", ui-monospace, monospace;
-  font-size: 1.375rem;
+  font-size: 1.5rem;
   font-variant-ligatures: none;
   font-weight: 400;
   letter-spacing: -0.04em;
@@ -473,19 +475,18 @@ html:not(.dark) .composer-surface {
     inset 0 0 0 1px oklch(0.22 0.007 285 / 6%);
 }
 
-
-
-html:not(.dark) .conversation-shell {
-  background:
-    radial-gradient(circle at 50% -20%, oklch(0.22 0.007 285 / 3%), transparent 42%),
-    var(--background);
-}
-
 /* Markdown is intentionally styled here rather than by its parser. That keeps
    transcripts on NativePi's type, shape and semantic color system. */
 .markdown {
   min-width: 0;
   overflow-wrap: break-word;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown blockquote {
+  max-width: 66ch;
 }
 
 .markdown > :first-child {
@@ -522,9 +523,9 @@ html:not(.dark) .conversation-shell {
   text-wrap: balance;
 }
 
-.markdown h1 { font-size: 1.375rem; }
-.markdown h2 { font-size: 1.1875rem; }
-.markdown h3 { font-size: 1.0625rem; }
+.markdown h1 { font-size: 1.5rem; }
+.markdown h2 { font-size: 1.25rem; }
+.markdown h3 { font-size: 1rem; }
 .markdown h4,
 .markdown h5,
 .markdown h6 { font-size: 0.9375rem; }
@@ -574,12 +575,8 @@ html:not(.dark) .conversation-shell {
   height: auto;
   margin-block: 0.75rem;
   border-radius: var(--radius-lg);
-  outline: 1px solid oklch(0 0 0 / 10%);
+  outline: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
   outline-offset: -1px;
-}
-
-.dark .markdown img {
-  outline-color: oklch(1 0 0 / 10%);
 }
 
 .markdown :not(pre) > code {
@@ -624,7 +621,7 @@ html:not(.dark) .conversation-shell {
   padding: 0.875rem 1rem;
   background: color-mix(in oklch, var(--background) 45%, transparent);
   font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   line-height: 1.6;
   tab-size: 2;
 }
@@ -668,7 +665,7 @@ html:not(.dark) .conversation-shell {
   width: 100%;
   min-width: max-content;
   border-collapse: collapse;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 
@@ -706,7 +703,7 @@ html:not(.dark) .conversation-shell {
   display: block;
   padding: 0.75rem 1rem;
   color: var(--muted-foreground);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
 }
 
 .markdown-diagram-error > span {
@@ -726,24 +723,13 @@ html:not(.dark) .conversation-shell {
   height: 1em;
   margin-inline-start: 0.2rem;
   vertical-align: -0.12em;
-  border-radius: 1px;
+  border-radius: 0;
   background: currentColor;
   animation: markdown-caret 900ms steps(1, end) infinite;
 }
 
 @keyframes markdown-caret {
   50% { opacity: 0; }
-}
-
-/* Resize the workspace with a lightweight linear layout transition while the
-   pane itself slides independently. Direct manipulation stays locked to the
-   pointer rather than easing behind it. */
-[data-pane-motion] {
-  transition: flex-grow 200ms linear;
-}
-
-[data-group]:has([data-separator="active"]) > [data-pane-motion] {
-  transition-duration: 0ms;
 }
 
 /* The OS preference, unless the user has overridden it in Settings. `data-motion`

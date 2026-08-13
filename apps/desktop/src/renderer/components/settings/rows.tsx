@@ -83,7 +83,7 @@ function Row({
   children: React.ReactNode;
 }) {
   const text = (
-    <FieldContent className="min-w-0 gap-1">
+    <FieldContent className="min-w-0 max-w-[66ch] gap-1">
       {htmlFor ? (
         <FieldLabel htmlFor={htmlFor} className="w-fit text-sm font-medium">
           {label}
@@ -91,7 +91,7 @@ function Row({
       ) : (
         <FieldTitle className="text-sm font-medium">{label}</FieldTitle>
       )}
-      {description ? <FieldDescription className="text-sm leading-5">{description}</FieldDescription> : null}
+      {description ? <FieldDescription className="max-w-[60ch] text-sm leading-5">{description}</FieldDescription> : null}
     </FieldContent>
   );
 
@@ -241,7 +241,7 @@ export function Segmented<T extends string>({
       }}
       spacing={0}
       aria-label={label}
-      className={cn("h-auto min-h-10 w-full flex-wrap rounded-md border p-0.5 sm:h-10 sm:w-auto sm:flex-nowrap", className)}
+      className={cn("h-auto min-h-11 w-full flex-wrap rounded-md bg-muted/60 p-1 sm:h-11 sm:w-auto sm:flex-nowrap", className)}
     >
       {options.map((option) => (
         <ToggleGroupItem

@@ -80,6 +80,7 @@ export default function KeybindSettings() {
             {shortcuts.map((shortcut) => {
               const recording = recordingId === shortcut.id;
               const hint = hintFor(shortcut.id, overrides);
+              const unbound = overrides[shortcut.id] === "";
               const customized = isCustomized(shortcut.id, overrides);
               const bindingDescription = recording
                 ? "Recording shortcut"
@@ -89,11 +90,18 @@ export default function KeybindSettings() {
               return (
                 <div
                   key={shortcut.id}
-                  className="group flex flex-col gap-2 border-t py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-8"
+                  className={cn(
+                    "group flex flex-col gap-2 border-t py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-8",
+                    unbound && "rounded-lg bg-warning/10 px-2",
+                  )}
                 >
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <p className="text-sm font-medium">{shortcut.label}</p>
-                    <p className="text-sm leading-5 text-body-muted-foreground">{shortcut.description}</p>
+                    <p className="text-sm leading-5 text-body-muted-foreground">
+                      {unbound
+                        ? "Unbound when another shortcut took these keys."
+                        : shortcut.description}
+                    </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     {customized ? (

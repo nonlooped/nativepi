@@ -30,14 +30,15 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - NativePi is a Windows, macOS, or Linux desktop application used alongside local code projects, Git repositories, and the existing Pi CLI ecosystem. Its workspace can be shared temporarily to a browser on the local network or through a temporary public link.
 - Users pin project folders; create, discover, import, and manage Pi sessions; inspect streamed messages and tool activity; and review Git state and diffs.
 - Existing Pi credentials, configuration, sessions, packages, skills, prompts, and extensions remain in Pi's normal storage and remain usable by the Pi CLI.
-- NativePi keeps one Pi process per active chat, so chats in the same project and different projects may run concurrently.
+- NativePi keeps one Pi process per active chat, so chats in the same project and different projects may run concurrently. Git, terminals, trust, and Pi follow the folder of the open chat; the sidebar project filter only changes which chats are listed.
+- Starting a new chat asks which project only when more than one folder is pinned. One folder starts a chat there; none opens the folder picker.
 - Conversations open directly from Pi session files without waiting for a Pi process to start. Drafts remain editable and are restored if a cold send fails.
 - Narrow windows move the context pane into a sheet. On a phone, project navigation moves there too so the conversation and composer remain usable.
 
 ## Current Capabilities
 
-- Project and chat pinning, date-grouped chat discovery, filtering, title and transcript search, and direct opening in installed editors or the system file manager.
-- New, resume, rename, clone, fork, delete, import, HTML export, session-tree, statistics, and compaction workflows backed by Pi.
+- Pinned, Focus, and Finished chat lists, project filtering, title and transcript search, and direct opening in installed editors or the system file manager.
+- New, resume, rename, clone, fork, delete, import, HTML export, chat branches, and compaction workflows backed by Pi.
 - Streaming text, thinking, tool activity, file-change summaries, rich diffs, retries, steering, follow-ups, queues, and abort controls.
 - Images attached to a message by paste, drag and drop, or the file picker, resized by Pi before they are sent and shown in the transcript alongside the message they went with.
 - Drag and drop as an entry point throughout the window: a folder dropped anywhere becomes a project, a Pi session file is imported as a chat, and files dropped on the composer attach as images or become `@` mentions of their path.

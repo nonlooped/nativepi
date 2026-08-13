@@ -119,13 +119,13 @@ function ToolBlock({ block }: { block: Extract<ConversationContentBlock, { type:
         <Collapsible.Panel className="border-t border-border/60 px-3 py-2.5">
           {block.arguments ? (
             <div className="mb-3">
-              <p className="mb-1 text-[0.6875rem] font-medium text-muted-foreground">Arguments</p>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">Arguments</p>
               <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-5">{block.arguments}</pre>
             </div>
           ) : null}
           {block.result ? (
             <div>
-              <p className="mb-1 text-[0.6875rem] font-medium text-muted-foreground">Result</p>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">Result</p>
               <pre className={failed ? "max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-5 text-destructive" : "max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-5 text-muted-foreground"}>{block.result}</pre>
             </div>
           ) : block.status === "running" ? (

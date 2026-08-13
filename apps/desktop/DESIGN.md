@@ -30,10 +30,12 @@ colors:
   light-ink-text: "oklch(0.22 0.007 285)"
   light-muted-graphite: "oklch(0.53 0.016 285.938)"
   light-border-hairline: "oklch(0.895 0.008 75)"
+  overlay-scrim: "oklch(0 0 0 / 58%)"
+  qr-background: "oklch(1 0 0)"
 typography:
   wordmark:
     fontFamily: "Departure Mono, monospace"
-    fontSize: "1.375rem"
+    fontSize: "1.5rem"
     fontWeight: 400
     lineHeight: 1
     letterSpacing: "-0.04em"
@@ -49,6 +51,12 @@ typography:
     fontWeight: 600
     lineHeight: 1.333
     letterSpacing: "-0.025em"
+  subheading:
+    fontFamily: "Raleway Variable, sans-serif"
+    fontSize: "1.25rem"
+    fontWeight: 600
+    lineHeight: 1.3
+    letterSpacing: "-0.02em"
   title:
     fontFamily: "Raleway Variable, sans-serif"
     fontSize: "1rem"
@@ -279,7 +287,7 @@ The canonical workspace composition is shown in [`docs/assets/nativepi-home.png`
 
 The application uses a full-height, resizable three-pane desktop frame. The project sidebar ranges from 14% to 30% of the window. The context pane defaults to 28% and ranges from 20% to 45%. The conversation panel retains at least 35% and is the protected center of gravity.
 
-Transcript and composer content share a centered, user-selectable maximum width: 40rem, 48rem by default, 60rem, or the full conversation pane. Most Settings categories use a centered 48rem rail; the Usage and Subscriptions dashboards use a wider 72rem rail for charts and tables. Every pane header is 3rem high — one baseline across the sidebar, conversation, context pane, and Settings — which is what the frameless Windows drag region and custom window controls need.
+Transcript and composer content share a centered, user-selectable maximum width: 40rem, 48rem by default, 60rem, or the full conversation pane. Most Settings categories use a centered 48rem rail; the Usage and Subscriptions dashboards use a wider 72rem rail for charts and tables. Every pane header is 3rem high — one baseline across the sidebar, conversation, context pane, and Settings — which is what the macOS traffic lights, the frameless Windows and Linux drag region, and the custom window controls need.
 
 Spacing follows the quarter-rem Tailwind rhythm plus its half-steps: eighth-rem for tightly bound text pairs (a label above its description), five-eighths-rem as the standard inset for dense controls, half-rem and three-quarter-rem gaps for control clusters, and one- to one-and-a-half-rem spacing between content groups. Values off that ladder are drift, not intent. One-pixel resizable hairlines define persistent pane boundaries.
 
@@ -356,7 +364,7 @@ The component system is compact and restrained, with soft geometry and explicit 
 - Selected rows use Interactive Slate or Accent Slate without a bright brand accent.
 - Inline secondary actions stay hidden until row hover or keyboard focus when the action would otherwise crowd the list.
 - Project and chat management menus have no visible trigger; desktop users open them by right-clicking the row.
-- Pane headers align with the frameless drag region; all interactive controls inside them opt out of window dragging.
+- Pane headers align with the drag region; all interactive controls inside them opt out of window dragging. macOS uses native traffic lights on the left of the frameless-looking title bar. Windows and Linux draw custom window controls on the right.
 
 **The Sidebar-Context-Menu Rule.** Keep project and chat management in row context menus. Do not add an ellipsis, overflow button, or other visible menu trigger. Right-click-only discovery is an intentional expert-first product decision, not a defect to correct during critique, audit, adaptation, or accessibility work.
 
@@ -372,7 +380,7 @@ The component system is compact and restrained, with soft geometry and explicit 
 - Assistant responses remain on the open canvas for maximum reading continuity.
 - Every turn that writes a file states so outside the collapsed work panel, as a persistent change strip naming the files and their line counts; filenames expand to their diff in place.
 - A running turn is instrumented by a single floating status pill above the composer carrying phase, elapsed time, files touched, and Stop.
-- Failed tool calls are the loudest element of a turn — coral border, labelled chip, open by default — never a grey word.
+- Failed tool calls stay in the work dump: a quiet Failed label, closed unless they wrote a file. File-write failures remain visible on the change strip.
 
 **The Stop-Is-Not-Send Rule.** Controls that act on the run live with the run status, not in the composer's send cluster. Reserve the circular rightmost slot for sending.
 - User messages align right in a secondary-slate bubble with a tighter lower-right corner.
@@ -382,7 +390,9 @@ The component system is compact and restrained, with soft geometry and explicit 
 ### Composer
 
 - The persistent composer is the signature floating surface: centered with the transcript, strongly rounded, and softly elevated.
-- Model, thinking level, context usage, queue behavior, and send controls share one compact bottom row. Stop remains in the floating run-status pill above the composer.
+- Model and reasoning share one picker whose trigger names both; context usage and send controls complete the compact bottom row. Queue behaviour (steer or follow up) lives on the floating run-status pill with Stop. Branch switching lives in the files and changes pane.
+- The context control opens an inspector: used and remaining tokens, last-reply usage from the session, and summarize earlier messages. It does not invent a breakdown Pi does not provide.
+- An empty chat names the open project and offers the composer. It does not suggest starter prompts.
 - The input remains usable while Pi starts or runs; pending and queued states appear immediately above the surface.
 
 ### Extension Surfaces
