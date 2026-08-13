@@ -1,13 +1,17 @@
 import { CaretDownIcon, CheckIcon, MagnifyingGlassIcon, StarIcon, WarningCircleIcon } from "../../shared/icons.ts";
+import { BrainIcon } from "@phosphor-icons/react/Brain";
 import { useState } from "react";
-import type { ModelInfo } from "../../shared/pi-types.ts";
+import type { ModelInfo, ThinkingLevel } from "../../shared/pi-types.ts";
 import type { AuthProviderInfo } from "../../shared/rpc-schema.ts";
 import { modelKey } from "../../shared/messages.ts";
-import { useAppStore } from "../lib/store.ts";
+import { shortThinkingLabel, thinkingLabel, useAppStore } from "../lib/store.ts";
 import { modelProviders } from "../lib/modelProviders.ts";
 import { providerIconName } from "../lib/providerIcons.ts";
+import { hintFor } from "../lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
+import { Kbd } from "@/components/ui/kbd.tsx";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { DropdownMenu as Menu, DropdownMenuContent as MenuPopup, DropdownMenuGroup as MenuGroup, DropdownMenuItem as MenuItem, DropdownMenuTrigger as MenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import BrandIcon from "./BrandIcon.tsx";
@@ -19,6 +23,7 @@ export default function ModelSelector() {
   const favoriteModels = useAppStore((s) => s.favoriteModels ?? []);
   const providers = useAppStore((s) => s.providers);
   const providersLoaded = useAppStore((s) => s.providersLoaded);
+  const thinkingLevel = useAppStore((s) => s.thinkingLevel);
   const openSettings = useAppStore((s) => s.openSettings);
   const [query, setQuery] = useState("");
   const [selectedTab, setSelectedTab] = useState<string | null>(null);
@@ -42,10 +47,6 @@ export default function ModelSelector() {
     void setModel(next);
   }
 
-  // Providers have answered and there is still nothing to pick from. Whether
-  // that is because none is connected or because a connected one returned no
-  // models, the way out is the same screen — and saying "Loading models…"
-  // forever, which is what the second case used to do, is not a way out at all.
   if (models.length === 0 && providersLoaded) {
     const ready = providers.some((item) => item.ready);
     return (
@@ -63,24 +64,35 @@ export default function ModelSelector() {
   }
 
   return (
-    <Menu>
+    <Menu onOpenChange={(open) => { if (!open) setQuery(""); }}>
       <MenuTrigger
         disabled={models.length === 0}
-        title={models.length === 0 ? "Loading models from Pi…" : "Change model"}
-        className="flex h-8 min-w-0 max-w-56 items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+        title={models.length === 0 ? "Loading models from Pi…" : "Change model and reasoning"}
+        aria-label={
+          models.length === 0
+            ? "Loading models"
+            : `Model ${label}, reasoning ${thinkingLabel(thinkingLevel)}. Change model and reasoning`
+        }
+        className="flex h-8 min-w-0 max-w-72 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
       >
         {model ? <ModelProviderIcon provider={model.provider} /> : null}
-        <span className="truncate">{models.length === 0 ? "Loading models…" : label}</span>
+        <span className="min-w-0 truncate">{models.length === 0 ? "Loading models…" : label}</span>
+        {models.length > 0 ? (
+          <>
+            <span className="shrink-0 text-muted-foreground/40" aria-hidden="true">·</span>
+            <span className="shrink-0">{thinkingLabel(thinkingLevel)}</span>
+          </>
+        ) : null}
         <CaretDownIcon className="shrink-0 text-muted-foreground" />
       </MenuTrigger>
       <MenuPopup
         side="top"
         className={cn(
           NO_DRAG_REGION,
-          "h-[min(30rem,70vh)] max-h-[calc(var(--available-height)_-_3rem)] w-[min(31rem,calc(100vw-2rem))] overflow-hidden p-0",
+          "flex h-[min(32rem,72vh)] max-h-[calc(var(--available-height)_-_3rem)] w-[min(32rem,calc(100vw-2rem))] flex-col overflow-hidden p-0",
         )}
       >
-        <div className="flex h-full min-h-0">
+        <div className="flex min-h-0 flex-1">
           <ProviderRail provider={provider} providers={availableProviders} onSelect={setSelectedTab} />
           <div className="flex min-w-0 flex-1 flex-col p-2">
             <div className="relative mb-2">
@@ -89,8 +101,6 @@ export default function ModelSelector() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={(event) => {
-                  // Base UI's menu typeahead otherwise consumes printable keys
-                  // before the controlled input can update.
                   if (event.key.length === 1) event.stopPropagation();
                 }}
                 placeholder="Search models…"
@@ -100,7 +110,7 @@ export default function ModelSelector() {
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               <p className="px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground">
-                {provider === "favorite" ? "Favorite" : (providers.find((item) => item.id === provider)?.name ?? provider)}
+                {provider === "favorite" ? "Favorites" : (providers.find((item) => item.id === provider)?.name ?? provider)}
               </p>
               <MenuGroup>
                 <ModelList
@@ -117,8 +127,54 @@ export default function ModelSelector() {
             </div>
           </div>
         </div>
+        <ReasoningFooter />
       </MenuPopup>
     </Menu>
+  );
+}
+
+function ReasoningFooter() {
+  const thinkingLevel = useAppStore((s) => s.thinkingLevel);
+  const thinkingLevels = useAppStore((s) => s.thinkingLevels);
+  const setThinkingLevel = useAppStore((s) => s.setThinkingLevel);
+  const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
+  const combo = hintFor("cycleThinking", keybindingOverrides);
+
+  return (
+    <div
+      className="flex shrink-0 flex-col gap-2 border-t bg-muted/40 px-3 py-2.5"
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <div className="flex items-center gap-2">
+        <BrainIcon className="size-3.5 shrink-0 text-muted-foreground" />
+        <p className="min-w-0 flex-1 text-xs font-medium text-foreground">Reasoning</p>
+        {combo ? <Kbd className="shrink-0">{combo}</Kbd> : null}
+      </div>
+      {thinkingLevels.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Loading this model’s levels…</p>
+      ) : (
+        <ToggleGroup
+          value={[thinkingLevel]}
+          onValueChange={(value) => {
+            const next = value.at(-1);
+            if (next) void setThinkingLevel(next as ThinkingLevel);
+          }}
+          variant="outline"
+          size="sm"
+          spacing={0}
+          aria-label="Reasoning level"
+          className="flex w-full min-w-0 flex-wrap"
+        >
+          {thinkingLevels.map((level) => (
+            <ToggleGroupItem key={level} value={level} className="min-w-0 flex-1 px-1.5">
+              {shortThinkingLabel(level)}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      )}
+    </div>
   );
 }
 
@@ -234,15 +290,14 @@ function ModelRow({
   onSelect: (model: ModelInfo) => void;
 }) {
   const toggleFavoriteModel = useAppStore((s) => s.toggleFavoriteModel);
+  const context = modelContext(m);
+  const display = friendlyModelName(m);
+  const subtitle = showProvider ? providerName : (m.id !== display ? m.id : "");
 
   return (
     <MenuItem
+      closeOnClick={false}
       onClick={() => onSelect(m)}
-      // The star is a nested button, which sits outside the menu's
-      // roving tabindex and so cannot be tabbed to. F on the
-      // highlighted row is the keyboard route to the same action —
-      // without it, favorites are mouse-only, and favorites are
-      // the entire mechanism for taming a 40-provider list.
       onKeyDown={(event) => {
         if (event.key.toLowerCase() !== "f" || event.ctrlKey || event.altKey || event.metaKey) return;
         event.preventDefault();
@@ -253,11 +308,14 @@ function ModelRow({
     >
       <ModelProviderIcon provider={m.provider} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{highlightMatch(friendlyModelName(m), query)}</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {highlightMatch(showProvider ? providerName : modelMetadata(m), query)}
-        </p>
+        <p className="truncate text-sm font-semibold">{highlightMatch(display, query)}</p>
+        {subtitle ? (
+          <p className="truncate text-xs text-muted-foreground">{highlightMatch(subtitle, query)}</p>
+        ) : null}
       </div>
+      {context ? (
+        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{context}</span>
+      ) : null}
       <button
         type="button"
         aria-label={`${favorite ? "Remove" : "Add"} ${m.name ?? m.id} ${favorite ? "from" : "to"} favorites`}
@@ -268,9 +326,6 @@ function ModelRow({
           event.stopPropagation();
           toggleFavoriteModel(m);
         }}
-        // Hidden until the row is hovered, focused or already
-        // starred: a column of grey stars down every row reads as
-        // ornament and competes with the model names being scanned.
         className={cn(
           HOVER_REVEAL,
           "flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none group-hover/model:scale-100 group-hover/model:opacity-100 group-hover/model:blur-none group-data-[highlighted]/model:scale-100 group-data-[highlighted]/model:opacity-100 group-data-[highlighted]/model:blur-none hover:bg-muted hover:text-foreground focus-visible:scale-100 focus-visible:opacity-100 focus-visible:blur-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -291,19 +346,15 @@ function friendlyModelName(model: ModelInfo): string {
   const name = model.name ?? model.id.split("/").at(-1) ?? model.id;
   const context = modelContext(model);
   if (!context) return name;
-  return name.replace(new RegExp(`\\s+${context.replace(" ctx", "").replace(".", "\\.")}$`, "i"), "");
+  return name.replace(new RegExp(`\\s+${context.replace(".", "\\.")}(?:\\s*ctx)?$`, "i"), "");
 }
 
 function modelContext(model: ModelInfo): string {
   const size = model.contextWindow;
   if (!size) return "";
-  if (size >= 1_000_000) return `${Number((size / 1_000_000).toFixed(1))}M ctx`;
-  if (size >= 1_000) return `${Math.round(size / 1_000)}K ctx`;
-  return `${size.toLocaleString()} ctx`;
-}
-
-function modelMetadata(model: ModelInfo): string {
-  return modelContext(model) || model.id;
+  if (size >= 1_000_000) return `${Number((size / 1_000_000).toFixed(1))}M`;
+  if (size >= 1_000) return `${Math.round(size / 1_000)}K`;
+  return size.toLocaleString();
 }
 
 function highlightMatch(value: string, rawQuery: string) {

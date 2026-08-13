@@ -111,8 +111,18 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   requestJumpToLatest: () => set((s) => ({ jumpRequest: s.jumpRequest + 1 })),
   requestBranchMenu: () => {
     const projectPath = get().activeProjectPath;
-    if (!projectPath || get().conversations[projectPath]?.running) return;
-    set({ branchMenuRequested: true });
+    if (!projectPath) return;
+    const running = Object.values(get().conversations).some(
+      (conversation) => conversation.running && conversation.projectDir === projectPath,
+    );
+    if (running) return;
+    set((s) => ({
+      branchMenuRequested: true,
+      contextPaneOpen: true,
+      contextPaneChosen: true,
+      preferences: { ...s.preferences, contextPaneView: "source-control" },
+    }));
+    persist(get);
   },
   consumeBranchMenuRequest: () => set({ branchMenuRequested: false }),
   openTerminal: (projectPath) =>

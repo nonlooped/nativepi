@@ -3,7 +3,6 @@ import { Collapsible } from "@base-ui/react/collapsible";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
-import { GitBranchIcon } from "@phosphor-icons/react/GitBranch";
 import { GitCommitIcon } from "@phosphor-icons/react/GitCommit";
 import { GitPullRequestIcon } from "@phosphor-icons/react/GitPullRequest";
 import { MinusIcon } from "@phosphor-icons/react/Minus";
@@ -25,8 +24,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field.tsx";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { cn } from "@/lib/utils.ts";
+import { modelKey } from "../../shared/messages.ts";
+import BranchSwitcher from "./BranchSwitcher.tsx";
 import FileContextMenu from "./FileContextMenu.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 import RepoHostPanel from "./RepoHostPanel.tsx";
@@ -51,8 +53,10 @@ export default function SourceControl({
   const [busy, setBusy] = useState<CommitAction | "stage" | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const showPullRequest = useAppStore((s) => s.repoHost?.host !== "gitlab");
   const stagedFiles = git.files.filter((file) => file.staged);
   const changedFiles = git.files.filter((file) => file.unstaged);
+  const [commitOpen, setCommitOpen] = useState(stagedFiles.length > 0);
 
   useEffect(() => {
     setMessage("");
@@ -60,6 +64,10 @@ export default function SourceControl({
     setError(null);
     setGenerating(false);
   }, [projectDir]);
+
+  useEffect(() => {
+    if (stagedFiles.length > 0) setCommitOpen(true);
+  }, [stagedFiles.length]);
 
   async function generate() {
     if (stagedFiles.length === 0 || generating) return;
@@ -124,14 +132,9 @@ export default function SourceControl({
     <div className="flex flex-col pb-5">
       <section className="flex flex-col gap-3 px-3 pb-4">
         <div className="flex min-w-0 items-start gap-2.5">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
-            <GitBranchIcon />
-          </div>
           <div className="min-w-0 flex-1 pt-0.5">
-            <p className="truncate text-sm font-semibold text-foreground">
-              {git.detached ? "Detached HEAD" : (git.branch ?? "No branch")}
-            </p>
-            <p className="truncate font-mono text-[0.6875rem] leading-4 text-muted-foreground" title={git.upstream}>
+            <BranchSwitcher className="h-auto max-w-full px-0 font-semibold text-foreground hover:bg-transparent" />
+            <p className="truncate font-mono text-xs leading-4 text-muted-foreground" title={git.upstream}>
               {git.upstream ?? "No upstream branch"}
             </p>
           </div>
@@ -145,15 +148,17 @@ export default function SourceControl({
             >
               <ArrowClockwiseIcon />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onOpenPullRequest}
-              title="Open a pull request"
-              aria-label="Open a pull request"
-            >
-              <GitPullRequestIcon />
-            </Button>
+            {showPullRequest ? (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={onOpenPullRequest}
+                title="Open a pull request"
+                aria-label="Open a pull request"
+              >
+                <GitPullRequestIcon />
+              </Button>
+            ) : null}
           </div>
         </div>
 
@@ -166,16 +171,20 @@ export default function SourceControl({
         </div>
       </section>
 
+      <Collapsible.Root open={commitOpen} onOpenChange={setCommitOpen}>
       <section className="mx-3 flex flex-col gap-3 rounded-xl bg-muted/55 p-3">
-        <div className="flex items-center gap-2">
+        <Collapsible.Trigger className="flex items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <GitCommitIcon className="text-foreground" />
           <h3 className="flex-1 font-heading text-sm font-semibold text-foreground">Create a commit</h3>
           <Badge variant="secondary">{stagedFiles.length} staged</Badge>
-        </div>
+          <CaretDownIcon className={cn("shrink-0 text-muted-foreground transition-transform", !commitOpen && "-rotate-90")} />
+        </Collapsible.Trigger>
+        <Collapsible.Panel className="flex flex-col gap-3">
         <Field>
           <div className="flex flex-wrap items-center gap-2">
             <FieldLabel htmlFor="source-control-message">Commit message</FieldLabel>
             <span className="min-w-0 flex-1" />
+            <CommitModelSelect />
             <Button variant="ghost" size="xs" onClick={() => void generate()} disabled={!canGenerate} title="Generate a commit message with Pi">
               <SparkleIcon data-icon="inline-start" />
               {generating ? "Writing…" : "Write with Pi"}
@@ -220,7 +229,9 @@ export default function SourceControl({
           </DropdownMenu>
         </div>
         {error ? <p role="alert" className="whitespace-pre-wrap text-xs leading-5 text-destructive">{error}</p> : null}
+        </Collapsible.Panel>
       </section>
+      </Collapsible.Root>
 
       <RepoHostPanel />
 
@@ -493,7 +504,7 @@ function CommitRow({ commit }: { commit: GitCommit }) {
       <span className="whitespace-pre font-mono text-xs leading-5 text-info" aria-hidden="true">{commit.graph.replaceAll("*", "●")}</span>
       <div className="min-w-0">
         <p className="truncate text-xs font-medium">{commit.subject}</p>
-        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 text-[0.6875rem] text-muted-foreground">
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground">
           <span className="font-mono">{commit.shortHash}</span>
           <span className="truncate">{commit.author}</span>
           <span>·</span>
@@ -534,4 +545,47 @@ function stateColor(state: GitChangedFile["state"]) {
   if (state === "deleted") return "text-destructive";
   if (state === "untracked") return "text-info";
   return "text-warning";
+}
+
+function CommitModelSelect() {
+  const commitMessageModel = useAppStore((s) => s.commitMessageModel);
+  const setCommitMessageModel = useAppStore((s) => s.setCommitMessageModel);
+  const models = useAppStore((s) => s.models);
+  const providers = useAppStore((s) => s.providers);
+  const providerNames = new Map(providers.map((provider) => [provider.id, provider.name]));
+  const options = [
+    { value: "active", label: "Current chat model" },
+    ...models.map((model) => ({
+      value: modelKey(model),
+      label: `${model.name ?? model.id} · ${providerNames.get(model.provider) ?? model.provider}`,
+    })),
+  ];
+  if (!options.some((option) => option.value === commitMessageModel)) {
+    options.push({ value: commitMessageModel, label: commitMessageModel });
+  }
+
+  return (
+    <Select
+      value={commitMessageModel}
+      onValueChange={(next) => {
+        if (typeof next === "string") setCommitMessageModel(next);
+      }}
+      items={options}
+    >
+      <SelectTrigger
+        aria-label="Commit message model"
+        title="Model used to draft commit messages"
+        className="h-7 w-auto min-w-36 max-w-52 px-2 text-xs"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value} className="min-h-8 px-2.5 text-sm">
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }

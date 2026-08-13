@@ -1,4 +1,5 @@
 import { Collapsible } from "@base-ui/react/collapsible";
+import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
 import { CheckIcon } from "@phosphor-icons/react/Check";
 import { CircleIcon } from "@phosphor-icons/react/Circle";
@@ -23,8 +24,14 @@ import { withHint } from "../lib/shortcuts.ts";
 import { projectRelativePath } from "../lib/paths.ts";
 import { CHIP_CLASS } from "../lib/composerDom.ts";
 import { fileIconSvg } from "../lib/fileIcons.ts";
-import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import {
+  DropdownMenu as Menu,
+  DropdownMenuContent as MenuPopup,
+  DropdownMenuGroup as MenuGroup,
+  DropdownMenuItem as MenuItem,
+  DropdownMenuTrigger as MenuTrigger,
+} from "@/components/ui/dropdown-menu.tsx";
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -77,6 +84,9 @@ function TranscriptContent() {
   const results = useMemo(() => toolResultsById(entries), [entries]);
   const committed = useMemo(() => transcriptItems(entries), [entries]);
   const items = appendStreaming(committed.items, streaming, committed.responseStartedAt);
+  const turnFiles = lastTurnFileCount(items, results);
+  const turnFilesRef = useRef(turnFiles);
+  turnFilesRef.current = turnFiles;
 
   const { scrollToEnd } = useMessageScroller();
   const [transcriptSelection, setTranscriptSelection] = useState("");
@@ -112,7 +122,7 @@ function TranscriptContent() {
     if (activeConversation(state).error) return;
     setRunDone({
       elapsed: formatElapsed(Date.now() - started),
-      files: state.git?.isRepo ? state.git.files.length : 0,
+      files: turnFilesRef.current,
       stopped: abortedRef.current,
     });
     const timer = window.setTimeout(() => setRunDone(null), 2500);
@@ -150,7 +160,7 @@ function TranscriptContent() {
         >
         <MessageScroller className="min-h-0 flex-1">
           <MessageScrollerViewport aria-label="Conversation transcript" aria-live="off">
-            <MessageScrollerContent className={cn("mx-auto w-full max-w-(--conversation-width) gap-8 px-4 py-6", (running || runDone) && "pb-16")}>
+            <MessageScrollerContent className={cn("mx-auto w-full max-w-(--conversation-width) gap-8 px-5 py-6", (running || runDone) && "pb-16")}>
           <MessageScrollerItem scrollAnchor>
             <ExtensionHeader />
           </MessageScrollerItem>
@@ -198,7 +208,7 @@ function TranscriptContent() {
             <MessageScrollerItem>
               <Notice>
                 <CircleNotchIcon className="mr-1.5 inline animate-spin align-[-2px]" />
-                Compacting context…
+                Summarizing earlier messages…
               </Notice>
             </MessageScrollerItem>
           )}
@@ -239,6 +249,7 @@ function TranscriptContent() {
           <RunStatusBar
             activeTool={activeToolName(items, results)}
             compacting={compacting}
+            filesChanged={turnFiles}
             onAbort={() => {
               abortedRef.current = true;
             }}
@@ -293,23 +304,34 @@ function useIndicatorFrame(
   return stripAnsi(frames[index % frames.length] ?? "");
 }
 
+function lastTurnFileCount(items: TranscriptItem[], results: Map<string, ToolResultMessage>): number {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const item = items[i];
+    if (item.type !== "response") continue;
+    return turnChanges(item.messages, results).files.filter((file) => !file.failed).length;
+  }
+  return 0;
+}
+
 function RunStatusBar({
   activeTool,
   compacting,
+  filesChanged,
   onAbort,
 }: {
   activeTool?: string;
   compacting: boolean;
+  filesChanged: number;
   onAbort?: () => void;
 }) {
   const abort = useAppStore((s) => s.abort);
   const runStartedAt = useAppStore((s) => activeConversation(s).runStartedAt);
-  const git = useAppStore((s) => s.git);
   const ui = useAppStore((s) => s.extUiState);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
+  const behavior = useAppStore((s) => s.sendBehavior);
+  const setBehavior = useAppStore((s) => s.setSendBehavior);
   const elapsed = useElapsed(runStartedAt);
   const reduced = useReducedMotion();
-  const changed = git?.isRepo ? git.files.length : 0;
   const frame = useIndicatorFrame(ui.workingIndicator, reduced);
 
   // `ctx.ui.setWorkingVisible(false)` hides the loader row: an extension that
@@ -341,7 +363,7 @@ function RunStatusBar({
           )}
           <span className="truncate font-medium">
             {compacting
-              ? "Compacting context"
+              ? "Summarizing earlier messages"
               : (ui.workingMessage ?? (activeTool ? `Running ${activeTool}` : "Working"))}
           </span>
           {elapsed ? (
@@ -349,16 +371,17 @@ function RunStatusBar({
               {elapsed}
             </span>
           ) : null}
-          {changed > 0 ? (
+          {filesChanged > 0 ? (
             <>
               <span aria-hidden="true" className="hidden text-muted-foreground/50 min-[380px]:inline">
                 ·
               </span>
-              <span className="hidden shrink-0 truncate text-muted-foreground min-[380px]:inline">{pluralize(changed, "file")} changed</span>
+              <span className="hidden shrink-0 truncate text-muted-foreground min-[380px]:inline">{pluralize(filesChanged, "file")} changed</span>
             </>
           ) : null}
         </>
       ) : null}
+      <BehaviorSelector behavior={behavior} setBehavior={setBehavior} />
       {/* A labelled rectangle, not another circle: geometry, not hue, is what
           separates it from Send. */}
       <Button
@@ -406,6 +429,44 @@ function RunDoneBar({ elapsed, files, stopped }: { elapsed: string; files: numbe
   );
 }
 
+function BehaviorSelector({
+  behavior,
+  setBehavior,
+}: {
+  behavior: "steer" | "followUp";
+  setBehavior: (behavior: "steer" | "followUp") => void;
+}) {
+  return (
+    <Menu>
+      <MenuTrigger
+        aria-label={`Message behaviour: ${behavior === "steer" ? "steer this turn" : "queue a follow-up"}`}
+        className="flex h-6 items-center gap-1 rounded-full px-2 text-xs text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span>{behavior === "steer" ? "Steer" : "Follow up"}</span>
+        <CaretDownIcon className="size-3 text-muted-foreground" />
+      </MenuTrigger>
+      <MenuPopup side="top" className="w-64 p-1.5">
+        <MenuGroup>
+          <MenuItem onClick={() => setBehavior("steer")} className="items-start gap-2 rounded-md">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">Steer</span>
+              <span className="text-xs text-muted-foreground">Redirect the current turn now</span>
+            </div>
+            {behavior === "steer" ? <CheckIcon className="ml-auto mt-0.5 shrink-0" /> : null}
+          </MenuItem>
+          <MenuItem onClick={() => setBehavior("followUp")} className="items-start gap-2 rounded-md">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">Follow up</span>
+              <span className="text-xs text-muted-foreground">Run after the current turn settles</span>
+            </div>
+            {behavior === "followUp" ? <CheckIcon className="ml-auto mt-0.5 shrink-0" /> : null}
+          </MenuItem>
+        </MenuGroup>
+      </MenuPopup>
+    </Menu>
+  );
+}
+
 function useElapsed(startedAt: number | null): string {
   const [now, setNow] = useState(() => Date.now());
 
@@ -439,7 +500,7 @@ function TurnAnnouncer({
   const phase = retry
     ? `Retrying after an error, attempt ${retry.attempt} of ${retry.maxAttempts}`
     : compacting
-      ? "Compacting context"
+      ? "Summarizing earlier messages"
       : running
         ? activeTool
           ? `Running ${activeTool}`
@@ -983,11 +1044,11 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
   const running = !result;
   const failed = !!result?.isError;
   const diffPatch = diffPatchFor(call, result);
-  const [open, setOpen] = useState(failed || !!diffPatch);
+  const [open, setOpen] = useState(!!diffPatch);
 
   useEffect(() => {
-    if (result && (failed || diffPatch)) setOpen(true);
-  }, [result, failed, diffPatch]);
+    if (result && diffPatch) setOpen(true);
+  }, [result, diffPatch]);
 
   if (hasExtRenderer) return <ExtensionToolResult call={call} result={result} />;
 
@@ -1002,7 +1063,7 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
 
   const errorOutput = output || "The tool reported an error with no output.";
   const panel = failed ? (
-    <pre className="max-h-72 overflow-auto border-t border-destructive/25 bg-background/30 px-3 py-2.5 font-mono text-xs leading-5 whitespace-pre-wrap text-body-muted-foreground">
+    <pre className="max-h-72 overflow-auto border-t border-border/50 bg-background/30 px-3 py-2.5 font-mono text-xs leading-5 whitespace-pre-wrap text-body-muted-foreground">
       {errorOutput}
     </pre>
   ) : diffPatch ? (
@@ -1019,12 +1080,7 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
 
   const header = (
     <>
-      <span
-        className={cn(
-          "flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/70 text-muted-foreground",
-          failed && "bg-destructive/10 text-destructive",
-        )}
-      >
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/70 text-muted-foreground">
         {path ? (
           <FileTypeIcon path={path} size={16} className={cn(failed && "opacity-60 grayscale")} />
         ) : call.name === "bash" ? (
@@ -1047,10 +1103,7 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
           Running
         </span>
       ) : failed ? (
-        <Badge variant="destructive">
-          <WarningCircleIcon weight="fill" data-icon="inline-start" />
-          Failed
-        </Badge>
+        <span className="shrink-0 text-muted-foreground">Failed</span>
       ) : (
         <span className="shrink-0 text-success" aria-label="Completed" title="Completed">
           <CheckIcon />
@@ -1062,23 +1115,14 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
     </>
   );
 
-  // A failed tool call is the loudest thing in a turn, not the quietest: it is
-  // bordered in coral and opens itself, because a failed `edit` and a failed
-  // `ls` cannot look the same.
   const tool = panel ? (
     <Collapsible.Root
       open={open}
       onOpenChange={setOpen}
-      className={cn(
-        "overflow-hidden rounded-lg border border-border/60 bg-card/30 transition-[background-color,border-color] data-[panel-open]:bg-card/50",
-        failed && "border-destructive/45 bg-destructive/5 data-[panel-open]:bg-destructive/5",
-      )}
+      className="overflow-hidden rounded-lg border border-border/60 bg-card/30 transition-[background-color,border-color] data-[panel-open]:bg-card/50"
     >
       <Collapsible.Trigger
-        className={cn(
-          "group flex min-h-10 w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-xs outline-none transition-colors hover:bg-muted/35 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-          failed && "hover:bg-destructive/10",
-        )}
+        className="group flex min-h-10 w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-xs outline-none transition-colors hover:bg-muted/35 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
       >
         {header}
       </Collapsible.Trigger>

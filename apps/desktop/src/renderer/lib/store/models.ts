@@ -8,7 +8,15 @@ import type { ModelSlice, SliceCreator } from "./types.ts";
 export function thinkingLabel(level: ThinkingLevel): string {
   if (level === "off") return "Off";
   if (level === "xhigh") return "Extra High";
+  if (level === "max") return "Max";
   return level[0]!.toUpperCase() + level.slice(1);
+}
+
+export function shortThinkingLabel(level: ThinkingLevel): string {
+  if (level === "minimal") return "Min";
+  if (level === "medium") return "Med";
+  if (level === "xhigh") return "Extra";
+  return thinkingLabel(level);
 }
 
 export const createModelSlice: SliceCreator<ModelSlice> = (set, get) => ({
@@ -61,7 +69,7 @@ export const createModelSlice: SliceCreator<ModelSlice> = (set, get) => ({
     if (levels.length === 0) return;
     const current = levels.indexOf(get().thinkingLevel);
     const next = levels[(current + 1) % levels.length]!;
-    showHint(`Reasoning: ${thinkingLabel(next)}`);
+    showHint(thinkingLabel(next));
     await get().setThinkingLevel(next);
   },
 });
