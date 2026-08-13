@@ -169,18 +169,6 @@ export interface SessionTreeNode {
   labelTimestamp?: string;
 }
 
-export interface SessionStats {
-  sessionFile?: string;
-  sessionId: string;
-  userMessages: number;
-  assistantMessages: number;
-  toolCalls: number;
-  toolResults: number;
-  totalMessages: number;
-  tokens: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
-  cost: number;
-}
-
 /** Cost totals derived from the usage records Pi writes to session files. */
 export interface UsageDashboard {
   totalCost: number;

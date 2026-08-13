@@ -40,7 +40,7 @@ import {
   writeTerminal,
 } from "./terminal.ts";
 import { extensionCallParamsSchema, type AccessStatus, type HostEvents, type HostRequestName, type HostRequests, type PiStatus } from "../shared/rpc-schema.ts";
-import type { CommandInfo, ForkPoint, ModelInfo, RpcSessionState, SessionStats, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
+import type { CommandInfo, ForkPoint, ModelInfo, RpcSessionState, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
 import { tuiClientFrameSchema, tuiCompletionEditSchema, tuiCompletionsSchema, type TuiHostFrame } from "../shared/tui-frames.ts";
 import { localServerConnection, localServerStatus, startLocalServer, stopLocalServer } from "./localServer.ts";
 import { setSleepBlocked } from "./powerSaveGuard.ts";
@@ -954,16 +954,6 @@ const handlers: HandlerMap = {
       return { tree: data.tree, leafId: data.leafId };
     } catch (err) {
       return { tree: [], leafId: null, error: errorMessage(err) };
-    }
-  },
-
-  getStats: async ({ projectDir, sessionFile }) => {
-    try {
-      const pi = await bindPi(projectDir, sessionFile);
-      const stats = await pi.request<SessionStats>({ type: "get_session_stats" });
-      return { stats };
-    } catch (err) {
-      return { error: errorMessage(err) };
     }
   },
 

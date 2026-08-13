@@ -6,7 +6,6 @@ import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react/ArrowCounterClo
 import { CheckCircleIcon } from "@phosphor-icons/react/CheckCircle";
 import { ExportIcon } from "@phosphor-icons/react/Export";
 import { GitForkIcon } from "@phosphor-icons/react/GitFork";
-import { InfoIcon } from "@phosphor-icons/react/Info";
 import { PencilSimpleIcon } from "@phosphor-icons/react/PencilSimple";
 import { PushPinIcon } from "@phosphor-icons/react/PushPin";
 import { PushPinSlashIcon } from "@phosphor-icons/react/PushPinSlash";
@@ -14,7 +13,7 @@ import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { TreeStructureIcon } from "@phosphor-icons/react/TreeStructure";
 import { useState } from "react";
 import { toast } from "sonner";
-import type { ForkPoint, SessionStats, SessionSummary, SessionTreeNode } from "../../shared/pi-types.ts";
+import type { ForkPoint, SessionSummary, SessionTreeNode } from "../../shared/pi-types.ts";
 import { textOf } from "../../shared/messages.ts";
 import { fileManagerName } from "../lib/paths.ts";
 import { chatTitle } from "../lib/transcript.ts";
@@ -30,8 +29,10 @@ import {
   ContextMenuContent,
   ContextMenuGroup,
   ContextMenuItem,
-  ContextMenuLabel,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
 import {
@@ -44,7 +45,7 @@ import {
 } from "@/components/ui/dialog.tsx";
 import { cn } from "@/lib/utils.ts";
 
-type DialogKind = "rename" | "fork" | "tree" | "info" | "export" | "delete";
+type DialogKind = "rename" | "fork" | "tree" | "export" | "delete";
 
 export default function SessionMenu({
   projectPath,
@@ -73,7 +74,8 @@ export default function SessionMenu({
   const blocked = running;
   const inProject = (action: () => unknown | Promise<unknown>) => () => {
     const store = useAppStore.getState();
-    const select = store.activeProjectPath === projectPath ? Promise.resolve() : store.selectProject(projectPath);
+    const already = store.activeProjectPath === projectPath && store.activeSessionFile === session.path;
+    const select = already ? Promise.resolve() : store.selectChat(session.path, projectPath);
     void select.then(action);
   };
 
@@ -109,7 +111,6 @@ export default function SessionMenu({
     clone: inProject(doClone),
     compact: inProject(() => useAppStore.getState().compactActive()),
     tree: inProject(() => setDialog("tree")),
-    info: inProject(() => setDialog("info")),
     export: inProject(doExport),
     copyTitle: () => void navigator.clipboard.writeText(chatTitle(session)).then(() => showHint("Title copied")),
     reveal: () => void rpc.request.showInFolder({ path: session.path }),
@@ -165,7 +166,6 @@ export default function SessionMenu({
       {dialog === "rename" ? <RenameDialog session={session} onClose={() => setDialog(null)} /> : null}
       {dialog === "fork" ? <ForkDialog session={session} onClose={() => setDialog(null)} /> : null}
       {dialog === "tree" ? <TreeDialog session={session} onClose={() => setDialog(null)} /> : null}
-      {dialog === "info" ? <InfoDialog session={session} onClose={() => setDialog(null)} /> : null}
       {dialog === "export" ? (
         <ExportDialog path={exportPath} onClose={() => setDialog(null)} />
       ) : null}
@@ -185,7 +185,6 @@ type SessionActions = {
   clone: () => void;
   compact: () => void;
   tree: () => void;
-  info: () => void;
   export: () => void;
   copyTitle: () => void;
   reveal: () => void;
@@ -193,125 +192,67 @@ type SessionActions = {
   delete: () => void;
 };
 
-type SessionItem =
-  | { kind: "separator" }
-  | { kind: "section"; label: string }
-  | {
-      kind: "item";
-      label: string;
-      icon: React.ReactNode;
-      onClick: () => void;
-      disabled?: boolean;
-      destructive?: boolean;
-      title?: string;
-    };
-
-/**
- * Keep chat actions in one right-click menu so the row stays visually compact.
- */
-function sessionItems(actions: SessionActions): SessionItem[] {
-  return [
-    { kind: "section", label: "Organize" },
-    {
-      kind: "item",
-      label: actions.pinned ? "Unpin chat" : "Pin chat",
-      icon: actions.pinned ? <PushPinSlashIcon /> : <PushPinIcon />,
-      onClick: actions.togglePin,
-    },
-    {
-      kind: "item",
-      label: actions.finished ? "Return to focus" : "Mark finished",
-      icon: actions.finished ? <ArrowCounterClockwiseIcon /> : <CheckCircleIcon />,
-      onClick: actions.toggleFinished,
-      disabled: actions.blocked,
-    },
-    { kind: "item", label: "Rename", icon: <PencilSimpleIcon />, onClick: actions.rename },
-    { kind: "section", label: "Continue" },
-    {
-      kind: "item",
-      label: "Start a new chat from a message…",
-      icon: <GitForkIcon />,
-      onClick: actions.fork,
-      disabled: actions.blocked,
-    },
-    { kind: "item", label: "Duplicate", icon: <CopyIcon />, onClick: actions.clone, disabled: actions.blocked },
-    ...(actions.active
-      ? [
-          {
-            kind: "item" as const,
-            label: "Summarize earlier messages",
-            icon: <ArrowsInSimpleIcon />,
-            onClick: actions.compact,
-            disabled: actions.blocked,
-            title: "Compact context in Pi by summarizing earlier messages so this chat keeps fitting in the model's context window",
-          },
-        ]
-      : []),
-    { kind: "section", label: "Inspect" },
-    { kind: "item", label: "View chat branches…", icon: <TreeStructureIcon />, onClick: actions.tree },
-    { kind: "item", label: "Chat details…", icon: <InfoIcon />, onClick: actions.info },
-    { kind: "section", label: "File and share" },
-    { kind: "item", label: "Copy title", icon: <CopyIcon />, onClick: actions.copyTitle },
-    { kind: "item", label: "Reveal session file", icon: <ArrowSquareOutIcon />, onClick: actions.reveal },
-    { kind: "item", label: "Copy session file path", icon: <CopyIcon />, onClick: actions.copyPath },
-    { kind: "item", label: "Export to HTML", icon: <ExportIcon />, onClick: actions.export },
-    { kind: "separator" },
-    {
-      kind: "item",
-      label: "Delete chat…",
-      icon: <TrashIcon />,
-      onClick: actions.delete,
-      disabled: actions.blocked,
-      destructive: true,
-    },
-  ];
-}
-
-/**
- * The menu, with each section as a real labelled group.
- *
- * The headings used to be bare paragraphs dropped between menu items, which put
- * unlabelled non-items inside a `role="menu"`. The primitives for this already
- * exist and every dropdown in the window uses them.
- */
 function SessionItems({ actions }: { actions: SessionActions }) {
-  const sections: { label?: string; items: Extract<SessionItem, { kind: "item" }>[] }[] = [];
-  for (const item of sessionItems(actions)) {
-    // A separator opens an unlabelled group; every group is already ruled off
-    // from the one before it.
-    if (item.kind === "separator") {
-      sections.push({ items: [] });
-      continue;
-    }
-    if (item.kind === "section") {
-      sections.push({ label: item.label, items: [] });
-      continue;
-    }
-    const current = sections.at(-1);
-    if (current) current.items.push(item);
-    else sections.push({ items: [item] });
-  }
-
   return (
     <>
-      {sections.map((section, index) => (
-        <ContextMenuGroup key={section.label ?? `section-${index}`}>
-          {index > 0 ? <ContextMenuSeparator /> : null}
-          {section.label ? <ContextMenuLabel>{section.label}</ContextMenuLabel> : null}
-          {section.items.map((item) => (
-            <ContextMenuItem
-              key={item.label}
-              onClick={item.onClick}
-              disabled={item.disabled}
-              title={item.title}
-              variant={item.destructive ? "destructive" : "default"}
-            >
-              {item.icon}
-              {item.label}
+      <ContextMenuGroup>
+        <ContextMenuItem onClick={actions.togglePin}>
+          {actions.pinned ? <PushPinSlashIcon /> : <PushPinIcon />}
+          {actions.pinned ? "Unpin chat" : "Pin chat"}
+        </ContextMenuItem>
+        <ContextMenuItem onClick={actions.toggleFinished} disabled={actions.blocked}>
+          {actions.finished ? <ArrowCounterClockwiseIcon /> : <CheckCircleIcon />}
+          {actions.finished ? "Return to focus" : "Mark finished"}
+        </ContextMenuItem>
+        <ContextMenuItem onClick={actions.rename}>
+          <PencilSimpleIcon /> Rename
+        </ContextMenuItem>
+        <ContextMenuItem onClick={actions.clone} disabled={actions.blocked}>
+          <CopyIcon /> Duplicate
+        </ContextMenuItem>
+      </ContextMenuGroup>
+      <ContextMenuSeparator />
+      <ContextMenuGroup>
+        <ContextMenuSub>
+          <ContextMenuSubTrigger>More</ContextMenuSubTrigger>
+          <ContextMenuSubContent className="w-56">
+            <ContextMenuItem onClick={actions.fork} disabled={actions.blocked}>
+              <GitForkIcon /> Start a new chat from a message…
             </ContextMenuItem>
-          ))}
-        </ContextMenuGroup>
-      ))}
+            {actions.active ? (
+              <ContextMenuItem
+                onClick={actions.compact}
+                disabled={actions.blocked}
+                title="Compact context in Pi by summarizing earlier messages so this chat keeps fitting in the model's context window"
+              >
+                <ArrowsInSimpleIcon /> Summarize earlier messages
+              </ContextMenuItem>
+            ) : null}
+            <ContextMenuItem onClick={actions.tree}>
+              <TreeStructureIcon /> View chat branches…
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={actions.copyTitle}>
+              <CopyIcon /> Copy title
+            </ContextMenuItem>
+            <ContextMenuItem onClick={actions.reveal}>
+              <ArrowSquareOutIcon /> Reveal session file
+            </ContextMenuItem>
+            <ContextMenuItem onClick={actions.copyPath}>
+              <CopyIcon /> Copy session file path
+            </ContextMenuItem>
+            <ContextMenuItem onClick={actions.export}>
+              <ExportIcon /> Export to HTML
+            </ContextMenuItem>
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+      </ContextMenuGroup>
+      <ContextMenuSeparator />
+      <ContextMenuGroup>
+        <ContextMenuItem onClick={actions.delete} disabled={actions.blocked} variant="destructive">
+          <TrashIcon /> Delete chat…
+        </ContextMenuItem>
+      </ContextMenuGroup>
     </>
   );
 }
@@ -444,7 +385,7 @@ function TreeDialog({ session, onClose }: { session: SessionSummary; onClose: ()
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-heading text-base font-semibold">Session tree</DialogTitle>
+          <DialogTitle className="font-heading text-base font-semibold">Chat branches</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             Branches created by forking. The highlighted entry is the current tip.
           </DialogDescription>
@@ -486,114 +427,6 @@ function TreeNode({ node, depth, leafId }: { node: SessionTreeNode; depth: numbe
   );
 }
 
-function InfoDialog({ session, onClose }: { session: SessionSummary; onClose: () => void }) {
-  const projectDir = useAppStore((s) => s.activeProjectPath);
-
-  const request = useRequest(
-    async () => (projectDir ? await rpc.request.getStats({ projectDir, sessionFile: session.path }) : null),
-    [projectDir, session.path],
-  );
-  const stats: SessionStats | null = request.data?.stats ?? null;
-  const error = request.data?.error ?? request.error ?? undefined;
-
-  return (
-    <Dialog open onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="font-heading text-base font-semibold">Session info</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            What this chat contains and what it has cost, read from its session file.
-          </DialogDescription>
-        </DialogHeader>
-        {error ? <p className="text-xs text-destructive">{error}</p> : null}
-        {stats === null ? <Loading /> : <StatsBody stats={stats} />}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// A "Get Info" receipt: muted labels left, tabular figures right, hairlines
-// between groups. Colour stays out of it — these numbers are facts, not
-// statuses, and the chrome around them follows the Color-Is-Status Rule.
-function StatsBody({ stats }: { stats: SessionStats }) {
-  const { input, output, cacheRead, cacheWrite, total } = stats.tokens;
-  const cached = cacheRead + cacheWrite;
-
-  if (stats.totalMessages === 0) {
-    return (
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        Nothing has happened in this chat yet. Send a message and this fills in.
-      </p>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      <section aria-label="Activity">
-        <InfoRow label="Messages sent" value={num(stats.userMessages)} />
-        <InfoRow label="Pi replies" value={num(stats.assistantMessages)} />
-        <InfoRow label="Tool calls" value={num(stats.toolCalls)} />
-      </section>
-
-      <section aria-label="Tokens" className="border-t pt-3">
-        {total === 0 ? (
-          <p className="text-xs text-muted-foreground">No model turns yet, so there are no tokens to count.</p>
-        ) : (
-          <>
-            <InfoRow
-              label="Input tokens"
-              value={num(input)}
-              hint="Your messages, plus every file and tool result Pi read"
-            />
-            <InfoRow label="Output tokens" value={num(output)} hint="Everything the model wrote back" />
-            <InfoRow label="Cache read" value={num(cacheRead)} hint="Context reused from earlier turns" />
-            <InfoRow
-              label="Cache write"
-              value={num(cacheWrite)}
-              hint="Context stored so later turns can reuse it"
-            />
-            <div className="mt-1.5 border-t pt-1.5">
-              <InfoRow label="Total tokens" value={num(total)} emphasis />
-            </div>
-          </>
-        )}
-      </section>
-
-      <section aria-label="Cost" className="border-t pt-3">
-        <InfoRow label="Cost so far" value={cost(stats.cost)} emphasis />
-        {cached > 0 && total > 0 ? (
-          <p className="pt-1 text-xs leading-relaxed text-muted-foreground">
-            {pct(cached, total)} of these tokens went through Pi's cache, billed at a reduced rate.
-          </p>
-        ) : null}
-      </section>
-    </div>
-  );
-}
-
-function InfoRow({
-  label,
-  value,
-  hint,
-  emphasis,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  emphasis?: boolean;
-}) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 py-1" title={hint}>
-      <span className={cn("text-sm", emphasis ? "font-medium text-foreground" : "text-muted-foreground")}>
-        {label}
-      </span>
-      <span className={cn("font-mono text-xs tabular-nums", emphasis ? "font-medium text-foreground" : "")}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
 function ExportDialog({ path, onClose }: { path: string; onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(next) => !next && onClose()}>
@@ -624,10 +457,6 @@ function ExportDialog({ path, onClose }: { path: string; onClose: () => void }) 
   );
 }
 
-function pct(value: number, total: number): string {
-  return `${Math.round((value / total) * 100)}%`;
-}
-
 /** Freeze the animation and a bare spinner says nothing at all, so it says it. */
 function Loading() {
   return (
@@ -636,20 +465,6 @@ function Loading() {
       Reading this chat…
     </div>
   );
-}
-
-function num(value: number): string {
-  return value.toLocaleString();
-}
-
-// Fractions of a cent are the normal case here, so a flat 2-decimal format
-// would render most chats as "$0.00". Keep enough precision to be honest
-// without printing four decimals on a dollar figure that doesn't need them.
-function cost(value: number): string {
-  if (value === 0) return "$0";
-  if (value < 0.01) return `$${value.toFixed(4)}`;
-  if (value < 1) return `$${value.toFixed(3)}`;
-  return `$${value.toFixed(2)}`;
 }
 
 /**

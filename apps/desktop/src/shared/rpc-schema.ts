@@ -22,7 +22,6 @@ import type {
   PiEventBatch,
   ResolvedExtension,
   RpcSessionState,
-  SessionStats,
   ContextInspector,
   SessionSearchResult,
   SessionSummary,
@@ -432,10 +431,6 @@ export type HostRequests = {
   getTree: {
     params: { projectDir: string; sessionFile: string };
     response: { tree: SessionTreeNode[]; leafId: string | null; error?: string };
-  };
-  getStats: {
-    params: { projectDir: string; sessionFile: string };
-    response: { stats?: SessionStats; error?: string };
   };
   getUsageDashboard: {
     params: { projects: Project[] };
