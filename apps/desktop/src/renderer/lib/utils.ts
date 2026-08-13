@@ -13,6 +13,8 @@ export const NO_DRAG_REGION = "app-no-drag"
 // phone, and reserving space for them there costs a tenth of the screen.
 export const WINDOW_CONTROLS_CLEARANCE = "window-controls-clearance"
 
+export const TRAFFIC_LIGHTS_CLEARANCE = "traffic-lights-clearance"
+
 export const SCROLLBAR_GUTTER_OFFSET = "scrollbar-gutter-offset"
 
 /** A control that is revealed on hover, and therefore always shown on touch. */

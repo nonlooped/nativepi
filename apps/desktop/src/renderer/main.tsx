@@ -2,13 +2,16 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
-import { isDesktopShell } from "./lib/platform.ts";
+import { isDesktopShell, osName } from "./lib/platform.ts";
 import { rpc } from "./lib/rpc.ts";
 
 // Whether this document is the frameless Electron window or a browser tab on
 // someone's phone. Written before the first paint so no frame ever reserves
 // space for window controls that are not there.
 document.documentElement.dataset.shell = isDesktopShell ? "desktop" : "web";
+if (isDesktopShell) {
+  document.documentElement.dataset.windowControls = osName() === "macOS" ? "native" : "custom";
+}
 if (__NATIVEPI_DEV_GENERATION__) {
   document.documentElement.dataset.runtime = "development";
   document.title = `NativePi [DEV ${__NATIVEPI_DEV_GENERATION__.slice(0, 6)}]`;

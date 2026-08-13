@@ -53,15 +53,25 @@ body {
   overscroll-behavior: none;
 }
 
-/* Header clearance for the frameless window controls. `data-shell` is written
-   by `main.tsx`, so the browser renderer keeps each header's ordinary padding.
-   Development adds its freshness badge to the three 44px control buttons. */
-html[data-shell="desktop"] .window-controls-clearance {
+/* Header clearance for window chrome. `data-shell` and `data-window-controls`
+   are written by `main.tsx`, so a browser tab never reserves space for buttons
+   that are not there. Windows and Linux draw custom buttons on the right;
+   macOS uses native traffic lights on the left. Development adds a freshness
+   badge on the right in every desktop shell. */
+html[data-shell="desktop"][data-window-controls="custom"] .window-controls-clearance {
   padding-right: 132px;
 }
 
-html[data-shell="desktop"][data-runtime="development"] .window-controls-clearance {
+html[data-shell="desktop"][data-window-controls="custom"][data-runtime="development"] .window-controls-clearance {
   padding-right: 204px;
+}
+
+html[data-shell="desktop"][data-window-controls="native"][data-runtime="development"] .window-controls-clearance {
+  padding-right: 72px;
+}
+
+html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-clearance {
+  padding-left: 78px;
 }
 
 /* The project pane keeps its navigation below the title-bar row, so window

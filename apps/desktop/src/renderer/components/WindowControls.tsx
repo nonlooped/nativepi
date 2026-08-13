@@ -4,6 +4,7 @@ import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { XIcon } from "@phosphor-icons/react/X";
 import type { DevRuntimeStatus } from "../../shared/rpc-schema.ts";
 import { devFreshness, type DevFreshness } from "../lib/devFreshness.ts";
+import { osName } from "../lib/platform.ts";
 import { isRemote, rpc } from "../lib/rpc.ts";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -17,12 +18,14 @@ export default function WindowControls() {
 }
 
 function DesktopWindowControls() {
+  const nativeLights = osName() === "macOS";
   const [maximized, setMaximized] = useState(false);
 
   // Not a useRequest: the initial read is only the seed for a value the main
   // process then pushes on every maximize/unmaximize, so the subscription — not
   // the request — is what this effect exists for.
   useEffect(() => {
+    if (nativeLights) return;
     let cancelled = false;
     void rpc.request.windowIsMaximized({}).then((r) => {
       if (!cancelled) setMaximized(r.maximized);
@@ -34,29 +37,37 @@ function DesktopWindowControls() {
       cancelled = true;
       off();
     };
-  }, []);
+  }, [nativeLights]);
+
+  if (nativeLights && !rendererDevGeneration) return null;
 
   return (
     // z-[60] deliberately clears the z-50 dialog/sheet/menu layer: in a
-    // frameless window, a modal must never cover the close button.
+    // frameless window, a modal must never cover the close button. Native
+    // traffic lights are drawn by the OS above Chromium, so macOS only keeps
+    // this strip for the development freshness badge.
     <div className={cn("absolute top-0 right-0 z-[60] flex h-12 items-stretch bg-transparent", NO_DRAG_REGION)}>
       {rendererDevGeneration ? <DevFreshnessIndicator /> : null}
-      <ControlButton label="Minimize" onClick={() => void rpc.request.windowMinimize({})}>
-        <MinimizeGlyph />
-      </ControlButton>
-      <ControlButton
-        label={maximized ? "Restore" : "Maximize"}
-        onClick={() => void rpc.request.windowToggleMaximize({}).then((r) => setMaximized(r.maximized))}
-      >
-        {maximized ? <RestoreGlyph /> : <MaximizeGlyph />}
-      </ControlButton>
-      <ControlButton
-        label="Close"
-        onClick={() => void rpc.request.windowClose({})}
-        className="hover:bg-destructive hover:text-bright"
-      >
-        <CloseGlyph />
-      </ControlButton>
+      {nativeLights ? null : (
+        <>
+          <ControlButton label="Minimize" onClick={() => void rpc.request.windowMinimize({})}>
+            <MinimizeGlyph />
+          </ControlButton>
+          <ControlButton
+            label={maximized ? "Restore" : "Maximize"}
+            onClick={() => void rpc.request.windowToggleMaximize({}).then((r) => setMaximized(r.maximized))}
+          >
+            {maximized ? <RestoreGlyph /> : <MaximizeGlyph />}
+          </ControlButton>
+          <ControlButton
+            label="Close"
+            onClick={() => void rpc.request.windowClose({})}
+            className="hover:bg-destructive hover:text-bright"
+          >
+            <CloseGlyph />
+          </ControlButton>
+        </>
+      )}
     </div>
   );
 }

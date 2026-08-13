@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { Button } from "@/components/ui/button.tsx";
 import { ResizableHandle, ResizablePanel, useCollapsiblePanel } from "@/components/ui/resizable.tsx";
-import { DRAG_REGION, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
+import { DRAG_REGION, NO_DRAG_REGION, TRAFFIC_LIGHTS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { useAppStore } from "@/lib/store.ts";
 import NativePiWordmark from "./NativePiWordmark.tsx";
 
@@ -44,7 +44,7 @@ export default function LeftSidebar({
     >
       {/* h-12 matches the conversation and context pane headers: three adjacent
           pane headers on two different baselines is a seam you cannot unsee. */}
-      <div className={cn("flex h-12 shrink-0 items-center px-2", !overlay && DRAG_REGION)}>
+      <div className={cn("flex h-12 shrink-0 items-center px-2", TRAFFIC_LIGHTS_CLEARANCE, !overlay && DRAG_REGION)}>
         <div className={cn("flex items-center gap-2", NO_DRAG_REGION)}>
           <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close sidebar" aria-label="Close sidebar">
             <SidebarSimpleIcon />
@@ -86,7 +86,7 @@ export default function LeftSidebar({
         data-pane-motion="left"
         inert={!open || undefined}
         className={cn(
-          "h-full transition-[opacity,translate] duration-200 ease-linear",
+          "h-full transition-[opacity,translate] duration-200 ease-out",
           open ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-full opacity-0",
         )}
         onResize={(size, _id, previousSize) => {
@@ -98,7 +98,7 @@ export default function LeftSidebar({
       <ResizableHandle
         disabled={!open}
         className={cn(
-          "transition-[width,opacity,background-color] duration-200 ease-linear hover:bg-ring focus-visible:bg-ring",
+          "transition-[opacity,background-color] duration-200 ease-out hover:bg-ring focus-visible:bg-ring",
           !open && "w-0 opacity-0 after:hidden",
         )}
         onPointerUp={saveSidebarSize}

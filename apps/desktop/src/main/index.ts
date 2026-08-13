@@ -64,6 +64,7 @@ app.on("second-instance", () => {
 });
 
 function createWindow(): void {
+  const isMac = process.platform === "darwin";
   const win = new BrowserWindow({
     title: "NativePi",
     icon: join(mainDir, "../../resources/icon.png"),
@@ -72,8 +73,11 @@ function createWindow(): void {
     minWidth: 720,
     minHeight: 560,
     show: false,
-    frame: false,
-    titleBarStyle: "hidden",
+    // macOS keeps a real frame so the traffic lights stay native and on the
+    // left; Windows and Linux stay frameless and NativePi draws the buttons.
+    frame: !isMac,
+    titleBarStyle: isMac ? "hiddenInset" : "hidden",
+    trafficLightPosition: isMac ? { x: 16, y: 17 } : undefined,
     backgroundColor: "#0c0c0e",
     webPreferences: {
       preload: join(mainDir, "../preload/index.cjs"),
