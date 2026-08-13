@@ -29,6 +29,7 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx";
@@ -82,8 +83,8 @@ export default function Sidebar({
   );
   const addProject = useAppStore((s) => s.addProject);
   const openSettings = useAppStore((s) => s.openSettings);
-  const selectProject = useAppStore((s) => s.selectProject);
   const selectChat = useAppStore((s) => s.selectChat);
+  const newChatIn = useAppStore((s) => s.newChatIn);
   const removeProject = useAppStore((s) => s.removeProject);
   const importSession = useAppStore((s) => s.importSession);
   const refreshSessions = useAppStore((s) => s.refreshSessions);
@@ -92,8 +93,9 @@ export default function Sidebar({
   const returnChatToFocus = useAppStore((s) => s.returnChatToFocus);
   const editorId = useAppStore((s) => s.preferences.preferredEditorId);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
-  const [scope, setScope] = useState<string | null>(null);
-  const [finishedOpen, setFinishedOpen] = useState(false);
+  const scope = useAppStore((s) => s.sidebarScope);
+  const setScope = useAppStore((s) => s.setSidebarScope);
+  const [finishedOpen, setFinishedOpen] = useState(true);
   const [finishedLimit, setFinishedLimit] = useState(12);
   const [now, setNow] = useState(Date.now);
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
@@ -168,17 +170,16 @@ export default function Sidebar({
     sessionsByProject,
   ]);
 
-  const { focusChats, finished } = useMemo(() => {
+  const { pinned, focus, finished } = useMemo(() => {
     const pinnedOrder = new Map(pinnedChats.map((path, index) => [path, index]));
-    const focusChats = allChats
-      .filter((chat) => !chat.finished)
-      .toSorted((left, right) => {
-        if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
-        if (left.pinned && right.pinned) {
-          return (pinnedOrder.get(left.session.path) ?? 0) - (pinnedOrder.get(right.session.path) ?? 0);
-        }
-        return Date.parse(right.session.modified) - Date.parse(left.session.modified);
-      });
+    const pinned = allChats
+      .filter((chat) => chat.pinned)
+      .toSorted(
+        (left, right) => (pinnedOrder.get(left.session.path) ?? 0) - (pinnedOrder.get(right.session.path) ?? 0),
+      );
+    const focus = allChats
+      .filter((chat) => !chat.finished && !chat.pinned)
+      .toSorted((left, right) => Date.parse(right.session.modified) - Date.parse(left.session.modified));
     const finished = allChats
       .filter((chat) => chat.finished)
       .toSorted(
@@ -186,8 +187,10 @@ export default function Sidebar({
           Date.parse(finishedChats[right.session.path] ?? right.session.modified) -
           Date.parse(finishedChats[left.session.path] ?? left.session.modified),
       );
-    return { focusChats, finished };
+    return { pinned, focus, finished };
   }, [allChats, finishedChats, pinnedChats]);
+
+  const currentProject = projects.find((project) => project.path === activeProjectPath) ?? null;
 
   const scopedProject = scope ? projects.find((project) => project.path === scope) ?? null : null;
   const loading = projects.some((project) => {
@@ -197,15 +200,12 @@ export default function Sidebar({
   const failedProjects = projects.filter((project) => sessionLoadStates[project.path] === "failed");
 
   async function selectChatAndClose(chat: SidebarChat) {
-    if (chat.project.path !== activeProjectPath) await selectProject(chat.project.path);
-    if (useAppStore.getState().activeProjectPath !== chat.project.path) return;
-    await selectChat(chat.session.path);
+    await selectChat(chat.session.path, chat.project.path);
     if (overlay) onClose();
   }
 
   async function startNewChat(path: string) {
-    if (path !== activeProjectPath) await selectProject(path);
-    useAppStore.getState().newChat();
+    await newChatIn(path);
     if (overlay) onClose();
   }
 
@@ -215,20 +215,19 @@ export default function Sidebar({
   }
 
   async function importChat(path: string) {
-    if (path !== activeProjectPath) await selectProject(path);
     await importSession(path);
     if (overlay) onClose();
   }
 
   async function showTerminal(path: string) {
-    if (path !== activeProjectPath) await selectProject(path);
     openTerminal(path);
     if (overlay) onClose();
   }
 
   function markFinished(chat: SidebarChat) {
-    const currentIndex = focusChats.findIndex((item) => item.session.path === chat.session.path);
-    const next = [...focusChats.slice(currentIndex + 1), ...focusChats.slice(0, currentIndex)].find(
+    const focusQueue = [...pinned, ...focus];
+    const currentIndex = focusQueue.findIndex((item) => item.session.path === chat.session.path);
+    const next = [...focusQueue.slice(currentIndex + 1), ...focusQueue.slice(0, currentIndex)].find(
       (item) => item.session.path !== chat.session.path,
     );
     finishChat(chat.session.path);
@@ -293,9 +292,9 @@ export default function Sidebar({
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          {activeProjectPath ? (
+          {currentProject ? (
             <ProjectActionsDropdown
-              project={scopedProject ?? projects.find((project) => project.path === activeProjectPath) ?? null}
+              project={currentProject}
               editorId={editorId}
               onNewChat={startNewChat}
               onImport={importChat}
@@ -311,7 +310,7 @@ export default function Sidebar({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3">
-        {loading && focusChats.length === 0 ? (
+        {loading && pinned.length === 0 && focus.length === 0 ? (
           <ChatHistoryState icon={<CircleNotchIcon className="animate-spin" />} title="Gathering your chats" detail="Reading Pi session history across your projects." />
         ) : null}
         {failedProjects.length > 0 ? (
@@ -328,14 +327,34 @@ export default function Sidebar({
           />
         ) : null}
 
-        {focusChats.length > 0 ? (
+        {pinned.length > 0 ? (
           <div className="flex h-8 shrink-0 items-center gap-2 px-2 text-xs">
-            <h2 className="font-medium text-sidebar-foreground">Focus</h2>
-            <span className="tabular-nums text-muted-foreground/70">{focusChats.length}</span>
+            <h2 className="font-medium text-sidebar-foreground">Pinned</h2>
+            <span className="tabular-nums text-muted-foreground/70">{pinned.length}</span>
           </div>
         ) : null}
         <div className="flex flex-col gap-0.5">
-          {focusChats.map((chat) => (
+          {pinned.map((chat) => (
+            <FocusChatRow
+              key={chat.session.path}
+              chat={chat}
+              now={now}
+              showProject={!scopedProject}
+              showPin={false}
+              onSelect={() => void selectChatAndClose(chat)}
+              onFinish={() => markFinished(chat)}
+            />
+          ))}
+        </div>
+
+        {focus.length > 0 || (!loading && projects.length > 0) ? (
+          <div className={cn("flex h-8 shrink-0 items-center gap-2 px-2 text-xs", pinned.length > 0 && "mt-2")}>
+            <h2 className="font-medium text-sidebar-foreground">Focus</h2>
+            <span className="tabular-nums text-muted-foreground/70">{focus.length}</span>
+          </div>
+        ) : null}
+        <div className="flex flex-col gap-0.5">
+          {focus.map((chat) => (
             <FocusChatRow
               key={chat.session.path}
               chat={chat}
@@ -351,11 +370,6 @@ export default function Sidebar({
           <button type="button" onClick={() => void addProjectAndClose()} className="flex items-center gap-2 rounded-lg border border-dashed px-2.5 py-3 text-left text-xs text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none">
             <FolderPlusIcon className="shrink-0" /> Open your first folder
           </button>
-        ) : null}
-        {!loading && projects.length > 0 && focusChats.length === 0 && finished.length === 0 ? (
-          <p className="px-2 py-8 text-center text-xs leading-relaxed text-muted-foreground">
-            Your focus is clear. Start a chat when you are ready.
-          </p>
         ) : null}
 
         {finished.length > 0 ? (
@@ -421,12 +435,14 @@ function FocusChatRow({
   chat,
   now,
   showProject,
+  showPin = true,
   onSelect,
   onFinish,
 }: {
   chat: SidebarChat;
   now: number;
   showProject: boolean;
+  showPin?: boolean;
   onSelect: () => void;
   onFinish: () => void;
 }) {
@@ -448,7 +464,7 @@ function FocusChatRow({
       >
         <span className={cn("absolute inset-y-2 left-0 w-0.5 rounded-full", chat.running ? "bg-active" : chat.selected ? "bg-sidebar-foreground/30" : "bg-transparent")} />
         <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-[0.8125rem] font-medium leading-5">{chatTitle(chat.session)}</span>
+          <span className="truncate text-sm font-medium leading-5">{chatTitle(chat.session)}</span>
           {chat.running ? (
             <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-xs font-medium text-active" role="status">
               <CircleNotchIcon className="size-3 animate-spin" /> Working
@@ -476,7 +492,7 @@ function FocusChatRow({
               <span className="sidebar-chat-project truncate font-medium">{chat.project.name}</span>
             </>
           ) : null}
-          {chat.pinned ? <PushPinIcon className="size-3 shrink-0 text-favorite" weight="fill" aria-label="Pinned" /> : null}
+          {showPin && chat.pinned ? <PushPinIcon className="size-3 shrink-0 text-favorite" weight="fill" aria-label="Pinned" /> : null}
           <span className="sidebar-chat-time ml-auto shrink-0 tabular-nums">{timeAgo(chat.session.modified, now)}</span>
         </span>
       </div>
@@ -511,8 +527,8 @@ function FinishedChatRow({
         aria-current={chat.selected ? "page" : undefined}
         className="group/finished flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs text-muted-foreground outline-none hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
       >
-        <FolderIcon className="size-3.5 shrink-0 opacity-60" />
         <span className="min-w-0 flex-1 truncate">{chatTitle(chat.session)}</span>
+        <span className="max-w-[40%] shrink-0 truncate">{chat.project.name}</span>
         <span className="sidebar-chat-time shrink-0 tabular-nums text-muted-foreground/60">{timeAgo(chat.session.modified, now)}</span>
         <Button variant="ghost" size="icon-xs" className={cn(HOVER_REVEAL, "shrink-0 group-hover/finished:scale-100 group-hover/finished:opacity-100 group-hover/finished:blur-none group-focus-visible/finished:scale-100 group-focus-visible/finished:opacity-100 group-focus-visible/finished:blur-none")} onClick={(event) => { event.stopPropagation(); onReturn(); }} aria-label="Return chat to focus" title="Return to focus">
           <ArrowClockwiseIcon />
@@ -546,6 +562,8 @@ function ProjectActionsDropdown({
         <DotsThreeIcon weight="bold" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="truncate">{project.name}</DropdownMenuLabel>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => void onNewChat(project.path)}><NotePencilIcon /> New chat here</DropdownMenuItem>
         <DropdownMenuItem onClick={() => void onImport(project.path)}><UploadSimpleIcon /> Import an existing chat</DropdownMenuItem>
         <DropdownMenuSeparator />

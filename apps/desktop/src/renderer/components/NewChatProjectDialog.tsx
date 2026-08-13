@@ -25,19 +25,21 @@ export default function NewChatProjectDialog({
 }) {
   const projects = useAppStore((s) => s.projects);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
-  const selectProject = useAppStore((s) => s.selectProject);
-  const openProjectPath = useAppStore((s) => s.openProjectPath);
+  const newChatIn = useAppStore((s) => s.newChatIn);
   const [query, setQuery] = useState("");
   const search = query.trim().toLocaleLowerCase();
+  const ordered = [...projects].sort((left, right) => {
+    if (left.path === activeProjectPath) return -1;
+    if (right.path === activeProjectPath) return 1;
+    return 0;
+  });
   const matches = search
-    ? projects.filter((project) => `${project.name}\n${project.path}`.toLocaleLowerCase().includes(search))
-    : projects;
+    ? ordered.filter((project) => `${project.name}\n${project.path}`.toLocaleLowerCase().includes(search))
+    : ordered;
 
   async function startChat(path: string) {
     onOpenChange(false);
-    if (path !== activeProjectPath) await selectProject(path);
-    if (useAppStore.getState().activeProjectPath !== path) return;
-    useAppStore.getState().newChat();
+    await newChatIn(path);
     onNavigate?.();
   }
 
@@ -45,9 +47,7 @@ export default function NewChatProjectDialog({
     const { path } = await rpc.request.pickProject({});
     if (!path) return;
     onOpenChange(false);
-    await openProjectPath(path);
-    if (useAppStore.getState().activeProjectPath !== path) return;
-    useAppStore.getState().newChat();
+    await newChatIn(path);
     onNavigate?.();
   }
 

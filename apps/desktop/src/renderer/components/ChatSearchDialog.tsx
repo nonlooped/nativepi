@@ -26,8 +26,10 @@ export default function ChatSearchDialog({
   onNavigate?: () => void;
 }) {
   const projects = useAppStore((s) => s.projects);
-  const activeProjectPath = useAppStore((s) => s.activeProjectPath);
-  const selectProject = useAppStore((s) => s.selectProject);
+  const sidebarScope = useAppStore((s) => s.sidebarScope);
+  const scopedName = useAppStore(
+    (s) => s.projects.find((project) => project.path === s.sidebarScope)?.name,
+  );
   const selectChat = useAppStore((s) => s.selectChat);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SessionSearchResult[]>([]);
@@ -57,7 +59,11 @@ export default function ChatSearchDialog({
     setLoading(true);
     setFailure(false);
     const timer = window.setTimeout(() => {
-      void rpc.request.searchSessions({ requestId, projectDirs: projects.map((project) => project.path), query: search })
+      void rpc.request.searchSessions({
+        requestId,
+        projectDirs: sidebarScope ? [sidebarScope] : projects.map((project) => project.path),
+        query: search,
+      })
         .then(({ results: next }) => {
           if (!current) return;
           setResults(next);
@@ -74,7 +80,7 @@ export default function ChatSearchDialog({
       window.clearTimeout(timer);
       void rpc.request.cancelSearchSessions({ requestId });
     };
-  }, [open, projects, query, requestId, retryRequest]);
+  }, [open, projects, query, requestId, retryRequest, sidebarScope]);
 
   function close() {
     onOpenChange(false);
@@ -83,13 +89,7 @@ export default function ChatSearchDialog({
 
   function navigate(result: SessionSearchResult) {
     close();
-    const select = result.projectDir === activeProjectPath
-      ? Promise.resolve()
-      : selectProject(result.projectDir);
-    void select.then(() => {
-      if (useAppStore.getState().activeProjectPath !== result.projectDir) return;
-      return selectChat(result.sessionFile).then(onNavigate);
-    }).catch(() => undefined);
+    void selectChat(result.sessionFile, result.projectDir).then(onNavigate).catch(() => undefined);
   }
 
   return (
@@ -97,7 +97,9 @@ export default function ChatSearchDialog({
       <DialogContent className="max-w-xl gap-0 overflow-hidden p-0">
         <DialogTitle className="sr-only">Search chats and messages</DialogTitle>
         <DialogDescription className="sr-only">
-          Search chat titles and messages across your projects.
+          {scopedName
+            ? `Search chat titles and messages in ${scopedName}.`
+            : "Search chat titles and messages across your projects."}
         </DialogDescription>
 
         <Combobox.Root
@@ -114,8 +116,8 @@ export default function ChatSearchDialog({
             />
             <Combobox.Input
               autoFocus
-              placeholder="Search chats and messages"
-              aria-label="Search chats and messages"
+              placeholder={scopedName ? `Search chats in ${scopedName}` : "Search chats and messages"}
+              aria-label={scopedName ? `Search chats in ${scopedName}` : "Search chats and messages"}
               className="h-12 w-full rounded-none border-0 bg-transparent pl-11 pr-12 text-base outline-none focus-visible:bg-input/20 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30"
             />
           </div>

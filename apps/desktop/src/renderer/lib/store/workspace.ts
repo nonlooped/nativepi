@@ -1,17 +1,17 @@
 import { rpc } from "../rpc.ts";
 import { sanitizeOverrides } from "../shortcuts.ts";
 import { showHint } from "../toast.tsx";
-import { dropAllSurfaces } from "../tuiSurfaces.ts";
 import {
+  applyFolderTrust,
+  enterProjectFolder,
   forgetLastChat,
   getLastChat,
   persist,
+  rememberProject,
   replaceLastChats,
   warmProject,
 } from "./internals.ts";
-import { NO_EXTENSION_UI_STATE, type SliceCreator, type WorkspaceSlice } from "./types.ts";
-
-let projectSelection = 0;
+import { type SliceCreator, type WorkspaceSlice } from "./types.ts";
 
 export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => ({
   ready: false,
@@ -60,11 +60,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
   },
 
   openProjectPath: async (path) => {
-    const name = path.split(/[/\\]/).filter(Boolean).pop() ?? path;
-    if (!get().projects.some((p) => p.path === path)) {
-      set((s) => ({ projects: [...s.projects, { path, name }] }));
-      persist(get);
-    }
+    rememberProject(set, get, path);
     await get().selectProject(path);
   },
 
@@ -95,50 +91,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
   },
 
   selectProject: async (path) => {
-    const selection = ++projectSelection;
-    const stillSelected = () => selection === projectSelection && get().activeProjectPath === path;
-    // The previous project's conversation is left alone: it keeps folding in
-    // events while off screen, and is picked back up on return.
-    const extPrompts = get().extensionPromptsByProject[path] ?? [];
-    set({
-      activeProjectPath: path,
-      activeSessionFile: null,
-      isNewChat: false,
-      models: [],
-      model: undefined,
-      thinkingLevels: ["off"],
-      trustPrompt: null,
-      trust: null,
-      git: null,
-      repoHost: undefined,
-      extPrompts,
-      extStatuses: {},
-      extWidgets: {},
-      extRenderers: [],
-      extLoadErrors: [],
-      extSurfaces: [],
-      extTriggers: [],
-      extUiState: NO_EXTENSION_UI_STATE,
-      providers: [],
-      providersLoaded: false,
-      authFlow: null,
-    });
-    // The panes belonged to the project being left, and their components belong
-    // to a Pi that is still running. Nothing about them arrives again on its own —
-    // the frame that opened each one was sent once, to a window that has now
-    // forgotten it — so the project being entered is asked to say it all again.
-    // A project whose Pi is not running yet has nothing to answer, and the
-    // surfaces open normally when it starts.
-    dropAllSurfaces();
-    void rpc.request.tuiSend({ projectDir: path, sessionFile: get().activeSessionFile, frame: { type: "nativepi_tui_sync" } }).catch(() => {});
-    persist(get);
-
-    // The trust check does not depend on the session list, and a round trip
-    // costs ~200ms over the public tunnel against nothing on the desktop, so it
-    // goes out alongside rather than after. Rejections are handled at the await
-    // below; the no-op catch only stops the gap counting as unhandled.
-    const trustCheck = rpc.request.checkTrust({ projectDir: path });
-    trustCheck.catch(() => {});
+    const folder = enterProjectFolder(set, get, path);
 
     // A chat still running in this project wins over the last-opened one: the
     // user coming back mid-run should land on the run, not beside it.
@@ -154,28 +107,19 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       }
       try {
         await get().selectChat(last);
-        selectedRememberedChat = stillSelected() && get().activeSessionFile === last;
+        selectedRememberedChat = folder.stillSelected() && get().activeSessionFile === last;
       } catch {
         forgetLastChat(path);
       }
     }
-    if (!selectedRememberedChat && stillSelected()) {
+    if (!selectedRememberedChat && folder.stillSelected()) {
       if (!historyLoaded) await get().refreshSessions(path);
       const sessions = get().sessionsByProject[path] ?? [];
       if (sessions[0]) await get().selectChat(sessions[0].path);
       else get().newChat();
     }
 
-    // A project with local extensions/skills needs a trust decision before Pi
-    // loads them. Ask first; warm Pi only once the user has decided.
-    const trust = await trustCheck;
-    if (!stillSelected()) return;
-    set({ trust });
-    if (trust.required && !trust.trusted) {
-      set({ trustPrompt: { projectPath: path } });
-    } else {
-      warmProject(set, get, path);
-    }
+    await applyFolderTrust(set, get, path, folder);
     if (selectedRememberedChat && !historyLoaded) void get().refreshSessions(path);
   },
 

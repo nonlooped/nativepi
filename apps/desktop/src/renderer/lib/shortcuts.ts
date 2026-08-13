@@ -30,7 +30,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: "newChat",
     binding: "$mod+Shift+KeyN",
     label: "New chat",
-    description: "Choose a project and start a fresh chat.",
+    description: "Start a fresh chat. Asks which project only when more than one is pinned.",
     group: "Chat",
   },
   {
@@ -92,8 +92,8 @@ export const SHORTCUTS: ShortcutDef[] = [
   {
     id: "toggleContextPane",
     binding: "$mod+KeyJ",
-    label: "Toggle source control",
-    description: "Show or hide source control.",
+    label: "Toggle files and changes",
+    description: "Show or hide the files and changes pane.",
     group: "Navigation",
   },
   {

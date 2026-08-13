@@ -271,3 +271,166 @@ test("Pi message events keep the sidebar summary current without a session resca
     modified: "2026-02-01T00:00:01.000Z",
   });
 });
+
+test("opening a chat in another folder switches the workspace to that chat", async () => {
+  const projectA = "C:\\project-a";
+  const projectB = "C:\\project-b";
+  const chatA = "C:\\sessions\\a.jsonl";
+  const chatB = "C:\\sessions\\b.jsonl";
+  const rememberedB = "C:\\sessions\\remembered-b.jsonl";
+  const reads: string[] = [];
+  stubInvoke(async (channel, params) => {
+    if (channel === "readSession") {
+      reads.push((params as { sessionFile: string }).sessionFile);
+      return { entries: [] };
+    }
+    if (channel === "checkTrust") return { required: true, trusted: false };
+    if (channel === "listSessions") return { sessions: [] };
+    return {};
+  });
+
+  const [{ useAppStore }, { replaceLastChats }, { emptyConversation }] = await Promise.all([
+    import("./store.ts"),
+    import("./store/internals.ts"),
+    import("./store/conversation.ts"),
+  ]);
+  replaceLastChats({ [projectB]: rememberedB });
+  useAppStore.setState({
+    projects: [
+      { path: projectA, name: "A" },
+      { path: projectB, name: "B" },
+    ],
+    activeProjectPath: projectA,
+    activeSessionFile: chatA,
+    isNewChat: false,
+    sessionsByProject: {
+      [projectA]: [{
+        path: chatA,
+        id: "a",
+        firstMessage: "A",
+        lastPrompt: "A",
+        providers: [],
+        messageCount: 1,
+        created: "2026-01-01T00:00:00.000Z",
+        modified: "2026-01-01T00:00:00.000Z",
+      }],
+      [projectB]: [{
+        path: chatB,
+        id: "b",
+        firstMessage: "B",
+        lastPrompt: "B",
+        providers: [],
+        messageCount: 1,
+        created: "2026-01-01T00:00:00.000Z",
+        modified: "2026-01-01T00:00:00.000Z",
+      }],
+    },
+    sessionLoadStates: { [projectA]: "loaded", [projectB]: "loaded" },
+    conversations: {
+      [chatA]: { ...emptyConversation(), projectDir: projectA, sessionFile: chatA },
+    },
+  });
+
+  await useAppStore.getState().selectChat(chatB, projectB);
+
+  expect(useAppStore.getState().activeProjectPath).toBe(projectB);
+  expect(useAppStore.getState().activeSessionFile).toBe(chatB);
+  expect(reads).toEqual([chatB]);
+});
+
+test("newChatIn another folder does not open that folder's last chat", async () => {
+  const projectA = "C:\\new-chat-a";
+  const projectB = "C:\\new-chat-b";
+  const rememberedB = "C:\\sessions\\remembered-new-b.jsonl";
+  const reads: string[] = [];
+  stubInvoke(async (channel, params) => {
+    if (channel === "readSession") {
+      reads.push((params as { sessionFile: string }).sessionFile);
+      return { entries: [] };
+    }
+    if (channel === "checkTrust") return { required: true, trusted: false };
+    return {};
+  });
+
+  const [{ useAppStore }, { replaceLastChats }] = await Promise.all([
+    import("./store.ts"),
+    import("./store/internals.ts"),
+  ]);
+  replaceLastChats({ [projectB]: rememberedB });
+  useAppStore.setState({
+    projects: [
+      { path: projectA, name: "A" },
+      { path: projectB, name: "B" },
+    ],
+    activeProjectPath: projectA,
+    activeSessionFile: "C:\\sessions\\a.jsonl",
+    isNewChat: false,
+    sessionLoadStates: { [projectA]: "loaded", [projectB]: "loaded" },
+    sessionsByProject: { [projectA]: [], [projectB]: [] },
+  });
+
+  await useAppStore.getState().newChatIn(projectB);
+
+  expect(useAppStore.getState().activeProjectPath).toBe(projectB);
+  expect(useAppStore.getState().activeSessionFile).toBeNull();
+  expect(useAppStore.getState().isNewChat).toBeTrue();
+  expect(reads).toEqual([]);
+});
+
+test("sending a finished chat returns it to focus", async () => {
+  stubInvoke(async (channel) => {
+    if (channel === "submit") return { ok: true, sessionFile: "C:\\focus-send\\chat.jsonl" };
+    return {};
+  });
+
+  const { useAppStore } = await import("./store.ts");
+  const { emptyConversation } = await import("./store/conversation.ts");
+  const projectPath = "C:\\focus-send";
+  const sessionFile = "C:\\focus-send\\chat.jsonl";
+  useAppStore.setState({
+    activeProjectPath: projectPath,
+    activeSessionFile: sessionFile,
+    finishedChats: { [sessionFile]: "2026-02-01T00:00:00.000Z" },
+    focusedChats: [],
+    sessionsByProject: {
+      [projectPath]: [{
+        path: sessionFile,
+        id: "chat",
+        firstMessage: "Earlier",
+        lastPrompt: "Earlier",
+        providers: [],
+        messageCount: 1,
+        created: "2026-01-01T00:00:00.000Z",
+        modified: "2026-01-01T00:00:00.000Z",
+      }],
+    },
+    conversations: {
+      [sessionFile]: { ...emptyConversation(), projectDir: projectPath, sessionFile },
+    },
+    drafts: {},
+    attachments: {},
+  });
+  useAppStore.getState().setDraft("Continue this chat");
+
+  await useAppStore.getState().send();
+
+  expect(useAppStore.getState().finishedChats[sessionFile]).toBeUndefined();
+  expect(useAppStore.getState().focusedChats).toContain(sessionFile);
+});
+
+test("pinning a finished chat returns it to focus and pins it", async () => {
+  stubInvoke(async () => ({}));
+  const { useAppStore } = await import("./store.ts");
+  const sessionFile = "C:\\pin-finished\\chat.jsonl";
+  useAppStore.setState({
+    pinnedChats: [],
+    finishedChats: { [sessionFile]: "2026-02-01T00:00:00.000Z" },
+    focusedChats: [],
+  });
+
+  useAppStore.getState().togglePinnedChat(sessionFile);
+
+  expect(useAppStore.getState().pinnedChats).toEqual([sessionFile]);
+  expect(useAppStore.getState().finishedChats[sessionFile]).toBeUndefined();
+  expect(useAppStore.getState().focusedChats).toContain(sessionFile);
+});

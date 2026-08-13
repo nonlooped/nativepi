@@ -30,8 +30,9 @@ import type { KeybindingOverrides, ShortcutId } from "../shortcuts.ts";
  *
  * The slices are a reading aid, not a boundary: they compose into one store and
  * one `AppState`, and an action in one slice calls actions in another freely
- * (selecting a project reloads models, git and extensions). Splitting them into
- * separate stores would only move that coordination somewhere less obvious.
+ * (opening a chat in another folder reloads models, git and extensions).
+ * Splitting them into separate stores would only move that coordination
+ * somewhere less obvious.
  */
 
 export type ExtensionPrompt = Extract<
@@ -88,7 +89,7 @@ export interface AuthFlow {
   error?: string;
 }
 
-/** Projects, and which one is open. */
+/** Project folders the user has pinned, and the folder of the open chat. */
 export interface WorkspaceSlice {
   ready: boolean;
   projects: Project[];
@@ -165,8 +166,9 @@ export interface ChatSlice {
   togglePinnedChat: (sessionFile: string) => void;
   finishChat: (sessionFile: string) => void;
   returnChatToFocus: (sessionFile: string) => void;
-  selectChat: (sessionFile: string) => Promise<void>;
+  selectChat: (sessionFile: string, projectDir?: string) => Promise<void>;
   newChat: () => void;
+  newChatIn: (projectDir: string) => Promise<void>;
   importSession: (projectDir?: string, sourceFile?: string) => Promise<boolean>;
   setDraft: (text: string) => void;
   quoteInReply: (text: string) => void;
@@ -293,6 +295,8 @@ export interface UiSlice {
   settingsCategory: string | null;
   sidebarSize: number;
   sidebarOpen: boolean;
+  /** Sidebar project filter. View-only; not persisted. */
+  sidebarScope: string | null;
   reopenLastProject: boolean;
   commitMessageModel: string;
   contextPaneOpen: boolean;
@@ -313,6 +317,7 @@ export interface UiSlice {
   closeSettings: () => void;
   setSidebarSize: (size: number) => void;
   setSidebarOpen: (open: boolean) => void;
+  setSidebarScope: (path: string | null) => void;
   toggleSidebar: () => void;
   setReopenLastProject: (value: boolean) => void;
   setCommitMessageModel: (model: string) => void;

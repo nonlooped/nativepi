@@ -14,6 +14,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   settingsCategory: null,
   sidebarSize: 14,
   sidebarOpen: true,
+  sidebarScope: null,
   reopenLastProject: true,
   commitMessageModel: "active",
   contextPaneOpen: false,
@@ -38,6 +39,8 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
     set({ sidebarOpen });
     persist(get);
   },
+
+  setSidebarScope: (sidebarScope) => set({ sidebarScope }),
 
   toggleSidebar: () => {
     set((s) => ({ sidebarOpen: !s.sidebarOpen }));

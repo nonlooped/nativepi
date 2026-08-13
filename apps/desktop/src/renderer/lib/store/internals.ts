@@ -1,7 +1,8 @@
 import type { NativePiState } from "../../../shared/rpc-schema.ts";
 import { draftKeyFor, modelKey } from "../../../shared/messages.ts";
 import { isRemote, rpc } from "../rpc.ts";
-import type { GetState, SetState } from "./types.ts";
+import { dropAllSurfaces } from "../tuiSurfaces.ts";
+import { NO_EXTENSION_UI_STATE, type GetState, type SetState } from "./types.ts";
 import { patchConversation } from "./conversation.ts";
 
 /**
@@ -61,6 +62,87 @@ export function markGitRefreshed(): void {
 
 export function gitRefreshedWithin(ms: number): boolean {
   return Date.now() - lastGitRefresh < ms;
+}
+
+export function rememberProject(set: SetState, get: GetState, path: string): void {
+  if (get().projects.some((project) => project.path === path)) return;
+  const name = path.split(/[/\\]/).filter(Boolean).pop() ?? path;
+  set((s) => ({ projects: [...s.projects, { path, name }] }));
+  persist(get);
+}
+
+let folderEntry = 0;
+
+export interface FolderEntry {
+  stillSelected: () => boolean;
+  trustCheck: Promise<{ required: boolean; trusted: boolean }>;
+}
+
+/**
+ * Switch Git, trust, terminals, and Pi to this folder without choosing a chat.
+ *
+ * The previous folder's conversation is left alone: it keeps folding in events
+ * while off screen, and is picked back up on return. Its TUI panes belonged to
+ * a Pi that is still running, and nothing about them arrives again on its own,
+ * so the folder being entered is asked to say it all again.
+ *
+ * `selectProject` then restores the last (or first) chat; `selectChat` uses this
+ * when the opened chat lives in a different folder so that chat becomes the
+ * workspace instead of that folder's remembered one.
+ */
+export function enterProjectFolder(set: SetState, get: GetState, path: string): FolderEntry {
+  const selection = ++folderEntry;
+  const stillSelected = () => selection === folderEntry && get().activeProjectPath === path;
+  const extPrompts = get().extensionPromptsByProject[path] ?? [];
+  set({
+    activeProjectPath: path,
+    activeSessionFile: null,
+    isNewChat: false,
+    models: [],
+    model: undefined,
+    thinkingLevels: ["off"],
+    trustPrompt: null,
+    trust: null,
+    git: null,
+    repoHost: undefined,
+    extPrompts,
+    extStatuses: {},
+    extWidgets: {},
+    extRenderers: [],
+    extLoadErrors: [],
+    extSurfaces: [],
+    extTriggers: [],
+    extUiState: NO_EXTENSION_UI_STATE,
+    providers: [],
+    providersLoaded: false,
+    authFlow: null,
+  });
+  dropAllSurfaces();
+  void rpc.request.tuiSend({ projectDir: path, sessionFile: get().activeSessionFile, frame: { type: "nativepi_tui_sync" } }).catch(() => {});
+  persist(get);
+  // The trust check does not depend on the session list, and a round trip
+  // costs ~200ms over the public tunnel against nothing on the desktop, so it
+  // goes out alongside rather than after. Rejections are handled at the await
+  // in applyFolderTrust; the no-op catch only stops the gap counting as unhandled.
+  const trustCheck = rpc.request.checkTrust({ projectDir: path });
+  trustCheck.catch(() => {});
+  return { stillSelected, trustCheck };
+}
+
+export async function applyFolderTrust(
+  set: SetState,
+  get: GetState,
+  path: string,
+  folder: FolderEntry,
+): Promise<void> {
+  const trust = await folder.trustCheck;
+  if (!folder.stillSelected()) return;
+  set({ trust });
+  if (trust.required && !trust.trusted) {
+    set({ trustPrompt: { projectPath: path } });
+  } else {
+    warmProject(set, get, path);
+  }
 }
 
 /**

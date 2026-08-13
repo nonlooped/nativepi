@@ -4,11 +4,14 @@ import { isRemote, rpc } from "../rpc.ts";
 import { conversationFor, emptyConversation, patchConversation } from "./conversation.ts";
 import { applyExtensionUi, reduce, sessionInfoName } from "./events.ts";
 import {
+  applyFolderTrust,
   draftKey,
+  enterProjectFolder,
   forgetLastChat,
   getLastChat,
   gitRefreshedWithin,
   persist,
+  rememberProject,
   reportDraft,
   setLastChat,
   warmProject,
@@ -17,7 +20,7 @@ import { readAsBase64, toImageContent } from "../attachments.ts";
 import { showAttachmentsRejected } from "../toast.tsx";
 import { MAX_IMAGE_BYTES } from "../../../shared/images.ts";
 import type { ImageAttachment } from "../../../shared/rpc-schema.ts";
-import { togglePinnedPath } from "../chatOrganization.ts";
+import { isChatFinished, togglePinnedPath } from "../chatOrganization.ts";
 import { dropAllSurfaces } from "../tuiSurfaces.ts";
 import { isAssistant, isUser, sessionPromptSummary } from "../../../shared/messages.ts";
 import { draftKeyFor } from "../../../shared/messages.ts";
@@ -142,6 +145,24 @@ function currentDraft(get: GetState) {
   return text || images.length > 0 ? { state, projectDir, key, text, images } : null;
 }
 
+function projectDirForSession(get: GetState, sessionFile: string): string | null {
+  const state = get();
+  for (const [projectPath, sessions] of Object.entries(state.sessionsByProject)) {
+    if (sessions.some((session) => session.path === sessionFile)) return projectPath;
+  }
+  return state.conversations[sessionFile]?.projectDir ?? null;
+}
+
+function reviveActiveIfFinished(get: GetState): void {
+  const s = get();
+  const sessionFile = s.activeSessionFile;
+  if (!sessionFile) return;
+  const created = (s.activeProjectPath ? s.sessionsByProject[s.activeProjectPath] : undefined)
+    ?.find((session) => session.path === sessionFile)?.created ?? "";
+  if (!isChatFinished(created, sessionFile, s.focusStartedAt, s.finishedChats[sessionFile], s.focusedChats)) return;
+  get().returnChatToFocus(sessionFile);
+}
+
 /** Take the images off a draft; `send` and `enqueue` both hand them to Pi. */
 function clearAttachments(set: SetState, key: string): void {
   set((s) => {
@@ -251,21 +272,23 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     persist(get);
   },
 
-  selectChat: async (sessionFile) => {
-    const projectPath = get().activeProjectPath;
-    if (projectPath) coldChatTokens.delete(projectPath);
-    clearSessionExtensionUi(set);
-    set((state) => ({
-      activeSessionFile: sessionFile,
-      isNewChat: false,
-      models: [],
-      model: undefined,
-      thinkingLevel: "off",
-      thinkingLevels: ["off"],
-      conversations: retainLiveConversations(state.conversations, sessionFile),
-    }));
-    reportActiveDraft(get);
-    if (projectPath) {
+  selectChat: async (sessionFile, projectDir) => {
+    const projectPath = projectDir ?? projectDirForSession(get, sessionFile) ?? get().activeProjectPath;
+    if (!projectPath) return;
+    const folder = projectPath !== get().activeProjectPath ? enterProjectFolder(set, get, projectPath) : null;
+    try {
+      coldChatTokens.delete(projectPath);
+      clearSessionExtensionUi(set);
+      set((state) => ({
+        activeSessionFile: sessionFile,
+        isNewChat: false,
+        models: [],
+        model: undefined,
+        thinkingLevel: "off",
+        thinkingLevels: ["off"],
+        conversations: retainLiveConversations(state.conversations, sessionFile),
+      }));
+      reportActiveDraft(get);
       setLastChat(projectPath, sessionFile);
       persist(get);
       // Watch the chat being viewed for writes from another NativePi window or
@@ -286,10 +309,8 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
         return;
       }
       patchConversation(set, projectPath, sessionFile, () => ({ ...emptyConversation(), projectDir: projectPath, sessionFile }));
-    }
-    const { entries } = await rpc.request.readSession({ sessionFile });
-    if (get().activeSessionFile !== sessionFile || get().activeProjectPath !== projectPath) return;
-    if (projectPath) {
+      const { entries } = await rpc.request.readSession({ sessionFile });
+      if (get().activeSessionFile !== sessionFile || get().activeProjectPath !== projectPath) return;
       const current = get().conversations[sessionFile];
       if (current && (current.running || current.streaming || current.entries.length > 0)) {
         const trust = get().trust;
@@ -302,6 +323,11 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       });
       const trust = get().trust;
       if (trust && (!trust.required || trust.trusted)) warmProject(set, get, projectPath);
+    } finally {
+      if (folder) {
+        await applyFolderTrust(set, get, projectPath, folder);
+        if ((get().sessionLoadStates[projectPath] ?? "unloaded") === "unloaded") void get().refreshSessions(projectPath);
+      }
     }
   },
 
@@ -321,6 +347,13 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     }
     set({ activeSessionFile: null, isNewChat: true });
     reportActiveDraft(get);
+  },
+
+  newChatIn: async (projectDir) => {
+    rememberProject(set, get, projectDir);
+    const folder = projectDir !== get().activeProjectPath ? enterProjectFolder(set, get, projectDir) : null;
+    get().newChat();
+    if (folder) await applyFolderTrust(set, get, projectDir, folder);
   },
 
   importSession: async (targetProjectDir, sourceFile) => {
@@ -421,6 +454,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
     // draft stays exactly where the user left it.
     const draft = currentDraft(get);
     if (!draft) return;
+    reviveActiveIfFinished(get);
     const { state: s, projectDir, key, text, images } = draft;
 
     /**
@@ -550,6 +584,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
   enqueue: async (behavior) => {
     const draft = currentDraft(get);
     if (!draft) return;
+    reviveActiveIfFinished(get);
     const { state: sendState, projectDir, key, text, images } = draft;
     const sessionFile = sendState.activeSessionFile;
 
