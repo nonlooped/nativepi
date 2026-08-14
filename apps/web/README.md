@@ -7,7 +7,7 @@ Router, deployed to Vercel.
 
 ```sh
 bun install          # from the repository root
-bun run web:dev      # or: cd apps/web && bun run dev
+bun run --cwd apps/web dev
 ```
 
 The site runs on <http://localhost:3000>.
@@ -15,7 +15,7 @@ The site runs on <http://localhost:3000>.
 ## Build
 
 ```sh
-bun run web:build
+bun run --cwd apps/web build
 ```
 
 Builds use Turbopack, which resolves modules correctly against Bun's isolated

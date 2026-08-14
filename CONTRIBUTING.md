@@ -38,8 +38,9 @@ bun install
 bun run dev
 ```
 
-For browser development, `bun run dev:web` runs the live renderer against the
-real local NativePi host instead of fixture data.
+For browser testing, start **Local access** in the running app under Settings,
+**Access**. Its development link uses the live Vite renderer and the same host
+as the Electron window.
 
 The desktop application lives in `apps/desktop`. The public graphical extension
 contract lives in `packages/extension-api`.
@@ -49,12 +50,9 @@ contract lives in `packages/extension-api`.
 Run the checks that CI runs:
 
 ```sh
-bun run typecheck
-bun run typecheck:packages
+bun run check
 bun run test
 bun run build
-cd apps/web && bun run lint && bun run typecheck
-cd ../.. && bun run web:build
 ```
 
 A few conventions that will otherwise cost you a review round:

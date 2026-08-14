@@ -13,21 +13,8 @@ const materialIcons = resolve(
   "icons",
 );
 
-// One ID is compiled into all three Electron contexts. The dev launcher also
-// writes it outside the process, which lets an older window discover that a
-// newer launch was attempted even when that attempt lost the port race.
-const devGeneration = process.env["NATIVEPI_DEV_GENERATION"] ?? "";
-const webDevelopmentPort = process.env["NATIVEPI_WEB_DEV_PORT"] ?? "";
-const devDefine = {
-  __NATIVEPI_DEV_GENERATION__: JSON.stringify(devGeneration),
-  __NATIVEPI_WEB_RPC_URL__: JSON.stringify(
-    webDevelopmentPort ? `ws://127.0.0.1:${webDevelopmentPort}/rpc` : "",
-  ),
-};
-
 export default defineConfig({
   main: {
-    define: devDefine,
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
@@ -53,7 +40,6 @@ export default defineConfig({
     },
   },
   preload: {
-    define: devDefine,
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
@@ -70,7 +56,6 @@ export default defineConfig({
   },
   renderer: {
     root: "src/renderer",
-    define: devDefine,
     resolve: {
       alias: {
         "@": resolve("src/renderer"),
@@ -90,6 +75,9 @@ export default defineConfig({
       },
     },
     server: {
+      // Local Access reuses this renderer during development. The RPC remains
+      // token-protected and only starts when Local Access is enabled in the app.
+      host: true,
       port: 5173,
       strictPort: true,
     },

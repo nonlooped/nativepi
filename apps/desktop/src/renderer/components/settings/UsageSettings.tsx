@@ -15,15 +15,18 @@ import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { cn } from "@/lib/utils.ts";
+import SubscriptionUsageSettings from "./SubscriptionUsageSettings.tsx";
 
 const ALL_PROJECTS = "all-projects";
 const PROVIDER_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)"];
 
 type Range = "7" | "30" | "90" | "all";
 type ChartMetric = "cost" | "tokens";
+type UsageView = "costs" | "limits";
 
 export default function UsageSettings() {
   const projects = useAppStore((state) => state.projects);
+  const [view, setView] = useState<UsageView>("costs");
   const [projectPath, setProjectPath] = useState(ALL_PROJECTS);
   const [range, setRange] = useState<Range>("30");
   const selectedProjects = projectPath === ALL_PROJECTS ? projects : projects.filter((project) => project.path === projectPath);
@@ -37,72 +40,95 @@ export default function UsageSettings() {
 
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex flex-col gap-1.5">
-          <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">Usage</h1>
-          <p className="text-sm text-body-muted-foreground">{period}</p>
-        </div>
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Select
-            value={projectPath}
-            onValueChange={(value) => typeof value === "string" && setProjectPath(value)}
-            items={[{ value: ALL_PROJECTS, label: "All projects" }, ...projects.map((project) => ({ value: project.path, label: project.name }))]}
+      <div className="flex flex-col gap-4 border-b border-border/70 pb-5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-2">
+          <ToggleGroup
+            value={[view]}
+            onValueChange={(next) => {
+              const value = next.at(0) as UsageView | undefined;
+              if (value) setView(value);
+            }}
+            variant="outline"
+            size="sm"
+            spacing={0}
+            aria-label="Usage view"
+            className="w-fit"
           >
-            <SelectTrigger aria-label="Project" className="h-8 w-full min-w-44 px-2.5 text-xs sm:w-52">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false} align="end">
-              <SelectGroup>
-                <SelectItem value={ALL_PROJECTS}>All projects</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.path} value={project.path}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+            <ToggleGroupItem value="costs">Local usage</ToggleGroupItem>
+            <ToggleGroupItem value="limits">Subscription limits</ToggleGroupItem>
+          </ToggleGroup>
+          <p className="text-sm text-body-muted-foreground">
+            {view === "costs" ? period : "Current limits reported by connected subscription providers."}
+          </p>
+        </div>
 
-          <div className="flex items-center gap-1.5">
-            <ToggleGroup
-              value={[range]}
-              onValueChange={(next) => {
-                const value = next.at(0) as Range | undefined;
-                if (value) setRange(value);
-              }}
-              variant="outline"
-              size="sm"
-              spacing={0}
-              aria-label="Date range"
-              className="min-w-0 flex-1 sm:flex-none"
+        {view === "costs" ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Select
+              value={projectPath}
+              onValueChange={(value) => typeof value === "string" && setProjectPath(value)}
+              items={[{ value: ALL_PROJECTS, label: "All projects" }, ...projects.map((project) => ({ value: project.path, label: project.name }))]}
             >
-              <ToggleGroupItem value="7" className="flex-1 px-2 sm:flex-none">7 days</ToggleGroupItem>
-              <ToggleGroupItem value="30" className="flex-1 px-2 sm:flex-none">30 days</ToggleGroupItem>
-              <ToggleGroupItem value="90" className="flex-1 px-2 sm:flex-none">90 days</ToggleGroupItem>
-              <ToggleGroupItem value="all" className="flex-1 px-2 sm:flex-none">All</ToggleGroupItem>
-            </ToggleGroup>
-            <Button
-              variant="outline"
-              size="icon-lg"
-              onClick={request.reload}
-              disabled={request.loading}
-              aria-label="Refresh usage"
-              title="Refresh usage"
-            >
-              <ArrowClockwiseIcon className={request.loading ? "animate-spin" : undefined} />
-            </Button>
+              <SelectTrigger aria-label="Project" className="h-8 w-full min-w-44 px-2.5 text-xs sm:w-52">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent alignItemWithTrigger={false} align="end">
+                <SelectGroup>
+                  <SelectItem value={ALL_PROJECTS}>All projects</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.path} value={project.path}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+
+            <div className="flex items-center gap-1.5">
+              <ToggleGroup
+                value={[range]}
+                onValueChange={(next) => {
+                  const value = next.at(0) as Range | undefined;
+                  if (value) setRange(value);
+                }}
+                variant="outline"
+                size="sm"
+                spacing={0}
+                aria-label="Date range"
+                className="min-w-0 flex-1 sm:flex-none"
+              >
+                <ToggleGroupItem value="7" className="flex-1 px-2 sm:flex-none">7 days</ToggleGroupItem>
+                <ToggleGroupItem value="30" className="flex-1 px-2 sm:flex-none">30 days</ToggleGroupItem>
+                <ToggleGroupItem value="90" className="flex-1 px-2 sm:flex-none">90 days</ToggleGroupItem>
+                <ToggleGroupItem value="all" className="flex-1 px-2 sm:flex-none">All</ToggleGroupItem>
+              </ToggleGroup>
+              <Button
+                variant="outline"
+                size="icon-lg"
+                onClick={request.reload}
+                disabled={request.loading}
+                aria-label="Refresh usage"
+                title="Refresh usage"
+              >
+                <ArrowClockwiseIcon className={request.loading ? "animate-spin" : undefined} />
+              </Button>
+            </div>
           </div>
-        </div>
-      </header>
+        ) : null}
+      </div>
 
-      {error ? (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          Unable to load usage. {error}
-        </div>
-      ) : null}
-
-      {request.loading ? <Loading /> : dashboard ? <Dashboard dashboard={dashboard} range={range} /> : null}
+      {view === "limits" ? (
+        <SubscriptionUsageSettings />
+      ) : (
+        <>
+          {error ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              Unable to load usage. {error}
+            </div>
+          ) : null}
+          {request.loading ? <Loading /> : dashboard ? <Dashboard dashboard={dashboard} range={range} /> : null}
+        </>
+      )}
     </div>
   );
 }
@@ -119,11 +145,13 @@ function Dashboard({ dashboard, range }: { dashboard: UsageDashboard; range: Ran
     <div className="flex flex-col gap-9">
       <section className="grid gap-8 border-b border-border/70 pb-9 xl:grid-cols-[minmax(16rem,0.72fr)_minmax(30rem,1.45fr)] xl:gap-10">
         <div className="flex flex-col">
-          <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Recorded cost</p>
-          <p className="mt-2 font-mono text-4xl font-medium tracking-tight tabular-nums sm:text-5xl">{cost(view.totalCost)}</p>
-          <p className="mt-2 max-w-xs text-xs leading-5 text-body-muted-foreground">Model-reported estimates from Pi session files, not provider invoices.</p>
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 className="font-heading text-sm font-semibold">Cost by provider</h2>
+            <span className="font-mono text-lg font-medium tabular-nums">{cost(view.totalCost)}</span>
+          </div>
+          <p className="mt-1 max-w-sm text-xs leading-5 text-body-muted-foreground">Model-reported estimates from Pi session files, not provider invoices.</p>
 
-          <div className="mt-7 flex flex-col gap-4">
+          <div className="mt-5 flex flex-col gap-4">
             {providers.map((provider, index) => {
               const share = view.totalCost > 0 ? (provider.cost / view.totalCost) * 100 : 0;
               return (

@@ -19,7 +19,6 @@ ipcMain.handle("nativepi:invoke", async (_event, name: HostRequestName, params: 
 // Not named `__dirname`: rolldown injects a CommonJS `__dirname` shim at the top
 // of the main bundle, and a same-named top-level const collides with it at load.
 const mainDir = import.meta.dirname;
-const webDevelopment = process.env["NATIVEPI_WEB_DEV_PORT"] !== undefined;
 
 app.setName("NativePi");
 installDiagnostics();
@@ -49,7 +48,6 @@ app.on("second-instance", () => {
     relaunchAfterQuit = true;
     return;
   }
-  if (webDevelopment) return;
   const win = BrowserWindow.getAllWindows()[0];
   // No window but not quitting: macOS keeps the app alive after the last close.
   if (!win) {
@@ -176,30 +174,7 @@ function createWindow(): void {
   }
 }
 
-async function startWebDevelopment(): Promise<void> {
-  const port = Number(process.env["NATIVEPI_WEB_DEV_PORT"]);
-  const token = process.env["NATIVEPI_DEV_GENERATION"];
-  if (!Number.isInteger(port) || port < 1 || port > 65_535 || !token) {
-    throw new Error("NativePi web development was started without a valid host configuration.");
-  }
-
-  const loaded = await loadHost();
-  loaded.setMainWindow(null);
-  loaded.initializeHost();
-  await loaded.startWebDevelopmentHost(port, token);
-  const rendererUrl = process.env["ELECTRON_RENDERER_URL"] ?? "http://127.0.0.1:5173";
-  console.info(`NativePi web development is ready at ${rendererUrl}`);
-}
-
 app.whenReady().then(() => {
-  if (webDevelopment) {
-    void startWebDevelopment().catch((error: unknown) => {
-      console.error(error instanceof Error ? error.message : String(error));
-      app.quit();
-    });
-    return;
-  }
-
   createWindow();
   void loadHost().then((loaded) => {
     loaded.setMainWindow(BrowserWindow.getAllWindows()[0] ?? null);
@@ -212,7 +187,7 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
-  if (!webDevelopment && process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin") app.quit();
 });
 
 app.on("before-quit", (event) => {

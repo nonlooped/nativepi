@@ -28,6 +28,8 @@ export interface LocalServerOptions {
   subscribe: Subscribe;
   port?: number;
   token?: string;
+  /** Vite's renderer port when Local Access is started from a development run. */
+  rendererPort?: number;
 }
 
 const clientMessageSchema = z.discriminatedUnion("type", [
@@ -232,8 +234,11 @@ export async function startLocalServer(
     throw new Error("NativePi could not determine the local server address.");
   }
   const port = addressPort(http);
+  const linkPort = options.rendererPort ?? port;
+  const linkParams = new URLSearchParams({ token });
+  if (options.rendererPort) linkParams.set("rpcPort", String(port));
   const links = localNetwork
-    ? localAddresses().map((address) => `http://${formatAddress(address)}:${port}/#token=${token}`)
+    ? localAddresses().map((address) => `http://${formatAddress(address)}:${linkPort}/#${linkParams}`)
     : [];
   const unsubscribe = options.subscribe((name, payload) => {
     const message = JSON.stringify({ type: "event", name, payload });

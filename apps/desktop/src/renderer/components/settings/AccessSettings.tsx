@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils.ts";
 import type { AccessClient, AccessStatus, RemoteAccessStatus } from "../../../shared/rpc-schema.ts";
 import type { AccessHandoff } from "../../lib/store/types.ts";
-import { rpc } from "../../lib/rpc.ts";
+import { isRemote, rpc } from "../../lib/rpc.ts";
 import { useAppStore } from "../../lib/store.ts";
 import ConfirmDialog from "../ConfirmDialog.tsx";
 import { SettingsCard, type CardTone } from "./rows.tsx";
@@ -104,6 +104,17 @@ export default function AccessSettings() {
   const clients = status.local.clients;
   const shared = status.local.running || status.remote.state !== "idle";
   const remote = status.remote;
+
+  if (isRemote) {
+    return (
+      <SettingsCard
+        icon={<DevicesIcon />}
+        title="Managed on the desktop"
+        status="View only from this device"
+        description="Return to the NativePi desktop window to start, stop, or replace access links. A browser cannot change the link it is currently using."
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -193,12 +204,12 @@ export default function AccessSettings() {
       ) : null}
 
       {shared || handoffs.length > 0 ? (
-        <div className="rounded-xl border bg-card/40">
+        <div className="border-t border-border/70">
           <button
             type="button"
             aria-expanded={auditOpen}
             onClick={() => setAuditOpen((open) => !open)}
-            className="flex w-full items-center gap-3 rounded-xl p-4 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex w-full items-center gap-3 py-6 text-left outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold">The access token</span>
@@ -210,7 +221,7 @@ export default function AccessSettings() {
           </button>
 
           {auditOpen ? (
-            <div className="flex flex-col gap-4 border-t p-4">
+            <div className="flex flex-col gap-4 border-t border-border/70 py-5">
               <div>
                 <p className="text-sm font-medium">Handoffs from this window</p>
                 {handoffs.length === 0 ? (

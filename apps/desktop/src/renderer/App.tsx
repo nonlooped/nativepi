@@ -198,7 +198,7 @@ export default function App() {
                     <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-8 sm:px-6">
                       <div className="my-auto flex w-full max-w-(--conversation-width) flex-col items-center gap-4">
                         <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">
-                          Working in {activeProjectName ?? "this project"}
+                          What’s next for {activeProjectName ?? "this project"}?
                         </h1>
                         <Composer prominent />
                       </div>

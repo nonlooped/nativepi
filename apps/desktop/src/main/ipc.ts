@@ -51,7 +51,6 @@ import {
   stopRemoteAccess,
 } from "./remoteAccess.ts";
 import { checkForUpdate, downloadUpdate, installUpdate, startUpdates, updateState } from "./updates.ts";
-import { devRuntimeStatus } from "./devRuntime.ts";
 import { createDiagnosticsReport, recordRendererCrash } from "./diagnostics.ts";
 
 /** One Pi process per session: Pi already permits concurrent sessions in a project. */
@@ -1138,7 +1137,6 @@ const handlers: HandlerMap = {
     recordRendererCrash(kind, message, stack);
     return { ok: true };
   },
-  devRuntimeStatus: () => devRuntimeStatus(),
   updateState: () => updateState(),
   checkForUpdate: () => checkForUpdate(),
   downloadUpdate: () => downloadUpdate(),
@@ -1570,27 +1568,16 @@ async function pickSessionFile(): Promise<string | undefined> {
 }
 
 async function ensureLocalAccess(localNetwork: boolean): Promise<void> {
-  if (process.env["ELECTRON_RENDERER_URL"]) {
-    throw new Error("Access is available in packaged NativePi.");
-  }
+  const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
+  const rendererPort = rendererUrl
+    ? Number(new URL(rendererUrl).port || 80)
+    : undefined;
   await startLocalServer({
     rendererDir: resolve(import.meta.dirname, "../renderer"),
     invoke: invokeHostRequest,
     subscribe: subscribeHostEvents,
+    rendererPort,
   }, localNetwork);
-}
-
-// Vite still needs the real NativePi host when its renderer is in a browser.
-// Reuse the browser transport, but keep this development bridge on loopback and
-// out of the Local Access lifecycle and settings.
-export async function startWebDevelopmentHost(port: number, token: string): Promise<void> {
-  await startLocalServer({
-    rendererDir: resolve(import.meta.dirname, "../renderer"),
-    invoke: invokeHostRequest,
-    subscribe: subscribeHostEvents,
-    port,
-    token,
-  }, false);
 }
 
 async function startRemoteAccessForCurrentServer(): Promise<void> {

@@ -1,21 +1,16 @@
 import { useEffect, useState } from "react";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
 import { BrainIcon } from "@phosphor-icons/react/Brain";
-import { ChartDonutIcon } from "@phosphor-icons/react/ChartDonut";
 import { ChartLineUpIcon } from "@phosphor-icons/react/ChartLineUp";
-import { GearSixIcon } from "@phosphor-icons/react/GearSix";
-import { InfoIcon } from "@phosphor-icons/react/Info";
-import { KeyboardIcon } from "@phosphor-icons/react/Keyboard";
+import { DesktopTowerIcon } from "@phosphor-icons/react/DesktopTower";
 import { PaintBrushIcon } from "@phosphor-icons/react/PaintBrush";
 import { PlugsConnectedIcon } from "@phosphor-icons/react/PlugsConnected";
 import { PuzzlePieceIcon } from "@phosphor-icons/react/PuzzlePiece";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
-import { SlidersHorizontalIcon } from "@phosphor-icons/react/SlidersHorizontal";
 import { StopIcon } from "@phosphor-icons/react/Stop";
-import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
+import { ToolboxIcon } from "@phosphor-icons/react/Toolbox";
 import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
 import { activeConversation, useAppStore } from "../lib/store.ts";
-import { isRemote } from "../lib/rpc.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.tsx";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet.tsx";
@@ -23,57 +18,43 @@ import { DRAG_REGION, NO_DRAG_REGION, TRAFFIC_LIGHTS_CLEARANCE, WINDOW_CONTROLS_
 import { useWorkspaceLayout } from "../lib/layout.ts";
 import ExtensionsManager from "./ExtensionsManager.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
-import AboutSettings from "./settings/AboutSettings.tsx";
 import AccessSettings from "./settings/AccessSettings.tsx";
-import AdvancedSettings from "./settings/AdvancedSettings.tsx";
 import AgentSettings from "./settings/AgentSettings.tsx";
 import AppearanceSettings from "./settings/AppearanceSettings.tsx";
-import GeneralSettings from "./settings/GeneralSettings.tsx";
-import KeybindSettings from "./settings/KeybindSettings.tsx";
 import ProviderSettings from "./settings/ProviderSettings.tsx";
-import SubscriptionUsageSettings from "./settings/SubscriptionUsageSettings.tsx";
-import TerminalSettings from "./settings/TerminalSettings.tsx";
+import SystemSettings from "./settings/SystemSettings.tsx";
 import UsageSettings from "./settings/UsageSettings.tsx";
+import WorkbenchSettings from "./settings/WorkbenchSettings.tsx";
 
-/**
- * The settings screen.
- *
- * Two kinds of setting live here and the distinction is deliberate rather than
- * cosmetic. NativePi owns how its window looks and behaves; Pi owns how the
- * agent runs, and those are written to Pi's own settings file so the Pi command
- * line sees the same values. Each category below says which one it is, because a
- * user who edits "Agent" and then opens a terminal should not be surprised.
- *
- * The order runs from what everyone touches to what almost nobody does.
- */
+/** Eight task-oriented destinations, ordered from everyday choices to maintenance. */
 export const CATEGORIES = [
-  { name: "Appearance", icon: PaintBrushIcon, blurb: "Color schemes, layout, scale, diffs, and motion." },
-  { name: "Providers", icon: PlugsConnectedIcon, blurb: "Sign in to model providers. Pi stores the credentials." },
-  { name: "Agent", icon: BrainIcon, blurb: "How Pi runs a turn. Shared with the Pi command line." },
-  { name: "Keyboard", icon: KeyboardIcon, blurb: "Every shortcut, and how to change it." },
-  { name: "General", icon: GearSixIcon, blurb: "Startup and notifications." },
-  { name: "Extensions", icon: PuzzlePieceIcon, blurb: "Pi packages and their NativePi surfaces." },
-  { name: "Terminal", icon: TerminalWindowIcon, blurb: "The terminal panel, and the shell Pi runs commands in." },
-  { name: "Access", icon: WifiHighIcon, blurb: "Reach this window from another device." },
-  { name: "Usage", icon: ChartLineUpIcon, blurb: "Spend and tokens recorded in Pi session files." },
-  { name: "Subscriptions", icon: ChartDonutIcon, blurb: "Subscription limits for every connected provider." },
-  { name: "Advanced", icon: SlidersHorizontalIcon, blurb: "Trust, networking, and what Pi reports." },
-  { name: "About", icon: InfoIcon, blurb: "Versions, updates, and where Pi keeps its files." },
+  { name: "Appearance", icon: PaintBrushIcon, blurb: "Theme, layout, diffs, scale, and motion." },
+  { name: "Providers", icon: PlugsConnectedIcon, blurb: "Connect the model providers Pi can use." },
+  { name: "Agent", icon: BrainIcon, blurb: "Everyday defaults for how Pi runs a turn." },
+  { name: "Usage", icon: ChartLineUpIcon, blurb: "Local costs, tokens, and provider subscription limits." },
+  { name: "Extensions", icon: PuzzlePieceIcon, blurb: "Install and manage packages that extend Pi." },
+  { name: "Workbench", icon: ToolboxIcon, blurb: "Terminal preferences and keyboard shortcuts." },
+  { name: "Access", icon: WifiHighIcon, blurb: "Open this workspace from another device." },
+  { name: "System", icon: DesktopTowerIcon, blurb: "Startup, notifications, updates, diagnostics, and files." },
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number]["name"];
 
 /** Categories backed by Pi's settings file, which is read when the screen opens. */
-const PI_BACKED = new Set<Category>(["Agent", "Terminal", "Advanced"]);
+const PI_BACKED = new Set<Category>(["Agent", "Workbench"]);
+
+function isCategory(value: string | null): value is Category {
+  return CATEGORIES.some((category) => category.name === value);
+}
 
 export default function Settings() {
   const closeSettings = useAppStore((s) => s.closeSettings);
   const loadPiSettings = useAppStore((s) => s.loadPiSettings);
-  const initialCategory = useAppStore((s) => s.settingsCategory) as Category | null;
-  const [category, setCategory] = useState<Category>((initialCategory as Category) ?? "Appearance");
+  const initialCategory = useAppStore((s) => s.settingsCategory);
+  const [category, setCategory] = useState<Category>(isCategory(initialCategory) ? initialCategory : "Appearance");
 
   useEffect(() => {
-    if (initialCategory) setCategory(initialCategory as Category);
+    if (isCategory(initialCategory)) setCategory(initialCategory);
   }, [initialCategory]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [railSheetOpen, setRailSheetOpen] = useState(false);
@@ -165,18 +146,11 @@ export default function Settings() {
             <RunningAgentBadge />
           </header>
 
-          <div
-            className={cn(
-              "mx-auto w-full px-5 pb-16 pt-8 sm:px-10 sm:pt-12",
-              category === "Usage" || category === "Subscriptions" ? "max-w-6xl" : "max-w-3xl",
-            )}
-          >
-            {category !== "Usage" && category !== "Subscriptions" ? (
-              <div className="mb-8 flex flex-col gap-2 sm:mb-12">
-                <h1 className="font-heading text-2xl font-semibold tracking-tight">{category}</h1>
-                {blurb ? <p className="text-sm leading-6 text-body-muted-foreground">{blurb}</p> : null}
-              </div>
-            ) : null}
+          <div className="mx-auto w-full max-w-6xl px-5 pb-16 pt-8 sm:px-10 sm:pt-10">
+            <div className="mb-9 flex max-w-3xl flex-col gap-1.5">
+              <h1 className="text-balance font-heading text-2xl font-semibold tracking-tight">{category}</h1>
+              {blurb ? <p className="text-pretty text-sm leading-6 text-body-muted-foreground">{blurb}</p> : null}
+            </div>
 
             <CategoryPanel category={category} />
           </div>
@@ -217,14 +191,14 @@ function CategoryNav({
   onSelect: (category: Category) => void;
 }) {
   return (
-    // Scrolls rather than compressing: ten categories do not fit a short
+    // Scrolls rather than compressing: eight categories do not fit a short
     // window, and the Back button below must stay reachable.
     <nav
       aria-label="Settings categories"
       className={cn("flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-3 pt-1", NO_DRAG_REGION)}
     >
       <p className="px-2 pb-2 font-heading text-sm font-semibold">Settings</p>
-      {CATEGORIES.filter(({ name }) => !isRemote || name !== "Access").map(({ name, icon: Icon }) => (
+      {CATEGORIES.map(({ name, icon: Icon }) => (
         <button
           key={name}
           type="button"
@@ -245,12 +219,8 @@ function CategoryNav({
 
 function CategoryPanel({ category }: { category: Category }) {
   switch (category) {
-    case "General":
-      return <GeneralSettings />;
     case "Usage":
       return <UsageSettings />;
-    case "Subscriptions":
-      return <SubscriptionUsageSettings />;
     case "Access":
       return <AccessSettings />;
     case "Appearance":
@@ -261,14 +231,10 @@ function CategoryPanel({ category }: { category: Category }) {
       return <ProviderSettings />;
     case "Extensions":
       return <ExtensionsManager />;
-    case "Terminal":
-      return <TerminalSettings />;
-    case "Advanced":
-      return <AdvancedSettings />;
-    case "Keyboard":
-      return <KeybindSettings />;
-    case "About":
-      return <AboutSettings />;
+    case "Workbench":
+      return <WorkbenchSettings />;
+    case "System":
+      return <SystemSettings />;
   }
 }
 

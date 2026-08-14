@@ -99,9 +99,9 @@ bun install
 bun run dev
 ```
 
-Use `bun run dev:web` to run the same renderer in a browser with hot reload and
-the real local NativePi host, Pi sessions, and project data. It binds the host
-bridge to loopback and does not open an Electron window.
+To test the running app in a browser, start **Local access** in Settings,
+**Access**, then open its link. Development links use the same Vite renderer and
+hot reload as the Electron window, backed by the same NativePi host.
 
 The desktop application lives in `apps/desktop`; the public graphical extension
 contract lives in `packages/extension-api`.
@@ -109,12 +109,13 @@ contract lives in `packages/extension-api`.
 ### Test and build
 
 ```sh
+bun run check                 # typecheck every workspace and lint the site
 bun run test                  # run desktop and package tests
-bun run build                 # build the app
-bun run pack                  # package without installer
-bun run dist:win              # build the Windows installer
-bun run dist:mac              # build the macOS installer
-bun run dist:linux            # build the Linux installer
+bun run build                 # build the desktop app and site
+bun run package -- --dir      # package without an installer
+bun run package -- --win      # Windows installer
+bun run package -- --mac      # macOS disk image
+bun run package -- --linux    # Linux AppImage
 ```
 
 ## Architecture

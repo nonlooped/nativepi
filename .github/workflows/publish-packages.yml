@@ -63,11 +63,13 @@ jobs:
           "sha=$sha" >> $env:GITHUB_OUTPUT
 
           $extensions = @(
+            @{ package = "@nativepi/ask-user"; directory = "packages/ask-user" }
             @{ package = "@nativepi/mcp"; directory = "packages/mcp" }
             @{ package = "@nativepi/meta"; directory = "packages/meta" }
             @{ package = "@nativepi/service-tier"; directory = "packages/service-tier" }
             @{ package = "@nativepi/subagents"; directory = "packages/subagents" }
             @{ package = "@nativepi/subscription-usage"; directory = "packages/subscription-usage" }
+            @{ package = "@nativepi/throughput"; directory = "packages/throughput" }
             @{ package = "@nativepi/title-generator"; directory = "packages/title-generator" }
           )
 

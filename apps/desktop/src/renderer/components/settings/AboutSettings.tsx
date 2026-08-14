@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { ArrowSquareOutIcon } from "@phosphor-icons/react/ArrowSquareOut";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
@@ -9,8 +8,7 @@ import { isRemote, rpc } from "../../lib/rpc.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { useRequest } from "../../lib/useRequest.ts";
 import { showDiagnosticsCopied, showDiagnosticsExportFailed } from "../../lib/toast.tsx";
-import NativePiWordmark from "../NativePiWordmark.tsx";
-import { ReadonlyRow, SettingsCard, SettingsSection, type CardTone } from "./rows.tsx";
+import { ActionRow, ReadonlyRow, SettingsCard, SettingsSection, type CardTone } from "./rows.tsx";
 import { Button } from "@/components/ui/button.tsx";
 
 const REPOSITORY_URL = "https://github.com/nonlooped/nativepi";
@@ -114,38 +112,33 @@ export default function AboutSettings() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-4">
-        <NativePiWordmark display />
-        <p className="max-w-prose text-sm leading-6 text-body-muted-foreground">
-          Pi runs the agent and owns your providers, credentials and sessions. NativePi gives it a window and stores
-          its own settings locally. Browser access and update checks connect only when those features are used.
-        </p>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="font-mono text-xs text-muted-foreground">
-            NativePi {versions.data?.app ?? "…"} · Pi {versions.data?.pi ?? "…"}
-          </span>
-          <Button variant="ghost" size="sm" onClick={() => void rpc.request.openExternal({ url: REPOSITORY_URL })}>
-            Source on GitHub
-            <ArrowSquareOutIcon data-icon="inline-end" />
-          </Button>
-        </div>
-      </div>
+      <SettingsSection heading="Version">
+        <ReadonlyRow
+          label="NativePi"
+          value={versions.data?.app ?? "…"}
+          action={
+            <Button variant="ghost" size="sm" onClick={() => void rpc.request.openExternal({ url: REPOSITORY_URL })}>
+              View source
+            </Button>
+          }
+        />
+        <ReadonlyRow label="Pi" value={versions.data?.pi ?? "…"} />
+      </SettingsSection>
 
       <Updates />
 
       {!isRemote ? (
-        <SettingsCard
-          icon={<CopyIcon />}
-          title="Diagnostics"
-          status="Ready to copy"
-          description="Copy versions, system details, recent logs, crash information, packages, terminal status, and redacted configuration for a bug report."
-          action={
+        <SettingsSection heading="Support">
+          <ActionRow
+            label="Diagnostics"
+            description="Copy system details, recent logs, package state, and redacted configuration for a bug report."
+          >
             <Button size="xl" variant="outline" disabled={exporting} onClick={() => void exportDiagnostics()}>
               <CopyIcon data-icon="inline-start" />
-              {exporting ? "Exporting…" : "Export diagnostics"}
+              {exporting ? "Copying…" : "Copy diagnostics"}
             </Button>
-          }
-        />
+          </ActionRow>
+        </SettingsSection>
       ) : null}
 
       <SettingsSection

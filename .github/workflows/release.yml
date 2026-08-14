@@ -137,7 +137,7 @@ jobs:
           install-filter: "@nativepi/desktop"
 
       - name: Build Windows installer
-        run: bun run dist:win --publish never
+        run: bun run package --win --publish never
         working-directory: apps/desktop
 
       - name: Upload installer artifact
@@ -179,7 +179,7 @@ jobs:
           install-filter: "@nativepi/desktop"
 
       - name: Build macOS installer
-        run: bun run dist:mac --${{ matrix.arch }} --publish never
+        run: bun run package --mac --${{ matrix.arch }} --publish never
         working-directory: apps/desktop
 
       - name: Upload installer artifact
@@ -219,7 +219,7 @@ jobs:
           install-filter: "@nativepi/desktop"
 
       - name: Build Linux installer
-        run: bun run dist:linux --${{ matrix.arch }} --publish never
+        run: bun run package --linux --${{ matrix.arch }} --publish never
         working-directory: apps/desktop
 
       - name: Upload installer artifact

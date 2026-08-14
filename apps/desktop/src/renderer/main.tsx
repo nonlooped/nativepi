@@ -13,11 +13,6 @@ document.documentElement.dataset.shell = isDesktopShell ? "desktop" : "web";
 if (isDesktopShell) {
   document.documentElement.dataset.windowControls = osName() === "macOS" ? "native" : "custom";
 }
-if (__NATIVEPI_DEV_GENERATION__) {
-  document.documentElement.dataset.runtime = "development";
-  document.title = `NativePi [DEV ${__NATIVEPI_DEV_GENERATION__.slice(0, 6)}]`;
-}
-
 if (isDesktopShell) {
   window.addEventListener("error", (event) => {
     void rpc.request.reportRendererError({

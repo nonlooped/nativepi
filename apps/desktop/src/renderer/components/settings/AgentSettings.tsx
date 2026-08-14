@@ -2,25 +2,18 @@ import { useAppStore } from "../../lib/store.ts";
 import PiPanel from "./PiPanel.tsx";
 import { ChoiceRow, SelectRow, SettingsSection, SwitchRow } from "./rows.tsx";
 
-/**
- * How Pi runs a turn.
- *
- * Everything on this screen is stored by Pi in its own settings file, so a
- * change here is also a change for `pi` in a terminal. The queue modes and the
- * two automatic behaviors reach a running Pi immediately; the rest wait for it
- * to restart, which the panel says when it happens.
- */
+/** The small set of Pi defaults that materially change everyday turns. */
 export default function AgentSettings() {
-  const update = useAppStore((s) => s.updatePiSetting);
+  const update = useAppStore((state) => state.updatePiSetting);
 
   return (
     <PiPanel>
       {(settings) => (
         <>
-          <SettingsSection heading="New chats">
+          <SettingsSection heading="Defaults" description="Applied when a new chat starts.">
             <SelectRow
               label="Reasoning level"
-              description="How hard the model thinks before answering, when it supports reasoning."
+              description="How hard a supported model thinks before answering."
               value={settings.defaultThinkingLevel}
               options={[
                 { value: "", label: "Let the model decide" },
@@ -35,66 +28,58 @@ export default function AgentSettings() {
               onChange={(value) => void update("defaultThinkingLevel", value)}
             />
             <SwitchRow
-              label="Offer skills as commands"
-              description="Let skills be invoked directly. The composer's $ menu lists whatever this leaves available."
-              checked={settings.enableSkillCommands}
-              onChange={(value) => void update("enableSkillCommands", value)}
+              label="Hide reasoning"
+              description="Show answers and tool activity without the model's thinking blocks."
+              checked={settings.hideThinkingBlock}
+              onChange={(value) => void update("hideThinkingBlock", value)}
             />
           </SettingsSection>
 
-          <SettingsSection
-            heading="Queued messages"
-            description="What happens to messages you send while a turn is already running."
-          >
-            <ChoiceRow
-              label="Steering"
-              description="Redirects the run already in progress."
-              value={settings.steeringMode}
-              options={[
-                { value: "one-at-a-time", label: "One at a time" },
-                { value: "all", label: "All at once" },
-              ]}
-              onChange={(value) => void update("steeringMode", value)}
-            />
-            <ChoiceRow
-              label="Follow-ups"
-              description="Waits and starts a new turn once the current one finishes."
-              value={settings.followUpMode}
-              options={[
-                { value: "one-at-a-time", label: "One at a time" },
-                { value: "all", label: "All at once" },
-              ]}
-              onChange={(value) => void update("followUpMode", value)}
-            />
-          </SettingsSection>
-
-          <SettingsSection heading="When a turn goes wrong">
+          <SettingsSection heading="Reliability">
             <SwitchRow
               label="Compact automatically"
-              description="Summarize older messages when a chat approaches the model's context limit, instead of failing."
+              description="Summarize older messages before a chat reaches the model's context limit."
               checked={settings.autoCompaction}
               onChange={(value) => void update("autoCompaction", value)}
             />
             <SwitchRow
               label="Retry failed requests"
-              description="Retry a provider error with a backoff before surfacing it. You can always stop a retry from the transcript."
+              description="Retry temporary provider errors before surfacing them."
               checked={settings.autoRetry}
               onChange={(value) => void update("autoRetry", value)}
             />
           </SettingsSection>
 
-          <SettingsSection heading="In the transcript">
+          <SettingsSection heading="Images">
             <SwitchRow
-              label="Hide reasoning"
-              description="Leave out the model's thinking blocks and show only its answers and tool activity."
-              checked={settings.hideThinkingBlock}
-              onChange={(value) => void update("hideThinkingBlock", value)}
+              label="Allow images"
+              description="Let supported models read images attached to messages."
+              checked={!settings.blockImages}
+              onChange={(value) => void update("blockImages", !value)}
             />
             <SwitchRow
-              label="Report cache misses"
-              description="Tell you when a request missed the provider's prompt cache, which usually means it cost more."
-              checked={settings.showCacheMissNotices}
-              onChange={(value) => void update("showCacheMissNotices", value)}
+              label="Resize before sending"
+              description="Shrink large images so they use fewer tokens."
+              checked={settings.autoResizeImages}
+              onChange={(value) => void update("autoResizeImages", value)}
+              disabled={settings.blockImages}
+            />
+          </SettingsSection>
+
+          <SettingsSection
+            heading="Project trust"
+            description="A trusted folder may load project extensions, skills, and settings with your permissions."
+          >
+            <ChoiceRow
+              label="New project folders"
+              description="What Pi assumes the first time it opens a folder."
+              value={settings.defaultProjectTrust}
+              options={[
+                { value: "ask", label: "Ask" },
+                { value: "always", label: "Always trust" },
+                { value: "never", label: "Never trust" },
+              ]}
+              onChange={(value) => void update("defaultProjectTrust", value)}
             />
           </SettingsSection>
         </>

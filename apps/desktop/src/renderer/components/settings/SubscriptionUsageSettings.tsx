@@ -3,6 +3,7 @@ import { ChartDonutIcon } from "@phosphor-icons/react/ChartDonut";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { PlugsConnectedIcon } from "@phosphor-icons/react/PlugsConnected";
+import { z } from "zod";
 import { Button } from "@/components/ui/button.tsx";
 import { useAppStore } from "../../lib/store.ts";
 import { rpc } from "../../lib/rpc.ts";
@@ -10,17 +11,24 @@ import { useRequest } from "../../lib/useRequest.ts";
 import { providerIconName } from "../../lib/providerIcons.ts";
 import BrandIcon from "../BrandIcon.tsx";
 
-type SubscriptionUsageLimit = {
-  label: string;
-  usedPercent: number;
-  resetAt?: string;
-  windowSeconds?: number;
-};
+const subscriptionUsageLimitSchema = z.object({
+  label: z.string(),
+  usedPercent: z.number().finite(),
+  resetAt: z.string().optional(),
+  windowSeconds: z.number().finite().positive().optional(),
+});
 
-type SubscriptionUsage = {
-  provider: string;
-  limits: SubscriptionUsageLimit[];
-};
+const subscriptionUsageSchema = z.object({
+  provider: z.string(),
+  limits: z.array(subscriptionUsageLimitSchema),
+});
+
+const subscriptionUsageResultSchema = z.object({
+  usages: z.array(subscriptionUsageSchema).optional(),
+});
+
+type SubscriptionUsageLimit = z.infer<typeof subscriptionUsageLimitSchema>;
+type SubscriptionUsage = z.infer<typeof subscriptionUsageSchema>;
 
 function providerLabel(provider: string) {
   return provider === "github-copilot"
@@ -97,12 +105,12 @@ export default function SubscriptionUsageSettings() {
         method: "usages",
       });
       if (error) throw new Error(error);
-      const parsed = result as { usages?: SubscriptionUsage[] } | null;
-      const usages = Array.isArray(parsed?.usages) ? parsed!.usages! : [];
-      // sort limits per provider for display
-      for (const usage of usages) {
-        usage.limits.sort((a, b) => b.usedPercent - a.usedPercent);
-      }
+      const parsed = subscriptionUsageResultSchema.safeParse(result);
+      if (!parsed.success) throw new Error("The subscription provider returned invalid usage data.");
+      const usages = (parsed.data.usages ?? []).map((usage) => ({
+        ...usage,
+        limits: usage.limits.toSorted((a, b) => b.usedPercent - a.usedPercent),
+      }));
       usages.sort((a, b) => {
         const aMax = a.limits.reduce((m, l) => Math.max(m, l.usedPercent), 0);
         const bMax = b.limits.reduce((m, l) => Math.max(m, l.usedPercent), 0);
@@ -118,8 +126,8 @@ export default function SubscriptionUsageSettings() {
 
   if (!projectDir) {
     return (
-      <div className="flex flex-col gap-8">
-        <Header onRefresh={request.reload} loading={request.loading} />
+      <div className="flex flex-col gap-6">
+        <RefreshButton onRefresh={request.reload} loading={request.loading} />
         <EmptyState
           icon={<PlugsConnectedIcon size={20} />}
           title="Open a project to view subscription usage"
@@ -136,8 +144,8 @@ export default function SubscriptionUsageSettings() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <Header onRefresh={request.reload} loading={request.loading} />
+    <div className="flex flex-col gap-6">
+      <RefreshButton onRefresh={request.reload} loading={request.loading} />
 
       {error ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -159,7 +167,7 @@ export default function SubscriptionUsageSettings() {
           description="Connect a supported provider — Anthropic, OpenAI Codex, Kimi Code, or GitHub Copilot — with a subscription account in Providers. Limits appear here once Pi can read them."
         />
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="border-b border-border/70">
           {usages.map((usage) => (
             <ProviderCard key={usage.provider} usage={usage} />
           ))}
@@ -173,27 +181,18 @@ export default function SubscriptionUsageSettings() {
   );
 }
 
-function Header({ onRefresh, loading }: { onRefresh: () => void; loading: boolean }) {
+function RefreshButton({ onRefresh, loading }: { onRefresh: () => void; loading: boolean }) {
   return (
-    <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div className="flex flex-col gap-1.5">
-        <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">Subscriptions</h1>
-        <p className="text-sm leading-6 text-body-muted-foreground">
-          Usage limits for every connected provider that reports them.
-        </p>
-      </div>
-      <Button
-        variant="outline"
-        size="icon-lg"
-        onClick={onRefresh}
-        disabled={loading}
-        aria-label="Refresh subscription usage"
-        title="Refresh"
-        className="self-start sm:self-auto"
-      >
-        <ArrowClockwiseIcon className={loading ? "animate-spin" : undefined} />
-      </Button>
-    </header>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={onRefresh}
+      disabled={loading}
+      className="self-end"
+    >
+      <ArrowClockwiseIcon className={loading ? "animate-spin" : undefined} data-icon="inline-start" />
+      Refresh limits
+    </Button>
   );
 }
 
@@ -203,8 +202,8 @@ function ProviderCard({ usage }: { usage: SubscriptionUsage }) {
   const remaining = mostConstrained ? Math.max(0, 100 - mostConstrained.usedPercent) : undefined;
 
   return (
-    <section className="flex flex-col rounded-xl border bg-card p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-4">
+    <section className="grid gap-6 border-t border-border/70 py-7 lg:grid-cols-[minmax(12rem,0.55fr)_minmax(20rem,1.45fr)] lg:gap-10">
+      <div className="flex items-start justify-between gap-4 lg:flex-col lg:justify-start">
         <div className="flex items-center gap-3">
           <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-foreground">
             <BrandIcon name={providerIconName(usage.provider)} size={21} color />
@@ -219,24 +218,24 @@ function ProviderCard({ usage }: { usage: SubscriptionUsage }) {
           </div>
         </div>
         {remaining !== undefined ? (
-          <div className="text-right">
+          <div className="text-right lg:text-left">
             <p
-              className="font-mono text-lg font-medium tabular-nums leading-none"
+              className="font-mono text-lg font-medium leading-none tabular-nums"
               style={{ color: toneColor(mostConstrained!.usedPercent) }}
             >
-              {Math.round(remaining)}%
+              {Math.round(remaining)}% left
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">left</p>
+            <p className="mt-1 text-xs text-muted-foreground">Most constrained limit</p>
           </div>
         ) : null}
       </div>
 
       {sorted.length === 0 ? (
-        <p className="mt-4 text-sm leading-5 text-muted-foreground">
+        <p className="text-sm leading-5 text-muted-foreground">
           This provider did not report any subscription limits. It may not have any, or the account has not used a quota yet.
         </p>
       ) : (
-        <div className="mt-5 flex flex-col gap-5">
+        <div className="flex flex-col gap-5">
           {sorted.map((limit) => {
             const left = Math.max(0, 100 - limit.usedPercent);
             const reset = countdown(limit.resetAt);

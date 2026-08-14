@@ -43,7 +43,6 @@ const allowedEvents: Record<HostEventName, true> = {
 };
 
 export type NativePiApi = {
-  devGeneration: string;
   invoke: <K extends HostRequestName>(
     channel: K,
     params: HostRequests[K]["params"],
@@ -66,7 +65,6 @@ export type NativePiApi = {
 };
 
 const api: NativePiApi = {
-  devGeneration: __NATIVEPI_DEV_GENERATION__,
   invoke: (channel, params) => ipcRenderer.invoke("nativepi:invoke", channel, params),
   filePath: (file) => webUtils.getPathForFile(file),
   events: {

@@ -40,12 +40,17 @@ export function SettingsSection({
 }) {
   const id = useId();
   return (
-    <section aria-labelledby={id} className="flex flex-col">
-      <h2 id={id} className="font-heading text-sm font-semibold">
-        {heading}
-      </h2>
-      {description ? <p className="mt-1 text-sm leading-5 text-body-muted-foreground">{description}</p> : null}
-      <FieldGroup className="mt-4 flex flex-col">{children}</FieldGroup>
+    <section
+      aria-labelledby={id}
+      className="grid gap-3 border-t border-border/70 pt-6 lg:grid-cols-[minmax(11rem,0.48fr)_minmax(0,1.52fr)] lg:gap-10"
+    >
+      <div className="max-w-sm">
+        <h2 id={id} className="font-heading text-sm font-semibold">
+          {heading}
+        </h2>
+        {description ? <p className="mt-1 text-pretty text-sm leading-5 text-body-muted-foreground">{description}</p> : null}
+      </div>
+      <FieldGroup className="flex flex-col">{children}</FieldGroup>
     </section>
   );
 }
@@ -97,7 +102,7 @@ function Row({
 
   if (wide) {
     return (
-      <Field orientation="vertical" className="flex flex-col gap-3 border-t py-5">
+      <Field orientation="vertical" className="flex flex-col gap-3 border-b border-border/70 py-5 first:pt-0 last:border-b-0 last:pb-0">
         {text}
         {children}
       </Field>
@@ -108,7 +113,7 @@ function Row({
   // below it. A 14rem select next to a two-line explanation is what turns a
   // settings list into two columns of four-character-wide text on a phone.
   return (
-    <Field orientation="horizontal" className="flex flex-col gap-3 border-t py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+    <Field orientation="horizontal" className="flex flex-col gap-3 border-b border-border/70 py-5 first:pt-0 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
       {text}
       <div className={shrinkable ? "min-w-0" : "sm:shrink-0"}>{children}</div>
     </Field>
@@ -382,8 +387,8 @@ export function SettingsCard({
   children?: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border bg-card/40">
-      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:gap-4">
+    <section className="border-t border-border/70">
+      <div className="flex flex-col gap-3 py-6 sm:flex-row sm:items-start sm:gap-4">
         {icon ? (
           <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground [&_svg]:size-[1.125rem]">
             {icon}
@@ -406,7 +411,7 @@ export function SettingsCard({
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      {children ? <div className="border-t p-4">{children}</div> : null}
+      {children ? <div className="border-t border-border/70 py-5">{children}</div> : null}
     </section>
   );
 }

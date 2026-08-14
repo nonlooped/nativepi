@@ -3,7 +3,6 @@ import { BellIcon } from "@phosphor-icons/react/Bell";
 import { PowerIcon } from "@phosphor-icons/react/Power";
 import { Button } from "@/components/ui/button.tsx";
 import { useAppStore } from "../../lib/store.ts";
-import { ExtensionSettings } from "../ExtensionSlots.tsx";
 import { SettingsCard, SettingsSection, SwitchRow } from "./rows.tsx";
 
 type Permission = NotificationPermission | "unsupported";
@@ -30,19 +29,17 @@ export default function GeneralSettings() {
         />
       </SettingsSection>
 
-      <ExtensionSettings />
-
       <SettingsSection heading="Notifications">
         <NotificationCard enabled={notifyOnTurnEnd} silent={!notificationSound} />
         <SwitchRow
           label="Notify when a turn finishes"
-          description="Only while the window is in the background, so a run you are watching never interrupts itself."
+          description="Show a desktop notification when a background turn finishes."
           checked={notifyOnTurnEnd}
           onChange={(value) => setPreference("notifyOnTurnEnd", value)}
         />
         <SwitchRow
           label="Play a sound"
-          description="Use your system's notification sound instead of a silent notification."
+          description="Use the system notification sound."
           checked={notificationSound}
           onChange={(value) => setPreference("notificationSound", value)}
           disabled={!notifyOnTurnEnd}

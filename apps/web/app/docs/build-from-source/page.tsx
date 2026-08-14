@@ -47,9 +47,9 @@ bun run dev`}
       <div className="measure mt-4">
         <Code
           lang="shell"
-          code={`cd apps/desktop
-bun test
-bun run typecheck`}
+          code={`bun run check
+bun run test
+bun run build`}
         />
       </div>
       <Prose className="mt-4">
@@ -64,11 +64,10 @@ bun run typecheck`}
       <div className="measure mt-4">
         <Code
           lang="shell"
-          code={`bun run build       # build the desktop app
-bun run pack        # package without an installer
-bun run dist:win    # Windows installer
-bun run dist:mac    # macOS disk image
-bun run dist:linux  # Linux AppImage`}
+          code={`bun run package -- --dir    # package without an installer
+bun run package -- --win    # Windows installer
+bun run package -- --mac    # macOS disk image
+bun run package -- --linux  # Linux AppImage`}
         />
       </div>
       <Prose className="mt-4">

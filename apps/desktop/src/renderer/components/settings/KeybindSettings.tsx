@@ -56,15 +56,15 @@ export default function KeybindSettings() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-3 rounded-xl border bg-card/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="flex items-start gap-2 text-sm text-body-muted-foreground">
-          <PencilSimpleIcon className="mt-0.5 shrink-0" />
-          <span>
-            Every shortcut here can be changed. Click one, then press the keys you want. Escape cancels.
-          </span>
-        </p>
+      <div className="flex flex-col gap-3 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex max-w-2xl flex-col gap-1">
+          <h2 className="font-heading text-sm font-semibold">Keyboard shortcuts</h2>
+          <p className="text-sm leading-5 text-body-muted-foreground">
+            Select a shortcut, then press its new keys. Press Escape to cancel.
+          </p>
+        </div>
         {anyCustomized ? (
-          <Button variant="outline" size="xl" onClick={resetAllKeybindings} className="shrink-0">
+          <Button variant="outline" size="sm" onClick={resetAllKeybindings} className="shrink-0">
             <ArrowCounterClockwiseIcon data-icon="inline-start" />
             Reset all
           </Button>

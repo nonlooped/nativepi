@@ -18,16 +18,10 @@
   "type": "module",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev": "bun run scripts/dev.ts",
-    "dev:web": "bun run scripts/dev.ts --web",
+    "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
-    "pack": "electron-vite build && electron-builder --dir",
-    "dist": "electron-vite build && electron-builder",
-    "dist:win": "electron-vite build && electron-builder --win",
-    "dist:mac": "electron-vite build && electron-builder --mac",
-    "dist:linux": "electron-vite build && electron-builder --linux"
+    "package": "bun run build && electron-builder"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "0.84.1",

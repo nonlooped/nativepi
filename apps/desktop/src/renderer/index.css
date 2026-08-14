@@ -56,19 +56,11 @@ body {
 /* Header clearance for window chrome. `data-shell` and `data-window-controls`
    are written by `main.tsx`, so a browser tab never reserves space for buttons
    that are not there. Windows and Linux draw custom buttons on the right;
-   macOS uses native traffic lights on the left. Development adds a freshness
-   badge on the right in every desktop shell. */
+   macOS uses native traffic lights on the left. */
 html[data-shell="desktop"][data-window-controls="custom"] .window-controls-clearance {
   padding-right: 132px;
 }
 
-html[data-shell="desktop"][data-window-controls="custom"][data-runtime="development"] .window-controls-clearance {
-  padding-right: 204px;
-}
-
-html[data-shell="desktop"][data-window-controls="native"][data-runtime="development"] .window-controls-clearance {
-  padding-right: 72px;
-}
 
 html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-clearance {
   padding-left: 78px;

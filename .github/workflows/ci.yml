@@ -30,36 +30,11 @@ jobs:
         with:
           bun-cache: "true"
 
-      - name: Typecheck
-        run: bun run typecheck
-
-      - name: Typecheck packages
-        run: bun run typecheck:packages
+      - name: Check
+        run: bun run check
 
       - name: Test
         run: bun run test
 
       - name: Build
         run: bun run build
-
-  web:
-    name: Web lint, typecheck & build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup
-        uses: ./.github/actions/setup
-        with:
-          install-filter: "@nativepi/web"
-
-      - name: Web lint
-        run: cd apps/web && bun run lint
-
-      - name: Web typecheck
-        run: cd apps/web && bun run typecheck
-
-      - name: Web build
-        run: bun run web:build

@@ -54,7 +54,7 @@ rpc.events.on("authNotice", (payload) => useAppStore.getState().onAuthNotice(pay
 rpc.events.on("updateState", (state) => useAppStore.getState().onUpdateState(state));
 rpc.events.on("tuiFrame", (payload) => useAppStore.getState().onTuiFrame(payload));
 
-export { thinkingLabel, shortThinkingLabel } from "./store/models.ts";
+export { thinkingLabel } from "./store/models.ts";
 export { activeConversation } from "./store/conversation.ts";
 
 export type {

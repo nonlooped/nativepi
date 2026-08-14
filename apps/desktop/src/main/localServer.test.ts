@@ -89,6 +89,24 @@ describe("local server", () => {
     expect(localServerStatus().clients).toHaveLength(0);
   });
 
+  test("points development links at Vite while keeping RPC on the access server", async () => {
+    const rendererDir = await mkdtemp(join(tmpdir(), "nativepi-server-"));
+    await writeFile(join(rendererDir, "index.html"), "ok");
+    const status = await startLocalServer({
+      rendererDir,
+      invoke: (async () => ({})) as never,
+      subscribe: () => () => {},
+      rendererPort: 5173,
+    });
+
+    const link = new URL(status.link!);
+    const params = new URLSearchParams(link.hash.slice(1));
+    expect(link.port).toBe("5173");
+    expect(Number(params.get("rpcPort"))).toBeGreaterThan(0);
+    expect(params.get("rpcPort")).not.toBe("5173");
+    expect(params.get("token")).toBeTruthy();
+  });
+
   test("does not let a browser invoke desktop-only UI actions", async () => {
     const rendererDir = await mkdtemp(join(tmpdir(), "nativepi-server-"));
     await writeFile(join(rendererDir, "index.html"), "ok");

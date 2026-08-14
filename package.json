@@ -22,32 +22,15 @@
     "packages/*"
   ],
   "scripts": {
-    "postinstall": "cd apps/desktop && (bun run install-electron || (sleep 2 && bun run install-electron))",
-    "dev": "cd apps/desktop && bun run dev",
-    "dev:web": "cd apps/desktop && bun run dev:web",
-    "build": "cd apps/desktop && bun run build",
-    "pack": "cd apps/desktop && bun run pack",
-    "dist": "cd apps/desktop && bun run dist",
-    "dist:win": "cd apps/desktop && bun run dist:win",
-    "dist:mac": "cd apps/desktop && bun run dist:mac",
-    "dist:linux": "cd apps/desktop && bun run dist:linux",
-    "typecheck": "cd apps/desktop && bun run typecheck",
-    "typecheck:packages": "bun run --cwd packages/ask-user typecheck && bun run --cwd packages/extension-api typecheck && bun run --cwd packages/mcp typecheck && bun run --cwd packages/meta typecheck && bun run --cwd packages/service-tier typecheck && bun run --cwd packages/subagents typecheck && bun run --cwd packages/subscription-usage typecheck && bun run --cwd packages/throughput typecheck && bun run --cwd packages/title-generator typecheck",
+    "dev": "bun run --cwd apps/desktop dev",
+    "check": "bun run --filter '*' typecheck && bun run --cwd apps/web lint",
     "test": "bun test apps/desktop packages",
-    "web:dev": "cd apps/web && bun run dev",
-    "web:build": "cd apps/web && bun run build",
-    "web:start": "cd apps/web && bun run start",
-    "quality:fallow": "fallow",
-    "quality:doctor": "react-doctor apps/desktop --yes --verbose",
-    "preview": "cd apps/desktop && bun run preview"
+    "build": "bun run --filter '*' build",
+    "package": "bun run --cwd apps/desktop package"
   },
   "overrides": {
     "postcss": "8.5.25",
     "sharp": "0.35.3",
     "shiki": "4.4.2"
-  },
-  "devDependencies": {
-    "fallow": "^3.14.0",
-    "react-doctor": "^0.9.4"
   }
 }

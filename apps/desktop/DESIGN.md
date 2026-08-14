@@ -287,11 +287,11 @@ The canonical workspace composition is shown in [`docs/assets/nativepi-home.png`
 
 The application uses a full-height, resizable three-pane desktop frame. The project sidebar ranges from 14% to 30% of the window. The context pane defaults to 28% and ranges from 20% to 45%. The conversation panel retains at least 35% and is the protected center of gravity.
 
-Transcript and composer content share a centered, user-selectable maximum width: 40rem, 48rem by default, 60rem, or the full conversation pane. Most Settings categories use a centered 48rem rail; the Usage and Subscriptions dashboards use a wider 72rem rail for charts and tables. Every pane header is 3rem high — one baseline across the sidebar, conversation, context pane, and Settings — which is what the macOS traffic lights, the frameless Windows and Linux drag region, and the custom window controls need.
+Transcript and composer content share a centered, user-selectable maximum width: 40rem, 48rem by default, 60rem, or the full conversation pane. Settings uses one centered 72rem rail across all eight categories. Ordinary sections split into a compact heading column and a wider control column; Usage spends that same width on charts and tables. Every pane header is 3rem high — one baseline across the sidebar, conversation, context pane, and Settings — which is what the macOS traffic lights, the frameless Windows and Linux drag region, and the custom window controls need.
 
 Spacing follows the quarter-rem Tailwind rhythm plus its half-steps: eighth-rem for tightly bound text pairs (a label above its description), five-eighths-rem as the standard inset for dense controls, half-rem and three-quarter-rem gaps for control clusters, and one- to one-and-a-half-rem spacing between content groups. Values off that ladder are drift, not intent. One-pixel resizable hairlines define persistent pane boundaries.
 
-Usage and Subscriptions are deliberate wide-layout exceptions: they expand to a 72rem rail for charts, provider cards, and tabular breakdowns while retaining the same header and responsive category navigation.
+Settings has eight task-oriented categories: Appearance, Providers, Agent, Usage, Extensions, Workbench, Access, and System. Subscription limits live inside Usage; terminal preferences and shortcuts live in Workbench; startup, notifications, updates, diagnostics, and Pi file locations live in System. Rare transport, package-command, model-filter, warning, and telemetry controls are intentionally absent from the desktop UI and remain available through Pi's own configuration.
 
 The implementation collapses either side pane to protect conversation space and constrains large menus to the viewport. Below 1100px the context pane moves into a right sheet. Below 640px — a phone, or a browser tab that narrow — project navigation and the settings category rail also move into left sheets. A tablet or the minimum 720px desktop window keeps the project sidebar docked so the workspace stays two columns. These layouts preserve the conversation and composer rather than attempting to turn the desktop application into a separate mobile interface.
 
@@ -390,7 +390,7 @@ The component system is compact and restrained, with soft geometry and explicit 
 ### Composer
 
 - The persistent composer is the signature floating surface: centered with the transcript, strongly rounded, and softly elevated.
-- Model and reasoning share one picker whose trigger names both; context usage and send controls complete the compact bottom row. Queue behaviour (steer or follow up) lives on the floating run-status pill with Stop. Branch switching lives in the files and changes pane.
+- Model and reasoning share one picker whose trigger names both. The picker opens on the armed model; reasoning is a discrete effort slider in the footer, labeled with the current level, not a row of abbreviated chips. Context usage and send complete the compact bottom row. Queue behaviour (steer or follow up) lives on the floating run-status pill with Stop. Branch switching lives in the files and changes pane.
 - The context control opens an inspector: used and remaining tokens, last-reply usage from the session, and summarize earlier messages. It does not invent a breakdown Pi does not provide.
 - An empty chat names the open project and offers the composer. It does not suggest starter prompts.
 - The input remains usable while Pi starts or runs; pending and queued states appear immediately above the surface.

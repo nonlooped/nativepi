@@ -67,7 +67,7 @@ export default function ProviderSettings() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="relative">
+      <div className="relative max-w-md">
         <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
@@ -130,8 +130,11 @@ function ProviderGroup({
   const headingId = `providers-${heading.toLocaleLowerCase()}`;
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col">
-      <div className="mb-3 flex flex-col gap-1">
+    <section
+      aria-labelledby={headingId}
+      className="grid gap-3 border-t border-border/70 pt-6 lg:grid-cols-[minmax(11rem,0.48fr)_minmax(0,1.52fr)] lg:gap-10"
+    >
+      <div className="flex max-w-sm flex-col gap-1">
         <h2 id={headingId} className="font-heading text-sm font-semibold">
           {heading}
           <span className="ml-2 font-sans text-xs font-normal text-muted-foreground tabular-nums">
@@ -140,7 +143,8 @@ function ProviderGroup({
         </h2>
         <p className="text-sm text-body-muted-foreground">{description}</p>
       </div>
-      {providers.map((provider) => {
+      <div>
+        {providers.map((provider) => {
         const expanded = selected === provider.id;
         const activeFlow = authFlow?.providerId === provider.id ? authFlow : null;
 
@@ -189,8 +193,9 @@ function ProviderGroup({
 
             {expanded ? <ProviderDetails provider={provider} /> : null}
           </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </section>
   );
 }

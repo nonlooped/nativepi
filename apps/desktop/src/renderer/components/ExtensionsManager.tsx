@@ -26,6 +26,7 @@ import {
 import { HOVER_REVEAL, cn } from "@/lib/utils.ts";
 import { Segmented } from "./settings/rows.tsx";
 import ConfirmDialog from "./ConfirmDialog.tsx";
+import { ExtensionSettings } from "./ExtensionSlots.tsx";
 
 function extensionLabel(path: string) {
   const parts = path.split(/[\\/]/);
@@ -46,6 +47,10 @@ function packageLabel(source: string) {
 
 function scopeLabel(scope: string) {
   return scope === "project" ? "Project" : "User";
+}
+
+function actionErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 function PackageSourceIcon({ source }: { source: string }) {
@@ -145,15 +150,20 @@ export default function ExtensionsManager() {
     if (!modifiedProjectDir) return;
     setBusy("install");
     setActionError(undefined);
-    const res = await rpc.request.installPackage({ projectDir: modifiedProjectDir, source: trimmed, scope });
-    if (res.ok) {
+    try {
+      const res = await rpc.request.installPackage({ projectDir: modifiedProjectDir, source: trimmed, scope });
+      if (!res.ok) {
+        setActionError(res.error ?? "Unable to install the package. Try again.");
+        return;
+      }
       setSource("");
       setInstalling(false);
       await applyPackageChange(modifiedProjectDir, `${packageLabel(trimmed)} installed`);
-    } else {
-      setActionError(res.error ?? "Unable to install the package. Try again.");
+    } catch (error) {
+      setActionError(actionErrorMessage(error, "Unable to install the package. Check your connection and try again."));
+    } finally {
+      setBusy(null);
     }
-    setBusy(null);
   }
 
   async function remove(pkg: PackageInfo) {
@@ -161,13 +171,19 @@ export default function ExtensionsManager() {
     if (!modifiedProjectDir) return;
     setBusy(pkg.source);
     setActionError(undefined);
-    const res = await rpc.request.removePackage({ projectDir: modifiedProjectDir, source: pkg.source, scope: pkg.scope });
-    if (res.ok) {
+    try {
+      const res = await rpc.request.removePackage({ projectDir: modifiedProjectDir, source: pkg.source, scope: pkg.scope });
+      if (!res.ok) {
+        setActionError(res.error ?? "Unable to remove the package. Try again.");
+        return;
+      }
       const label = pkg.local ? extensionLabel(pkg.source) : packageLabel(pkg.source);
       await applyPackageChange(modifiedProjectDir, `${label} removed`);
+    } catch (error) {
+      setActionError(actionErrorMessage(error, "Unable to remove the package. Check your connection and try again."));
+    } finally {
+      setBusy(null);
     }
-    else setActionError(res.error ?? "Unable to remove the package. Try again.");
-    setBusy(null);
   }
 
   async function update(pkg: PackageInfo) {
@@ -175,17 +191,31 @@ export default function ExtensionsManager() {
     if (!modifiedProjectDir || pkg.local) return;
     setBusy(pkg.source);
     setActionError(undefined);
-    const res = await rpc.request.updatePackage({ projectDir: modifiedProjectDir, source: pkg.source });
-    if (res.ok) await applyPackageChange(modifiedProjectDir, `${packageLabel(pkg.source)} updated`);
-    else setActionError(res.error ?? "Unable to update the package. Try again.");
-    setBusy(null);
+    try {
+      const res = await rpc.request.updatePackage({ projectDir: modifiedProjectDir, source: pkg.source });
+      if (!res.ok) {
+        setActionError(res.error ?? "Unable to update the package. Try again.");
+        return;
+      }
+      await applyPackageChange(modifiedProjectDir, `${packageLabel(pkg.source)} updated`);
+    } catch (error) {
+      setActionError(actionErrorMessage(error, "Unable to update the package. Check your connection and try again."));
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function reload() {
     setBusy("reload");
-    await reloadExtensions();
-    refresh();
-    setBusy(null);
+    setActionError(undefined);
+    try {
+      await reloadExtensions();
+      refresh();
+    } catch (error) {
+      setActionError(actionErrorMessage(error, "Unable to reload extensions. Wait a moment and try again."));
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (
@@ -239,7 +269,10 @@ export default function ExtensionsManager() {
                 onChange={(e) => setSource(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void install();
-                  if (e.key === "Escape") setInstalling(false);
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setInstalling(false);
+                  }
                 }}
                 placeholder="npm package or Git URL"
                 aria-label="Package source"
@@ -438,6 +471,8 @@ export default function ExtensionsManager() {
           </div>
         </section>
       ) : null}
+
+      <ExtensionSettings />
 
       <ConfirmDialog
         open={pendingRemoval !== null}

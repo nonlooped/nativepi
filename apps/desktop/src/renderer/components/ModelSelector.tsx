@@ -1,17 +1,17 @@
 import { CaretDownIcon, CheckIcon, MagnifyingGlassIcon, StarIcon, WarningCircleIcon } from "../../shared/icons.ts";
 import { BrainIcon } from "@phosphor-icons/react/Brain";
-import { useState } from "react";
-import type { ModelInfo, ThinkingLevel } from "../../shared/pi-types.ts";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { ModelInfo } from "../../shared/pi-types.ts";
 import type { AuthProviderInfo } from "../../shared/rpc-schema.ts";
 import { modelKey } from "../../shared/messages.ts";
-import { shortThinkingLabel, thinkingLabel, useAppStore } from "../lib/store.ts";
+import { thinkingLabel, useAppStore } from "../lib/store.ts";
 import { modelProviders } from "../lib/modelProviders.ts";
 import { providerIconName } from "../lib/providerIcons.ts";
 import { hintFor } from "../lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
+import { Slider } from "@/components/ui/slider.tsx";
 import { DropdownMenu as Menu, DropdownMenuContent as MenuPopup, DropdownMenuGroup as MenuGroup, DropdownMenuItem as MenuItem, DropdownMenuTrigger as MenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import BrandIcon from "./BrandIcon.tsx";
@@ -33,7 +33,7 @@ export default function ModelSelector() {
   const availableProviders = modelProviders(providers, models);
 
   const provider =
-    selectedTab ?? (favoriteModels.length > 0 ? "favorite" : (availableProviders[0]?.id ?? "favorite"));
+    selectedTab ?? armedProvider(model, favoriteModelKeys, favoriteModels.length, availableProviders);
 
   const visibleModels = models.filter((item) => {
     if (provider === "favorite" && !favoriteModelKeys.has(modelKey(item))) return false;
@@ -64,7 +64,12 @@ export default function ModelSelector() {
   }
 
   return (
-    <Menu onOpenChange={(open) => { if (!open) setQuery(""); }}>
+    <Menu
+      onOpenChange={(open) => {
+        if (open) setSelectedTab(null);
+        else setQuery("");
+      }}
+    >
       <MenuTrigger
         disabled={models.length === 0}
         title={models.length === 0 ? "Loading models from Pi…" : "Change model and reasoning"}
@@ -73,14 +78,14 @@ export default function ModelSelector() {
             ? "Loading models"
             : `Model ${label}, reasoning ${thinkingLabel(thinkingLevel)}. Change model and reasoning`
         }
-        className="flex h-8 min-w-0 max-w-72 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+        className="flex h-8 min-w-0 max-w-72 items-center gap-1.5 rounded-lg px-2 text-sm outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
       >
         {model ? <ModelProviderIcon provider={model.provider} /> : null}
-        <span className="min-w-0 truncate">{models.length === 0 ? "Loading models…" : label}</span>
+        <span className="min-w-0 truncate text-foreground">{models.length === 0 ? "Loading models…" : label}</span>
         {models.length > 0 ? (
           <>
             <span className="shrink-0 text-muted-foreground/40" aria-hidden="true">·</span>
-            <span className="shrink-0">{thinkingLabel(thinkingLevel)}</span>
+            <span className="shrink-0 text-muted-foreground">{thinkingLabel(thinkingLevel)}</span>
           </>
         ) : null}
         <CaretDownIcon className="shrink-0 text-muted-foreground" />
@@ -108,7 +113,7 @@ export default function ModelSelector() {
                 className="border-0 bg-muted pl-9 shadow-none"
               />
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <ModelScrollArea provider={provider} model={model}>
               <p className="px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground">
                 {provider === "favorite" ? "Favorites" : (providers.find((item) => item.id === provider)?.name ?? provider)}
               </p>
@@ -124,7 +129,7 @@ export default function ModelSelector() {
                   onSelect={selectModel}
                 />
               </MenuGroup>
-            </div>
+            </ModelScrollArea>
           </div>
         </div>
         <ReasoningFooter />
@@ -139,43 +144,106 @@ function ReasoningFooter() {
   const setThinkingLevel = useAppStore((s) => s.setThinkingLevel);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const combo = hintFor("cycleThinking", keybindingOverrides);
+  const index = thinkingLevels.indexOf(thinkingLevel);
+  const clamped = index < 0 ? 0 : index;
+  const first = thinkingLevels[0];
+  const last = thinkingLevels.at(-1);
 
   return (
     <div
-      className="flex shrink-0 flex-col gap-2 border-t bg-muted/40 px-3 py-2.5"
+      className="flex shrink-0 flex-col gap-2.5 border-t bg-muted/40 px-3 py-3"
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
       <div className="flex items-center gap-2">
         <BrainIcon className="size-3.5 shrink-0 text-muted-foreground" />
-        <p className="min-w-0 flex-1 text-xs font-medium text-foreground">Reasoning</p>
+        <p className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">Reasoning</p>
+        {thinkingLevels.length > 0 ? (
+          <p className="shrink-0 text-sm font-medium text-foreground">{thinkingLabel(thinkingLevel)}</p>
+        ) : null}
         {combo ? <Kbd className="shrink-0">{combo}</Kbd> : null}
       </div>
       {thinkingLevels.length === 0 ? (
         <p className="text-xs text-muted-foreground">Loading this model’s levels…</p>
+      ) : thinkingLevels.length === 1 ? (
+        <p className="text-xs text-muted-foreground">This model only supports {thinkingLabel(thinkingLevels[0]!)}.</p>
       ) : (
-        <ToggleGroup
-          value={[thinkingLevel]}
-          onValueChange={(value) => {
-            const next = value.at(-1);
-            if (next) void setThinkingLevel(next as ThinkingLevel);
-          }}
-          variant="outline"
-          size="sm"
-          spacing={0}
-          aria-label="Reasoning level"
-          className="flex w-full min-w-0 flex-wrap"
-        >
-          {thinkingLevels.map((level) => (
-            <ToggleGroupItem key={level} value={level} className="min-w-0 flex-1 px-1.5">
-              {shortThinkingLabel(level)}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+        <div className="flex flex-col gap-1.5">
+          <div className="relative">
+            <Slider
+              min={0}
+              max={thinkingLevels.length - 1}
+              step={1}
+              largeStep={1}
+              value={[clamped]}
+              aria-label="Reasoning level"
+              aria-valuetext={thinkingLabel(thinkingLevels[clamped] ?? thinkingLevel)}
+              onValueChange={(next) => {
+                const raw = Array.isArray(next) ? next[0] : next;
+                const level = typeof raw === "number" ? thinkingLevels[raw] : undefined;
+                if (level) void setThinkingLevel(level);
+              }}
+            />
+            <div className="pointer-events-none absolute inset-x-1.5 top-1/2 flex -translate-y-1/2 justify-between">
+              {thinkingLevels.map((level, i) => (
+                <span
+                  key={level}
+                  className={cn(
+                    "size-1 rounded-full",
+                    i === 0 || i === thinkingLevels.length - 1
+                      ? "opacity-0"
+                      : i <= clamped
+                        ? "bg-primary-foreground/70"
+                        : "bg-muted-foreground/45",
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+          {first && last ? (
+            <div className="flex items-start justify-between gap-3 text-xs text-muted-foreground">
+              <span>{thinkingLabel(first)}</span>
+              <span>{thinkingLabel(last)}</span>
+            </div>
+          ) : null}
+        </div>
       )}
     </div>
   );
+}
+
+function ModelScrollArea({
+  provider,
+  model,
+  children,
+}: {
+  provider: string;
+  model?: ModelInfo | null;
+  children: ReactNode;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    listRef.current?.querySelector("[data-selected-model]")?.scrollIntoView({ block: "nearest" });
+  }, [provider, model?.id, model?.provider]);
+
+  return (
+    <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto">
+      {children}
+    </div>
+  );
+}
+
+function armedProvider(
+  model: ModelInfo | null | undefined,
+  favoriteModelKeys: Set<string>,
+  favoriteCount: number,
+  availableProviders: AuthProviderInfo[],
+): string {
+  if (model && favoriteModelKeys.has(modelKey(model))) return "favorite";
+  if (model?.provider) return model.provider;
+  if (favoriteCount > 0) return "favorite";
+  return availableProviders[0]?.id ?? "favorite";
 }
 
 function ProviderRail({
@@ -305,6 +373,7 @@ function ModelRow({
         toggleFavoriteModel(m);
       }}
       className={cn("group/model min-h-11 rounded-lg px-3", selected && "bg-accent")}
+      data-selected-model={selected || undefined}
     >
       <ModelProviderIcon provider={m.provider} />
       <div className="min-w-0 flex-1">

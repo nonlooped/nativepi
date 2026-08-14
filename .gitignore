@@ -85,8 +85,14 @@ core.*
 .agents
 .claude
 .codex
+.impeccable/
+.tmp-critique-*/
+*.impeccablereview*.png
 skills-lock.json
 .fallow/
+
+# Local UI review captures
+/[0-9][0-9]-*.png
 
 # Next.js (apps/web)
 .next/
