@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-08-14
+
+### Added
+- Use native macOS traffic lights and show a last-resort recovery screen when the renderer fails.
+
+### Changed
+- Move model, reasoning, context, branch, and queue controls onto focused composer surfaces.
+- Reorganize Settings into task-oriented categories and simplify rarely used controls.
+- Follow the open chat's folder, compact chat actions, and remove redundant session statistics.
+- Use Local Access for browser testing and simplify project scripts, checks, builds, and packaging.
+- Publish the ask-user and throughput extensions through the trusted-publisher package workflow.
+
+### Fixed
+- Adapt the workspace and navigation for phone and tablet widths.
+- Polish workspace chrome and interaction details after design review.
+
 ## [1.13.0] - 2026-08-13
 
 ### Added
@@ -512,7 +528,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial NativePi desktop wrapper for the Pi coding agent (Electron + electron-vite + Bun + React 19.2 + Vite 8 + Tailwind CSS 4 + shadcn/ui + Zustand + Zod).
 - Project bootstrap, README and logo assets, build and release automation.
 
-[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/nonlooped/nativepi/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/nonlooped/nativepi/compare/v1.12.1...v1.13.0
 [1.12.1]: https://github.com/nonlooped/nativepi/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/nonlooped/nativepi/compare/v1.11.0...v1.12.0
