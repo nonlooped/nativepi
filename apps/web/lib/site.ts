@@ -11,7 +11,7 @@ export const site = {
   tagline: "Keep Pi. Add a window.",
   description:
     "A free, open-source desktop interface for the Pi coding agent on Windows, macOS, and Linux. Your Pi sessions, credentials, and configuration stay where they are.",
-  url: "https://nativepi.vercel.app",
+  url: "https://nativepi.nonlooped.xyz",
   repo: "https://github.com/nonlooped/nativepi",
   releases: "https://github.com/nonlooped/nativepi/releases",
   releasesLatest: latestRelease,
