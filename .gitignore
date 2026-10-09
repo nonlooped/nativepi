@@ -93,6 +93,8 @@ skills-lock.json
 
 # Local UI review captures
 /[0-9][0-9]-*.png
+docs/maintenance/
+docs/reports/
 
 # Next.js (apps/web)
 .next/

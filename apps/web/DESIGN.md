@@ -46,26 +46,6 @@ Design variance is 7, motion intensity is 3, and visual density is 4. Asymmetry
 belongs to the hero and supporting content. Motion acknowledges interaction;
 there is no ambient animation or scroll choreography.
 
-## Redesign audit
-
-The previous site already had truthful copy, semantic navigation, a skip link,
-visible focus, real provider marks, and a complete product screenshot. Preserve
-those strengths, the existing routes, and the overview, app, features, ownership,
-and extensions anchors.
-
-Its Raleway and Nunito Sans pairing felt softer than the desktop product.
-Repeated bordered inventories made all capabilities look equally important.
-The full-width screenshot extended beyond the content rail, and the page gave
-visitors little way to explore a workflow without reading every row. Download
-labels detected a platform even though every platform led to the same release
-page.
-
-The revision uses one self-hosted Geist variable font, an asymmetric opening,
-native expandable workflow details, a shared-storage diagram, and direct links
-from extension contributions to their guides. Download labels now describe the
-actual destination without platform detection. The installation caveat remains
-beside each download decision.
-
 ## Typography and layout
 
 Departure Mono remains in the outlined wordmark only. Geist carries display,
