@@ -44,12 +44,15 @@ To make an installer locally on its target platform:
 bun install --frozen-lockfile
 bun run package --win --x64 --publish never
 # macOS: --mac --x64 or --mac --arm64
-# Linux: --linux --x64 or --linux --arm64
+# Linux: first compile the terminal addon on the target architecture:
+# bun run --cwd apps/desktop node-gyp rebuild --directory node_modules/node-pty
+# then package with --linux --x64 or --linux --arm64
 ```
 
 Output is in `apps/desktop/release`. Linux needs Node 24.15 or newer, Python,
 make, and a C++ compiler. The workflow explicitly runs the terminal addon's
-install script on each Linux architecture, using the desktop's `node-gyp` dependency.
+compiler from the desktop workspace on each Linux architecture, using its
+`node-gyp` dependency. This keeps the compiler accessible with Bun's isolated installs.
 Installers remain unsigned; macOS builds are not notarized.
 
 ## Publication and updates

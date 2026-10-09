@@ -182,7 +182,8 @@ jobs:
       # node-pty ships prebuilds for Windows and macOS only; compile on each Linux architecture.
       - name: Build the Linux terminal addon
         if: matrix.platform == 'linux'
-        run: bun run --cwd apps/desktop/node_modules/node-pty install
+        # Resolve the desktop's compiler before entering Bun's isolated addon directory.
+        run: bun run --cwd apps/desktop node-gyp rebuild --directory node_modules/node-pty
       - name: Set the release version
         if: needs.plan.outputs.publish == 'true'
         shell: bash
