@@ -467,6 +467,10 @@ export type HostRequests = {
     params: { projectDir: string; editorId: string };
     response: { ok: boolean; error?: string };
   };
+  readProjectImage: {
+    params: { projectDir: string; file: string };
+    response: { src?: string; error?: string };
+  };
   openFileIn: {
     params: { projectDir: string; file: string; editorId: string; line?: number; column?: number };
     response: { ok: boolean; error?: string };

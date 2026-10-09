@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { open, realpath } from "node:fs/promises";
+import { extname, isAbsolute, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { resizeImage } from "@earendil-works/pi-coding-agent";
 import type { ImageAttachment } from "../shared/rpc-schema.ts";
 import { MAX_IMAGES } from "../shared/images.ts";
@@ -23,6 +26,25 @@ const MAX_BASE64_BYTES = 4.5 * 1024 * 1024;
 
 /** Past this, decoding to resize costs more than the image can possibly be worth. */
 const MAX_INPUT_BASE64_BYTES = 48 * 1024 * 1024;
+
+export async function readProjectImage(projectDir: string, file: string): Promise<string> {
+  const root = await realpath(projectDir);
+  const target = await realpath(resolve(root, file.startsWith("file:") ? fileURLToPath(file) : file));
+  const within = relative(root, target);
+  if (within === ".." || within.startsWith(`..${sep}`) || isAbsolute(within)) {
+    throw new Error("Image must be inside the project.");
+  }
+  const mimeType = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp" }[extname(target).toLowerCase()];
+  if (!mimeType) throw new Error("Unsupported image format.");
+  const handle = await open(target, "r");
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.size > 16 * 1024 * 1024) throw new Error("Image is too large or not a file.");
+    return `data:${mimeType};base64,${(await handle.readFile()).toString("base64")}`;
+  } finally {
+    await handle.close();
+  }
+}
 
 export async function prepareImages(
   files: { name: string; mimeType: string; data: string }[],

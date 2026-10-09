@@ -17,7 +17,7 @@ import { installPackage, listPackages, removePackage, updatePackage } from "./pa
 import { listSkills } from "./skills.ts";
 import { readProjectDirectory, watchProjectDirectory } from "./fileExplorer.ts";
 import { listProjectFiles } from "./files.ts";
-import { prepareImages } from "./images.ts";
+import { prepareImages, readProjectImage } from "./images.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
 import { fileManagerName, listInstalledEditors, openFileIn, openProjectIn } from "./editors.ts";
 import { liveSettingsFor, piPaths, queuePiSettings, readPiSettings, writePiSettings } from "./piSettings.ts";
@@ -1083,6 +1083,14 @@ const handlers: HandlerMap = {
       return { ok: true };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
+    }
+  },
+  readProjectImage: async (params) => {
+    try {
+      const { projectDir, file } = z.object({ projectDir: z.string().min(1), file: z.string().min(1) }).parse(params);
+      return { src: await readProjectImage(projectDir, file) };
+    } catch (err) {
+      return { error: errorMessage(err) };
     }
   },
   openFileIn: async (params) => {
