@@ -1,0 +1,46 @@
+[
+  {
+    "path": "apps/desktop",
+    "result": "passed"
+  },
+  {
+    "path": "apps/web",
+    "result": "passed"
+  },
+  {
+    "path": "packages/extension-api",
+    "result": "passed"
+  },
+  {
+    "path": "packages/title-generator",
+    "result": "passed"
+  },
+  {
+    "path": "packages/mcp",
+    "result": "passed"
+  },
+  {
+    "path": "packages/meta",
+    "result": "passed"
+  },
+  {
+    "path": "packages/service-tier",
+    "result": "passed"
+  },
+  {
+    "path": "packages/subagents",
+    "result": "passed"
+  },
+  {
+    "path": "packages/subscription-usage",
+    "result": "passed"
+  },
+  {
+    "path": "packages/ask-user",
+    "result": "passed"
+  },
+  {
+    "path": "packages/throughput",
+    "result": "passed"
+  }
+]

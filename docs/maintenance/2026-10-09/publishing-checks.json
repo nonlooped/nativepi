@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-09",
+  "scope": "Validation completed before repository delivery",
+  "destination": "https://github.com/nonlooped/nativepi",
+  "branch": "main",
+  "preparedSourceCommit": "abe94d37a69759f396ba032c61e577ce476b7a94",
+  "integratedUpstreamCommit": "2a68fd9f8c54a4c8856d05147e9f5c468180703e",
+  "versionDecision": "Keep release versions unchanged for this repository maintenance update",
+  "versions": {
+    "nativepi": "1.14.0",
+    "@nativepi/title-generator": "1.0.0",
+    "@nativepi/throughput": "1.0.0",
+    "@nativepi/subscription-usage": "1.1.0",
+    "@nativepi/subagents": "1.1.0",
+    "@nativepi/service-tier": "1.0.2",
+    "@nativepi/meta": "1.0.2",
+    "@nativepi/mcp": "1.0.0",
+    "@nativepi/extension-api": "1.0.0",
+    "@nativepi/ask-user": "1.0.0",
+    "@nativepi/web": "0.1.0",
+    "@nativepi/desktop": "1.14.0"
+  },
+  "checks": {
+    "gitWorkflowTests": {
+      "passed": 19,
+      "failed": 0,
+      "assertions": 72
+    },
+    "desktopProductionBuild": "passed",
+    "websiteProductionBuild": "passed; 30 generated routes",
+    "desktopTypecheck": "passed",
+    "websiteNativeTypecheck": "passed",
+    "websiteLint": "passed",
+    "earlierMaintenanceTestsReused": 132
+  },
+  "retainedUpstreamChanges": [
+    "File revert and project removal controls",
+    "Website domain migration",
+    "Google site verification metadata"
+  ],
+  "excludedLocalPaths": [
+    ".pi/",
+    ".tmp-critique-maintenance/"
+  ]
+}

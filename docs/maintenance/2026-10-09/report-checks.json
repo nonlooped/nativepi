@@ -1,0 +1,46 @@
+{
+  "offline": true,
+  "controls": [
+    "Before/after, desktop/phone, and full-page comparison",
+    "Workspace gallery and keyboard-close screenshot enlargement",
+    "Interactive ownership diagram",
+    "Readiness filters",
+    "Dependency search",
+    "Report light/dark toggle"
+  ],
+  "accessibility": {
+    "success": true,
+    "data": {
+      "axeVersion": "4.12.1",
+      "counts": {
+        "inapplicable": 42,
+        "incomplete": 0,
+        "passes": 47,
+        "violations": 0
+      },
+      "incomplete": [],
+      "lifecycle": {
+        "effectiveLaunch": {
+          "browserLaunched": true,
+          "engine": "chrome",
+          "launchHash": 4051167440984828400
+        },
+        "launched": false,
+        "relaunchedBrowser": false,
+        "restartedBackground": false,
+        "restoreStatus": "not_configured",
+        "reused": true,
+        "saveStatus": "not_attempted"
+      },
+      "url": "file:///C:/Users/Asus/Documents/Projects/apps/nativepi/docs/maintenance/2026-10-09/index.html",
+      "violations": []
+    },
+    "error": null
+  },
+  "mobile": {
+    "width": 390,
+    "contentWidth": 390
+  },
+  "browserErrors": "",
+  "publicationTextAndPreviewChecked": true
+}

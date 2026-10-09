@@ -1,0 +1,95 @@
+{
+  "isolation": "Production renderer with sample project, mocked host responses, no desktop window or live provider calls",
+  "layouts": [
+    {
+      "view": "dark desktop",
+      "width": 1440,
+      "contentWidth": 1440,
+      "composer": true,
+      "scheme": "dark"
+    },
+    {
+      "view": "light desktop",
+      "width": 1440,
+      "contentWidth": 1440,
+      "composer": true
+    },
+    {
+      "view": "phone",
+      "width": 390,
+      "contentWidth": 390,
+      "composer": true
+    }
+  ],
+  "accessibility": {
+    "success": true,
+    "data": {
+      "axeVersion": "4.12.1",
+      "counts": {
+        "inapplicable": 54,
+        "incomplete": 1,
+        "passes": 35,
+        "violations": 0
+      },
+      "incomplete": [
+        {
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI",
+          "id": "color-contrast",
+          "impact": "serious",
+          "nodeCount": 1,
+          "nodes": [
+            {
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content",
+              "html": "<span class=\"text-muted-foreground/50\" aria-hidden=\"true\">·</span>",
+              "target": [
+                ".text-muted-foreground\\/50"
+              ]
+            }
+          ],
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "TTv5",
+            "TT13.c",
+            "EN-301-549",
+            "EN-9.1.4.3",
+            "ACT",
+            "RGAAv4",
+            "RGAA-3.2.1"
+          ]
+        }
+      ],
+      "lifecycle": {
+        "effectiveLaunch": {
+          "browserLaunched": true,
+          "engine": "chrome",
+          "launchHash": 12798390076057946000
+        },
+        "launched": false,
+        "relaunchedBrowser": false,
+        "restartedBackground": false,
+        "restoreStatus": "not_configured",
+        "reused": true,
+        "saveStatus": "not_attempted"
+      },
+      "url": "http://127.0.0.1:64681/",
+      "violations": []
+    },
+    "error": null
+  },
+  "chatKeyboard": {
+    "markFinishedWithSpace": true,
+    "returnWithEnter": true
+  },
+  "cancellation": {
+    "stopped": true,
+    "notifications": 0
+  },
+  "completion": {
+    "notifications": 1
+  },
+  "settingsEscape": true,
+  "browserErrors": ""
+}
