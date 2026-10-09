@@ -98,12 +98,12 @@ function DownloadProgress({ percent }: { percent: number }) {
  * and the restart that finishes it are the same piece of news, and a stack of
  * three would tell it three times. None of them time out — an update is not an
  * announcement to catch or miss — and closing one is the user declining, which
- * Settings › About leaves them a way back from.
+ * Settings › System leaves them a way back from.
  */
 export function showUpdateNotice(
   state: UpdateState,
   previousStatus: UpdateState["status"],
-  actions: { download: () => void; install: () => void },
+  actions: { install: () => Promise<void> },
 ): void {
   const name = state.version ? `NativePi ${state.version}` : "A new NativePi";
   const options = {
@@ -114,17 +114,11 @@ export function showUpdateNotice(
   } as const;
 
   switch (state.status) {
-    case "available":
-      return void toast(`${name} is available`, {
-        ...options,
-        description: "Download the latest release when you're ready.",
-        action: { label: "Update", onClick: actions.download },
-      });
     case "downloading": {
       const percent = Math.min(100, Math.max(0, Math.round(state.percent ?? 0)));
       // No close button: dismissing it would leave the download running with
       // nothing on screen saying so. Clear `action` explicitly — sonner merges
-      // same-id updates, so the available-state Update button would otherwise stick.
+      // same-id updates, so an earlier Restart action would otherwise stick.
       return void toast.loading(`Downloading ${name}`, {
         ...options,
         closeButton: false,
@@ -135,12 +129,21 @@ export function showUpdateNotice(
     case "ready":
       return void toast.success(`${name} is ready to install`, {
         ...options,
-        description: "Restart NativePi to finish the update.",
-        action: { label: "Restart", onClick: actions.install },
+        description: "Restart to update now, or NativePi will install it when you quit.",
+        action: {
+          label: "Restart",
+          onClick: () => void actions.install().catch((error: unknown) => {
+            toast.error("Unable to install the update", {
+              ...options,
+              description: error instanceof Error ? error.message : String(error),
+              action: undefined,
+            });
+          }),
+        },
       });
     case "error":
       // A background check that could not reach GitHub is not news. A download
-      // the user asked for and did not get is.
+      // already shown in the window should report why it stopped.
       if (previousStatus !== "downloading") return void toast.dismiss(UPDATE_TOAST);
       return void toast.error(state.error ?? `${name} could not be downloaded.`, options);
     default:

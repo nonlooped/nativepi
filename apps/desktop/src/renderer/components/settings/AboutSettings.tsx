@@ -8,7 +8,7 @@ import { isRemote, rpc } from "../../lib/rpc.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { useRequest } from "../../lib/useRequest.ts";
 import { showDiagnosticsCopied, showDiagnosticsExportFailed } from "../../lib/toast.tsx";
-import { ActionRow, ReadonlyRow, SettingsCard, SettingsSection, type CardTone } from "./rows.tsx";
+import { ActionRow, ChoiceRow, ReadonlyRow, SettingsCard, SettingsSection, type CardTone } from "./rows.tsx";
 import { Button } from "@/components/ui/button.tsx";
 
 const REPOSITORY_URL = "https://github.com/nonlooped/nativepi";
@@ -17,17 +17,17 @@ const REPOSITORY_URL = "https://github.com/nonlooped/nativepi";
 function updateSummary(update: UpdateState): { tone: CardTone; status: string; detail: string } {
   const name = update.version ? `NativePi ${update.version}` : "A newer NativePi";
   switch (update.status) {
+    case "manual":
+      return { tone: "active", status: "Install macOS updates manually", detail: "Download a Stable or Nightly build, then replace NativePi in Applications. These builds are unsigned." };
     case "checking":
       return { tone: "busy", status: "Checking for updates", detail: "Asking GitHub what the latest release is." };
-    case "available":
-      return { tone: "warning", status: `${name} is available`, detail: "Downloading does not interrupt anything you have running." };
     case "downloading":
       return { tone: "busy", status: `Downloading ${name}`, detail: `${update.percent ?? 0}% of the installer fetched.` };
     case "ready":
       return {
         tone: "warning",
         status: `${name} is ready`,
-        detail: "Installing stops the agent and your terminals, then starts NativePi again.",
+        detail: "Install when you quit, or restart now to update. Restarting stops your agents and terminals.",
       };
     case "error":
       return { tone: "error", status: "The update did not go through", detail: update.error ?? "NativePi could not reach the release feed." };
@@ -35,7 +35,7 @@ function updateSummary(update: UpdateState): { tone: CardTone; status: string; d
       return {
         tone: "active",
         status: "Up to date",
-        detail: "NativePi asks GitHub when it starts and every few hours after. Nothing downloads until you ask for it.",
+        detail: "NativePi checks every four hours, downloads updates, and installs them when you quit.",
       };
   }
 }
@@ -50,13 +50,26 @@ function updateSummary(update: UpdateState): { tone: CardTone; status: string; d
 function Updates() {
   const update = useAppStore((s) => s.update);
   const checkForUpdate = useAppStore((s) => s.checkForUpdate);
-  const downloadUpdate = useAppStore((s) => s.downloadUpdate);
+  const setUpdateChannel = useAppStore((s) => s.setUpdateChannel);
   const installUpdate = useAppStore((s) => s.installUpdate);
+  const [pending, setPending] = useState(false);
+  const [actionError, setActionError] = useState<string>();
 
   if (isRemote || update.status === "unsupported") return null;
 
   const { tone, status, detail } = updateSummary(update);
-  const busy = update.status === "checking" || update.status === "downloading";
+  const busy = pending || update.status === "checking" || update.status === "downloading";
+  const runAction = async (action: () => Promise<void>) => {
+    setActionError(undefined);
+    setPending(true);
+    try {
+      await action();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setPending(false);
+    }
+  };
 
   return (
     <SettingsCard
@@ -65,22 +78,35 @@ function Updates() {
       tone={tone}
       status={status}
       description={detail}
+      error={actionError}
       action={
-        update.status === "available" ? (
-          <Button size="xl" onClick={() => void downloadUpdate()}>
-            Download
+        update.status === "manual" ? (
+          <Button size="xl" variant="outline" disabled={busy} onClick={() => void runAction(async () => {
+            const result = await rpc.request.openExternal({ url: `${REPOSITORY_URL}/releases${update.channel === "stable" ? "/latest" : ""}` });
+            if (!result.ok) throw new Error("Could not open the downloads page.");
+          })}>
+            View downloads
           </Button>
         ) : update.status === "ready" ? (
-          <Button size="xl" onClick={() => void installUpdate()}>
+          <Button size="xl" disabled={busy} onClick={() => void runAction(installUpdate)}>
             Restart and install
           </Button>
         ) : (
-          <Button size="xl" variant="outline" disabled={busy} onClick={() => void checkForUpdate()}>
+          <Button size="xl" variant="outline" disabled={busy} onClick={() => void runAction(checkForUpdate)}>
             {busy ? "Working…" : "Check now"}
           </Button>
         )
       }
-    />
+    >
+      <ChoiceRow
+        label="Release channel"
+        description="Nightly includes the newest changes ahead of Stable. Switching to Stable may install an earlier version."
+        value={update.channel}
+        options={[{ value: "stable", label: "Stable" }, { value: "nightly", label: "Nightly" }]}
+        disabled={busy}
+        onChange={(channel) => void runAction(() => setUpdateChannel(channel))}
+      />
+    </SettingsCard>
   );
 }
 

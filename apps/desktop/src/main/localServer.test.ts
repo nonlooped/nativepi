@@ -142,6 +142,12 @@ describe("local server", () => {
       id: "4",
       result: { ok: false, error: "Updates can only be managed from the desktop app." },
     });
+    socket.send(JSON.stringify({ type: "request", id: "5", name: "setUpdateChannel", params: { channel: "nightly" } }));
+    expect(await message(socket)).toEqual({
+      type: "response",
+      id: "5",
+      result: { status: "unsupported", channel: "stable" },
+    });
     expect(invoked).toBeFalse();
   });
 });

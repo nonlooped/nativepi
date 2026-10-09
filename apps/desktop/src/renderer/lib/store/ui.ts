@@ -24,7 +24,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   terminalProjects: new Set(),
   preferences: DEFAULT_PREFERENCES,
   keybindingOverrides: {},
-  update: { status: "unsupported" },
+  update: { status: "unsupported", channel: "stable" },
   accessHandoffs: [],
 
   openSettings: (category) => set({ settingsOpen: true, ...(category ? { settingsCategory: category } : {}) }),
@@ -152,8 +152,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
     // to restart the desktop app. It hears nothing about updates.
     if (isRemote) return;
     showUpdateNotice(update, previousStatus, {
-      download: () => void get().downloadUpdate(),
-      install: () => void get().installUpdate(),
+      install: () => get().installUpdate(),
     });
   },
 
@@ -163,10 +162,12 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   checkForUpdate: async () => {
     await rpc.request.checkForUpdate({});
   },
-  downloadUpdate: async () => {
-    await rpc.request.downloadUpdate({});
+  setUpdateChannel: async (channel) => {
+    const update = await rpc.request.setUpdateChannel({ channel });
+    get().onUpdateState(update);
   },
   installUpdate: async () => {
-    await rpc.request.installUpdate({});
+    const result = await rpc.request.installUpdate({});
+    if (!result.ok) throw new Error(result.error ?? "NativePi could not install the update.");
   },
 });

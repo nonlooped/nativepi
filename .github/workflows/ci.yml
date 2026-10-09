@@ -5,25 +5,35 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
+    inputs:
+      ref:
+        description: Source commit to certify for a release
+        type: string
+        default: ""
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   check:
     name: Typecheck, Test & Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       # Typecheck, tests, and bundling never launch Electron; skip the ~110 MB binary download.
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
 
       - name: Setup
         uses: ./.github/actions/setup

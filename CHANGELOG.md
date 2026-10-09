@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Choose Stable or Nightly updates in System settings, with automatic downloads and installation when the app quits on Windows and Linux, and manual downloads for unsigned macOS builds.
+- Publish eligible nightlies after main passes CI and check daily for a stable release from the Unreleased changelog.
+- Revert unstaged tracked-file changes and remove projects through the project controls.
+
+### Changed
+- Bundle Pi 1.1.0 and update the desktop, website, and extension dependencies.
+- Refresh the marketing website, README, and guides for the current desktop and extension workflows.
+- Refine workspace controls, source control review, and extension integrations.
+
+### Fixed
+- Open the project actions menu without a Base UI crash.
+- Render Mermaid labels and local transcript images while keeping image access inside the project.
+- Preserve update feeds for every supported platform and architecture.
+
 ## [1.14.0] - 2026-08-14
 
 ### Added

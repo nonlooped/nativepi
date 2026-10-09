@@ -7,6 +7,7 @@ import type {
   Preferences,
   Project,
   UpdateState,
+  UpdateChannel,
 } from "../../../shared/rpc-schema.ts";
 import type {
   AssistantMessage,
@@ -335,7 +336,7 @@ export interface UiSlice {
   recordAccessHandoff: (kind: AccessHandoff["kind"], scope: AccessHandoff["scope"], link: string) => void;
   onUpdateState: (update: UpdateState) => void;
   checkForUpdate: () => Promise<void>;
-  downloadUpdate: () => Promise<void>;
+  setUpdateChannel: (channel: UpdateChannel) => Promise<void>;
   installUpdate: () => Promise<void>;
 }
 

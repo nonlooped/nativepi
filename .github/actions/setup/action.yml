@@ -18,6 +18,11 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Setup Node for build tools
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: "24"
+
     - name: Setup Bun
       uses: oven-sh/setup-bun@v2
       with:
@@ -25,7 +30,7 @@ runs:
 
     - name: Cache Bun packages
       if: inputs.bun-cache == 'true'
-      uses: actions/cache@v6
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.bun/install/cache
         key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
@@ -33,11 +38,12 @@ runs:
 
     - name: Cache Electron downloads
       if: inputs.electron-cache == 'true'
-      uses: actions/cache@v6
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         # One list works for every runner OS: actions/cache silently skips
         # whichever paths don't exist on the current platform.
         path: |
+          .cache/electron-builder
           ~/AppData/Local/electron/Cache
           ~/AppData/Local/electron-builder/Cache
           ~/Library/Caches/electron

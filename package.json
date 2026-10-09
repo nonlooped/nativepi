@@ -24,7 +24,7 @@
   "scripts": {
     "dev": "bun run --cwd apps/desktop dev",
     "check": "bun run --filter '*' typecheck && bun run --cwd apps/web lint",
-    "test": "bun test apps/desktop packages",
+    "test": "bun test apps/desktop packages tests",
     "build": "bun run --filter '*' build",
     "package": "bun run --cwd apps/desktop package"
   },

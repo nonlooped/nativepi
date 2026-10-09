@@ -172,6 +172,9 @@ export interface AccessStatus {
   remote: RemoteAccessStatus;
 }
 
+export const updateChannelSchema = z.enum(["stable", "nightly"]);
+export type UpdateChannel = z.infer<typeof updateChannelSchema>;
+
 /**
  * How far NativePi has got with replacing itself.
  *
@@ -180,7 +183,8 @@ export interface AccessStatus {
  * control that cannot work.
  */
 export interface UpdateState {
-  status: "unsupported" | "idle" | "checking" | "available" | "downloading" | "ready" | "error";
+  status: "unsupported" | "manual" | "idle" | "checking" | "downloading" | "ready" | "error";
+  channel: UpdateChannel;
   /** The version being offered, downloaded, or waiting to be installed. */
   version?: string;
   /** Download progress, 0 to 100. */
@@ -486,7 +490,7 @@ export type HostRequests = {
   };
   updateState: { params: Record<string, never>; response: UpdateState };
   checkForUpdate: { params: Record<string, never>; response: UpdateState };
-  downloadUpdate: { params: Record<string, never>; response: { ok: boolean; error?: string } };
+  setUpdateChannel: { params: { channel: UpdateChannel }; response: UpdateState };
   /** Quit and run the installer that was downloaded. Nothing comes back if it works. */
   installUpdate: { params: Record<string, never>; response: { ok: boolean; error?: string } };
   accessStatus: { params: Record<string, never>; response: AccessStatus };

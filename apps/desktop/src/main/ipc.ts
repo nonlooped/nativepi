@@ -39,7 +39,7 @@ import {
   stopAllTerminals,
   writeTerminal,
 } from "./terminal.ts";
-import { extensionCallParamsSchema, type AccessStatus, type HostEvents, type HostRequestName, type HostRequests, type PiStatus } from "../shared/rpc-schema.ts";
+import { extensionCallParamsSchema, updateChannelSchema, type AccessStatus, type HostEvents, type HostRequestName, type HostRequests, type PiStatus } from "../shared/rpc-schema.ts";
 import type { CommandInfo, ForkPoint, ModelInfo, RpcSessionState, SessionTreeNode, ThinkingLevel } from "../shared/pi-types.ts";
 import { tuiClientFrameSchema, tuiCompletionEditSchema, tuiCompletionsSchema, type TuiHostFrame } from "../shared/tui-frames.ts";
 import { localServerConnection, localServerStatus, startLocalServer, stopLocalServer } from "./localServer.ts";
@@ -50,7 +50,7 @@ import {
   startRemoteAccess,
   stopRemoteAccess,
 } from "./remoteAccess.ts";
-import { checkForUpdate, downloadUpdate, installUpdate, startUpdates, updateState } from "./updates.ts";
+import { checkForUpdate, setUpdateChannel, installUpdate, startUpdates, updateState } from "./updates.ts";
 import { createDiagnosticsReport, recordRendererCrash } from "./diagnostics.ts";
 
 /** One Pi process per session: Pi already permits concurrent sessions in a project. */
@@ -1148,7 +1148,7 @@ const handlers: HandlerMap = {
   },
   updateState: () => updateState(),
   checkForUpdate: () => checkForUpdate(),
-  downloadUpdate: () => downloadUpdate(),
+  setUpdateChannel: (params) => setUpdateChannel(z.object({ channel: updateChannelSchema }).parse(params).channel),
   installUpdate: async () => {
     if (updateState().status !== "ready") return { ok: false, error: "No update has finished downloading." };
     // The installer replaces files this process holds open, and it restarts the

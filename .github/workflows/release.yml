@@ -1,304 +1,279 @@
 name: Release
+run-name: Release (${{ inputs.channel || (github.event.schedule == '17 0 * * *' && 'stable' || 'nightly') }})
 
+# Releases are cut by this workflow from main. Daily, a stable release publishes the
+# CHANGELOG.md Unreleased entries as the next minor version when there are any. A nightly
+# prerelease runs after a main push's CI run or on the hourly schedule when app files changed since
+# the last release. Either one is cut only after the full CI suite and packaging pass on that
+# commit: main pushes run the full suite in CI, so a release reuses that verdict and runs the suite
+# itself only for a commit without one. A commit whose release failed is not retried by the
+# schedule; a new commit or a manual run retries. A manual run can also release now (including a
+# forced nightly), or build installers from any ref as workflow artifacts.
 on:
   workflow_run:
     workflows: [CI]
     types: [completed]
     branches: [main]
+  schedule:
+    - cron: '17 0 * * *' # stable
+    - cron: '47 * * * *' # nightly
   workflow_dispatch:
     inputs:
-      action:
-        description: Publish a missing release or regenerate an existing release's notes
-        required: true
-        default: publish
+      channel:
+        description: Release to cut
         type: choice
-        options: [publish, regenerate-notes]
-      tag:
-        description: Release tag to publish or regenerate
-        required: true
-        type: string
-      ref:
-        description: Verified main ref to package when publishing
-        required: false
-        default: main
-        type: string
+        options: [nightly, stable, build-only]
+        default: build-only
+      force_nightly:
+        description: Cut a nightly even when no app files changed
+        type: boolean
+        default: false
 
 permissions:
-  contents: write
+  contents: read
+
+# Releases run one at a time so a nightly never tags beside a stable cut in progress.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  CHANNEL: ${{ inputs.channel || (github.event.schedule == '17 0 * * *' && 'stable' || 'nightly') }}
 
 jobs:
-  release:
-    name: Resolve release
-    if: >-
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-      (github.event_name == 'workflow_dispatch' && inputs.action == 'publish')
-    runs-on: ubuntu-latest
+  plan:
+    name: Plan
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    env:
+      # A CI run's completion releases the commit it checked, not whatever main points to now.
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     outputs:
-      publish: ${{ steps.release.outputs.publish }}
-      sha: ${{ steps.release.outputs.sha }}
-      tag: ${{ steps.release.outputs.tag }}
-      previous_tag: ${{ steps.release.outputs.previous_tag }}
+      sha: ${{ env.HEAD_SHA }}
+      build: ${{ steps.plan.outputs.build }}
+      certified: ${{ steps.plan.outputs.certified }}
+      publish: ${{ steps.plan.outputs.release }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+      previous: ${{ steps.plan.outputs.previous }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
-          fetch-depth: 2
-
-      - name: Resolve release
-        id: release
-        shell: pwsh
+          ref: ${{ env.HEAD_SHA }}
+          persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Decide
+        id: plan
         env:
           GH_TOKEN: ${{ github.token }}
+          RUN_TITLE: Release (${{ env.CHANNEL }})
+          FORCE_NIGHTLY: ${{ github.event_name == 'workflow_dispatch' && inputs.channel == 'nightly' && inputs.force_nightly }}
+          CI_EVENT: ${{ github.event.workflow_run.event }}
+          CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
         run: |
-          $version = (Get-Content package.json | ConvertFrom-Json).version
-          $desktopVersion = (Get-Content apps/desktop/package.json | ConvertFrom-Json).version
-          if ($version -ne $desktopVersion) {
-            throw "Root version $version does not match desktop version $desktopVersion"
-          }
-
-          $tag = "v$version"
-          $manualPublish = "${{ github.event_name }}" -eq "workflow_dispatch"
-          if ($manualPublish) {
-            if ("${{ inputs.tag }}" -ne $tag) {
-              throw "Requested tag ${{ inputs.tag }} does not match package version $version"
-            }
-
-            $sha = git rev-parse HEAD
-            $runs = gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?head_sha=$sha&status=completed&per_page=100" |
-              ConvertFrom-Json
-            $verified = $runs.workflow_runs | Where-Object {
-              $_.head_sha -eq $sha -and
-              $_.head_branch -eq "main" -and
-              $_.event -eq "push" -and
-              $_.conclusion -eq "success"
-            }
-            if (-not $verified) {
-              throw "Ref $sha is not a successfully verified main CI run"
-            }
-          } else {
-            $previousVersion = (git show HEAD^:package.json | ConvertFrom-Json).version
-            if ($version -eq $previousVersion) {
-              "publish=false" >> $env:GITHUB_OUTPUT
+          if [ "$CHANNEL" = build-only ]; then
+            version=$(node -p 'require("./package.json").version')
+            printf 'build=true\nrelease=false\nversion=%s\n' "$version" >> "$GITHUB_OUTPUT"
+            echo "Building $version installers without releasing" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "::error::Releases are cut only from main"
+            exit 1
+          fi
+          if [ "$GITHUB_EVENT_NAME" = workflow_run ]; then
+            if [ "$CI_EVENT" != push ] || [ "$CI_CONCLUSION" != success ]; then
+              printf 'release=false\nbuild=false\n' >> "$GITHUB_OUTPUT"
+              echo "Nightly: CI ($CI_EVENT) concluded $CI_CONCLUSION for $HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"
               exit 0
-            }
-          }
+            fi
+            # CI already took several minutes, so a burst of pushes has settled by now.
+            latest=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+            if [ "$latest" != "$HEAD_SHA" ]; then
+              printf 'release=false\nbuild=false\n' >> "$GITHUB_OUTPUT"
+              echo "Nightly: newer main commit $latest superseded $HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            certified=true
+          else
+            # Scheduled and manual releases reuse the commit's own full CI verdict when it has one.
+            certified=$(gh run list --workflow ci.yml --branch main --event push --commit "$HEAD_SHA" \
+              --status success --json databaseId --jq 'length > 0')
+          fi
+          echo "certified=$certified" >> "$GITHUB_OUTPUT"
+          plan_args=()
+          if [ "$FORCE_NIGHTLY" = true ]; then
+            plan_args=(--force)
+          elif [ "$CHANNEL" = nightly ] && [ "$GITHUB_EVENT_NAME" != workflow_dispatch ]; then
+            plan_args=(--automatic)
+          fi
+          bun scripts/release.mjs plan "$CHANNEL" "${plan_args[@]}" > "$RUNNER_TEMP/plan"
+          cat "$RUNNER_TEMP/plan"
+          release=$(sed -n 's/^release=//p' "$RUNNER_TEMP/plan")
+          reason=$(sed -n 's/^reason=//p' "$RUNNER_TEMP/plan")
+          if [ "$release" = true ] && [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            failed=$(gh run list --workflow release.yml --commit "$HEAD_SHA" --status failure \
+              --json displayTitle --jq "map(select(.displayTitle == \"$RUN_TITLE\")) | length")
+            if [ "$failed" != 0 ]; then
+              release=false
+              reason="a $CHANNEL release of $HEAD_SHA already failed; waiting for a new commit"
+            fi
+          fi
+          grep -Ev '^(release|reason)=' "$RUNNER_TEMP/plan" >> "$GITHUB_OUTPUT"
+          printf 'release=%s\nbuild=%s\n' "$release" "$release" >> "$GITHUB_OUTPUT"
+          echo "${CHANNEL^}: $reason" >> "$GITHUB_STEP_SUMMARY"
 
-          if (git ls-remote --exit-code --tags origin "refs/tags/$tag") {
-            git fetch origin "refs/tags/${tag}:refs/tags/${tag}"
-            if ((git rev-parse "$tag^{commit}") -ne (git rev-parse HEAD)) {
-              throw "Tag $tag already points to a different commit"
-            }
-          }
+  checks:
+    name: Checks
+    needs: plan
+    if: needs.plan.outputs.build == 'true' && needs.plan.outputs.certified != 'true'
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.plan.outputs.sha }}
 
-          $previousTag = ""
-          if ($version -notmatch '-') {
-            $currentCreatedAt = [datetime](git show -s --format=%cI HEAD)
-            $releases = gh api "repos/${{ github.repository }}/releases?per_page=100" | ConvertFrom-Json
-            $previousRelease = $releases |
-              Where-Object {
-                -not $_.draft -and -not $_.prerelease -and
-                [datetime]$_.created_at -lt $currentCreatedAt
-              } |
-              Select-Object -First 1
-            if (-not $previousRelease) {
-              $previousRelease = $releases |
-                Where-Object { [datetime]$_.created_at -lt $currentCreatedAt } |
-                Select-Object -Last 1
-            }
-            $previousTag = $previousRelease.tag_name
-          }
-
-          "publish=true" >> $env:GITHUB_OUTPUT
-          "sha=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
-          "tag=$tag" >> $env:GITHUB_OUTPUT
-          "previous_tag=$previousTag" >> $env:GITHUB_OUTPUT
-
-  windows-installer:
-    name: Build Windows Setup & Publish
-    needs: release
-    if: needs.release.outputs.publish == 'true'
-    runs-on: windows-latest
+  package:
+    name: Package (${{ matrix.platform }} ${{ matrix.arch }})
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2025
+            platform: win
+            arch: x64
+          - os: macos-15-intel
+            platform: mac
+            arch: x64
+          - os: macos-latest
+            platform: mac
+            arch: arm64
+          - os: ubuntu-24.04
+            platform: linux
+            arch: x64
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     env:
-      # No code-signing certificate configured; skip auto-discovery
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+      VERSION: ${{ needs.plan.outputs.version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.release.outputs.sha }}
-
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
       - name: Setup
         uses: ./.github/actions/setup
         with:
-          electron-cache: "true"
-          install-filter: "@nativepi/desktop"
-
-      - name: Build Windows installer
-        run: bun run package --win --publish never
+          bun-cache: 'true'
+          electron-cache: 'true'
+          install-filter: '@nativepi/desktop'
+      # node-pty ships prebuilds for Windows and macOS only; compile on each Linux architecture.
+      - name: Build the Linux terminal addon
+        if: matrix.platform == 'linux'
+        run: bun run --cwd apps/desktop/node_modules/node-pty install
+      - name: Set the release version
+        if: needs.plan.outputs.publish == 'true'
+        shell: bash
+        run: bun scripts/release.mjs set-version "$VERSION"
+      - name: Package without publishing
         working-directory: apps/desktop
-
-      - name: Upload installer artifact
-        uses: actions/upload-artifact@v7
+        run: bun run package --${{ matrix.platform }} --${{ matrix.arch }} --publish never
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: nativepi-windows-setup
+          name: installers-${{ matrix.platform }}-${{ matrix.arch }}-${{ env.VERSION }}
           path: |
             apps/desktop/release/*.exe
-            apps/desktop/release/*.blockmap
-            apps/desktop/release/latest.yml
-          if-no-files-found: error
-
-  macos-installer:
-    name: Build macOS ${{ matrix.arch }} Installer
-    needs: release
-    if: needs.release.outputs.publish == 'true'
-    strategy:
-      matrix:
-        include:
-          - arch: arm64
-            runner: macos-latest
-          - arch: x64
-            runner: macos-15-intel
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
-    env:
-      # No Apple Developer ID configured; skip signing and notarization.
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.release.outputs.sha }}
-
-      - name: Setup
-        uses: ./.github/actions/setup
-        with:
-          electron-cache: "true"
-          install-filter: "@nativepi/desktop"
-
-      - name: Build macOS installer
-        run: bun run package --mac --${{ matrix.arch }} --publish never
-        working-directory: apps/desktop
-
-      - name: Upload installer artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: nativepi-macos-${{ matrix.arch }}-installer
-          path: |
             apps/desktop/release/*.dmg
             apps/desktop/release/*.zip
-            apps/desktop/release/*.blockmap
-            apps/desktop/release/latest-mac.yml
-          if-no-files-found: error
-
-  linux-installer:
-    name: Build Linux ${{ matrix.arch }} Installer
-    needs: release
-    if: needs.release.outputs.publish == 'true'
-    strategy:
-      matrix:
-        include:
-          - arch: x64
-            runner: ubuntu-latest
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.release.outputs.sha }}
-
-      - name: Setup
-        uses: ./.github/actions/setup
-        with:
-          electron-cache: "true"
-          install-filter: "@nativepi/desktop"
-
-      - name: Build Linux installer
-        run: bun run package --linux --${{ matrix.arch }} --publish never
-        working-directory: apps/desktop
-
-      - name: Upload installer artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: nativepi-linux-${{ matrix.arch }}-installer
-          path: |
             apps/desktop/release/*.AppImage
             apps/desktop/release/*.blockmap
-            apps/desktop/release/latest-linux.yml
+            apps/desktop/release/latest*.yml
           if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
 
-  publish-release:
+  release:
     name: Publish GitHub Release
-    needs: [release, windows-installer, macos-installer, linux-installer]
-    if: needs.release.outputs.publish == 'true'
-    runs-on: ubuntu-latest
+    needs: [plan, checks, package]
+    # Checks are skipped, not failed, when the commit's own CI run already certified it.
+    if: >-
+      !cancelled() && needs.plan.outputs.publish == 'true' && needs.package.result == 'success' &&
+      contains(fromJSON('["success", "skipped"]'), needs.checks.result)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      VERSION: ${{ needs.plan.outputs.version }}
+      TAG: ${{ needs.plan.outputs.tag }}
+      PREVIOUS: ${{ needs.plan.outputs.previous }}
+      PRERELEASE: ${{ needs.plan.outputs.prerelease }}
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: release
-          merge-multiple: true
-      - uses: softprops/action-gh-release@v3
+          ref: ${{ needs.plan.outputs.sha }}
+          fetch-depth: 0
+          filter: blob:none
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          tag_name: ${{ needs.release.outputs.tag }}
-          target_commitish: ${{ needs.release.outputs.sha }}
-          name: NativePi ${{ needs.release.outputs.tag }}
-          files: release/*
-          generate_release_notes: true
-          previous_tag: ${{ needs.release.outputs.previous_tag }}
-          draft: false
-          prerelease: ${{ contains(needs.release.outputs.tag, '-') }}
-
-  repair-release-notes:
-    name: Regenerate release notes
-    if: github.event_name == 'workflow_dispatch' && inputs.action == 'regenerate-notes'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Generate release notes
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
+          pattern: installers-*
+          path: ${{ runner.temp }}/release-artifacts
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Verify and assemble artifacts
         run: |
-          $tag = "${{ inputs.tag }}"
-          $release = gh api "repos/${{ github.repository }}/releases/tags/$tag" | ConvertFrom-Json
-          if ($release.draft -or $release.prerelease) {
-            throw "$tag is not a published stable release"
-          }
-
-          $releases = gh api "repos/${{ github.repository }}/releases?per_page=100" | ConvertFrom-Json
-          $currentCreatedAt = [datetime]$release.created_at
-          $previousRelease = $releases |
-            Where-Object {
-              -not $_.draft -and -not $_.prerelease -and
-              [datetime]$_.created_at -lt $currentCreatedAt
-            } |
-            Select-Object -First 1
-          if (-not $previousRelease) {
-            $previousRelease = $releases |
-              Where-Object { [datetime]$_.created_at -lt $currentCreatedAt } |
-              Select-Object -Last 1
-          }
-          if (-not $previousRelease) {
-            throw "No earlier release exists for $tag"
-          }
-
-          $request = @{
-            tag_name = $tag
-            target_commitish = $release.target_commitish
-            previous_tag_name = $previousRelease.tag_name
-          } | ConvertTo-Json
-          $notes = $request |
-            gh api "repos/${{ github.repository }}/releases/generate-notes" --method POST --input - |
-            ConvertFrom-Json
-
-          # Patch the body alone. Sending tag_name or target_commitish makes the
-          # update endpoint treat the edit as a possible tag write, which the
-          # workflow token is never allowed to perform.
-          @{ body = $notes.body } |
-            ConvertTo-Json |
-            gh api "repos/${{ github.repository }}/releases/$($release.id)" --method PATCH --input - > $null
+          bun scripts/release-assets.mjs "$RUNNER_TEMP/release-artifacts" release "$VERSION" "$PRERELEASE"
+          (cd release && sha256sum -- *.exe *.dmg *.zip *.AppImage > SHA256SUMS.txt)
+      - name: Tag
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # A rerun after a failed upload reuses the tag it already pushed.
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+          elif [ "$PRERELEASE" = true ]; then
+            git tag --annotate "$TAG" --message "NativePi $VERSION"
+            git push origin "refs/tags/$TAG"
+          else
+            bun scripts/release.mjs cut "$VERSION"
+            # Fails without releasing if main moved since the checked commit; the next day retries.
+            git push --atomic origin HEAD:refs/heads/main "refs/tags/$TAG"
+          fi
+      - name: Stage, upload, and publish release
+        run: |
+          if [ "$PRERELEASE" = true ]; then
+            bun scripts/release.mjs nightly-notes "$PREVIOUS" "$TAG" > "$RUNNER_TEMP/notes.md"
+            title="NativePi $VERSION (nightly)"
+          else
+            bun scripts/release.mjs notes "$VERSION" "$TAG" > "$RUNNER_TEMP/notes.md"
+            title="NativePi $VERSION"
+          fi
+          # A rerun may replace assets only on a release that is still a draft.
+          if draft=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [ "$draft" != true ]; then echo "::error::$TAG is already published"; exit 1; fi
+            gh release edit "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$TAG" --verify-tag --draft --title "$title" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+          (cd release && gh release upload "$TAG" ./*.exe ./*.dmg ./*.zip ./*.AppImage ./*.blockmap ./*.yml SHA256SUMS.txt --clobber)
+          if [ "$PRERELEASE" = true ]; then
+            gh release edit "$TAG" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$TAG" --draft=false --prerelease=false --latest
+          fi
+          echo "Published release: $(gh release view "$TAG" --json url --jq .url)" >> "$GITHUB_STEP_SUMMARY"
