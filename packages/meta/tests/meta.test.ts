@@ -26,7 +26,7 @@ test("registers Meta provider with Muse Spark models", () => {
       name: string;
       reasoning: boolean;
       thinkingLevelMap: Record<string, string | null>;
-      cost: { input: number; output: number };
+      cost: { input: number; output: number; cacheRead: number };
       contextWindow: number;
       maxTokens: number;
       api: string;
@@ -41,9 +41,13 @@ test("registers Meta provider with Muse Spark models", () => {
   expect(config.api).toBe("openai-responses");
 
   const ids = config.models.map((m) => m.id);
-  expect(ids).toContain("muse-spark-1.1");
-  expect(ids).toContain("muse-spark-1.2");
-  expect(ids).toContain("muse-spark-1.2-contributor");
+  expect(ids).toEqual([
+    "muse-spark-1.3",
+    "muse-spark-1.3-contributor",
+    "muse-spark-1.1",
+    "muse-spark-1.2",
+    "muse-spark-1.2-contributor",
+  ]);
 
   const byId = Object.fromEntries(config.models.map((m) => [m.id, m]));
 
@@ -57,8 +61,19 @@ test("registers Meta provider with Muse Spark models", () => {
     expect((model.compat as { supportsOpenAIGrammarTools?: boolean })?.supportsOpenAIGrammarTools).toBeUndefined();
   }
 
-  expect(byId["muse-spark-1.1"].contextWindow).toBe(1_000_000);
-  expect(byId["muse-spark-1.1"].maxTokens).toBe(32_000);
+  expect(byId["muse-spark-1.3"].contextWindow).toBe(1_048_576);
+  expect(byId["muse-spark-1.3"].maxTokens).toBe(131_072);
+  expect(byId["muse-spark-1.3"].cost.input).toBe(1.25);
+  expect(byId["muse-spark-1.3"].cost.output).toBe(4.25);
+
+  expect(byId["muse-spark-1.3-contributor"].contextWindow).toBe(1_048_576);
+  expect(byId["muse-spark-1.3-contributor"].maxTokens).toBe(131_072);
+  expect(byId["muse-spark-1.3-contributor"].cost.input).toBe(0.1);
+  expect(byId["muse-spark-1.3-contributor"].cost.output).toBe(0.2);
+  expect(byId["muse-spark-1.3-contributor"].cost.cacheRead).toBe(0.002);
+
+  expect(byId["muse-spark-1.1"].contextWindow).toBe(1_048_576);
+  expect(byId["muse-spark-1.1"].maxTokens).toBe(131_072);
   expect(byId["muse-spark-1.1"].cost.input).toBe(1.25);
   expect(byId["muse-spark-1.1"].cost.output).toBe(4.25);
 
@@ -71,6 +86,7 @@ test("registers Meta provider with Muse Spark models", () => {
   expect(byId["muse-spark-1.2-contributor"].maxTokens).toBe(131_072);
   expect(byId["muse-spark-1.2-contributor"].cost.input).toBe(0.1);
   expect(byId["muse-spark-1.2-contributor"].cost.output).toBe(0.2);
+  expect(byId["muse-spark-1.2-contributor"].cost.cacheRead).toBe(0.002);
 
   expect(seen.some((entry) => entry.event === "before_provider_request")).toBe(true);
 });

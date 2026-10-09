@@ -21,7 +21,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "pi": {
-    "extensions": ["./extensions/throughput.ts"]
+    "extensions": [
+      "./extensions/throughput.ts"
+    ]
   },
   "homepage": "https://github.com/nonlooped/nativepi/tree/main/packages/throughput",
   "repository": {
@@ -36,12 +38,12 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "^0.84.1"
+    "@earendil-works/pi-coding-agent": "^1.1.0"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "0.84.1",
-    "@types/bun": "^1.3.14",
-    "@types/react": "^19.2.18",
+    "@earendil-works/pi-coding-agent": "1.1.0",
+    "@types/bun": "^1.4.2",
+    "@types/react": "^19.3.0",
     "typescript": "^7.0.2"
   }
 }

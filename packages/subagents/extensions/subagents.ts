@@ -81,6 +81,7 @@ const eventSchema = z.object({
   args: z.unknown().optional(),
   result: z.unknown().optional(),
   isError: z.boolean().optional(),
+  aborted: z.boolean().optional(),
 }).passthrough();
 
 type Usage = z.infer<typeof usageSchema>;
@@ -262,12 +263,14 @@ export function parseSubagentOutput(stdout: string) {
   let error: string | undefined;
   let model: string | undefined;
   let turns = 0;
+  let aborted = false;
 
   for (const line of stdout.split(/\r?\n/)) {
     if (!line.trim()) continue;
     try {
       const event = eventSchema.safeParse(JSON.parse(line) as unknown);
       if (!event.success) continue;
+      if (event.data.type === "agent_settled") aborted = event.data.aborted ?? false;
       if (event.data.type === "tool_execution_start" && event.data.toolCallId) tools.add(event.data.toolCallId);
       if (event.data.type !== "message_end") continue;
       const message = assistantMessageSchema.safeParse(event.data.message);
@@ -283,7 +286,7 @@ export function parseSubagentOutput(stdout: string) {
     }
   }
 
-  return { output, stopReason, error, model, usage, turns, toolCount: tools.size };
+  return { output, stopReason, error, model, usage, turns, toolCount: tools.size, aborted };
 }
 
 export function getPiInvocation(args: string[]) {
@@ -774,10 +777,10 @@ export default function subagentsExtension(pi: ExtensionAPI) {
       job.output = bounded.text;
       job.fullOutputFile = bounded.file;
 
-      if (job.cancellationRequested || (result.killed && controller.signal.aborted)) {
+      if (job.cancellationRequested || parsed.aborted || parsed.stopReason === "aborted" || (result.killed && controller.signal.aborted)) {
         job.error = "Cancelled.";
         finishJob(job, "cancelled");
-      } else if (result.code !== 0 || parsed.stopReason === "error" || parsed.stopReason === "aborted") {
+      } else if (result.code !== 0 || parsed.stopReason === "error") {
         const stderr = truncateTail(result.stderr.trim(), {
           maxBytes: DEFAULT_MAX_BYTES,
           maxLines: DEFAULT_MAX_LINES,

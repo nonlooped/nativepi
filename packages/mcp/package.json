@@ -15,13 +15,20 @@
   ],
   "files": [
     "extensions",
+    "renderer",
+    "types.ts",
     "README.md"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "pi": {
-    "extensions": ["./extensions/mcp.ts"]
+    "extensions": [
+      "./extensions/mcp.ts"
+    ]
+  },
+  "nativepi": {
+    "renderer": "./renderer/index.tsx"
   },
   "homepage": "https://github.com/nonlooped/nativepi/tree/main/packages/mcp",
   "repository": {
@@ -36,16 +43,20 @@
     "access": "public"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^4"
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@nativepi/extension-api": "workspace:^",
+    "@phosphor-icons/react": "^2.1.10",
+    "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "^0.84.1",
+    "@earendil-works/pi-coding-agent": "^1.1.0",
     "typebox": "*"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "0.84.1",
-    "@types/bun": "^1.3.14",
+    "@earendil-works/pi-coding-agent": "1.1.0",
+    "@types/bun": "^1.4.2",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0",
     "typescript": "^7.0.2"
   }
 }

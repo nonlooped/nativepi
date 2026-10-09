@@ -35,7 +35,7 @@ function createHarness(sessionFile: string, entries: unknown[] = [], harnessOpti
     name: "GPT-5 mini",
     ...(harnessOptions.reasoning ? { reasoning: true } : {}),
   };
-  const provider = {
+  const modelRegistry = {
     streamSimple(selectedModel: FakeModel, _context: unknown, streamOptions: Record<string, unknown>) {
       state.streamModel = selectedModel;
       state.streamOptions = streamOptions;
@@ -65,8 +65,7 @@ function createHarness(sessionFile: string, entries: unknown[] = [], harnessOpti
     },
     modelRegistry: {
       find: (providerId: string, modelId: string) => (providerId === model.provider && modelId === model.id ? model : undefined),
-      getProvider: () => provider,
-      getApiKeyAndHeaders: async () => ({ ok: true, apiKey: "test-key", headers: {}, env: {} }),
+      streamSimple: modelRegistry.streamSimple,
       getAvailable: () => [model],
       getProviderDisplayName: () => "OpenAI",
     },

@@ -8,8 +8,8 @@ import { serviceTierProtocol, type ServiceTier, type TierState } from "../types.
 const DEFAULT_TIER: ServiceTier = "standard";
 
 const CHOICES: { tier: ServiceTier; label: string; description: string }[] = [
-  { tier: "standard", label: "Standard", description: "Normal priority, steady subscription usage" },
-  { tier: "fast", label: "Fast", description: "Priority processing, spends subscription faster" },
+  { tier: "standard", label: "Standard", description: "Normal processing and usage" },
+  { tier: "fast", label: "Fast", description: "Priority processing, higher usage or cost" },
 ];
 
 /**
@@ -17,7 +17,10 @@ const CHOICES: { tier: ServiceTier; label: string; description: string }[] = [
  * models known to offer the faster tier are listed here. Keep it conservative:
  * sending the field to a model without the tier is a rejected request.
  */
-const FAST_MODEL_IDS = new Set(["gpt-5.4", "gpt-5.5", "gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra"]);
+const FAST_MODEL_IDS = new Set([
+  "gpt-5.4", "gpt-5.5", "gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra",
+  "gpt-6-astra", "gpt-6-luna", "gpt-6-sol", "gpt-6.1-sol",
+]);
 
 const TIER_ENTRY = "service-tier";
 const TIER_STATUS = "service-tier";
@@ -80,7 +83,7 @@ class SpeedPanel extends Container {
     this.list.onCancel = () => done(undefined);
     this.list.onSelect = (item) => {
       if (item.value === "fast" && !supported) {
-        this.notice.setText(theme.fg("warning", "Fast is only offered on supported Codex models."));
+        this.notice.setText(theme.fg("warning", "Fast is only offered on supported OpenAI models."));
         tui.requestRender();
         return;
       }
@@ -121,7 +124,7 @@ class SpeedPanel extends Container {
 }
 
 export function supportsFastServiceTier(model?: { provider?: string; id?: string } | null): boolean {
-  return model?.provider === "openai-codex" && FAST_MODEL_IDS.has(model.id ?? "");
+  return (model?.provider === "openai" || model?.provider === "openai-codex") && FAST_MODEL_IDS.has(model?.id ?? "");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -192,7 +195,7 @@ export default function serviceTierExtension(pi: ExtensionAPI): void {
     set: ({ tier: next }) => {
       if (!latest) throw new Error("No active Pi session.");
       if (next === "fast" && !supportsFastServiceTier(latest.model)) {
-        throw new Error("Fast response speed is only available for supported Codex models.");
+        throw new Error("Fast response speed is only available for supported OpenAI models.");
       }
       setTier(next, latest);
       return state(latest);
@@ -224,7 +227,7 @@ export default function serviceTierExtension(pi: ExtensionAPI): void {
   });
 
   pi.registerCommand("speed", {
-    description: "Choose the provider response speed for supported Codex models",
+    description: "Choose the response speed for supported OpenAI models",
     getArgumentCompletions: (prefix) => {
       const values = ["standard", "fast"].filter((value) => value.startsWith(prefix.toLowerCase()));
       return values.length > 0 ? values.map((value) => ({ value, label: value })) : null;
@@ -243,7 +246,7 @@ export default function serviceTierExtension(pi: ExtensionAPI): void {
         ));
       if (!next) return;
       if (next === "fast" && !supportsFastServiceTier(context.model)) {
-        context.ui.notify("Fast response speed is only offered on supported Codex models.", "warning");
+        context.ui.notify("Fast response speed is only offered on supported OpenAI models.", "warning");
         return;
       }
       setTier(next, context);

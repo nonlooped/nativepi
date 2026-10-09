@@ -111,7 +111,7 @@ test("NativePi children launch Pi's CLI through Electron's Node runtime", () => 
   }
 });
 
-test("the pool runs no more than six default children at once", async () => {
+test.each([false, true])("the pool respects its concurrency limit and Pi's cancelled=%s settlement", async (aborted) => {
   type RegisteredTool = {
     execute: (
       toolCallId: string,
@@ -125,7 +125,7 @@ test("the pool runs no more than six default children at once", async () => {
   const tools = new Map<string, RegisteredTool>();
   let active = 0;
   let peak = 0;
-  const childOutput = JSON.stringify({
+  const childOutput = [JSON.stringify({
     type: "message_end",
     message: {
       role: "assistant",
@@ -142,7 +142,7 @@ test("the pool runs no more than six default children at once", async () => {
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
       },
     },
-  });
+  }), JSON.stringify({ type: "agent_settled", aborted })].join("\n");
   const pi = {
     on: () => {},
     registerTool: (tool: RegisteredTool & { name: string }) => tools.set(tool.name, tool),
@@ -181,7 +181,7 @@ test("the pool runs no more than six default children at once", async () => {
   );
 
   expect(peak).toBe(6);
-  expect(waited.content[0]!.text.match(/— completed/g)).toHaveLength(8);
+  expect(waited.content[0]!.text.match(aborted ? /— cancelled/g : /— completed/g)).toHaveLength(8);
   expect(waited.usage?.input).toBe(8);
 });
 
@@ -242,6 +242,7 @@ test("JSON-mode output returns the final response and aggregates usage", () => {
   expect(parsed.usage.input).toBe(30);
   expect(parsed.usage.output).toBe(12);
   expect(parsed.usage.cost.total).toBeCloseTo(0.66);
+  expect(parsed.aborted).toBe(false);
 });
 
 test("streamed JSONL survives arbitrary byte boundaries", () => {

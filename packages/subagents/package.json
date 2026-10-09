@@ -22,7 +22,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "pi": {
-    "extensions": ["./extensions/subagents.ts"]
+    "extensions": [
+      "./extensions/subagents.ts"
+    ]
   },
   "nativepi": {
     "renderer": "./renderer/index.tsx"
@@ -45,17 +47,17 @@
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
-    "@earendil-works/pi-coding-agent": "^0.84.1",
-    "@earendil-works/pi-tui": "0.84.1",
+    "@earendil-works/pi-coding-agent": "^1.1.0",
+    "@earendil-works/pi-tui": "1.1.0",
     "typebox": "*"
   },
   "devDependencies": {
-    "@earendil-works/pi-ai": "0.84.1",
-    "@earendil-works/pi-coding-agent": "0.84.1",
-    "@earendil-works/pi-tui": "0.84.1",
-    "@types/bun": "^1.3.14",
-    "@types/react": "^19.2.18",
-    "react": "^19.2.0",
+    "@earendil-works/pi-ai": "1.1.0",
+    "@earendil-works/pi-coding-agent": "1.1.0",
+    "@earendil-works/pi-tui": "1.1.0",
+    "@types/bun": "^1.4.2",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0",
     "typescript": "^7.0.2"
   }
 }

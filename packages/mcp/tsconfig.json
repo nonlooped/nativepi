@@ -1,6 +1,6 @@
 {
   "extends": "../tsconfig.json",
-  "include": ["extensions", "tests"],
+  "include": ["extensions", "renderer", "tests", "types.ts"],
   "compilerOptions": {
     "types": ["bun"]
   }

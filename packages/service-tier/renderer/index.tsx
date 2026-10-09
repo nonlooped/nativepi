@@ -22,7 +22,7 @@ const CHOICES: { tier: ServiceTier; label: string; description: string }[] = [
   {
     tier: "fast",
     label: "Fast",
-    description: "Prioritizes speed and uses more subscription usage",
+    description: "Priority processing, higher usage or cost",
   },
 ];
 
@@ -41,7 +41,11 @@ function ServiceTierControl({ context }: { context: RendererContext<typeof servi
     void call("state")
       .then(apply)
       .catch(() => {});
-    return on("changed", apply);
+    const off = on("changed", apply);
+    return () => {
+      cancelled = true;
+      off();
+    };
   }, [call, on]);
 
   if (!state?.supported) return null;

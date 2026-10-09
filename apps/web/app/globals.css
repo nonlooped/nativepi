@@ -1,6 +1,5 @@
 @import "tailwindcss";
-@import "@fontsource-variable/raleway/index.css";
-@import "@fontsource-variable/nunito-sans/index.css";
+@import "@fontsource-variable/geist/index.css";
 
 @theme {
   --color-void: oklch(0.115 0.004 285);
@@ -35,9 +34,8 @@
   --color-input-hairline: oklch(1 0 0 / 15%);
   --color-focus: oklch(0.552 0.016 285.938);
 
-  --font-wordmark: "Departure Mono", ui-monospace, monospace;
-  --font-display: "Raleway Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-body: "Nunito Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
 
   --radius-sm: 0.375rem;

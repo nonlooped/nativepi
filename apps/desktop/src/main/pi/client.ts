@@ -33,14 +33,13 @@ import { drainLines, serializeCommand, type PiCommand, type PiMessage } from "./
  * entry plus the context that renders them — see `pi/host/entry.ts`.
  */
 function resolvePiEntry(): string {
-  try {
-    // Importing electron at the top level breaks plain Node/Bun tests where
-    // the electron stub does not provide named ESM exports.
+  if (process.versions.electron) {
+    // Requiring Electron under plain Node/Bun can download its binary.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const electron = require("electron") as { app?: { getAppPath: () => string } };
     const getAppPath = electron.app?.getAppPath;
     if (getAppPath) return join(getAppPath.call(electron.app), "out", "main", "pi-host.js");
-  } catch {}
+  }
   return fileURLToPath(new URL("./pi-host.js", import.meta.url));
 }
 

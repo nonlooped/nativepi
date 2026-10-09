@@ -13,7 +13,7 @@ Read `apps/desktop/PRODUCT.md` before making product-scope decisions and
 `apps/desktop/DESIGN.md` before changing the interface's visual language.
 
 The stack is Electron and electron-vite, Bun as the package manager (not the
-desktop runtime), React 19.2 with React Compiler, Vite 8, Tailwind CSS 4,
+desktop runtime), React 19.3 with React Compiler, Vite 8, Tailwind CSS 4,
 shadcn/ui using preset `b1wXDkDqCm`, Zustand, and Zod 4 at process and
 external-data boundaries.
 
@@ -42,7 +42,8 @@ Do not add:
 - Checkpoints, hidden commits, or anything that rewrites Git history.
 - A second durable conversation store or parallel Pi domain model.
 - Agent capabilities added inside NativePi itself that Pi does not have, such as
-  built-in subagents, MCP support, or per-tool permission rules.
+  built-in subagents or per-tool permission rules. Pi's built-in MCP support
+  remains Pi-owned and is available through its normal configuration and UI.
 
 Optional Pi extension packages may provide additional agent capabilities. They
 must remain ordinary, separately installable Pi packages so Pi owns their tools,

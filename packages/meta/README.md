@@ -14,17 +14,18 @@ Set your Model API key:
 export MODEL_API_KEY=your-key  # from https://dev.meta.ai
 ```
 
-Then select a Muse Spark model in Pi (`/model`) or in NativePi's model picker. The provider appears as **Meta** with models `muse-spark-1.1`, `muse-spark-1.2`, and `muse-spark-1.2-contributor`.
+Then select a Muse Spark model in Pi (`/model`) or in NativePi's model picker. The provider appears as **Meta** with `muse-spark-1.3` as the recommended model.
 
 ## Models
 
-All three models accept text and image input.
+All models accept text and image input in Pi. Each has a 1,048,576-token context window and 131,072-token max output.
 
-- `muse-spark-1.1` — Muse Spark 1.1, 1,000,000 context / 32,000 max output, reasoning with encrypted-content replay
-- `muse-spark-1.2` — Muse Spark 1.2, 1,048,576 context / 131,072 max output
-- `muse-spark-1.2-contributor` — Muse Spark 1.2 Contributor, same context/output as 1.2 at contributor pricing
+- `muse-spark-1.3` — latest standard model, recommended for agentic and coding work
+- `muse-spark-1.3-contributor` — discounted 1.3 tier; prompts and completions may train future Meta models
+- `muse-spark-1.2` / `muse-spark-1.2-contributor` — previous standard and contributor models
+- `muse-spark-1.1` — original standard model
 
-All use the OpenAI Responses API at `https://api.meta.ai/v1` with `MODEL_API_KEY` for authentication. Standard pricing is $1.25 / 1M input and $4.25 / 1M output (cache read $0.15); contributor is $0.10 / $0.20, as reported by Meta / `https://api.meta.ai/v1` catalog.
+All use the OpenAI Responses API at `https://api.meta.ai/v1` with `MODEL_API_KEY` for authentication. Standard pricing is $1.25 / 1M input and $4.25 / 1M output (cache read $0.15); contributor is $0.10 / $0.20 (cache read $0.002), as reported by Meta's [model catalog](https://dev.meta.ai/docs/models/) and [pricing](https://dev.meta.ai/docs/pricing-rate-limits/).
 
 ## Details
 

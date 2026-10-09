@@ -4,7 +4,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
  * Cost per million tokens for Muse Spark on Meta Model API.
  * Source: https://api.meta.ai/v1 catalog (see screenshot) / Meta Model API pricing.
  * Standard: Input $1.25, output $4.25, cache read $0.15.
- * Contributor (muse-spark-1.2-contributor): Input $0.10, output $0.20.
+ * Contributor: Input $0.10, output $0.20, cache read $0.002.
  */
 const COST = {
   input: 1.25,
@@ -16,14 +16,12 @@ const COST = {
 const COST_CONTRIBUTOR = {
   input: 0.1,
   output: 0.2,
-  cacheRead: 0,
+  cacheRead: 0.002,
   cacheWrite: 0,
 } as const;
 
 const CONTEXT_WINDOW = 1_048_576;
 const MAX_TOKENS = 131_072;
-const CONTEXT_WINDOW_1_1 = 1_000_000;
-const MAX_TOKENS_1_1 = 32_000;
 
 /**
  * Muse Spark always reasons — `reasoning_effort: "none"` is 400.
@@ -69,6 +67,36 @@ export default function metaExtension(pi: ExtensionAPI): void {
     api: "openai-responses",
     models: [
       {
+        id: "muse-spark-1.3",
+        name: "Muse Spark 1.3",
+        api: "openai-responses",
+        baseUrl: "https://api.meta.ai/v1",
+        reasoning: true,
+        thinkingLevelMap: THINKING_LEVEL_MAP,
+        input: ["text", "image"],
+        cost: COST,
+        contextWindow: CONTEXT_WINDOW,
+        maxTokens: MAX_TOKENS,
+        compat: {
+          supportsStrictMode: true,
+        },
+      },
+      {
+        id: "muse-spark-1.3-contributor",
+        name: "Muse Spark 1.3 Contributor",
+        api: "openai-responses",
+        baseUrl: "https://api.meta.ai/v1",
+        reasoning: true,
+        thinkingLevelMap: THINKING_LEVEL_MAP,
+        input: ["text", "image"],
+        cost: COST_CONTRIBUTOR,
+        contextWindow: CONTEXT_WINDOW,
+        maxTokens: MAX_TOKENS,
+        compat: {
+          supportsStrictMode: true,
+        },
+      },
+      {
         id: "muse-spark-1.1",
         name: "Muse Spark 1.1",
         api: "openai-responses",
@@ -77,8 +105,8 @@ export default function metaExtension(pi: ExtensionAPI): void {
         thinkingLevelMap: THINKING_LEVEL_MAP,
         input: ["text", "image"],
         cost: COST,
-        contextWindow: CONTEXT_WINDOW_1_1,
-        maxTokens: MAX_TOKENS_1_1,
+        contextWindow: CONTEXT_WINDOW,
+        maxTokens: MAX_TOKENS,
         compat: {
           supportsStrictMode: true,
         },

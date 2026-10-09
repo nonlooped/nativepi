@@ -5,7 +5,7 @@ import { TuiMainScreen, type Component, type OverlayHandle, type OverlayOptions,
  *
  * `TUI` writes escape sequences to a `Terminal` and reads keystrokes back from
  * it. Nothing in that contract is about a tty: `PiTerminal` below implements the
- * same seventeen methods against a pipe, so the TUI renders, diffs and composites
+ * terminal contract against a pipe, so the TUI renders, diffs and composites
  * exactly as it does in a real terminal and hands the result to `onWrite`.
  * NativePi forwards those bytes to xterm in the window, which is a real emulator
  * and turns them back into the picture Pi drew. Differential rendering keeps
@@ -104,6 +104,9 @@ class PiTerminal implements Terminal {
   setTitle(): void {}
 
   setProgress(): void {}
+
+  // The window reports run state from RPC; embedded surfaces have no OS status.
+  setProgramStatus(): void {}
 }
 
 export class Surface {

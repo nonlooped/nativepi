@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -9,7 +9,7 @@ import {
 } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { CallToolResultSchema, type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
   CONFIG_DIR_NAME,
   DEFAULT_MAX_BYTES,
@@ -17,9 +17,18 @@ import {
   formatSize,
   getAgentDir,
   truncateHead,
+  withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
+import { connect } from "@nativepi/extension-api/host";
 import { Type } from "typebox";
 import { z } from "zod";
+import {
+  mcpProtocol,
+  type EditableMcpServer,
+  type McpScope,
+  type McpServerEntry,
+  type McpState,
+} from "../types.ts";
 
 const CONNECT_TIMEOUT_MS = 15_000;
 const MCP_OUTPUT_DIR = join(tmpdir(), "nativepi-mcp");
@@ -46,10 +55,6 @@ const httpServerSchema = z.object({
   env: z.never().optional(),
   cwd: z.never().optional(),
 }).passthrough();
-const mcpFileSchema = z.object({
-  mcpServers: z.record(z.string(), z.union([stdioServerSchema, httpServerSchema])),
-}).passthrough();
-
 type ServerConfig = z.infer<typeof stdioServerSchema> | z.infer<typeof httpServerSchema>;
 type ConfiguredServer = { config: ServerConfig; configDir: string };
 type ConnectedServer = {
@@ -123,6 +128,162 @@ export async function loadMcpServers(cwd: string, projectTrusted: boolean, agent
   };
 }
 
+const jsonObjectSchema = z.record(z.string(), z.unknown());
+const knownServerFields = new Set(["command", "args", "env", "cwd", "url", "headers"]);
+
+type ServerConnectionStatus = { status: "connected"; toolCount: number } | { status: "error"; error: string };
+
+function configPath(scope: McpScope, cwd: string, agentDir = getAgentDir()) {
+  return scope === "user"
+    ? join(agentDir, "mcp.json")
+    : join(cwd, CONFIG_DIR_NAME, "mcp.json");
+}
+
+async function readConfigObject(path: string) {
+  try {
+    const parsed = jsonObjectSchema.safeParse(JSON.parse(await readFile(path, "utf8")) as unknown);
+    if (!parsed.success) throw new Error(`Invalid ${path}: expected a JSON object.`);
+    return parsed.data;
+  } catch (error) {
+    if (isMissingFile(error)) return {};
+    throw error;
+  }
+}
+
+async function writeConfigObject(path: string, value: Record<string, unknown>) {
+  await mkdir(dirname(path), { recursive: true });
+  const temporary = `${path}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  try {
+    await rename(temporary, path);
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
+}
+
+function persistedConfig(config: EditableMcpServer) {
+  if (config.transport === "stdio") {
+    return {
+      command: config.command,
+      ...(config.args.length > 0 ? { args: config.args } : {}),
+      ...(config.env ? { env: config.env } : {}),
+      ...(config.cwd ? { cwd: config.cwd } : {}),
+    };
+  }
+  return {
+    url: config.url,
+    ...(config.headers ? { headers: config.headers } : {}),
+  };
+}
+
+export async function saveMcpServer(
+  cwd: string,
+  projectTrusted: boolean,
+  input: { scope: McpScope; originalName?: string; name: string; config: EditableMcpServer },
+  agentDir = getAgentDir(),
+) {
+  if (input.scope === "project" && !projectTrusted) {
+    throw new Error("Trust this project before adding a project-only MCP server.");
+  }
+  const path = configPath(input.scope, cwd, agentDir);
+  await withFileMutationQueue(path, async () => {
+    const root = await readConfigObject(path);
+    const servers = root.mcpServers === undefined
+      ? {}
+      : jsonObjectSchema.parse(root.mcpServers);
+    const originalName = input.originalName ?? input.name;
+    if ((!input.originalName || input.name !== originalName) && Object.hasOwn(servers, input.name)) {
+      throw new Error(`An MCP server named “${input.name}” already exists in this scope.`);
+    }
+
+    const existing = jsonObjectSchema.safeParse(servers[originalName]);
+    const unknown = existing.success
+      ? Object.fromEntries(Object.entries(existing.data).filter(([key]) => !knownServerFields.has(key)))
+      : {};
+    const nextServers = { ...servers };
+    if (input.originalName) delete nextServers[input.originalName];
+    Object.defineProperty(nextServers, input.name, {
+      value: { ...unknown, ...persistedConfig(input.config) },
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+    await writeConfigObject(path, { ...root, mcpServers: nextServers });
+  });
+}
+
+export async function removeMcpServer(
+  cwd: string,
+  projectTrusted: boolean,
+  scope: McpScope,
+  name: string,
+  agentDir = getAgentDir(),
+) {
+  if (scope === "project" && !projectTrusted) {
+    throw new Error("Trust this project before changing its MCP servers.");
+  }
+  const path = configPath(scope, cwd, agentDir);
+  await withFileMutationQueue(path, async () => {
+    const root = await readConfigObject(path);
+    const servers = root.mcpServers === undefined
+      ? {}
+      : jsonObjectSchema.parse(root.mcpServers);
+    if (!Object.hasOwn(servers, name)) throw new Error(`No MCP server named “${name}” exists in this scope.`);
+    const nextServers = { ...servers };
+    delete nextServers[name];
+    await writeConfigObject(path, { ...root, mcpServers: nextServers });
+  });
+}
+
+function editableConfig(config: ServerConfig): EditableMcpServer {
+  return typeof config.command === "string"
+    ? {
+      transport: "stdio",
+      command: config.command,
+      args: config.args ?? [],
+      ...(config.env ? { env: config.env } : {}),
+      ...(config.cwd ? { cwd: config.cwd } : {}),
+    }
+    : {
+      transport: "http",
+      url: config.url,
+      ...(config.headers ? { headers: config.headers } : {}),
+    };
+}
+
+async function mcpState(
+  cwd: string,
+  projectTrusted: boolean,
+  connections: Map<string, ServerConnectionStatus>,
+  agentDir = getAgentDir(),
+): Promise<McpState> {
+  const user = await readConfig(configPath("user", cwd, agentDir));
+  const project = projectTrusted
+    ? await readConfig(configPath("project", cwd, agentDir))
+    : { servers: new Map<string, ConfiguredServer>(), diagnostics: [] };
+  const entries: McpServerEntry[] = [];
+  for (const [scope, source] of [["user", user], ["project", project]] as const) {
+    for (const [name, server] of source.servers) {
+      const overridden = scope === "user" && project.servers.has(name);
+      const connection = connections.get(name);
+      entries.push({
+        name,
+        scope,
+        config: editableConfig(server.config),
+        status: overridden ? "overridden" : connection?.status ?? "error",
+        toolCount: !overridden && connection?.status === "connected" ? connection.toolCount : 0,
+        ...(!overridden && connection?.status === "error" ? { error: connection.error } : {}),
+      });
+    }
+  }
+  return {
+    projectTrusted,
+    servers: entries,
+    diagnostics: [...user.diagnostics, ...project.diagnostics],
+  };
+}
+
 function safeToolPart(value: string) {
   return value
     .normalize("NFKD")
@@ -178,13 +339,13 @@ function transportFor(server: ConfiguredServer) {
   });
 }
 
-async function listAllTools(client: Client) {
+async function listAllTools(client: Client, signal?: AbortSignal) {
   const tools: ConnectedServer["tools"] = [];
   let cursor: string | undefined;
   do {
     const page = await client.listTools(
       cursor ? { cursor } : undefined,
-      { timeout: CONNECT_TIMEOUT_MS, maxTotalTimeout: CONNECT_TIMEOUT_MS },
+      { signal, timeout: CONNECT_TIMEOUT_MS, maxTotalTimeout: CONNECT_TIMEOUT_MS },
     );
     tools.push(...page.tools);
     cursor = page.nextCursor;
@@ -192,18 +353,20 @@ async function listAllTools(client: Client) {
   return tools;
 }
 
-export async function connectServer(name: string, server: ConfiguredServer) {
+export async function connectServer(name: string, server: ConfiguredServer, signal?: AbortSignal) {
+  signal?.throwIfAborted();
   const client = new Client({ name: "nativepi-mcp", version: "1.0.0" });
   const transport = transportFor(server);
   try {
     await client.connect(transport, {
+      signal,
       timeout: CONNECT_TIMEOUT_MS,
       maxTotalTimeout: CONNECT_TIMEOUT_MS,
     });
     return {
       client,
       name,
-      tools: await listAllTools(client),
+      tools: await listAllTools(client, signal),
       close: async () => {
         if (transport instanceof StreamableHTTPClientTransport) {
           await transport.terminateSession().catch(() => {});
@@ -276,8 +439,18 @@ function imageContent(result: CallToolResult) {
 }
 
 export default function mcpExtension(pi: ExtensionAPI) {
+  let latest: ExtensionContext | undefined;
   let serverClosers: Array<() => Promise<void>> = [];
   let registeredMcpToolNames = new Set<string>();
+  let connectionStatuses = new Map<string, ServerConnectionStatus>();
+  let operation = Promise.resolve();
+  let connecting: AbortController | undefined;
+
+  const serialize = <Value>(work: () => Promise<Value>) => {
+    const next = operation.then(work, work);
+    operation = next.then(() => undefined, () => undefined);
+    return next;
+  };
 
   const closeServers = async () => {
     const active = serverClosers;
@@ -285,51 +458,58 @@ export default function mcpExtension(pi: ExtensionAPI) {
     await Promise.allSettled(active.map((close) => close()));
   };
 
-  const deactivateStaleTools = (nextNames: Set<string>) => {
-    try {
-      const getActive = (pi as unknown as { getActiveTools?: () => string[] }).getActiveTools;
-      const setActive = (pi as unknown as { setActiveTools?: (names: string[]) => void }).setActiveTools;
-      if (typeof getActive !== "function" || typeof setActive !== "function") return;
-      const active = new Set(getActive.call(pi));
-      let changed = false;
-      for (const old of registeredMcpToolNames) {
-        if (!nextNames.has(old) && active.has(old)) {
-          active.delete(old);
-          changed = true;
-        }
-      }
-      for (const name of nextNames) {
-        if (!active.has(name)) {
-          active.add(name);
-          changed = true;
-        }
-      }
-      if (changed) setActive.call(pi, [...active]);
-    } catch {
-      // Active-tool management is best-effort; stale tools remain registered but inactive.
+  const updateActiveTools = (nextNames: Set<string>) => {
+    const active = new Set(pi.getActiveTools());
+    for (const old of registeredMcpToolNames) {
+      if (!nextNames.has(old)) active.delete(old);
     }
+    for (const name of nextNames) active.add(name);
+    pi.setActiveTools([...active]);
   };
 
-  pi.on("session_start", async (_event, context) => {
+  const currentState = (context: ExtensionContext) =>
+    mcpState(context.cwd, context.isProjectTrusted(), connectionStatuses);
+
+  const activateServers = async (context: ExtensionContext, notify: boolean) => {
+    if (latest !== context) throw new Error("The Pi session changed before MCP servers could reconnect.");
+    const controller = new AbortController();
+    connecting = controller;
     await closeServers();
     const previousNames = new Set(registeredMcpToolNames);
     const loaded = await loadMcpServers(context.cwd, context.isProjectTrusted());
-    for (const diagnostic of loaded.diagnostics) context.ui.notify(diagnostic, "warning");
+    if (notify) {
+      for (const diagnostic of loaded.diagnostics) context.ui.notify(diagnostic, "warning");
+    }
 
     const attempts = await Promise.all(
       [...loaded.servers].map(async ([name, server]) => {
         try {
-          return { ok: true as const, server: await connectServer(name, server) };
+          return { ok: true as const, server: await connectServer(name, server, controller.signal) };
         } catch (error) {
           return { ok: false as const, name, error: errorMessage(error) };
         }
       }),
     );
-
+    connecting = undefined;
     const connected = attempts.flatMap((attempt) => attempt.ok ? [attempt.server] : []);
+    if (latest !== context) {
+      await Promise.allSettled(connected.map((server) => server.close()));
+      throw new Error("The Pi session changed while MCP servers were reconnecting.");
+    }
     serverClosers = connected.map((server) => server.close);
+    const nextStatuses = new Map<string, ServerConnectionStatus>();
     for (const attempt of attempts) {
-      if (!attempt.ok) context.ui.notify(`MCP server ${attempt.name}: ${attempt.error}`, "warning");
+      if (attempt.ok) {
+        nextStatuses.set(attempt.server.name, { status: "connected", toolCount: attempt.server.tools.length });
+      } else {
+        nextStatuses.set(attempt.name, { status: "error", error: attempt.error });
+      }
+    }
+    connectionStatuses = nextStatuses;
+    if (notify) {
+      for (const attempt of attempts) {
+        if (!attempt.ok) context.ui.notify(`MCP server ${attempt.name}: ${attempt.error}`, "warning");
+      }
     }
 
     const usedNames = new Set(pi.getAllTools().map((tool) => tool.name));
@@ -347,6 +527,8 @@ export default function mcpExtension(pi: ExtensionAPI) {
           label: `${server.name}: ${tool.title ?? tool.name}`,
           description: `${tool.description ?? `Run ${tool.name}`} (MCP server: ${server.name}; original tool: ${tool.name})`,
           parameters: Type.Unsafe<Record<string, unknown>>(tool.inputSchema),
+          ...(tool.outputSchema ? { outputSchema: Type.Unsafe(tool.outputSchema) } : {}),
+          annotations: tool.annotations,
           async execute(toolCallId, params, signal) {
             const response = await server.client.callTool(
               { name: tool.name, arguments: params },
@@ -359,15 +541,6 @@ export default function mcpExtension(pi: ExtensionAPI) {
             const result = response;
             const rawText = mcpResultText(result) || (imageContent(result).length > 0 ? "" : "MCP tool returned no content.");
             const output = await boundedText(rawText, toolCallId);
-            if (result.isError) {
-              const error = new Error(output.text || "MCP tool failed without an error message.");
-              (error as unknown as Record<string, unknown>).details = {
-                server: server.name,
-                tool: tool.name,
-                fullOutputFile: output.fullOutputFile,
-              };
-              throw error;
-            }
             return {
               content: [
                 ...(output.text ? [{ type: "text" as const, text: output.text }] : []),
@@ -378,15 +551,16 @@ export default function mcpExtension(pi: ExtensionAPI) {
                 tool: tool.name,
                 fullOutputFile: output.fullOutputFile,
               },
+              ...(result.structuredContent === undefined ? {} : { structuredContent: z.json().parse(result.structuredContent) }),
+              ...(result.isError ? { isError: true } : {}),
             };
           },
         });
       }
     }
 
+    updateActiveTools(nextNames);
     registeredMcpToolNames = nextNames;
-    deactivateStaleTools(nextNames);
-
     context.ui.setStatus(
       "mcp",
       connected.length > 0
@@ -396,13 +570,46 @@ export default function mcpExtension(pi: ExtensionAPI) {
         )
         : undefined,
     );
+    const state = await currentState(context);
+    nativepi.emit("changed", state);
+    return state;
+  };
+
+  const nativepi = connect("@nativepi/mcp", mcpProtocol, {
+    state: async () => {
+      if (!latest) throw new Error("No active Pi session.");
+      return currentState(latest);
+    },
+    save: (input) => serialize(async () => {
+      const context = latest;
+      if (!context) throw new Error("No active Pi session.");
+      if (!context.isIdle()) throw new Error("Wait for the running turn to finish before changing MCP servers.");
+      await saveMcpServer(context.cwd, context.isProjectTrusted(), input);
+      return activateServers(context, false);
+    }),
+    remove: ({ scope, name }) => serialize(async () => {
+      const context = latest;
+      if (!context) throw new Error("No active Pi session.");
+      if (!context.isIdle()) throw new Error("Wait for the running turn to finish before changing MCP servers.");
+      await removeMcpServer(context.cwd, context.isProjectTrusted(), scope, name);
+      return activateServers(context, false);
+    }),
+  });
+
+  pi.on("session_start", async (_event, context) => {
+    latest = context;
+    await serialize(() => activateServers(context, true));
   });
 
   pi.on("session_shutdown", async (_event, context) => {
+    latest = undefined;
+    connecting?.abort();
     context.ui.setStatus("mcp", undefined);
+    await operation;
     await closeServers();
     const nextNames = new Set<string>();
-    deactivateStaleTools(nextNames);
+    updateActiveTools(nextNames);
     registeredMcpToolNames = nextNames;
+    connectionStatuses.clear();
   });
 }

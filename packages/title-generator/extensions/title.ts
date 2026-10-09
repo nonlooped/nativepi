@@ -128,22 +128,14 @@ function assistantText(message: unknown): string {
 }
 
 async function generateTitle(context: ExtensionContext, prompt: string, model: TitleModel, controller: AbortController): Promise<string | null> {
-  const provider = context.modelRegistry.getProvider(model.provider);
-  if (!provider) return null;
-  const resolvedAuth = await context.modelRegistry.getApiKeyAndHeaders(model);
-  if (!resolvedAuth.ok) return null;
-
   // Reasoning models can spend the small title budget before emitting text.
-  const stream = provider.streamSimple(
+  const stream = context.modelRegistry.streamSimple(
     model,
     {
       systemPrompt: TITLE_REQUEST_SYSTEM,
       messages: [{ role: "user", content: prompt, timestamp: Date.now() }],
     },
     {
-      apiKey: resolvedAuth.apiKey,
-      headers: resolvedAuth.headers,
-      env: resolvedAuth.env,
       signal: controller.signal,
       maxTokens: model.reasoning ? 1024 : 64,
       maxRetries: 2,

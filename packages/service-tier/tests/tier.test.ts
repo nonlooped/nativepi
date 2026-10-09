@@ -18,9 +18,12 @@ test("non-object payloads pass through unchanged", () => {
   expect(applyServiceTierPayload(undefined, "fast")).toBeUndefined();
 });
 
-test("Fast is only offered for supported Codex models", () => {
+test("Fast is offered for current OpenAI models and legacy Codex subscriptions", () => {
   expect(supportsFastServiceTier({ provider: "openai-codex", id: "gpt-5.6-sol" })).toBe(true);
-  expect(supportsFastServiceTier({ provider: "openai", id: "gpt-5.6-sol" })).toBe(false);
+  expect(supportsFastServiceTier({ provider: "openai", id: "gpt-6.1-sol" })).toBe(true);
+  expect(supportsFastServiceTier({ provider: "openai-codex", id: "gpt-6-sol" })).toBe(true);
+  expect(supportsFastServiceTier({ provider: "openrouter", id: "openai/gpt-6.1-sol" })).toBe(false);
+  expect(supportsFastServiceTier({ provider: "openai", id: "custom-model" })).toBe(false);
 });
 
 test("uses the last tier recorded in the session", () => {
