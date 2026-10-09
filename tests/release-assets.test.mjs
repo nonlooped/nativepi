@@ -22,7 +22,8 @@ function fixture(t) {
       `mac-${arch}`, "latest-mac.yml", [`NativePi-${version}-${arch}.zip`, `NativePi-${version}-${arch}.dmg`],
     ]),
     ...["x64", "arm64"].map((arch) => [
-      `linux-${arch}`, `latest-linux${arch === "x64" ? "" : "-arm64"}.yml`, [`NativePi-${version}-${arch}.AppImage`],
+      `linux-${arch}`, `latest-linux${arch === "x64" ? "" : "-arm64"}.yml`,
+      [`NativePi-${version}-${arch === "x64" ? "x86_64" : arch}.AppImage`],
     ]),
   ]
   for (const [directory, name, names] of feeds) {

@@ -59,6 +59,7 @@ Installers remain unsigned; macOS builds are not notarized.
 
 The workflow verifies installer completeness and update metadata checksums,
 combines the two macOS feeds, and preserves Linux's separate architecture feeds.
+Linux AppImage filenames use `x86_64` for x64 builds and `arm64` for arm64 builds.
 It adds SHA-256 checksums and copies every `latest*.yml` to its corresponding
 `nightly*.yml` for prereleases. Tags are pushed only after packaging succeeds.
 Stable commits and tags are pushed atomically; a moved main causes publication

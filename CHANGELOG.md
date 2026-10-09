@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Render Mermaid labels and local transcript images while keeping image access inside the project.
 - Preserve update feeds for every supported platform and architecture.
 - Build the terminal addon reliably for Linux releases with Bun's isolated dependencies.
+- Publish Linux installers using the architecture filenames produced by the packager.
 
 ## [1.14.0] - 2026-08-14
 

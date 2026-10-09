@@ -31,8 +31,8 @@ export async function assemble(input, output, version, prerelease) {
     `NativePi-Setup-${version}.exe`, `NativePi-Setup-${version}.exe.blockmap`,
     ...["x64", "arm64"].flatMap((arch) => [
       `NativePi-${version}-${arch}.dmg`, `NativePi-${version}-${arch}.zip`,
-      `NativePi-${version}-${arch}.AppImage`,
     ]),
+    ...["x86_64", "arm64"].map((arch) => `NativePi-${version}-${arch}.AppImage`),
   ]
   for (const name of required) {
     if (!assets.has(name)) throw new Error(`Missing ${name}`)
@@ -40,7 +40,7 @@ export async function assemble(input, output, version, prerelease) {
   for (const [name, expected] of [
     ["latest.yml", required.filter((file) => file.endsWith(".exe"))],
     ["latest-mac.yml", required.filter((file) => file.endsWith(".zip"))],
-    ["latest-linux.yml", [`NativePi-${version}-x64.AppImage`]],
+    ["latest-linux.yml", [`NativePi-${version}-x86_64.AppImage`]],
     ["latest-linux-arm64.yml", [`NativePi-${version}-arm64.AppImage`]],
   ]) {
     const info = metadata.get(name)
