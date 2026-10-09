@@ -47,16 +47,22 @@ bun run dev`}
       <div className="measure mt-4">
         <Code
           lang="shell"
-          code={`bun run check
-bun run test
-bun run build`}
+          code={`bun test apps/desktop/src/main/pi/protocol.test.ts
+bun run --cwd apps/desktop typecheck
+bun run --cwd apps/web typecheck`}
         />
       </div>
       <Prose className="mt-4">
         <p>
-          Run the narrowest test that covers your change. The desktop source is
+          Choose the checks that cover your change; the commands above are
+          examples. The desktop source is
           in <code>apps/desktop</code>; the public graphical contract is in{" "}
           <code>packages/extension-api</code>.
+        </p>
+        <p>
+          For a complete workspace check, <code>bun run check</code>,
+          <code> bun run test</code>, and <code>bun run build</code> remain
+          available from the repository root.
         </p>
       </Prose>
 
@@ -75,6 +81,16 @@ bun run package -- --linux  # Linux AppImage`}
           Build installers on their target platform. Public releases are
           produced by the repository&apos;s release automation rather than by
           manually uploading local artifacts.
+        </p>
+        <p>
+          Stable publication checks the Unreleased changelog daily at 00:17 UTC.
+          Nightly checks run after successful main CI and hourly at :47,
+          publishing only eligible app changes with a thirty-minute cooldown.
+          Nightly versions use the next minor version followed by
+          <code> -nightly.YYYYMMDDHHMM</code>. See the
+          <a href="https://github.com/nonlooped/nativepi/blob/main/docs/release.md" target="_blank" rel="noreferrer noopener"> release guide</a>
+          for changelog entries, versioning, and repository setup. Linux packaging
+          requires Node 24.15 or newer, Python, make, and a C++ compiler.
         </p>
       </Prose>
     </>

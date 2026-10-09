@@ -19,8 +19,10 @@ export default function GitPage() {
       <H2 id="review">Review changes</H2>
       <Prose>
         <p>
-          The context pane shows repository status, changed files, and
-          working-tree diffs. File changes reported during an agent turn link to
+          Open the files and changes pane from the chat header and select
+          <strong> Changes</strong>. It shows repository status, changed files,
+          and working-tree diffs.
+          File changes reported during an agent turn link to
           the same review surface so you can inspect the resulting patch without
           leaving the chat.
         </p>
@@ -43,22 +45,44 @@ export default function GitPage() {
           history. When the GitHub CLI is installed and authenticated, NativePi
           can open a GitHub pull request through <code>gh</code>.
         </p>
+        <p>
+          For the current branch&apos;s pull request, NativePi also shows its
+          description, checks, comments, linked issues, and comparison against
+          the base branch. GitHub authentication belongs to your installed CLI.
+        </p>
+        <p>
+          GitLab projects can display merge requests and issues through an
+          authenticated <code>glab</code> installation. The app&apos;s pull-request
+          creation action is for GitHub; create a GitLab merge request with your
+          usual GitLab tools. A branch containing an issue number can show that
+          issue when there is no pull or merge request.
+        </p>
       </Prose>
 
       <H2 id="branches">Branches and worktrees</H2>
       <Prose>
         <p>
-          Switch to or create a branch from the composer when the working tree is
-          clean. Add a Git worktree from the project menu; NativePi pins that
+          Switch to or create a branch from the files and changes pane when the
+          working tree is clean. Choose <strong>Worktrees…</strong> from the
+          project actions menu beside the sidebar project filter; NativePi pins that
           worktree as a separate project so its chats and terminals remain
           scoped to the correct folder.
         </p>
       </Prose>
 
+      <H2 id="revert">Revert a tracked file</H2>
+      <Prose>
+        <p>
+          Choose <strong>Revert</strong> on an unstaged tracked file and confirm
+          to restore its working-tree contents from the index. Staged changes
+          remain intact; untracked files are not deleted. This discards that
+          file&apos;s unstaged edits and cannot be undone by NativePi.
+        </p>
+      </Prose>
+
       <Note>
-        NativePi deliberately does not merge, rebase, discard changes, roll back
-        work, create checkpoints, or rewrite history. Use your normal Git tools
-        for those operations.
+        NativePi does not merge, rebase, create checkpoints, or rewrite history.
+        Use your normal Git tools for those operations.
       </Note>
     </>
   );

@@ -7,7 +7,7 @@ Every question must offer at least two options and mark at least one as recommen
 ## Install
 
 ```sh
-pi install @nativepi/ask-user
+pi install npm:@nativepi/ask-user
 ```
 
 Pi loads the tool automatically. No configuration is required.

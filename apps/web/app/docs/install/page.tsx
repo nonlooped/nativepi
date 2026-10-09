@@ -66,13 +66,44 @@ export default function InstallPage() {
         the <Link href="/docs/build-from-source">build-from-source guide</Link>.
       </Note>
 
+      <H2 id="nightly">Try Nightly</H2>
+      <Prose>
+        <p>
+          Stable is the regular release. Nightly includes eligible app changes
+          from main before the next stable release. Find the latest Nightly
+          prerelease on the <a href={site.releases} target="_blank" rel="noreferrer noopener">GitHub releases page</a>,
+          or switch <strong>Release channel</strong> under
+          <strong> Settings → System → Updates</strong> in the installed app.
+        </p>
+        <p>
+          Nightly builds can have unfinished changes. Their versions include
+          <code> -nightly.</code> and a UTC timestamp. Each installation starts on
+          its matching channel; your later channel choice is saved. Returning
+          to Stable can install an older stable version.
+        </p>
+      </Prose>
+
       <H2 id="updates">Updates</H2>
       <Prose>
         <p>
-          NativePi checks GitHub Releases at startup and periodically for a
-          newer version. It notifies you first; downloading and installing remain explicit actions. Installing
-          an update stops active agent turns and terminals before the app
-          restarts.
+          On Windows and Linux, packaged NativePi checks your selected channel at startup and every
+          four hours, then downloads an available update automatically. It
+          installs the downloaded update when you quit. Choose
+          <strong> Restart and install</strong> under
+          <strong> Settings → System → Updates</strong> to apply it sooner;
+          restarting closes active agent turns, terminals, and browser access.
+        </p>
+        <p>
+          Current macOS builds are unsigned, so automatic installation is
+          unavailable. Choose <strong>View downloads</strong> in Updates,
+          download the Stable or Nightly DMG for your Mac, and replace NativePi
+          in Applications.
+        </p>
+        <p>
+          Update controls are available on the installed desktop app, not in a
+          development run or a connected browser. Maintainers can read the
+          <a href="https://github.com/nonlooped/nativepi/blob/main/docs/release.md" target="_blank" rel="noreferrer noopener"> release automation guide</a>
+          for the stable and Nightly publication rules.
         </p>
       </Prose>
 

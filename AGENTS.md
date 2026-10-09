@@ -185,7 +185,7 @@ dense desktop interface over a generic dashboard appearance.
 Test important behavior and realistic failure cases only. Good targets include
 parsing streamed Pi JSONL across arbitrary chunk boundaries, protecting drafts
 and pending messages from loss, session parsing and external-write conflicts,
-one-run-per-project enforcement, graphical extension compilation, and
+per-chat run enforcement and concurrent chat isolation, graphical extension compilation, and
 regressions for bugs that have actually occurred.
 
 Do not test that static text renders, snapshot every component, test
@@ -241,6 +241,8 @@ research, or to manufacture agreement.
 - Comments should explain non-obvious constraints, not narrate straightforward
   code.
 - Do not document self-evident implementation details.
+- Keep personal maintenance reports and review captures outside the repository.
+  Public documentation describes the product and contributor workflows.
 
 When a feature appears to require substantial infrastructure, first look for a
 maintained package or a smaller product behavior that meets the actual need. If
@@ -253,12 +255,17 @@ introducing it.
 - Commit titles only, with no body.
 - Do not add `Co-authored-by`, generated-by, agent attribution, or any other
   trailer.
-- Feature, fix, docs, and maintenance changes do not bump versions. Leave
-  package versions unchanged until an explicit release.
-- Version bumps are a separate release step covering all merged work since the
-  last tag. Apply one SemVer bump for the batch, highest-impact change wins.
-- Every version-bump commit must be followed immediately by a matching `vX.Y.Z`
-  tag and GitHub release. Never leave a bumped version untagged or unpublished.
+- Feature, fix, docs, and maintenance commits do not bump app versions. Record
+  user-visible changes under `CHANGELOG.md`'s Unreleased section.
+- The Release workflow owns stable version commits, tags, and GitHub releases.
+  Like MeldShell, each stable release increments the minor version, once daily
+  when Unreleased has entries and the source commit passes CI and packaging.
+- Nightlies run after successful main-push CI and hourly when application files
+  changed since the last release and at least 30 minutes have passed. Their
+  next-minor `-nightly.YYYYMMDDHHMM` version is assigned only during packaging;
+  there is no nightly version commit.
+- Never manually duplicate automated version edits, tags, releases, or uploads.
+  See `docs/release.md` for manual workflow dispatch and build-only candidates.
 - `packages/extension-api` is versioned independently of the app. Bumping its
   version on `main` publishes it to npm automatically once CI passes, so treat
   that bump as the publish itself.

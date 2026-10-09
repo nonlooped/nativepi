@@ -85,9 +85,13 @@ export default function RendererContextPage() {
 
 useEffect(() => {
   let active = true;
-  void call("state").then((state) => {
-    if (active) setState(state);
-  });
+  void call("state")
+    .then((state) => {
+      if (active) setState(state);
+    })
+    .catch((reason) => {
+      if (active) setError(String(reason));
+    });
 
   const unsubscribe = on("changed", setState);
   return () => {

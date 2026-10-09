@@ -17,6 +17,25 @@ export default function SettingsAndCustomizationPage() {
         lede="NativePi separates window preferences from agent configuration. Interface choices stay in NativePi; Pi settings remain Pi settings and work in the command line too."
       />
 
+      <H2 id="categories">Find the setting</H2>
+      <Prose>
+        <ul>
+          <li><strong>Appearance:</strong> theme, color scheme, reading width, interface scale, diffs, and motion.</li>
+          <li><strong>Providers:</strong> sign-in and API keys for the providers Pi supports.</li>
+          <li><strong>Agent:</strong> reasoning defaults, retries, compaction, images, and project trust.</li>
+          <li><strong>Usage:</strong> local cost and token history, plus subscription limits from an installed usage package.</li>
+          <li><strong>Extensions:</strong> package installation, reloads, errors, and package-provided settings.</li>
+          <li><strong>Workbench:</strong> terminal preferences and keyboard shortcuts.</li>
+          <li><strong>Access:</strong> local and public browser links, connected devices, and token controls.</li>
+          <li><strong>System:</strong> startup, notifications, updates, versions, diagnostics, and Pi file locations.</li>
+        </ul>
+        <p>
+          On a narrow screen, open the sidebar button to switch categories. Use
+          <strong> Back</strong> to return to the chat, or press Escape when no
+          dialog or menu is open.
+        </p>
+      </Prose>
+
       <H2 id="appearance">Appearance and color schemes</H2>
       <Prose>
         <p>
@@ -30,7 +49,8 @@ export default function SettingsAndCustomizationPage() {
       <H2 id="shortcuts">Keyboard shortcuts</H2>
       <Prose>
         <p>
-          The shortcut list shows every rebindable action. Select a shortcut and
+          Open <strong>Settings → Workbench</strong> for the shortcut list.
+          Select a shortcut and
           press the new key combination; NativePi reports conflicts before it
           saves the change. Reset an individual shortcut or restore all defaults
           at any time.
@@ -58,8 +78,10 @@ export default function SettingsAndCustomizationPage() {
 
       <Note>
         Project-scoped Pi overrides remain managed through Pi. NativePi also
-        shows the paths to Pi&apos;s settings, authentication, packages, and session
-        files when you need to inspect them directly.
+        shows Pi&apos;s agent directory, settings file, and authentication file
+        under <strong>Settings → System</strong>. Less common Pi options, such
+        as transport, enabled-model filters, and Pi analytics, remain in Pi&apos;s
+        own configuration.
       </Note>
     </>
   );

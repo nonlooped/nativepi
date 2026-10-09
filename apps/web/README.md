@@ -1,7 +1,7 @@
 # NativePi web
 
-The marketing site and documentation for NativePi. Next.js 16 on the App
-Router, deployed to Vercel.
+NativePi's marketing site and task-focused documentation, built with Next.js 16,
+React 19.3, and Tailwind CSS 4. Deployed to Vercel.
 
 ## Develop
 
@@ -16,6 +16,8 @@ The site runs on <http://localhost:3000>.
 
 ```sh
 bun run --cwd apps/web build
+bun run --cwd apps/web typecheck
+bun run --cwd apps/web lint
 ```
 
 Builds use Turbopack, which resolves modules correctly against Bun's isolated
@@ -28,24 +30,28 @@ Create the project against this repository and set **Root Directory** to
 so the Bun workspace resolves. `vercel.json` supplies the install and build
 commands; nothing else needs configuring.
 
-Set the canonical origin in `lib/site.ts` before the first production deploy.
-Metadata, `robots.txt`, and `sitemap.xml` all read `site.url` from there.
+`lib/site.ts` holds the canonical origin, metadata, and public release links.
+`robots.txt` and `sitemap.xml` use that origin. Vercel Web Analytics is enabled
+and disclosed in the site footer.
 
 ## How it is put together
 
 - `app/` routes. The marketing page is `app/page.tsx`; docs live under
   `app/docs`.
-- `components/stage/` the hero and its large, centered application screenshot,
-  plus the static ambient field behind it.
+- `components/stage/` the hero and the aligned application screenshot with a
+  full-size image link.
 - `components/app/` the NativePi window, which is a screenshot of the running
   app in `public/app/window.png`. Retake it when the interface changes.
-- `components/sections/` the rest of the marketing page.
+- `components/sections/` workflow details, the shared-storage diagram, extension
+  links, and download calls to action. Workflow details work without JavaScript.
 - `components/docs/` read-mode typography and navigation.
-- `lib/site.ts` shared metadata, release/download URLs, provider data, and
-  common external links.
+- `lib/site.ts` shared metadata, release/download URLs, and common external links.
+- `lib/docs.ts` documentation navigation and descriptions.
 
-`DESIGN.md` records the visual system and `PRODUCT.md` records product truth.
-Both are the authority when the two disagree with the code.
+`DESIGN.md` records the visual system; `PRODUCT.md` records product boundaries.
+Check workflow claims against the desktop implementation and keep the docs in
+sync with its actual controls. Desktop release automation is described in
+[`docs/release.md`](../../docs/release.md).
 
 ## Assets
 

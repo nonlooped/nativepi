@@ -298,7 +298,7 @@ The same document is also served over the local network, so the compact layout h
 
 Two rules follow from the input rather than the width. On a coarse pointer every control takes a 2.25rem floor in both axes, since the desktop density is a comfortable mouse target and an unreliable thumb target, and text fields take a 1rem floor, since anything smaller makes iOS zoom on focus and never zoom back. Where there is no hover, controls that are otherwise revealed by it are simply always visible: the tap that would reveal one is the same tap that activates whatever sits beneath it. Window controls and the clearance reserved for them exist only in the desktop shell.
 
-The project and chat row context menus are an intentional exception. They do not receive an overflow button or another visible trigger at compact widths or on touch layouts. The desktop interaction is right-click, and the interface accepts the resulting expert-first discoverability tradeoff.
+Chat row context menus are an intentional exception. They do not receive an overflow button or another visible trigger at compact widths or on touch layouts. The desktop interaction is right-click, and the interface accepts the resulting expert-first discoverability tradeoff. Project actions have a compact menu beside the project filter rather than a separate list of project rows.
 
 ## Elevation & Depth
 
@@ -359,13 +359,13 @@ The component system is compact and restrained, with soft geometry and explicit 
 ### Navigation
 
 - Project, chat, settings, and provider rows use full-width rounded targets with quiet hover fills.
-- Source control opens from the Git action beside the sidebar’s primary chat action, then uses the context pane for staged and unstaged groups, commit controls, and history.
+- The chat header opens the files and changes pane. Its Changes view contains staged and unstaged groups, commit controls, branch switching, review context, and history; Files contains the project explorer.
 - Selected rows use Interactive Slate or Accent Slate without a bright brand accent.
 - Inline secondary actions stay hidden until row hover or keyboard focus when the action would otherwise crowd the list.
-- Project and chat management menus have no visible trigger; desktop users open them by right-clicking the row.
+- Chat management menus have no visible trigger; desktop users open them by right-clicking the row. Project actions open from the compact menu beside the project filter.
 - Pane headers align with the drag region; all interactive controls inside them opt out of window dragging. macOS uses native traffic lights on the left of the frameless-looking title bar. Windows and Linux draw custom window controls on the right.
 
-**The Sidebar-Context-Menu Rule.** Keep project and chat management in row context menus. Do not add an ellipsis, overflow button, or other visible menu trigger. Right-click-only discovery is an intentional expert-first product decision, not a defect to correct during critique, audit, adaptation, or accessibility work.
+**The Sidebar-Context-Menu Rule.** Keep chat management in row context menus. Do not add an ellipsis, overflow button, or other visible menu trigger to chat rows. Right-click-only chat discovery is an intentional expert-first product decision, not a defect to correct during critique, audit, adaptation, or accessibility work. Project management stays in the existing actions menu beside the project filter.
 
 ### Motion
 
@@ -427,4 +427,4 @@ The component system is compact and restrained, with soft geometry and explicit 
 - **Don't** introduce another interface font for body copy, controls, or metadata; Geist owns those roles.
 - **Don't** replace pane structure with a generic dashboard grid or detach the composer from the conversation rail.
 - **Don't** use color as decoration when tone, weight, border, or spacing can communicate hierarchy.
-- **Don't** add visible overflow controls to project or chat rows; their management actions belong to the right-click context menu.
+- **Don't** add visible overflow controls to chat rows; their management actions belong to the right-click context menu. Keep project actions beside the project filter.

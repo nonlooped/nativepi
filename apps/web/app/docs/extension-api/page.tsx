@@ -52,12 +52,15 @@ src/extension.ts                  src/renderer.tsx
         <ul>
           <li>A custom tool or session-entry presentation in the transcript</li>
           <li>Compact state beside or around the composer</li>
+          <li>A full conversation view opened from the chat header</li>
           <li>A project-scoped panel for information the reader consults</li>
           <li>NativePi settings controls backed by extension-owned state</li>
         </ul>
         <p>
-          Do not use it to add model-facing logic, replace the composer or
-          transcript, make independent LLM requests, or reproduce a Pi feature.
+          Keep model-facing logic in the Pi extension. A conversation view may
+          display its own transcript and composer within the conversation pane;
+          the renderer must not introduce another agent loop or make independent
+          LLM requests.
         </p>
       </Prose>
 
@@ -66,7 +69,7 @@ src/extension.ts                  src/renderer.tsx
         <ul>
           <li>The package is <code>@nativepi/extension-api</code>.</li>
           <li>Renderers declare the literal <code>apiVersion: 1</code>.</li>
-          <li>React <code>^18.3.1 || ^19.0.0</code> is supported and supplied by NativePi.</li>
+          <li>React <code>^19.3.0</code> is supplied by NativePi; do not bundle another instance.</li>
           <li>Cross-process values must be JSON-compatible and validated by synchronous schemas.</li>
           <li>Renderer calls have a thirty-second timeout and reject if the active chat changes.</li>
         </ul>

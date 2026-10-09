@@ -31,6 +31,9 @@ people.
 You need [Bun](https://bun.sh/) and Git. Windows, macOS, and Linux are all
 supported and released platforms.
 
+Native build tools use Node 24.15 or newer. Linux packaging also needs Python,
+make, and a C++ compiler; Windows and macOS use the terminal addon's prebuilds.
+
 ```sh
 git clone https://github.com/nonlooped/nativepi.git
 cd nativepi
@@ -47,12 +50,13 @@ contract lives in `packages/extension-api`.
 
 ## Before you open a pull request
 
-Run the checks that CI runs:
+Run focused checks for the areas you changed. For example:
 
 ```sh
-bun run check
-bun run test
-bun run build
+bun run --cwd apps/desktop typecheck
+bun test apps/desktop/src/main/updates.test.ts
+bun run --cwd apps/web typecheck
+bun run --cwd apps/web lint
 ```
 
 A few conventions that will otherwise cost you a review round:
@@ -62,7 +66,8 @@ A few conventions that will otherwise cost you a review round:
 - **Conventional Commits.** For example `fix: keep drafts on session switch`.
   Use a title with no body.
 - **No version bumps.** Leave `package.json` versions alone. Releases are a
-  separate step that batches merged work into one SemVer bump and tag.
+  handled by the automatic Release workflow. Add user-facing changes to
+  `CHANGELOG.md` under Unreleased; see [Releasing](./docs/release.md).
 - **No extra commit trailers.** No `Co-authored-by`, no generated-by lines, no
   agent attribution.
 - **Keep the change focused.** Unrelated refactoring in a feature PR makes the
@@ -71,6 +76,11 @@ A few conventions that will otherwise cost you a review round:
 Tests are expected for behavior that can actually break: parsing, session
 handling, state transitions, and regressions for bugs that really happened.
 They are not expected for static rendering, getters, or coverage counts.
+
+CI runs the complete workspace checks, tests, and builds. Release tooling tests
+live in `tests/`; run `bun test ./tests` when changing release behavior.
+
+Personal maintenance reports and review captures belong outside the repository.
 
 ## Reporting bugs
 

@@ -16,14 +16,13 @@ The site serves people evaluating NativePi before they install anything:
 - Extension authors evaluating whether the graphical extension API is stable and
   expressive enough to build against.
 
-All three arrive from GitHub, a link, or search, on a desktop browser, in a
-tab next to the editor they already use. They are skeptical by default and have
-seen many agent wrappers.
+All three arrive from GitHub, a link, or search, on desktop or mobile browsers.
+They are skeptical by default and have seen many agent wrappers.
 
 ## Product Purpose
 
 The site exists to make NativePi legible and credible in under a minute, and to
-send the visitor to the GitHub repository. It is the public face of a free,
+help the visitor download it or inspect the source. It is the public face of a free,
 MIT-licensed desktop interface for the Pi coding agent on Windows, macOS, and
 Linux.
 
@@ -58,6 +57,9 @@ shape Pi.
   macOS, not notarized, so Windows SmartScreen and macOS Gatekeeper warn on
   first launch. The site states this plainly rather than letting the visitor
   discover it after downloading.
+- Stable releases are published automatically from the Unreleased changelog.
+  Nightly prereleases track eligible changes on main. Users can choose the
+  Stable or Nightly update channel in the packaged app's System settings.
 - NativePi bundles a pinned Pi version, so a separate Pi installation is not
   required, and existing Pi credentials, configuration, and sessions are reused.
 - The graphical extension API is published as `@nativepi/extension-api` at
@@ -87,12 +89,17 @@ README:
   retries, steering, follow-ups, queues, and abort.
 - Image attachments by paste, drag and drop, or file picker; file and folder
   mentions in the composer; and rich Markdown in user and assistant messages.
+- Sanitized Mermaid diagrams, math, and inline images inside the project;
+  remote image URLs and outside-project image paths are not loaded.
 - Pi-backed model and thinking-level selection, favorite models, provider
   authentication, project trust.
-- Source control with staged and unstaged groups, file or hunk staging, inline
+- Source control with staged and unstaged groups, file or hunk staging, confirmed
+  reversion of unstaged tracked-file changes, inline
   commits, Pi-drafted Conventional Commit wording, push or fast-forward sync, a
   local and remote commit graph, clean-worktree branch switching or creation,
   worktrees added as projects, and GitHub pull requests opened through `gh`.
+  GitHub and GitLab review context is read through the user's authenticated
+  `gh` or `glab` installation.
 - Pi package install, update, removal, reload, and load-error display at user or
   project scope.
 - Pi slash commands, prompt templates, skills, and extension autocomplete in the
@@ -107,7 +114,11 @@ README:
 - On-demand, access-token-protected browser access to projects, chats, changes,
   and terminals on the local network or through a temporary public Cloudflare
   link, with connection accounting and token replacement or revocation.
-- User-started self-updates from published GitHub releases.
+- Stable and Nightly updates from published GitHub releases on Windows and Linux, downloaded
+  automatically and installed when the app quits, with an explicit restart
+  action when the user wants to install sooner.
+- macOS receives Stable and Nightly DMG/ZIP builds; unsigned builds link to manual
+  downloads because automatic installation requires Developer ID signing.
 
 Boundaries the site must not blur:
 
@@ -116,9 +127,9 @@ Boundaries the site must not blur:
 - No agent loop of its own, no LLM requests of its own, no added agent tools,
   no support for other harnesses.
 - Git mutation is narrow: branch checkout and creation on a clean worktree,
-  worktrees, hunk or file staging, commits, push, and opening a GitHub pull
-  request through `gh`. No merging, rebasing, discarding, checkpointing, or
-  history rewriting.
+  worktrees, hunk or file staging, confirmed reversion of an unstaged tracked
+  file from the index, commits, push, and opening a GitHub pull request through
+  `gh`. No merging, rebasing, checkpointing, or history rewriting.
 - No cloud sync of sessions, collaboration, remote projects, product accounts,
   paid tiers, or NativePi-owned desktop telemetry. Pi's optional analytics
   remain Pi configuration, and the marketing site uses Vercel Web Analytics.
@@ -146,8 +157,8 @@ Boundaries the site must not blur:
 - `docs/assets/nativepi-wordmark.svg`: the wordmark.
 - `docs/assets/nativepi-social-preview.png`: social preview image.
 - `apps/desktop/src/`: the source of truth for implemented behavior.
-- `packages/extension-api/src/index.ts`: the complete, small public surface of
-  the graphical extension API.
+- `packages/extension-api/src/index.ts`, `protocol.ts`, `host.ts`, and `ui.ts`:
+  the graphical extension contract, channel, host methods, and shared controls.
 - The repository is `github.com/nonlooped/nativepi`, MIT licensed.
 
 No testimonials, customer logos, download counts, star counts, usage

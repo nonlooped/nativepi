@@ -5,7 +5,7 @@ A Pi package for running isolated Pi subagents asynchronously. Children start wi
 ## Install
 
 ```sh
-pi install @nativepi/subagents
+pi install npm:@nativepi/subagents
 ```
 
 ## Tools
@@ -55,6 +55,6 @@ The default concurrency is 6, and `maxConcurrency` must be an integer from 1 thr
 }
 ```
 
-A trusted project can override it in `.pi/subagents.json`. Run `/reload` after editing either file manually. NativePi also exposes the user-level value under **Settings → General → Subagents**. Reducing the limit does not stop children that are already running; it delays queued work until the running count falls below the new limit.
+A trusted project can override it in `.pi/subagents.json`. Run `/reload` after editing either file manually. NativePi also exposes the user-level value under **Settings → Extensions → Subagents**. Reducing the limit does not stop children that are already running; it delays queued work until the running count falls below the new limit.
 
 Subagent conversations are ephemeral and do not appear in Pi session history.

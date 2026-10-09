@@ -21,8 +21,8 @@ export default function FirstRunPage() {
       <H2 id="add-project">1. Add a project</H2>
       <Prose>
         <p>
-          Select the folder button beside <strong>Projects</strong> in the left
-          sidebar and choose a local folder. NativePi pins the folder so it is
+          Select <strong>Add project</strong>, the folder button beside the
+          project filter in the left sidebar, and choose a local folder. NativePi pins the folder so it is
           available the next time you open the app. You can also drop a folder
           anywhere in the window.
         </p>
@@ -46,7 +46,7 @@ export default function FirstRunPage() {
       <H2 id="authenticate">3. Authenticate a provider</H2>
       <Prose>
         <p>
-          Open <strong>Settings</strong>, choose a provider, and complete its
+          Open <strong>Settings → Providers</strong>, choose a provider, and complete its
           authentication flow. Pi performs authentication and writes credentials
           to its own <code>auth.json</code>. NativePi does not copy credentials
           into renderer storage.
@@ -60,13 +60,26 @@ export default function FirstRunPage() {
       <H2 id="start-chat">4. Start a chat</H2>
       <Prose>
         <p>
-          Create a chat, choose a model and thinking level beneath the composer,
+          Select <strong>New chat</strong>. With several pinned projects,
+          choose which folder to use; with one, the chat opens there. Choose a
+          model and thinking level together from the picker beneath the input,
           then send a prompt. You can change the model or thinking level later,
           including while a turn is running.
         </p>
         <p>
           Paste or drop an image into the composer to attach it. Drop another
           file to insert an <code>@</code> path mention instead.
+        </p>
+      </Prose>
+
+      <H2 id="organize">Keep chats in focus</H2>
+      <Prose>
+        <p>
+          The sidebar groups chats into <strong>Pinned</strong>, <strong>Focus</strong>,
+          and <strong>Finished</strong>. Mark a chat finished when you are done
+          with it, or return it to Focus later. Right-click a chat to rename,
+          pin, export, or manage it. The project filter changes the list; it does
+          not move a chat or interrupt running work.
         </p>
       </Prose>
 

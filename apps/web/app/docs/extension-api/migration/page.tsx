@@ -96,11 +96,7 @@ channel.method("setEnabled", update);`}
         <Code
           lang="tsx"
           filename="1.x"
-          code={`render: (context) => {
-  context.channel.call("state");
-  context.channel.on("changed", update);
-  return <Panel project={context.project.path} />;
-}`}
+          code={`render: (context) => <PackagePanel context={context} />`}
         />
       </div>
       <Prose className="mt-4">
@@ -109,6 +105,13 @@ channel.method("setEnabled", update);`}
           <code> context.session.file: null</code>. The old <code>dark</code> flag
           was removed because renderers style against semantic color variables,
           which update with NativePi&apos;s light, dark, and custom appearances.
+        </p>
+        <p>
+          Keep the render function pure. Load state and subscribe inside
+          <code> PackagePanel</code> with an effect, then unsubscribe on cleanup
+          and handle rejected calls. The <Link href="/docs/extension-api/examples#live-state">live-state recipe</Link>
+          shows the complete pattern; do not call or subscribe from the render
+          callback itself.
         </p>
       </Prose>
 

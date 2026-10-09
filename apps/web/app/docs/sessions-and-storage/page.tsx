@@ -24,8 +24,10 @@ export default function SessionsAndStoragePage() {
           lang="text"
           code={`~/.pi/agent
 ├── sessions/      # conversations shared with the Pi CLI
-├── packages/      # installed Pi packages
-├── settings.json  # agent configuration
+├── npm/           # npm-sourced packages installed by Pi
+├── git/           # git-sourced packages installed by Pi
+├── settings.json  # agent configuration and package declarations
+├── mcp.json       # optional MCP server configuration
 └── auth.json      # provider credentials managed by Pi`}
         />
       </div>
@@ -35,6 +37,13 @@ export default function SessionsAndStoragePage() {
           and APIs. You can resume the same session from the Pi command line, and
           a session created in the command line appears in NativePi&apos;s project
           history.
+        </p>
+        <p>
+          These are the default locations. Pi honors <code>PI_CODING_AGENT_DIR</code>
+          for a custom agent directory and <code>PI_CODING_AGENT_SESSION_DIR</code>
+          for session storage. Check <strong>Settings → System</strong> for the
+          agent directory this app uses. Local packages remain at their original
+          paths.
         </p>
       </Prose>
 
@@ -46,6 +55,12 @@ export default function SessionsAndStoragePage() {
           compaction workflows. Forks and clones remain ordinary Pi sessions,
           not NativePi-specific copies.
         </p>
+        <p>
+          Right-click a chat for its actions, including <strong>View chat branches…</strong>,
+          <strong> Export to HTML</strong>, and <strong>Delete chat…</strong>.
+          Choose <strong>Import an existing chat</strong> from the project actions
+          menu, or drop a Pi session file into the window.
+        </p>
       </Prose>
 
       <H2 id="nativepi-data">NativePi data</H2>
@@ -53,16 +68,28 @@ export default function SessionsAndStoragePage() {
         <p>NativePi persists only interface state:</p>
         <ul>
           <li>Pinned projects and chats</li>
+          <li>Focus and Finished organization</li>
           <li>The last open project and chat</li>
           <li>Unsent text drafts</li>
           <li>Favorite models</li>
           <li>Pane sizes</li>
+          <li>Custom color schemes and source-control preferences</li>
           <li>Appearance, notification, and keyboard-shortcut preferences</li>
+          <li>The selected Stable or Nightly release channel</li>
         </ul>
         <p>
           It does not put conversations or credentials in that state file and
           does not send NativePi-owned desktop telemetry. Pi&apos;s optional
           analytics remain a Pi setting.
+        </p>
+        <p>
+          The desktop state file is <code>state.json</code> in Electron&apos;s
+          per-user app data directory. Removing that file resets NativePi&apos;s
+          interface state; it does not delete Pi sessions or credentials.
+        </p>
+        <p>
+          The release-channel preference is stored separately in
+          <code> update-channel.json</code> in the same app data directory.
         </p>
       </Prose>
 

@@ -26,7 +26,7 @@ export default function PackagesAndExtensionsPage() {
       <H2 id="manage">Install and manage packages</H2>
       <Prose>
         <p>
-          Open NativePi&apos;s package settings to install, update, remove, or
+          Open <strong>Settings → Extensions</strong> to install, update, remove, or
           reload packages at user or project scope. NativePi calls Pi&apos;s package
           mechanisms and displays load errors rather than maintaining a separate
           package registry.
@@ -48,6 +48,10 @@ pi install -l ./relative/project-package`}
           Project-scoped settings live in <code>.pi/settings.json</code> and load
           only after the project is trusted.
         </p>
+        <p>
+          Reload after running turns finish. NativePi does not restart Pi in the
+          middle of a turn to apply a package change.
+        </p>
       </Prose>
 
       <H2 id="ordinary-extensions">Ordinary Pi extensions</H2>
@@ -68,8 +72,8 @@ pi install -l ./relative/project-package`}
       <H2 id="mcp">Connect tools with MCP</H2>
       <Prose>
         <p>
-          Pi includes MCP support. Configure servers in Pi&apos;s user-level or
-          project-level <code>mcp.json</code>, then type <code>/mcp</code> in the
+          Pi includes MCP support. Configure servers in <code>~/.pi/agent/mcp.json</code>
+          or a trusted project&apos;s <code>.pi/mcp.json</code>, then type <code>/mcp</code> in the
           composer to inspect their status. Pi owns the connections, tools, and
           sign-in flow, so the same setup works in its command line.
         </p>
@@ -77,7 +81,11 @@ pi install -l ./relative/project-package`}
           Prefer Pi&apos;s built-in support for new connections. If you use the
           optional <code>@nativepi/mcp</code> connection editor, disable Pi&apos;s
           built-in MCP extension with <code>{'"extensions": ["-builtin:mcp"]'}</code>{" "}
-          in Pi settings to avoid connecting each server twice.
+          in Pi settings to avoid connecting each server twice. Add that exclusion
+          alongside existing entries. This package&apos;s graphical editor is under
+          <strong> Settings → Extensions → MCP servers</strong>; it exposes tools
+          but does not implement Pi&apos;s built-in OAuth, resources, prompts, or
+          tool search. Remove the exclusion when returning to the built-in support.
         </p>
         <p>
           See Pi&apos;s{" "}

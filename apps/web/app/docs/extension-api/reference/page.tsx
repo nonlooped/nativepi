@@ -341,6 +341,7 @@ type ExtensionMethodHandlers<Protocol extends ExtensionProtocol> = {
         </p>
         <ul>
           <li><strong>Actions:</strong> <code>Button</code>, <code>Badge</code></li>
+          <li><strong>Conversations:</strong> <code>ConversationTranscript</code>, with <code>ConversationMessage</code>, <code>ConversationContentBlock</code>, and <code>ConversationTranscriptProps</code> types</li>
           <li><strong>Inputs:</strong> <code>Input</code>, <code>Textarea</code>, <code>Label</code>, <code>Switch</code>, <code>Separator</code></li>
           <li><strong>Fields:</strong> <code>Field</code>, <code>FieldContent</code>, <code>FieldDescription</code>, <code>FieldError</code>, <code>FieldGroup</code>, <code>FieldLabel</code></li>
           <li><strong>Dialogs:</strong> <code>Dialog</code>, <code>DialogTrigger</code>, <code>DialogClose</code>, <code>DialogContent</code>, <code>DialogHeader</code>, <code>DialogFooter</code>, <code>DialogTitle</code>, <code>DialogDescription</code></li>

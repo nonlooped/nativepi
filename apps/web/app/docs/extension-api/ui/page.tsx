@@ -50,6 +50,7 @@ export default function SharedUiPage() {
             </thead>
             <tbody>
               <tr><td>Actions</td><td><code>Button</code>, <code>Badge</code></td></tr>
+              <tr><td>Conversations</td><td><code>ConversationTranscript</code></td></tr>
               <tr><td>Inputs</td><td><code>Input</code>, <code>Textarea</code>, <code>Label</code>, <code>Switch</code>, <code>Separator</code></td></tr>
               <tr><td>Fields</td><td><code>Field</code>, <code>FieldContent</code>, <code>FieldDescription</code>, <code>FieldError</code>, <code>FieldGroup</code>, <code>FieldLabel</code></td></tr>
               <tr><td>Dialogs</td><td><code>Dialog</code>, <code>DialogTrigger</code>, <code>DialogClose</code>, <code>DialogContent</code>, <code>DialogHeader</code>, <code>DialogFooter</code>, <code>DialogTitle</code>, <code>DialogDescription</code></td></tr>
@@ -106,12 +107,42 @@ export default function SharedUiPage() {
           code={`<Menu>
   <MenuTrigger render={<Button size="sm" variant="ghost">Actions</Button>} />
   <MenuContent align="end">
-    <MenuLabel>Result actions</MenuLabel>
-    <MenuItem onClick={() => void context.actions.copyText(result)}>Copy result</MenuItem>
+    <MenuGroup>
+      <MenuLabel>Result actions</MenuLabel>
+      <MenuItem onClick={() => void context.actions.copyText(result)}>Copy result</MenuItem>
+    </MenuGroup>
     <MenuSeparator />
     <MenuItem variant="destructive" onClick={clearResult}>Clear result</MenuItem>
   </MenuContent>
 </Menu>`}
+        />
+      </div>
+
+      <Prose className="mt-4">
+        <p>
+          A <code>MenuLabel</code> must be inside <code>MenuGroup</code>. A label
+          directly inside menu content throws because its group context is missing.
+        </p>
+      </Prose>
+
+      <H2 id="conversation-transcript">Conversation transcript</H2>
+      <Prose>
+        <p>
+          Use <code>ConversationTranscript</code> inside a conversation view for
+          the same user, assistant, reasoning, and tool presentation as NativePi.
+          Supply <code>messages</code>, optional <code>running</code>, and an
+          optional <code>empty</code> state. Tool content includes its arguments,
+          result, and running, completed, failed, or cancelled status.
+        </p>
+      </Prose>
+      <div className="measure mt-4">
+        <Code
+          lang="tsx"
+          code={`<ConversationTranscript
+  messages={messages}
+  running={state.status === "running"}
+  empty={<p>This child has not started yet.</p>}
+/>`}
         />
       </div>
 

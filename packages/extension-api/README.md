@@ -28,8 +28,8 @@ protocol, install it as a regular dependency:
 bun add @nativepi/extension-api
 ```
 
-React is an optional peer. NativePi supplies its own React instance at runtime,
-so renderer builds must not bundle another copy.
+React 19.3 is an optional peer. NativePi supplies its own React instance at
+runtime, so renderer builds must not bundle another copy.
 
 ## Package manifest
 
@@ -152,10 +152,17 @@ function Counter({
 }) {
   const { call, on } = context.channel;
   const [count, setCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    void call("state").then((state) => active && setCount(state.count));
+    void call("state")
+      .then((state) => {
+        if (active) setCount(state.count);
+      })
+      .catch((reason) => {
+        if (active) setError(String(reason));
+      });
     const off = on("changed", (state) => setCount(state.count));
     return () => {
       active = false;
@@ -163,10 +170,19 @@ function Counter({
     };
   }, [call, on]);
 
+  if (error) return <span style={{ color: "var(--destructive)" }}>{error}</span>;
+
   return (
     <Button
       variant="ghost"
-      onClick={() => void call("increment", { by: 1 }).then((state) => setCount(state.count))}
+      onClick={async () => {
+        try {
+          const state = await call("increment", { by: 1 });
+          setCount(state.count);
+        } catch (reason) {
+          setError(String(reason));
+        }
+      }}
     >
       Count <Badge variant="secondary">{count}</Badge>
     </Button>
@@ -207,16 +223,18 @@ All graphical surfaces are optional and controlled by NativePi:
   add an icon or live count inside that button; `label` remains its accessible
   name.
 - `panels` adds a keyed, titled section to the project context pane.
-- `settings` adds a keyed section to **Settings → General**. NativePi draws its
+- `settings` adds a keyed section to **Settings → Extensions**. NativePi draws its
   heading and description; the extension renders only the controls.
 
 Use a unique, stable `id` for every array contribution. NativePi rejects
 duplicate IDs in a slot. The first configured extension with a renderer for a
 given tool or entry type owns that renderer.
 
-Graphical contributions do not replace the transcript, composer, navigation,
-or agent loop. Pi commands, tools, providers, prompts, skills, sessions, and
-configuration remain Pi capabilities and should be implemented through Pi.
+Conversation views can replace the transcript and composer while the user has
+that view open. Other contributions stay within their declared slots. None
+replace navigation or the agent loop. Pi commands, tools, providers, prompts,
+skills, sessions, and configuration remain Pi capabilities and should be
+implemented through Pi.
 
 ## Renderer context
 

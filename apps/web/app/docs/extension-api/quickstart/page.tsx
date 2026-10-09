@@ -47,7 +47,7 @@ bun add -d typescript @types/react`}
     "@earendil-works/pi-coding-agent": "*"
   },
   "devDependencies": {
-    "@types/react": "^19.0.0",
+    "@types/react": "^19.3.0",
     "typescript": "^7.0.2"
   },
   "pi": {

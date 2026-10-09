@@ -125,7 +125,7 @@ export interface ConversationView<Protocol extends ExtensionProtocol = Extension
   render: (context: RendererContext<Protocol>) => ReactNode;
 }
 
-/** A section in Settings → General whose durable state remains owned by Pi. */
+/** A section in Settings → Extensions whose durable state remains owned by Pi. */
 export interface SettingsSection<Protocol extends ExtensionProtocol = ExtensionProtocol> {
   id: string;
   heading: string;

@@ -19,7 +19,7 @@ export default function BrowserAccessPage() {
       <H2 id="local">Local network access</H2>
       <Prose>
         <p>
-          Start local access from NativePi to open an HTTP and WebSocket server
+          Open <strong>Settings → Access</strong> and start local access to open an HTTP and WebSocket server
           on this computer. The generated link includes an access token and can
           be opened by another device that can reach the machine over the local
           network.
@@ -28,6 +28,17 @@ export default function BrowserAccessPage() {
           Your firewall, router, and VPN determine which devices can connect.
           NativePi does not make the local address reachable through the internet
           on its own.
+        </p>
+      </Prose>
+
+      <H2 id="small-screens">Phones and narrow screens</H2>
+      <Prose>
+        <p>
+          The browser shows the same chats and live workspace as the desktop.
+          On a phone, the project sidebar and files pane move into sheets so the
+          conversation and composer keep their space. File diffs use one column.
+          Desktop-only actions, such as installing an app update, remain on the
+          host computer.
         </p>
       </Prose>
 

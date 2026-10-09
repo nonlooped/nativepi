@@ -6,10 +6,20 @@ Pi 1.1 includes [built-in MCP support](https://github.com/earendil-works/pi/blob
 
 If you use this package, disable `builtin:mcp` in Pi's configuration first. Both read the same `mcp.json` files, so leaving both enabled connects each server twice and exposes duplicate tools. Disabling the built-in extension is a Pi setting shared by the terminal and NativePi.
 
+Add `"-builtin:mcp"` to the existing `extensions` array in `~/.pi/agent/settings.json`, preserving any other entries:
+
+```json
+{
+  "extensions": ["-builtin:mcp"]
+}
+```
+
+Remove this exclusion if you uninstall the package and return to Pi's built-in MCP support.
+
 ## Install
 
 ```sh
-pi install @nativepi/mcp
+pi install npm:@nativepi/mcp
 ```
 
 ## Configure
@@ -40,6 +50,6 @@ You can also create `~/.pi/agent/mcp.json` for user-level servers:
 
 A trusted project can add or override servers by name in `.pi/mcp.json`. Project entries take precedence over user entries. Relative `cwd` values are resolved from the directory containing the configuration file. NativePi preserves compatible changes made directly to either file.
 
-The extension supports stdio and Streamable HTTP servers. Run `/reload` after changing configuration. Server tools receive sanitized names prefixed with `mcp_<server>_`; names are limited to 64 characters and receive a hash suffix when truncation or collisions require it.
+The extension supports stdio and Streamable HTTP servers. Run `/reload` after changing configuration. Pi's built-in `/mcp` command is unavailable while its built-in extension is disabled; use the graphical editor for this package. Server tools receive sanitized names prefixed with `mcp_<server>_`; names are limited to 64 characters and receive a hash suffix when truncation or collisions require it.
 
 Only MCP tools are exposed. MCP resources and prompts are not loaded.

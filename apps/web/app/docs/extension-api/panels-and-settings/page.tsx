@@ -56,7 +56,7 @@ export default function PanelsAndSettingsPage() {
       <H2 id="settings">Settings sections</H2>
       <Prose>
         <p>
-          A section appears under <strong>Settings → General</strong>. NativePi
+          A section appears under <strong>Settings → Extensions</strong>. NativePi
           draws the heading and optional description; the renderer supplies the
           controls.
         </p>

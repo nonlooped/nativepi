@@ -7,7 +7,7 @@ It does not reorder calls or guess whether operations are independent. The model
 ## Install
 
 ```sh
-pi install @nativepi/throughput
+pi install npm:@nativepi/throughput
 ```
 
 Run `/throughput` to see tool calls per tool-calling assistant response and the percentage of tool-calling responses that contained exactly one call. More calls per response and a lower single-call rate indicate fewer model round-trips; compare sessions doing similar work rather than unrelated tasks.
