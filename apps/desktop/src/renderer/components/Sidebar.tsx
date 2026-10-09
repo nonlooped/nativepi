@@ -11,6 +11,7 @@ import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
 import { GearSixIcon } from "@phosphor-icons/react/GearSix";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
+import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import type { Project } from "../../shared/rpc-schema.ts";
@@ -295,6 +296,11 @@ export default function Sidebar({
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
+          {scopedProject ? (
+            <Button variant="ghost" size="icon-sm" onClick={() => setPendingRemoval(scopedProject)} aria-label={`Remove ${scopedProject.name} from NativePi`} title="Remove project from NativePi">
+              <TrashIcon />
+            </Button>
+          ) : null}
           {currentProject ? (
             <ProjectActionsDropdown
               project={currentProject}

@@ -259,6 +259,18 @@ export async function gitStageHunk(
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
 }
 
+export async function gitRevertFile(projectDir: string, file: string) {
+  const rootResult = await run(["rev-parse", "--show-toplevel"], projectDir);
+  if (rootResult.code !== 0) return { ok: false, error: failure(rootResult) };
+  const root = rootResult.stdout.trim();
+  const status = await run(["status", "--porcelain=v1", "-z", "--", file], root);
+  if (status.code !== 0) return { ok: false, error: failure(status) };
+  if (!status.stdout || status.stdout.startsWith("??") || status.stdout[1] === " ") return { ok: false, error: "No tracked working-tree changes to revert." };
+  const result = await run(["restore", "--worktree", "--", file], root);
+  if (result.code === 0) invalidateGitStatusCache(projectDir);
+  return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
+}
+
 export async function gitStageFile(projectDir: string, file: string): Promise<{ ok: boolean; error?: string }> {
   const root = (await run(["rev-parse", "--show-toplevel"], projectDir)).stdout.trim() || projectDir;
   const result = await run(["add", "--", file], root);

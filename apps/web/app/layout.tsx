@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   applicationName: site.name,
   authors: [{ name: site.author, url: site.repo }],
   creator: site.author,
+  verification: {
+    google: "d5maEtSw1GYOz8UJ1bQmUxojH-Pk34YWDovb2u_cR_Q",
+  },
   keywords: [
     "NativePi",
     "Pi coding agent",

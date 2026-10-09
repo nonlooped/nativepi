@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitLog, gitPush, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
+import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitLog, gitPush, gitRevertFile, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
 
 /**
  * These run against a real repository rather than a mocked `git`.
@@ -265,4 +265,18 @@ test("sync fast-forwards from the upstream branch before pushing", async () => {
 test("committing without staged changes is refused", async () => {
   const dir = await repo();
   expect(await gitCommit(dir, "feat: nothing")).toEqual({ ok: false, error: "Stage at least one change before committing." });
+});
+
+test("revert discards only unstaged tracked changes", async () => {
+  const dir = await repo();
+  await writeFile(path.join(dir, "a.txt"), "staged" + String.fromCharCode(10));
+  await gitStageFile(dir, "a.txt");
+  await writeFile(path.join(dir, "a.txt"), "unstaged" + String.fromCharCode(10));
+  await writeFile(path.join(dir, "new.txt"), "untracked" + String.fromCharCode(10));
+  expect(await gitRevertFile(dir, "new.txt")).toMatchObject({ ok: false });
+  expect(await gitRevertFile(dir, "a.txt")).toEqual({ ok: true });
+  expect((await readFile(path.join(dir, "a.txt"), "utf8")).replaceAll(String.fromCharCode(13), "")).toBe("staged" + String.fromCharCode(10));
+  expect(await readFile(path.join(dir, "new.txt"), "utf8")).toBe("untracked" + String.fromCharCode(10));
+  expect((await gitStatus(dir)).files.find((file) => file.path === "a.txt")).toMatchObject({ staged: true, unstaged: false });
+  expect(await gitRevertFile(dir, "a.txt")).toMatchObject({ ok: false });
 });

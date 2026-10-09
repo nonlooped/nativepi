@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { cn } from "@/lib/utils.ts";
 import { modelKey } from "../../shared/messages.ts";
+import ConfirmDialog from "./ConfirmDialog.tsx";
 import BranchSwitcher from "./BranchSwitcher.tsx";
 import FileContextMenu from "./FileContextMenu.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
@@ -50,6 +51,7 @@ export default function SourceControl({
   const sessionFile = useAppStore((s) => activeConversation(s).sessionFile);
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [pendingRevert, setPendingRevert] = useState<GitChangedFile | null>(null);
   const [busy, setBusy] = useState<CommitAction | "stage" | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -256,8 +258,14 @@ export default function SourceControl({
         onSelect={setSelected}
         onAll={() => void mutate(() => rpc.request.gitStageAll({ projectDir }))}
         onFile={(file) => void mutate(() => rpc.request.gitStageFile({ projectDir, file: file.path }))}
+        onRevert={setPendingRevert}
       />
 
+      <ConfirmDialog open={pendingRevert !== null} title="Revert file changes?"
+        description="Discard unstaged changes in this file? Staged changes will remain. This cannot be undone."
+        detail={pendingRevert?.path} confirmLabel="Revert changes" destructive
+        onConfirm={() => { const file = pendingRevert; setPendingRevert(null); if (file) void mutate(() => rpc.request.gitRevertFile({ projectDir, file: file.path })); }}
+        onCancel={() => setPendingRevert(null)} />
       {git.files.length === 0 ? (
         <div className="px-6 py-8 text-center">
           <p className="text-sm font-medium text-foreground">Working tree is clean</p>
@@ -279,6 +287,7 @@ function FileGroup({
   onSelect,
   onAll,
   onFile,
+  onRevert,
 }: {
   title: string;
   files: GitChangedFile[];
@@ -289,6 +298,7 @@ function FileGroup({
   onSelect: (key: string | null) => void;
   onAll: () => void;
   onFile: (file: GitChangedFile) => void;
+  onRevert?: (file: GitChangedFile) => void;
 }) {
   const [open, setOpen] = useState(true);
   if (files.length === 0) return null;
@@ -347,6 +357,11 @@ function FileGroup({
                         {stateBadge(file.state)}
                       </span>
                     </button>
+                    {!staged && file.state !== "untracked" ? (
+                      <Button variant="ghost" size="xs" disabled={disabled} onClick={() => onRevert?.(file)} title={`Revert ${file.path}`} aria-label={`Revert ${file.path}`}>
+                        Revert
+                      </Button>
+                    ) : null}
                     <Button
                       variant="ghost"
                       size="icon-xs"

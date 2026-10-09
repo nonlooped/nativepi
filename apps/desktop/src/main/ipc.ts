@@ -9,7 +9,7 @@ import { isProjectTrusted } from "./pi/services.ts";
 import { deleteSession, listSessions, readSession, searchSessions, sessionMtime, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
 import { loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
-import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitLog, gitPrTarget, gitPush, gitPushAndCreatePr, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
+import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitLog, gitPrTarget, gitRevertFile, gitPush, gitPushAndCreatePr, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
 import { generateCommitMessage } from "./commitMessage.ts";
 import { getRepoHostContext } from "./repoHost.ts";
 import { repoHostContextSchema } from "../shared/repo-host-types.ts";
@@ -1346,6 +1346,10 @@ const handlers: HandlerMap = {
   gitStageHunk: async (params) => {
     try { const { projectDir, file, untracked, patch } = gitHunkParamsSchema.parse(params); return await gitStageHunk(projectDir, file, untracked, patch); }
     catch (err) { return { ok: false, error: errorMessage(err) }; }
+  },
+  gitRevertFile: async (params) => {
+    try { const { projectDir, file } = gitFileParamsSchema.parse(params); return await gitRevertFile(projectDir, file); }
+    catch (error) { return { ok: false, error: String(error) }; }
   },
   gitStageFile: async (params) => {
     try { const { projectDir, file } = gitFileParamsSchema.parse(params); return await gitStageFile(projectDir, file); }
