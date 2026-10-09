@@ -154,8 +154,7 @@ export default function ComposerInput({
         role="textbox"
         aria-multiline="true"
         aria-label="Message Pi"
-        aria-expanded={complete.open}
-        aria-controls="composer-autocomplete"
+        aria-controls={complete.open ? "composer-autocomplete" : undefined}
         aria-autocomplete="list"
         aria-activedescendant={
           complete.open ? `composer-autocomplete-${complete.options[complete.active]?.value ?? ""}` : undefined

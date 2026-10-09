@@ -30,10 +30,10 @@ function loginMethods(provider: AuthProviderInfo): ("oauth" | "api_key")[] {
 
 function providerStatusLabel(provider: AuthProviderInfo): string {
   if (provider.ready) {
-    if (provider.storedType === "oauth") return "Connected · Subscription";
-    if (provider.storedType === "api_key") return "Connected · API key";
-    if (provider.authSource === "environment") return `Connected · ${provider.authLabel ?? "Environment"}`;
-    return provider.authLabel ? `Connected · ${provider.authLabel}` : "Connected";
+    if (provider.storedType === "oauth") return "Connected with subscription";
+    if (provider.storedType === "api_key") return "Connected with API key";
+    if (provider.authSource === "environment") return `Connected through ${provider.authLabel ?? "environment"}`;
+    return provider.authLabel ? `Connected through ${provider.authLabel}` : "Connected";
   }
   if (provider.configured) return "Credentials aren't working";
   const methods = loginMethods(provider);

@@ -153,7 +153,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           treated as a project or a chat instead. */}
       <div
         className={cn(
-          "composer-surface relative mx-auto flex w-full max-w-(--conversation-width) flex-col rounded-3xl bg-card px-3 pb-3 pt-2",
+          "composer-surface relative mx-auto flex w-full max-w-(--conversation-width) flex-col rounded-2xl border border-border/70 bg-card px-3 pb-3 pt-2",
           dropTarget && "ring-2 ring-ring",
         )}
         onDragOver={(event) => {
@@ -171,7 +171,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
       >
         {dropTarget ? (
           <p className="pointer-events-none absolute inset-x-0 -top-7 text-center text-xs text-muted-foreground">
-            Images attach, other files become mentions · <Kbd>Shift</Kbd> mentions images too
+            Images attach. <Kbd>Shift</Kbd> turns images into file mentions.
           </p>
         ) : null}
         <ComposerAttachments />
@@ -246,34 +246,12 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           touch screen, where naming keystrokes is advice about a keyboard the
           reader does not have. */}
       {prominent ? (
-        <p className="mx-auto flex w-full max-w-(--conversation-width) flex-wrap items-center justify-center gap-x-2 gap-y-1 pt-0.5 text-xs text-muted-foreground pointer-coarse:hidden">
-          <span className="flex items-center gap-1.5">
-            <Kbd>Enter</Kbd> to send
-          </span>
-          <span aria-hidden="true" className="text-muted-foreground/50">
-            ·
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Kbd>Shift+Enter</Kbd> for a new line
-          </span>
-          <span aria-hidden="true" className="text-muted-foreground/50">
-            ·
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Kbd>/</Kbd> commands
-          </span>
-          <span aria-hidden="true" className="text-muted-foreground/50">
-            ·
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Kbd>@</Kbd> files
-          </span>
-          <span aria-hidden="true" className="text-muted-foreground/50">
-            ·
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Kbd>$</Kbd> skills
-          </span>
+        <p className="mx-auto flex w-full max-w-(--conversation-width) flex-wrap items-center justify-start gap-x-4 gap-y-1 px-1 pt-0.5 text-xs text-muted-foreground pointer-coarse:hidden">
+          <span className="flex items-center gap-1.5"><Kbd>Enter</Kbd> send</span>
+          <span className="flex items-center gap-1.5"><Kbd>Shift+Enter</Kbd> new line</span>
+          <span className="flex items-center gap-1.5"><Kbd>/</Kbd> commands</span>
+          <span className="flex items-center gap-1.5"><Kbd>@</Kbd> files</span>
+          <span className="flex items-center gap-1.5"><Kbd>$</Kbd> skills</span>
         </p>
       ) : null}
       <ComposerWidgets placement="belowComposer" />

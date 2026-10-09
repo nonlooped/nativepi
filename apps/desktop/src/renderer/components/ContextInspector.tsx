@@ -40,7 +40,7 @@ export default function ContextWindow() {
       <button
         type="button"
         aria-label={`Context window ${percent}% used, ${formatTokens(inspectedUsed)} of ${formatTokens(inspectedTotal)} tokens`}
-        title={`Conversation context — ${formatTokens(inspectedUsed)} of ${formatTokens(inspectedTotal)} tokens`}
+        title={`Conversation context: ${formatTokens(inspectedUsed)} of ${formatTokens(inspectedTotal)} tokens`}
         onClick={() => setOpen(true)}
         className={cn(
           "flex h-8 items-center gap-1.5 rounded-lg px-1.5 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",

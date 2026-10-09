@@ -352,7 +352,7 @@ export type ExtensionUiResponse =
 export type PiEvent =
   | { type: "agent_start" }
   | { type: "agent_end"; willRetry?: boolean }
-  | { type: "agent_settled" }
+  | { type: "agent_settled"; aborted: boolean }
   | { type: "message_start"; message: AgentMessage }
   | { type: "message_update"; assistantMessageEvent: AssistantMessageDelta }
   | { type: "message_end"; message: AgentMessage }

@@ -17,7 +17,7 @@ import { installPackage, listPackages, removePackage, updatePackage } from "./pa
 import { listSkills } from "./skills.ts";
 import { readProjectDirectory, watchProjectDirectory } from "./fileExplorer.ts";
 import { listProjectFiles } from "./files.ts";
-import { prepareImages } from "./images.ts";
+import { prepareImages, readProjectImage } from "./images.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
 import { fileManagerName, listInstalledEditors, openFileIn, openProjectIn } from "./editors.ts";
 import { liveSettingsFor, piPaths, queuePiSettings, readPiSettings, writePiSettings } from "./piSettings.ts";
@@ -511,6 +511,7 @@ function toSessionState(data: RpcSessionState): RpcSessionState {
 const THINKING_LEVELS = new Set<ThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 const openProjectInParamsSchema = z.object({ projectDir: z.string().min(1), editorId: z.string().min(1) });
 const openFileInParamsSchema = openProjectInParamsSchema.extend({ file: z.string().min(1), line: z.number().int().positive().optional(), column: z.number().int().positive().optional() });
+const readProjectImageParamsSchema = z.object({ projectDir: z.string().min(1).max(32_767), file: z.string().min(1).max(32_767) });
 const saveImageParamsSchema = z.object({
   data: z.string().min(1).max(64 * 1024 * 1024),
   mimeType: z.enum(["image/png", "image/jpeg", "image/gif", "image/webp"]),
@@ -1092,6 +1093,14 @@ const handlers: HandlerMap = {
       return { ok: true };
     } catch (err) {
       return { ok: false, error: errorMessage(err) };
+    }
+  },
+  readProjectImage: async (params) => {
+    try {
+      const { projectDir, file } = readProjectImageParamsSchema.parse(params);
+      return { src: await readProjectImage(projectDir, file) };
+    } catch (err) {
+      return { error: errorMessage(err) };
     }
   },
 

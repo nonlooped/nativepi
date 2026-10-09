@@ -120,6 +120,7 @@ export interface Conversation {
   entries: SessionEntry[];
   streaming: AssistantMessage | null;
   running: boolean;
+  aborted: boolean;
   runStartedAt: number | null;
   compacting: boolean;
   retry: { attempt: number; maxAttempts: number; error: string } | null;

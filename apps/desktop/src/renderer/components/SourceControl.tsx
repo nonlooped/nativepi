@@ -209,7 +209,7 @@ export default function SourceControl({
             onClick={() => void commit("commit")}
             disabled={!canCommit}
             title={commitDisabledReason}
-            aria-label={commitDisabledReason ? `Commit — ${commitDisabledReason}` : "Commit staged changes"}
+            aria-label={commitDisabledReason ? `Commit unavailable: ${commitDisabledReason}` : "Commit staged changes"}
           >
             {busy === "commit" ? "Committing…" : "Commit staged changes"}
           </Button>
@@ -529,7 +529,7 @@ function hunkLocation(header: string) {
   if (!match) return "";
   const start = Number(match[1]);
   const count = Number(match[2] ?? "1");
-  return count > 1 ? `lines ${start}–${start + count - 1}` : `line ${start}`;
+  return count > 1 ? `lines ${start}-${start + count - 1}` : `line ${start}`;
 }
 
 function stateBadge(state: GitChangedFile["state"]) {

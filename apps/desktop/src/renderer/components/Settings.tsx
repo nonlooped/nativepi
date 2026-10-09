@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
 import { BrainIcon } from "@phosphor-icons/react/Brain";
 import { ChartLineUpIcon } from "@phosphor-icons/react/ChartLineUp";
@@ -16,15 +16,16 @@ import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.t
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet.tsx";
 import { DRAG_REGION, NO_DRAG_REGION, TRAFFIC_LIGHTS_CLEARANCE, WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { useWorkspaceLayout } from "../lib/layout.ts";
-import ExtensionsManager from "./ExtensionsManager.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
-import AccessSettings from "./settings/AccessSettings.tsx";
-import AgentSettings from "./settings/AgentSettings.tsx";
-import AppearanceSettings from "./settings/AppearanceSettings.tsx";
-import ProviderSettings from "./settings/ProviderSettings.tsx";
-import SystemSettings from "./settings/SystemSettings.tsx";
-import UsageSettings from "./settings/UsageSettings.tsx";
-import WorkbenchSettings from "./settings/WorkbenchSettings.tsx";
+
+const AccessSettings = lazy(() => import("./settings/AccessSettings.tsx"));
+const AgentSettings = lazy(() => import("./settings/AgentSettings.tsx"));
+const AppearanceSettings = lazy(() => import("./settings/AppearanceSettings.tsx"));
+const ExtensionsManager = lazy(() => import("./ExtensionsManager.tsx"));
+const ProviderSettings = lazy(() => import("./settings/ProviderSettings.tsx"));
+const SystemSettings = lazy(() => import("./settings/SystemSettings.tsx"));
+const UsageSettings = lazy(() => import("./settings/UsageSettings.tsx"));
+const WorkbenchSettings = lazy(() => import("./settings/WorkbenchSettings.tsx"));
 
 /** Eight task-oriented destinations, ordered from everyday choices to maintenance. */
 export const CATEGORIES = [
@@ -114,7 +115,7 @@ export default function Settings() {
         <main className="h-full min-w-0 overflow-y-auto">
           <header
             className={cn(
-              "flex h-12 items-center gap-2 px-5 sm:px-10",
+              "flex h-12 items-center gap-2 border-b border-border/70 px-5 sm:px-10",
               WINDOW_CONTROLS_CLEARANCE,
               !railDocked && TRAFFIC_LIGHTS_CLEARANCE,
               DRAG_REGION,
@@ -148,11 +149,13 @@ export default function Settings() {
 
           <div className="mx-auto w-full max-w-6xl px-5 pb-16 pt-8 sm:px-10 sm:pt-10">
             <div className="mb-9 flex max-w-3xl flex-col gap-1.5">
-              <h1 className="text-balance font-heading text-2xl font-semibold tracking-tight">{category}</h1>
+              <h1 className="text-balance font-heading text-3xl font-semibold tracking-[-0.035em]">{category}</h1>
               {blurb ? <p className="text-pretty text-sm leading-6 text-body-muted-foreground">{blurb}</p> : null}
             </div>
 
-            <CategoryPanel category={category} />
+            <Suspense fallback={<div className="py-8 text-sm text-body-muted-foreground">Loading {category.toLowerCase()}…</div>}>
+              <CategoryPanel category={category} />
+            </Suspense>
           </div>
         </main>
       </ResizablePanel>

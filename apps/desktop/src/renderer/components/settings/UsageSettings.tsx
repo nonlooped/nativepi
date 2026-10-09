@@ -7,6 +7,7 @@ import type { UsageDashboard } from "../../../shared/pi-types.ts";
 import { rpc } from "../../lib/rpc.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { useRequest } from "../../lib/useRequest.ts";
+import { createRequestCache } from "../../lib/requestCache.ts";
 import { providerIconName } from "../../lib/providerIcons.ts";
 import { useReducedMotion } from "../../lib/motion.ts";
 import BrandIcon from "../BrandIcon.tsx";
@@ -19,6 +20,7 @@ import SubscriptionUsageSettings from "./SubscriptionUsageSettings.tsx";
 
 const ALL_PROJECTS = "all-projects";
 const PROVIDER_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)"];
+const dashboardCache = createRequestCache<string, Awaited<ReturnType<typeof rpc.request.getUsageDashboard>>>();
 
 type Range = "7" | "30" | "90" | "all";
 type ChartMetric = "cost" | "tokens";
@@ -30,9 +32,10 @@ export default function UsageSettings() {
   const [projectPath, setProjectPath] = useState(ALL_PROJECTS);
   const [range, setRange] = useState<Range>("30");
   const selectedProjects = projectPath === ALL_PROJECTS ? projects : projects.filter((project) => project.path === projectPath);
+  const cacheKey = JSON.stringify(selectedProjects.map(({ path, name }) => [path, name]));
   const request = useRequest(
-    async () => rpc.request.getUsageDashboard({ projects: selectedProjects }),
-    [projects, projectPath],
+    () => dashboardCache.load(cacheKey, () => rpc.request.getUsageDashboard({ projects: selectedProjects })),
+    [cacheKey],
   );
   const dashboard = request.data?.dashboard ?? null;
   const error = request.data?.error ?? request.error;
@@ -105,7 +108,10 @@ export default function UsageSettings() {
               <Button
                 variant="outline"
                 size="icon-lg"
-                onClick={request.reload}
+                onClick={() => {
+                  dashboardCache.invalidate(cacheKey);
+                  request.reload();
+                }}
                 disabled={request.loading}
                 aria-label="Refresh usage"
                 title="Refresh usage"
@@ -491,12 +497,12 @@ function providerColor(index: number) {
 function periodLabel(range: Range, daily: UsageDashboard["daily"]) {
   if (range === "all") {
     if (daily.length === 0) return "All recorded usage";
-    return `${formatLongDate(daily[0]!.date)} – ${formatLongDate(daily.at(-1)!.date)}`;
+    return `${formatLongDate(daily[0]!.date)} - ${formatLongDate(daily.at(-1)!.date)}`;
   }
   const end = new Date();
   const start = new Date(end);
   start.setDate(end.getDate() - Number(range) + 1);
-  return `${formatLongDate(localIsoDate(start))} – ${formatLongDate(localIsoDate(end))}`;
+  return `${formatLongDate(localIsoDate(start))} - ${formatLongDate(localIsoDate(end))}`;
 }
 
 function localIsoDate(date: Date) {

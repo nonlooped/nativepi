@@ -471,6 +471,10 @@ export type HostRequests = {
     params: { projectDir: string; file: string; editorId: string; line?: number; column?: number };
     response: { ok: boolean; error?: string };
   };
+  readProjectImage: {
+    params: { projectDir: string; file: string };
+    response: { src?: string; error?: string };
+  };
   versions: { params: Record<string, never>; response: { pi: string; app: string } };
   exportDiagnostics: {
     params: { projectDir?: string };

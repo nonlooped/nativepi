@@ -11,7 +11,7 @@ import { WarningIcon } from "@phosphor-icons/react/Warning";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { WrenchIcon } from "@phosphor-icons/react/Wrench";
 import { toast } from "sonner";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
 import { displayPrompt, imagesOf, isAssistant, isToolResult, isUser, textOf } from "../../shared/messages.ts";
 import { stripAnsi } from "../lib/ansi.ts";
@@ -76,6 +76,7 @@ function TranscriptContent() {
   const streaming = useAppStore((s) => activeConversation(s).streaming);
   const pending = useAppStore((s) => activeConversation(s).pending);
   const running = useAppStore((s) => activeConversation(s).running);
+  const aborted = useAppStore((s) => activeConversation(s).aborted);
   const compacting = useAppStore((s) => activeConversation(s).compacting);
   const retry = useAppStore((s) => activeConversation(s).retry);
   const abortRetry = useAppStore((s) => s.abortRetry);
@@ -85,8 +86,6 @@ function TranscriptContent() {
   const committed = useMemo(() => transcriptItems(entries), [entries]);
   const items = appendStreaming(committed.items, streaming, committed.responseStartedAt);
   const turnFiles = lastTurnFileCount(items, results);
-  const turnFilesRef = useRef(turnFiles);
-  turnFilesRef.current = turnFiles;
 
   const { scrollToEnd } = useMessageScroller();
   const [transcriptSelection, setTranscriptSelection] = useState("");
@@ -98,20 +97,20 @@ function TranscriptContent() {
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const [runDone, setRunDone] = useState<{ elapsed: string; files: number; stopped: boolean } | null>(null);
   const runStart = useRef<number | null>(null);
-  const abortedRef = useRef(false);
+  const finishRun = useEffectEvent((started: number) => {
+    setRunDone({ elapsed: formatElapsed(Date.now() - started), files: turnFiles, stopped: aborted });
+  });
 
   useEffect(() => {
     // A chat switch flips `running` without a run ending here; never carry a
     // beat (or a pending start) across conversations.
     runStart.current = null;
-    abortedRef.current = false;
     setRunDone(null);
   }, [activeProjectPath, activeSessionFile]);
 
   useEffect(() => {
     if (running) {
       runStart.current = activeConversation(useAppStore.getState()).runStartedAt ?? Date.now();
-      abortedRef.current = false;
       setRunDone(null);
       return;
     }
@@ -120,11 +119,7 @@ function TranscriptContent() {
     runStart.current = null;
     const state = useAppStore.getState();
     if (activeConversation(state).error) return;
-    setRunDone({
-      elapsed: formatElapsed(Date.now() - started),
-      files: turnFilesRef.current,
-      stopped: abortedRef.current,
-    });
+    finishRun(started);
     const timer = window.setTimeout(() => setRunDone(null), 2500);
     return () => window.clearTimeout(timer);
   }, [running]);
@@ -196,7 +191,7 @@ function TranscriptContent() {
                 <WarningCircleIcon className="shrink-0" />
                 <span className="min-w-0">
                   Retrying after an error (attempt {retry.attempt} of {retry.maxAttempts})
-                  {retry.error ? <span className="text-body-muted-foreground"> — {retry.error}</span> : null}
+                  {retry.error ? <span className="text-body-muted-foreground">. {retry.error}</span> : null}
                 </span>
                 <Button size="sm" variant="ghost" className="ml-auto h-6 shrink-0 px-2" onClick={abortRetry}>
                   Stop
@@ -225,6 +220,7 @@ function TranscriptContent() {
 
       <TurnAnnouncer
         running={running}
+        aborted={aborted}
         compacting={compacting}
         retry={retry}
         activeTool={activeToolName(items, results)}
@@ -250,9 +246,6 @@ function TranscriptContent() {
             activeTool={activeToolName(items, results)}
             compacting={compacting}
             filesChanged={turnFiles}
-            onAbort={() => {
-              abortedRef.current = true;
-            }}
           />
         ) : runDone ? (
           <RunDoneBar {...runDone} />
@@ -317,12 +310,10 @@ function RunStatusBar({
   activeTool,
   compacting,
   filesChanged,
-  onAbort,
 }: {
   activeTool?: string;
   compacting: boolean;
   filesChanged: number;
-  onAbort?: () => void;
 }) {
   const abort = useAppStore((s) => s.abort);
   const runStartedAt = useAppStore((s) => activeConversation(s).runStartedAt);
@@ -387,10 +378,7 @@ function RunStatusBar({
       <Button
         variant="destructive"
         size="sm"
-        onClick={() => {
-          onAbort?.();
-          abort();
-        }}
+        onClick={abort}
         title={withHint("Stop this turn", "stopTurn", keybindingOverrides)}
         className="ml-1 h-6 shrink-0 rounded-full px-2.5"
       >
@@ -488,11 +476,13 @@ function useElapsed(startedAt: number | null): string {
  */
 function TurnAnnouncer({
   running,
+  aborted,
   compacting,
   retry,
   activeTool,
 }: {
   running: boolean;
+  aborted: boolean;
   compacting: boolean;
   retry: { attempt: number; maxAttempts: number } | null;
   activeTool?: string;
@@ -518,9 +508,9 @@ function TurnAnnouncer({
     }
     if (wasBusy.current) {
       wasBusy.current = false;
-      setMessage("Response complete");
+      setMessage(aborted ? "Response stopped" : "Response complete");
     }
-  }, [phase]);
+  }, [phase, aborted]);
 
   return (
     <div role="status" aria-live="polite" className="sr-only">
@@ -637,7 +627,7 @@ function EntryView({ entry }: { entry: SessionEntry }) {
     return null; // toolResult messages render inline under their tool call.
   }
   if (entry.type === "compaction") {
-    return <Notice>Context compacted — earlier messages summarized.</Notice>;
+    return <Notice>Context compacted. Earlier messages were summarized.</Notice>;
   }
   return <CustomEntry entry={entry} />;
 }
@@ -715,10 +705,11 @@ function UserBubble({
             {files.map((file) => <PromptFileChip key={file} file={file} />)}
           </div>
           ) : null}
+          {text ? <Markdown>{text}</Markdown> : null}
           {images.length > 0 ? (
-          // Sized to be recognisable, not to be studied: the bubble is a record
-          // of what was sent, and the agent's reading of it is what follows.
-          <div className={cn("flex flex-wrap justify-end gap-2", text && "pb-2")}>
+          // Keep attachments recognisable without letting them compete with the
+          // message itself. The full image remains available from its menu.
+          <div className={cn("flex flex-wrap justify-end gap-2", text && "pt-2")}>
             {images.map((image, index) => (
               <TranscriptImage
                 key={index}
@@ -728,7 +719,6 @@ function UserBubble({
             ))}
           </div>
           ) : null}
-          {text ? <Markdown>{text}</Markdown> : null}
         </BubbleContent>
       </Bubble>
       </Message>
@@ -1223,7 +1213,7 @@ function TranscriptImage({ image, name }: { image: { mimeType: string; data: str
           </>
         }
       >
-        <img src={src} alt={name} className="max-h-40 rounded-lg object-contain outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
+        <img src={src} alt={name} className="h-16 w-auto max-w-32 rounded-md object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
       </TranscriptContextMenu>
       <Dialog open={preview} onOpenChange={setPreview}>
         <DialogContent className="max-w-[90vw] p-3">

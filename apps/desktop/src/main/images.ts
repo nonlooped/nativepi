@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { open, realpath } from "node:fs/promises";
+import { extname, isAbsolute, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { resizeImage } from "@earendil-works/pi-coding-agent";
 import type { ImageAttachment } from "../shared/rpc-schema.ts";
 import { MAX_IMAGES } from "../shared/images.ts";
@@ -23,6 +26,45 @@ const MAX_BASE64_BYTES = 4.5 * 1024 * 1024;
 
 /** Past this, decoding to resize costs more than the image can possibly be worth. */
 const MAX_INPUT_BASE64_BYTES = 48 * 1024 * 1024;
+
+export async function readProjectImage(projectDir: string, file: string): Promise<string> {
+  if (/^[a-z][a-z\d+.-]*:/i.test(file) && !/^[a-z]:[\\/]/i.test(file)) {
+    const url = new URL(file);
+    if (url.protocol !== "file:" || (url.hostname && url.hostname !== "localhost")) {
+      throw new Error("Use a local image path.");
+    }
+    file = fileURLToPath(url);
+  }
+  if (/^[\\/]{2}/.test(file)) throw new Error("Use a local image path.");
+  const root = await realpath(projectDir);
+  const target = await realpath(resolve(root, file));
+  const within = relative(root, target);
+  if (within === ".." || within.startsWith(`..${sep}`) || isAbsolute(within)) {
+    throw new Error("Image must be inside the project.");
+  }
+  const mimeType = ({
+    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp",
+  } as Record<string, string>)[extname(target).toLowerCase()];
+  if (!mimeType) throw new Error("Unsupported image format.");
+  const handle = await open(target, "r");
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile()) throw new Error("Image is not a file.");
+    if (stat.size > 16 * 1024 * 1024) throw new Error("Image is too large. Use an image up to 16 MB.");
+    // A fixed buffer also bounds reads if another process grows the file after stat.
+    const bytes = Buffer.alloc(stat.size + 1);
+    let size = 0;
+    while (size < bytes.length) {
+      const read = await handle.read(bytes, size, bytes.length - size, size);
+      if (!read.bytesRead) break;
+      size += read.bytesRead;
+    }
+    if (size !== stat.size) throw new Error("Image changed while it was loading. Try again.");
+    return `data:${mimeType};base64,${bytes.subarray(0, size).toString("base64")}`;
+  } finally {
+    await handle.close();
+  }
+}
 
 export async function prepareImages(
   files: { name: string; mimeType: string; data: string }[],

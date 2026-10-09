@@ -74,7 +74,7 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
         </div>
       </header>
 
-      <div className={cn("flex shrink-0 items-center gap-2 px-3 pb-3", NO_DRAG_REGION)}>
+      <div className={cn("flex shrink-0 items-center gap-2 border-b border-sidebar-border/70 px-3 pb-3", NO_DRAG_REGION)}>
         <ViewSwitch
           view={view}
           onChange={(next) => setPreference("contextPaneView", next)}

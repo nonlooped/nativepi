@@ -238,7 +238,7 @@ export default function ExtensionsManager() {
             disabled={busy !== null || hasRunningTurns}
             title={
               hasRunningTurns
-                ? "Wait for every running turn to finish — reloading restarts Pi"
+                ? "Wait for every running turn to finish. Reloading restarts Pi."
                 : "Restart Pi so it picks up changed extensions"
             }
           >

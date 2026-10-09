@@ -4,13 +4,13 @@ import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CheckCircleIcon } from "@phosphor-icons/react/CheckCircle";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
+import { ClockIcon } from "@phosphor-icons/react/Clock";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderPlusIcon } from "@phosphor-icons/react/FolderPlus";
 import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
 import { GearSixIcon } from "@phosphor-icons/react/GearSix";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
-import { PushPinIcon } from "@phosphor-icons/react/PushPin";
 import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import type { Project } from "../../shared/rpc-schema.ts";
@@ -34,11 +34,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card.tsx";
 import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import { editorName, fileManagerName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
 import { isChatFinished } from "../lib/chatOrganization.ts";
+import { providerIconName } from "../lib/providerIcons.ts";
+import BrandIcon from "./BrandIcon.tsx";
 
 interface SidebarChat {
   project: Project;
@@ -249,12 +252,12 @@ export default function Sidebar({
       overlay={overlay}
       layoutKey={layoutKey}
     >
-      <div className={cn("flex flex-col gap-2 px-2 pb-2", NO_DRAG_REGION)}>
+      <div className={cn("flex flex-col gap-2 px-2 pb-2 pt-2", NO_DRAG_REGION)}>
         <div className="flex items-center gap-1">
           <Button
-            variant="secondary"
+            variant="ghost"
             size="default"
-            className="min-w-0 flex-1 justify-start"
+            className="min-w-0 flex-1 justify-start text-sidebar-foreground"
             onClick={onOpenNewChat}
             title={withHint("New chat", "newChat", keybindingOverrides)}
           >
@@ -339,8 +342,6 @@ export default function Sidebar({
               key={chat.session.path}
               chat={chat}
               now={now}
-              showProject={!scopedProject}
-              showPin={false}
               onSelect={() => void selectChatAndClose(chat)}
               onFinish={() => markFinished(chat)}
             />
@@ -359,7 +360,6 @@ export default function Sidebar({
               key={chat.session.path}
               chat={chat}
               now={now}
-              showProject={!scopedProject}
               onSelect={() => void selectChatAndClose(chat)}
               onFinish={() => markFinished(chat)}
             />
@@ -434,68 +434,69 @@ export default function Sidebar({
 function FocusChatRow({
   chat,
   now,
-  showProject,
-  showPin = true,
   onSelect,
   onFinish,
 }: {
   chat: SidebarChat;
   now: number;
-  showProject: boolean;
-  showPin?: boolean;
   onSelect: () => void;
   onFinish: () => void;
 }) {
+  const provider = chat.session.providers[0];
+
   return (
     <SessionMenu projectPath={chat.project.path} session={chat.session} selected={chat.selected} running={chat.running} pinned={chat.pinned}>
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={onSelect}
-        onKeyDown={(event) => {
-          if (event.currentTarget !== event.target) return;
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onSelect();
-          }
-        }}
-        aria-current={chat.selected ? "page" : undefined}
-        className="group/focus relative flex min-h-14 w-full flex-col justify-center gap-1 overflow-hidden rounded-lg px-2.5 py-1.5 text-left text-sidebar-foreground outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
-      >
-        <span className={cn("absolute inset-y-2 left-0 w-0.5 rounded-full", chat.running ? "bg-active" : chat.selected ? "bg-sidebar-foreground/30" : "bg-transparent")} />
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-medium leading-5">{chatTitle(chat.session)}</span>
-          {chat.running ? (
-            <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-xs font-medium text-active" role="status">
-              <CircleNotchIcon className="size-3 animate-spin" /> Working
+      <HoverCard>
+        <div className="group/focus relative w-full">
+          <HoverCardTrigger
+            delay={450}
+            closeDelay={100}
+            render={<Button variant="ghost" />}
+            onClick={onSelect}
+            aria-current={chat.selected ? "page" : undefined}
+            className={cn(
+              "relative flex h-auto min-h-14 w-full flex-col items-stretch justify-center gap-1 overflow-hidden rounded-lg px-2.5 py-2 text-left text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent/40 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset active:scale-100",
+              chat.selected && "bg-sidebar-accent text-sidebar-accent-foreground",
+            )}
+          >
+            <span className="min-w-0 truncate text-sm font-medium leading-5">{chatTitle(chat.session)}</span>
+            <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="sidebar-chat-time shrink-0 tabular-nums text-muted-foreground/80">
+                {timeAgo(chat.session.modified, now)}
+              </span>
+              {chat.running ? (
+                <span className="ml-auto inline-flex shrink-0 items-center gap-1 font-medium text-active" role="status">
+                  <CircleNotchIcon className="size-3 animate-spin" /> Working
+                </span>
+              ) : (
+                <span className="relative ml-auto flex size-6 shrink-0 items-center justify-center">
+                  {provider ? (
+                    <span
+                      className="hidden text-muted-foreground/70 transition-opacity [@media(hover:hover)]:inline-flex group-hover/focus:opacity-0 group-focus-within/focus:opacity-0"
+                      title={`Model provider: ${provider}`}
+                    >
+                      <BrandIcon name={providerIconName(provider)} size={14} />
+                    </span>
+                  ) : null}
+                </span>
+              )}
             </span>
-          ) : (
+          </HoverCardTrigger>
+          {!chat.running ? (
             <Button
               variant="ghost"
               size="icon-xs"
-              className={cn(HOVER_REVEAL, "ml-auto shrink-0 group-hover/focus:scale-100 group-hover/focus:opacity-100 group-hover/focus:blur-none group-focus-visible/focus:scale-100 group-focus-visible/focus:opacity-100 group-focus-visible/focus:blur-none")}
-              onClick={(event) => {
-                event.stopPropagation();
-                onFinish();
-              }}
+              className={cn(HOVER_REVEAL, "absolute right-2.5 bottom-2 group-hover/focus:scale-100 group-hover/focus:opacity-100 group-hover/focus:blur-none group-focus-within/focus:scale-100 group-focus-within/focus:opacity-100 group-focus-within/focus:blur-none")}
+              onClick={onFinish}
               aria-label="Mark finished"
               title="Mark finished"
             >
               <CheckCircleIcon />
             </Button>
-          )}
-        </span>
-        <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-          {showProject ? (
-            <>
-              <FolderIcon className="size-3.5 shrink-0" weight={chat.selected ? "fill" : "regular"} />
-              <span className="sidebar-chat-project truncate font-medium">{chat.project.name}</span>
-            </>
           ) : null}
-          {showPin && chat.pinned ? <PushPinIcon className="size-3 shrink-0 text-favorite" weight="fill" aria-label="Pinned" /> : null}
-          <span className="sidebar-chat-time ml-auto shrink-0 tabular-nums">{timeAgo(chat.session.modified, now)}</span>
-        </span>
-      </div>
+        </div>
+        <ChatHoverCardContent chat={chat} now={now} />
+      </HoverCard>
     </SessionMenu>
   );
 }
@@ -513,28 +514,61 @@ function FinishedChatRow({
 }) {
   return (
     <SessionMenu projectPath={chat.project.path} session={chat.session} selected={chat.selected} running={false} pinned={chat.pinned} finished>
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={onSelect}
-        onKeyDown={(event) => {
-          if (event.currentTarget !== event.target) return;
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onSelect();
-          }
-        }}
-        aria-current={chat.selected ? "page" : undefined}
-        className="group/finished flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs text-muted-foreground outline-none hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
-      >
-        <span className="min-w-0 flex-1 truncate">{chatTitle(chat.session)}</span>
-        <span className="max-w-[40%] shrink-0 truncate">{chat.project.name}</span>
-        <span className="sidebar-chat-time shrink-0 tabular-nums text-muted-foreground/60">{timeAgo(chat.session.modified, now)}</span>
-        <Button variant="ghost" size="icon-xs" className={cn(HOVER_REVEAL, "shrink-0 group-hover/finished:scale-100 group-hover/finished:opacity-100 group-hover/finished:blur-none group-focus-visible/finished:scale-100 group-focus-visible/finished:opacity-100 group-focus-visible/finished:blur-none")} onClick={(event) => { event.stopPropagation(); onReturn(); }} aria-label="Return chat to focus" title="Return to focus">
-          <ArrowClockwiseIcon />
-        </Button>
-      </div>
+      <HoverCard>
+        <div className="group/finished relative w-full">
+          <HoverCardTrigger
+            delay={450}
+            closeDelay={100}
+            render={<Button variant="ghost" />}
+            onClick={onSelect}
+            aria-current={chat.selected ? "page" : undefined}
+            className={cn(
+              "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-xs text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset active:scale-100",
+              chat.selected && "bg-sidebar-accent text-sidebar-accent-foreground",
+            )}
+          >
+            <span className="min-w-0 flex-1 truncate">{chatTitle(chat.session)}</span>
+            <span className="relative flex h-6 min-w-6 shrink-0 items-center justify-end">
+              <span className="sidebar-chat-time hidden tabular-nums text-muted-foreground/80 transition-opacity [@media(hover:hover)]:inline group-hover/finished:opacity-0 group-focus-within/finished:opacity-0">
+                {timeAgo(chat.session.modified, now)}
+              </span>
+            </span>
+          </HoverCardTrigger>
+          <Button variant="ghost" size="icon-xs" className={cn(HOVER_REVEAL, "absolute top-1/2 right-2 -translate-y-1/2 group-hover/finished:scale-100 group-hover/finished:opacity-100 group-hover/finished:blur-none group-focus-within/finished:scale-100 group-focus-within/finished:opacity-100 group-focus-within/finished:blur-none")} onClick={onReturn} aria-label="Return chat to focus" title="Return to focus">
+            <ArrowClockwiseIcon />
+          </Button>
+        </div>
+        <ChatHoverCardContent chat={chat} now={now} />
+      </HoverCard>
     </SessionMenu>
+  );
+}
+
+function ChatHoverCardContent({ chat, now }: { chat: SidebarChat; now: number }) {
+  const provider = chat.session.providers[0];
+
+  return (
+    <HoverCardContent side="right" align="start" sideOffset={6} className="w-64">
+      <p className="break-words font-medium leading-snug text-popover-foreground">
+        {chatTitle(chat.session)}
+      </p>
+      <div className="mt-1.5 flex flex-col gap-1 text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <FolderIcon className="size-3.5 shrink-0" />
+          <span className="truncate">{chat.project.name}</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <ClockIcon className="size-3.5 shrink-0" />
+          <span>Updated {timeAgo(chat.session.modified, now)}</span>
+        </span>
+        {provider ? (
+          <span className="flex min-w-0 items-center gap-1.5">
+            <BrandIcon name={providerIconName(provider)} size={14} />
+            <span className="truncate">{provider}</span>
+          </span>
+        ) : null}
+      </div>
+    </HoverCardContent>
   );
 }
 
@@ -562,19 +596,21 @@ function ProjectActionsDropdown({
         <DotsThreeIcon weight="bold" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="truncate">{project.name}</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void onNewChat(project.path)}><NotePencilIcon /> New chat here</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => void onImport(project.path)}><UploadSimpleIcon /> Import an existing chat</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void rpc.request.openProjectIn({ projectDir: project.path, editorId })}>Open in {editorName(editorId)}</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => void rpc.request.showInFolder({ path: project.path })}>Reveal in {fileManagerName()}</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => void onTerminal(project.path)}>Open terminal here</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => void navigator.clipboard.writeText(project.path).then(() => showHint("Path copied"))}>Copy path</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => onWorktrees(project.path)}>Worktrees…</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={() => onRemove(project)}>Remove from NativePi</DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="truncate">{project.name}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => void onNewChat(project.path)}><NotePencilIcon /> New chat here</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void onImport(project.path)}><UploadSimpleIcon /> Import an existing chat</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => void rpc.request.openProjectIn({ projectDir: project.path, editorId })}>Open in {editorName(editorId)}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void rpc.request.showInFolder({ path: project.path })}>Reveal in {fileManagerName()}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void onTerminal(project.path)}>Open terminal here</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void navigator.clipboard.writeText(project.path).then(() => showHint("Path copied"))}>Copy path</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => onWorktrees(project.path)}>Worktrees…</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onClick={() => onRemove(project)}>Remove from NativePi</DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

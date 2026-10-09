@@ -147,12 +147,9 @@ export function PiStartingNotice() {
       >
         <CircleNotchIcon aria-hidden="true" className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
         <span className="font-medium">Starting Pi</span>
-        <span aria-hidden="true" className="text-muted-foreground/40">
-          ·
-        </span>
         {/* The one thing the header's status chip cannot say, and the only
             reason this is on screen at all: a draft written now is not lost. */}
-        <span className="text-muted-foreground">you can keep typing</span>
+        <span className="text-muted-foreground">You can keep typing</span>
       </div>
     </div>
   );

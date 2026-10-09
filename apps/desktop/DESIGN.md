@@ -1,35 +1,35 @@
 ---
 name: NativePi Desktop
-description: A focused desktop workspace for operating the Pi coding agent in warm-paper light or graphite dark appearances.
+description: A focused desktop workspace for operating the Pi coding agent in mineral light or graphite dark appearances.
 colors:
-  workspace-ink: "oklch(0.155 0.004 285)"
-  sidebar-graphite: "oklch(0.18 0.005 285.885)"
-  raised-graphite: "oklch(0.19 0.005 285)"
-  popover-graphite: "oklch(0.21 0.006 285.885)"
-  soft-slate: "oklch(0.225 0.006 286.033)"
-  interactive-slate: "oklch(0.235 0.006 286.033)"
-  accent-slate: "oklch(0.274 0.006 286.033)"
-  chalk-text: "oklch(0.94 0.004 285)"
-  bright-text: "oklch(0.985 0 0)"
-  primary-chalk: "oklch(0.92 0.004 286.32)"
-  muted-silver: "oklch(0.77 0.012 286.067)"
-  destructive-coral: "oklch(0.85 0.191 22.216)"
-  favorite-gold: "oklch(0.82 0.16 85)"
-  success-green: "oklch(0.75 0.17 145)"
-  warning-amber: "oklch(0.78 0.14 75)"
-  info-blue: "oklch(0.76 0.12 235)"
-  border-hairline: "oklch(1 0 0 / 9%)"
-  input-hairline: "oklch(1 0 0 / 15%)"
-  focus-ring: "oklch(0.6 0.016 285.938)"
-  light-workspace-paper: "oklch(0.975 0.006 75)"
-  light-sidebar-paper: "oklch(0.96 0.007 75)"
-  light-raised-paper: "oklch(0.985 0.005 75)"
-  light-popover-paper: "oklch(0.99 0.004 75)"
-  light-soft-paper: "oklch(0.945 0.007 75)"
-  light-interactive-paper: "oklch(0.935 0.007 75)"
-  light-ink-text: "oklch(0.22 0.007 285)"
-  light-muted-graphite: "oklch(0.53 0.016 285.938)"
-  light-border-hairline: "oklch(0.895 0.008 75)"
+  workspace-ink: "#101114"
+  sidebar-graphite: "#14161a"
+  raised-graphite: "#17191e"
+  popover-graphite: "#1b1e24"
+  soft-slate: "#20232a"
+  interactive-slate: "#242830"
+  accent-slate: "#2b3038"
+  chalk-text: "#e9eaf0"
+  bright-text: "#f2f3f6"
+  primary-chalk: "#e4e6eb"
+  muted-silver: "#b8bbc5"
+  destructive-coral: "#ff9b9e"
+  favorite-gold: "#f1bb3c"
+  success-green: "#68cc7b"
+  warning-amber: "#ebb04f"
+  info-blue: "#79caee"
+  border-hairline: "#292d35"
+  input-hairline: "#363b45"
+  focus-ring: "#7d8592"
+  light-workspace-mineral: "#f7f8fa"
+  light-sidebar-mineral: "#f1f3f6"
+  light-raised-mineral: "#fcfdff"
+  light-popover-mineral: "#fcfdff"
+  light-soft-mineral: "#eceff3"
+  light-interactive-mineral: "#e3e7ec"
+  light-ink-text: "#202126"
+  light-muted-graphite: "#60646f"
+  light-border-hairline: "#d9dde3"
   overlay-scrim: "oklch(0 0 0 / 58%)"
   qr-background: "oklch(1 0 0)"
 typography:
@@ -46,37 +46,37 @@ typography:
     lineHeight: 1
     letterSpacing: "-0.03em"
   headline:
-    fontFamily: "Raleway Variable, sans-serif"
+    fontFamily: "Geist Variable, sans-serif"
     fontSize: "1.5rem"
     fontWeight: 600
-    lineHeight: 1.333
-    letterSpacing: "-0.025em"
+    lineHeight: 1.2
+    letterSpacing: "-0.035em"
   subheading:
-    fontFamily: "Raleway Variable, sans-serif"
+    fontFamily: "Geist Variable, sans-serif"
     fontSize: "1.25rem"
     fontWeight: 600
     lineHeight: 1.3
-    letterSpacing: "-0.02em"
+    letterSpacing: "-0.025em"
   title:
-    fontFamily: "Raleway Variable, sans-serif"
+    fontFamily: "Geist Variable, sans-serif"
     fontSize: "1rem"
     fontWeight: 600
     lineHeight: 1.5
-    letterSpacing: "-0.025em"
+    letterSpacing: "-0.02em"
   body:
-    fontFamily: "Nunito Sans Variable, sans-serif"
+    fontFamily: "Geist Variable, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "normal"
   composer:
-    fontFamily: "Nunito Sans Variable, sans-serif"
+    fontFamily: "Geist Variable, sans-serif"
     fontSize: "0.9375rem"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "normal"
   label:
-    fontFamily: "Nunito Sans Variable, sans-serif"
+    fontFamily: "Geist Variable, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 500
     lineHeight: 1.625
@@ -152,7 +152,7 @@ components:
     backgroundColor: "{colors.raised-graphite}"
     textColor: "{colors.chalk-text}"
     typography: "{typography.composer}"
-    rounded: "{rounded.3xl}"
+    rounded: "{rounded.2xl}"
     padding: "0.5rem 0.75rem 0.75rem"
     width: "var(--conversation-width), defaulting to 48rem"
   user-message:
@@ -175,14 +175,14 @@ components:
 
 **Creative North Star: "The Focused Desktop Workspace"**
 
-NativePi is a compact operating surface that keeps projects, conversations, and code context visible without competing with the work. Its visual hierarchy comes from quiet graphite layers in dark mode, warm-paper layers in light mode, precise spacing, restrained type, and native desktop structure rather than decorative branding.
+NativePi is a compact operating surface that keeps projects, conversations, and code context visible without competing with the work. Its visual hierarchy comes from quiet graphite layers in dark mode, cool mineral layers in light mode, precise spacing, restrained type, and native desktop structure rather than decorative branding.
 
 The system is calm, compact, and tactile. Soft geometry makes dense controls approachable, while explicit hover, focus, selected, running, and error states keep the interface legible during long agent sessions. This is a description of the incumbent system, not a mandate for a themed or ornamental visual world.
 
 **Key Characteristics:**
 
 - Dense three-pane desktop organization with a protected central conversation column.
-- Near-monochrome graphite or warm-paper chrome with saturated color reserved for status and provider identity.
+- Near-monochrome graphite or mineral chrome with saturated color reserved for status and provider identity.
 - Compact controls, soft corners, hairline borders, and visible interaction feedback.
 - Ambient elevation only where a surface genuinely floats above the workspace.
 
@@ -190,7 +190,7 @@ Accessibility is not a design objective, differentiator, or release criterion. D
 
 ## Colors
 
-The palette has two deliberately tuned ladders. Dark mode uses cool graphite layers with chalk text; light mode uses warm-paper layers with graphite text. Both appearances use the same semantic token roles, status hues, and hierarchy rather than mechanically inverting one palette into the other.
+The palette has two deliberately tuned ladders. Dark mode uses cool graphite layers with chalk text; light mode uses crisp mineral layers with graphite text. Both appearances use the same semantic token roles, status hues, and hierarchy rather than mechanically inverting one palette into the other.
 
 ### Primary
 
@@ -211,13 +211,13 @@ The palette has two deliberately tuned ladders. Dark mode uses cool graphite lay
 
 ### Neutral
 
-- **Workspace Ink / Workspace Paper:** The conversation canvas and deepest continuous background.
-- **Sidebar Graphite / Sidebar Paper:** The left and right utility panes.
-- **Raised Graphite / Raised Paper:** Composer and card surfaces that sit above the workspace.
-- **Popover Graphite / Popover Paper:** Menus, dialogs, and floating detail surfaces.
-- **Soft Slate / Soft Paper:** Muted fills and low-priority regions.
-- **Interactive Slate / Interactive Paper:** Secondary controls and selected sidebar rows.
-- **Accent Slate / Accent Paper:** Stronger highlighted menu and navigation states.
+- **Workspace Ink / Workspace Mineral:** The conversation canvas and deepest continuous background.
+- **Sidebar Graphite / Sidebar Mineral:** The left and right utility panes.
+- **Raised Graphite / Raised Mineral:** Composer and card surfaces that sit above the workspace.
+- **Popover Graphite / Popover Mineral:** Menus, dialogs, and floating detail surfaces.
+- **Soft Slate / Soft Mineral:** Muted fills and low-priority regions.
+- **Interactive Slate / Interactive Mineral:** Secondary controls and selected sidebar rows.
+- **Accent Slate / Accent Mineral:** Stronger highlighted menu and navigation states.
 - **Chalk Text / Ink Text:** Primary reading and high-contrast overlay text.
 - **Muted Silver / Muted Graphite:** Secondary labels, timestamps, icons, and explanatory copy.
 - **Border Hairline / Input Hairline:** Low-contrast structural separation tuned separately for each appearance.
@@ -227,15 +227,15 @@ The palette has two deliberately tuned ladders. Dark mode uses cool graphite lay
 
 | Semantic role | Light | Dark |
 | --- | --- | --- |
-| `background` | `oklch(0.975 0.006 75)` | `oklch(0.155 0.004 285)` |
-| `foreground` | `oklch(0.22 0.007 285)` | `oklch(0.94 0.004 285)` |
-| `card` | `oklch(0.985 0.005 75)` | `oklch(0.19 0.005 285)` |
-| `popover` | `oklch(0.99 0.004 75)` | `oklch(0.21 0.006 285.885)` |
-| `muted` | `oklch(0.945 0.007 75)` | `oklch(0.225 0.006 286.033)` |
-| `muted-foreground` | `oklch(0.53 0.016 285.938)` | `oklch(0.77 0.012 286.067)` |
-| `border` | `oklch(0.895 0.008 75)` | `oklch(1 0 0 / 9%)` |
-| `sidebar` | `oklch(0.96 0.007 75)` | `oklch(0.18 0.005 285.885)` |
-| `primary` | `oklch(0.22 0.007 285)` | `oklch(0.92 0.004 286.32)` |
+| `background` | `#f7f8fa` | `#101114` |
+| `foreground` | `#202126` | `#e9eaf0` |
+| `card` | `#fcfdff` | `#17191e` |
+| `popover` | `#fcfdff` | `#1b1e24` |
+| `muted` | `#eceff3` | `#20232a` |
+| `muted-foreground` | `#60646f` | `#b8bbc5` |
+| `border` | `#d9dde3` | `#292d35` |
+| `sidebar` | `#f1f3f6` | `#14161a` |
+| `primary` | `#25282f` | `#e4e6eb` |
 
 `apps/desktop/src/renderer/index.css` remains the source of truth for the default token set. A saved custom color scheme may override those same semantic roles at the document root; new surfaces still use semantic Tailwind tokens rather than reading a particular scheme or adding manual `dark:` overrides. Pure black or white should not be used as general application chrome. Neutral image outlines may use translucent black or white, and QR codes use a white quiet zone for reliable scanning.
 
@@ -255,16 +255,15 @@ The canonical workspace composition is shown in [`docs/assets/nativepi-home.png`
 
 **The Color-Is-Status Rule.** Keep application chrome neutral; use saturated hue only to communicate status, severity, file state, favorites, or an external provider identity.
 
-**The Close-Tone Rule.** Separate persistent panes with adjacent graphite or warm-paper tones and hairlines, not large contrast jumps.
+**The Close-Tone Rule.** Separate persistent panes with adjacent graphite or mineral tones and hairlines, not large contrast jumps.
 
 ## Typography
 
 **Wordmark Font:** Departure Mono (with monospace fallback)
-**Display Font:** Raleway Variable (with sans-serif fallback)
-**Body Font:** Nunito Sans Variable (with sans-serif fallback)
-**Label/Mono Font:** Nunito Sans Variable for interface labels; the platform monospace stack for paths, tool arguments, code, and diffs.
+**Interface Font:** Geist Variable (with sans-serif fallback)
+**Code Font:** The platform monospace stack for paths, tool arguments, code, and diffs.
 
-**Character:** Raleway gives short headings a precise, slightly architectural voice. Nunito Sans keeps dense controls and long conversation text open and approachable.
+**Character:** Geist gives headings, dense controls, and long conversation text one crisp, technical voice. Weight, scale, and tighter heading tracking create hierarchy without introducing a second interface family.
 
 ### Hierarchy
 
@@ -277,11 +276,11 @@ The canonical workspace composition is shown in [`docs/assets/nativepi-home.png`
 
 ### Named Rules
 
-**The Heading-Only Raleway Rule.** Use Raleway for headings and product identity, never for transcript prose, form inputs, or dense metadata.
+**The One-Interface-Family Rule.** Use Geist for headings, controls, and transcript prose. Create hierarchy with weight, size, and tracking rather than a second sans-serif family.
 
 **The Wordmark-Only Departure Rule.** Use Departure Mono only for the NativePi wordmark. It connects NativePi to Pi's visual language without turning application labels into decorative technical text.
 
-**The Technical-Content Rule.** Monospace communicates literal technical material, not visual personality; surrounding labels remain in Nunito Sans.
+**The Technical-Content Rule.** Monospace communicates literal technical material, not visual personality; surrounding labels remain in Geist.
 
 ## Layout
 
@@ -390,7 +389,7 @@ The component system is compact and restrained, with soft geometry and explicit 
 ### Composer
 
 - The persistent composer is the signature floating surface: centered with the transcript, strongly rounded, and softly elevated.
-- Model and reasoning share one picker whose trigger names both. The picker opens on the armed model; reasoning is a discrete effort slider in the footer, labeled with the current level, not a row of abbreviated chips. Context usage and send complete the compact bottom row. Queue behaviour (steer or follow up) lives on the floating run-status pill with Stop. Branch switching lives in the files and changes pane.
+- Model and reasoning share one compact anchored picker whose trigger names both. The picker combines every provider in one searchable, dense model list and uses a discrete reasoning slider with a speed-to-intelligence gradient. It stays open while a new model's reasoning levels load so one visit can configure the whole turn. Context usage and send complete the compact bottom row. Queue behaviour (steer or follow up) lives on the floating run-status pill with Stop. Branch switching lives in the files and changes pane.
 - The context control opens an inspector: used and remaining tokens, last-reply usage from the session, and summarize earlier messages. It does not invent a breakdown Pi does not provide.
 - An empty chat names the open project and offers the composer. It does not suggest starter prompts.
 - The input remains usable while Pi starts or runs; pending and queued states appear immediately above the surface.
@@ -415,7 +414,7 @@ The component system is compact and restrained, with soft geometry and explicit 
 ### Do:
 
 - **Do** preserve the centered 48rem conversation and composer rail as the visual anchor.
-- **Do** build hierarchy with graphite or warm-paper tone, typography, spacing, and hairline separation before adding color or shadow.
+- **Do** build hierarchy with graphite or mineral tone, typography, spacing, and hairline separation before adding color or shadow.
 - **Do** keep controls compact while preserving visible keyboard focus and practical hit targets.
 - **Do** use Phosphor icons for application actions and provider marks only where provider identity is meaningful.
 - **Do** use the Material Icon Theme file-type mark wherever a specific file is named, so a path is recognizable before it is read.
@@ -425,7 +424,7 @@ The component system is compact and restrained, with soft geometry and explicit 
 
 - **Don't** introduce a bright application accent across navigation, buttons, or large surfaces; the incumbent chrome is intentionally neutral.
 - **Don't** wrap every section in a card or add shadows to persistent pane content.
-- **Don't** use Raleway for body copy, code, form values, or transcript content.
+- **Don't** introduce another interface font for body copy, controls, or metadata; Geist owns those roles.
 - **Don't** replace pane structure with a generic dashboard grid or detach the composer from the conversation rail.
 - **Don't** use color as decoration when tone, weight, border, or spacing can communicate hierarchy.
 - **Don't** add visible overflow controls to project or chat rows; their management actions belong to the right-click context menu.

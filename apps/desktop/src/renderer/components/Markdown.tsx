@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import DOMPurify from "dompurify";
-import ReactMarkdown, { type Components, type Options } from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform, type Components, type Options } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -124,6 +124,8 @@ function MermaidDiagram({ source }: { source: string }) {
         mermaid.initialize({
           startOnLoad: false,
           securityLevel: "strict",
+          htmlLabels: false,
+          secure: [...(mermaid.mermaidAPI.defaultConfig.secure ?? []), "htmlLabels"],
           suppressErrorRendering: true,
           theme: document.documentElement.classList.contains("dark") ? "dark" : "default",
           fontFamily: "inherit",
@@ -204,7 +206,46 @@ export function handleMarkdownLink(event: Pick<MouseEvent<HTMLAnchorElement>, "p
   }
 }
 
+export function markdownUrlTransform(url: string, key: string): string {
+  if (key === "src") {
+    if (/^(?:[a-z]:[\\/]|file:)/i.test(url)) return url;
+    if (/^[a-z][a-z\d+.-]*:/i.test(url) && !/^https?:/i.test(url)) return "";
+  }
+  return defaultUrlTransform(url);
+}
+
+function MarkdownImage({ src, alt, title }: { src?: string; alt?: string; title?: string }) {
+  const projectDir = useAppStore((state) => state.activeProjectPath);
+  const local = !!src && !/^(?:https?:|\/\/)/i.test(src);
+  const [loaded, setLoaded] = useState<{ source: string; projectDir: string; src?: string; error?: string }>();
+
+  useEffect(() => {
+    if (!local || !src || !projectDir) return;
+    let active = true;
+    let file = src;
+    if (!/^file:/i.test(file)) {
+      try { file = decodeURIComponent(file); } catch {}
+    }
+    void rpc.request.readProjectImage({ projectDir, file }).then(
+      (result) => { if (active) setLoaded({ source: src, projectDir, ...result }); },
+      () => { if (active) setLoaded({ source: src, projectDir, error: "Image could not be loaded." }); },
+    );
+    return () => { active = false; };
+  }, [local, src, projectDir]);
+
+  if (!src) return <span>{alt || "Image"} — Image could not be loaded.</span>;
+  if (!local) return <img src={src} alt={alt} title={title} loading="lazy" />;
+  if (loaded?.source === src && loaded.projectDir === projectDir) {
+    if (loaded.src) return <img src={loaded.src} alt={alt} title={title} loading="lazy" />;
+    if (loaded.error) return <span title={loaded.error}>{alt || "Image"} — Image could not be loaded.</span>;
+  }
+  return <span>{projectDir ? "Loading image…" : "Open a project to view this image."}</span>;
+}
+
 const components: Components = {
+  img({ src, alt, title }) {
+    return <MarkdownImage src={typeof src === "string" ? src : undefined} alt={alt} title={title} />;
+  },
   a({ node: _node, href, children, ...props }) {
     return (
       <a
@@ -237,6 +278,7 @@ export default function Markdown({
       <div className={cn("markdown", className)} data-streaming={streaming || undefined}>
         <ReactMarkdown
           components={components}
+          urlTransform={markdownUrlTransform}
           remarkPlugins={remarkPlugins}
           rehypePlugins={rehypePlugins}
           skipHtml

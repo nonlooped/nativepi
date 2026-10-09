@@ -33,7 +33,7 @@ export default function BranchSwitcher({
 
   if (!isRepo) return null;
 
-  const label = detached ? "No branch (detached)" : (branch ?? "—");
+  const label = detached ? "No branch (detached)" : (branch ?? "No branch");
 
   return (
     <Menu open={open} onOpenChange={setOpen}>

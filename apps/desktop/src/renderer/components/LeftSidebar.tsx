@@ -39,12 +39,12 @@ export default function LeftSidebar({
     <aside
       className={cn(
         "sidebar-panel flex h-full min-w-0 flex-col bg-sidebar text-muted-foreground",
-        !overlay && "min-w-[220px]",
+        !overlay && "min-w-48",
       )}
     >
       {/* h-12 matches the conversation and context pane headers: three adjacent
           pane headers on two different baselines is a seam you cannot unsee. */}
-      <div className={cn("flex h-12 shrink-0 items-center px-2", TRAFFIC_LIGHTS_CLEARANCE, !overlay && DRAG_REGION)}>
+      <div className={cn("flex h-12 shrink-0 items-center border-b border-sidebar-border/70 px-2", TRAFFIC_LIGHTS_CLEARANCE, !overlay && DRAG_REGION)}>
         <div className={cn("flex items-center gap-2", NO_DRAG_REGION)}>
           <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close sidebar" aria-label="Close sidebar">
             <SidebarSimpleIcon />
@@ -59,7 +59,7 @@ export default function LeftSidebar({
           over this button. `env()` is 0 on every other platform. */}
       <div
         className={cn(
-          "flex shrink-0 items-center gap-1 px-2 pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))]",
+          "flex shrink-0 items-center gap-1 border-t border-sidebar-border/70 px-2 pt-1.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]",
           NO_DRAG_REGION,
         )}
       >
@@ -81,7 +81,7 @@ export default function LeftSidebar({
         collapsible
         collapsedSize="0%"
         defaultSize={`${sidebarSize}%`}
-        minSize="220px"
+        minSize="192px"
         maxSize="30%"
         data-pane-motion="left"
         inert={!open || undefined}

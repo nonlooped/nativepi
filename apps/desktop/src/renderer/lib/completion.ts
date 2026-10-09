@@ -30,6 +30,7 @@ export function useTurnCompletionSignal(): void {
         const previous = running.get(key);
         running.set(key, { running: conversation.running, startedAt: conversation.runStartedAt });
         if (!previous?.running || conversation.running) continue;
+        if (conversation.aborted || conversation.error) continue;
         if (!state.preferences.notifyOnTurnEnd) continue;
         const activeKey = state.activeSessionFile ?? state.activeProjectPath;
         const foreground = conversation.projectDir === state.activeProjectPath && key === activeKey;

@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { tinykeys } from "tinykeys";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
-import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
 import { GitDiffIcon } from "@phosphor-icons/react/GitDiff";
@@ -14,17 +13,20 @@ import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
 import { XIcon } from "@phosphor-icons/react/X";
 import Sidebar from "./components/Sidebar.tsx";
 import Composer from "./components/Composer.tsx";
-import { ExtensionConversationControls } from "./components/ExtensionSlots.tsx";
+import { ExtensionConversationControls, ExtensionConversationView } from "./components/ExtensionSlots.tsx";
 import DropZone from "./components/DropZone.tsx";
 import ExtensionUi from "./components/ExtensionUi.tsx";
 import NativePiWordmark from "./components/NativePiWordmark.tsx";
 import ProjectStatus, { PiStartingNotice } from "./components/ProjectStatus.tsx";
 import QuitDialog from "./components/QuitDialog.tsx";
+import Settings from "./components/Settings.tsx";
 import Toaster from "./components/Toaster.tsx";
 import TrustDialog from "./components/TrustDialog.tsx";
 import WindowControls from "./components/WindowControls.tsx";
+import BrandIcon from "./components/BrandIcon.tsx";
 import { activeConversation, useAppStore } from "./lib/store.ts";
 import { startNewChatFlow } from "./lib/newChat.ts";
+import { providerIconName } from "./lib/providerIcons.ts";
 import { isRemote } from "./lib/rpc.ts";
 import { chatTitle } from "./lib/transcript.ts";
 import { bindingFor, bindings, hintFor, withHint } from "./lib/shortcuts.ts";
@@ -51,8 +53,6 @@ import { useWorkspaceLayout, type WorkspaceLayout } from "./lib/layout.ts";
 const ChatSearchDialog = lazy(() => import("./components/ChatSearchDialog.tsx"));
 const NewChatProjectDialog = lazy(() => import("./components/NewChatProjectDialog.tsx"));
 const ContextPane = lazy(() => import("./components/ContextPane.tsx"));
-const ExtensionConversationView = lazy(() => import("./components/ExtensionSlots.tsx").then((module) => ({ default: module.ExtensionConversationView })));
-const Settings = lazy(() => import("./components/Settings.tsx"));
 const TerminalDock = lazy(() => import("./components/TerminalDock.tsx"));
 const Transcript = lazy(() => import("./components/Transcript.tsx"));
 const TuiOverlay = lazy(() => import("./components/TuiSurface.tsx"));
@@ -195,11 +195,20 @@ export default function App() {
                       <Transcript key={activeSessionFile ?? "new"} />
                     </Suspense>
                   ) : (
-                    <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-8 sm:px-6">
-                      <div className="my-auto flex w-full max-w-(--conversation-width) flex-col items-center gap-4">
-                        <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">
-                          What’s next for {activeProjectName ?? "this project"}?
-                        </h1>
+                    <div className="flex min-h-0 flex-1 overflow-y-auto px-4 pb-8 sm:px-6">
+                      <div className="mx-auto my-auto w-full max-w-(--conversation-width)">
+                        <div className="mb-5 max-w-xl px-1 text-left">
+                          <p className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                            <FolderOpenIcon className="shrink-0" weight="fill" />
+                            Ready to work
+                          </p>
+                          <h1 className="text-balance font-heading text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
+                            {activeProjectName ?? "New project"}
+                          </h1>
+                          <p className="mt-2 text-pretty text-sm leading-6 text-body-muted-foreground">
+                            Tell Pi what you want to understand, fix, or build.
+                          </p>
+                        </div>
                         <Composer prominent />
                       </div>
                     </div>
@@ -340,9 +349,7 @@ export default function App() {
             className="settings-viewport h-full w-full overflow-hidden bg-background sm:rounded-xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <Suspense fallback={<SurfaceLoading label="Loading settings…" />}>
-              <Settings />
-            </Suspense>
+            <Settings />
           </div>
         </div>
       ) : null}
@@ -409,7 +416,7 @@ function ExternalChangeNotice() {
       >
         <WarningCircleIcon weight="fill" className="shrink-0" />
         <p className="min-w-0 flex-1 break-words">
-          This chat changed outside NativePi. Sending is paused so the two copies can't diverge — your draft is safe.
+          This chat changed outside NativePi. Sending is paused so the two copies can't diverge. Your draft is safe.
         </p>
         <Button size="sm" variant="ghost" className="shrink-0 text-warning hover:bg-warning/15 hover:text-warning" onClick={() => void reload()}>
           <ArrowClockwiseIcon data-icon="inline-start" />
@@ -462,6 +469,8 @@ function WorkspaceHeader({
       ? s.sessionsByProject[s.activeProjectPath]?.find((session) => session.path === s.activeSessionFile)
       : undefined,
   );
+  const selectedProvider = useAppStore((s) => s.model?.provider);
+  const provider = selectedProvider ?? activeSession?.providers[0];
   const title = isNewChat ? "New chat" : activeSession ? chatTitle(activeSession) : "Untitled chat";
   const compact = layout === "compact";
   const sharing = useAppStore((s) => s.accessHandoffs.length > 0);
@@ -469,7 +478,7 @@ function WorkspaceHeader({
 
   return (
     <header
-      className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-2 pr-2 pl-2 sm:pl-5 ${sidebarDocked ? "" : TRAFFIC_LIGHTS_CLEARANCE} ${contextDocked ? "" : WINDOW_CONTROLS_CLEARANCE}`}
+      className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-2 border-b border-border/70 pr-2 pl-2 sm:pl-5 ${sidebarDocked ? "" : TRAFFIC_LIGHTS_CLEARANCE} ${contextDocked ? "" : WINDOW_CONTROLS_CLEARANCE}`}
     >
       {!sidebarDocked ? (
         <Button
@@ -485,24 +494,24 @@ function WorkspaceHeader({
       ) : null}
       <div className="min-w-0 flex-1 self-stretch">
         {activeProjectPath ? (
-          // The project half of the breadcrumb is the first thing to go when the
-          // header runs out of room: the sidebar the user just came from already
-          // says which project is open, and the chat title does not.
           <div className="flex h-full min-w-0 items-center gap-2 text-sm font-medium">
-            <span className="hidden min-w-0 items-center gap-1.5 text-muted-foreground sm:flex">
-              <FolderIcon className="shrink-0" />
-              <span className="truncate">{activeProjectName ?? activeProjectPath}</span>
-            </span>
-            <span aria-hidden="true" className="hidden shrink-0 text-muted-foreground/50 sm:inline">
-              /
-            </span>
+            {provider ? (
+              <span className="inline-flex shrink-0 text-muted-foreground" title={`Model provider: ${provider}`}>
+                <BrandIcon name={providerIconName(provider)} size={16} />
+              </span>
+            ) : null}
             {activeSession && !isNewChat ? (
-              <ChatTitle sessionPath={activeSession.path} title={title} />
+              <h1 className="flex min-w-0">
+                <ChatTitle sessionPath={activeSession.path} title={title} />
+              </h1>
             ) : (
               <span className="min-w-0 max-w-80 truncate" title={title}>
                 {title}
               </span>
             )}
+            <span className="hidden min-w-0 truncate text-muted-foreground sm:inline">
+              {activeProjectName ?? activeProjectPath}
+            </span>
           </div>
         ) : (
           <NativePiWordmark className="flex h-full items-center" />
@@ -876,53 +885,45 @@ function WelcomeScreen() {
   const openSettings = useAppStore((s) => s.openSettings);
 
   return (
-    <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-5 pb-12 sm:px-8">
-      <div className="my-auto flex max-w-md flex-col items-center gap-6 text-center">
-        <NativePiWordmark display />
-        <div className="flex flex-col gap-2">
-          <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">Start building with NativePi</h1>
-          {/* The first question an existing Pi user has is whether this is a
-              second setup to maintain. It is not, and that is worth saying
-              before the three steps ask them to connect anything. */}
-          <p className="text-sm leading-6 text-body-muted-foreground">
-            NativePi is a desktop window onto the Pi coding agent. It uses the Pi you already have — the same
-            credentials, settings, and session files, all still on this computer and still usable from the terminal.
+    <div className="flex min-h-0 flex-1 overflow-y-auto px-5 py-10 sm:px-8">
+      <div className="mx-auto my-auto grid w-full max-w-4xl items-center gap-10 md:grid-cols-[minmax(0,1.08fr)_minmax(18rem,0.92fr)] md:gap-16">
+        <section className="flex min-w-0 flex-col items-start text-left">
+          <NativePiWordmark display />
+          <h1 className="mt-7 max-w-xl text-balance font-heading text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
+            Pi, in a focused desktop workspace.
+          </h1>
+          <p className="mt-3 max-w-[58ch] text-pretty text-sm leading-6 text-body-muted-foreground">
+            Open a local project, direct the agent, and review every change without giving up your Pi setup.
           </p>
-        </div>
+          <div className="mt-7 flex flex-wrap items-center justify-start gap-2">
+            <Button size="lg" onClick={() => void addProject()}>
+              <FolderOpenIcon data-icon="inline-start" weight="fill" />
+              Open folder
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => openSettings("Providers")}>
+              <SlidersHorizontalIcon data-icon="inline-start" />
+              Connect a provider
+            </Button>
+          </div>
+          {isRemote ? null : (
+            <p className="mt-3 text-xs text-muted-foreground">You can also drag a folder onto this window.</p>
+          )}
+        </section>
 
-        {/* Three sentences of orientation on the one screen where a
-            first-timer has nothing else to read. */}
-        <ol className="flex w-full flex-col gap-3 text-left">
-          <OnboardingStep index={1} title="Connect a provider">
-            Sign in with a subscription or paste an API key. If you have already done this in Pi, skip it.
-          </OnboardingStep>
-          <OnboardingStep index={2} title="Open a project folder">
-            Pi starts in that folder and can access anything your user account and trusted extensions can access.
-          </OnboardingStep>
-          <OnboardingStep index={3} title="Describe a task">
-            Watch the run, review the files it changed, and steer it while it works.
-          </OnboardingStep>
-        </ol>
-
-        {/* Same order and same words as the numbered steps above, so the
-            buttons read as "do step 1, do step 2" rather than contradicting
-            them. Open folder keeps the primary treatment: existing Pi users
-            arrive with a credential already stored. */}
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button size="lg" variant="outline" onClick={() => openSettings("Providers")}>
-            <SlidersHorizontalIcon data-icon="inline-start" />
-            Connect a provider
-          </Button>
-          <Button size="lg" onClick={() => void addProject()}>
-            <FolderOpenIcon data-icon="inline-start" weight="fill" />
-            Open folder
-          </Button>
-        </div>
-        {/* The only place the window says it takes a drop before one is in the
-            air, and the screen with the most room to say it. */}
-        {isRemote ? null : (
-          <p className="text-xs text-muted-foreground">Or drag a folder onto this window.</p>
-        )}
+        <section className="border-t border-border/70 pt-7 md:border-t-0 md:border-l md:py-2 md:pl-10">
+          <h2 className="font-heading text-sm font-semibold">Start with your existing Pi setup</h2>
+          <ol className="mt-5 flex w-full flex-col gap-5 text-left">
+            <OnboardingStep index={1} title="Connect a provider">
+              Sign in with a subscription or add an API key. Existing Pi credentials are already available.
+            </OnboardingStep>
+            <OnboardingStep index={2} title="Open a project folder">
+              Pi starts in that folder with the same settings, sessions, skills, and extensions.
+            </OnboardingStep>
+            <OnboardingStep index={3} title="Describe the work">
+              Follow the run, inspect changed files, and steer Pi while it works.
+            </OnboardingStep>
+          </ol>
+        </section>
       </div>
     </div>
   );

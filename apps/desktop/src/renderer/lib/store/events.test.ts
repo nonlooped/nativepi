@@ -58,3 +58,18 @@ test("starts streaming from message_start and commits message_end", () => {
   expect(ended.streaming).toBeNull();
   expect(ended.entries?.[0]?.type === "message" && ended.entries[0].message).toEqual(complete);
 });
+
+test("Pi cancellation preserves a partial reply and resets for the next turn", () => {
+  const message: AssistantMessage = { role: "assistant", content: [{ type: "text", text: "Partial reply" }], timestamp: 1 };
+  const running = { ...emptyConversation(), running: true, runStartedAt: 1, streaming: message };
+  const settled = { ...running, ...reduce(running, { type: "agent_settled", aborted: true }) };
+  expect(settled.running).toBe(false);
+  expect(settled.aborted).toBe(true);
+  expect(settled.streaming).toBeNull();
+  expect(settled.entries[0]?.type === "message" && settled.entries[0].message).toEqual(message);
+  const restarted = { ...settled, ...reduce(settled, { type: "agent_start" }) };
+  expect(restarted.running).toBe(true);
+  expect(restarted.aborted).toBe(false);
+  const finished = reduce(restarted, { type: "agent_settled", aborted: false });
+  expect(finished.aborted).toBe(false);
+});

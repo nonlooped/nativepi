@@ -18,6 +18,7 @@ export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
     case "agent_start":
       return {
         running: true,
+        aborted: false,
         error: undefined,
         errorRecovery: undefined,
         runStartedAt: s.runStartedAt ?? Date.now(),
@@ -28,12 +29,13 @@ export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
       if (s.streaming)
         return {
           running: false,
+          aborted: event.aborted === true,
           runStartedAt: null,
           streaming: null,
           retry: null,
           entries: [...s.entries, liveEntry(s.streaming)],
         };
-      return { running: false, runStartedAt: null, streaming: null, retry: null };
+      return { running: false, aborted: event.aborted === true, runStartedAt: null, streaming: null, retry: null };
     case "agent_end":
       return {};
     case "message_start": {

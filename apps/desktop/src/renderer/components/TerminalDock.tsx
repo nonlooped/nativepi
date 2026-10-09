@@ -374,7 +374,7 @@ function TerminalSplit({
                   type="button"
                   className="min-w-0 flex-1 truncate text-left text-xs font-medium"
                   onClick={() => setEditingName(true)}
-                  title={session.exited ? `${session.name} — exited (code ${session.exitCode ?? "unknown"})` : session.name}
+                  title={session.exited ? `${session.name}, exited with code ${session.exitCode ?? "unknown"}` : session.name}
                 >
                   {session.name}
                 </button>

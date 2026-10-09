@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { useAppStore } from "../../lib/store.ts";
 import { rpc } from "../../lib/rpc.ts";
 import { useRequest } from "../../lib/useRequest.ts";
+import { createRequestCache } from "../../lib/requestCache.ts";
 import { providerIconName } from "../../lib/providerIcons.ts";
 import BrandIcon from "../BrandIcon.tsx";
 
@@ -29,6 +30,9 @@ const subscriptionUsageResultSchema = z.object({
 
 type SubscriptionUsageLimit = z.infer<typeof subscriptionUsageLimitSchema>;
 type SubscriptionUsage = z.infer<typeof subscriptionUsageSchema>;
+type SubscriptionUsageResult = { usages: SubscriptionUsage[] };
+
+const usageCache = createRequestCache<string, SubscriptionUsageResult>();
 
 function providerLabel(provider: string) {
   return provider === "github-copilot"
@@ -94,10 +98,11 @@ export default function SubscriptionUsageSettings() {
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const projects = useAppStore((s) => s.projects);
   const projectDir = activeProjectPath ?? projects[0]?.path ?? null;
+  const cacheKey = `${projectDir ?? ""}\0${activeSessionFile ?? ""}`;
 
   const request = useRequest(
-    async () => {
-      if (!projectDir) return { usages: [] as SubscriptionUsage[] };
+    () => usageCache.load(cacheKey, async () => {
+      if (!projectDir) return { usages: [] };
       const { result, error } = await rpc.request.callExtension({
         projectDir,
         sessionFile: activeSessionFile ?? null,
@@ -117,9 +122,13 @@ export default function SubscriptionUsageSettings() {
         return bMax - aMax;
       });
       return { usages };
-    },
-    [projectDir, activeSessionFile],
+    }),
+    [cacheKey],
   );
+  const refresh = () => {
+    usageCache.invalidate(cacheKey);
+    request.reload();
+  };
 
   const usages = request.data?.usages ?? [];
   const error = request.data ? null : request.error;
@@ -127,7 +136,7 @@ export default function SubscriptionUsageSettings() {
   if (!projectDir) {
     return (
       <div className="flex flex-col gap-6">
-        <RefreshButton onRefresh={request.reload} loading={request.loading} />
+        <RefreshButton onRefresh={refresh} loading={request.loading} />
         <EmptyState
           icon={<PlugsConnectedIcon size={20} />}
           title="Open a project to view subscription usage"
@@ -145,7 +154,7 @@ export default function SubscriptionUsageSettings() {
 
   return (
     <div className="flex flex-col gap-6">
-      <RefreshButton onRefresh={request.reload} loading={request.loading} />
+      <RefreshButton onRefresh={refresh} loading={request.loading} />
 
       {error ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -164,7 +173,7 @@ export default function SubscriptionUsageSettings() {
       ) : usages.length === 0 ? (
         <EmptyState
           title="No subscription limits to show"
-          description="Connect a supported provider — Anthropic, OpenAI Codex, Kimi Code, or GitHub Copilot — with a subscription account in Providers. Limits appear here once Pi can read them."
+          description="Connect Anthropic, OpenAI Codex, Kimi Code, or GitHub Copilot with a subscription account in Providers. Limits appear once Pi can read them."
         />
       ) : (
         <div className="border-b border-border/70">

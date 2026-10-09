@@ -60,18 +60,10 @@ export function iconName(path: string): string {
   return DEFAULT_ICON;
 }
 
-const svgCache = new Map<string, string>();
-
 /** The SVG source for `path`, always resolvable: unknown types fall back to a blank page. */
 export function iconSvg(path: string): string {
-  const cached = svgCache.get(path);
-  if (cached !== undefined) return cached;
-
   // The manifest points at `./../icons/<name>.svg`, and clones add a `.clone`
   // infix, so the file name is read off the definition rather than rebuilt.
   const iconPath = iconDefinitions[iconName(path)]?.iconPath ?? "";
-  const svg = SVG_BY_FILE.get(basename(iconPath)) ?? SVG_BY_FILE.get(`${DEFAULT_ICON}.svg`) ?? "";
-
-  svgCache.set(path, svg);
-  return svg;
+  return SVG_BY_FILE.get(basename(iconPath)) ?? SVG_BY_FILE.get(`${DEFAULT_ICON}.svg`) ?? "";
 }
