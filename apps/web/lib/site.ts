@@ -15,11 +15,6 @@ export const site = {
   repo: "https://github.com/nonlooped/nativepi",
   releases: "https://github.com/nonlooped/nativepi/releases",
   releasesLatest: latestRelease,
-  downloads: {
-    windows: latestRelease,
-    macos: latestRelease,
-    linux: latestRelease,
-  },
   issues: "https://github.com/nonlooped/nativepi/issues",
   license: "https://github.com/nonlooped/nativepi/blob/main/LICENSE",
   extensionApi:

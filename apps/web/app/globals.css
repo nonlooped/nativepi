@@ -14,13 +14,7 @@
   --color-chalk: oklch(0.94 0.004 285);
   --color-bright: oklch(0.985 0 0);
   --color-primary-chalk: oklch(0.92 0.004 286.32);
-  --color-silver: oklch(0.64 0.012 286.067);
-  /*
-    Dim is the lowest text tone the site has, and it is set exactly where it
-    still clears 4.5:1 against the lightest ground it is used on (Sidebar
-    Graphite). Anything darker reads as a nicer hierarchy and fails the people
-    who need the contrast.
-  */
+  --color-silver: oklch(0.71 0.008 286.067);
   --color-dim: oklch(0.6 0.012 286);
 
   --color-coral: oklch(0.704 0.191 22.216);
@@ -47,14 +41,6 @@
 
 }
 
-@font-face {
-  font-family: "Departure Mono";
-  src: url("/fonts/DepartureMono-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
 @layer base {
   * {
     border-color: var(--color-hairline);
@@ -65,6 +51,7 @@
     background-color: var(--color-ink);
     color-scheme: dark;
     -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 6rem;
   }
 
   body {
@@ -74,6 +61,7 @@
     font-size: 1rem;
     line-height: 1.65;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     overflow-x: clip;
   }
@@ -96,11 +84,6 @@
     text-decoration-thickness: from-font;
   }
 
-  /*
-    Focus is visible against the dark ground at every size. The desktop app pairs
-    a border shift with a soft ring; the web surface keeps the ring alone because
-    most focusable elements here have no border to shift.
-  */
   :focus-visible {
     outline: 2px solid var(--color-chalk);
     outline-offset: 2px;
@@ -112,7 +95,6 @@
     color: var(--color-bright);
   }
 
-  /* Tabular numerals wherever a number changes or aligns, per the desktop rule. */
   .tnum {
     font-variant-numeric: tabular-nums;
   }
@@ -121,9 +103,9 @@
 @layer components {
   .rail {
     width: 100%;
-    max-width: 96rem;
+    max-width: 88rem;
     margin-inline: auto;
-    padding-inline: 1.5rem;
+    padding-inline: 1.25rem;
   }
 
   @media (min-width: 768px) {
@@ -144,23 +126,23 @@
 
   .hero-display {
     font-family: var(--font-display);
-    font-size: clamp(2.75rem, 6vw, 4.5rem);
-    font-weight: 600;
-    line-height: 0.98;
-    letter-spacing: -0.045em;
+    font-size: clamp(3rem, 6.8vw, 6.125rem);
+    font-weight: 500;
+    line-height: 1.06;
+    letter-spacing: -0.06em;
     text-wrap: balance;
   }
 
   .section-head {
     font-family: var(--font-display);
-    font-size: clamp(1.75rem, 3.6vw, 3rem);
-    font-weight: 600;
-    line-height: 1.06;
-    letter-spacing: -0.035em;
+    font-size: clamp(2rem, 3.8vw, 3.5rem);
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.045em;
   }
 
   .lede {
-    font-size: clamp(1.0625rem, 1.5vw, 1.3125rem);
+    font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
     line-height: 1.55;
     color: var(--color-silver);
   }
@@ -182,20 +164,16 @@
       0 12px 24px -16px oklch(0 0 0 / 60%);
   }
 
-  .window-panel {
-    background-color: var(--color-raised);
-    border: 1px solid var(--color-hairline);
-    border-radius: var(--radius-lg);
-    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 5%);
+  .workflow summary::-webkit-details-marker {
+    display: none;
   }
 
-  .composer-cta {
-    background-color: var(--color-raised);
-    border: 1px solid var(--color-hairline);
-    border-radius: var(--radius-3xl);
-    box-shadow:
-      inset 0 1px 0 0 oklch(1 0 0 / 6%),
-      0 20px 48px -24px oklch(0 0 0 / 80%);
+  .workflow-toggle {
+    transition: transform 150ms ease-out;
+  }
+
+  .workflow[open] .workflow-toggle {
+    transform: rotate(45deg);
   }
 }
 

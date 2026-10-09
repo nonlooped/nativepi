@@ -53,7 +53,7 @@ export function DocsNav() {
 
       <nav
         aria-label="Documentation"
-        className="no-scrollbar sticky top-20 hidden max-h-[calc(100vh-6rem)] h-fit w-60 shrink-0 overflow-y-auto pb-8 lg:block"
+        className="no-scrollbar sticky top-24 hidden max-h-[calc(100dvh-7rem)] h-fit w-60 shrink-0 overflow-y-auto pb-8 lg:block"
       >
         {docsSections.map((section) => (
           <div

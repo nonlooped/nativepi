@@ -1,121 +1,84 @@
 import {
   ArrowRightIcon,
+  ChatCircleTextIcon,
   CodeIcon,
-  LayoutIcon,
   RowsIcon,
-  SquaresFourIcon,
   SidebarSimpleIcon,
+  SquaresFourIcon,
   WrenchIcon,
 } from "@phosphor-icons/react/dist/ssr";
+import Link from "next/link";
 
 import { Button } from "@/components/site/Button";
-import { DownloadButton } from "@/components/site/DownloadButton";
 import { site } from "@/lib/site";
 
 const slots = [
-  {
-    name: "Tool & entry renderers",
-    detail: "Replace Pi tool calls and session entries with native React.",
-    Icon: WrenchIcon,
-  },
-  {
-    name: "Composer widgets & controls",
-    detail: "Add state above the composer or compact actions beside Send.",
-    Icon: RowsIcon,
-  },
-  {
-    name: "Conversation views",
-    detail: "Open a complete extension workspace in the conversation area.",
-    Icon: SquaresFourIcon,
-  },
-  {
-    name: "Context panels",
-    detail: "Keep extension context visible beside the conversation.",
-    Icon: SidebarSimpleIcon,
-  },
-  {
-    name: "Typed host channel",
-    detail: "One shared protocol for calls and events, validated on both sides.",
-    Icon: LayoutIcon,
-  },
-  {
-    name: "Panels & settings",
-    detail: "Keep project context visible and give configuration a native home.",
-    Icon: CodeIcon,
-  },
-];
+  { name: "Tools and session entries", detail: "Give tool results a native presentation.", href: "tools-and-entries", Icon: WrenchIcon },
+  { name: "Composer contributions", detail: "Put extension controls beside the prompt.", href: "composer", Icon: RowsIcon },
+  { name: "Conversation views", detail: "Open a complete extension workspace.", href: "contributions", Icon: ChatCircleTextIcon },
+  { name: "Context panels", detail: "Keep useful context beside the conversation.", href: "contributions", Icon: SidebarSimpleIcon },
+  { name: "Panels and settings", detail: "Give extension configuration a home.", href: "panels-and-settings", Icon: SquaresFourIcon },
+  { name: "Typed host channel", detail: "Connect your interface to your Pi extension.", href: "host-channel", Icon: CodeIcon },
+] as const;
 
 export function Close() {
   return (
-    <section
-      id="extensions"
-      className="scroll-mt-12 border-t border-hairline bg-sidebar py-20 sm:py-28 lg:py-32"
-    >
-      <div className="rail">
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start lg:gap-20">
-          <div className="max-w-2xl">
-            <p className="text-sm font-medium text-silver">Extensions</p>
-            <h2 className="section-head mt-4 text-bright">
-              Pi extensions can belong in the window.
-            </h2>
+    <>
+      <section id="extensions" className="scroll-mt-24 border-t border-hairline py-20 sm:py-28">
+        <div className="rail">
+          <div className="max-w-3xl">
+            <h2 className="section-head text-bright">Bring your Pi extensions into view.</h2>
+            <p className="lede mt-6 max-w-[55ch]">
+              Pi&apos;s terminal extension UI works in the window. Add an optional
+              React interface when your extension needs more space.
+            </p>
           </div>
-
-          <div className="lg:pt-8">
-            <p className="text-base leading-relaxed text-silver">
-              NativePi presents Pi&apos;s terminal extension UI and also offers a
-              typed graphical API. Build native React contributions without
-              replacing the agent or maintaining a separate integration.
+          <ul className="mt-12 grid gap-x-16 gap-y-8 md:grid-cols-2">
+            {slots.map(({ name, detail, href, Icon }) => (
+              <li key={name}>
+                <Link href={`/docs/extension-api/${href}`} className="group flex items-start gap-4 rounded-md py-2">
+                  <Icon className="mt-1 size-5 shrink-0 text-slot" aria-hidden="true" />
+                  <span className="flex-1">
+                    <span className="block text-base font-medium text-chalk">{name}</span>
+                    <span className="mt-1 block text-sm text-silver">{detail}</span>
+                  </span>
+                  <ArrowRightIcon className="mt-1 size-4 shrink-0 text-dim transition-[color,transform] duration-150 group-hover:translate-x-1 group-hover:text-chalk" aria-hidden="true" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-12 flex flex-col justify-between gap-6 border-t border-hairline pt-6 sm:flex-row sm:items-center">
+            <p className="max-w-[52ch] text-sm text-silver">
+              The graphical API is experimental and versioned. Pi still owns the
+              tools, configuration, and agent behavior.
             </p>
-            <p className="mt-4 text-sm leading-relaxed text-silver">
-              <span className="font-medium text-chalk">API version 1.</span>{" "}
-              The graphical contract is versioned and MIT licensed. A bundle
-              declares <code className="rounded bg-white/[0.06] px-1 py-0.5 font-mono text-xs text-chalk">apiVersion: 1</code> and NativePi rejects an incompatible one.
-            </p>
-            <Button
-              href="/docs/extension-api"
-              variant="outline"
-              className="mt-5"
-            >
-              Read the extension API
-              <ArrowRightIcon className="size-4" />
+            <Button href="/docs/extension-api" variant="outline" className="shrink-0 self-start">
+              Read the extension API<ArrowRightIcon className="size-4" aria-hidden="true" />
             </Button>
           </div>
         </div>
-
-        <ul className="mt-14 grid border-y border-hairline md:grid-cols-2 md:[&>li:nth-child(odd)]:border-e md:[&>li:nth-child(-n+2)]:border-b">
-          {slots.map(({ name, detail, Icon }) => (
-            <li key={name} className="flex gap-4 border-b border-hairline p-5 last:border-b-0 md:border-b-0 sm:p-6">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slot/20 bg-slot/[0.06] text-slot">
-                <Icon className="size-4" />
-              </span>
-              <div>
-                <h3 className="font-display text-base font-semibold text-chalk">
-                  {name}
-                </h3>
-                <p className="mt-1 text-sm leading-relaxed text-silver">
-                  {detail}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
-
-        <div className="composer-cta mt-16 flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+      </section>
+      <section aria-labelledby="download-title" className="border-t border-hairline bg-sidebar py-16 sm:py-20">
+        <div className="rail flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
           <div>
-            <p className="text-sm text-silver">Ready to use Pi on desktop?</p>
-            <p className="mt-1 font-display text-xl font-semibold tracking-[-0.025em] text-bright">
-              Open a project. Everything Pi knows is already there.
+            <h2 id="download-title" className="section-head max-w-[15ch] text-bright">
+              Your next project, with a little more room.
+            </h2>
+            <p className="mt-5 max-w-xl text-base text-silver">
+              Pi is included. Open a folder and start a conversation.
             </p>
           </div>
-
-          <div className="flex shrink-0 flex-wrap gap-3">
-            <DownloadButton />
-            <Button href={site.repo} variant="ghost">
-              View source
-            </Button>
+          <div className="lg:pb-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button href={site.releasesLatest} external={false}>Download NativePi</Button>
+              <Button href={site.repo} variant="ghost">View source</Button>
+            </div>
+            <p className="mt-4 text-sm text-silver">
+              Free for Windows, macOS, and Linux. Installers are unsigned.
+            </p>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }

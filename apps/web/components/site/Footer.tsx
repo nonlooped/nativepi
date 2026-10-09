@@ -47,8 +47,8 @@ export function Footer() {
 
         <div className="mt-8 flex flex-col gap-4 border-t border-hairline pt-6 text-xs leading-relaxed text-silver lg:flex-row lg:items-center lg:justify-between">
           <p>
-            MIT licensed. Built by {site.author}. No app account. No desktop
-            telemetry.
+            MIT licensed. Built by {site.author}. No product account. No
+            NativePi-owned desktop telemetry.
           </p>
           <p className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <a
@@ -74,7 +74,8 @@ export function Footer() {
 
         <p className="mt-4 text-xs leading-relaxed text-dim">
           Provider marks belong to their owners and indicate compatibility only.
-          NativePi is not affiliated with or endorsed by them.
+          NativePi is not affiliated with or endorsed by them. This website uses
+          Vercel Web Analytics.
         </p>
       </div>
     </footer>

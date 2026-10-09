@@ -6,8 +6,8 @@ import { site } from "@/lib/site";
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-50 border-b border-hairline bg-ink/95 backdrop-blur-xl">
-      <div className="rail flex h-14 items-center justify-between gap-6">
+    <header className="sticky top-0 z-10 border-b border-hairline bg-ink">
+      <div className="rail flex h-18 items-center justify-between gap-6">
         <Link
           href="/"
           className="flex min-h-11 items-center rounded-sm"
@@ -34,7 +34,7 @@ export function Header() {
             target="_blank"
             rel="noreferrer noopener"
             aria-label="NativePi on GitHub"
-            className="ms-1 inline-flex h-9 items-center gap-2 rounded-md border border-input-hairline bg-white/[0.04] px-3 text-sm text-chalk transition-[background-color,border-color,transform] duration-150 hover:border-white/25 hover:bg-white/[0.08] active:translate-y-px"
+            className="ms-1 inline-flex min-h-11 items-center gap-2 rounded-md border border-input-hairline bg-white/[0.04] px-3 text-sm text-chalk transition-[background-color,border-color,transform] duration-150 hover:border-white/25 hover:bg-white/[0.08] active:translate-y-px"
           >
             <GitHubMark className="size-4" />
             <span className="hidden min-[460px]:inline">GitHub</span>

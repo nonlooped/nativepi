@@ -1,94 +1,82 @@
 import {
-  ArrowsClockwiseIcon,
+  ArrowRightIcon,
+  ChatCircleTextIcon,
   GitBranchIcon,
-  GlobeHemisphereWestIcon,
-  PaintBrushIcon,
+  PlusIcon,
+  SlidersHorizontalIcon,
   TerminalWindowIcon,
-  TreeStructureIcon,
 } from "@phosphor-icons/react/dist/ssr";
+import Link from "next/link";
 
-const capabilities = [
+const workflows = [
   {
-    title: "Review and ship changes",
-    detail:
-      "Inspect rich diffs, stage files or individual hunks, draft a Conventional Commit with Pi, sync, and open a GitHub pull request.",
+    title: "Follow the conversation",
+    description: "See Pi think, use tools, and work through your project.",
+    detail: "Steer a running turn, queue the next idea, attach images, or fork a conversation. Your sessions are the same ones you use in Pi.",
+    href: "/docs/working-with-pi",
+    link: "Explore conversations",
+    Icon: ChatCircleTextIcon,
+  },
+  {
+    title: "Review the changes",
+    description: "Move from a suggested change to a reviewed commit.",
+    detail: "Read rich diffs, stage a file or a single hunk, and ask Pi to draft a commit message. Switch clean branches, add worktrees, and open GitHub pull requests.",
+    href: "/docs/git",
+    link: "Explore source control",
     Icon: GitBranchIcon,
   },
   {
-    title: "Keep several chats moving",
-    detail:
-      "Run chats concurrently across projects. Steer an active turn, queue follow-ups, retry, compact, fork, clone, or return to any Pi session.",
-    Icon: ArrowsClockwiseIcon,
-  },
-  {
-    title: "Work in persistent terminals",
-    detail:
-      "Split project-scoped terminals beside the conversation. They stay alive when hidden and while you move between projects.",
+    title: "Stay in your workspace",
+    description: "Keep your files, terminals, and active chats close.",
+    detail: "Run chats across projects and split persistent terminals beside the conversation. Start browser access when you need the same workspace on another device.",
+    href: "/docs/browser-access",
+    link: "Explore browser access",
     Icon: TerminalWindowIcon,
   },
   {
-    title: "Branch without losing context",
-    detail:
-      "Switch clean branches, create a branch, inspect local and remote history, or add a worktree as its own NativePi project.",
-    Icon: TreeStructureIcon,
-  },
-  {
-    title: "Open the same workspace in a browser",
-    detail:
-      "Start token-protected access on your local network or create a temporary public link. The desktop app remains the host.",
-    Icon: GlobeHemisphereWestIcon,
-  },
-  {
-    title: "Make the workspace yours",
-    detail:
-      "Choose light or dark appearance, use ten built-in color schemes or create one, and rebind keyboard shortcuts by pressing the keys.",
-    Icon: PaintBrushIcon,
+    title: "Make it feel like yours",
+    description: "Choose the appearance, shortcuts, and Pi setup that fit.",
+    detail: "Use light or dark appearance, ten built-in color schemes or your own, and rebind shortcuts. Manage Pi models, thinking levels, packages, and extensions from the window.",
+    href: "/docs/settings-and-customization",
+    link: "Explore customization",
+    Icon: SlidersHorizontalIcon,
   },
 ] as const;
 
 export function Capabilities() {
   return (
-    <section id="features" className="scroll-mt-14 bg-ink py-20 sm:py-28 lg:py-32">
-      <div className="rail">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-end lg:gap-20">
-          <div className="max-w-2xl">
-            <p className="text-sm font-medium text-silver">The workspace</p>
-            <h2 className="section-head mt-4 text-bright">
-              One place for the full project loop.
-            </h2>
-          </div>
-          <p className="text-base leading-relaxed text-silver">
-            NativePi keeps the conversation at the center, then puts the code,
-            terminals, source control, sessions, and Pi controls around it.
+    <section id="features" className="scroll-mt-24 py-20 sm:py-28">
+      <div className="rail grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-20">
+        <div>
+          <h2 className="section-head max-w-[14ch] text-bright">
+            From the first prompt to the final diff.
+          </h2>
+          <p className="lede mt-6 max-w-[35ch]">
+            A conversation at the center. Everything you need to work around it.
           </p>
         </div>
-
-        <ul className="mt-14 grid border-y border-hairline md:grid-cols-2 md:[&>li:nth-child(odd)]:border-e md:[&>li:nth-child(-n+4)]:border-b">
-          {capabilities.map(({ title, detail, Icon }) => (
-            <li
-              key={title}
-              className="flex gap-4 border-b border-hairline p-5 last:border-b-0 sm:p-6 md:border-b-0"
-            >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-chalk shadow-[inset_0_0_0_1px_var(--color-hairline)]">
-                <Icon className="size-4" weight="regular" />
-              </span>
-              <div>
-                <h3 className="font-display text-base font-semibold text-chalk">
-                  {title}
-                </h3>
-                <p className="mt-1 max-w-xl text-sm leading-relaxed text-silver">
-                  {detail}
-                </p>
+        <div className="border-t border-hairline">
+          {workflows.map(({ title, description, detail, href, link, Icon }, index) => (
+            <details key={title} name="workflows" open={index === 0} className="workflow group border-b border-hairline">
+              <summary className="flex cursor-pointer list-none items-start gap-4 py-6 marker:hidden sm:gap-5">
+                <Icon className="mt-1 size-5 shrink-0 text-silver" aria-hidden="true" />
+                <span className="flex-1">
+                  <span className="block text-lg font-medium tracking-[-0.02em] text-chalk transition-colors group-hover:text-bright">
+                    {title}
+                  </span>
+                  <span className="mt-1 block text-sm text-silver">{description}</span>
+                </span>
+                <PlusIcon className="workflow-toggle mt-1 size-4 shrink-0 text-silver" aria-hidden="true" />
+              </summary>
+              <div className="pb-6 ps-9 sm:ps-10">
+                <p className="max-w-[52ch] text-sm leading-relaxed text-silver">{detail}</p>
+                <Link href={href} className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-chalk transition-colors hover:text-bright">
+                  {link}<ArrowRightIcon className="size-4" aria-hidden="true" />
+                </Link>
               </div>
-            </li>
+            </details>
           ))}
-        </ul>
-
-        <p className="mt-6 max-w-3xl text-sm leading-relaxed text-silver">
-          Images, slash commands, skills, model and thinking controls, package
-          management, notifications, and automatic updates are built into the
-          same workspace.
-        </p>
+        </div>
       </div>
     </section>
   );

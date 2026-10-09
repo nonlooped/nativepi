@@ -1,109 +1,68 @@
-import {
-  FolderIcon,
-  MonitorIcon,
-  TerminalWindowIcon,
-} from "@phosphor-icons/react/dist/ssr";
-
-import { PiMark } from "@/components/site/Marks";
-import { Wordmark } from "@/components/site/Wordmark";
-
-const nativePiKeeps = [
-  "Pinned projects and chats",
-  "Last project and chat",
-  "Unsent drafts",
-  "Favorite models",
-  "Pane sizes",
-  "Interface preferences",
-];
+import { ArrowsDownUpIcon, MonitorIcon, TerminalWindowIcon } from "@phosphor-icons/react/dist/ssr";
+import Link from "next/link";
 
 const sharedState = [
-  ["sessions/", "Conversations"],
-  ["packages/", "Packages and extensions"],
-  ["settings.json", "Pi configuration"],
-  ["auth.json", "Provider logins"],
+  ["Sessions", "Conversations and their history"],
+  ["Credentials", "Your existing provider logins"],
+  ["Configuration", "Models, settings, and preferences"],
+  ["Packages", "Pi extensions and skills"],
 ] as const;
 
 export function Interchange() {
   return (
-    <section
-      id="ownership"
-      className="scroll-mt-12 bg-ink py-20 sm:py-28 lg:py-32"
-    >
-      <div className="rail grid gap-14 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start lg:gap-20">
-        <div className="max-w-2xl">
-          <p className="text-sm font-medium text-silver">Your data</p>
-          <h2 className="section-head mt-4 max-w-2xl text-bright">
-            Your Pi setup stays yours.
-          </h2>
-          <p className="lede mt-6 max-w-2xl">
-            NativePi reads the same sessions, credentials, settings, packages,
-            and extensions as the Pi command line. Close the app and keep
-            working in the terminal. Nothing needs exporting or migrating.
+    <section id="ownership" className="scroll-mt-24 py-20 sm:py-28">
+      <div className="rail">
+        <div className="max-w-3xl">
+          <h2 className="section-head text-bright">A new window. The same Pi.</h2>
+          <p className="lede mt-6 max-w-[52ch]">
+            Close NativePi and continue in the terminal. Your sessions,
+            credentials, and configuration stay in Pi&apos;s normal storage.
           </p>
-
-          <div className="mt-10 border-t border-hairline pt-6">
-            <h3 className="text-sm font-semibold text-chalk">
-              NativePi keeps only interface state
-            </h3>
-            <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
-              {nativePiKeeps.map((item) => (
-                <li
-                  key={item}
-                  className="flex items-center gap-2 text-sm text-silver"
-                >
-                  <span className="size-1 rounded-full bg-dim" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
-
-        <div className="lg:pt-8">
-          <div className="window-panel overflow-hidden">
-            <div className="grid grid-cols-2 border-b border-hairline">
-              <div className="flex min-h-24 flex-col items-center justify-center gap-2 border-e border-hairline p-4">
-                <Wordmark className="h-4" />
-                <span className="flex items-center gap-1.5 text-xs text-silver">
-                  <MonitorIcon className="size-3.5" />
-                  Desktop
-                </span>
+        <div className="mt-12 grid gap-10 lg:grid-cols-[1.25fr_0.75fr] lg:items-center lg:gap-20">
+          <div className="rounded-xl border border-hairline bg-sidebar p-5 sm:p-8">
+            <div className="grid grid-cols-2 gap-5 text-center">
+              <div className="flex flex-col items-center gap-3">
+                <MonitorIcon className="size-6 text-silver" aria-hidden="true" />
+                <p className="text-sm font-medium text-chalk">NativePi desktop</p>
+                <ArrowsDownUpIcon className="size-5 text-dim" aria-hidden="true" />
               </div>
-              <div className="flex min-h-24 flex-col items-center justify-center gap-2 p-4">
-                <span className="flex items-center gap-2 font-mono text-sm text-chalk">
-                  <PiMark className="size-3.5" />
-                  pi
-                </span>
-                <span className="flex items-center gap-1.5 text-xs text-silver">
-                  <TerminalWindowIcon className="size-3.5" />
-                  Command line
-                </span>
+              <div className="flex flex-col items-center gap-3">
+                <TerminalWindowIcon className="size-6 text-silver" aria-hidden="true" />
+                <p className="text-sm font-medium text-chalk">Pi command line</p>
+                <ArrowsDownUpIcon className="size-5 text-dim" aria-hidden="true" />
               </div>
             </div>
-
-            <div className="bg-void p-4">
-              <p className="flex items-center gap-2 font-mono text-sm text-chalk">
-                <FolderIcon className="size-4 text-silver" />
-                ~/.pi/agent
-              </p>
-              <dl className="mt-4 divide-y divide-hairline border-s border-hairline ps-4">
-                {sharedState.map(([path, label]) => (
-                  <div
-                    key={path}
-                    className="flex items-start justify-between gap-4 py-2 first:pt-0 last:pb-0"
-                  >
-                    <dt className="font-mono text-xs text-chalk">{path}</dt>
-                    <dd className="text-end text-xs text-silver">{label}</dd>
+            <div className="mt-5 rounded-lg border border-hairline bg-ink p-5 sm:p-6">
+              <p className="text-sm font-medium text-chalk">One shared Pi setup</p>
+              <p className="mt-1 font-mono text-xs text-silver">~/.pi/agent</p>
+              <dl className="mt-6 grid gap-x-6 gap-y-5 sm:grid-cols-2">
+                {sharedState.map(([label, description]) => (
+                  <div key={label}>
+                    <dt className="text-sm font-medium text-chalk">{label}</dt>
+                    <dd className="mt-1 text-xs text-silver">{description}</dd>
                   </div>
                 ))}
               </dl>
             </div>
           </div>
-
-          <p className="mt-4 text-sm leading-relaxed text-silver">
-            No product account. No cloud conversation store. No NativePi-owned
-            desktop telemetry.
-          </p>
+          <div>
+            <h3 className="font-display text-2xl font-medium tracking-[-0.03em] text-chalk">
+              Nothing to move. Nothing to lock in.
+            </h3>
+            <p className="mt-4 max-w-[40ch] text-base text-silver">
+              NativePi remembers interface details such as your drafts, pinned
+              projects, favorite models, and pane sizes. Pi remains the source
+              of truth for your conversations.
+            </p>
+            <p className="mt-4 max-w-[40ch] text-sm text-silver">
+              No product account, cloud conversation store, or NativePi-owned
+              desktop telemetry.
+            </p>
+            <Link href="/docs/sessions-and-storage" className="mt-5 inline-flex min-h-11 items-center text-sm font-medium text-chalk underline decoration-input-hairline underline-offset-4 hover:decoration-current">
+              Read how sessions are stored
+            </Link>
+          </div>
         </div>
       </div>
     </section>

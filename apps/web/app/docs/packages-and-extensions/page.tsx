@@ -65,6 +65,29 @@ pi install -l ./relative/project-package`}
         </p>
       </Prose>
 
+      <H2 id="mcp">Connect tools with MCP</H2>
+      <Prose>
+        <p>
+          Pi includes MCP support. Configure servers in Pi&apos;s user-level or
+          project-level <code>mcp.json</code>, then type <code>/mcp</code> in the
+          composer to inspect their status. Pi owns the connections, tools, and
+          sign-in flow, so the same setup works in its command line.
+        </p>
+        <p>
+          Prefer Pi&apos;s built-in support for new connections. If you use the
+          optional <code>@nativepi/mcp</code> connection editor, disable Pi&apos;s
+          built-in MCP extension with <code>{'"extensions": ["-builtin:mcp"]'}</code>{" "}
+          in Pi settings to avoid connecting each server twice.
+        </p>
+        <p>
+          See Pi&apos;s{" "}
+          <a href="https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/mcp.md" target="_blank" rel="noreferrer noopener">
+            MCP guide
+          </a>{" "}
+          for server configuration, tool exposure, and authentication.
+        </p>
+      </Prose>
+
       <H2 id="graphical-extensions">Graphical extensions</H2>
       <Prose>
         <p>
@@ -84,7 +107,7 @@ pi install -l ./relative/project-package`}
       <Prose>
         <p>
           Read Pi&apos;s own{" "}
-          <a href="https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/packages.md" target="_blank" rel="noreferrer noopener">
+          <a href="https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md" target="_blank" rel="noreferrer noopener">
             package documentation
           </a>{" "}
           for package sources, filters, conventional directories, dependencies,

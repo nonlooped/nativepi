@@ -48,7 +48,7 @@ bun add -d typescript @types/react`}
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
-    "typescript": "^6.0.0"
+    "typescript": "^7.0.2"
   },
   "pi": {
     "extensions": ["./src/extension.ts"]
