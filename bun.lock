@@ -7,7 +7,7 @@
     },
     "apps/desktop": {
       "name": "@nativepi/desktop",
-      "version": "1.14.0",
+      "version": "1.15.0",
       "dependencies": {
         "@earendil-works/pi-coding-agent": "1.1.0",
         "@earendil-works/pi-tui": "1.1.0",

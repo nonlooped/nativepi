@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-10-10
+
 ### Added
 - Choose Stable or Nightly updates in System settings, with automatic downloads and installation when the app quits on Windows and Linux, and manual downloads for unsigned macOS builds.
 - Publish eligible nightlies after main passes CI and check daily for a stable release from the Unreleased changelog.
@@ -545,7 +547,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial NativePi desktop wrapper for the Pi coding agent (Electron + electron-vite + Bun + React 19.2 + Vite 8 + Tailwind CSS 4 + shadcn/ui + Zustand + Zod).
 - Project bootstrap, README and logo assets, build and release automation.
 
-[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.14.0...HEAD
+[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/nonlooped/nativepi/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/nonlooped/nativepi/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/nonlooped/nativepi/compare/v1.12.1...v1.13.0
 [1.12.1]: https://github.com/nonlooped/nativepi/compare/v1.12.0...v1.12.1
