@@ -49,10 +49,12 @@ jobs:
       contents: read
       actions: read
     env:
-      # A CI run's completion releases the commit it checked, not whatever main points to now.
+      # The commit CI certified. A workflow_run payload's sha is untrusted, so it is
+      # never checked out: the Decide step only advances when CI succeeded for a
+      # push to main and main still points at that commit, which makes the run's
+      # own commit (github.sha, checked out in every job) the certified one.
       HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     outputs:
-      sha: ${{ env.HEAD_SHA }}
       build: ${{ steps.plan.outputs.build }}
       certified: ${{ steps.plan.outputs.certified }}
       publish: ${{ steps.plan.outputs.release }}
@@ -63,7 +65,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ env.HEAD_SHA }}
           persist-credentials: false
           fetch-depth: 0
           filter: blob:none
@@ -136,8 +137,6 @@ jobs:
     needs: plan
     if: needs.plan.outputs.build == 'true' && needs.plan.outputs.certified != 'true'
     uses: ./.github/workflows/ci.yml
-    with:
-      ref: ${{ needs.plan.outputs.sha }}
 
   package:
     name: Package (${{ matrix.platform }} ${{ matrix.arch }})
@@ -171,7 +170,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.plan.outputs.sha }}
           persist-credentials: false
       - name: Setup
         uses: ./.github/actions/setup
@@ -226,7 +224,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.plan.outputs.sha }}
           fetch-depth: 0
           filter: blob:none
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
