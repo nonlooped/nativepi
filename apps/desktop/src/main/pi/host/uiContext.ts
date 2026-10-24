@@ -267,7 +267,7 @@ export function withTerminalUi(base: ExtensionUIContext, channel: HostChannel): 
             // Pi's keybindings manager where `adoptPiKeybindings` reached it, and
             // pi-tui's own where it did not. The extra methods Pi's subclass adds
             // are for reloading its config file, which no component calls.
-            const keybindings = getKeybindings() as Parameters<typeof factory>[2];
+            const keybindings = getKeybindings() as unknown as Parameters<typeof factory>[2];
             const component = await factory(surface.tui, base.theme, keybindings, done as Parameters<typeof factory>[3]);
             if (settled) return;
             const overlayOptions =

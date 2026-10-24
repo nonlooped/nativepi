@@ -94,7 +94,7 @@ function createHarness(sessionFile: string, entries: unknown[] = [], harnessOpti
 test("the first turn starts title generation with the selected catalog model", async () => {
   const harness = createHarness("C:\\title-selection.jsonl");
   await harness.setTitleModel?.("openai/gpt-5-mini", harness.context);
-  harness.handlers.get("before_agent_start")?.({ prompt: "review the title flow" }, harness.context);
+  harness.handlers.get("before_agent_start")?.({ messageType: "user", prompt: "review the title flow" }, harness.context);
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(harness.state.streamCalls).toBe(1);
   await harness.named;
@@ -107,7 +107,7 @@ test("the first turn starts title generation with the selected catalog model", a
 test("a transient provider failure does not leave the prompt fallback as the title", async () => {
   const harness = createHarness("C:\\title-retry.jsonl", [], { requiredRetries: 1 });
   await harness.setTitleModel?.("openai/gpt-5-mini", harness.context);
-  harness.handlers.get("before_agent_start")?.({ prompt: "review the title flow" }, harness.context);
+  harness.handlers.get("before_agent_start")?.({ messageType: "user", prompt: "review the title flow" }, harness.context);
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   expect(harness.names).toEqual(["Review title flow"]);
@@ -116,16 +116,24 @@ test("a transient provider failure does not leave the prompt fallback as the tit
 test("reasoning models receive enough budget to emit title text", async () => {
   const harness = createHarness("C:\\title-reasoning.jsonl", [], { reasoning: true, requiredTitleTokens: 512 });
   await harness.setTitleModel?.("openai/gpt-5-mini", harness.context);
-  harness.handlers.get("before_agent_start")?.({ prompt: "review the title flow" }, harness.context);
+  harness.handlers.get("before_agent_start")?.({ messageType: "user", prompt: "review the title flow" }, harness.context);
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   expect(harness.names).toEqual(["Review title flow"]);
   expect(harness.state.streamOptions?.maxTokens).toBe(1024);
 });
 
+test("an extension-triggered run does not start title generation", () => {
+  const harness = createHarness("C:\\title-custom.jsonl");
+  harness.handlers.get("before_agent_start")?.({ messageType: "custom", message: { role: "user" } }, harness.context);
+
+  expect(harness.state.streamCalls).toBe(0);
+  expect(harness.names).toEqual([]);
+});
+
 test("a later user turn cannot schedule another title", () => {
   const harness = createHarness("C:\\title-existing.jsonl", [{ type: "message", message: { role: "user" } }]);
-  harness.handlers.get("before_agent_start")?.({ prompt: "another request" }, harness.context);
+  harness.handlers.get("before_agent_start")?.({ messageType: "user", prompt: "another request" }, harness.context);
 
   expect(harness.state.streamCalls).toBe(0);
   expect(harness.names).toEqual([]);
@@ -135,7 +143,7 @@ test("uses the persisted title model", async () => {
   const harness = createHarness("C:\\title-model.jsonl", [
     { type: "custom", customType: "nativepi-title-generator", data: { modelSetting: "openai/gpt-5-mini" } },
   ]);
-  harness.handlers.get("before_agent_start")?.({ prompt: "review the title flow" }, harness.context);
+  harness.handlers.get("before_agent_start")?.({ messageType: "user", prompt: "review the title flow" }, harness.context);
   await harness.named;
 
   expect(harness.state.streamModel).toEqual({ provider: "openai", id: "gpt-5-mini", name: "GPT-5 mini" });

@@ -387,7 +387,8 @@ export default function titleGeneratorExtension(pi: ExtensionAPI): void {
   pi.on("before_agent_start", (event, context) => {
     latest = context;
     const sessionFile = context.sessionManager.getSessionFile();
-    if (!sessionFile || generationInFlight || context.sessionManager.getSessionName() || hasUserMessage(context)) return;
+    // Only runs started by a submitted prompt carry the text to title from.
+    if (!sessionFile || event.messageType !== "user" || generationInFlight || context.sessionManager.getSessionName() || hasUserMessage(context)) return;
     const prompt = titlePrompt(event.prompt);
     if (!prompt) return;
     const modelSetting = titleModelSettingFor(context);
