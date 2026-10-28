@@ -202,6 +202,8 @@ export interface ModelSlice {
   model?: ModelInfo;
   favoriteModels: string[];
   thinkingLevel: ThinkingLevel;
+  thinkingLevelReady: boolean;
+  thinkingLevelVersion: number;
   thinkingLevels: ThinkingLevel[];
 
   setModel: (model: ModelInfo) => Promise<void>;

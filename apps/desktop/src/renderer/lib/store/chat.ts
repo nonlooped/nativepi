@@ -285,6 +285,8 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
         models: [],
         model: undefined,
         thinkingLevel: "off",
+        thinkingLevelReady: false,
+        thinkingLevelVersion: state.thinkingLevelVersion + 1,
         thinkingLevels: ["off"],
         conversations: retainLiveConversations(state.conversations, sessionFile),
       }));
@@ -345,7 +347,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       void rpc.request.watchSession({ projectDir, sessionFile: null });
       patchConversation(set, projectDir, null, () => ({ ...emptyConversation(), projectDir }));
     }
-    set({ activeSessionFile: null, isNewChat: true });
+    set((state) => ({ activeSessionFile: null, isNewChat: true, thinkingLevelReady: false, thinkingLevelVersion: state.thinkingLevelVersion + 1 }));
     reportActiveDraft(get);
   },
 
@@ -493,6 +495,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
         message: text,
         images: images.map(toImageContent),
         model: s.model ? { provider: s.model.provider, id: s.model.id } : undefined,
+        thinkingLevel: s.thinkingLevelReady ? s.thinkingLevel : undefined,
       });
     } catch (error) {
       res = { ok: false, error: error instanceof Error ? error.message : String(error) };
@@ -744,8 +747,15 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => ({
       return;
     }
     if (event.type === "thinking_level_changed") {
-      if (projectDir === s.activeProjectPath) {
-        set({ thinkingLevel: (event as { level: ThinkingLevel }).level });
+      if (
+        projectDir === s.activeProjectPath
+        && (sessionFile ?? null) === (s.activeSessionFile ?? null)
+      ) {
+        set((state) => ({
+          thinkingLevel: (event as { level: ThinkingLevel }).level,
+          thinkingLevelReady: true,
+          thinkingLevelVersion: state.thinkingLevelVersion + 1,
+        }));
       }
       return;
     }

@@ -5,7 +5,7 @@ import { stubInvoke } from "./testBridge.ts";
 
 const { useAppStore } = await import("../store.ts");
 const { emptyConversation } = await import("./conversation.ts");
-const { getLastChat } = await import("./internals.ts");
+const { getLastChat, warmProject } = await import("./internals.ts");
 
 function event(type: string): PiEvent {
   return { type } as PiEvent;
@@ -418,6 +418,95 @@ test("switching chats clears controls until that session state arrives", async (
 
   expect(useAppStore.getState().model).toBeUndefined();
   expect(useAppStore.getState().thinkingLevel).toBe("off");
+});
+
+test("sending before a chat loads does not apply its placeholder thinking level", async () => {
+  let finishRead!: (response: { entries: [] }) => void;
+  let submitted: { thinkingLevel?: string } | undefined;
+  stubInvoke(async (channel, params) => {
+    if (channel === "readSession") return new Promise((resolve) => (finishRead = resolve as typeof finishRead));
+    if (channel === "submit") {
+      submitted = params as typeof submitted;
+      return { ok: true };
+    }
+    return {};
+  });
+  useAppStore.setState({
+    activeProjectPath: "A:\\controls",
+    activeSessionFile: "old.jsonl",
+    thinkingLevel: "high",
+    thinkingLevelReady: true,
+    drafts: { "new.jsonl": "A saved draft" },
+    attachments: {},
+    conversations: {},
+    trust: null,
+  });
+
+  const selecting = useAppStore.getState().selectChat("new.jsonl");
+  await useAppStore.getState().send();
+  expect(submitted?.thinkingLevel).toBeUndefined();
+  finishRead({ entries: [] });
+  await selecting;
+});
+
+test("a delayed session state does not overwrite a newly selected thinking level", async () => {
+  let finishState!: (response: unknown) => void;
+  stubInvoke(async (channel) => {
+    if (channel === "getState") return new Promise((resolve) => (finishState = resolve));
+    if (channel === "getModels") return { models: [] };
+    if (channel === "getSessionProviders") return { providers: [] };
+    if (channel === "getThinkingLevels") return { levels: ["off", "high"] };
+    if (channel === "loadGraphicalExtensions") return { extensions: [] };
+    return {};
+  });
+  useAppStore.setState({
+    activeProjectPath: "A:\\controls",
+    activeSessionFile: "active.jsonl",
+    model: undefined,
+    thinkingLevel: "off",
+    thinkingLevelReady: false,
+    conversations: {},
+  });
+
+  warmProject(useAppStore.setState, useAppStore.getState, "A:\\controls");
+  await useAppStore.getState().setThinkingLevel("high");
+  finishState({ state: { model: undefined, thinkingLevel: "off", isStreaming: false, isCompacting: false } });
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(useAppStore.getState().thinkingLevel).toBe("high");
+  expect(useAppStore.getState().thinkingLevelReady).toBe(true);
+});
+
+test("a thinking event from another chat cannot overwrite the active chat", () => {
+  useAppStore.setState({
+    activeProjectPath: "A:\\controls",
+    activeSessionFile: "active.jsonl",
+    thinkingLevel: "high",
+  });
+
+  useAppStore.getState().onEvent({
+    projectDir: "A:\\controls",
+    sessionFile: "background.jsonl",
+    event: { type: "thinking_level_changed", level: "medium" },
+  });
+
+  expect(useAppStore.getState().thinkingLevel).toBe("high");
+});
+
+test("the active chat's thinking event updates its control", () => {
+  useAppStore.setState({
+    activeProjectPath: "A:\\controls",
+    activeSessionFile: "active.jsonl",
+    thinkingLevel: "off",
+  });
+
+  useAppStore.getState().onEvent({
+    projectDir: "A:\\controls",
+    sessionFile: "active.jsonl",
+    event: { type: "thinking_level_changed", level: "high" },
+  });
+
+  expect(useAppStore.getState().thinkingLevel).toBe("high");
 });
 
 test("delayed history cannot overwrite messages streamed while it loads", async () => {

@@ -357,6 +357,7 @@ export type HostRequests = {
       message: string;
       images?: ImageContent[];
       model?: { provider: string; id: string };
+      thinkingLevel?: ThinkingLevel;
       /**
        * Set only while a turn is running. Pi executes an extension command
        * immediately regardless, and queues anything else the way this says —

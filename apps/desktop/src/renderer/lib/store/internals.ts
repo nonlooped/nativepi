@@ -94,12 +94,14 @@ export function enterProjectFolder(set: SetState, get: GetState, path: string): 
   const selection = ++folderEntry;
   const stillSelected = () => selection === folderEntry && get().activeProjectPath === path;
   const extPrompts = get().extensionPromptsByProject[path] ?? [];
-  set({
+  set((state) => ({
     activeProjectPath: path,
     activeSessionFile: null,
     isNewChat: false,
     models: [],
     model: undefined,
+    thinkingLevelReady: false,
+    thinkingLevelVersion: state.thinkingLevelVersion + 1,
     thinkingLevels: ["off"],
     trustPrompt: null,
     trust: null,
@@ -116,7 +118,7 @@ export function enterProjectFolder(set: SetState, get: GetState, path: string): 
     providers: [],
     providersLoaded: false,
     authFlow: null,
-  });
+  }));
   dropAllSurfaces();
   void rpc.request.tuiSend({ projectDir: path, sessionFile: get().activeSessionFile, frame: { type: "nativepi_tui_sync" } }).catch(() => {});
   persist(get);
@@ -228,6 +230,7 @@ export function warmProject(set: SetState, get: GetState, path: string): void {
   });
 
   const currentModel = get().model;
+  const thinkingLevelVersion = get().thinkingLevelVersion;
   const modelBeforeLoad = currentModel ? modelKey(currentModel) : undefined;
   void rpc.request.getState({ projectDir: path, sessionFile }).then(async (r) => {
     const selectedModel = get().model;
@@ -239,7 +242,12 @@ export function warmProject(set: SetState, get: GetState, path: string): void {
     ) {
       return;
     }
-    set({ model: r.state.model, thinkingLevel: r.state.thinkingLevel });
+    set({
+      model: r.state.model,
+      ...(get().thinkingLevelVersion === thinkingLevelVersion
+        ? { thinkingLevel: r.state.thinkingLevel, thinkingLevelReady: true, thinkingLevelVersion: thinkingLevelVersion + 1 }
+        : {}),
+    });
     patchConversation(set, path, sessionFile, {
       running: r.state.isStreaming,
       compacting: r.state.isCompacting,

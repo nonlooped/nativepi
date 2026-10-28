@@ -19,6 +19,8 @@ export const createModelSlice: SliceCreator<ModelSlice> = (set, get) => ({
   models: [],
   favoriteModels: [],
   thinkingLevel: "off",
+  thinkingLevelReady: false,
+  thinkingLevelVersion: 0,
   thinkingLevels: ["off"],
 
   setModel: async (model) => {
@@ -56,7 +58,7 @@ export const createModelSlice: SliceCreator<ModelSlice> = (set, get) => ({
     const projectDir = get().activeProjectPath;
     if (!projectDir) return;
     const sessionFile = get().activeSessionFile;
-    set({ thinkingLevel: level });
+    set((state) => ({ thinkingLevel: level, thinkingLevelReady: true, thinkingLevelVersion: state.thinkingLevelVersion + 1 }));
     await rpc.request.setThinkingLevel({ projectDir, sessionFile, level });
   },
 
