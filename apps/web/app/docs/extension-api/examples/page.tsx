@@ -21,9 +21,10 @@ export default function ExtensionExamplesPage() {
       <H2 id="live-state">Load and subscribe to live state</H2>
       <Prose>
         <p>
-          Fetch an initial snapshot, subscribe to later events, and ignore a
-          response that arrives after unmount. Depend on the stable channel
-          functions rather than the changing context object.
+          Subscribe before fetching a snapshot, and ignore that snapshot if a newer
+          event arrives first. Ignore results after unmount. This recipe uses
+          the task protocol from the protocols guide and assumes React hooks,
+          RendererContext, Badge, and taskProtocol are imported.
         </p>
       </Prose>
       <div className="measure mt-4">
@@ -36,19 +37,21 @@ export default function ExtensionExamplesPage() {
 
   useEffect(() => {
     let active = true;
-
-    void call("state")
-      .then((state) => {
-        if (active) setCount(state.tasks.length);
-      })
-      .catch((reason) => {
-        if (active) setError(String(reason));
-      });
-
-    const unsubscribe = on("changed", (state) => {
-      setCount(state.tasks.length);
+    let changed = false;
+    const unsubscribe = on("changed", (tasks) => {
+      if (!active) return;
+      changed = true;
+      setCount(tasks.length);
       setError(null);
     });
+
+    void call("list")
+      .then((tasks) => {
+        if (active && !changed) setCount(tasks.length);
+      })
+      .catch((reason) => {
+        if (active && !changed) setError(String(reason));
+      });
 
     return () => {
       active = false;
@@ -163,6 +166,7 @@ export default function ExtensionExamplesPage() {
       </Prose>
 
       <H2 id="terminal-fallback">Keep a terminal path</H2>
+      <Prose><p>Inside a Pi entry, with pi, the connected host, and a tasks array in scope:</p></Prose>
       <div className="measure mt-4">
         <Code
           lang="ts"
@@ -170,7 +174,7 @@ export default function ExtensionExamplesPage() {
   description: "Show project tasks",
   handler: async (_args, context) => {
     if (!host.connected) {
-      context.ui.notify(tasks.map((task) => task.title).join("\n") || "No tasks", "info");
+      context.ui.notify(tasks.map((task) => task.title).join("\\n") || "No tasks", "info");
       return;
     }
 

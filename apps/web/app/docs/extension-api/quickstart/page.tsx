@@ -148,17 +148,20 @@ function Counter({ context }: { context: RendererContext<typeof counterProtocol>
 
   useEffect(() => {
     let active = true;
-    void call("state")
-      .then((state) => {
-        if (active) setCount(state.count);
-      })
-      .catch((reason) => {
-        if (active) setError(String(reason));
-      });
+    let changed = false;
     const unsubscribe = on("changed", (state) => {
+      if (!active) return;
+      changed = true;
       setCount(state.count);
       setError(null);
     });
+    void call("state")
+      .then((state) => {
+        if (active && !changed) setCount(state.count);
+      })
+      .catch((reason) => {
+        if (active && !changed) setError(String(reason));
+      });
     return () => {
       active = false;
       unsubscribe();

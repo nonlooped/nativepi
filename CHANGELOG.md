@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Bundle Pi 1.5.2 and update maintained direct desktop, website, extension, and build dependencies to their latest stable versions.
+
+### Fixed
+- Keep older session reads from overriding newer chat selection or turn state, save restored drafts and extension editor changes across chat switches, and save drafts before confirmed quit or update installation.
+- Keep image preparation and retries attached to the right chat when creating or switching conversations.
+- Preserve Pi settings edits and restart notices across overlapping saves, Settings navigation, and failed restarts.
+- Keep model and reasoning controls aligned with Pi across chat navigation, retries, and failed restarts without clearing unrelated errors.
+- Clear acknowledged send indicators during session refresh and prevent stopped sessions from restoring stale extension UI.
+- Refresh file listings and Git diffs after changes, handle selected Git filenames literally, and recover controls after failed Git actions.
+- Keep terminal attachments scoped to each connected client, preserve newer exit state after late startup or restart replies, and reconcile partially successful shell closures.
+- Support provider login and terminal attachments over HTTP Local Access, and prevent canceled login attempts from restarting chats.
+- Distinguish Pi's own session writes from outside edits, keep watching reloaded chats, and block stale edits until the chat is reloaded.
+- Cancel stale access startup, keep newer link actions from being overwritten by status reads, contain malformed client frames, and reconnect slow browser clients instead of silently dropping events.
+- Stop retrying permanently failed terminal-extension output pipes while retaining bounded recovery from temporary pressure.
+- Validate subscription usage against its extension contract, report malformed replies, and keep valid quota readings visible when pacing is unavailable.
+- Preserve working MCP tools after failed reconfiguration, reuse tool names when servers return, and prevent disposed subagents from overwriting current state.
+- Retry unpublished extension versions after later successful main CI and validate publication eligibility before checking out package code.
+
 ## [1.17.0] - 2026-10-28
 
 ### Fixed
