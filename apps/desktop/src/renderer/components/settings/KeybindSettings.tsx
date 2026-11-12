@@ -56,7 +56,7 @@ export default function KeybindSettings() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-3 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-border/70 pb-5 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-end @min-[36rem]/settings-content:justify-between">
         <div className="flex max-w-2xl flex-col gap-1">
           <h2 className="font-heading text-sm font-semibold">Keyboard shortcuts</h2>
           <p className="text-sm leading-5 text-body-muted-foreground">
@@ -91,7 +91,7 @@ export default function KeybindSettings() {
                 <div
                   key={shortcut.id}
                   className={cn(
-                    "group flex flex-col gap-2 border-t py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-8",
+                    "group flex flex-col gap-2 border-t py-3.5 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-center @min-[36rem]/settings-content:justify-between @min-[36rem]/settings-content:gap-8",
                     unbound && "rounded-lg bg-warning/10 px-2",
                   )}
                 >
@@ -129,7 +129,7 @@ export default function KeybindSettings() {
                       ) : (
                         <>
                           <PencilSimpleIcon
-                            className={cn(HOVER_REVEAL, "mr-auto size-3 shrink-0 text-muted-foreground group-hover:scale-100 group-hover:opacity-100 group-hover:blur-none")}
+                            className={cn(HOVER_REVEAL, "mr-auto size-3 shrink-0 text-muted-foreground group-hover:opacity-100")}
                           />
                           {hint ? (
                             hint.split("+").map((key) => <Kbd key={key}>{key}</Kbd>)

@@ -1,104 +1,90 @@
-import { execFile } from "node:child_process";
-import type {
-  RepoHost,
-  RepoHostCheck,
-  RepoHostCompare,
-  RepoHostCompareFile,
-  RepoHostComment,
-  RepoHostContext,
-  RepoHostLinkedIssue,
-} from "../shared/repo-host-types.ts";
+import { runRepositoryCommand } from "./repoCommand.ts";
+import type { RepoHost, RepoHostCheck, RepoHostCompare, RepoHostCompareFile, RepoHostComment, RepoHostContext, RepoHostLinkedIssue, } from "../shared/repo-host-types.ts";
 import { repoHostContextSchema } from "../shared/repo-host-types.ts";
-
-function run(cmd: string, args: string[], cwd: string): Promise<{ stdout: string; code: number }> {
-  return new Promise((resolve) => {
-    execFile(cmd, args, { cwd, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout) => {
-      const code = err && typeof (err as { code?: unknown }).code === "number" ? (err as { code: number }).code : err ? 1 : 0;
-      resolve({ stdout, code });
-    });
-  });
-}
-
 /** github.com and self-hosted GitHub Enterprise both surface "github" somewhere in the remote host name; same idea for GitLab. */
 export function detectHostFromRemoteUrl(remoteUrl: string): RepoHost | null {
   const remote = remoteUrl.trim();
   const host = (remote.match(/^[^@\s]+@([^:/\s]+)[:/]/)?.[1] ?? remote.match(/^[a-z]+:\/\/([^/:\s]+)/i)?.[1] ?? "").toLowerCase();
-  if (host.includes("github")) return "github";
-  if (host.includes("gitlab")) return "gitlab";
+  if (host.includes("github"))
+    return "github";
+  if (host.includes("gitlab"))
+    return "gitlab";
   return null;
 }
-
 async function detectHost(projectDir: string): Promise<RepoHost | null> {
-  const remote = await run("git", ["remote", "get-url", "origin"], projectDir);
-  if (remote.code !== 0) return null;
+  const remote = await runRepositoryCommand("git", ["remote", "get-url", "origin"], projectDir);
+  if (remote.code !== 0)
+    return null;
   return detectHostFromRemoteUrl(remote.stdout.trim());
 }
-
 /**
- * A bare issue has no CLI lookup by branch, unlike a PR/MR. The closest signal
- * a branch name gives is a leading or delimited issue number, the convention
- * `gh`/`glab` branch-creation helpers and most teams already follow (e.g.
- * `123-fix-thing`, `issue-123`, `feature/123-fix-thing`).
- */
+* A bare issue has no CLI lookup by branch, unlike a PR/MR. The closest signal
+* a branch name gives is a leading or delimited issue number, the convention
+* `gh`/`glab` branch-creation helpers and most teams already follow (e.g.
+* `123-fix-thing`, `issue-123`, `feature/123-fix-thing`).
+*/
 export function issueNumberFromBranch(branch: string): number | null {
   const match = branch.match(/(?:^|[/_-])(\d+)(?:[/_-]|$)/);
   return match ? Number(match[1]) : null;
 }
-
 function safeJson<T>(text: string): T | null {
   try {
     return JSON.parse(text) as T;
-  } catch {
+  }
+  catch {
     return null;
   }
 }
-
 /** `git rev-list --left-right --count base...HEAD` prints "<behind>\t<ahead>". */
-export function parseAheadBehind(output: string): { aheadBy: number; behindBy: number } | null {
+export function parseAheadBehind(output: string): {
+  aheadBy: number;
+  behindBy: number;
+} | null {
   const parts = output.trim().split(/\s+/);
-  if (parts.length !== 2) return null;
+  if (parts.length !== 2)
+    return null;
   const behindBy = Number(parts[0]);
   const aheadBy = Number(parts[1]);
-  if (!Number.isFinite(behindBy) || !Number.isFinite(aheadBy)) return null;
+  if (!Number.isFinite(behindBy) || !Number.isFinite(aheadBy))
+    return null;
   return { aheadBy, behindBy };
 }
-
 const NAME_STATUS: Record<string, RepoHostCompareFile["state"]> = { M: "modified", A: "added", D: "deleted", R: "renamed" };
-
-/** `git diff --name-status base HEAD`: one `"X\tpath"` (or `"R100\told\tnew"`) line per file. */
+/** NUL framing preserves tabs, newlines, and rename source names. */
 export function parseNameStatus(output: string): RepoHostCompareFile[] {
+  const fields = output.split("\0");
   const files: RepoHostCompareFile[] = [];
-  for (const line of output.split("\n")) {
-    if (!line.trim()) continue;
-    const [code, ...paths] = line.split("\t");
-    const state = NAME_STATUS[(code ?? "").slice(0, 1)] ?? "modified";
-    const path = paths[paths.length - 1];
-    if (path) files.push({ path, state });
+  for (let i = 0; i < fields.length - 1;) {
+    const code = fields[i++] ?? "";
+    const source = fields[i++];
+    const path = /^[RC]/.test(code) ? fields[i++] : source;
+    if (path)
+      files.push({ path, state: NAME_STATUS[code[0] ?? ""] ?? "modified" });
   }
   return files;
 }
-
 async function resolveBaseRef(projectDir: string, baseBranch: string): Promise<string | null> {
   for (const candidate of [`origin/${baseBranch}`, baseBranch]) {
-    const res = await run("git", ["rev-parse", "--verify", "--quiet", candidate], projectDir);
-    if (res.code === 0) return candidate;
+    const res = await runRepositoryCommand("git", ["rev-parse", "--verify", "--quiet", candidate], projectDir);
+    if (res.code === 0)
+      return candidate;
   }
   return null;
 }
-
 /** Never fetches: a base branch NativePi has not already fetched is quietly left out rather than making a network call on the user's behalf. */
 async function compareToBase(projectDir: string, baseBranch: string): Promise<RepoHostCompare | undefined> {
   const baseRef = await resolveBaseRef(projectDir, baseBranch);
-  if (!baseRef) return undefined;
+  if (!baseRef)
+    return undefined;
   const [counts, diff] = await Promise.all([
-    run("git", ["rev-list", "--left-right", "--count", `${baseRef}...HEAD`], projectDir),
-    run("git", ["diff", "--no-color", "--name-status", `${baseRef}...HEAD`], projectDir),
+    runRepositoryCommand("git", ["rev-list", "--left-right", "--count", `${baseRef}...HEAD`], projectDir),
+    runRepositoryCommand("git", ["diff", "--no-color", "--name-status", "-z", `${baseRef}...HEAD`], projectDir),
   ]);
   const aheadBehind = counts.code === 0 ? parseAheadBehind(counts.stdout) : null;
-  if (!aheadBehind) return undefined;
+  if (!aheadBehind)
+    return undefined;
   return { baseRef: baseBranch, ...aheadBehind, files: diff.code === 0 ? parseNameStatus(diff.stdout) : [] };
 }
-
 interface GhPr {
   number: number;
   title: string;
@@ -106,17 +92,43 @@ interface GhPr {
   url: string;
   state: string;
   isDraft?: boolean;
-  author?: { login?: string };
+  author?: {
+    login?: string;
+  };
   baseRefName?: string;
-  comments?: { author?: { login?: string }; body: string; createdAt?: string; url?: string }[];
-  reviews?: { author?: { login?: string }; body?: string; state?: string; submittedAt?: string }[];
-  statusCheckRollup?: { name?: string; context?: string; workflowName?: string; conclusion?: string; state?: string; url?: string; detailsUrl?: string; targetUrl?: string }[];
-  closingIssuesReferences?: { number: number; title: string; url: string }[];
+  comments?: {
+    author?: {
+      login?: string;
+    };
+    body: string;
+    createdAt?: string;
+    url?: string;
+  }[];
+  reviews?: {
+    author?: {
+      login?: string;
+    };
+    body?: string;
+    state?: string;
+    submittedAt?: string;
+  }[];
+  statusCheckRollup?: {
+    name?: string;
+    context?: string;
+    workflowName?: string;
+    conclusion?: string;
+    state?: string;
+    url?: string;
+    detailsUrl?: string;
+    targetUrl?: string;
+  }[];
+  closingIssuesReferences?: {
+    number: number;
+    title: string;
+    url: string;
+  }[];
 }
-
-const GH_PR_FIELDS =
-  "number,title,body,url,state,isDraft,author,baseRefName,comments,reviews,statusCheckRollup,closingIssuesReferences";
-
+const GH_PR_FIELDS = "number,title,body,url,state,isDraft,author,baseRefName,comments,reviews,statusCheckRollup,closingIssuesReferences";
 function ghChecks(pr: GhPr): RepoHostCheck[] {
   return (pr.statusCheckRollup ?? []).map((check) => ({
     name: check.name ?? check.context ?? check.workflowName ?? "check",
@@ -124,7 +136,6 @@ function ghChecks(pr: GhPr): RepoHostCheck[] {
     url: check.detailsUrl ?? check.targetUrl ?? check.url,
   }));
 }
-
 function ghComments(pr: GhPr): RepoHostComment[] {
   const comments: RepoHostComment[] = (pr.comments ?? []).map((c) => ({
     author: c.author?.login,
@@ -137,12 +148,13 @@ function ghComments(pr: GhPr): RepoHostComment[] {
     .map((r) => ({ author: r.author?.login, body: r.body ?? "", createdAt: r.submittedAt, reviewState: r.state }));
   return [...reviews, ...comments].sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
 }
-
 async function githubPr(projectDir: string): Promise<RepoHostContext | null> {
-  const res = await run("gh", ["pr", "view", "--json", GH_PR_FIELDS], projectDir);
-  if (res.code !== 0) return null;
+  const res = await runRepositoryCommand("gh", ["pr", "view", "--json", GH_PR_FIELDS], projectDir);
+  if (res.code !== 0)
+    return null;
   const pr = safeJson<GhPr>(res.stdout);
-  if (!pr) return null;
+  if (!pr)
+    return null;
   return repoHostContextSchema.safeParse({
     host: "github",
     kind: "pr",
@@ -159,22 +171,31 @@ async function githubPr(projectDir: string): Promise<RepoHostContext | null> {
     compare: pr.baseRefName ? await compareToBase(projectDir, pr.baseRefName) : undefined,
   }).data ?? null;
 }
-
 interface GhIssue {
   number: number;
   title: string;
   body?: string;
   url: string;
   state: string;
-  author?: { login?: string };
-  comments?: { author?: { login?: string }; body: string; createdAt?: string; url?: string }[];
+  author?: {
+    login?: string;
+  };
+  comments?: {
+    author?: {
+      login?: string;
+    };
+    body: string;
+    createdAt?: string;
+    url?: string;
+  }[];
 }
-
 async function githubIssue(projectDir: string, number: number): Promise<RepoHostContext | null> {
-  const res = await run("gh", ["issue", "view", String(number), "--json", "number,title,body,url,state,author,comments"], projectDir);
-  if (res.code !== 0) return null;
+  const res = await runRepositoryCommand("gh", ["issue", "view", String(number), "--json", "number,title,body,url,state,author,comments"], projectDir);
+  if (res.code !== 0)
+    return null;
   const issue = safeJson<GhIssue>(res.stdout);
-  if (!issue) return null;
+  if (!issue)
+    return null;
   return repoHostContextSchema.safeParse({
     host: "github",
     kind: "issue",
@@ -189,7 +210,6 @@ async function githubIssue(projectDir: string, number: number): Promise<RepoHost
     linkedIssues: [],
   }).data ?? null;
 }
-
 interface GlabMr {
   iid: number;
   title: string;
@@ -197,26 +217,34 @@ interface GlabMr {
   web_url: string;
   state: string;
   draft?: boolean;
-  author?: { username?: string };
+  author?: {
+    username?: string;
+  };
   target_branch?: string;
-  head_pipeline?: { status?: string; detailed_status?: { text?: string }; web_url?: string };
+  head_pipeline?: {
+    status?: string;
+    detailed_status?: {
+      text?: string;
+    };
+    web_url?: string;
+  };
 }
-
 interface GlabNote {
-  author?: { username?: string };
+  author?: {
+    username?: string;
+  };
   body: string;
   created_at?: string;
 }
-
 async function gitlabMr(projectDir: string): Promise<RepoHostContext | null> {
-  const res = await run("glab", ["mr", "view", "--output", "json"], projectDir);
-  if (res.code !== 0) return null;
+  const res = await runRepositoryCommand("glab", ["mr", "view", "--output", "json"], projectDir);
+  if (res.code !== 0)
+    return null;
   const mr = safeJson<GlabMr>(res.stdout);
-  if (!mr) return null;
-
-  const notes = await run("glab", ["api", `projects/:id/merge_requests/${mr.iid}/notes`], projectDir);
+  if (!mr)
+    return null;
+  const notes = await runRepositoryCommand("glab", ["api", `projects/:id/merge_requests/${mr.iid}/notes`], projectDir);
   const rawNotes = notes.code === 0 ? (safeJson<GlabNote[]>(notes.stdout) ?? []) : [];
-
   return repoHostContextSchema.safeParse({
     host: "gitlab",
     kind: "pr",
@@ -235,21 +263,23 @@ async function gitlabMr(projectDir: string): Promise<RepoHostContext | null> {
     compare: mr.target_branch ? await compareToBase(projectDir, mr.target_branch) : undefined,
   }).data ?? null;
 }
-
 interface GlabIssue {
   iid: number;
   title: string;
   description?: string;
   web_url: string;
   state: string;
-  author?: { username?: string };
+  author?: {
+    username?: string;
+  };
 }
-
 async function gitlabIssue(projectDir: string, number: number): Promise<RepoHostContext | null> {
-  const res = await run("glab", ["issue", "view", String(number), "--output", "json"], projectDir);
-  if (res.code !== 0) return null;
+  const res = await runRepositoryCommand("glab", ["issue", "view", String(number), "--output", "json"], projectDir);
+  if (res.code !== 0)
+    return null;
   const issue = safeJson<GlabIssue>(res.stdout);
-  if (!issue) return null;
+  if (!issue)
+    return null;
   return repoHostContextSchema.safeParse({
     host: "gitlab",
     kind: "issue",
@@ -264,43 +294,48 @@ async function gitlabIssue(projectDir: string, number: number): Promise<RepoHost
     linkedIssues: [],
   }).data ?? null;
 }
-
 /**
- * The PR/MR NativePi presents is only ever what the user's own `gh`/`glab`
- * already resolves for the current branch. When neither CLI finds one, a
- * branch-name issue number is tried as a fallback; anything short of that
- * (no CLI installed, not authenticated, no match) is quietly `null` rather
- * than an error state, matching how the Changes pane treats "not a repo".
- */
+* The PR/MR NativePi presents is only ever what the user's own `gh`/`glab`
+* already resolves for the current branch. When neither CLI finds one, a
+* branch-name issue number is tried as a fallback; anything short of that
+* (no CLI installed, not authenticated, no match) is quietly `null` rather
+* than an error state, matching how the Changes pane treats "not a repo".
+*/
 async function loadRepoHostContext(projectDir: string, branch: string): Promise<RepoHostContext | null> {
   const host = await detectHost(projectDir);
-  if (!host) return null;
-
+  if (!host)
+    return null;
   if (host === "github") {
     const pr = await githubPr(projectDir);
-    if (pr) return pr;
+    if (pr)
+      return pr;
     const issueNumber = issueNumberFromBranch(branch);
     return issueNumber ? await githubIssue(projectDir, issueNumber) : null;
   }
-
   const mr = await gitlabMr(projectDir);
-  if (mr) return mr;
+  if (mr)
+    return mr;
   const issueNumber = issueNumberFromBranch(branch);
   return issueNumber ? await gitlabIssue(projectDir, issueNumber) : null;
 }
-
-const repoHostCache = new Map<string, { revision: string; at: number; context: Promise<RepoHostContext | null> }>();
-const REPO_HOST_TTL_MS = 30_000;
-
+const repoHostCache = new Map<string, {
+  revision: string;
+  at: number;
+  context: Promise<RepoHostContext | null>;
+}>();
+const REPO_HOST_TTL_MS = 30000;
 export async function getRepoHostContext(projectDir: string): Promise<RepoHostContext | null> {
-  const revision = await run("git", ["rev-parse", "HEAD", "--abbrev-ref", "HEAD"], projectDir);
-  if (revision.code !== 0) return null;
+  const revision = await runRepositoryCommand("git", ["rev-parse", "HEAD", "--abbrev-ref", "HEAD"], projectDir);
+  if (revision.code !== 0)
+    return null;
   const key = revision.stdout.trim();
   const cached = repoHostCache.get(projectDir);
-  if (cached?.revision === key && Date.now() - cached.at < REPO_HOST_TTL_MS) return cached.context;
+  if (cached?.revision === key && Date.now() - cached.at < REPO_HOST_TTL_MS)
+    return cached.context;
   const branch = key.split(/\r?\n/).at(-1) ?? "";
   const context = loadRepoHostContext(projectDir, branch);
   repoHostCache.set(projectDir, { revision: key, at: Date.now(), context });
-  if (repoHostCache.size > 20) repoHostCache.delete(repoHostCache.keys().next().value as string);
+  if (repoHostCache.size > 20)
+    repoHostCache.delete(repoHostCache.keys().next().value as string);
   return context;
 }

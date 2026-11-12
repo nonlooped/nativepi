@@ -7,7 +7,8 @@ import type {
   PiEvent,
   SessionEntry,
 } from "../../../shared/pi-types.ts";
-import { draftKeyFor, isAssistant } from "../../../shared/messages.ts";
+import { isAssistant } from "../../../shared/messages.ts";
+import { writeDraft } from "./internals.ts";
 import { stripAnsi } from "../ansi.ts";
 import { showExtensionNotification } from "../toast.tsx";
 import type { Conversation, ExtensionPrompt, GetState, SetState } from "./types.ts";
@@ -235,9 +236,7 @@ export function applyExtensionUi(
       });
       return;
     case "set_editor_text": {
-      const s = get();
-      const key = draftKeyFor(s.activeProjectPath, s.activeSessionFile);
-      set({ drafts: { ...s.drafts, [key]: req.text } });
+      writeDraft(set, get, projectDir, sessionFile, req.text);
       return;
     }
     default:

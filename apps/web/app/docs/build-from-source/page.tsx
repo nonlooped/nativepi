@@ -22,6 +22,8 @@ export default function BuildFromSourcePage() {
         <ul>
           <li><a href="https://bun.sh/" target="_blank" rel="noreferrer noopener">Bun</a></li>
           <li>Git</li>
+          <li>Node 24.15 or newer for native build tools</li>
+          <li>On Linux: Python, make, and a C++ compiler</li>
           <li>Platform build tools required by Electron Builder for your target OS</li>
         </ul>
       </Prose>
@@ -33,6 +35,8 @@ export default function BuildFromSourcePage() {
           code={`git clone https://github.com/nonlooped/nativepi.git
 cd nativepi
 bun install
+# On Linux, compile the terminal addon before running or packaging:
+# bun run --cwd apps/desktop node-gyp rebuild --directory node_modules/node-pty
 bun run dev`}
         />
       </div>
@@ -67,6 +71,10 @@ bun run --cwd apps/web typecheck`}
       </Prose>
 
       <H2 id="package">Build and package</H2>
+      <Prose><p>On Linux, build the terminal addon for the current architecture first:</p></Prose>
+      <div className="measure mt-4">
+        <Code lang="shell" code={`bun run --cwd apps/desktop node-gyp rebuild --directory node_modules/node-pty`} />
+      </div>
       <div className="measure mt-4">
         <Code
           lang="shell"

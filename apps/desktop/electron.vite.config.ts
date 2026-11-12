@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
-import { defineConfig, externalizeDepsPlugin } from "electron-vite";
+import { defineConfig } from "electron-vite";
 import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -15,15 +15,15 @@ const materialIcons = resolve(
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
     build: {
-      rollupOptions: {
+      rolldownOptions: {
         input: {
           index: resolve("src/main/index.ts"),
           // Pi runs in its own process, started from this second entry rather than
           // from Pi's `rpc-entry`: it installs the extension UI context that makes
           // pi-tui components render in the window. See `main/pi/host/entry.ts`.
           "pi-host": resolve("src/main/pi/host/entry.ts"),
+          "app-tools": resolve("src/main/pi/host/appTools.ts"),
         },
         // Anything with native binaries or platform-specific binary lookups has to
         // stay external: bundling moves the module's relative require() paths to
@@ -40,9 +40,8 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
     build: {
-      rollupOptions: {
+      rolldownOptions: {
         input: {
           index: resolve("src/preload/index.ts"),
         },
@@ -68,7 +67,7 @@ export default defineConfig({
       tailwindcss(),
     ],
     build: {
-      rollupOptions: {
+      rolldownOptions: {
         input: {
           index: resolve("src/renderer/index.html"),
         },

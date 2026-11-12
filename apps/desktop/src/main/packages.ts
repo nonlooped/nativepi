@@ -1,18 +1,15 @@
 import path from "node:path";
 import { piServices } from "./pi/services.ts";
 import type { PackageInfo, ResolvedExtension } from "../shared/pi-types.ts";
-
 export function isLocalPackageSource(source: string) {
   return path.posix.isAbsolute(source) || path.win32.isAbsolute(source) || /^\.{1,2}[\\/]/.test(source);
 }
-
 export interface PackageListing {
   packages: PackageInfo[];
   extensions: ResolvedExtension[];
   projectTrusted: boolean;
   errors: string[];
 }
-
 export async function listPackages(projectDir: string): Promise<PackageListing> {
   const { pm, settings } = piServices(projectDir);
   const packages: PackageInfo[] = pm.listConfiguredPackages().map((p) => ({
@@ -22,7 +19,6 @@ export async function listPackages(projectDir: string): Promise<PackageListing> 
     local: isLocalPackageSource(p.source),
     installedPath: p.installedPath,
   }));
-
   let extensions: ResolvedExtension[] = [];
   try {
     const resolved = await pm.resolve();
@@ -33,30 +29,18 @@ export async function listPackages(projectDir: string): Promise<PackageListing> 
       source: e.metadata.source,
       origin: e.metadata.origin,
     }));
-  } catch {
   }
-
+  catch {
+  }
   const errors = settings.drainErrors().map((e) => `${e.scope}: ${e.error.message}`);
   return { packages, extensions, projectTrusted: settings.isProjectTrusted(), errors };
 }
-
 let mutations: Promise<unknown> = Promise.resolve();
-
 function mutate(task: () => Promise<void>) {
-  const run = mutations.then(async () => {
-    const previous = process.env["ELECTRON_RUN_AS_NODE"];
-    process.env["ELECTRON_RUN_AS_NODE"] = "1";
-    try {
-      await task();
-    } finally {
-      if (previous === undefined) delete process.env["ELECTRON_RUN_AS_NODE"];
-      else process.env["ELECTRON_RUN_AS_NODE"] = previous;
-    }
-  });
+  const run = mutations.then(task);
   mutations = run.catch(() => undefined);
   return run;
 }
-
 export function installPackage(projectDir: string, source: string, scope: "user" | "project") {
   return mutate(async () => {
     const { pm, settings } = piServices(projectDir);
@@ -67,7 +51,6 @@ export function installPackage(projectDir: string, source: string, scope: "user"
     await settings.flush();
   });
 }
-
 export function removePackage(projectDir: string, source: string, scope: "user" | "project") {
   return mutate(async () => {
     const { pm, settings } = piServices(projectDir);
@@ -76,10 +59,10 @@ export function removePackage(projectDir: string, source: string, scope: "user" 
     }
     const removed = await pm.removeAndPersist(source, { local: scope === "project" });
     await settings.flush();
-    if (!removed) throw new Error(`No matching package found for ${source}`);
+    if (!removed)
+      throw new Error(`No matching package found for ${source}`);
   });
 }
-
 export function updatePackage(projectDir: string, source?: string) {
   return mutate(async () => {
     const { pm } = piServices(projectDir);

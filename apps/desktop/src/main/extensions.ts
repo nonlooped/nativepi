@@ -1,19 +1,21 @@
+import { extensionUiExports } from "../shared/extension-exports.ts";
+import { z } from "zod";
 import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { Plugin } from "esbuild";
 import { isProjectTrusted, piServices } from "./pi/services.ts";
 import type { GraphicalExtension } from "../shared/pi-types.ts";
-
-const extensionCache = new Map<string, { inputs: Map<string, number>; result: GraphicalExtension }>();
-
+const extensionCache = new Map<string, {
+  inputs: Map<string, number>;
+  result: GraphicalExtension;
+}>();
 /**
- * React and `@nativepi/extension-api` are provided by NativePi: those specifiers
- * are rewritten to read from the host's already-loaded modules (exposed on
- * `globalThis.__NATIVEPI_HOST__`) so extension components share NativePi's single
- * React instance instead of bundling their own.
- */
-
+* React and `@nativepi/extension-api` are provided by NativePi: those specifiers
+* are rewritten to read from the host's already-loaded modules (exposed on
+* `globalThis.__NATIVEPI_HOST__`) so extension components share NativePi's single
+* React instance instead of bundling their own.
+*/
 // Names re-exported from the host's React so `import { useState } from "react"`
 // resolves statically. Covers the React 19 public surface an extension may use.
 const REACT_EXPORTS = [
@@ -27,22 +29,11 @@ const REACT_EXPORTS = [
 const JSX_EXPORTS = ["jsx", "jsxs", "Fragment"];
 const JSX_DEV_EXPORTS = ["jsxDEV", "Fragment"];
 const API_EXPORTS = ["defineProtocol", "defineRenderer", "extensionApiVersion", "version"];
-
 // NativePi's interface components, lent to extensions so their UI carries real
 // styles. Tailwind cannot see extension code, so a class an extension writes has
 // no rule behind it and only a shared component can look native.
-const UI_EXPORTS = [
-  "Badge", "Button", "Input", "Textarea", "Label", "Switch", "Separator",
-  "Field", "FieldContent", "FieldDescription", "FieldError", "FieldGroup", "FieldLabel",
-  "Dialog", "DialogTrigger", "DialogClose", "DialogContent", "DialogHeader",
-  "DialogFooter", "DialogTitle", "DialogDescription",
-  "Menu", "MenuTrigger", "MenuContent", "MenuGroup", "MenuLabel", "MenuItem", "MenuSeparator", "SettingsActionRow",
-  "Select", "SelectContent", "SelectGroup", "SelectItem", "SelectLabel", "SelectSeparator", "SelectTrigger", "SelectValue",
-  "SettingsSwitchRow", "SettingsSelectRow", "SettingsTextRow", "SettingsSliderRow",
-  "ConversationTranscript",
-];
-
-const HOST_MODULES: Record<string, string[]> = {
+const UI_EXPORTS = Object.keys(extensionUiExports);
+export const HOST_MODULES: Record<string, string[]> = {
   react: REACT_EXPORTS,
   "react/jsx-runtime": JSX_EXPORTS,
   "react/jsx-dev-runtime": JSX_DEV_EXPORTS,
@@ -50,26 +41,18 @@ const HOST_MODULES: Record<string, string[]> = {
   "@nativepi/extension-api/schema": ["z"],
   "@nativepi/extension-api/ui": UI_EXPORTS,
 };
-
 function configureEsbuildBinary() {
-  if (process.env["ESBUILD_BINARY_PATH"] || !process.resourcesPath) return;
-  const binary = path.join(
-    process.resourcesPath,
-    "app.asar.unpacked",
-    "node_modules",
-    "@esbuild",
-    `${process.platform}-${process.arch}`,
-    ...(process.platform === "win32" ? ["esbuild.exe"] : ["bin", "esbuild"]),
-  );
-  if (existsSync(binary)) process.env["ESBUILD_BINARY_PATH"] = binary;
+  if (process.env["ESBUILD_BINARY_PATH"] || !process.resourcesPath)
+    return;
+  const binary = path.join(process.resourcesPath, "app.asar.unpacked", "node_modules", "@esbuild", `${process.platform}-${process.arch}`, ...(process.platform === "win32" ? ["esbuild.exe"] : ["bin", "esbuild"]));
+  if (existsSync(binary))
+    process.env["ESBUILD_BINARY_PATH"] = binary;
 }
-
 function shimFor(key: string, names: string[]): string {
   const m = `globalThis.__NATIVEPI_HOST__[${JSON.stringify(key)}]`;
   const named = names.map((n) => `export const ${n} = ${m}[${JSON.stringify(n)}];`).join("\n");
   return `const __m = ${m};\nexport default (__m.default ?? __m);\n${named}\n`;
 }
-
 const hostGlobalsPlugin: Plugin = {
   name: "nativepi-host-globals",
   setup(pluginBuild) {
@@ -81,51 +64,52 @@ const hostGlobalsPlugin: Plugin = {
     }));
   },
 };
-
 function candidateRoots(projectDir: string): string[] {
   const roots = new Set<string>([projectDir]);
   try {
     for (const pkg of piServices(projectDir).pm.listConfiguredPackages()) {
-      if (pkg.installedPath) roots.add(pkg.installedPath);
+      if (pkg.installedPath)
+        roots.add(pkg.installedPath);
     }
-  } catch {
+  }
+  catch {
   }
   return [...roots];
 }
-
-async function readManifest(root: string): Promise<{ name: string; renderer: string } | null> {
+async function readManifest(root: string): Promise<{
+  name: string;
+  renderer: string;
+  error?: string;
+} | null> {
   try {
-    const pkg = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")) as {
-      name?: string;
-      nativepi?: { renderer?: string };
-    };
+    const pkg = z.looseObject({ name: z.string().min(1).optional(), nativepi: z.looseObject({ renderer: z.string().min(1).optional() }).optional() }).parse(JSON.parse(await readFile(path.join(root, "package.json"), "utf8")));
     const renderer = pkg.nativepi?.renderer;
-    if (!renderer) return null;
+    if (!renderer)
+      return null;
     return { name: pkg.name ?? path.basename(root), renderer };
-  } catch {
-    return null;
+  }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT")
+      return null;
+    return { name: path.basename(root), renderer: "", error: `Invalid extension manifest: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
-
 export async function hasProjectGraphicalRenderer(projectDir: string): Promise<boolean> {
   return (await readManifest(projectDir)) !== null;
 }
-
 async function inputsAreCurrent(inputs: Map<string, number>): Promise<boolean> {
   for (const [file, previous] of inputs) {
     try {
-      if ((await stat(file)).mtimeMs !== previous) return false;
-    } catch {
+      if ((await stat(file)).mtimeMs !== previous)
+        return false;
+    }
+    catch {
       return false;
     }
   }
   return true;
 }
-
-export async function loadGraphicalExtensions(
-  projectDir: string,
-  projectTrusted = isProjectTrusted(projectDir),
-): Promise<GraphicalExtension[]> {
+export async function loadGraphicalExtensions(projectDir: string, projectTrusted = isProjectTrusted(projectDir)): Promise<GraphicalExtension[]> {
   // child_process cannot launch esbuild's executable from app.asar. Its package
   // is deliberately unpacked for distribution, so point esbuild at that copy.
   // esbuild reads ESBUILD_BINARY_PATH once while its module evaluates, so it
@@ -133,15 +117,20 @@ export async function loadGraphicalExtensions(
   configureEsbuildBinary();
   const { build } = await import("esbuild");
   const extensions = await Promise.all(candidateRoots(projectDir).map(async (root) => {
-    if (root === projectDir && !projectTrusted) return null;
+    if (root === projectDir && !projectTrusted)
+      return null;
     const manifest = await readManifest(root);
-    if (!manifest) return null;
+    if (!manifest)
+      return null;
+    if (manifest.error)
+      return { id: root, name: manifest.name, code: "", error: manifest.error };
     const entry = path.resolve(root, manifest.renderer);
     // Reuse previous bundle if the entry file hasn't changed.
     try {
       await stat(entry);
       const cached = extensionCache.get(entry);
-      if (cached && await inputsAreCurrent(cached.inputs)) return cached.result;
+      if (cached && await inputsAreCurrent(cached.inputs))
+        return { ...cached.result, id: root, name: manifest.name };
       try {
         const result = await build({
           entryPoints: [entry],
@@ -158,25 +147,34 @@ export async function loadGraphicalExtensions(
         const built: GraphicalExtension = { id: root, name: manifest.name, code: result.outputFiles[0]?.text ?? "" };
         const inputs = new Map<string, number>();
         for (const input of Object.keys(result.metafile.inputs)) {
-          if (input.startsWith("nativepi-host:")) continue;
+          if (input.startsWith("nativepi-host:"))
+            continue;
           const file = path.resolve(root, input);
           inputs.set(file, (await stat(file)).mtimeMs);
         }
         extensionCache.set(entry, { inputs, result: built });
         if (extensionCache.size > 50) {
           const first = extensionCache.keys().next().value as string | undefined;
-          if (first) extensionCache.delete(first);
+          if (first)
+            extensionCache.delete(first);
         }
         return built;
-      } catch (err) {
+      }
+      catch (err) {
         const failed: GraphicalExtension = { id: root, name: manifest.name, code: "", error: err instanceof Error ? err.message : String(err) };
         // Don't cache failures indefinitely — a syntax error may be fixed.
         return failed;
       }
-    } catch {
-      // Entry missing or unreadable — surface as empty.
-      return null;
+    }
+    catch {
+      return { id: root, name: manifest.name, code: "", error: `Renderer entry is missing or unreadable: ${manifest.renderer}` };
     }
   }));
-  return extensions.filter((extension): extension is GraphicalExtension => extension !== null);
+  const loaded = extensions.filter((extension): extension is GraphicalExtension => extension !== null);
+  const names = new Map<string, GraphicalExtension[]>();
+  for (const extension of loaded)
+    names.set(extension.name, [...(names.get(extension.name) ?? []), extension]);
+  return loaded.map(extension => (names.get(extension.name)?.length ?? 0) > 1
+    ? { ...extension, code: "", error: `Duplicate extension name: ${extension.name}. Use unique package names for method routing.` }
+    : extension);
 }

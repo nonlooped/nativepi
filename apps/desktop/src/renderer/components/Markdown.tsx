@@ -128,7 +128,28 @@ function MermaidDiagram({ source }: { source: string }) {
           htmlLabels: false,
           secure: [...(mermaid.mermaidAPI.defaultConfig.secure ?? []), "htmlLabels"],
           suppressErrorRendering: true,
-          theme: document.documentElement.classList.contains("dark") ? "dark" : "default",
+          theme: "neutral",
+          themeVariables: (() => {
+            const styles = getComputedStyle(document.documentElement);
+            const color = (role: string) => styles.getPropertyValue(role).trim();
+            return {
+              darkMode: document.documentElement.classList.contains("dark"),
+              background: color("--background"),
+              primaryColor: color("--card"),
+              primaryTextColor: color("--foreground"),
+              primaryBorderColor: color("--border"),
+              secondaryColor: color("--muted"),
+              secondaryTextColor: color("--foreground"),
+              secondaryBorderColor: color("--border"),
+              tertiaryColor: color("--accent"),
+              tertiaryTextColor: color("--foreground"),
+              tertiaryBorderColor: color("--border"),
+              lineColor: color("--muted-foreground"),
+              textColor: color("--foreground"),
+              mainBkg: color("--card"),
+              nodeBorder: color("--border"),
+            };
+          })(),
           fontFamily: "inherit",
         });
         const renderId = `nativepi-mermaid-${id}-${currentThemeVersion}-${sourceHash(source)}-${mermaidRender++}`;
@@ -235,7 +256,7 @@ function MarkdownImage({ src, alt, title }: { src?: string; alt?: string; title?
   }, [local, src, projectDir]);
 
   if (!src) return <span>{alt || "Image"} — Image could not be loaded.</span>;
-  if (!local) return <img src={src} alt={alt} title={title} loading="lazy" />;
+  if (!local) return <span title={title}>{alt || "Image"} — Remote images are not loaded.</span>;
   if (loaded?.source === src && loaded.projectDir === projectDir) {
     if (loaded.src) return <img src={loaded.src} alt={alt} title={title} loading="lazy" />;
     if (loaded.error) return <span title={loaded.error}>{alt || "Image"} — Image could not be loaded.</span>;

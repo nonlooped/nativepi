@@ -31,9 +31,6 @@ import FileTypeIcon from "./FileTypeIcon.tsx";
  * trigger begins and what accepting one does to the text.
  */
 
-/** A repository the agent is editing goes stale fast; a menu of deleted files is worse than a slow one. */
-const REFRESH_AFTER_MS = 5000;
-
 /** Long enough to scroll, short enough that the composer stays the thing you are looking at. */
 const MAX_VISIBLE = 8;
 
@@ -64,11 +61,12 @@ export function useComposerAutocomplete(
   // The characters an extension asked for, and the line it needs to answer about.
   const extensionTriggers = useAppStore((s) => s.extTriggers);
   const sessionFile = useAppStore((s) => s.activeSessionFile);
+  const generation = useAppStore(s => s.selectionVersion);
   const [line, setLine] = useState<{ text: string; caret: number } | null>(null);
-  const { commands, skills, files, loading } = useCompletionData(projectPath, trigger?.kind ?? null);
-  const extension = useExtensionCompletions(projectPath, sessionFile, trigger?.kind === "extension" ? line : null);
-
   const open = trigger !== null && dismissed !== trigger.start;
+  const { commands, skills, files, loading } = useCompletionData(projectPath, sessionFile, generation, open ? trigger.kind : null);
+  const extension = useExtensionCompletions(projectPath, sessionFile, generation, open && trigger?.kind === "extension" ? line : null);
+
   const options = !open
     ? EMPTY
     : trigger.kind === "command"
@@ -173,58 +171,34 @@ interface CompletionLists {
 
 const NO_COMPLETIONS: CompletionLists = { commands: [], skills: [], files: [] };
 
-/**
- * The lists behind the menus, read when one opens rather than on a timer.
- *
- * Nothing here belongs in the store: it is derived from the project on disk, it
- * is only ever read, and keeping a copy that outlives the open menu would just
- * be a cache to invalidate.
- */
-function useCompletionData(projectPath: string | null, kind: TriggerKind | null) {
-  // Keyed by project, so switching does not offer one project's commands while
-  // the other's are still being read. Starting Pi in the project just opened can
-  // take seconds, and a command accepted from the previous project's list would
-  // run whatever the new one happens to call by that name.
-  const [byProject, setByProject] = useState<Record<string, CompletionLists>>({});
-  const [loading, setLoading] = useState(false);
-  const read = useRef<{ key: string; at: number } | null>(null);
-  // Pi honours a project's trust decision only at startup, and every list but
-  // the commands one is read off disk. Asking for commands before the user has
-  // answered would start Pi in the untrusted mode they are being asked about,
-  // and the answer would then arrive too late to matter.
+function useCompletionData(projectPath: string | null, sessionFile: string | null, generation: number, kind: TriggerKind | null) {
+  const key = JSON.stringify([projectPath, sessionFile, generation, kind]);
+  const [state, setState] = useState<{ key: string; lists: CompletionLists; loading: boolean }>();
+  // Command discovery can start Pi, so it must wait for the trust decision.
   const awaitingTrust = useAppStore((s) => s.trust === null || s.trustPrompt !== null);
 
   useEffect(() => {
-    if (!kind || !projectPath) return;
-    if (kind === "command" && awaitingTrust) return;
-    const key = `${kind}:${projectPath}`;
-    const last = read.current;
-    if (last?.key === key && Date.now() - last.at < REFRESH_AFTER_MS) return;
-    read.current = { key, at: Date.now() };
-
+    if (!kind || kind === "extension" || !projectPath || (kind === "command" && awaitingTrust)) return;
     let cancelled = false;
-    setLoading(true);
+    setState({ key, lists: NO_COMPLETIONS, loading: true });
     const keep = (patch: Partial<CompletionLists>) => {
-      if (cancelled) return;
-      setByProject((s) => ({ ...s, [projectPath]: { ...(s[projectPath] ?? NO_COMPLETIONS), ...patch } }));
+      if (!cancelled) setState({ key, lists: { ...NO_COMPLETIONS, ...patch }, loading: false });
     };
-    const request =
-      kind === "command"
-        ? rpc.request.listCommands({ projectDir: projectPath }).then((result) => keep({ commands: result.commands }))
-        : kind === "skill"
-          ? rpc.request.listSkills({ projectDir: projectPath }).then((result) => keep({ skills: result.skills }))
-          : rpc.request.listProjectFiles({ projectDir: projectPath }).then((result) => keep({ files: result.files }));
+    const target = { projectDir: projectPath, sessionFile };
+    const request = kind === "command"
+      ? rpc.request.listCommands(target).then((result) => keep({ commands: result.commands }))
+      : kind === "skill"
+        ? rpc.request.listSkills({ projectDir: projectPath }).then((result) => keep({ skills: result.skills }))
+        : rpc.request.listProjectFiles({ projectDir: projectPath }).then((result) => keep({ files: result.files }));
+    void request.catch(() => keep({}));
+    return () => { cancelled = true; };
+  }, [awaitingTrust, key, kind, projectPath, sessionFile]);
 
-    void request.catch(() => {}).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [awaitingTrust, kind, projectPath]);
-
-  const lists = (projectPath ? byProject[projectPath] : null) ?? NO_COMPLETIONS;
-  return { ...lists, loading: loading || (kind === "command" && awaitingTrust) };
+  const current = state?.key === key ? state : undefined;
+  return {
+    ...(current?.lists ?? NO_COMPLETIONS),
+    loading: !!kind && kind !== "extension" && !!projectPath && (current?.loading ?? true),
+  };
 }
 
 /**
@@ -236,7 +210,7 @@ function useCompletionData(projectPath: string | null, kind: TriggerKind | null)
  * composer's own triggers carry on working, which is what happens in the
  * terminal too when a provider declines to answer.
  */
-function useExtensionCompletions(projectPath: string | null, sessionFile: string | null, line: { text: string; caret: number } | null) {
+function useExtensionCompletions(projectPath: string | null, sessionFile: string | null, generation: number, line: { text: string; caret: number } | null) {
   const [state, setState] = useState<{ options: ExtensionCompletionOption[]; loading: boolean }>(NO_EXTENSION_OPTIONS);
 
   useEffect(() => {
@@ -273,7 +247,7 @@ function useExtensionCompletions(projectPath: string | null, sessionFile: string
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [line, projectPath, sessionFile]);
+  }, [line, projectPath, sessionFile, generation]);
 
   return state;
 }
@@ -305,7 +279,7 @@ export function AutocompleteMenu({ state }: { state: ComposerAutocomplete }) {
     >
       <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5">
         <p className="text-xs font-medium text-muted-foreground">{MENU_LABELS[state.kind].title}</p>
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground/80">
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Kbd>↑</Kbd>
           <Kbd>↓</Kbd>
           <span>to move</span>

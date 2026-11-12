@@ -2,73 +2,82 @@ import { PatchDiff } from "@pierre/diffs/react";
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../lib/store.ts";
 import { diffHighlighterReady, primeDiffHighlighter } from "../lib/diffHighlighter.ts";
+import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
 
-function useIsDark(): boolean {
-  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
-  useEffect(() => {
-    const update = () => setIsDark(document.documentElement.classList.contains("dark"));
-    const observer = new MutationObserver(update);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    media.addEventListener("change", update);
-    return () => {
-      observer.disconnect();
-      media.removeEventListener("change", update);
-    };
-  }, []);
-  return isDark;
-}
-
+/** Read-only diff surface; the host owns Git semantics. */
 export default function DiffView({ patch, className }: { patch: string; className?: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [splitReadable, setSplitReadable] = useState(false);
-  const [highlighterReady, setHighlighterReady] = useState(diffHighlighterReady);
-  const preferred = useAppStore((s) => s.preferences.diffStyle);
-  const isDark = useIsDark();
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const update = (width: number) => setSplitReadable(width >= 720);
-    update(container.getBoundingClientRect().width);
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) update(entry.contentRect.width);
-    });
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, [highlighterReady]);
-  useEffect(() => {
-    if (highlighterReady) return;
-    let active = true;
-    void primeDiffHighlighter().then(() => {
-      if (active) setHighlighterReady(true);
-    });
-    return () => {
-      active = false;
-    };
-  }, [highlighterReady]);
-  // Side-by-side needs two readable code columns. The diff can sit in a narrow
-  // context pane inside a wide window, so its own width decides the fallback.
-  const diffStyle = preferred === "split" && !splitReadable ? "unified" : preferred;
-  if (!patch.trim()) {
-    return <p className="px-3 py-2 text-xs text-muted-foreground">No changes to display.</p>;
-  }
-  if (!highlighterReady) return null;
+  const container = useRef<HTMLDivElement>(null);
+  const [wide, setWide] = useState(false);
+  const [wrap, setWrap] = useState(false);
+  const [ready, setReady] = useState(diffHighlighterReady);
+  const [failed, setFailed] = useState(false);
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
+  const preferred = useAppStore(s => s.preferences.diffStyle);
+  const setPreference = useAppStore(s => s.setPreference);
 
-  return (
-    <div ref={containerRef} className={cn("min-w-0 overflow-hidden text-xs", className)}>
-      <PatchDiff
-        patch={patch}
-        options={{
-          theme: isDark ? "pierre-dark" : "pierre-light",
-          themeType: isDark ? "dark" : "light",
-          diffStyle,
-          diffIndicators: "bars",
-          disableFileHeader: true,
-          overflow: "scroll",
-          unsafeCSS: ":host { --diffs-font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }",
-        }}
-      />
+  useEffect(() => {
+    const element = container.current;
+    if (!element) return;
+    const resize = new ResizeObserver(([entry]) => setWide((entry?.contentRect.width ?? 0) >= 720));
+    resize.observe(element);
+    const theme = new MutationObserver(() => setDark(document.documentElement.classList.contains("dark")));
+    theme.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => { resize.disconnect(); theme.disconnect(); };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    void primeDiffHighlighter().then(
+      () => { if (alive) setReady(true); },
+      () => { if (alive) setFailed(true); },
+    );
+    return () => { alive = false; };
+  }, []);
+
+  const options = {
+    theme: dark ? "pierre-dark" : "pierre-light",
+    themeType: dark ? "dark" as const : "light" as const,
+    disableFileHeader: true,
+    overflow: wrap ? "wrap" as const : "scroll" as const,
+    unsafeCSS: codeCSS,
+  };
+  const empty = !patch.trim();
+  return <div ref={container} className={cn("min-w-0 text-xs", className)}>
+    <div className="sticky top-0 z-10 flex items-center gap-1 border-b bg-background px-2 py-1">
+      <span className="min-w-0 flex-1 text-muted-foreground">Diff</span>
+      {wide && <Button variant="ghost" size="xs" onClick={() => setPreference("diffStyle", preferred === "split" ? "unified" : "split")}>{preferred === "split" ? "Unified view" : "Split view"}</Button>}
+      <Button variant="ghost" size="xs" aria-pressed={wrap} onClick={() => setWrap(value => !value)}>Wrap lines</Button>
     </div>
-  );
+    {empty ? <p className="px-3 py-4 text-muted-foreground">No textual diff to show.</p>
+      : !ready || !/^@@ /m.test(patch) ? <>
+        {failed && <p role="status" className="px-3 py-2 text-muted-foreground">Syntax highlighting is unavailable. Showing plain text.</p>}
+        <pre className={cn("overflow-auto p-3 font-mono leading-5", wrap && "whitespace-pre-wrap break-all")}>{patch}</pre>
+      </>
+      : <PatchDiff patch={patch ?? ""} options={{ ...options, diffStyle: wide ? preferred : "unified", diffIndicators: "classic" }} />}
+  </div>;
 }
+
+const codeCSS = `
+:host {
+  --diffs-font-family: var(--font-mono);
+  --diffs-font-size: 0.75rem;
+  --diffs-line-height: 1.25rem;
+  --diffs-bg: var(--background);
+  --diffs-fg: var(--foreground);
+  --diffs-fg-number: var(--muted-foreground);
+  --diffs-bg-separator-override: var(--muted);
+  --diffs-fg-number-override: var(--muted-foreground);
+  --diffs-bg-addition-override: color-mix(in oklch, var(--foreground) 6%, var(--background));
+  --diffs-bg-deletion-override: color-mix(in oklch, var(--foreground) 12%, var(--background));
+  --diffs-bg-addition-number-override: var(--muted);
+  --diffs-bg-deletion-number-override: var(--accent);
+  --diffs-bg-addition-emphasis-override: color-mix(in oklch, var(--foreground) 16%, var(--background));
+  --diffs-bg-deletion-emphasis-override: color-mix(in oklch, var(--foreground) 24%, var(--background));
+  --diffs-modified-color-override: var(--muted-foreground);
+  --diffs-addition-color-override: var(--success);
+  --diffs-deletion-color-override: var(--destructive);
+}
+/* Syntax themes ship their own hues inside the shadow root. */
+[data-line] span { color: inherit !important; }
+`;

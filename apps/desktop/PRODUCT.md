@@ -23,7 +23,7 @@ Success means NativePi is useful as the daily desktop interface for Pi project w
 
 ## Positioning
 
-NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains the product core and source of truth for agent behavior, providers, models, authentication, tools, prompts, skills, extensions, queues, compaction, and sessions. NativePi presents those capabilities directly instead of creating parallel AI logic or a second conversation model.
+NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains the product core and source of truth for agent behavior, providers, models, authentication, tools, prompts, skills, extensions, queues, compaction, and sessions. NativePi presents those capabilities directly without a second conversation model. Chat naming, ask_user, and provider service-tier selection are shipped app features implemented through Pi APIs.
 
 ## Operating Context
 
@@ -36,6 +36,9 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 - Narrow windows move the context pane into a sheet. On a phone, project navigation moves there too so the conversation and composer remain usable.
 
 ## Current Capabilities
+
+- Automatic names for new chats after the first successful answer, generated through Pi's authenticated model runtime and saved as Pi session names without replacing manual names.
+- A shipped `ask_user` Pi tool with native choice and free-text dialogs, including explicit cancellation, plus `/speed` service-tier selection for supported OpenAI, Codex, and Anthropic transports.
 
 - Pinned, Focus, and Finished chat lists, project filtering, title and transcript search, and direct opening in installed editors or the system file manager.
 - New, resume, rename, clone, fork, delete, import, HTML export, chat branches, and compaction workflows backed by Pi.
@@ -63,7 +66,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 ## Boundaries and Constraints
 
 - NativePi's host is currently single-window. Its light or dark appearance can follow the operating system or be selected explicitly, independently of its built-in or locally stored color scheme. Browser access requires an explicitly started server, the access token in the link, and the running desktop app. Remote Access is a throwaway Cloudflare quick tunnel created for one session and closed after twelve hours; NativePi does not operate a hosting service, register a permanent address, or hold an account of any kind.
-- NativePi does not own an agent loop, make its own LLM requests, add agent tools, or support other harnesses.
+- NativePi does not own an agent loop or support other harnesses. Its explicit app-owned agent features are automatic chat naming via Pi's model runtime, the shipped ask_user tool registered with Pi, and service-tier controls using Pi's provider APIs. Other agent capabilities remain optional Pi extensions.
 - Pi session files are the durable conversation source of truth. NativePi persists only pinned projects and chats, the last project and chat, text drafts, favorite models, pane state, source-control preferences, and its own interface preferences.
 - Agent configuration is Pi's. NativePi reads and writes it through Pi's own settings manager at user scope, so a change made here is a change the Pi command line sees; NativePi never writes Pi's configuration format itself, and exposes only the settings that have meaning in a desktop window. Project-scope overrides remain the Pi command line's business.
 - Authentication is Pi-backed. Credentials are never stored in NativePi renderer persistence or its state file.
@@ -87,7 +90,6 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 
 - `src/` is the source of truth for implemented behavior; this document records the durable product boundary rather than a speculative roadmap.
 - `package.json`, `electron.vite.config.ts`, and `components.json` record the current runtime, build stack, dependencies, and shadcn baseline.
-- `DESIGN.md` records the incumbent visual system and responsive desktop layout.
 - No testimonials, customer logos, usage benchmarks, pricing claims, press coverage, or commercial proof assets are available and future work must not fabricate them.
 
 ## Product Principles

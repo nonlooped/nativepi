@@ -17,7 +17,7 @@ export default function FileTypeIcon({ path, size = 16, className }: { path: str
   return (
     <span
       aria-hidden
-      className={cn("inline-flex shrink-0 select-none [&>svg]:size-full", className)}
+      className={cn("inline-flex shrink-0 select-none grayscale [&>svg]:size-full", className)}
       style={{ width: size, height: size }}
       dangerouslySetInnerHTML={catalog ? { __html: catalog.iconSvg(path) } : undefined}
     />

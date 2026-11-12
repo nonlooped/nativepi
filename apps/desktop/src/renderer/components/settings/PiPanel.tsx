@@ -47,22 +47,10 @@ function PiSettingsStatus() {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const running = useAppStore((s) => Object.values(s.conversations).some((conversation) => conversation.running));
 
-  if (error) {
-    return (
-      <p
-        role="alert"
-        className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
-      >
-        <WarningCircleIcon weight="fill" className="mt-0.5 shrink-0" />
-        <span className="min-w-0 break-words">{error}</span>
-      </p>
-    );
-  }
-
-  if (!restartPending) return null;
-
   return (
-    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-lg border bg-muted/40 px-3 py-2.5 text-sm">
+    <div className="flex flex-col gap-2">
+      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+      {restartPending ? <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-lg border bg-muted/40 px-3 py-2.5 text-sm">
       <InfoIcon className="shrink-0 text-muted-foreground" />
       <p className="min-w-0 flex-1 text-body-muted-foreground">
         Saved. Pi reads its settings when it starts, so this takes effect the next time it runs
@@ -81,6 +69,7 @@ function PiSettingsStatus() {
           Restart Pi now
         </Button>
       ) : null}
+      </div> : null}
     </div>
   );
 }

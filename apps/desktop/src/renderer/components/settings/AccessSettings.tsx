@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react/ArrowsClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CheckIcon } from "@phosphor-icons/react/Check";
@@ -21,14 +21,9 @@ import { isRemote, rpc } from "../../lib/rpc.ts";
 import { useAppStore } from "../../lib/store.ts";
 import ConfirmDialog from "../ConfirmDialog.tsx";
 import { SettingsCard, type CardTone } from "./rows.tsx";
-
-const STOPPED_STATUS: AccessStatus = {
-  local: { running: false, links: [], clients: [] },
-  remote: { state: "idle" },
-};
+import { createAccessStatusController, STOPPED_STATUS, type AccessAction } from "./accessStatus.ts";
 
 type Scope = "local" | "remote";
-type Action = Scope | "replace" | "revoke";
 
 /**
  * Two ways to reach this window from somewhere else.
@@ -41,7 +36,7 @@ type Action = Scope | "replace" | "revoke";
  */
 export default function AccessSettings() {
   const [status, setStatus] = useState<AccessStatus>(STOPPED_STATUS);
-  const [busy, setBusy] = useState<Action>();
+  const [busy, setBusy] = useState<AccessAction>();
   const [copied, setCopied] = useState<Scope>();
   const [preferredLocalLink, setPreferredLocalLink] = useState<string>();
   const [showing, setShowing] = useState<{ scope: Scope; link: string }>();
@@ -50,40 +45,26 @@ export default function AccessSettings() {
   const handoffs = useAppStore((s) => s.accessHandoffs);
   const recordHandoff = useAppStore((s) => s.recordAccessHandoff);
 
+  const controller = useRef<ReturnType<typeof createAccessStatusController> | null>(null);
   useEffect(() => {
-    let cancelled = false;
-    const read = async () => {
-      try {
-        const next = await rpc.request.accessStatus({});
-        if (!cancelled) setStatus(next);
-      } catch (error) {
-        if (!cancelled) {
-          setStatus((current) => ({
-            ...current,
-            local: { ...current.local, error: errorMessage(error) },
-          }));
-        }
-      }
-    };
-    void read();
-    const interval = setInterval(read, 4_000);
+    const current = createAccessStatusController(
+      () => rpc.request.accessStatus({}),
+      (next, action) => { setStatus(next); setBusy(action); },
+    );
+    controller.current = current;
+    void current.read();
+    const interval = setInterval(() => void current.read(), 4_000);
     return () => {
-      cancelled = true;
+      current.dispose();
+      controller.current = null;
       clearInterval(interval);
     };
   }, []);
 
-  const run = async (action: Action, request: Promise<AccessStatus>) => {
-    setBusy(action);
-    try {
-      setStatus(await request);
-    } catch (error) {
-      setStatus((current) => action === "remote"
-        ? { ...current, remote: { state: "error", error: errorMessage(error) } }
-        : { ...current, local: { ...current.local, error: errorMessage(error) } });
-    } finally {
-      setBusy(undefined);
-    }
+  const run = async (action: AccessAction, request: () => Promise<AccessStatus>) => {
+    setShowing(undefined);
+    setCopied(undefined);
+    await controller.current?.run(action, request);
   };
 
   const copy = async (scope: Scope, link: string) => {
@@ -132,7 +113,7 @@ export default function AccessSettings() {
             disabled={Boolean(busy)}
             onClick={() => void run(
               "local",
-              status.local.running ? rpc.request.stopLocalAccess({}) : rpc.request.startLocalAccess({}),
+              () => status.local.running ? rpc.request.stopLocalAccess({}) : rpc.request.startLocalAccess({}),
             )}
           >
             <ContextualIcon
@@ -244,7 +225,7 @@ export default function AccessSettings() {
               </div>
 
               {shared ? (
-                <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 border-t pt-4 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-center @min-[36rem]/settings-content:justify-between">
                   <p className="text-sm text-body-muted-foreground">
                     Both links carry the same token, and nothing knows who holds a copy.
                   </p>
@@ -288,8 +269,8 @@ export default function AccessSettings() {
         onConfirm={() => {
           const action = pending;
           setPending(undefined);
-          if (action === "revoke") void run("revoke", rpc.request.revokeAccess({}));
-          else if (action === "replace") void run("replace", rpc.request.replaceAccessLink({}));
+          if (action === "revoke") void run("revoke", () => rpc.request.revokeAccess({}));
+          else if (action === "replace") void run("replace", () => rpc.request.replaceAccessLink({}));
         }}
         onCancel={() => setPending(undefined)}
       />
@@ -297,7 +278,7 @@ export default function AccessSettings() {
       <Dialog open={showing !== undefined} onOpenChange={(next) => !next && setShowing(undefined)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="font-heading text-base font-semibold">
+            <DialogTitle className="text-title">
               {showing?.scope === "remote" ? "Public link" : "Network link"}
             </DialogTitle>
             <DialogDescription className="text-sm leading-relaxed text-body-muted-foreground">
@@ -384,7 +365,7 @@ function LinkPanel({
           }}
           items={choices}
         >
-          <SelectTrigger aria-label="Network address" className="w-full text-xs sm:w-56">
+          <SelectTrigger aria-label="Network address" className="w-full text-xs @min-[36rem]/settings-content:w-56">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -411,11 +392,11 @@ function RemoteAction({
 }: {
   status: RemoteAccessStatus;
   busy: boolean;
-  onRun: (action: Action, request: Promise<AccessStatus>) => Promise<void>;
+  onRun: (action: AccessAction, request: () => Promise<AccessStatus>) => Promise<void>;
 }) {
   if (status.state === "running") {
     return (
-      <Button variant="destructive" size="xl" disabled={busy} onClick={() => void onRun("remote", rpc.request.stopRemoteAccess({}))}>
+      <Button variant="destructive" size="xl" disabled={busy} onClick={() => void onRun("remote", () => rpc.request.stopRemoteAccess({}))}>
         <StopIcon weight="fill" data-icon="inline-start" />
         {busy ? "Working…" : "Stop"}
       </Button>
@@ -423,7 +404,7 @@ function RemoteAction({
   }
   if (status.state === "error") {
     return (
-      <Button variant="outline" size="xl" disabled={busy} onClick={() => void onRun("remote", rpc.request.startRemoteAccess({}))}>
+      <Button variant="outline" size="xl" disabled={busy} onClick={() => void onRun("remote", () => rpc.request.startRemoteAccess({}))}>
         <ArrowsClockwiseIcon data-icon="inline-start" />
         {busy ? "Working…" : "Try again"}
       </Button>
@@ -434,7 +415,7 @@ function RemoteAction({
       variant="outline"
       size="xl"
       disabled={busy || status.state === "starting"}
-      onClick={() => void onRun("remote", rpc.request.startRemoteAccess({}))}
+      onClick={() => void onRun("remote", () => rpc.request.startRemoteAccess({}))}
     >
       <PlayIcon weight="fill" data-icon="inline-start" />
       {busy || status.state === "starting" ? "Starting…" : "Start"}
@@ -534,8 +515,4 @@ function formatTime(value: string): string {
 
 function formatClock(at: number): string {
   return new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

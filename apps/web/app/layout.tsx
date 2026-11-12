@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
 import { Analytics } from "@vercel/analytics/next";
-import { Footer } from "@/components/site/Footer";
-import { Header } from "@/components/site/Header";
 import { site } from "@/lib/site";
 
 import "./globals.css";
@@ -10,10 +8,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
   title: {
-    default: `${site.name} | ${site.tagline}`,
+    default: `${site.name} | Under construction`,
     template: `%s | ${site.name}`,
   },
-  description: site.description,
+  description: "The NativePi website is being updated. Follow development on GitHub while fresh content and screenshots are on the way.",
   applicationName: site.name,
   authors: [{ name: site.author, url: site.repo }],
   creator: site.author,
@@ -36,17 +34,13 @@ export const metadata: Metadata = {
     type: "website",
     url: site.url,
     siteName: site.name,
-    title: `${site.name} | ${site.tagline}`,
-    description: site.description,
-    images: [
-      { url: "/og.png", width: 1280, height: 640, alt: `${site.name}` },
-    ],
+    title: `${site.name} | Under construction`,
+    description: "The NativePi website is being updated. Follow development on GitHub while fresh content and screenshots are on the way.",
   },
   twitter: {
-    card: "summary_large_image",
-    title: `${site.name} | ${site.tagline}`,
-    description: site.description,
-    images: ["/og.png"],
+    card: "summary",
+    title: `${site.name} | Under construction`,
+    description: "The NativePi website is being updated. Follow development on GitHub while fresh content and screenshots are on the way.",
   },
   robots: { index: true, follow: true },
 };
@@ -70,9 +64,7 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        <Header />
         <main id="main">{children}</main>
-        <Footer />
         <Analytics />
       </body>
     </html>

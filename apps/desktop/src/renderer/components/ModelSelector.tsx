@@ -15,7 +15,15 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover.tsx";
-import { Slider } from "@/components/ui/slider.tsx";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx";
 import { NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import BrandIcon from "./BrandIcon.tsx";
 
@@ -30,12 +38,16 @@ export default function ModelSelector() {
   const openSettings = useAppStore((s) => s.openSettings);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [scope, setScope] = useState("all");
+  const availableProviders = [...new Set(models.map((item) => item.provider))];
   const favoriteModelKeys = new Set(favoriteModels);
   const providerNames = new Map(providers.map((item) => [item.id, item.name]));
   const label = model ? friendlyModelName(model) : "Model";
   const normalizedQuery = query.trim().toLocaleLowerCase();
 
   const visibleModels = models.filter((item) => {
+    if (scope === "favorites" && !favoriteModelKeys.has(modelKey(item))) return false;
+    if (scope !== "all" && scope !== "favorites" && item.provider !== scope) return false;
     if (!normalizedQuery) return true;
     const providerName = providerNames.get(item.provider) ?? "";
     return `${item.name ?? item.id} ${item.id} ${item.provider} ${providerName}`
@@ -64,6 +76,7 @@ export default function ModelSelector() {
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
         setQuery("");
+        setScope("all");
       }}
     >
       <PopoverTrigger
@@ -71,7 +84,7 @@ export default function ModelSelector() {
         render={
           <Button
             variant="ghost"
-            className="min-w-0 max-w-64 justify-start gap-1.5 px-2 font-normal"
+            className="min-w-0 max-w-[min(16rem,100%)] justify-start gap-1.5 px-2 font-normal"
           />
         }
         title={models.length === 0 ? "Loading models from Pi…" : "Change model and reasoning"}
@@ -98,7 +111,7 @@ export default function ModelSelector() {
         sideOffset={6}
         className={cn(
           NO_DRAG_REGION,
-          "flex h-[min(23rem,calc(var(--available-height)-0.75rem))] w-[min(22rem,calc(100vw-0.75rem))] gap-0 overflow-hidden p-0",
+          "flex max-h-[min(30rem,calc(var(--available-height)-0.75rem))] w-[min(26rem,calc(100vw-1.5rem))] flex-col gap-0 overflow-hidden rounded-xl p-0",
         )}
       >
         <PopoverTitle className="sr-only">Choose a model</PopoverTitle>
@@ -106,20 +119,47 @@ export default function ModelSelector() {
           Search models from every provider and adjust reasoning effort.
         </PopoverDescription>
 
-        <div className="shrink-0 border-b border-border/70 p-2.5">
-          <div className="relative">
-            <MagnifyingGlassIcon className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2.5">
+          <div className="relative min-w-0 flex-1">
+            <MagnifyingGlassIcon className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               autoFocus
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search all models"
+              placeholder="Search models…"
               aria-label="Search models"
-              className="h-8 pl-8"
+              className="h-9 border-0 bg-transparent pl-8 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 dark:bg-transparent"
             />
           </div>
+          <Select
+            value={scope}
+            onValueChange={(value) => { if (value) setScope(value); }}
+            items={[
+              { value: "all", label: "All providers" },
+              { value: "favorites", label: "Favorites" },
+              ...availableProviders.map((id) => ({ value: id, label: providerNames.get(id) ?? id })),
+            ]}
+          >
+            <SelectTrigger aria-label="Filter models" className="max-w-[44%] gap-1 border-0 bg-transparent text-xs text-muted-foreground hover:text-foreground dark:bg-transparent dark:hover:bg-muted">
+              <SelectValue className="truncate" />
+            </SelectTrigger>
+            <SelectContent align="end" alignItemWithTrigger={false} className="w-56 max-w-[calc(100vw-2rem)]">
+              <SelectGroup>
+                <SelectItem value="all">All providers</SelectItem>
+                <SelectItem value="favorites"><StarIcon /> Favorites</SelectItem>
+              </SelectGroup>
+              <SelectSeparator />
+              <SelectGroup>
+                {availableProviders.map((id) => (
+                  <SelectItem key={id} value={id}>
+                    <ModelProviderIcon provider={id} />
+                    {providerNames.get(id) ?? id}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
-
         <ModelScrollArea model={model}>
           <ModelList
             visibleModels={visibleModels}
@@ -131,74 +171,62 @@ export default function ModelSelector() {
           />
         </ModelScrollArea>
 
-        <ReasoningSlider />
+        <ReasoningControl />
       </PopoverContent>
     </Popover>
   );
 }
 
-function ReasoningSlider() {
+function ReasoningControl() {
   const thinkingLevel = useAppStore((s) => s.thinkingLevel);
   const thinkingLevels = useAppStore((s) => s.thinkingLevels);
+  const loading = useAppStore((s) => s.thinkingLevelsLoading);
+  const error = useAppStore((s) => s.thinkingLevelsError);
+  const retry = useAppStore((s) => s.refreshThinkingLevels);
   const setThinkingLevel = useAppStore((s) => s.setThinkingLevel);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const combo = hintFor("cycleThinking", keybindingOverrides);
-  const index = thinkingLevels.indexOf(thinkingLevel);
-  const selectedIndex = index < 0 ? 0 : index;
-  const selectedLevel = thinkingLevels[selectedIndex] ?? thinkingLevel;
+  const options = thinkingLevels.map((level) => ({ value: level, label: thinkingLabel(level) }));
 
   return (
-    <section className="shrink-0 border-t border-border/70 px-3 py-2.5" aria-labelledby="reasoning-heading">
-      <div className="flex items-center gap-2">
-        <h3 id="reasoning-heading" className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">
-          Reasoning effort
-        </h3>
-        {thinkingLevels.length > 0 ? (
-          <span className="shrink-0 text-xs font-medium text-foreground">{thinkingLabel(selectedLevel)}</span>
+    <section className="shrink-0 border-t border-border/60 px-4 py-2.5" aria-label="Reasoning">
+      <div className="flex min-h-8 items-center gap-2">
+        <span className="flex-1 text-xs text-muted-foreground">Reasoning effort</span>
+        {combo ? <Kbd className="text-muted-foreground">{combo}</Kbd> : null}
+        {!error && thinkingLevels.length > 0 ? (
+          <Select
+            value={thinkingLevels.includes(thinkingLevel) ? thinkingLevel : null}
+            items={options}
+            disabled={loading || thinkingLevels.length === 1}
+            onValueChange={(level) => {
+              if (level && level !== thinkingLevel) void setThinkingLevel(level);
+            }}
+          >
+            <SelectTrigger aria-label="Reasoning effort" className="min-w-24 border-0 bg-transparent px-2 text-sm dark:bg-transparent dark:hover:bg-muted">
+              <SelectValue placeholder="Choose…" />
+            </SelectTrigger>
+            <SelectContent side="top" align="end" alignItemWithTrigger={false} className="min-w-36">
+              <SelectGroup>
+                {options.map((option) => (
+                  <SelectItem key={option.value} value={option.value} className="min-h-8 text-sm">
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         ) : null}
-        {combo ? <Kbd className="shrink-0">{combo}</Kbd> : null}
       </div>
-      {thinkingLevels.length === 0 ? (
-        <p className="mt-2 text-xs text-muted-foreground">Loading this model’s levels…</p>
-      ) : thinkingLevels.length === 1 ? (
-        <p className="mt-2 text-xs text-muted-foreground">
-          This model uses {thinkingLabel(thinkingLevels[0]!)} reasoning.
-        </p>
-      ) : (
-        <div className="mt-2 flex flex-col gap-1">
-          <div className="relative px-0.5">
-            <Slider
-              min={0}
-              max={thinkingLevels.length - 1}
-              step={1}
-              largeStep={1}
-              value={[selectedIndex]}
-              aria-label="Reasoning effort"
-              className="[&_[data-slot=slider-range]]:bg-transparent [&_[data-slot=slider-track]]:bg-linear-to-r [&_[data-slot=slider-track]]:from-success [&_[data-slot=slider-track]]:to-info"
-              onValueChange={(value) => {
-                const nextIndex = Array.isArray(value) ? value[0] : value;
-                const level = typeof nextIndex === "number" ? thinkingLevels[nextIndex] : undefined;
-                if (level && level !== thinkingLevel) void setThinkingLevel(level);
-              }}
-            />
-            <div className="pointer-events-none absolute inset-x-1.5 top-1/2 flex -translate-y-1/2 justify-between" aria-hidden="true">
-              {thinkingLevels.map((level, levelIndex) => (
-                <span
-                  key={level}
-                  className={cn(
-                    "size-1 rounded-full bg-background/70",
-                    (levelIndex === 0 || levelIndex === thinkingLevels.length - 1) && "opacity-0",
-                  )}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="flex justify-between gap-3 text-[0.6875rem] text-muted-foreground">
-            <span>Faster</span>
-            <span>Smarter</span>
-          </div>
+      {error ? (
+        <div className="mt-1 flex items-center gap-2">
+          <p role="alert" className="min-w-0 flex-1 text-xs text-destructive">{error}</p>
+          <Button variant="ghost" size="sm" onClick={() => void retry()}>Retry levels</Button>
         </div>
-      )}
+      ) : thinkingLevels.length === 0 ? (
+        <p className="pb-1 text-xs text-muted-foreground">
+          {loading ? "Loading this model’s levels…" : "No reasoning levels available."}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -215,7 +243,7 @@ function ModelScrollArea({
     listRef.current?.querySelector("[data-selected-model]")?.scrollIntoView({ block: "nearest" });
   }, [model?.id, model?.provider]);
 
-  return <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto p-1.5">{children}</div>;
+  return <div ref={listRef} className="min-h-0 overflow-y-auto px-2 py-2">{children}</div>;
 }
 
 function ModelList({
@@ -233,19 +261,36 @@ function ModelList({
   providerNames: Map<string, string>;
   onSelect: (model: ModelInfo) => void;
 }) {
+  const groups = new Map<string, ModelInfo[]>();
+  for (const candidate of visibleModels) {
+    const group = groups.get(candidate.provider);
+    if (group) group.push(candidate);
+    else groups.set(candidate.provider, [candidate]);
+  }
+
   if (visibleModels.length > 0) {
     return (
-      <div className="flex flex-col gap-0.5">
-        {visibleModels.map((candidate) => (
-          <ModelRow
-            key={`${candidate.provider}/${candidate.id}`}
-            model={candidate}
-            favorite={favoriteModelKeys.has(modelKey(candidate))}
-            selected={isSameModel(candidate, model)}
-            providerName={providerNames.get(candidate.provider) ?? candidate.provider}
-            query={query}
-            onSelect={onSelect}
-          />
+      <div className="space-y-3">
+        {[...groups].map(([provider, candidates]) => (
+          <section key={provider} aria-label={providerNames.get(provider) ?? provider}>
+            <div className="flex items-center gap-2.5 px-2.5 pb-1.5 pt-1 text-xs font-medium text-muted-foreground">
+              <ModelProviderIcon provider={provider} />
+              <span className="truncate">{providerNames.get(provider) ?? provider}</span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {candidates.map((candidate) => (
+                <ModelRow
+                  key={modelKey(candidate)}
+                  model={candidate}
+                  favorite={favoriteModelKeys.has(modelKey(candidate))}
+                  selected={isSameModel(candidate, model)}
+                  providerName={providerNames.get(provider) ?? provider}
+                  query={query}
+                  onSelect={onSelect}
+                />
+              ))}
+            </div>
+          </section>
         ))}
       </div>
     );
@@ -280,10 +325,11 @@ function ModelRow({
   return (
     <div
       data-selected-model={selected || undefined}
-      className={cn("group/model flex min-h-10 items-stretch rounded-md hover:bg-muted/70", selected && "bg-accent")}
+      className={cn("group/model flex min-h-10 items-stretch rounded-md hover:bg-muted/70", selected && "bg-accent/80")}
     >
       <button
         type="button"
+        title={`${display} · ${providerName}${context ? ` · ${context} context` : ""}`}
         aria-current={selected ? "true" : undefined}
         onClick={() => onSelect(model)}
         onKeyDown={(event) => {
@@ -291,19 +337,13 @@ function ModelRow({
           event.preventDefault();
           toggleFavoriteModel(model);
         }}
-        className="flex min-w-0 flex-1 items-center gap-2 rounded-l-md px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-l-md px-2.5 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
       >
-        <ModelProviderIcon provider={model.provider} />
+        <CheckIcon className={cn("size-4 shrink-0", !selected && "invisible")} />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-xs font-medium">{highlightMatch(display, query)}</span>
-          <span className="block truncate text-[0.6875rem] text-muted-foreground">
-            {highlightMatch(providerName, query)}
-          </span>
+          <span className={cn("block truncate text-sm", selected && "font-medium")}>{highlightMatch(display, query)}</span>
         </span>
-        {context ? (
-          <span className="shrink-0 font-mono text-[0.6875rem] tabular-nums text-muted-foreground">{context}</span>
-        ) : null}
-        {selected ? <CheckIcon className="shrink-0 text-foreground" /> : null}
+        {context ? <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{context}</span> : null}
       </button>
       <button
         type="button"
@@ -312,8 +352,8 @@ function ModelRow({
         title={`${favorite ? "Remove from favorites" : "Add to favorites"} (F)`}
         onClick={() => toggleFavoriteModel(model)}
         className={cn(
-          "flex w-8 shrink-0 items-center justify-center rounded-r-md text-muted-foreground/35 outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset group-hover/model:text-muted-foreground",
-          favorite && "text-favorite group-hover/model:text-favorite",
+          "flex w-8 shrink-0 items-center justify-center rounded-r-md text-muted-foreground opacity-0 outline-none transition-colors hover-reveal focus-visible:opacity-100 group-hover/model:opacity-100 group-focus-within/model:opacity-100 hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset group-hover/model:text-muted-foreground",
+          favorite && "text-favorite opacity-100 group-hover/model:text-favorite",
         )}
       >
         <StarIcon weight={favorite ? "fill" : "regular"} />

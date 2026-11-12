@@ -24,7 +24,7 @@ import { SettingsSection } from "./settings/rows.tsx";
 
 const TuiAutoPane = lazy(() => import("./TuiSurface.tsx").then((module) => ({ default: module.TuiAutoPane })));
 
-type BaseContext = Pick<RendererContext, "project" | "session" | "agent">;
+type BaseContext = Pick<RendererContext, "project" | "session" | "agent"> & { draftGeneration: number };
 
 const EMPTY_PROTOCOL: ExtensionProtocol = { methods: {}, events: {} };
 
@@ -155,7 +155,9 @@ function actionsFor(extension: string): RendererActions {
 
 function contextFor(base: BaseContext, extension: LoadedExtension): RendererContext {
   return {
-    ...base,
+    project: base.project,
+    session: base.session,
+    agent: base.agent,
     extension: { id: extension.id, name: extension.name },
     channel: bridgeFor(extension.name, extension.renderer.protocol ?? EMPTY_PROTOCOL),
     actions: actionsFor(extension.name),
@@ -166,12 +168,14 @@ function useRendererContext(): BaseContext {
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const projectName = useAppStore((s) => s.projects.find((project) => project.path === s.activeProjectPath)?.name);
   const sessionFile = useAppStore((s) => s.activeSessionFile);
+  const draftGeneration = useAppStore(s => s.selectionVersion);
   const sessionName = useAppStore((s) => activeConversation(s).sessionName);
   const running = useAppStore((s) => activeConversation(s).running);
   const status = useAppStore((s) => s.activeProjectPath ? (s.piStatus[s.activeProjectPath] ?? "idle") : "idle");
   const model = useAppStore((s) => s.model);
   const thinkingLevel = useAppStore((s) => s.thinkingLevel);
   return {
+    draftGeneration,
     project: { path: projectDir ?? "", name: projectName ?? projectDir ?? "" },
     session: { file: sessionFile, name: sessionName },
     agent: { status, running, model, thinkingLevel },
@@ -187,7 +191,7 @@ function ExtensionContribution({ render }: { render: () => ReactNode }) {
 // channel functions. A new key remounts that work for a chat change, so a slow
 // response from the old chat has no component left to update.
 function sessionKey(ctx: BaseContext) {
-  return ctx.session.file ?? "new";
+  return JSON.stringify([ctx.project.path, ctx.session.file, ctx.session.file ? null : ctx.draftGeneration]);
 }
 
 export function ExtensionToolResult({ call, result }: { call: ToolCall; result?: ToolResultMessage }) {

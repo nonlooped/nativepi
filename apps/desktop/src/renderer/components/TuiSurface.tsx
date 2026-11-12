@@ -195,7 +195,7 @@ function TuiOverlayDialog({ surface, projectDir }: { surface: TuiSurface; projec
     >
       <DialogContent className="flex h-[min(calc(var(--app-height,100dvh)-2rem),64rem)] w-[min(96vw,112rem)] max-w-none flex-col">
         <DialogHeader>
-          <DialogTitle className="font-heading text-base font-semibold">{surface.key}</DialogTitle>
+          <DialogTitle className="text-title">{surface.key}</DialogTitle>
           <DialogDescription className="text-sm text-body-muted-foreground">
             An extension is showing this and is waiting for you to answer it. Use the keys it names.
           </DialogDescription>

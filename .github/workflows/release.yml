@@ -34,7 +34,7 @@ permissions:
 
 # Releases run one at a time so a nightly never tags beside a stable cut in progress.
 concurrency:
-  group: release
+  group: ${{ inputs.channel == 'build-only' && format('build-only-{0}', github.run_id) || 'release' }}
   cancel-in-progress: false
 
 env:
@@ -43,18 +43,24 @@ env:
 jobs:
   plan:
     name: Plan
+    # Reject failed, PR, and foreign CI events before checkout or runner allocation.
+    if: >-
+      (github.repository == 'nonlooped/nativepi' || inputs.channel == 'build-only') &&
+      (github.event_name != 'workflow_run' ||
+       (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        github.event.workflow_run.repository.full_name == github.repository))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
       actions: read
     env:
-      # The commit CI certified. A workflow_run payload's sha is untrusted, so it is
-      # never checked out: the Decide step only advances when CI succeeded for a
-      # push to main and main still points at that commit, which makes the run's
-      # own commit (github.sha, checked out in every job) the certified one.
-      HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      # Every downstream job uses this immutable candidate, including reusable checks.
+      HEAD_SHA: ${{ github.sha }}
     outputs:
+      sha: ${{ steps.plan.outputs.sha }}
       build: ${{ steps.plan.outputs.build }}
       certified: ${{ steps.plan.outputs.certified }}
       publish: ${{ steps.plan.outputs.release }}
@@ -68,9 +74,9 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
           filter: blob:none
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.2
+          bun-version: 1.4.4
       - name: Decide
         id: plan
         env:
@@ -80,6 +86,8 @@ jobs:
           CI_EVENT: ${{ github.event.workflow_run.event }}
           CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
         run: |
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          echo "sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
           if [ "$CHANNEL" = build-only ]; then
             version=$(node -p 'require("./package.json").version')
             printf 'build=true\nrelease=false\nversion=%s\n' "$version" >> "$GITHUB_OUTPUT"
@@ -140,8 +148,11 @@ jobs:
 
   package:
     name: Package (${{ matrix.platform }} ${{ matrix.arch }})
-    needs: plan
-    if: needs.plan.outputs.build == 'true'
+    needs: [plan, checks]
+    if: >-
+      !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.build == 'true' &&
+      (needs.checks.result == 'success' ||
+       (needs.plan.outputs.certified == 'true' && needs.checks.result == 'skipped'))
     strategy:
       fail-fast: false
       matrix:
@@ -209,7 +220,8 @@ jobs:
     # Checks are skipped, not failed, when the commit's own CI run already certified it.
     if: >-
       !cancelled() && needs.plan.outputs.publish == 'true' && needs.package.result == 'success' &&
-      contains(fromJSON('["success", "skipped"]'), needs.checks.result)
+      (needs.checks.result == 'success' ||
+       (needs.plan.outputs.certified == 'true' && needs.checks.result == 'skipped'))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -230,9 +242,9 @@ jobs:
         with:
           pattern: installers-*
           path: ${{ runner.temp }}/release-artifacts
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.4.2
+          bun-version: 1.4.4
       - name: Verify and assemble artifacts
         run: |
           bun scripts/release-assets.mjs "$RUNNER_TEMP/release-artifacts" release "$VERSION" "$PRERELEASE"

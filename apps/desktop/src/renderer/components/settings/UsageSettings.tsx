@@ -4,10 +4,9 @@ import { ChartLineUpIcon } from "@phosphor-icons/react/ChartLineUp";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import type { UsageDashboard } from "../../../shared/pi-types.ts";
-import { rpc } from "../../lib/rpc.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { useRequest } from "../../lib/useRequest.ts";
-import { createRequestCache } from "../../lib/requestCache.ts";
+import { createUsageDashboardReader, usageProjectsKey } from "./usageReads.ts";
 import { providerIconName } from "../../lib/providerIcons.ts";
 import { useReducedMotion } from "../../lib/motion.ts";
 import BrandIcon from "../BrandIcon.tsx";
@@ -20,7 +19,7 @@ import SubscriptionUsageSettings from "./SubscriptionUsageSettings.tsx";
 
 const ALL_PROJECTS = "all-projects";
 const PROVIDER_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)"];
-const dashboardCache = createRequestCache<string, Awaited<ReturnType<typeof rpc.request.getUsageDashboard>>>();
+const dashboardReader = createUsageDashboardReader();
 
 type Range = "7" | "30" | "90" | "all";
 type ChartMetric = "cost" | "tokens";
@@ -32,18 +31,18 @@ export default function UsageSettings() {
   const [projectPath, setProjectPath] = useState(ALL_PROJECTS);
   const [range, setRange] = useState<Range>("30");
   const selectedProjects = projectPath === ALL_PROJECTS ? projects : projects.filter((project) => project.path === projectPath);
-  const cacheKey = JSON.stringify(selectedProjects.map(({ path, name }) => [path, name]));
+  const cacheKey = usageProjectsKey(selectedProjects);
   const request = useRequest(
-    () => dashboardCache.load(cacheKey, () => rpc.request.getUsageDashboard({ projects: selectedProjects })),
+    () => dashboardReader.load(selectedProjects),
     [cacheKey],
   );
-  const dashboard = request.data?.dashboard ?? null;
-  const error = request.data?.error ?? request.error;
+  const dashboard = request.data;
+  const error = request.error;
   const period = periodLabel(range, dashboard?.daily ?? []);
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-4 border-b border-border/70 pb-5 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-4 border-b border-border/70 pb-5 @min-[44rem]/settings-content:flex-row @min-[44rem]/settings-content:items-end @min-[44rem]/settings-content:justify-between">
         <div className="flex flex-col gap-2">
           <ToggleGroup
             value={[view]}
@@ -66,13 +65,13 @@ export default function UsageSettings() {
         </div>
 
         {view === "costs" ? (
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-center">
             <Select
               value={projectPath}
               onValueChange={(value) => typeof value === "string" && setProjectPath(value)}
               items={[{ value: ALL_PROJECTS, label: "All projects" }, ...projects.map((project) => ({ value: project.path, label: project.name }))]}
             >
-              <SelectTrigger aria-label="Project" className="h-8 w-full min-w-44 px-2.5 text-xs sm:w-52">
+              <SelectTrigger aria-label="Project" className="h-8 w-full min-w-44 px-2.5 text-xs @min-[36rem]/settings-content:w-52">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent alignItemWithTrigger={false} align="end">
@@ -98,18 +97,18 @@ export default function UsageSettings() {
                 size="sm"
                 spacing={0}
                 aria-label="Date range"
-                className="min-w-0 flex-1 sm:flex-none"
+                className="min-w-0 flex-1 @min-[36rem]/settings-content:flex-none"
               >
-                <ToggleGroupItem value="7" className="flex-1 px-2 sm:flex-none">7 days</ToggleGroupItem>
-                <ToggleGroupItem value="30" className="flex-1 px-2 sm:flex-none">30 days</ToggleGroupItem>
-                <ToggleGroupItem value="90" className="flex-1 px-2 sm:flex-none">90 days</ToggleGroupItem>
-                <ToggleGroupItem value="all" className="flex-1 px-2 sm:flex-none">All</ToggleGroupItem>
+                <ToggleGroupItem value="7" className="flex-1 px-2 @min-[36rem]/settings-content:flex-none">7 days</ToggleGroupItem>
+                <ToggleGroupItem value="30" className="flex-1 px-2 @min-[36rem]/settings-content:flex-none">30 days</ToggleGroupItem>
+                <ToggleGroupItem value="90" className="flex-1 px-2 @min-[36rem]/settings-content:flex-none">90 days</ToggleGroupItem>
+                <ToggleGroupItem value="all" className="flex-1 px-2 @min-[36rem]/settings-content:flex-none">All</ToggleGroupItem>
               </ToggleGroup>
               <Button
                 variant="outline"
                 size="icon-lg"
                 onClick={() => {
-                  dashboardCache.invalidate(cacheKey);
+                  dashboardReader.invalidate(selectedProjects);
                   request.reload();
                 }}
                 disabled={request.loading}
@@ -149,11 +148,11 @@ function Dashboard({ dashboard, range }: { dashboard: UsageDashboard; range: Ran
 
   return (
     <div className="flex flex-col gap-9">
-      <section className="grid gap-8 border-b border-border/70 pb-9 xl:grid-cols-[minmax(16rem,0.72fr)_minmax(30rem,1.45fr)] xl:gap-10">
+      <section className="grid gap-8 border-b border-border/70 pb-9 @min-[52rem]/settings-content:grid-cols-[minmax(16rem,0.72fr)_minmax(30rem,1.45fr)] @min-[52rem]/settings-content:gap-10">
         <div className="flex flex-col">
           <div className="flex items-baseline justify-between gap-4">
-            <h2 className="font-heading text-sm font-semibold">Cost by provider</h2>
-            <span className="font-mono text-lg font-medium tabular-nums">{cost(view.totalCost)}</span>
+            <h2 className="text-title">Cost by provider</h2>
+            <span className="text-lg font-medium tabular-nums">{cost(view.totalCost)}</span>
           </div>
           <p className="mt-1 max-w-sm text-xs leading-5 text-body-muted-foreground">Model-reported estimates from Pi session files, not provider invoices.</p>
 
@@ -167,7 +166,7 @@ function Dashboard({ dashboard, range }: { dashboard: UsageDashboard; range: Ran
                       <BrandIcon name={providerIconName(provider.provider)} size={15} className="text-muted-foreground" />
                       <span className="truncate font-medium">{prettyProvider(provider.provider)}</span>
                     </span>
-                    <span className="shrink-0 font-mono text-xs tabular-nums">{cost(provider.cost)}</span>
+                    <span className="shrink-0 text-xs tabular-nums">{cost(provider.cost)}</span>
                   </div>
                   <div className="h-1 overflow-hidden rounded-full bg-muted">
                     <div className="h-full rounded-full" style={{ backgroundColor: providerColor(index), width: `${share}%` }} />
@@ -182,7 +181,7 @@ function Dashboard({ dashboard, range }: { dashboard: UsageDashboard; range: Ran
         <UsageChart daily={view.daily} providers={providers.slice(0, 4)} />
       </section>
 
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-6 border-b border-border/70 pb-7 sm:grid-cols-3 xl:grid-cols-5">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-6 border-b border-border/70 pb-7 @min-[36rem]/settings-content:grid-cols-3 @min-[52rem]/settings-content:grid-cols-5">
         <Metric label="Processed tokens" value={formatTokens(view.tokens.total)} detail={activeDays ? `${formatTokens(view.tokens.total / activeDays)} per active day` : "No activity"} />
         <Metric
           label="Cached input"
@@ -194,7 +193,7 @@ function Dashboard({ dashboard, range }: { dashboard: UsageDashboard; range: Ran
         <Metric label="Sessions" value={view.sessions.toLocaleString()} detail={`${activeDays.toLocaleString()} active ${activeDays === 1 ? "day" : "days"}`} />
       </dl>
 
-      <section className="grid gap-10 xl:grid-cols-[minmax(0,1.7fr)_minmax(15rem,0.75fr)]">
+      <section className="grid gap-10 @min-[52rem]/settings-content:grid-cols-[minmax(0,1.7fr)_minmax(15rem,0.75fr)]">
         <ModelBreakdown models={view.models} totalCost={view.totalCost} />
         <UsageSummary dashboard={dashboard} view={view} />
       </section>
@@ -228,10 +227,10 @@ function UsageChart({ daily, providers }: { daily: UsageDashboard["daily"]; prov
   const max = Math.max(0, ...data.flatMap((point) => providers.map((provider) => Number(point[provider.provider] ?? 0))));
 
   return (
-    <div className="min-w-0 xl:border-l xl:border-border/70 xl:pl-10">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="min-w-0 @min-[52rem]/settings-content:border-l @min-[52rem]/settings-content:border-border/70 @min-[52rem]/settings-content:pl-10">
+      <div className="flex flex-col gap-3 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-start @min-[36rem]/settings-content:justify-between">
         <div className="flex flex-col gap-1">
-          <h2 className="font-heading text-sm font-semibold">Daily usage</h2>
+          <h2 className="text-title">Daily usage</h2>
           <div className="flex flex-wrap gap-x-4 gap-y-1.5">
             {providers.map((provider, index) => (
               <span key={provider.provider} className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -263,16 +262,16 @@ function UsageChart({ daily, providers }: { daily: UsageDashboard["daily"]; prov
         <ChartContainer config={config} className="mt-5 h-64 w-full aspect-auto" initialDimension={{ width: 640, height: 256 }}>
           <AreaChart accessibilityLayer data={data} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
             <CartesianGrid vertical={false} className="stroke-border/60" />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={10} minTickGap={28} tick={{ fontSize: 11 }} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={10} minTickGap={28} tick={{ fontSize: "var(--text-xs)" }} />
             <YAxis
               width={48}
               tickLine={false}
               axisLine={false}
               domain={[0, max === 0 ? 1 : max * 1.08]}
               tickFormatter={(value: number) => metric === "cost" ? compactCost(value) : formatTokens(value)}
-              tick={{ fontSize: 11 }}
+              tick={{ fontSize: "var(--text-xs)" }}
             />
-            <ChartTooltip cursor={{ stroke: "var(--border)" }} content={<UsageTooltip metric={metric} />} />
+            <ChartTooltip isAnimationActive={!reducedMotion} animationDuration={150} cursor={{ stroke: "var(--border)" }} content={<UsageTooltip metric={metric} />} />
             {providers.map((provider, index) => (
               <Area
                 key={provider.provider}
@@ -286,6 +285,7 @@ function UsageChart({ daily, providers }: { daily: UsageDashboard["daily"]; prov
                 dot={false}
                 activeDot={{ r: 3, strokeWidth: 2, fill: "var(--background)", stroke: providerColor(index) }}
                 isAnimationActive={!reducedMotion}
+                animationDuration={250}
               />
             ))}
           </AreaChart>
@@ -317,7 +317,7 @@ function UsageTooltip({
               <span className="size-1.5 rounded-full" style={{ backgroundColor: item.color }} aria-hidden />
               {prettyProvider(String(item.dataKey))}
             </span>
-            <span className="font-mono tabular-nums">{metric === "cost" ? cost(item.value ?? 0) : formatTokens(item.value ?? 0)}</span>
+            <span className="tabular-nums">{metric === "cost" ? cost(item.value ?? 0) : formatTokens(item.value ?? 0)}</span>
           </div>
         ))}
       </div>
@@ -332,7 +332,7 @@ function Metric({ label, value, detail }: { label: string; value: string; detail
   return (
     <div className="min-w-0">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1.5 font-mono text-lg font-medium tracking-tight tabular-nums">{value}</dd>
+      <dd className="mt-1.5 text-lg font-medium tabular-nums">{value}</dd>
       <p className="mt-0.5 truncate text-xs text-body-muted-foreground" title={detail}>{detail}</p>
     </div>
   );
@@ -342,7 +342,7 @@ function ModelBreakdown({ models, totalCost }: { models: UsageDashboard["models"
   return (
     <div className="min-w-0">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="font-heading text-sm font-semibold">Model breakdown</h2>
+        <h2 className="text-title">Model breakdown</h2>
         <span className="text-xs text-muted-foreground">{models.length} {models.length === 1 ? "model" : "models"}</span>
       </div>
       <div className="mt-3 overflow-x-auto">
@@ -368,9 +368,9 @@ function ModelBreakdown({ models, totalCost }: { models: UsageDashboard["models"
                     </span>
                     <span className="mt-0.5 block truncate pl-[1.375rem] text-xs text-muted-foreground" title={model.name}>{model.name}</span>
                   </td>
-                  <td className="px-3 py-2.5 text-right font-mono text-xs tabular-nums">{cost(model.cost)}</td>
-                  <td className="px-3 py-2.5 text-right font-mono text-xs tabular-nums text-muted-foreground">{share.toFixed(1)}%</td>
-                  <td className="py-2.5 text-right font-mono text-xs tabular-nums text-muted-foreground">{formatTokens(model.tokens)}</td>
+                  <td className="px-3 py-2.5 text-right text-xs tabular-nums">{cost(model.cost)}</td>
+                  <td className="px-3 py-2.5 text-right text-xs tabular-nums text-muted-foreground">{share.toFixed(1)}%</td>
+                  <td className="py-2.5 text-right text-xs tabular-nums text-muted-foreground">{formatTokens(model.tokens)}</td>
                 </tr>
               );
             })}
@@ -392,12 +392,12 @@ function UsageSummary({ dashboard, view }: { dashboard: UsageDashboard; view: Re
 
   return (
     <div>
-      <h2 className="font-heading text-sm font-semibold">Activity</h2>
+      <h2 className="text-title">Activity</h2>
       <dl className="mt-3">
         {rows.map(([label, value]) => (
           <div key={label} className="flex items-center justify-between gap-4 border-t border-border/70 py-3 text-sm">
             <dt className="text-muted-foreground">{label}</dt>
-            <dd className="font-mono text-xs tabular-nums">{value}</dd>
+            <dd className="text-xs tabular-nums">{value}</dd>
           </div>
         ))}
       </dl>
@@ -412,7 +412,7 @@ function EmptyUsage() {
         <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
           <ChartLineUpIcon />
         </span>
-        <h2 className="font-heading text-sm font-semibold">No billed usage yet</h2>
+        <h2 className="text-title">No billed usage yet</h2>
         <p className="text-sm leading-6 text-body-muted-foreground">
           Usage appears after Pi records a model cost in a session file. The data stays on this device.
         </p>

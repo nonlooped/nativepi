@@ -18,15 +18,7 @@ import {
 } from "@/components/ui/dialog.tsx";
 import { cn } from "@/lib/utils.ts";
 
-/**
- * Worktrees for a project.
- *
- * Deliberately not part of the composer's branch menu. Switching branches
- * changes the folder you are already in; a worktree is a second folder with its
- * own Pi, its own chats and its own changes pane, which in NativePi is simply
- * another project. It belongs with the project actions that create and remove
- * projects, not with the control that says which branch this one is on.
- */
+/** Create or open a checkout as a separate NativePi project. */
 export default function WorktreeDialog({
   projectPath,
   onClose,
@@ -38,7 +30,7 @@ export default function WorktreeDialog({
     <Dialog open={projectPath !== null} onOpenChange={(next) => !next && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="font-heading text-base font-semibold">Worktrees</DialogTitle>
+          <DialogTitle className="text-title">Worktrees</DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-body-muted-foreground">
             A worktree is a second checkout of this repository in its own folder, so a branch can be worked on
             without disturbing the one you have open. NativePi opens each worktree as its own project.

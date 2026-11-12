@@ -45,10 +45,21 @@ const extSchema = { z };
 
 // The menu is published under neutral names so an extension is not written
 // against the shadcn primitive NativePi happens to use for it today.
+function ExtensionSwitch({
+  checked, defaultChecked, onCheckedChange, disabled, size, name, value, className, ...buttonProps
+}: React.ComponentProps<typeof import("@nativepi/extension-api/ui").Switch>) {
+  return React.createElement(Switch, {
+    checked, defaultChecked, onCheckedChange, disabled, size, name, className,
+    ...(value === undefined ? {} : { value: String(value) }),
+    nativeButton: true,
+    render: React.createElement("button", buttonProps),
+  });
+}
+
 const extUi = {
   Badge,
   Button,
-  Input, Textarea, Label, Switch, Separator,
+  Input, Textarea, Label, Switch: ExtensionSwitch, Separator,
   Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel,
   Dialog, DialogTrigger, DialogClose, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription,
   Menu: DropdownMenu,
@@ -65,7 +76,7 @@ const extUi = {
   SettingsTextRow: TextRow,
   SettingsSliderRow: SliderRow,
   ConversationTranscript: ExtensionConversationTranscript,
-};
+} satisfies typeof import("@nativepi/extension-api/ui");
 
 declare global {
   // eslint-disable-next-line no-var

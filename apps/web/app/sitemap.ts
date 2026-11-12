@@ -1,9 +1,8 @@
 import type { MetadataRoute } from "next";
 
-import { docsLinks } from "@/lib/docs";
 import { site } from "@/lib/site";
 
-const routes = ["", ...docsLinks.map((link) => link.href)];
+const routes = [""];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return routes.map((route) => ({

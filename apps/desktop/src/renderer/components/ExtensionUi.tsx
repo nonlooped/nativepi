@@ -15,10 +15,10 @@ export default function ExtensionUi() {
 }
 
 const PROMPT_DESCRIPTIONS: Record<ExtensionPrompt["method"], string> = {
-  select: "An extension is asking you to choose one of these options before it continues.",
-  confirm: "An extension is asking you to confirm before it continues.",
-  input: "An extension is asking for a value before it continues.",
-  editor: "An extension is asking you to edit this text before it continues.",
+  select: "Choose an option to continue.",
+  confirm: "Confirm to continue.",
+  input: "Enter an answer to continue.",
+  editor: "Edit this text to continue.",
 };
 
 function ExtensionPromptDialog({ prompt }: { prompt: ExtensionPrompt }) {
@@ -27,8 +27,7 @@ function ExtensionPromptDialog({ prompt }: { prompt: ExtensionPrompt }) {
   const fieldId = useId();
 
   const cancel = () => respond({ cancel: true });
-  // DESIGN.md makes descriptions mandatory, and these dialogs come from
-  // third-party code: without one, the user is asked to answer a question with
+  // These dialogs come from third-party code: without a description, the user is asked to answer a question with
   // no statement of who is asking or what answering does.
   const description =
     (prompt.method === "confirm" ? prompt.message : undefined) ?? PROMPT_DESCRIPTIONS[prompt.method];
@@ -37,7 +36,7 @@ function ExtensionPromptDialog({ prompt }: { prompt: ExtensionPrompt }) {
     <Dialog open onOpenChange={(next) => !next && cancel()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-heading text-base font-semibold">{prompt.title}</DialogTitle>
+          <DialogTitle className="text-title">{prompt.title}</DialogTitle>
           <DialogDescription className="text-sm text-body-muted-foreground">{description}</DialogDescription>
         </DialogHeader>
 

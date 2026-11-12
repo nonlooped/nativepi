@@ -2,74 +2,104 @@ import { needsRestart, type PiSettings } from "../../../shared/pi-settings.ts";
 import { rpc } from "../rpc.ts";
 import type { PiSettingsSlice, SliceCreator } from "./types.ts";
 
-/**
- * Pi's own settings, as the settings screen edits them.
- *
- * These are not NativePi state: the file behind them is Pi's, shared with the Pi
- * CLI, and editable from outside this window. So nothing here is persisted with
- * the workspace and nothing is assumed between visits — the screen reloads on
- * open, and every write returns the values Pi reports afterwards rather than the
- * ones we sent.
- *
- * Writes are optimistic because a switch that waits for a file write to come
- * back feels broken; a failure puts the old value back and says why.
- */
+type Key = keyof PiSettings;
 
-/**
- * Which write is the current one.
- *
- * Every response carries the whole settings object, so applying an older one on
- * top of a newer one puts the user's own most recent choice back to what it was
- * before they made it. The main process writes in order; this makes the renderer
- * accept them in order too, whatever order the IPC replies happen to arrive in.
- */
-let latestWrite = 0;
+// Pi owns the file, and each successful write returns its normalized snapshot.
+// Host writes are serialized; replies may arrive out of order over the bridge.
+export const createPiSettingsSlice: SliceCreator<PiSettingsSlice> = (set, get) => {
+  let confirmed: PiSettings | null = null;
+  let writeVersion = 0;
+  let loadVersion = 0;
+  let restartVersion = 0;
+  let restarting: Promise<void> | undefined;
+  const confirmedVersions = new Map<Key, number>();
+  const latestEdits = new Map<Key, number>();
+  const pending = new Map<number, Partial<PiSettings>>();
+  const failures = new Map<Key, { version: number; message: string }>();
 
-export const createPiSettingsSlice: SliceCreator<PiSettingsSlice> = (set, get) => ({
-  piSettings: null,
-  piSettingsError: undefined,
-  piRestartPending: false,
-
-  loadPiSettings: async () => {
-    const res = await rpc.request.getPiSettings({});
-    set({ piSettings: res.settings ?? null, piSettingsError: res.error });
-  },
-
-  updatePiSetting: async (key, value) => {
-    const previous = get().piSettings;
-    if (!previous) return;
-    set({ piSettings: { ...previous, [key]: value }, piSettingsError: undefined });
-
-    const patch = { [key]: value } as Partial<PiSettings>;
-    const seq = ++latestWrite;
-    const res = await rpc.request.setPiSettings({ patch });
-    // A newer write is already in flight, and its reply reports the file after
-    // this one landed. Letting this older reply through would undo it.
-    if (seq !== latestWrite) return;
-
-    if (!res.ok) {
-      // Only this control goes back. Restoring the whole snapshot would revert
-      // any other setting changed while this write was in flight.
-      set((s) => ({
-        piSettings: s.piSettings ? { ...s.piSettings, [key]: previous[key] } : previous,
-        piSettingsError: res.error ?? "Could not save that setting.",
-      }));
-      return;
+  const errorMessage = () => [...failures.values()].sort((a, b) => b.version - a.version)[0]?.message;
+  const projectSettings = () => {
+    if (!confirmed) return null;
+    const settings = { ...confirmed };
+    for (const [version, patch] of pending) {
+      for (const key of Object.keys(patch) as Key[]) {
+        if (version > (confirmedVersions.get(key) ?? 0)) Object.assign(settings, { [key]: patch[key] });
+      }
     }
-    set((s) => ({
-      piSettings: res.settings ?? s.piSettings,
-      // Sticky: the notice stays until Pi is actually restarted, because the
-      // settings written before this one are still waiting on the same restart.
-      piRestartPending: s.piRestartPending || needsRestart(patch),
-    }));
-  },
+    return settings;
+  };
 
-  applyPiSettingsRestart: async () => {
-    // Every project, not only the active one: the notice is global because the
-    // stale configuration is, and clearing it has to be true of all of them.
-    await rpc.request.restartAllPi({});
-    set({ piRestartPending: false });
-    // Brings the active project back up and clears any error the stop produced.
-    await get().restartPi();
-  },
-});
+  return {
+    piSettings: null,
+    piSettingsError: undefined,
+    piRestartPending: false,
+
+    loadPiSettings: async () => {
+      const version = ++loadVersion;
+      const edits = writeVersion;
+      const duringEdit = pending.size > 0;
+      const current = () => version === loadVersion && edits === writeVersion && !duringEdit && pending.size === 0;
+      try {
+        const res = await rpc.request.getPiSettings({});
+        if (!current()) return;
+        confirmed = res.settings ?? null;
+        confirmedVersions.clear();
+        failures.clear();
+        set({ piSettings: confirmed, piSettingsError: res.error });
+      } catch (error) {
+        if (current()) set({ piSettingsError: message(error) });
+      }
+    },
+
+    updatePiSetting: async (key, value) => {
+      if (!get().piSettings) return;
+      if (pending.size === 0) confirmed = get().piSettings;
+      const version = ++writeVersion;
+      const patch = { [key]: value } as Partial<PiSettings>;
+      pending.set(version, patch);
+      latestEdits.set(key, version);
+      failures.delete(key);
+      set({ piSettings: projectSettings(), piSettingsError: errorMessage() });
+
+      try {
+        const res = await rpc.request.setPiSettings({ patch });
+        if (!res.ok) throw new Error(res.error ?? "Could not save that setting.");
+        const snapshot = res.settings ?? patch;
+        for (const field of Object.keys(snapshot) as Key[]) {
+          if (version >= (confirmedVersions.get(field) ?? 0)) {
+            confirmed = { ...confirmed!, [field]: snapshot[field] };
+            confirmedVersions.set(field, version);
+          }
+        }
+        // A stale snapshot still acknowledges a saved restart-required edit.
+        if (needsRestart(patch)) {
+          restartVersion++;
+          set({ piRestartPending: true });
+        }
+      } catch (error) {
+        if (latestEdits.get(key) === version) failures.set(key, { version, message: message(error) });
+      } finally {
+        pending.delete(version);
+        set({ piSettings: projectSettings(), piSettingsError: errorMessage() });
+      }
+    },
+
+    applyPiSettingsRestart: () => {
+      if (restarting) return restarting;
+      const version = restartVersion;
+      restarting = (async () => {
+        try {
+          await get().restartAllPi();
+          if (version === restartVersion) set({ piRestartPending: false, piSettingsError: errorMessage() });
+        } catch (error) {
+          set({ piSettingsError: message(error) });
+        }
+      })().finally(() => { restarting = undefined; });
+      return restarting;
+    },
+  };
+};
+
+function message(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}

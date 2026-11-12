@@ -3,36 +3,13 @@ import { ChartDonutIcon } from "@phosphor-icons/react/ChartDonut";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { PlugsConnectedIcon } from "@phosphor-icons/react/PlugsConnected";
-import { z } from "zod";
+import { useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { useAppStore } from "../../lib/store.ts";
-import { rpc } from "../../lib/rpc.ts";
 import { useRequest } from "../../lib/useRequest.ts";
-import { createRequestCache } from "../../lib/requestCache.ts";
+import { createSubscriptionUsageReader, type SubscriptionUsage, type SubscriptionUsageLimit } from "./usageReads.ts";
 import { providerIconName } from "../../lib/providerIcons.ts";
 import BrandIcon from "../BrandIcon.tsx";
-
-const subscriptionUsageLimitSchema = z.object({
-  label: z.string(),
-  usedPercent: z.number().finite(),
-  resetAt: z.string().optional(),
-  windowSeconds: z.number().finite().positive().optional(),
-});
-
-const subscriptionUsageSchema = z.object({
-  provider: z.string(),
-  limits: z.array(subscriptionUsageLimitSchema),
-});
-
-const subscriptionUsageResultSchema = z.object({
-  usages: z.array(subscriptionUsageSchema).optional(),
-});
-
-type SubscriptionUsageLimit = z.infer<typeof subscriptionUsageLimitSchema>;
-type SubscriptionUsage = z.infer<typeof subscriptionUsageSchema>;
-type SubscriptionUsageResult = { usages: SubscriptionUsage[] };
-
-const usageCache = createRequestCache<string, SubscriptionUsageResult>();
 
 function providerLabel(provider: string) {
   return provider === "github-copilot"
@@ -77,7 +54,8 @@ function resetTitle(resetAt?: string) {
 }
 
 function pace(limit: SubscriptionUsageLimit) {
-  if (!limit.resetAt || !limit.windowSeconds) return undefined;
+  // The package accepts any finite window; pacing needs a positive duration.
+  if (!limit.resetAt || limit.windowSeconds === undefined || limit.windowSeconds <= 0) return undefined;
   const reset = Date.parse(limit.resetAt);
   if (Number.isNaN(reset)) return undefined;
   const windowMs = limit.windowSeconds * 1000;
@@ -98,35 +76,14 @@ export default function SubscriptionUsageSettings() {
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const projects = useAppStore((s) => s.projects);
   const projectDir = activeProjectPath ?? projects[0]?.path ?? null;
-  const cacheKey = `${projectDir ?? ""}\0${activeSessionFile ?? ""}`;
-
+  const sessionFile = activeProjectPath ? activeSessionFile : null;
+  const [usageReader] = useState(createSubscriptionUsageReader);
   const request = useRequest(
-    () => usageCache.load(cacheKey, async () => {
-      if (!projectDir) return { usages: [] };
-      const { result, error } = await rpc.request.callExtension({
-        projectDir,
-        sessionFile: activeSessionFile ?? null,
-        extension: "@nativepi/subscription-usage",
-        method: "usages",
-      });
-      if (error) throw new Error(error);
-      const parsed = subscriptionUsageResultSchema.safeParse(result);
-      if (!parsed.success) throw new Error("The subscription provider returned invalid usage data.");
-      const usages = (parsed.data.usages ?? []).map((usage) => ({
-        ...usage,
-        limits: usage.limits.toSorted((a, b) => b.usedPercent - a.usedPercent),
-      }));
-      usages.sort((a, b) => {
-        const aMax = a.limits.reduce((m, l) => Math.max(m, l.usedPercent), 0);
-        const bMax = b.limits.reduce((m, l) => Math.max(m, l.usedPercent), 0);
-        return bMax - aMax;
-      });
-      return { usages };
-    }),
-    [cacheKey],
+    () => usageReader.load(projectDir, sessionFile),
+    [projectDir, sessionFile],
   );
   const refresh = () => {
-    usageCache.invalidate(cacheKey);
+    usageReader.invalidate(projectDir, sessionFile);
     request.reload();
   };
 
@@ -185,6 +142,7 @@ export default function SubscriptionUsageSettings() {
 
       <p className="max-w-3xl text-xs leading-5 text-body-muted-foreground">
         Subscription limits are reported by each provider and read by Pi using your stored OAuth session. They are not invoices and may lag behind actual use.
+        {request.data ? ` Last read at ${new Date(request.data.observedAt).toLocaleTimeString()}. Refresh to check again.` : ""}
       </p>
     </div>
   );
@@ -206,19 +164,19 @@ function RefreshButton({ onRefresh, loading }: { onRefresh: () => void; loading:
 }
 
 function ProviderCard({ usage }: { usage: SubscriptionUsage }) {
-  const sorted = [...usage.limits].sort((a, b) => b.usedPercent - a.usedPercent);
+  const sorted = usage.limits;
   const mostConstrained = sorted[0];
   const remaining = mostConstrained ? Math.max(0, 100 - mostConstrained.usedPercent) : undefined;
 
   return (
-    <section className="grid gap-6 border-t border-border/70 py-7 lg:grid-cols-[minmax(12rem,0.55fr)_minmax(20rem,1.45fr)] lg:gap-10">
-      <div className="flex items-start justify-between gap-4 lg:flex-col lg:justify-start">
+    <section className="grid gap-6 border-t border-border/70 py-7 @min-[44rem]/settings-content:grid-cols-[minmax(12rem,0.55fr)_minmax(20rem,1.45fr)] @min-[44rem]/settings-content:gap-10">
+      <div className="flex items-start justify-between gap-4 @min-[44rem]/settings-content:flex-col @min-[44rem]/settings-content:justify-start">
         <div className="flex items-center gap-3">
           <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-foreground">
             <BrandIcon name={providerIconName(usage.provider)} size={21} color />
           </span>
           <div>
-            <h2 className="text-sm font-semibold leading-none">{providerLabel(usage.provider)}</h2>
+            <h2 className="text-sm font-semibold leading-normal">{providerLabel(usage.provider)}</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               {sorted.length === 0
                 ? "No limits reported"
@@ -227,9 +185,9 @@ function ProviderCard({ usage }: { usage: SubscriptionUsage }) {
           </div>
         </div>
         {remaining !== undefined ? (
-          <div className="text-right lg:text-left">
+          <div className="text-right @min-[44rem]/settings-content:text-left">
             <p
-              className="font-mono text-lg font-medium leading-none tabular-nums"
+              className="text-lg font-medium leading-tight tabular-nums"
               style={{ color: toneColor(mostConstrained!.usedPercent) }}
             >
               {Math.round(remaining)}% left
@@ -255,7 +213,7 @@ function ProviderCard({ usage }: { usage: SubscriptionUsage }) {
                   <p className="min-w-0 flex-1 truncate text-sm font-medium" title={limit.label}>
                     {limit.label}
                   </p>
-                  <p className="shrink-0 font-mono text-xs tabular-nums" style={{ color: toneColor(limit.usedPercent) }}>
+                  <p className="shrink-0 text-xs tabular-nums" style={{ color: toneColor(limit.usedPercent) }}>
                     {Math.round(left)}% left
                   </p>
                 </div>
@@ -310,7 +268,7 @@ function EmptyState({
       <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
         {icon ?? <ChartDonutIcon size={18} />}
       </span>
-      <h2 className="mt-3 font-heading text-sm font-semibold">{title}</h2>
+      <h2 className="mt-3 text-title">{title}</h2>
       <p className="mt-1.5 max-w-md text-sm leading-6 text-body-muted-foreground">{description}</p>
       {action ? <div className="mt-3">{action}</div> : null}
     </div>

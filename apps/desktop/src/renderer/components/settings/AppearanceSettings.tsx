@@ -1,7 +1,9 @@
+import { MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE, INTERFACE_SCALE_STEP } from "../../../shared/interface-scale.ts";
+import { hintFor } from "../../lib/shortcuts.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { osName } from "../../lib/platform.ts";
 import { cn } from "@/lib/utils.ts";
-import { ChoiceCards, ChoiceRow, SettingsSection, SliderRow } from "./rows.tsx";
+import { ChoiceCards, ChoiceRow, SliderRow } from "./rows.tsx";
 import ThemeSettings from "./ThemeSettings.tsx";
 
 /** A stack of fake message lines, used to draw the width and diff previews. */
@@ -43,21 +45,22 @@ function WidthPreview({ width }: { width: string }) {
   );
 }
 
-export default function AppearanceSettings() {
+export default function AppearanceSettings({ page }: { page: "theme" | "layout" }) {
   const preferences = useAppStore((s) => s.preferences);
   const setPreference = useAppStore((s) => s.setPreference);
   // Named rather than hard-coded: this screen is also served to a phone over
   // Remote Access, where "Follow Windows" would be describing someone else's
   // machine and pointing at a setting the reader cannot find.
   const system = osName();
+  const overrides = useAppStore((s) => s.keybindingOverrides);
 
   return (
-    <div className="flex flex-col gap-10">
-      <SettingsSection heading="Theme">
+    <div className="settings-list">
+      {page === "theme" ? <>
         <ThemeSettings />
-      </SettingsSection>
+      </> : null}
 
-      <SettingsSection heading="Layout">
+      {page === "layout" ? <>
         <ChoiceCards
           label="Conversation width"
           description="How far messages, diffs and the composer may spread on a wide window."
@@ -72,17 +75,15 @@ export default function AppearanceSettings() {
         />
         <SliderRow
           label="Interface scale"
-          description="Scales text, spacing and controls throughout NativePi."
+          description={`Scales text, spacing and controls. Increase: ${hintFor("increaseScale", overrides) || "unbound"}; decrease: ${hintFor("decreaseScale", overrides) || "unbound"}; reset: ${hintFor("resetScale", overrides) || "unbound"}.`}
           value={preferences.interfaceScale}
-          min={0.9}
-          max={1.4}
-          step={0.05}
+          min={MIN_INTERFACE_SCALE}
+          max={MAX_INTERFACE_SCALE}
+          step={INTERFACE_SCALE_STEP}
           format={(value) => `${Math.round(value * 100)}%`}
           onChange={(value) => setPreference("interfaceScale", value)}
         />
-      </SettingsSection>
 
-      <SettingsSection heading="Diffs">
         <ChoiceCards
           label="Diff layout"
           description="Applies to file changes in the transcript and in the changes pane. A narrow window falls back to unified either way."
@@ -138,9 +139,9 @@ export default function AppearanceSettings() {
           ]}
           onChange={(value) => setPreference("diffStyle", value)}
         />
-      </SettingsSection>
+      </> : null}
 
-      <SettingsSection heading="Motion">
+      {page === "theme" ? <>
         <ChoiceRow
           label="Animation"
           description={`NativePi follows the reduced-motion setting in ${system} unless you override it here.`}
@@ -152,7 +153,7 @@ export default function AppearanceSettings() {
           ]}
           onChange={(value) => setPreference("reducedMotion", value)}
         />
-      </SettingsSection>
+      </> : null}
     </div>
   );
 }

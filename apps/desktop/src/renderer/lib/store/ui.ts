@@ -2,7 +2,7 @@ import { DEFAULT_PREFERENCES } from "../../../shared/rpc-schema.ts";
 import { isRemote, rpc } from "../rpc.ts";
 import { conflictFor, defaultBindingFor, SHORTCUTS, type KeybindingOverrides } from "../shortcuts.ts";
 import { showHint, showUpdateNotice } from "../toast.tsx";
-import { persist } from "./internals.ts";
+import { flushPersist, persist } from "./internals.ts";
 import type { SliceCreator, UiSlice } from "./types.ts";
 
 // `crypto.randomUUID` is unavailable in a plain-HTTP context, which a LAN link
@@ -12,7 +12,11 @@ let handoffId = 0;
 export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   settingsOpen: false,
   settingsCategory: null,
-  sidebarSize: 14,
+  sidebarWidth: 304,
+  contextPaneWidth: 304,
+  terminalHeight: undefined,
+  setContextPaneWidth: (contextPaneWidth) => { set({ contextPaneWidth }); persist(get); },
+  setTerminalHeight: (terminalHeight) => { set({ terminalHeight }); persist(get); },
   sidebarOpen: true,
   sidebarScope: null,
   reopenLastProject: true,
@@ -30,8 +34,8 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   openSettings: (category) => set({ settingsOpen: true, ...(category ? { settingsCategory: category } : {}) }),
   closeSettings: () => set({ settingsOpen: false }),
 
-  setSidebarSize: (sidebarSize) => {
-    set({ sidebarSize });
+  setSidebarWidth: (sidebarWidth) => {
+    set({ sidebarWidth });
     persist(get);
   },
 
@@ -167,6 +171,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
     get().onUpdateState(update);
   },
   installUpdate: async () => {
+    await flushPersist(get);
     const result = await rpc.request.installUpdate({});
     if (!result.ok) throw new Error(result.error ?? "NativePi could not install the update.");
   },

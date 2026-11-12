@@ -43,6 +43,7 @@ export async function readProjectImage(projectDir: string, file: string): Promis
     throw new Error("Image must be inside the project.");
   }
   const mimeType = ({
+    ".svg": "image/svg+xml", ".ico": "image/x-icon",
     ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp",
   } as Record<string, string>)[extname(target).toLowerCase()];
   if (!mimeType) throw new Error("Unsupported image format.");

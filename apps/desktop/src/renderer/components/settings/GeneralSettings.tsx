@@ -3,7 +3,7 @@ import { BellIcon } from "@phosphor-icons/react/Bell";
 import { PowerIcon } from "@phosphor-icons/react/Power";
 import { Button } from "@/components/ui/button.tsx";
 import { useAppStore } from "../../lib/store.ts";
-import { SettingsCard, SettingsSection, SwitchRow } from "./rows.tsx";
+import { SettingsCard, SwitchRow } from "./rows.tsx";
 
 type Permission = NotificationPermission | "unsupported";
 
@@ -19,32 +19,28 @@ export default function GeneralSettings() {
   const setPreference = useAppStore((s) => s.setPreference);
 
   return (
-    <div className="flex flex-col gap-10">
-      <SettingsSection heading="Startup">
-        <SwitchRow
-          label="Reopen last project"
-          description="Return to the project you were working in when NativePi starts."
-          checked={reopenLastProject}
-          onChange={setReopenLastProject}
-        />
-      </SettingsSection>
+    <div className="settings-list">
+      <SwitchRow
+        label="Reopen last project"
+        description="Return to the project you were working in when NativePi starts."
+        checked={reopenLastProject}
+        onChange={setReopenLastProject}
+      />
 
-      <SettingsSection heading="Notifications">
-        <NotificationCard enabled={notifyOnTurnEnd} silent={!notificationSound} />
-        <SwitchRow
-          label="Notify when a turn finishes"
-          description="Show a desktop notification when a background turn finishes."
-          checked={notifyOnTurnEnd}
-          onChange={(value) => setPreference("notifyOnTurnEnd", value)}
-        />
-        <SwitchRow
-          label="Play a sound"
-          description="Use the system notification sound."
-          checked={notificationSound}
-          onChange={(value) => setPreference("notificationSound", value)}
-          disabled={!notifyOnTurnEnd}
-        />
-      </SettingsSection>
+      <NotificationCard enabled={notifyOnTurnEnd} silent={!notificationSound} />
+      <SwitchRow
+        label="Notify when a turn finishes"
+        description="Show a desktop notification when a background turn finishes."
+        checked={notifyOnTurnEnd}
+        onChange={(value) => setPreference("notifyOnTurnEnd", value)}
+      />
+      <SwitchRow
+        label="Play a sound"
+        description="Use the system notification sound."
+        checked={notificationSound}
+        onChange={(value) => setPreference("notificationSound", value)}
+        disabled={!notifyOnTurnEnd}
+      />
     </div>
   );
 }

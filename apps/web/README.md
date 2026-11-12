@@ -48,7 +48,7 @@ and disclosed in the site footer.
 - `lib/site.ts` shared metadata, release/download URLs, and common external links.
 - `lib/docs.ts` documentation navigation and descriptions.
 
-`DESIGN.md` records the visual system; `PRODUCT.md` records product boundaries.
+`PRODUCT.md` records product boundaries.
 Check workflow claims against the desktop implementation and keep the docs in
 sync with its actual controls. Desktop release automation is described in
 [`docs/release.md`](../../docs/release.md).

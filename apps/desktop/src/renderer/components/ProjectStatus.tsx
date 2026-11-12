@@ -1,24 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
-import { ShieldCheckIcon } from "@phosphor-icons/react/ShieldCheck";
-import { ShieldWarningIcon } from "@phosphor-icons/react/ShieldWarning";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import type { PiStatus } from "../../shared/rpc-schema.ts";
 import { useAppStore } from "../lib/store.ts";
 import { DropdownMenu as Menu, DropdownMenuContent as MenuPopup, DropdownMenuGroup as MenuGroup, DropdownMenuItem as MenuItem, DropdownMenuTrigger as MenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
-import ConfirmDialog from "./ConfirmDialog.tsx";
 
 export default function ProjectStatus({ compact = false, className }: { compact?: boolean; className?: string }) {
-  const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const piStatus = useAppStore((s) => (s.activeProjectPath ? s.piStatus[s.activeProjectPath] : undefined));
-  const trust = useAppStore((s) => s.trust);
-  const [confirmingRevoke, setConfirmingRevoke] = useState(false);
   const restartPi = useAppStore((s) => s.reloadExtensions);
-  const revokeTrust = useAppStore((s) => s.revokeTrust);
-  const promptTrust = useAppStore((s) => s.promptTrust);
-
   const health = healthOf(piStatus);
+  if (!health) return null;
 
   return (
     <div className={cn("flex shrink-0 items-center gap-1", className)}>
@@ -47,63 +39,6 @@ export default function ProjectStatus({ compact = false, className }: { compact?
       <span role="status" aria-live="polite" className="sr-only">
         {health ? health.detail : ""}
       </span>
-
-      {trust?.required ? (
-        <Menu>
-          <MenuTrigger
-            title={
-              trust.trusted
-                ? "Local extensions and skills are loaded for this project"
-                : "Local extensions and skills are disabled for this project"
-            }
-            aria-label={trust.trusted ? "Project trusted" : "Project not trusted"}
-            className={cn(
-              "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
-              trust.trusted ? "text-muted-foreground" : "text-warning",
-            )}
-          >
-            {trust.trusted ? <ShieldCheckIcon weight="fill" /> : <ShieldWarningIcon weight="fill" />}
-            <span className={cn(compact && "max-[480px]:hidden")}>{trust.trusted ? "Trusted" : "Restricted"}</span>
-          </MenuTrigger>
-          <MenuPopup align="end" className="w-80 p-1.5">
-            <p className="px-2 pb-2 pt-1 text-xs leading-relaxed text-body-muted-foreground">
-              {trust.trusted
-                ? "This project's local extensions and skills run inside Pi."
-                : "This project's local extensions and skills are not loaded. Pi is running without them."}
-            </p>
-             <MenuGroup>{trust.trusted ? (
-              <MenuItem onClick={() => setConfirmingRevoke(true)} className="rounded-md text-sm text-destructive">
-                Revoke trust and restart Pi…
-              </MenuItem>
-            ) : (
-              <MenuItem onClick={promptTrust} className="rounded-md text-sm">
-                Review and trust this project…
-              </MenuItem>
-             )}</MenuGroup>
-          </MenuPopup>
-        </Menu>
-      ) : null}
-
-      {/* Revoking restarts Pi under the user, which is not something to do on a
-          single click of a menu row. */}
-      <ConfirmDialog
-        open={confirmingRevoke}
-        title="Revoke trust for this project?"
-        description={
-          <>
-            Pi will restart and stop loading this project's local extensions and skills. Anything running right now is
-            stopped. You can trust the project again from this same menu.
-          </>
-        }
-        detail={activeProjectPath ?? undefined}
-        confirmLabel="Revoke and restart"
-        destructive
-        onConfirm={() => {
-          setConfirmingRevoke(false);
-          void revokeTrust();
-        }}
-        onCancel={() => setConfirmingRevoke(false)}
-      />
     </div>
   );
 }
@@ -139,10 +74,8 @@ export function PiStartingNotice() {
         role="status"
         aria-live="polite"
         className={cn(
-          "flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-full bg-popover py-1.5 pr-3 pl-2.5 text-xs text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-150",
-          phase === "entering"
-            ? "animate-in fade-in-0 slide-in-from-top-1"
-            : "animate-out fade-out-0 slide-out-to-top-1",
+          "flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-full bg-popover py-1.5 pr-3 pl-2.5 text-xs text-popover-foreground shadow-md ring-1 ring-foreground/10 transition-[opacity,translate] duration-150 ease-out starting:-translate-y-1 starting:opacity-0",
+          phase === "leaving" && "-translate-y-1 opacity-0",
         )}
       >
         <CircleNotchIcon aria-hidden="true" className="size-3.5 shrink-0 animate-spin text-muted-foreground" />

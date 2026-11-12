@@ -9,6 +9,7 @@ import {
   wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 import type { Component, Focusable } from "@earendil-works/pi-tui";
+import { concurrencySchema } from "../types.ts";
 import type {
   SubagentConversationBlock,
   SubagentConversationMessage,
@@ -224,7 +225,7 @@ export class SubagentsPanel extends Container implements Focusable, Component {
 
     if (this.view === "limit") {
       const limit = Number(value.trim());
-      if (!Number.isInteger(limit) || limit < 1 || limit > 32) {
+      if (!concurrencySchema.safeParse(limit).success) {
         this.message = { tone: "error", text: "Enter a whole number from 1 to 32." };
         this.options.tui.requestRender();
         return;

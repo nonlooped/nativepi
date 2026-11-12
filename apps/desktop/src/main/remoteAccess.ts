@@ -6,122 +6,115 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 import type { RemoteAccessStatus } from "../shared/rpc-schema.ts";
-
 const execFileAsync = promisify(execFile);
-
 /**
- * Remote access, as a Cloudflare quick tunnel.
- *
- * `cloudflared tunnel --url` dials out to Cloudflare's edge and gets back a
- * throwaway `*.trycloudflare.com` hostname. No account, no DNS record, no
- * inbound firewall rule, and nothing to install on the phone or laptop at the
- * other end. That last part is the whole reason this replaced a mesh VPN: the
- * setup cost fell on every device someone wanted to connect from, which is far
- * too much ceremony for reading a diff from the couch.
- *
- * The binary is not shipped in the installer. It is over 50 MB, Cloudflare
- * ships it on their own schedule rather than ours, and most people never turn
- * this on, so it is fetched on first use and cached under user data.
- */
-
+* Remote access, as a Cloudflare quick tunnel.
+*
+* `cloudflared tunnel --url` dials out to Cloudflare's edge and gets back a
+* throwaway `*.trycloudflare.com` hostname. No account, no DNS record, no
+* inbound firewall rule, and nothing to install on the phone or laptop at the
+* other end. That last part is the whole reason this replaced a mesh VPN: the
+* setup cost fell on every device someone wanted to connect from, which is far
+* too much ceremony for reading a diff from the couch.
+*
+* The binary is not shipped in the installer. It is over 50 MB, Cloudflare
+* ships it on their own schedule rather than ours, and most people never turn
+* this on, so it is fetched on first use and cached under user data.
+*/
 const RELEASE_BASE = "https://github.com/cloudflare/cloudflared/releases/latest/download";
-const STARTUP_TIMEOUT_MS = 45_000;
-
+const STARTUP_TIMEOUT_MS = 45000;
 /**
- * cloudflared's release assets differ per platform: Windows and Linux publish
- * a directly runnable binary, macOS only publishes one wrapped in a `.tgz`.
- */
-function cloudflaredAsset(): { url: string; archive: "raw" | "tgz" } {
+* cloudflared's release assets differ per platform: Windows and Linux publish
+* a directly runnable binary, macOS only publishes one wrapped in a `.tgz`.
+*/
+function cloudflaredAsset(): {
+  url: string;
+  archive: "raw" | "tgz";
+} {
   const arch = process.arch === "arm64" ? "arm64" : "amd64";
-  if (process.platform === "darwin") return { url: `${RELEASE_BASE}/cloudflared-darwin-${arch}.tgz`, archive: "tgz" };
-  if (process.platform === "linux") return { url: `${RELEASE_BASE}/cloudflared-linux-${arch}`, archive: "raw" };
+  if (process.platform === "darwin")
+    return { url: `${RELEASE_BASE}/cloudflared-darwin-${arch}.tgz`, archive: "tgz" };
+  if (process.platform === "linux")
+    return { url: `${RELEASE_BASE}/cloudflared-linux-${arch}`, archive: "raw" };
   return { url: `${RELEASE_BASE}/cloudflared-windows-amd64.exe`, archive: "raw" };
 }
-
 function cloudflaredBinaryName(): string {
   return process.platform === "win32" ? "cloudflared.exe" : "cloudflared";
 }
-
 /**
- * How long to wait for a freshly minted hostname to start answering.
- *
- * Cloudflare hands out the name well before its edge will route it, and it
- * warns as much on startup. A phone that scans during the gap gets a connection
- * error, and mobile browsers cache that failure for long enough that the owner
- * gives up and blames the app.
- *
- * The budget is generous because the delay is wildly variable: two measurements
- * on the same machine came back at 7 seconds and 63 seconds. Waiting behind an
- * honest "waiting" message costs nothing, whereas giving up early turns a link
- * that was about to work into an error.
- */
-const REACHABLE_TIMEOUT_MS = 180_000;
-const REACHABLE_POLL_MS = 1_000;
-
+* How long to wait for a freshly minted hostname to start answering.
+*
+* Cloudflare hands out the name well before its edge will route it, and it
+* warns as much on startup. A phone that scans during the gap gets a connection
+* error, and mobile browsers cache that failure for long enough that the owner
+* gives up and blames the app.
+*
+* The budget is generous because the delay is wildly variable: two measurements
+* on the same machine came back at 7 seconds and 63 seconds. Waiting behind an
+* honest "waiting" message costs nothing, whereas giving up early turns a link
+* that was about to work into an error.
+*/
+const REACHABLE_TIMEOUT_MS = 180000;
+const REACHABLE_POLL_MS = 1000;
 /**
- * How often a live link is re-checked.
- *
- * A quick tunnel can stop routing while its client keeps running, and the exit
- * code that would otherwise report a dead link never arrives. Sixty seconds is
- * slow enough to be free — one HEAD an hour of use — and fast enough that the
- * settings screen is not the last to know.
- */
-const HEALTH_POLL_MS = 60_000;
-
+* How often a live link is re-checked.
+*
+* A quick tunnel can stop routing while its client keeps running, and the exit
+* code that would otherwise report a dead link never arrives. Sixty seconds is
+* slow enough to be free — one HEAD an hour of use — and fast enough that the
+* settings screen is not the last to know.
+*/
+const HEALTH_POLL_MS = 60000;
 /**
- * How long the download may go without delivering a byte.
- *
- * A stall rather than a total budget: the file is over 50 MB and a slow line is
- * not a failure, but a proxy that accepts the request and then goes quiet would
- * otherwise leave the settings screen saying "Downloading" forever.
- */
-const DOWNLOAD_STALL_MS = 30_000;
-
+* How long the download may go without delivering a byte.
+*
+* A stall rather than a total budget: the file is over 50 MB and a slow line is
+* not a failure, but a proxy that accepts the request and then goes quiet would
+* otherwise leave the settings screen saying "Downloading" forever.
+*/
+const DOWNLOAD_STALL_MS = 30000;
 /**
- * A public link is this machine's terminals and projects on the open internet,
- * guarded by the token in the URL fragment. The likeliest way that goes wrong
- * is not someone guessing a 192 bit token, it is the owner forgetting the link
- * is up, so it closes itself after half a day either way.
- */
+* A public link is this machine's terminals and projects on the open internet,
+* guarded by the token in the URL fragment. The likeliest way that goes wrong
+* is not someone guessing a 192 bit token, it is the owner forgetting the link
+* is up, so it closes itself after half a day either way.
+*/
 const LINK_LIFETIME_MS = 12 * 60 * 60 * 1000;
-
+let generation = 0;
+let startup: Promise<RemoteAccessStatus> | undefined;
+let controller: AbortController | undefined;
+let stopping: Promise<void> | undefined;
 let tunnel: ChildProcessWithoutNullStreams | undefined;
 let expiry: NodeJS.Timeout | undefined;
 let health: NodeJS.Timeout | undefined;
 let status: RemoteAccessStatus = { state: "idle" };
-
 export function remoteAccessStatus(): RemoteAccessStatus {
   return status;
 }
-
 export function remoteAccessRunning(): boolean {
-  return Boolean(tunnel && status.state === "running");
+  return Boolean(startup || tunnel);
 }
-
-export async function startRemoteAccess(
-  port: number,
-  token: string,
-  binDir: string,
-  onExpire?: () => Promise<void>,
-): Promise<RemoteAccessStatus> {
-  if (tunnel) return status;
-
+async function openRemoteAccess(port: number, token: string, binDir: string, onExpire: (() => Promise<void>) | undefined, signal: AbortSignal, epoch: number): Promise<RemoteAccessStatus> {
   try {
     const binary = await ensureCloudflared(binDir, (preparing) => {
+      if (signal.aborted)
+        return;
       // Polled by the settings screen, so progress needs nowhere else to go.
       status = { state: "starting", preparing };
-    });
+    }, signal);
+    signal.throwIfAborted();
     status = { state: "starting", preparing: "Asking Cloudflare for a public link…" };
-
-    const url = await openTunnel(binary, port);
+    const url = await openTunnel(binary, port, signal, onExpire);
     const child = tunnel;
     status = { state: "starting", preparing: "Waiting for the link to come online…" };
-    await waitForReachable(url);
+    await waitForReachable(url, signal);
+    signal.throwIfAborted();
     // The client can die while that wait is in flight, and a request already
     // forwarded can still come back 200 afterwards. A replacement tunnel is
     // no better: its address is different, so only the process that printed
     // this URL may publish it.
-    if (!child || tunnel !== child) throw new Error("The tunnel client stopped before the link came online.");
+    if (!child || tunnel !== child)
+      throw new Error("The tunnel client stopped before the link came online.");
     status = {
       state: "running",
       link: `${url}/#token=${token}`,
@@ -131,147 +124,157 @@ export async function startRemoteAccess(
     };
     health = setInterval(() => void checkHealth(url), HEALTH_POLL_MS);
     expiry = setTimeout(() => {
+      if (generation !== epoch)
+        return;
       void stopRemoteAccess().then(() => {
         status = { state: "idle", error: "The public link reached its twelve hour limit and was closed." };
         return onExpire?.();
       });
     }, LINK_LIFETIME_MS);
-  } catch (error) {
-    await stopRemoteAccess();
-    status = { state: "error", error: error instanceof Error ? error.message : String(error) };
+  }
+  catch (error) {
+    if (generation === epoch) {
+      await closeTunnel();
+      status = { state: "error", error: error instanceof Error ? error.message : String(error) };
+      await onExpire?.();
+    }
   }
   return status;
 }
-
-export async function stopRemoteAccess(): Promise<void> {
+async function closeTunnel(): Promise<void> {
   const child = tunnel;
   tunnel = undefined;
-  if (expiry) clearTimeout(expiry);
+  if (expiry)
+    clearTimeout(expiry);
   expiry = undefined;
-  if (health) clearInterval(health);
+  if (health)
+    clearInterval(health);
   health = undefined;
   status = { state: "idle" };
-  if (!child) return;
-
-  const exited = new Promise<void>((resolveExit) => child.once("exit", () => resolveExit()));
+  if (!child)
+    return;
+  const exited = new Promise<void>((resolveExit) => child.once("close", () => resolveExit()));
   child.kill();
-  await Promise.race([
-    exited,
-    new Promise<void>((resolveTimeout) => setTimeout(resolveTimeout, 2_000)),
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = await Promise.race([
+    exited.then(() => false),
+    new Promise<true>((resolveTimeout) => { timer = setTimeout(() => resolveTimeout(true), 2000); }),
   ]);
+  clearTimeout(timer);
+  if (timedOut) {
+    child.kill("SIGKILL");
+    await exited;
+  }
 }
-
 /**
- * Drop a cached binary that cannot be run, and describe why.
- *
- * A spawn failure is the file's fault rather than the network's: missing, not
- * executable, or not a real binary at all. Removing it means the next attempt
- * fetches a fresh copy instead of failing on the same bad cache forever.
- * Windows reports some of these by throwing from `spawn` and others by emitting
- * `error`, so both paths come through here.
- */
+* Drop a cached binary that cannot be run, and describe why.
+*
+* A spawn failure is the file's fault rather than the network's: missing, not
+* executable, or not a real binary at all. Removing it means the next attempt
+* fetches a fresh copy instead of failing on the same bad cache forever.
+* Windows reports some of these by throwing from `spawn` and others by emitting
+* `error`, so both paths come through here.
+*/
 function unusableBinary(binary: string, message: string): string {
-  void rm(binary, { force: true }).catch(() => {});
+  void rm(binary, { force: true }).catch(() => { });
   return `Could not run the tunnel client. ${message}`;
 }
-
 /**
- * Block until the hostname actually serves the app.
- *
- * Only a successful status counts. Cloudflare registers the name before it has
- * a working route to the connector, and in that window it answers with an error
- * page of its own rather than refusing the connection: a tunnel aimed at a dead
- * port returns 502 from the edge. Treating any completed exchange as proof of
- * life would publish a link to precisely the broken state this wait exists to
- * rule out.
- */
-async function waitForReachable(url: string): Promise<void> {
+* Block until the hostname actually serves the app.
+*
+* Only a successful status counts. Cloudflare registers the name before it has
+* a working route to the connector, and in that window it answers with an error
+* page of its own rather than refusing the connection: a tunnel aimed at a dead
+* port returns 502 from the edge. Treating any completed exchange as proof of
+* life would publish a link to precisely the broken state this wait exists to
+* rule out.
+*/
+async function waitForReachable(url: string, signal: AbortSignal): Promise<void> {
   const deadline = Date.now() + REACHABLE_TIMEOUT_MS;
   for (;;) {
-    if (await responds(url)) return;
+    signal.throwIfAborted();
+    if (await responds(url, signal))
+      return;
     if (Date.now() >= deadline) {
       throw new Error("Cloudflare created the link but it never came online. Try again.");
     }
-    await new Promise((settle) => setTimeout(settle, REACHABLE_POLL_MS));
+    await abortableDelay(REACHABLE_POLL_MS, signal);
   }
 }
-
-async function responds(url: string): Promise<boolean> {
+async function responds(url: string, signal?: AbortSignal): Promise<boolean> {
   try {
     const response = await fetch(url, {
       method: "HEAD",
-      signal: AbortSignal.timeout(REACHABLE_POLL_MS * 5),
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(REACHABLE_POLL_MS * 5)]) : AbortSignal.timeout(REACHABLE_POLL_MS * 5),
     });
     return response.ok;
-  } catch {
+  }
+  catch {
     return false;
   }
 }
-
 /**
- * Re-check a live link and record the answer.
- *
- * The reading is reported rather than acted on: a tunnel that misses one probe
- * is usually back on the next, and tearing the link down over a single failed
- * request would replace a brief hiccup with a new address nobody has.
- */
+* Re-check a live link and record the answer.
+*
+* The reading is reported rather than acted on: a tunnel that misses one probe
+* is usually back on the next, and tearing the link down over a single failed
+* request would replace a brief hiccup with a new address nobody has.
+*/
 async function checkHealth(url: string): Promise<void> {
-  if (status.state !== "running") return;
+  if (status.state !== "running")
+    return;
   const link = status.link;
-  if (!link || !link.startsWith(`${url}/`)) return;
+  if (!link || !link.startsWith(`${url}/`))
+    return;
   const reachable = await responds(url);
   // The link may have been stopped or replaced while the request was in flight.
-  if (status.state !== "running" || status.link !== link) return;
+  if (status.state !== "running" || status.link !== link)
+    return;
   status = { ...status, reachable, checkedAt: Date.now() };
 }
-
-function openTunnel(binary: string, port: number): Promise<string> {
+function openTunnel(binary: string, port: number, signal: AbortSignal, onExit?: () => Promise<void>): Promise<string> {
   let child: ChildProcessWithoutNullStreams;
   try {
     // `--protocol http2` rather than the default QUIC: measured at roughly
     // 1.7x the throughput here (230 KB/s to 400 KB/s), and a quick tunnel gets
     // a single connection either way, so the transport is the whole ceiling.
-    child = spawn(
-      binary,
-      ["tunnel", "--no-autoupdate", "--protocol", "http2", "--url", `http://127.0.0.1:${port}`],
-      { windowsHide: true, stdio: "pipe" },
-    );
-  } catch (error) {
+    child = spawn(binary, ["tunnel", "--no-autoupdate", "--protocol", "http2", "--url", `http://127.0.0.1:${port}`], { windowsHide: true, stdio: "pipe" });
+  }
+  catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return Promise.reject(new Error(unusableBinary(binary, message)));
   }
   tunnel = child;
-
   return new Promise<string>((resolveUrl, rejectUrl) => {
     let settled = false;
+    const abort = () => fail("Tunnel startup was cancelled");
+    signal.addEventListener("abort", abort, { once: true });
     // The hostname arrives inside an ASCII banner, and whether that lands on
     // stdout or stderr depends on the build, so both are watched. Only the tail
     // is kept: enough to match against, and enough to explain a failure.
     let log = "";
-
     const fail = (message: string) => {
-      if (settled) return;
+      if (settled)
+        return;
       settled = true;
       clearTimeout(timer);
+      signal.removeEventListener("abort", abort);
       const detail = log.trim().slice(-600);
       rejectUrl(new Error(detail ? `${message}\n${detail}` : message));
     };
-
-    const timer = setTimeout(
-      () => fail("Cloudflare did not hand out a public link in time."),
-      STARTUP_TIMEOUT_MS,
-    );
-
+    const timer = setTimeout(() => fail("Cloudflare did not hand out a public link in time."), STARTUP_TIMEOUT_MS);
     const read = (chunk: Buffer) => {
-      if (settled) return;
+      if (settled)
+        return;
       log = (log + chunk.toString()).slice(-4000);
       const url = findTunnelUrl(log);
-      if (!url) return;
+      if (!url)
+        return;
       settled = true;
       clearTimeout(timer);
+      signal.removeEventListener("abort", abort);
       resolveUrl(url);
     };
-
     child.stdout.on("data", read);
     child.stderr.on("data", read);
     child.once("error", (error) => fail(unusableBinary(binary, error.message)));
@@ -279,55 +282,58 @@ function openTunnel(binary: string, port: number): Promise<string> {
       // `stopRemoteAccess` clears `tunnel` before it kills, so a child still
       // registered here died on its own rather than being asked to.
       const deliberate = tunnel !== child;
-      if (!deliberate) tunnel = undefined;
-      if (!settled) fail(`The tunnel client stopped with exit code ${code ?? "unknown"}.`);
+      if (!deliberate)
+        tunnel = undefined;
+      if (!settled)
+        fail(`The tunnel client stopped with exit code ${code ?? "unknown"}.`);
       // A tunnel that drops hours later leaves the link dead, and the settings
       // screen is polling, so say so rather than keep advertising the address.
       else if (!deliberate) {
-        if (health) clearInterval(health);
+        if (expiry)
+          clearTimeout(expiry);
+        expiry = undefined;
+        if (health)
+          clearInterval(health);
         health = undefined;
         status = { state: "error", error: `The tunnel stopped with exit code ${code ?? "unknown"}.` };
+        void onExit?.();
       }
     });
   });
 }
-
 /**
- * Pull the hostname out of cloudflared's output.
- *
- * The surrounding banner is Cloudflare's to change at any time, so only the
- * hostname is matched. It is the one part that cannot change without the
- * feature changing with it.
- */
+* Pull the hostname out of cloudflared's output.
+*
+* The surrounding banner is Cloudflare's to change at any time, so only the
+* hostname is matched. It is the one part that cannot change without the
+* feature changing with it.
+*/
 export function findTunnelUrl(log: string): string | undefined {
   return /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i.exec(log)?.[0];
 }
-
 /**
- * GitHub publishes no checksum beside these assets, so HTTPS to github.com is
- * the trust boundary. The download lands on a temporary name and is moved into
- * place only once complete, so an interrupted download is never mistaken for a
- * usable binary on the next attempt.
- */
-async function ensureCloudflared(binDir: string, onProgress: (message: string) => void): Promise<string> {
+* GitHub publishes no checksum beside these assets, so HTTPS to github.com is
+* the trust boundary. The download lands on a temporary name and is moved into
+* place only once complete, so an interrupted download is never mistaken for a
+* usable binary on the next attempt.
+*/
+async function ensureCloudflared(binDir: string, onProgress: (message: string) => void, signal: AbortSignal): Promise<string> {
   const binary = join(binDir, cloudflaredBinaryName());
   const cached = await stat(binary).catch(() => undefined);
-  if (cached?.isFile() && cached.size > 0) return binary;
-
+  signal.throwIfAborted();
+  if (cached?.isFile() && cached.size > 0)
+    return binary;
   onProgress("Downloading the tunnel client…");
   await mkdir(binDir, { recursive: true });
   const { url, archive } = cloudflaredAsset();
   const downloaded = archive === "tgz" ? `${binary}.tgz.partial` : `${binary}.partial`;
-
   const abort = new AbortController();
   let stall = setTimeout(() => abort.abort(), DOWNLOAD_STALL_MS);
-
   try {
-    const response = await fetch(url, { signal: abort.signal });
+    const response = await fetch(url, { signal: AbortSignal.any([signal, abort.signal]) });
     if (!response.ok || !response.body) {
       throw new Error(`Could not download the tunnel client (HTTP ${response.status}).`);
     }
-
     const total = Number(response.headers.get("content-length") ?? 0);
     let received = 0;
     let shown = -1;
@@ -338,14 +344,16 @@ async function ensureCloudflared(binDir: string, onProgress: (message: string) =
       clearTimeout(stall);
       stall = setTimeout(() => abort.abort(), DOWNLOAD_STALL_MS);
       received += chunk.length;
-      if (total <= 0) return;
+      if (total <= 0)
+        return;
       const percent = Math.round((received / total) * 100);
-      if (percent === shown) return;
+      if (percent === shown)
+        return;
       shown = percent;
       onProgress(`Downloading the tunnel client… ${percent}%`);
     });
-
-    await pipeline(source, createWriteStream(downloaded));
+    await pipeline(source, createWriteStream(downloaded), { signal });
+    signal.throwIfAborted();
     // A body that ends early still ends cleanly, so the length is the only
     // thing separating a whole binary from a half of one.
     if (total > 0 && received !== total) {
@@ -357,20 +365,68 @@ async function ensureCloudflared(binDir: string, onProgress: (message: string) =
       // system `tar` rather than adding a tar-parsing dependency.
       await execFileAsync("tar", ["-xzf", downloaded, "-C", binDir, "cloudflared"]);
       await rm(downloaded, { force: true });
-    } else {
+    }
+    else {
       await rename(downloaded, binary);
     }
     // Extracted and downloaded files do not carry the executable bit; Windows
     // has no such concept, so this is a no-op there.
-    if (process.platform !== "win32") await chmod(binary, 0o755);
+    if (process.platform !== "win32")
+      await chmod(binary, 0o755);
     return binary;
-  } catch (error) {
-    await rm(downloaded, { force: true }).catch(() => {});
+  }
+  catch (error) {
+    await rm(downloaded, { force: true }).catch(() => { });
     if (abort.signal.aborted) {
       throw new Error("The tunnel client download stopped responding. Check this computer's connection and try again.");
     }
     throw error;
-  } finally {
+  }
+  finally {
     clearTimeout(stall);
   }
+}
+export function startRemoteAccess(port: number, token: string, binDir: string, onExpire?: () => Promise<void>): Promise<RemoteAccessStatus> {
+  if (startup)
+    return startup;
+  if (tunnel)
+    return Promise.resolve(status);
+  const epoch = generation;
+  const abort = new AbortController();
+  controller = abort;
+  const task = (async () => {
+    await stopping;
+    if (generation !== epoch)
+      return status;
+    status = { state: "starting" };
+    return openRemoteAccess(port, token, binDir, onExpire, abort.signal, epoch);
+  })();
+  startup = task;
+  void task.finally(() => {
+    if (startup === task)
+      startup = undefined;
+  }).catch(() => { });
+  return task;
+}
+export function stopRemoteAccess(): Promise<void> {
+  generation++;
+  controller?.abort();
+  const pending = startup;
+  startup = undefined;
+  const previous = stopping;
+  const task = (async () => { await previous; await closeTunnel(); await pending; })();
+  stopping = task;
+  void task.finally(() => {
+    if (stopping === task)
+      stopping = undefined;
+  }).catch(() => { });
+  return task;
+}
+function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    signal.throwIfAborted();
+    const abort = () => { clearTimeout(timer); reject(signal.reason); };
+    const timer = setTimeout(() => { signal.removeEventListener("abort", abort); resolve(); }, ms);
+    signal.addEventListener("abort", abort, { once: true });
+  });
 }

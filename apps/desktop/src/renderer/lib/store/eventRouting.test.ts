@@ -169,7 +169,7 @@ test("a new session is remembered when submit returns after switching projects",
         finishSubmit = resolve as (response: { ok: true; sessionFile: string }) => void;
       });
     }
-    return {};
+    return channel === "loadGraphicalExtensions" ? { extensions: [] } : {};
   });
   useAppStore.setState({
     activeProjectPath: "A:\\delayed-submit",
@@ -184,7 +184,7 @@ test("a new session is remembered when submit returns after switching projects",
   finishSubmit({ ok: true, sessionFile: "new.jsonl" });
   await sending;
 
-  expect(getLastChat("A:\\delayed-submit")).toBe("new.jsonl");
+  expect(getLastChat(useAppStore.getState, "A:\\delayed-submit")).toBe("new.jsonl");
 });
 
 test("an extension prompt response returns to the chat that asked", () => {
@@ -237,7 +237,7 @@ test("a cold submit merges events that arrive before its session binding", async
         finishSubmit = resolve as (response: { ok: true; sessionFile: string }) => void;
       });
     }
-    return {};
+    return channel === "loadGraphicalExtensions" ? { extensions: [] } : {};
   });
   useAppStore.setState({
     activeProjectPath: "A:\\cold-submit",
@@ -269,7 +269,7 @@ test("a cold submit carries text typed while binding into the new session", asyn
   let finishSubmit!: (response: { ok: true; sessionFile: string }) => void;
   stubInvoke(async (channel) => {
     if (channel === "submit") return new Promise((resolve) => (finishSubmit = resolve as typeof finishSubmit));
-    return {};
+    return channel === "loadGraphicalExtensions" ? { extensions: [] } : {};
   });
   useAppStore.setState({
     activeProjectPath: "A:\\cold-draft",
@@ -292,7 +292,7 @@ test("an older cold submit cannot capture a newer blank chat", async () => {
   let finishSubmit!: (response: { ok: true; sessionFile: string }) => void;
   stubInvoke(async (channel) => {
     if (channel === "submit") return new Promise((resolve) => (finishSubmit = resolve as typeof finishSubmit));
-    return {};
+    return channel === "loadGraphicalExtensions" ? { extensions: [] } : {};
   });
   useAppStore.setState({
     activeProjectPath: "A:\\cold-navigation",
@@ -318,7 +318,7 @@ test("a failed send restores its message without destroying newer text", async (
   let finishSubmit!: (response: { ok: false; error: string }) => void;
   stubInvoke(async (channel) => {
     if (channel === "submit") return new Promise((resolve) => (finishSubmit = resolve as typeof finishSubmit));
-    return {};
+    return channel === "loadGraphicalExtensions" ? { extensions: [] } : {};
   });
   useAppStore.setState({
     activeProjectPath: "A:\\failed-send",
@@ -339,7 +339,7 @@ test("a failed send restores its message without destroying newer text", async (
 test("a rejected submit transport also restores the draft", async () => {
   stubInvoke(async (channel) => {
     if (channel === "submit") throw new Error("Disconnected");
-    return {};
+    return channel === "loadGraphicalExtensions" ? { extensions: [] } : {};
   });
   useAppStore.setState({
     activeProjectPath: "A:\\rejected-send",
@@ -361,7 +361,7 @@ test("abort reaches a cold submit before its session file is known", async () =>
   stubInvoke(async (channel, params) => {
     if (channel === "submit") return new Promise((resolve) => (finishSubmit = resolve as typeof finishSubmit));
     if (channel === "abort") aborts.push(params);
-    return {};
+    return channel === "loadGraphicalExtensions" ? { extensions: [] } : {};
   });
   useAppStore.setState({
     activeProjectPath: "A:\\cold-abort",
@@ -380,7 +380,7 @@ test("abort reaches a cold submit before its session file is known", async () =>
 });
 
 test("reopening the same session preserves a background failure", async () => {
-  stubInvoke(async (channel) => (channel === "readSession" ? { entries: [] } : {}));
+  stubInvoke(async (channel) => (channel === "readSessionSnapshot" ? { entries: [], consistency: "stable", eventWatermark: 0 } : channel === "loadGraphicalExtensions" ? { extensions: [] } : {}));
   useAppStore.setState({
     activeProjectPath: "A:\\failed-run",
     activeSessionFile: null,
@@ -402,7 +402,7 @@ test("reopening the same session preserves a background failure", async () => {
 });
 
 test("switching chats clears controls until that session state arrives", async () => {
-  stubInvoke(async (channel) => (channel === "readSession" ? { entries: [] } : {}));
+  stubInvoke(async (channel) => (channel === "readSessionSnapshot" ? { entries: [], consistency: "stable", eventWatermark: 0 } : channel === "loadGraphicalExtensions" ? { extensions: [] } : {}));
   useAppStore.setState({
     activeProjectPath: "A:\\controls",
     activeSessionFile: "old.jsonl",
@@ -421,15 +421,15 @@ test("switching chats clears controls until that session state arrives", async (
 });
 
 test("sending before a chat loads does not apply its placeholder thinking level", async () => {
-  let finishRead!: (response: { entries: [] }) => void;
+  let finishRead!: (response: { entries: [], consistency: "stable", eventWatermark: 0 }) => void;
   let submitted: { thinkingLevel?: string } | undefined;
   stubInvoke(async (channel, params) => {
-    if (channel === "readSession") return new Promise((resolve) => (finishRead = resolve as typeof finishRead));
+    if (channel === "readSessionSnapshot") return new Promise((resolve) => (finishRead = resolve as typeof finishRead));
     if (channel === "submit") {
       submitted = params as typeof submitted;
       return { ok: true };
     }
-    return {};
+    return channel === "loadGraphicalExtensions" ? { extensions: [] } : {};
   });
   useAppStore.setState({
     activeProjectPath: "A:\\controls",
@@ -445,7 +445,7 @@ test("sending before a chat loads does not apply its placeholder thinking level"
   const selecting = useAppStore.getState().selectChat("new.jsonl");
   await useAppStore.getState().send();
   expect(submitted?.thinkingLevel).toBeUndefined();
-  finishRead({ entries: [] });
+  finishRead({ entries: [], consistency: "stable", eventWatermark: 0 });
   await selecting;
 });
 
@@ -455,9 +455,10 @@ test("a delayed session state does not overwrite a newly selected thinking level
     if (channel === "getState") return new Promise((resolve) => (finishState = resolve));
     if (channel === "getModels") return { models: [] };
     if (channel === "getSessionProviders") return { providers: [] };
+    if (channel === "setThinkingLevel") return { ok: true };
     if (channel === "getThinkingLevels") return { levels: ["off", "high"] };
     if (channel === "loadGraphicalExtensions") return { extensions: [] };
-    return {};
+    return channel === "loadGraphicalExtensions" ? { extensions: [] } : {};
   });
   useAppStore.setState({
     activeProjectPath: "A:\\controls",
@@ -510,10 +511,10 @@ test("the active chat's thinking event updates its control", () => {
 });
 
 test("delayed history cannot overwrite messages streamed while it loads", async () => {
-  let finishRead!: (response: { entries: [] }) => void;
+  let finishRead!: (response: { entries: [], consistency: "stable", eventWatermark: 0 }) => void;
   stubInvoke(async (channel) => {
-    if (channel === "readSession") return new Promise((resolve) => (finishRead = resolve as typeof finishRead));
-    return {};
+    if (channel === "readSessionSnapshot") return new Promise((resolve) => (finishRead = resolve as typeof finishRead));
+    return channel === "loadGraphicalExtensions" ? { extensions: [] } : {};
   });
   useAppStore.setState({
     activeProjectPath: "A:\\history-race",
@@ -531,8 +532,29 @@ test("delayed history cannot overwrite messages streamed while it loads", async 
       message: { role: "assistant", content: [{ type: "text", text: "Live" }], timestamp: 1 },
     },
   });
-  finishRead({ entries: [] });
+  finishRead({ entries: [], consistency: "stable", eventWatermark: 0 });
   await selecting;
 
   expect(useAppStore.getState().conversations["chat.jsonl"]?.entries).toHaveLength(1);
+});
+
+
+test("new chat loads providers after opening without project trust", async () => {
+  let providersRequested = false;
+  stubInvoke(async channel => {
+    if (channel === "getSessionProviders") { providersRequested = true; return { providers: [] }; }
+    if (channel === "loadGraphicalExtensions") return { extensions: [] };
+    if (channel === "getModels") return { models: [] };
+    if (channel === "getThinkingLevels") return { levels: [] };
+    return {};
+  });
+  useAppStore.setState({ activeProjectPath: "A:\\untrusted", trust: { required: true, trusted: false }, trustPrompt: null });
+  useAppStore.getState().newChat();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(providersRequested).toBe(true);
+  providersRequested = false;
+  useAppStore.setState({ trustPrompt: { projectPath: "A:\\untrusted" } });
+  useAppStore.getState().newChat();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(providersRequested).toBe(false);
 });

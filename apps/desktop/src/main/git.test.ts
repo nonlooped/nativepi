@@ -1,19 +1,18 @@
 import { expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitLog, gitPush, gitRevertFile, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
-
 /**
- * These run against a real repository rather than a mocked `git`.
- *
- * Everything worth getting wrong here is Git's own rule, not ours: a branch may
- * be checked out in exactly one worktree, and `for-each-ref` reports the current
- * checkout as a worktree like any other. A mock would happily agree with a wrong
- * reading of both.
- */
+* These run against a real repository rather than a mocked `git`.
+*
+* Everything worth getting wrong here is Git's own rule, not ours: a branch may
+* be checked out in exactly one worktree, and `for-each-ref` reports the current
+* checkout as a worktree like any other. A mock would happily agree with a wrong
+* reading of both.
+*/
 async function repo(): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), "nativepi-git-"));
   const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, stdio: "pipe" });
@@ -25,206 +24,163 @@ async function repo(): Promise<string> {
   git("commit", "-m", "init");
   return dir;
 }
-
 test("branches report the current one, and only worktrees other than this checkout", async () => {
   const dir = await repo();
-
   expect(await gitCheckout(dir, "feature", true)).toEqual({ ok: true });
   expect((await gitBranches(dir)).find((b) => b.name === "feature")).toEqual({
     name: "feature",
     current: true,
     worktree: undefined,
   });
-
   expect(await gitCheckout(dir, "main", false)).toEqual({ ok: true });
-
   // `feature` is not checked out anywhere now, so nothing may claim it is.
   const idle = await gitBranches(dir);
   expect(idle.find((b) => b.name === "feature")?.worktree).toBeUndefined();
   expect(idle.find((b) => b.name === "main")?.current).toBe(true);
-
   const added = await gitAddWorktree(dir, "feature", false);
   expect(added.ok).toBe(true);
   expect(existsSync(path.join(added.path!, "a.txt"))).toBe(true);
-
   const held = await gitBranches(dir);
   // The worktree holding `feature` is named; `main`, held by this checkout, is not.
   expect(held.find((b) => b.name === "feature")?.worktree).toBe(added.path);
   expect(held.find((b) => b.name === "main")?.worktree).toBeUndefined();
-
   // Git refuses a second checkout of the same branch; the message must survive.
   const again = await gitAddWorktree(dir, "feature", false);
   expect(again.ok).toBe(false);
   expect(again.error).toContain("feature");
 });
-
 test("a new worktree lands beside the repository, never inside it", async () => {
   const dir = await repo();
   const res = await gitAddWorktree(dir, "feat/one", true);
-
   expect(res.ok).toBe(true);
   expect(res.path!.startsWith(dir + path.sep)).toBe(false);
   expect(path.basename(res.path!)).toBe("feat-one");
   expect(path.basename(path.dirname(res.path!))).toBe(`${path.basename(dir)}-worktrees`);
-
   // Created inside the new worktree, so it is the worktree that holds it.
   expect((await gitBranches(dir)).find((b) => b.name === "feat/one")?.worktree).toBe(res.path);
 });
-
 test("a new worktree lands beside the checkout when the Git directory is separate", async () => {
   const source = await repo();
   const parent = await mkdtemp(path.join(tmpdir(), "nativepi-separate-git-"));
   const checkout = path.join(parent, "checkout");
   const gitDir = path.join(parent, "metadata");
   execFileSync("git", ["clone", `--separate-git-dir=${gitDir}`, source, checkout], { stdio: "pipe" });
-
   const res = await gitAddWorktree(checkout, "separate", true);
-
   expect(res.ok).toBe(true);
-  expect(path.dirname(res.path!)).toBe(path.join(parent, "checkout-worktrees"));
+  expect(await realpath(path.dirname(res.path!))).toBe(await realpath(path.join(parent, "checkout-worktrees")));
 });
-
 test("branch switching refuses to carry uncommitted changes", async () => {
   const dir = await repo();
   expect(await gitCheckout(dir, "feature", true)).toEqual({ ok: true });
   expect(await gitCheckout(dir, "main", false)).toEqual({ ok: true });
   await writeFile(path.join(dir, "a.txt"), "changed\n", "utf8");
-
   const res = await gitCheckout(dir, "feature", false);
-
   expect(res.ok).toBe(false);
   expect(res.error).toContain("Commit or stash");
   expect((await gitBranches(dir)).find((branch) => branch.name === "main")?.current).toBe(true);
 });
-
 test("a checkout Git refuses returns its reason instead of claiming success", async () => {
   const dir = await repo();
   const res = await gitCheckout(dir, "does-not-exist", false);
   expect(res.ok).toBe(false);
   expect(res.error).toBeTruthy();
 });
-
 test("a selected hunk stages without staging its neighbour", async () => {
   const dir = await repo();
   await writeFile(path.join(dir, "a.txt"), "one\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\ntwenty\n", "utf8");
   execFileSync("git", ["add", "a.txt"], { cwd: dir });
   execFileSync("git", ["commit", "-m", "lines"], { cwd: dir });
   await writeFile(path.join(dir, "a.txt"), "first\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\nb\n", "utf8");
-
   const hunks = await gitHunks(dir, "a.txt", false);
   expect(hunks.length).toBe(2);
   expect(await gitStageHunk(dir, "a.txt", false, hunks[0]!.patch)).toEqual({ ok: true });
-
   const status = await gitStatus(dir);
   expect(status.files).toEqual([{ path: "a.txt", state: "modified", staged: true, unstaged: true }]);
   expect(execFileSync("git", ["diff", "--cached"], { cwd: dir, encoding: "utf8" })).toContain("first");
   expect(execFileSync("git", ["diff"], { cwd: dir, encoding: "utf8" })).toContain("b");
 });
-
 test("a hunk that changed after display is not staged by a stale selection", async () => {
   const dir = await repo();
   await writeFile(path.join(dir, "a.txt"), "first\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\nb\n", "utf8");
   const [first] = await gitHunks(dir, "a.txt", false);
   await writeFile(path.join(dir, "a.txt"), "one\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\nb\n", "utf8");
-
   expect(await gitStageHunk(dir, "a.txt", false, first!.patch)).toEqual({ ok: false, error: "That change is no longer available. Refresh and try again." });
 });
-
 test("repository-relative files stay correct when a nested folder is opened", async () => {
   const dir = await repo();
   const nested = path.join(dir, "sub");
   await mkdir(nested);
   await writeFile(path.join(dir, "same.txt"), "root\n", "utf8");
   await writeFile(path.join(nested, "same.txt"), "nested\n", "utf8");
-
   const files = (await gitStatus(nested)).files.map((file) => file.path);
   expect(files).toEqual(["same.txt", "sub/same.txt"]);
   expect(await gitStageFile(nested, "same.txt")).toEqual({ ok: true });
   expect(execFileSync("git", ["diff", "--cached", "--name-only"], { cwd: dir, encoding: "utf8" }).trim()).toBe("same.txt");
 });
-
 test("a file without textual hunks can still be staged", async () => {
   const dir = await repo();
   await writeFile(path.join(dir, "image.bin"), Buffer.from([0, 1, 2, 3]));
-
   expect(await gitHunks(dir, "image.bin", false)).toEqual([]);
   expect(await gitStageFile(dir, "image.bin")).toEqual({ ok: true });
   expect((await gitStatus(dir)).files).toEqual([{ path: "image.bin", state: "added", staged: true, unstaged: false }]);
 });
-
 test("status totals include tracked and untracked text changes", async () => {
   const dir = await repo();
   await writeFile(path.join(dir, "a.txt"), "a\nb\n", "utf8");
   await writeFile(path.join(dir, "new.txt"), "new\n", "utf8");
-
   expect(await gitStatus(dir)).toMatchObject({ insertions: 2, deletions: 0 });
 });
-
 test("concurrent status callers share one repository scan", async () => {
   const dir = await repo();
   await writeFile(path.join(dir, "new.txt"), "one\ntwo\n", "utf8");
-
   const [first, second] = await Promise.all([gitStatus(dir), gitStatus(dir)]);
-
   expect(first).toBe(second);
 });
-
 test("source-control staging moves individual files or the whole working tree", async () => {
   const dir = await repo();
   await writeFile(path.join(dir, "a.txt"), "changed\n", "utf8");
   await writeFile(path.join(dir, "new.txt"), "new\n", "utf8");
-
   expect(await gitStageAll(dir)).toEqual({ ok: true });
   expect((await gitStatus(dir)).files.every((file) => file.staged)).toBe(true);
-
   expect(await gitUnstageFile(dir, "a.txt")).toEqual({ ok: true });
   expect((await gitStatus(dir)).files.find((file) => file.path === "a.txt")).toMatchObject({ staged: false, unstaged: true });
   expect((await gitStatus(dir)).files.find((file) => file.path === "new.txt")?.staged).toBe(true);
-
   expect(await gitUnstageAll(dir)).toEqual({ ok: true });
   expect((await gitStatus(dir)).files.every((file) => !file.staged && file.unstaged)).toBe(true);
 });
-
 test("unstaging also works before a repository has its first commit", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "nativepi-unborn-git-"));
   execFileSync("git", ["init", "-b", "main"], { cwd: dir, stdio: "pipe" });
   await writeFile(path.join(dir, "first.txt"), "first\n", "utf8");
-
   expect(await gitStageAll(dir)).toEqual({ ok: true });
   expect(await gitUnstageAll(dir)).toEqual({ ok: true });
   expect((await gitStatus(dir)).files).toEqual([{ path: "first.txt", state: "untracked", staged: false, unstaged: true }]);
 });
-
 test("staged and unstaged views read their own side of a partially staged file", async () => {
   const dir = await repo();
   await writeFile(path.join(dir, "a.txt"), "staged\n", "utf8");
   await gitStageFile(dir, "a.txt");
   await writeFile(path.join(dir, "a.txt"), "unstaged\n", "utf8");
-
   expect((await gitDiff(dir, "a.txt", false, true)).patch).toContain("+staged");
   expect((await gitDiff(dir, "a.txt", false, true)).patch).not.toContain("+unstaged");
   expect((await gitDiff(dir, "a.txt", false)).patch).toContain("+unstaged");
   expect(await gitStagedDiff(dir)).toContain("+staged");
   expect(await gitStagedDiff(dir)).not.toContain("+unstaged");
 });
-
 test("the commit graph distinguishes local commits from commits on a remote branch", async () => {
   const dir = await repo();
   const remote = await mkdtemp(path.join(tmpdir(), "nativepi-remote-"));
   execFileSync("git", ["init", "--bare", remote], { stdio: "pipe" });
   execFileSync("git", ["remote", "add", "origin", remote], { cwd: dir });
   expect(await gitPush(dir)).toEqual({ ok: true });
-
   await writeFile(path.join(dir, "a.txt"), "local\n", "utf8");
   execFileSync("git", ["add", "a.txt"], { cwd: dir });
   execFileSync("git", ["commit", "-m", "local change"], { cwd: dir });
-
   const commits = await gitLog(dir);
   expect(commits[0]).toMatchObject({ subject: "local change", pushed: false });
   expect(commits.find((commit) => commit.subject === "init")).toMatchObject({ pushed: true });
   expect(await gitStatus(dir)).toMatchObject({ upstream: "origin/main", ahead: 1, behind: 0 });
 });
-
 test("first push honors Git's configured default remote", async () => {
   const dir = await repo();
   const origin = await mkdtemp(path.join(tmpdir(), "nativepi-origin-"));
@@ -234,19 +190,16 @@ test("first push honors Git's configured default remote", async () => {
   execFileSync("git", ["remote", "add", "origin", origin], { cwd: dir });
   execFileSync("git", ["remote", "add", "publish", publish], { cwd: dir });
   execFileSync("git", ["config", "remote.pushDefault", "publish"], { cwd: dir });
-
   expect(await gitPush(dir)).toEqual({ ok: true });
   expect(execFileSync("git", ["rev-parse", "refs/heads/main"], { cwd: publish, encoding: "utf8" })).toBeTruthy();
   expect(() => execFileSync("git", ["rev-parse", "refs/heads/main"], { cwd: origin, stdio: "pipe" })).toThrow();
 });
-
 test("sync fast-forwards from the upstream branch before pushing", async () => {
   const dir = await repo();
   const remote = await mkdtemp(path.join(tmpdir(), "nativepi-sync-remote-"));
   execFileSync("git", ["init", "--bare", remote], { stdio: "pipe" });
   execFileSync("git", ["remote", "add", "origin", remote], { cwd: dir });
   expect(await gitPush(dir)).toEqual({ ok: true });
-
   const cloneParent = await mkdtemp(path.join(tmpdir(), "nativepi-sync-clone-"));
   const clone = path.join(cloneParent, "checkout");
   execFileSync("git", ["clone", "-b", "main", remote, clone], { stdio: "pipe" });
@@ -256,17 +209,14 @@ test("sync fast-forwards from the upstream branch before pushing", async () => {
   execFileSync("git", ["add", "remote.txt"], { cwd: clone });
   execFileSync("git", ["commit", "-m", "remote change"], { cwd: clone });
   execFileSync("git", ["push"], { cwd: clone });
-
   expect(await gitSync(dir)).toEqual({ ok: true });
   expect(existsSync(path.join(dir, "remote.txt"))).toBe(true);
   expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: dir, encoding: "utf8" }).trim()).toBe("remote change");
 });
-
 test("committing without staged changes is refused", async () => {
   const dir = await repo();
   expect(await gitCommit(dir, "feat: nothing")).toEqual({ ok: false, error: "Stage at least one change before committing." });
 });
-
 test("revert discards only unstaged tracked changes", async () => {
   const dir = await repo();
   await writeFile(path.join(dir, "a.txt"), "staged" + String.fromCharCode(10));
@@ -280,3 +230,29 @@ test("revert discards only unstaged tracked changes", async () => {
   expect((await gitStatus(dir)).files.find((file) => file.path === "a.txt")).toMatchObject({ staged: true, unstaged: false });
   expect(await gitRevertFile(dir, "a.txt")).toMatchObject({ ok: false });
 });
+// Windows filenames cannot contain * or :, but brackets still exercise Git glob parsing.
+const literalFilenames = process.platform === "win32" ? ["a[1].txt"] : ["a*.txt", "a[1].txt", ":(glob)*.txt"];
+for (const selected of literalFilenames) {
+  test(`file operations treat ${selected} literally`, async () => {
+    const dir = await repo();
+    try {
+      for (const file of [selected, "a1.txt"])
+        await writeFile(path.join(dir, file), "base\n");
+      await gitStageAll(dir);
+      await gitCommit(dir, "test: names");
+      for (const file of [selected, "a1.txt"])
+        await writeFile(path.join(dir, file), "changed\n");
+      expect((await gitDiff(dir, selected, false)).patch).not.toContain("diff --git a/a1.txt");
+      expect(await gitStageFile(dir, selected)).toEqual({ ok: true });
+      expect(execFileSync("git", ["diff", "--cached", "--name-only", "-z"], { cwd: dir, encoding: "utf8" })).toBe(selected + "\0");
+      expect(await gitUnstageFile(dir, selected)).toEqual({ ok: true });
+      expect(execFileSync("git", ["diff", "--cached", "--name-only"], { cwd: dir, encoding: "utf8" })).toBe("");
+      expect(await gitRevertFile(dir, selected)).toEqual({ ok: true });
+      expect(await readFile(path.join(dir, selected), "utf8")).toBe("base\n");
+      expect(await readFile(path.join(dir, "a1.txt"), "utf8")).toBe("changed\n");
+    }
+    finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+}

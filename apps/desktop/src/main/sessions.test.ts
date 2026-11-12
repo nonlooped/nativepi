@@ -3,52 +3,46 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { deleteSession, listSessions, readSession, searchSessions, searchSnippet, usageDashboard, watchProjectSessions } from "./sessions.ts";
-
 function jsonl(records: unknown[]): string {
   return records.map((r) => JSON.stringify(r)).join("\n") + "\n";
 }
-
 test("readSession parses header and entries, skipping malformed and blank lines", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "nativepi-sessions-"));
   const file = path.join(dir, "s.jsonl");
-  const body =
-    jsonl([
-      { type: "session", id: "abc", timestamp: "2026-01-01T00:00:00Z", cwd: "/p" },
-      { type: "message", id: "1", parentId: null, timestamp: "t", message: { role: "user", content: "hi", timestamp: 1 } },
-    ]) +
+  const body = jsonl([
+    { type: "session", id: "abc", timestamp: "2026-01-01T00:00:00Z", cwd: "/p" },
+    { type: "message", id: "1", parentId: null, timestamp: "t", message: { role: "user", content: "hi", timestamp: 1 } },
+  ]) +
     "not json at all\n" +
     "\n" +
     jsonl([
       { type: "message", id: "2", parentId: "1", timestamp: "t", message: { role: "assistant", content: [], timestamp: 2 } },
     ]);
   await writeFile(file, body, "utf8");
-
   const entries = await readSession(file);
   expect(entries).toHaveLength(3);
   expect(entries[0].type).toBe("session");
   expect(entries.map((e) => e.type)).toEqual(["session", "message", "message"]);
 });
-
 /**
- * These exercise the real `SessionManager` against a throwaway agent dir, so a
- * change in how Pi encodes or summarizes sessions fails here rather than showing
- * up as a silently empty sidebar.
- */
+* These exercise the real `SessionManager` against a throwaway agent dir, so a
+* change in how Pi encodes or summarizes sessions fails here rather than showing
+* up as a silently empty sidebar.
+*/
 const agentDir = await mkdtemp(path.join(tmpdir(), "nativepi-agent-"));
 const previousAgentDir = process.env["PI_CODING_AGENT_DIR"];
 process.env["PI_CODING_AGENT_DIR"] = agentDir;
-
 afterAll(() => {
-  if (previousAgentDir === undefined) delete process.env["PI_CODING_AGENT_DIR"];
-  else process.env["PI_CODING_AGENT_DIR"] = previousAgentDir;
+  if (previousAgentDir === undefined)
+    delete process.env["PI_CODING_AGENT_DIR"];
+  else
+    process.env["PI_CODING_AGENT_DIR"] = previousAgentDir;
 });
-
 /** Mirrors how Pi lays out a project's session directory. */
 function sessionDirFor(projectDir: string): string {
   const safe = `--${path.resolve(projectDir).replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
   return path.join(agentDir, "sessions", safe);
 }
-
 async function writeSession(projectDir: string, name: string, records: unknown[]): Promise<string> {
   const dir = sessionDirFor(projectDir);
   await mkdir(dir, { recursive: true });
@@ -56,10 +50,8 @@ async function writeSession(projectDir: string, name: string, records: unknown[]
   await writeFile(file, jsonl(records), "utf8");
   return file;
 }
-
 test("listSessions summarizes real sessions and hides empty ones", async () => {
   const projectDir = await mkdtemp(path.join(tmpdir(), "nativepi-project-"));
-
   const used = await writeSession(projectDir, "used.jsonl", [
     { type: "session", version: 3, id: "used", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
     {
@@ -89,13 +81,10 @@ test("listSessions summarizes real sessions and hides empty ones", async () => {
     },
     { type: "session_info", id: "4", parentId: "3", timestamp: "2026-01-01T00:00:04Z", name: "Renamed chat" },
   ]);
-
   await writeSession(projectDir, "empty.jsonl", [
     { type: "session", version: 3, id: "empty", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
   ]);
-
   const sessions = await listSessions(projectDir);
-
   expect(sessions).toHaveLength(1);
   expect(sessions[0]!.path).toBe(used);
   expect(sessions[0]!.id).toBe("used");
@@ -106,10 +95,8 @@ test("listSessions summarizes real sessions and hides empty ones", async () => {
   expect(sessions[0]!.messageCount).toBe(3);
   expect(sessions[0]!.created).toBe("2026-01-01T00:00:00.000Z");
 });
-
 test("listSessions collects distinct providers most-recent first", async () => {
   const projectDir = await mkdtemp(path.join(tmpdir(), "nativepi-project-"));
-
   await writeSession(projectDir, "multi.jsonl", [
     { type: "session", version: 3, id: "multi", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
     { type: "model_change", id: "m1", parentId: null, timestamp: "2026-01-01T00:00:01Z", provider: "openai", modelId: "gpt-5" },
@@ -150,14 +137,11 @@ test("listSessions collects distinct providers most-recent first", async () => {
     },
     { type: "model_change", id: "m3", parentId: "4", timestamp: "2026-01-01T00:00:07Z", provider: "google", modelId: "gemini" },
   ]);
-
   const sessions = await listSessions(projectDir);
   expect(sessions[0]!.providers).toEqual(["google", "anthropic", "openai"]);
 });
-
 test("listSessions describes image-only prompts and bounds long sidebar previews", async () => {
   const projectDir = await mkdtemp(path.join(tmpdir(), "nativepi-project-"));
-
   await writeSession(projectDir, "image.jsonl", [
     { type: "session", version: 3, id: "image", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
     {
@@ -187,8 +171,7 @@ test("listSessions describes image-only prompts and bounds long sidebar previews
       timestamp: "2026-01-01T00:00:03Z",
       message: {
         role: "user",
-        content:
-          '<skill name="releasing" location="C:\\skills\\releasing\\SKILL.md">\nReferences are relative.\n\nRelease instructions\n</skill>\n\npublish the app',
+        content: '<skill name="releasing" location="C:\\skills\\releasing\\SKILL.md">\nReferences are relative.\n\nRelease instructions\n</skill>\n\npublish the app',
         timestamp: 3,
       },
     },
@@ -207,18 +190,15 @@ test("listSessions describes image-only prompts and bounds long sidebar previews
       },
     },
   ]);
-
   const sessions = await listSessions(projectDir);
   expect(sessions.find((session) => session.id === "image")?.lastPrompt).toBe("Image attachment");
   expect(sessions.find((session) => session.id === "long")?.lastPrompt).toBe(`${"a".repeat(159)}…`);
   expect(sessions.find((session) => session.id === "skill")?.lastPrompt).toBe("publish the app");
   expect(sessions.find((session) => session.id === "skill-only")?.lastPrompt).toBe("releasing");
 });
-
 test("usageDashboard groups Pi-recorded cost by day, project, and model", async () => {
   const alpha = await mkdtemp(path.join(tmpdir(), "nativepi-usage-alpha-"));
   const beta = await mkdtemp(path.join(tmpdir(), "nativepi-usage-beta-"));
-
   await writeSession(alpha, "alpha.jsonl", [
     { type: "session", version: 3, id: "alpha", timestamp: "2026-01-02T12:00:00Z", cwd: alpha },
     { type: "message", id: "1", parentId: null, timestamp: "2026-01-02T12:00:01Z", message: { role: "user", content: "hello", timestamp: 1767355201000 } },
@@ -230,9 +210,7 @@ test("usageDashboard groups Pi-recorded cost by day, project, and model", async 
     { type: "message", id: "1", parentId: null, timestamp: "2026-01-03T12:00:01Z", message: { role: "user", content: "hello", timestamp: 1767441601000 } },
     { type: "message", id: "2", parentId: "1", timestamp: "2026-01-03T12:00:02Z", message: { role: "assistant", content: [], model: "claude", timestamp: 1767441602000, usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { total: 0.2 } } } },
   ]);
-
   const dashboard = await usageDashboard([{ path: alpha, name: "Alpha" }, { path: beta, name: "Beta" }]);
-
   expect(dashboard.totalCost).toBeCloseTo(0.35);
   expect(dashboard.sessions).toBe(2);
   expect(dashboard.daily).toEqual([
@@ -249,7 +227,6 @@ test("usageDashboard groups Pi-recorded cost by day, project, and model", async 
   expect(dashboard.models).toEqual([{ name: "claude", cost: 0.2, tokens: 2 }, { name: "openai/gpt-5", cost: 0.15, tokens: 4 }]);
   expect(dashboard.tokens).toEqual({ input: 3, output: 3, cacheRead: 0, cacheWrite: 0, total: 6 });
 });
-
 test("usageDashboard counts inherited billed entries once", async () => {
   const project = await mkdtemp(path.join(tmpdir(), "nativepi-usage-fork-"));
   const entry = { type: "message", id: "billed", parentId: null, timestamp: "2026-01-02T12:00:02Z", message: { role: "assistant", content: [], model: "gpt-5", timestamp: 1767355202000, usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { total: 0.12 } } } };
@@ -261,13 +238,10 @@ test("usageDashboard counts inherited billed entries once", async () => {
     { type: "session", version: 3, id: "fork", timestamp: "2026-01-02T12:01:00Z", cwd: project, parentSession: original },
     entry,
   ]);
-
   const dashboard = await usageDashboard([{ path: project, name: "Project" }]);
-
   expect(dashboard.totalCost).toBe(0.12);
   expect(dashboard.sessions).toBe(1);
 });
-
 test("watchProjectSessions detects chats created after the sidebar is open", async () => {
   const projectDir = await mkdtemp(path.join(tmpdir(), "nativepi-project-"));
   await mkdir(sessionDirFor(projectDir), { recursive: true });
@@ -277,7 +251,6 @@ test("watchProjectSessions detects chats created after the sidebar is open", asy
     changes += 1;
     changedSession = sessionFile;
   });
-
   await writeSession(projectDir, "new-chat.jsonl", [
     { type: "session", version: 3, id: "new-chat", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
     {
@@ -288,7 +261,6 @@ test("watchProjectSessions detects chats created after the sidebar is open", asy
       message: { role: "user", content: "created somewhere else", timestamp: 1767225601000 },
     },
   ]);
-
   for (let attempts = 0; changes === 0 && attempts < 20; attempts += 1) {
     await Bun.sleep(25);
   }
@@ -296,7 +268,6 @@ test("watchProjectSessions detects chats created after the sidebar is open", asy
   expect(changes).toBeGreaterThan(0);
   expect(changedSession).toBe(sessionDirFor(projectDir) + path.sep + "new-chat.jsonl");
 });
-
 test("stopping a project session watch invalidates its cached listing", async () => {
   const projectDir = await mkdtemp(path.join(tmpdir(), "nativepi-project-"));
   await writeSession(projectDir, "first.jsonl", [
@@ -310,8 +281,7 @@ test("stopping a project session watch invalidates its cached listing", async ()
     },
   ]);
   expect(await listSessions(projectDir)).toHaveLength(1);
-
-  const stop = watchProjectSessions(projectDir, () => {});
+  const stop = watchProjectSessions(projectDir, () => { });
   await writeSession(projectDir, "second.jsonl", [
     { type: "session", version: 3, id: "second", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
     {
@@ -323,14 +293,11 @@ test("stopping a project session watch invalidates its cached listing", async ()
     },
   ]);
   stop();
-
   expect(await listSessions(projectDir)).toHaveLength(2);
 });
-
 test("deleteSession refuses a file belonging to another project", async () => {
   const mine = await mkdtemp(path.join(tmpdir(), "nativepi-mine-"));
   const theirs = await mkdtemp(path.join(tmpdir(), "nativepi-theirs-"));
-
   const theirSession = await writeSession(theirs, "s.jsonl", [
     { type: "session", version: 3, id: "theirs", timestamp: "2026-01-01T00:00:00Z", cwd: theirs },
     {
@@ -341,14 +308,11 @@ test("deleteSession refuses a file belonging to another project", async () => {
       message: { role: "user", content: "hello", timestamp: 1767225601000 },
     },
   ]);
-
   await expect(deleteSession(mine, theirSession)).rejects.toThrow("does not belong to this project");
   expect(await readSession(theirSession)).toHaveLength(2);
 });
-
 test("searchSessions finds titles and user or assistant message text", async () => {
   const projectDir = await mkdtemp(path.join(tmpdir(), "nativepi-search-"));
-
   await writeSession(projectDir, "message-match.jsonl", [
     { type: "session", version: 3, id: "message-match", timestamp: "2026-01-01T00:00:00Z", cwd: projectDir },
     {
@@ -382,30 +346,82 @@ test("searchSessions finds titles and user or assistant message text", async () 
     },
     { type: "session_info", id: "2", parentId: "1", timestamp: "2026-01-02T00:00:02Z", name: "Webhook investigation" },
   ]);
-
   const results = await searchSessions([projectDir], "webhook");
-
   expect(results).toHaveLength(2);
   expect(results[0]).toMatchObject({ title: "Webhook investigation", match: "title" });
   expect(results[1]).toMatchObject({ match: "assistant", snippet: "The regression is in the webhook handler." });
-
   const userResults = await searchSessions([projectDir], "inspect");
   expect(userResults).toHaveLength(1);
   expect(userResults[0]).toMatchObject({ title: "Payment investigation", match: "user" });
 });
-
 test("searchSessions stops before scanning when cancelled", async () => {
   const controller = new AbortController();
   controller.abort();
   await expect(searchSessions(["C:\\cancelled"], "needle", controller.signal)).rejects.toThrow();
 });
-
 test("searchSnippet compacts whitespace and keeps context around long matches", () => {
   const text = `${"start ".repeat(20)}needle\n\n${"end ".repeat(30)}`;
   const snippet = searchSnippet(text, text.indexOf("needle"), "needle".length);
-
   expect(snippet).toStartWith("…");
   expect(snippet).toContain("needle end");
   expect(snippet).toEndWith("…");
   expect(snippet).not.toContain("\n");
+});
+test("persisted JSONL skips primitives while preserving unknown entry fields", async () => {
+  const file = path.join(agentDir, "permissive.jsonl");
+  const future = { type: "future_entry", id: "future", details: { unknown: true }, extra: [1, 2] };
+  await writeFile(file, jsonl([null, 42, "text", [], {}, future, { type: "message", message: null }]));
+  expect((await readSession(file)) as unknown).toEqual([future]);
+});
+test("a completed listing without a watcher never masks a later append", async () => {
+  const { SessionManager } = await import("@earendil-works/pi-coding-agent");
+  const project = await mkdtemp(path.join(tmpdir(), "nativepi-unwatched-"));
+  const manager = SessionManager.create(project);
+  manager.appendMessage({ role: "user", content: "same prompt", timestamp: Date.now() });
+  expect((await listSessions(project))[0]?.messageCount).toBe(1);
+  manager.appendMessage({ role: "user", content: "same prompt", timestamp: Date.now() });
+  expect((await listSessions(project))[0]?.messageCount).toBe(2);
+});
+test("malformed usage numbers and extreme dates cannot poison totals", async () => {
+  const project = await mkdtemp(path.join(tmpdir(), "nativepi-usage-invalid-"));
+  await writeSession(project, "usage.jsonl", [
+    { type: "session", version: 3, id: "usage", timestamp: "2026-01-01T00:00:00Z", cwd: project },
+    { type: "message", id: "bad-date", timestamp: "2026-01-01T00:00:00Z", message: { role: "assistant", content: [], timestamp: 1e100, usage: { cost: { total: 1 }, totalTokens: 20 } } },
+    { type: "message", id: "bad-number", timestamp: "2026-01-01T00:00:00Z", message: { role: "assistant", content: [], timestamp: Date.UTC(2026, 0, 1), usage: { cost: { total: 1 }, input: "oops", output: -1, cacheRead: null, totalTokens: "oops" } } },
+  ]);
+  const result = await usageDashboard([{ path: project, name: "project" }]);
+  expect(result.totalCost).toBe(1);
+  expect(result.tokens).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 });
+});
+test("session watch follows atomic replacement and missing-then-created files", async () => {
+  const { watchSessionFile } = await import("./sessions.ts");
+  const { rename, utimes } = await import("node:fs/promises");
+  const root = await mkdtemp(path.join(tmpdir(), "nativepi-watch-replace-"));
+  const file = path.join(root, "session.jsonl");
+  let changed = Promise.withResolvers<number>();
+  const stop = watchSessionFile(file, value => changed.resolve(value));
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  async function observed(): Promise<number> {
+    return Promise.race([changed.promise, new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("watch failed")), 2000); })]).finally(() => clearTimeout(timeout));
+  }
+  try {
+    await writeFile(file, "created");
+    expect(await observed()).toBeGreaterThan(0);
+    changed = Promise.withResolvers<number>();
+    const replacement = path.join(root, "next");
+    await writeFile(replacement, "replacement");
+    await utimes(replacement, 100, 100);
+    await rename(replacement, file);
+    expect(await observed()).toBe(100000);
+    changed = Promise.withResolvers<number>();
+    await writeFile(file, "later append");
+    expect(await observed()).toBeGreaterThan(100000);
+    stop();
+    changed = Promise.withResolvers<number>();
+    await writeFile(file, "after dispose");
+  }
+  finally {
+    stop();
+    clearTimeout(timeout);
+  }
 });

@@ -1,21 +1,22 @@
 import { ArrowBendUpRightIcon, PaperPlaneRightIcon } from "../../shared/icons.ts"
-import { ImageIcon } from "@phosphor-icons/react/Image";
+import { PaperclipIcon } from "@phosphor-icons/react/Paperclip";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { draftKeyFor } from "../../shared/messages.ts";
-import { ACCEPTED_IMAGE_TYPES } from "../lib/attachments.ts";
 import { classifyDrop, draggingFiles, mentionPath } from "../lib/drops.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { chipText, hoistSkill } from "../lib/composerText.ts";
 import { showDropRejected, showHint } from "../lib/toast.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { ContextualIcon } from "@/components/ui/contextual-icon.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
 import { SCROLLBAR_GUTTER_OFFSET, cn } from "@/lib/utils.ts";
 import ComposerAttachments from "./ComposerAttachments.tsx";
 import ComposerInput from "./ComposerInput.tsx";
 import { ComposerControls, ComposerWidgets } from "./ExtensionSlots.tsx";
 import ModelSelector from "./ModelSelector.tsx";
-import ContextWindow from "./ContextInspector.tsx";
+import BranchSwitcher from "./BranchSwitcher.tsx";
+import WorkspaceSwitcher from "./WorkspaceSwitcher.tsx";
 
 const TuiAutoPane = lazy(() => import("./TuiSurface.tsx").then((module) => ({ default: module.TuiAutoPane })));
 
@@ -198,10 +199,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
                     : "Ask Pi to explore, explain, or change this project…"
           }
         />
-        {/* Keep the controls that shape this reply on one compact line: model
-            (with reasoning inside its picker) and send. Context sits beside
-            send, next to the action it annotates. Branch lives with changes;
-            queue behaviour lives on the run pill. */}
+        {/* Reply controls stay inside the composer; checkout controls sit below. */}
         <div className="flex items-end gap-1 px-1">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
             <AttachButton disabled={disabled} onPick={attach} />
@@ -209,7 +207,6 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
             <ComposerControls />
           </div>
           <div className="flex items-center gap-1">
-            <ContextWindow />
             <Button
               size="icon-lg"
               className="rounded-full shadow-sm shadow-foreground/10 hover:shadow-md hover:shadow-foreground/15 active:shadow-none disabled:bg-muted disabled:text-muted-foreground/40 disabled:opacity-100 disabled:shadow-none"
@@ -220,40 +217,19 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
             >
               {/* Steering redirects the turn in flight; it is not the same act as
                   sending, so it does not wear the same glyph. */}
-              <span className="relative size-4" aria-hidden="true">
-                <span
-                  className={cn(
-                    "absolute inset-0 flex items-center justify-center transition-[opacity,filter,scale] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
-                    steering ? "scale-100 opacity-100 blur-0" : "scale-[0.25] opacity-0 blur-[4px]",
-                  )}
-                >
-                  <ArrowBendUpRightIcon weight="bold" />
-                </span>
-                <span
-                  className={cn(
-                    "flex items-center justify-center transition-[opacity,filter,scale] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
-                    steering ? "scale-[0.25] opacity-0 blur-[4px]" : "scale-100 opacity-100 blur-0",
-                  )}
-                >
-                  <PaperPlaneRightIcon weight="fill" />
-                </span>
-              </span>
+              <ContextualIcon
+                active={steering}
+                activeIcon={<ArrowBendUpRightIcon weight="bold" />}
+                inactiveIcon={<PaperPlaneRightIcon weight="fill" />}
+              />
             </Button>
           </div>
         </div>
       </div>
-      {/* The empty-chat composer teaches the three triggers once. Hidden on a
-          touch screen, where naming keystrokes is advice about a keyboard the
-          reader does not have. */}
-      {prominent ? (
-        <p className="mx-auto flex w-full max-w-(--conversation-width) flex-wrap items-center justify-start gap-x-4 gap-y-1 px-1 pt-0.5 text-xs text-muted-foreground pointer-coarse:hidden">
-          <span className="flex items-center gap-1.5"><Kbd>Enter</Kbd> send</span>
-          <span className="flex items-center gap-1.5"><Kbd>Shift+Enter</Kbd> new line</span>
-          <span className="flex items-center gap-1.5"><Kbd>/</Kbd> commands</span>
-          <span className="flex items-center gap-1.5"><Kbd>@</Kbd> files</span>
-          <span className="flex items-center gap-1.5"><Kbd>$</Kbd> skills</span>
-        </p>
-      ) : null}
+      <div className="mx-auto flex w-full max-w-(--conversation-width) flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <WorkspaceSwitcher />
+        <BranchSwitcher side="top" handleRequests />
+      </div>
       <ComposerWidgets placement="belowComposer" />
     </div>
   );
@@ -267,7 +243,7 @@ function sendLabel(running: boolean, steering: boolean): string {
 }
 
 /**
- * The third way to attach an image, after paste and drop.
+ * Attach images or mention local files through the same picker.
  *
  * A real file input rather than Electron's dialog: paste and drop both hand the
  * window a `File`, and using the same object here means one path from a picture
@@ -282,7 +258,6 @@ function AttachButton({ disabled, onPick }: { disabled: boolean; onPick: (files:
         ref={input}
         type="file"
         multiple
-        accept={ACCEPTED_IMAGE_TYPES}
         className="hidden"
         onChange={(event) => {
           void onPick([...(event.target.files ?? [])]);
@@ -295,11 +270,11 @@ function AttachButton({ disabled, onPick }: { disabled: boolean; onPick: (files:
         size="icon-lg"
         disabled={disabled}
         onClick={() => input.current?.click()}
-        title="Attach an image"
-        aria-label="Attach an image"
+        title="Attach files"
+        aria-label="Attach files"
         className="rounded-lg text-muted-foreground hover:text-foreground"
       >
-        <ImageIcon />
+        <PaperclipIcon />
       </Button>
     </>
   );
@@ -368,7 +343,7 @@ function QueuedMessages() {
 
 function QueueRow({ label, text }: { label: string; text: string }) {
   return (
-    <li className="flex items-start gap-2 rounded-xl border bg-card/60 px-3 py-2 text-sm">
+    <li className="status-enter flex items-start gap-2 rounded-xl border bg-card/60 px-3 py-2 text-sm">
       <span className="mt-0.5 shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
         {label}
       </span>

@@ -11,19 +11,23 @@ import {
   sanitizeOverrides,
 } from "./shortcuts.ts";
 
+const mac = typeof navigator === "object" && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+const mod = mac ? "Cmd" : "Ctrl";
+const alt = mac ? "Option" : "Alt";
+
 describe("hints", () => {
   test("reads a binding back the way a person writes it", () => {
-    // No `navigator` under the test runner, so `$mod` renders as Ctrl.
-    expect(hintFor("newChat")).toBe("Ctrl+Shift+N");
+    // Bun exposes navigator on supported hosts; hints follow the actual platform.
+    expect(hintFor("newChat")).toBe(`${mod}+Shift+N`);
     expect(hintFor("stopTurn")).toBe("Escape");
-    expect(hintFor("openSettings")).toBe("Ctrl+,");
-    expect(hintFor("cycleThinking")).toBe("Ctrl+.");
-    expect(hintFor("jumpToLatest")).toBe("Ctrl+End");
+    expect(hintFor("openSettings")).toBe(`${mod}+,`);
+    expect(hintFor("cycleThinking")).toBe(`${mod}+.`);
+    expect(hintFor("jumpToLatest")).toBe(`${mod}+End`);
   });
 
   test("names arrow keys the short way", () => {
-    expect(hintFor("nextProject")).toBe("Ctrl+Alt+Down");
-    expect(hintFor("previousProject")).toBe("Ctrl+Alt+Up");
+    expect(hintFor("nextProject")).toBe(`${mod}+${alt}+Down`);
+    expect(hintFor("previousProject")).toBe(`${mod}+${alt}+Up`);
   });
 });
 
@@ -89,7 +93,7 @@ describe("overrides", () => {
   });
 
   test("hintFor reads back an override the same way it reads a default", () => {
-    expect(hintFor("newChat", { newChat: "$mod+Alt+KeyG" })).toBe("Ctrl+Alt+G");
+    expect(hintFor("newChat", { newChat: "$mod+Alt+KeyG" })).toBe(`${mod}+${alt}+G`);
   });
 });
 
@@ -116,19 +120,31 @@ describe("parseKeyEvent", () => {
   });
 
   test("modifiers plus a key become a binding", () => {
-    expect(parseKeyEvent(keydown({ code: "KeyG", ctrlKey: true, shiftKey: true }))).toBe("$mod+Shift+KeyG");
-    expect(parseKeyEvent(keydown({ code: "KeyG", metaKey: true }))).toBe("Meta+KeyG");
+    expect(parseKeyEvent(keydown({ code: "KeyG", ctrlKey: true, shiftKey: true }))).toBe(mac ? "Control+Shift+KeyG" : "$mod+Shift+KeyG");
+    expect(parseKeyEvent(keydown({ code: "KeyG", metaKey: true }))).toBe(mac ? "$mod+KeyG" : "Meta+KeyG");
   });
 
   // Off a Mac, `$mod` is Ctrl and Meta is the Windows key. The two are never the
   // same key, so recording one must never produce the other: Ctrl+K used to be
   // written as `$mod+KeyK` on macOS as well, where it fires on Cmd+K.
   test("keeps the command modifier and the other one apart", () => {
-    expect(parseKeyEvent(keydown({ code: "KeyK", ctrlKey: true }))).toBe("$mod+KeyK");
-    expect(parseKeyEvent(keydown({ code: "KeyK", ctrlKey: true, metaKey: true }))).toBe("$mod+Meta+KeyK");
+    expect(parseKeyEvent(keydown({ code: "KeyK", ctrlKey: true }))).toBe(mac ? "Control+KeyK" : "$mod+KeyK");
+    expect(parseKeyEvent(keydown({ code: "KeyK", ctrlKey: true, metaKey: true }))).toBe(mac ? "$mod+Control+KeyK" : "$mod+Meta+KeyK");
   });
 
   test("a plain key with no modifiers binds on its own", () => {
     expect(parseKeyEvent(keydown({ code: "Escape" }))).toBe("Escape");
+  });
+});
+
+describe("interface scale shortcuts", () => {
+  test("accepts equals and shifted plus without stealing a rebound key", () => {
+    const increase = () => {};
+    expect(bindings({ increaseScale: increase })).toEqual({
+      "$mod+Equal": increase, "$mod+Shift+Equal": increase,
+    });
+    expect(bindings({ increaseScale: increase }, { increaseScale: "" })).toEqual({});
+    expect(bindings({ increaseScale: increase }, { increaseScale: "$mod+KeyG" })).toEqual({ "$mod+KeyG": increase });
+    expect(bindings({ increaseScale: increase }, { newChat: "$mod+Shift+Equal" })).toEqual({ "$mod+Equal": increase });
   });
 });

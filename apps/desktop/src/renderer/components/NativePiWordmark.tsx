@@ -2,9 +2,11 @@ import { cn } from "@/lib/utils.ts";
 
 export default function NativePiWordmark({
   display = false,
+  compact = false,
   className,
 }: {
   display?: boolean;
+  compact?: boolean;
   className?: string;
 }) {
   // `role="img"` because `aria-label` is prohibited on a bare span, and both
@@ -12,7 +14,7 @@ export default function NativePiWordmark({
   // reached the accessibility tree as nothing at all.
   return (
     <span
-      className={cn("nativepi-wordmark", display && "nativepi-wordmark-display", className)}
+      className={cn("nativepi-wordmark", display && "nativepi-wordmark-display", compact && "nativepi-wordmark-compact", className)}
       role="img"
       aria-label="NativePi"
     >

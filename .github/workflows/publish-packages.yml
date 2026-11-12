@@ -8,214 +8,132 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: read
   contents: read
-  # Required for npm trusted publishing; no NPM_TOKEN is used.
-  id-token: write
+
+concurrency:
+  group: publish-packages
+  cancel-in-progress: false
 
 jobs:
   verify-main:
-    name: Verify main
+    name: Verify main and plan packages
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
-    runs-on: ubuntu-latest
+      github.repository == 'nonlooped/nativepi' &&
+      (github.event_name != 'workflow_run' ||
+       (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
     outputs:
       sha: ${{ steps.verify.outputs.sha }}
-      api: ${{ steps.verify.outputs.api }}
-      extensions: ${{ steps.verify.outputs.extensions }}
+      api: ${{ steps.plan.outputs.api }}
+      extensions: ${{ steps.plan.outputs.extensions }}
     steps:
-      - name: Checkout verified candidate
-        uses: actions/checkout@v7
-        with:
-          # A manual dispatch always starts from main, never from the ref that
-          # happened to open the Actions page. workflow_run has CI's exact SHA.
-          ref: ${{ github.event.workflow_run.head_sha || 'main' }}
-          fetch-depth: 2
-
-      - name: Verify successful main CI
+      # This step runs before any candidate code is checked out.
+      - name: Verify successful main push CI
         id: verify
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          $sha = git rev-parse HEAD
-          if ($env:EVENT_NAME -eq "workflow_run") {
-            if ($sha -ne $env:WORKFLOW_SHA) {
-              throw "Checked out $sha instead of verified workflow ref $env:WORKFLOW_SHA"
-            }
-          } else {
-            $runs = gh api "repos/$env:GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&status=completed&per_page=100" |
-              ConvertFrom-Json
-            $verified = $runs.workflow_runs | Where-Object {
-              $_.head_sha -eq $sha -and
-              $_.head_branch -eq "main" -and
-              $_.event -eq "push" -and
-              $_.conclusion -eq "success"
-            }
-            if (-not $verified) {
-              throw "Ref $sha is not a successfully verified main CI run"
-            }
-          }
-          "sha=$sha" >> $env:GITHUB_OUTPUT
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const repository = `${context.repo.owner}/${context.repo.repo}`;
+            if (repository !== 'nonlooped/nativepi') throw new Error('Publication is restricted to nonlooped/nativepi');
+            const trustedRun = (run, sha) =>
+              run.head_sha === sha && run.head_branch === 'main' &&
+              run.event === 'push' && run.conclusion === 'success' &&
+              run.head_repository?.full_name === repository &&
+              run.repository?.full_name === repository;
+            let sha;
+            if (context.eventName === 'workflow_run') {
+              const run = context.payload.workflow_run;
+              sha = run?.head_sha;
+              if (!trustedRun(run, sha)) throw new Error('CI did not certify a push to this repository main');
+            } else if (context.eventName === 'workflow_dispatch' && context.ref === 'refs/heads/main') {
+              const ref = await github.rest.git.getRef({ ...context.repo, ref: 'heads/main' });
+              sha = ref.data.object.sha;
+              const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+                ...context.repo, workflow_id: 'ci.yml', head_sha: sha, event: 'push', status: 'success', per_page: 100,
+              });
+              if (!runs.some((run) => trustedRun(run, sha))) throw new Error('Main has no successful push CI verdict');
+            } else throw new Error('Publication requires a main dispatch or successful main push CI');
+            if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Invalid certified commit SHA');
+            core.setOutput('sha', sha);
 
-          $extensions = @(
-            @{ package = "@nativepi/ask-user"; directory = "packages/ask-user" }
-            @{ package = "@nativepi/mcp"; directory = "packages/mcp" }
-            @{ package = "@nativepi/meta"; directory = "packages/meta" }
-            @{ package = "@nativepi/service-tier"; directory = "packages/service-tier" }
-            @{ package = "@nativepi/subagents"; directory = "packages/subagents" }
-            @{ package = "@nativepi/subscription-usage"; directory = "packages/subscription-usage" }
-            @{ package = "@nativepi/throughput"; directory = "packages/throughput" }
-            @{ package = "@nativepi/title-generator"; directory = "packages/title-generator" }
-          )
+      - name: Checkout certified commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.verify.outputs.sha }}
+          persist-credentials: false
 
-          if ($env:EVENT_NAME -ne "workflow_dispatch") {
-            $changed = @(git diff --name-only HEAD^ HEAD -- "packages/*/package.json")
-            $extensions = @($extensions | Where-Object {
-              $changed -contains "$($_.directory)/package.json"
-            })
-            $apiChanged = $changed -contains "packages/extension-api/package.json"
-          } else {
-            $apiChanged = $true
-          }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ">=24.15.0 <25"
+          package-manager-cache: false
 
-          $extensionMatrix = if ($extensions.Count -eq 0) {
-            "[]"
-          } else {
-            $extensions | ConvertTo-Json -Compress -AsArray
-          }
-          "api=$($apiChanged.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
-          "extensions=$extensionMatrix" >> $env:GITHUB_OUTPUT
+      - name: Plan unpublished versions
+        id: plan
+        run: node scripts/publish-packages.mjs plan
 
   publish-api:
-    name: Publish @nativepi/extension-api
+    name: Publish extension API
     needs: verify-main
-    if: needs.verify-main.outputs.api == 'true'
-    runs-on: ubuntu-latest
+    if: needs.verify-main.outputs.api != '[]'
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: packages/extension-api
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.verify-main.outputs.api) }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.verify-main.outputs.sha }}
-
-      - name: Setup Node
-        uses: actions/setup-node@v7
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: ">=24.15.0 <25"
+          package-manager-cache: false
           registry-url: https://registry.npmjs.org
-
-      - name: Resolve published version
-        id: resolve
-        shell: pwsh
-        run: |
-          # Ask the registry rather than diffing the previous commit, so the job
-          # is idempotent across re-runs and squash merges.
-          $package = Get-Content package.json | ConvertFrom-Json
-          $published = npm view "$($package.name)@$($package.version)" version 2>$null
-          if ($LASTEXITCODE -ne 0) { $published = "" }
-          if ($published) {
-            Write-Host "$($package.name)@$($package.version) is already published"
-            "publish=false" >> $env:GITHUB_OUTPUT
-          } else {
-            Write-Host "Publishing $($package.name)@$($package.version)"
-            "publish=true" >> $env:GITHUB_OUTPUT
-            "version=$($package.version)" >> $env:GITHUB_OUTPUT
-          }
-          # A missing version makes `npm view` exit 1, and pwsh steps inherit the
-          # last native exit code. Without this the step fails on the one path
-          # that matters.
-          exit 0
-
-      # Trusted publishing needs npm 11.5.1 or newer.
-      - name: Update npm
-        if: steps.resolve.outputs.publish == 'true'
-        run: npm install -g npm@latest
-
-      - name: Publish
-        if: steps.resolve.outputs.publish == 'true'
-        run: npm publish
-
-      - name: Summary
-        if: steps.resolve.outputs.publish == 'true'
-        run: echo "Published @nativepi/extension-api@${{ steps.resolve.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+      # Node >=24.15 ships npm >=11.12.1, which supports trusted publishing.
+      - run: node scripts/publish-packages.mjs stage "$PACKAGE_DIRECTORY"
+        env:
+          PACKAGE_DIRECTORY: ${{ matrix.directory }}
+      - run: npm publish
+        working-directory: ${{ matrix.directory }}
 
   publish-extension:
     name: Publish ${{ matrix.package }}
     needs: [verify-main, publish-api]
     if: >-
-      always() &&
+      !cancelled() &&
       needs.verify-main.result == 'success' &&
       (needs.publish-api.result == 'success' || needs.publish-api.result == 'skipped') &&
       needs.verify-main.outputs.extensions != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.verify-main.outputs.extensions) }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.verify-main.outputs.sha }}
-
-      - name: Setup Node
-        uses: actions/setup-node@v7
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: ">=24.15.0 <25"
+          package-manager-cache: false
           registry-url: https://registry.npmjs.org
-
-      - name: Resolve published version
-        id: resolve
-        shell: pwsh
+      - run: node scripts/publish-packages.mjs stage "$PACKAGE_DIRECTORY"
+        env:
+          PACKAGE_DIRECTORY: ${{ matrix.directory }}
+      - run: npm publish
         working-directory: ${{ matrix.directory }}
-        run: |
-          $package = Get-Content package.json | ConvertFrom-Json
-          $published = npm view "$($package.name)@$($package.version)" version 2>$null
-          if ($LASTEXITCODE -ne 0) { $published = "" }
-          if ($published) {
-            Write-Host "$($package.name)@$($package.version) is already published"
-            "publish=false" >> $env:GITHUB_OUTPUT
-          } else {
-            Write-Host "Publishing $($package.name)@$($package.version)"
-            "publish=true" >> $env:GITHUB_OUTPUT
-            "version=$($package.version)" >> $env:GITHUB_OUTPUT
-          }
-          exit 0
-
-      - name: Update npm
-        if: steps.resolve.outputs.publish == 'true'
-        working-directory: ${{ matrix.directory }}
-        run: npm install -g npm@latest
-
-      # npm publish leaves `workspace:` ranges verbatim, and consumers cannot
-      # install that protocol. Rewrite only the packed manifest to a registry
-      # range taken from the workspace package's current version.
-      - name: Rewrite workspace dependencies
-        if: steps.resolve.outputs.publish == 'true'
-        working-directory: ${{ matrix.directory }}
-        run: >
-          node -e "const fs=require('node:fs');const path=require('node:path');const
-          pkg=JSON.parse(fs.readFileSync('package.json','utf8'));const
-          api=JSON.parse(fs.readFileSync(path.join('..','extension-api','package.json'),'utf8'));const
-          range='^'+api.version;let changed=false;for (const section of
-          ['dependencies','peerDependencies','optionalDependencies','devDependencies'])
-          {const deps=pkg[section];if(!deps||typeof deps['@nativepi/extension-api']!=='string')continue;if(!deps['@nativepi/extension-api'].startsWith('workspace:'))continue;deps['@nativepi/extension-api']=range;changed=true;}if(changed){fs.writeFileSync('package.json',JSON.stringify(pkg,null,2)+'\n');console.log('Rewrote @nativepi/extension-api to '+range);}"
-
-      - name: Publish
-        if: steps.resolve.outputs.publish == 'true'
-        working-directory: ${{ matrix.directory }}
-        run: npm publish
-
-      - name: Summary
-        if: steps.resolve.outputs.publish == 'true'
-        working-directory: ${{ matrix.directory }}
-        run: echo "Published ${{ matrix.package }}@${{ steps.resolve.outputs.version }}" >> $GITHUB_STEP_SUMMARY

@@ -3,6 +3,7 @@ import { stubInvoke } from "./store/testBridge.ts";
 
 const responses: Record<string, unknown> = {
   setModel: { ok: true },
+  setThinkingLevel: { ok: true },
   getThinkingLevels: { levels: ["low", "medium", "high"] },
 };
 
@@ -47,7 +48,7 @@ test("selecting a project falls back when its remembered chat no longer exists",
   const reads: string[] = [];
   stubInvoke(async (channel, params) => {
     if (channel === "listSessions") return { sessions: [] };
-    if (channel === "readSession") {
+    if (channel === "readSessionSnapshot") {
       reads.push((params as { sessionFile: string }).sessionFile);
       throw new Error("missing session");
     }
@@ -59,7 +60,7 @@ test("selecting a project falls back when its remembered chat no longer exists",
     import("./store.ts"),
     import("./store/internals.ts"),
   ]);
-  replaceLastChats({ [projectPath]: staleSession });
+  replaceLastChats(useAppStore.getState, { [projectPath]: staleSession });
 
   await useAppStore.getState().selectProject(projectPath);
 
@@ -80,7 +81,7 @@ test("a remembered chat opens before the complete history list finishes", async 
         finishList = resolve as (value: { sessions: [] }) => void;
       });
     }
-    if (channel === "readSession") return { entries: [] };
+    if (channel === "readSessionSnapshot") return { entries: [], consistency: "stable", eventWatermark: 0 };
     if (channel === "checkTrust") return { required: true, trusted: false };
     return {};
   });
@@ -90,12 +91,12 @@ test("a remembered chat opens before the complete history list finishes", async 
     import("./store/internals.ts"),
   ]);
   useAppStore.setState({ sessionLoadStates: {}, sessionsByProject: {}, conversations: {} });
-  replaceLastChats({ [projectPath]: sessionFile });
+  replaceLastChats(useAppStore.getState, { [projectPath]: sessionFile });
 
   await useAppStore.getState().selectProject(projectPath);
 
   expect(useAppStore.getState().activeSessionFile).toBe(sessionFile);
-  expect(calls).toContain("readSession");
+  expect(calls).toContain("readSessionSnapshot");
   expect(calls).toContain("listSessions");
   finishList({ sessions: [] });
 });
@@ -149,7 +150,7 @@ test("local sidebar mutations do not wait for a session rescan", async () => {
 });
 
 test("switching chats releases settled transcripts but preserves live background runs", async () => {
-  stubInvoke(async (channel) => (channel === "readSession" ? { entries: [] } : {}));
+  stubInvoke(async (channel) => (channel === "readSessionSnapshot" ? { entries: [], consistency: "stable", eventWatermark: 0 } : {}));
   const { useAppStore } = await import("./store.ts");
   const { emptyConversation } = await import("./store/conversation.ts");
   const projectPath = "C:\\conversation-memory";
@@ -280,9 +281,9 @@ test("opening a chat in another folder switches the workspace to that chat", asy
   const rememberedB = "C:\\sessions\\remembered-b.jsonl";
   const reads: string[] = [];
   stubInvoke(async (channel, params) => {
-    if (channel === "readSession") {
+    if (channel === "readSessionSnapshot") {
       reads.push((params as { sessionFile: string }).sessionFile);
-      return { entries: [] };
+      return { entries: [], consistency: "stable", eventWatermark: 0 };
     }
     if (channel === "checkTrust") return { required: true, trusted: false };
     if (channel === "listSessions") return { sessions: [] };
@@ -294,7 +295,7 @@ test("opening a chat in another folder switches the workspace to that chat", asy
     import("./store/internals.ts"),
     import("./store/conversation.ts"),
   ]);
-  replaceLastChats({ [projectB]: rememberedB });
+  replaceLastChats(useAppStore.getState, { [projectB]: rememberedB });
   useAppStore.setState({
     projects: [
       { path: projectA, name: "A" },
@@ -344,9 +345,9 @@ test("newChatIn another folder does not open that folder's last chat", async () 
   const rememberedB = "C:\\sessions\\remembered-new-b.jsonl";
   const reads: string[] = [];
   stubInvoke(async (channel, params) => {
-    if (channel === "readSession") {
+    if (channel === "readSessionSnapshot") {
       reads.push((params as { sessionFile: string }).sessionFile);
-      return { entries: [] };
+      return { entries: [], consistency: "stable", eventWatermark: 0 };
     }
     if (channel === "checkTrust") return { required: true, trusted: false };
     return {};
@@ -356,7 +357,7 @@ test("newChatIn another folder does not open that folder's last chat", async () 
     import("./store.ts"),
     import("./store/internals.ts"),
   ]);
-  replaceLastChats({ [projectB]: rememberedB });
+  replaceLastChats(useAppStore.getState, { [projectB]: rememberedB });
   useAppStore.setState({
     projects: [
       { path: projectA, name: "A" },

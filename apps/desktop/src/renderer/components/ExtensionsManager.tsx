@@ -262,7 +262,7 @@ export default function ExtensionsManager() {
 
         {installing ? (
           <div className="flex flex-col gap-2.5 rounded-xl border bg-card/40 p-4">
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2 @min-[44rem]/settings-content:flex-row">
               <Input
                 autoFocus
                 value={source}
@@ -276,7 +276,7 @@ export default function ExtensionsManager() {
                 }}
                 placeholder="npm package or Git URL"
                 aria-label="Package source"
-                className="min-w-0 flex-1"
+                className="h-10 min-w-0 flex-1"
               />
               <div className="flex items-center gap-2">
                 <Segmented
@@ -293,7 +293,7 @@ export default function ExtensionsManager() {
                     },
                   ]}
                 />
-                <Button size="xl" className="min-w-24" onClick={() => void install()} disabled={!source.trim() || busy !== null}>
+                <Button className="h-10 min-w-24" onClick={() => void install()} disabled={!source.trim() || busy !== null}>
                   {busy === "install" ? <CircleNotchIcon className="animate-spin" /> : "Install"}
                 </Button>
               </div>
@@ -319,7 +319,7 @@ export default function ExtensionsManager() {
               <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
                 <ContextMenuTrigger render={<div className="group flex min-h-14 items-center gap-3 border-b py-2.5 last:border-b-0" />}>
                   <PackageSourceIcon source={pkg.source} />
-                  <div className="min-w-0 flex-1">
+                  <div className="h-10 min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate text-sm font-medium">{packageLabel(pkg.source)}</span>
                       <Badge variant="outline">{scopeLabel(pkg.scope)}</Badge>
@@ -332,7 +332,7 @@ export default function ExtensionsManager() {
                     <div
                       className={cn(
                         HOVER_REVEAL,
-                        "flex shrink-0 items-center gap-1 group-focus-within:scale-100 group-focus-within:opacity-100 group-focus-within:blur-none group-hover:scale-100 group-hover:opacity-100 group-hover:blur-none",
+                        "flex shrink-0 items-center gap-1 group-focus-within:opacity-100 group-hover:opacity-100",
                       )}
                     >
                       <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => void update(pkg)}>
@@ -409,7 +409,7 @@ export default function ExtensionsManager() {
                       aria-label={`Remove ${extensionLabel(pkg.source)}`}
                       className={cn(
                         HOVER_REVEAL,
-                        "shrink-0 text-muted-foreground group-focus-within:scale-100 group-focus-within:opacity-100 group-focus-within:blur-none group-hover:scale-100 group-hover:opacity-100 group-hover:blur-none hover:text-destructive",
+                        "shrink-0 text-muted-foreground group-focus-within:opacity-100 group-hover:opacity-100 hover:text-destructive",
                       )}
                     >
                       <TrashIcon />

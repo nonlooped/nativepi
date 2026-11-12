@@ -5,22 +5,26 @@ export function createRequestCache<Key, Value>() {
   return {
     get: (key: Key) => values.get(key),
     load: (key: Key, run: () => Promise<Value>) => {
-      const cached = values.get(key);
-      if (cached !== undefined) return Promise.resolve(cached);
+      if (values.has(key)) return Promise.resolve(values.get(key)!);
       const active = pending.get(key);
       if (active) return active;
 
-      const request = run().then((value) => {
-        values.set(key, value);
-        pending.delete(key);
+      const request = (async () => run())().then((value) => {
+        if (pending.get(key) === request) {
+          values.set(key, value);
+          pending.delete(key);
+        }
         return value;
       }, (error: unknown) => {
-        pending.delete(key);
+        if (pending.get(key) === request) pending.delete(key);
         throw error;
       });
       pending.set(key, request);
       return request;
     },
-    invalidate: (key: Key) => values.delete(key),
+    invalidate: (key: Key) => {
+      values.delete(key);
+      pending.delete(key);
+    },
   };
 }

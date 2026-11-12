@@ -124,7 +124,7 @@ function ContextInspector({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md gap-5">
         <DialogHeader>
-          <DialogTitle className="font-heading text-base font-semibold">Context</DialogTitle>
+          <DialogTitle className="text-title">Context</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             How much of this model’s window the current chat is using. Pi measures this from the session.
           </DialogDescription>
@@ -133,7 +133,7 @@ function ContextInspector({
         <section aria-label="Context usage" className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between gap-4">
             <p className="text-sm font-medium">{percent}% used</p>
-            <p className="font-mono text-xs tabular-nums text-muted-foreground">
+            <p className="text-xs tabular-nums text-muted-foreground">
               {used.toLocaleString()} / {total.toLocaleString()}
             </p>
           </div>
@@ -195,7 +195,7 @@ function UsageRow({ label, value, hint }: { label: string; value: number; hint: 
   return (
     <div className="flex items-baseline justify-between gap-4 py-0.5" title={hint}>
       <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="font-mono text-xs tabular-nums">{value.toLocaleString()}</span>
+      <span className="text-xs tabular-nums">{value.toLocaleString()}</span>
     </div>
   );
 }

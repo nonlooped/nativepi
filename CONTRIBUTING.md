@@ -12,7 +12,8 @@ and sessions. NativePi calls Pi and renders what Pi returns.
 
 That boundary rules out a category of otherwise reasonable contributions:
 
-- NativePi-owned AI logic, LLM requests, or agent tools.
+- NativePi-owned AI logic, LLM requests, or agent tools beyond the shipped
+  chat naming, ask_user, and service-tier features, which use Pi APIs.
 - Provider-specific implementations for things Pi already handles.
 - Support for agent harnesses other than Pi.
 - A second conversation store or a parallel Pi domain model.
@@ -22,9 +23,8 @@ If Pi already provides a capability, the right change is to call Pi and display
 the result. When you are unsure whether an idea fits, open an issue and ask
 before writing code.
 
-`AGENTS.md` holds the full engineering guidelines, including the state, testing,
-and React Compiler rules. It is written for coding agents but applies equally to
-people.
+`AGENTS.md` summarizes project constraints and points to task-specific guidance.
+It is written for coding agents but applies equally to people.
 
 ## Getting set up
 
@@ -55,6 +55,7 @@ Run focused checks for the areas you changed. For example:
 ```sh
 bun run --cwd apps/desktop typecheck
 bun test apps/desktop/src/main/updates.test.ts
+bun run --cwd apps/desktop test:dom
 bun run --cwd apps/web typecheck
 bun run --cwd apps/web lint
 ```
@@ -77,8 +78,22 @@ Tests are expected for behavior that can actually break: parsing, session
 handling, state transitions, and regressions for bugs that really happened.
 They are not expected for static rendering, getters, or coverage counts.
 
-CI runs the complete workspace checks, tests, and builds. Release tooling tests
-live in `tests/`; run `bun test ./tests` when changing release behavior.
+CI runs the complete workspace checks, tests, and builds on main, manual runs,
+and reusable release checks. Pull requests select desktop/packages or website
+checks from the tested merge tree; known documentation-only changes skip the
+install. Shared configuration and unknown paths run everything. Code changes
+always run package and integration tests, including compiled documentation
+examples. The `Typecheck, Test & Build` status always reports a verdict.
+
+CI also validates workflows with checksum-pinned actionlint. When updating it,
+update both its version and Linux x64 archive checksum in `.github/workflows/ci.yml`.
+Release and CI regression tests live in `tests/`; run `bun test ./tests` when
+changing those workflows.
+
+DOM regressions run in isolated happy-dom processes with `bun run --cwd apps/desktop test:dom`.
+Pass a `.dom.test.tsx` path relative to `apps/desktop` to run one suite. The root
+`bun run test` command also runs these tests; plain `bun test` skips them without
+the DOM preload.
 
 Personal maintenance reports and review captures belong outside the repository.
 

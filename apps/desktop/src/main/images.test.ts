@@ -51,7 +51,7 @@ test("rejects traversal, sibling prefixes, symlink escapes and nonlocal URLs", a
 
 test("rejects unsupported formats, missing files, directories and images over 16 MiB", async () => {
   await withProject(async (project) => {
-    for (const name of ["private.txt", "active.svg", "image.bmp"]) {
+    for (const name of ["private.txt", "active.html", "image.bmp"]) {
       await writeFile(join(project, name), "not a raster image");
       await expect(readProjectImage(project, name)).rejects.toThrow("Unsupported image format");
     }
@@ -61,5 +61,23 @@ test("rejects unsupported formats, missing files, directories and images over 16
     const large = await open(join(project, "large.png"), "w");
     try { await large.truncate(16 * 1024 * 1024 + 1); } finally { await large.close(); }
     await expect(readProjectImage(project, "large.png")).rejects.toThrow("too large");
+  });
+});
+
+test("project icons are returned as image data URLs, including SVG and ICO", async () => {
+  await withProject(async (project) => {
+    const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M0 0h16v16H0z"/></svg>');
+    const header = Buffer.alloc(22);
+    header.writeUInt16LE(1, 2); header.writeUInt16LE(1, 4);
+    header[6] = 1; header[7] = 1;
+    header.writeUInt16LE(1, 10); header.writeUInt16LE(32, 12);
+    header.writeUInt32LE(png.length, 14); header.writeUInt32LE(22, 18);
+    for (const [file, mime, bytes] of [
+      ["favicon.svg", "image/svg+xml", svg],
+      ["favicon.ico", "image/x-icon", Buffer.concat([header, png])],
+    ] as const) {
+      await writeFile(join(project, file), bytes);
+      expect(await readProjectImage(project, file)).toBe(`data:${mime};base64,${bytes.toString("base64")}`);
+    }
   });
 });

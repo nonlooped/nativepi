@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { WarningCircleIcon } from "../../shared/icons.ts";
 import type { PendingWork } from "../../shared/rpc-schema.ts";
 import { useAppStore } from "../lib/store.ts";
+import { flushPersist } from "../lib/store/internals.ts";
 import { rpc } from "../lib/rpc.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
@@ -16,6 +16,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
  */
 export default function QuitDialog() {
   const [work, setWork] = useState<PendingWork | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
   const projects = useAppStore((s) => s.projects);
 
   useEffect(() => {
@@ -25,6 +27,17 @@ export default function QuitDialog() {
     };
   }, []);
 
+  async function quit() {
+    if (busy) return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      await flushPersist(useAppStore.getState);
+      const result = await rpc.request.confirmQuit({});
+      if (!result.ok) throw new Error("Could not close NativePi. Try again.");
+    } catch (error) { setError(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  }
   if (!work) return null;
 
   const rows = summarize(work);
@@ -35,15 +48,14 @@ export default function QuitDialog() {
     <Dialog open onOpenChange={(next) => !next && setWork(null)}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-heading text-base font-semibold">
-            <WarningCircleIcon weight="fill" className="size-5 text-warning" />
+          <DialogTitle className="flex items-center gap-2 text-title">
             {runs > 0
               ? "Pi is still working"
               : rows.length > 0 ? "Terminals are still open" : "Other devices are connected"}
           </DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-body-muted-foreground">
             {runs > 0
-              ? "Quitting stops the turn where it is: the rest of the turn will not happen. Everything Pi has already written to the chat is saved."
+              ? "Quitting stops the active turn. Messages already written are saved."
               : rows.length > 0
                 ? "Quitting closes these shells and ends whatever they are running."
                 : `${devices(viewers)} reading NativePi over the shared link, which this window serves. Quitting ends their session.`}
@@ -76,11 +88,12 @@ export default function QuitDialog() {
             direction of that confusion is learning "rightmost is safe" here and
             then meeting Delete chat in the same slot. Escape, the backdrop and
             the close button still mean keep working. */}
+        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         <DialogFooter>
           <Button variant="ghost" onClick={() => setWork(null)}>
             Keep working
           </Button>
-          <Button variant="destructive" onClick={() => void rpc.request.confirmQuit({})}>
+          <Button variant="destructive" disabled={busy} onClick={() => void quit()}>
             {rows.length > 0 ? "Stop and quit" : "Disconnect and quit"}
           </Button>
         </DialogFooter>

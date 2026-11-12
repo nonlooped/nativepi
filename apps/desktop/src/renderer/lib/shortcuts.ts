@@ -1,4 +1,7 @@
 export type ShortcutId =
+  | "increaseScale"
+  | "decreaseScale"
+  | "resetScale"
   | "newChat"
   | "importChat"
   | "search"
@@ -26,6 +29,27 @@ export interface ShortcutDef {
 }
 
 export const SHORTCUTS: ShortcutDef[] = [
+  {
+    id: "increaseScale",
+    binding: "$mod+Equal",
+    label: "Increase interface scale",
+    description: "Make text and controls larger. Also accepts Command/Ctrl + Shift + = (+).",
+    group: "Application",
+  },
+  {
+    id: "decreaseScale",
+    binding: "$mod+Minus",
+    label: "Decrease interface scale",
+    description: "Make text and controls smaller.",
+    group: "Application",
+  },
+  {
+    id: "resetScale",
+    binding: "$mod+Digit0",
+    label: "Reset interface scale",
+    description: "Return to the default 110% scale.",
+    group: "Application",
+  },
   {
     id: "newChat",
     binding: "$mod+Shift+KeyN",
@@ -92,8 +116,8 @@ export const SHORTCUTS: ShortcutDef[] = [
   {
     id: "toggleContextPane",
     binding: "$mod+KeyJ",
-    label: "Toggle files and changes",
-    description: "Show or hide the files and changes pane.",
+    label: "Toggle files",
+    description: "Show or hide the files pane.",
     group: "Navigation",
   },
   {
@@ -201,6 +225,8 @@ const KEY_LABELS: Record<string, string> = {
   ArrowUp: "Up",
   ArrowLeft: "Left",
   ArrowRight: "Right",
+  Equal: "=",
+  Minus: "−",
   Period: ".",
   Comma: ",",
   Slash: "/",
@@ -254,6 +280,12 @@ export function bindings(
   for (const [id, handler] of Object.entries(handlers) as [ShortcutId, (event: KeyboardEvent) => void][]) {
     const binding = bindingFor(id, overrides);
     if (binding) map[binding] = handler;
+  }
+  // The plus character shares Equal on common keyboards. Keep the alias only
+  // while the default is active, and never steal an explicitly bound shortcut.
+  if (handlers.increaseScale && bindingFor("increaseScale", overrides) === "$mod+Equal"
+    && !SHORTCUTS.some((shortcut) => bindingFor(shortcut.id, overrides) === "$mod+Shift+Equal")) {
+    map["$mod+Shift+Equal"] = handlers.increaseScale;
   }
   return map;
 }

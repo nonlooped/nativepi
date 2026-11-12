@@ -34,7 +34,7 @@ export default function InstallPage() {
             <strong>macOS:</strong> choose the x64 or arm64 <code>NativePi-*.dmg</code>
           </li>
           <li>
-            <strong>Linux:</strong> choose the x64 or arm64 <code>NativePi-*.AppImage</code>
+            <strong>Linux:</strong> choose <code>NativePi-*-x86_64.AppImage</code> for x64 or <code>NativePi-*-arm64.AppImage</code> for arm64
           </li>
         </ul>
       </Prose>

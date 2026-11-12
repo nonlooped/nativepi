@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 
 test("one broken extension event listener does not block the next listener", async () => {
-  Reflect.set(globalThis, "window", { location: { hash: "", protocol: "http:", host: "localhost" } });
+  Reflect.set(globalThis, "window", { location: { hash: "", protocol: "http:", host: "localhost", href: "http://localhost/" } });
   const { dispatchExtensionEvent, subscribeToExtension } = await import("./extensionHost.ts");
   const calls: string[] = [];
   const unsubscribeBroken = subscribeToExtension("@acme/ext", () => {
@@ -25,7 +25,7 @@ test("one broken extension event listener does not block the next listener", asy
 });
 
 test("renderer definitions are rejected before contribution code can run", async () => {
-  Reflect.set(globalThis, "window", { location: { hash: "", protocol: "http:", host: "localhost" } });
+  Reflect.set(globalThis, "window", { location: { hash: "", protocol: "http:", host: "localhost", href: "http://localhost/" } });
   const { validateRenderer } = await import("./extensionHost.ts");
   const render = () => null;
 

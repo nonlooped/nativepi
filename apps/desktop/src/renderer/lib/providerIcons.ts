@@ -1,4 +1,6 @@
 const PROVIDER_ICON_ALIASES: Record<string, string> = {
+  typesafe: "typesafeai",
+  "qwen-token-plan-individual-cn": "qwen",
   "amazon-bedrock": "bedrock",
   "ant-ling": "antgroup",
   "azure-openai-responses": "azure",

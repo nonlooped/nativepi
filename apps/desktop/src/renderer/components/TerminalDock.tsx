@@ -3,20 +3,22 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CheckIcon } from "@phosphor-icons/react/Check";
-import { SplitHorizontalIcon } from "@phosphor-icons/react/SplitHorizontal";
-import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
+import { ColumnsIcon } from "@phosphor-icons/react/Columns";
+import { RowsIcon } from "@phosphor-icons/react/Rows";
+import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
-import { XIcon } from "@phosphor-icons/react/X";
 import { toast } from "sonner";
 import type { ShellProfile, TerminalSession } from "../../shared/rpc-schema.ts";
 import { findTerminalLinks } from "../lib/terminalLinks.ts";
 import { currentTerminalColors, THEME_CHANGE_EVENT } from "../lib/themes.ts";
 import { useAppStore } from "../lib/store.ts";
+import { useReducedMotion } from "../lib/motion.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { DropdownMenu as Menu, DropdownMenuContent as MenuPopup, DropdownMenuGroup as MenuGroup, DropdownMenuItem as MenuItem, DropdownMenuTrigger as MenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.tsx";
 import { rpc } from "@/lib/rpc.ts";
+import { cn } from "@/lib/utils.ts";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -24,6 +26,8 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
+import { attachTerminal } from "../lib/terminalAttachment.ts";
+import { createTerminalDock, type DockState } from "../lib/terminalDock.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 
 function columnForTextOffset(line: { length: number; getCell(index: number): { getChars(): string; getWidth(): number } | undefined }, offset: number) {
@@ -56,162 +60,58 @@ export default function TerminalDock({
   projectDir: string;
   onMinimize: () => void;
 }) {
-  const [terminals, setTerminals] = useState<TerminalSession[]>([]);
-  const [shells, setShells] = useState<ShellProfile[]>([]);
-  // Only a dock with no terminals at all reports through `error`, because that
-  // message replaces the whole panel. A shell that fails to open while others
-  // are running is a toast: tearing the panel down would dispose every live
-  // xterm to report that a new one did not start.
-  const [error, setError] = useState<string | null>(null);
-  const [closing, setClosing] = useState(false);
-  const [restarts, setRestarts] = useState<Record<string, number>>({});
+  const [state, setState] = useState<DockState>({ terminals: [], shells: [], error: null, closing: false, restarts: {} });
+  const { terminals, shells, error, closing, restarts } = state;
   const [confirmingKillAll, setConfirmingKillAll] = useState(false);
+  const [orientation, setOrientation] = useState<"horizontal" | "vertical">("horizontal");
   const preferredShellId = useAppStore((s) => s.preferences.preferredShellId);
   const setPreference = useAppStore((s) => s.setPreference);
-
+  const controller = useRef<ReturnType<typeof createTerminalDock> | null>(null);
+  const preferredShell = useEffectEvent(() => preferredShellId || undefined);
+  const minimized = useEffectEvent(onMinimize);
   useEffect(() => {
-    let cancelled = false;
-    void rpc.request.terminalEnsure({ projectDir, shellId: preferredShellId || undefined }).then(
-      ({ terminals: next }) => {
-        if (!cancelled) setTerminals(next);
-      },
-      (reason: unknown) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
-      },
-    );
-    void rpc.request.terminalListShells({}).then(
-      ({ shells: next }) => {
-        if (!cancelled) setShells(next);
-      },
-      () => {},
-    );
-    const offExit = rpc.events.on("terminalExit", ({ projectDir: exitedProject, terminalId, exitCode }) => {
-      if (exitedProject !== projectDir) return;
-      setTerminals((current) =>
-        current.map((terminal) =>
-          terminal.id === terminalId ? { ...terminal, exited: true, exitCode } : terminal,
-        ),
-      );
-    });
-    const offRestart = rpc.events.on("terminalRestart", ({ projectDir: restartedProject, terminal }) => {
-      if (restartedProject !== projectDir) return;
-      setTerminals((current) => current.map((session) => (session.id === terminal.id ? terminal : session)));
-      // A restart keeps the terminal's id but empties its buffer in the main
-      // process, so the surface has to be rebuilt to drop the dead shell's
-      // scrollback. This counter is the only thing that says so — nothing else
-      // about the session changes.
-      setRestarts((current) => ({ ...current, [terminal.id]: (current[terminal.id] ?? 0) + 1 }));
-    });
-    return () => {
-      cancelled = true;
-      offExit();
-      offRestart();
-    };
-  }, [projectDir, preferredShellId]);
-
-  async function addSplit(shellId?: string, name?: string) {
-    try {
-      const { terminal } = await rpc.request.terminalCreate({ projectDir, shellId, name });
-      setTerminals((current) => [...current, terminal]);
-    } catch (reason) {
-      const message = reason instanceof Error ? reason.message : String(reason);
-      if (terminals.length === 0) setError(message);
-      else toast.error(`Could not open another shell: ${message}`);
-    }
-  }
-
-  async function duplicateSplit(session: TerminalSession) {
-    await addSplit(session.shellId, `${session.name} copy`);
-  }
-
-  async function restartSplit(terminalId: string) {
-    try {
-      const { terminal } = await rpc.request.terminalRestart({ projectDir, terminalId });
-      setTerminals((current) => current.map((session) => (session.id === terminalId ? terminal : session)));
-    } catch (reason) {
-      toast.error(reason instanceof Error ? reason.message : String(reason));
-    }
-  }
-
-  async function renameSplit(terminalId: string, name: string) {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    setTerminals((current) =>
-      current.map((session) => (session.id === terminalId ? { ...session, name: trimmed } : session)),
-    );
-    try {
-      await rpc.request.terminalRename({ projectDir, terminalId, name: trimmed });
-    } catch (reason) {
-      toast.error(reason instanceof Error ? reason.message : String(reason));
-    }
-  }
-
-  async function closeSplit(terminalId: string) {
-    if (closing) return;
-    setClosing(true);
-    try {
-      await rpc.request.terminalClose({ projectDir, terminalId });
-      const next = terminals.filter((terminal) => terminal.id !== terminalId);
-      setTerminals(next);
-      if (next.length === 0) onMinimize();
-      else setClosing(false);
-    } catch (reason) {
-      setClosing(false);
-      toast.error(reason instanceof Error ? reason.message : String(reason));
-    }
-  }
-
-  async function closeAll() {
-    if (closing) return;
-    setClosing(true);
-    try {
-      await Promise.all(
-        terminals.map((terminal) => rpc.request.terminalClose({ projectDir, terminalId: terminal.id })),
-      );
-      setTerminals([]);
-      onMinimize();
-    } catch (reason) {
-      setClosing(false);
-      toast.error(reason instanceof Error ? reason.message : String(reason));
-    }
-  }
+    const dock = createTerminalDock(projectDir, setState, minimized, message => toast.error(message));
+    controller.current = dock;
+    void dock.start(preferredShell());
+    const offExit = rpc.events.on("terminalExit", payload => { if (payload.projectDir === projectDir) dock.exited(payload.terminalId, payload.exitCode); });
+    const offRestart = rpc.events.on("terminalRestart", payload => { if (payload.projectDir === projectDir) dock.restarted(payload.terminal); });
+    return () => { controller.current = null; dock.dispose(); offExit(); offRestart(); };
+  }, [projectDir]);
+  const addSplit = (shellId?: string, name?: string) => controller.current?.create(shellId, name);
+  const duplicateSplit = (session: TerminalSession) => addSplit(session.shellId, `${session.name} copy`);
+  const restartSplit = (id: string) => controller.current?.restart(id);
+  const renameSplit = (id: string, name: string) => { if (name.trim()) void controller.current?.rename(id, name); };
+  const closeSplit = (id: string) => controller.current?.close(id);
+  const closeAll = () => controller.current?.close();
 
   return (
-    <section aria-label="Integrated terminal" className="terminal-dock-enter flex h-full min-h-0 flex-col bg-background">
+    <section aria-label="Integrated terminal" className="terminal-dock-enter relative flex h-full min-h-0 flex-col bg-background">
       <ContextMenu>
-        {/* min-h rather than h: the buttons inside grow to a thumb-sized floor
-            on a touch screen, and a fixed bar height would clip them. */}
-        <ContextMenuTrigger render={<header className="flex min-h-8 shrink-0 items-center gap-2 border-b bg-sidebar/40 px-2" />}>
-        <TerminalWindowIcon aria-hidden="true" className="shrink-0 text-muted-foreground" />
-        <span className="flex-1 text-xs font-medium">Terminal</span>
-        <ShellSplitButton
-          shells={shells}
-          preferredShellId={preferredShellId}
-          onChoose={(shellId) => setPreference("preferredShellId", shellId)}
-          onSplit={(shellId) => void addSplit(shellId)}
-        />
-        {/* Confirmed, like every other control that ends work the user cannot
-            get back. Quitting the window asks about exactly these shells; the
-            button that kills them all should not be the one that does not. */}
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={() => setConfirmingKillAll(true)}
-          disabled={terminals.length === 0 || closing}
-          title="Kill all terminals"
-          aria-label="Kill all terminals"
-        >
-          <TrashIcon />
-        </Button>
-        <div aria-hidden="true" className="mx-0.5 h-4 w-px shrink-0 bg-sidebar-border" />
-        <Button variant="ghost" size="icon-xs" onClick={onMinimize} title="Hide terminal panel" aria-label="Hide terminal panel">
-          <CaretDownIcon />
-        </Button>
+        <ContextMenuTrigger render={<div role="toolbar" aria-label="Terminal controls" className="absolute right-2 top-1.5 z-20 flex items-center gap-0.5 rounded-md border border-border/40 bg-background/95 p-0.5 text-muted-foreground" />}>
+          <Button variant="ghost" size="icon-xs" disabled={closing} title="Split terminal side by side" aria-label="Split terminal side by side" onClick={() => {
+            setOrientation("horizontal");
+            void addSplit(preferredShellId || undefined);
+          }}><ColumnsIcon /></Button>
+          <Button variant="ghost" size="icon-xs" disabled={closing} title="Split terminal above and below" aria-label="Split terminal above and below" onClick={() => {
+            setOrientation("vertical");
+            void addSplit(preferredShellId || undefined);
+          }}><RowsIcon /></Button>
+          <NewTerminalButton
+            shells={shells}
+            preferredShellId={preferredShellId}
+            disabled={closing}
+            onChoose={(shellId) => setPreference("preferredShellId", shellId)}
+            onCreate={(shellId) => void addSplit(shellId)}
+          />
+          <Button variant="ghost" size="icon-xs" onClick={() => setConfirmingKillAll(true)} disabled={terminals.length === 0 || closing} title="Kill all terminals" aria-label="Kill all terminals">
+            <TrashIcon />
+          </Button>
         </ContextMenuTrigger>
         <TerminalChromeMenu
           addSplit={() => void addSplit(preferredShellId || undefined)}
           closeAll={() => setConfirmingKillAll(true)}
           closing={closing}
+          onHide={onMinimize}
         />
       </ContextMenu>
 
@@ -229,15 +129,16 @@ export default function TerminalDock({
       />
 
       {error ? (
-        <div role="alert" className="flex min-h-0 flex-1 items-center justify-center px-4 text-sm text-destructive">
-          Could not start a shell: {error}
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 py-10">
+          <p role="alert" className="max-w-xl text-center text-sm text-destructive">Could not start a shell: {error}</p>
+          <Button variant="outline" size="sm" onClick={() => void controller.current?.start(preferredShellId || undefined)}>Retry</Button>
         </div>
       ) : terminals.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center text-xs text-muted-foreground" role="status">
           Starting a shell…
         </div>
       ) : (
-        <ResizablePanelGroup orientation="horizontal">
+        <ResizablePanelGroup orientation={orientation}>
           {terminals.map((terminal, index) => (
             <TerminalSplit
               key={terminal.id}
@@ -245,6 +146,9 @@ export default function TerminalDock({
               projectDir={projectDir}
               defaultSize={`${100 / terminals.length}%`}
               showHandle={index > 0}
+              showTitle={terminals.length > 1}
+              reserveToolbar={orientation === "horizontal" ? index === terminals.length - 1 : index === 0}
+              onHide={onMinimize}
               closing={closing}
               restartCount={restarts[terminal.id] ?? 0}
               onClose={() => void closeSplit(terminal.id)}
@@ -261,21 +165,23 @@ export default function TerminalDock({
   );
 }
 
-function ShellSplitButton({
+function NewTerminalButton({
   shells,
   preferredShellId,
   onChoose,
-  onSplit,
+  onCreate,
+  disabled,
 }: {
   shells: ShellProfile[];
   preferredShellId: string;
   onChoose: (shellId: string) => void;
-  onSplit: (shellId?: string) => void;
+  onCreate: (shellId?: string) => void;
+  disabled: boolean;
 }) {
-  if (shells.length === 0) {
+  if (shells.length <= 1) {
     return (
-      <Button variant="ghost" size="icon-xs" onClick={() => onSplit()} title="Split terminal" aria-label="Split terminal">
-        <SplitHorizontalIcon />
+      <Button variant="ghost" size="icon-xs" disabled={disabled} onClick={() => onCreate(preferredShellId || undefined)} title="New terminal" aria-label="New terminal">
+        <PlusIcon />
       </Button>
     );
   }
@@ -285,15 +191,17 @@ function ShellSplitButton({
       <Button
         variant="ghost"
         size="icon-xs"
-        onClick={() => onSplit(preferredShellId || undefined)}
-        title={selected ? `Split terminal (${selected.name})` : "Split terminal"}
-        aria-label="Split terminal"
+        disabled={disabled}
+        onClick={() => onCreate(preferredShellId || undefined)}
+        title={selected ? `New terminal (${selected.name})` : "New terminal"}
+        aria-label="New terminal"
       >
-        <SplitHorizontalIcon />
+        <PlusIcon />
       </Button>
       <Menu>
         <MenuTrigger
           render={<Button variant="ghost" size="icon-xs" className="px-0" />}
+          disabled={disabled}
           title="Choose a shell"
           aria-label="Choose a shell"
         >
@@ -323,6 +231,9 @@ function TerminalSplit({
   projectDir,
   defaultSize,
   showHandle,
+  showTitle,
+  reserveToolbar,
+  onHide,
   closing,
   restartCount,
   onClose,
@@ -336,6 +247,9 @@ function TerminalSplit({
   projectDir: string;
   defaultSize: string;
   showHandle: boolean;
+  showTitle: boolean;
+  reserveToolbar: boolean;
+  onHide: () => void;
   closing: boolean;
   restartCount: number;
   onClose: () => void;
@@ -352,8 +266,8 @@ function TerminalSplit({
       {showHandle ? <ResizableHandle className="hover:bg-ring focus-visible:bg-ring" /> : null}
       <ResizablePanel id={session.id} defaultSize={defaultSize}>
         <div className="flex h-full min-h-0 flex-col">
-          <ContextMenu>
-            <ContextMenuTrigger render={<div className="flex min-h-7 shrink-0 items-center gap-1.5 border-b px-2" />}>
+          {showTitle || editingName ? <ContextMenu>
+            <ContextMenuTrigger render={<div className={cn("flex min-h-9 shrink-0 items-center gap-1.5 px-3", reserveToolbar && "pr-32")} />}>
               <StatusDot session={session} />
               {editingName ? (
                 <Input
@@ -379,9 +293,6 @@ function TerminalSplit({
                   {session.name}
                 </button>
               )}
-              <Button variant="ghost" size="icon-xs" onClick={onClose} disabled={closing} title="Close this terminal tab" aria-label="Close this terminal tab">
-                <XIcon />
-              </Button>
             </ContextMenuTrigger>
             <TerminalChromeMenu
               addSplit={onSplit}
@@ -392,7 +303,7 @@ function TerminalSplit({
               onRestart={onRestart}
               onRename={() => setEditingName(true)}
             />
-          </ContextMenu>
+          </ContextMenu> : null}
           <TerminalSurface
             session={session}
             restartCount={restartCount}
@@ -403,6 +314,8 @@ function TerminalSplit({
             onDuplicate={onDuplicate}
             onRestart={onRestart}
             closing={closing}
+            onRename={() => setEditingName(true)}
+            onHide={onHide}
           />
         </div>
       </ResizablePanel>
@@ -435,6 +348,8 @@ function TerminalSurface({
   onDuplicate,
   onRestart,
   closing,
+  onRename,
+  onHide,
 }: {
   session: TerminalSession;
   restartCount: number;
@@ -445,6 +360,8 @@ function TerminalSurface({
   onDuplicate: () => void;
   onRestart: () => void;
   closing: boolean;
+  onRename: () => void;
+  onHide: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -457,6 +374,7 @@ function TerminalSurface({
   const fontSize = useAppStore((s) => s.preferences.terminalFontSize);
   const scrollback = useAppStore((s) => s.preferences.terminalScrollback);
   const cursorBlink = useAppStore((s) => s.preferences.terminalCursorBlink);
+  const reducedMotion = useReducedMotion();
   const preferredEditorId = useAppStore((s) => s.preferences.preferredEditorId);
   const terminalId = session.id;
 
@@ -485,7 +403,7 @@ function TerminalSurface({
     controlRef.current = "";
 
     const terminal = new Terminal({
-      cursorBlink,
+      cursorBlink: cursorBlink && !reducedMotion,
       cursorStyle: "block",
       fontFamily: "Consolas, 'Cascadia Mono', ui-monospace, monospace",
       fontSize,
@@ -539,16 +457,12 @@ function TerminalSurface({
       },
     });
 
+    setAttachError(false);
     let disposed = false;
-    let snapshotSequence = -1;
-    let live = false;
-    const pending: { data: string; sequence: number }[] = [];
-    const offData = rpc.events.on("terminalData", (payload) => {
-      if (payload.projectDir !== projectDir || payload.terminalId !== terminalId) return;
-      updateWorkingDirectory(cwdRef, controlRef, payload.data);
-      if (live) terminal.write(payload.data);
-      else pending.push(payload);
-    });
+    const detach = attachTerminal(projectDir, terminalId, data => {
+      updateWorkingDirectory(cwdRef, controlRef, data);
+      terminal.write(data);
+    }, () => noticeIfAlreadyExited(terminal), () => setAttachError(true));
     const offExit = rpc.events.on("terminalExit", (payload) => {
       if (payload.projectDir !== projectDir || payload.terminalId !== terminalId) return;
       terminal.write(`\r\n[Process exited with code ${payload.exitCode}]\r\n`);
@@ -556,26 +470,6 @@ function TerminalSurface({
     const input = terminal.onData((data) => {
       void rpc.request.terminalWrite({ projectDir, terminalId, data });
     });
-
-    void rpc.request.terminalAttach({ projectDir, terminalId }).then(
-      ({ output, sequence }) => {
-        if (disposed) return;
-        snapshotSequence = sequence;
-        updateWorkingDirectory(cwdRef, controlRef, output);
-        terminal.write(output);
-        for (const item of pending) {
-          if (item.sequence > snapshotSequence) {
-            updateWorkingDirectory(cwdRef, controlRef, item.data);
-            terminal.write(item.data);
-          }
-        }
-        live = true;
-        noticeIfAlreadyExited(terminal);
-      },
-      () => {
-        if (!disposed) setAttachError(true);
-      },
-    );
 
     let frame = 0;
     const resize = () => {
@@ -607,9 +501,8 @@ function TerminalSurface({
       window.removeEventListener(THEME_CHANGE_EVENT, applyColors);
       input.dispose();
       linkProvider.dispose();
-      offData();
+      detach();
       offExit();
-      void rpc.request.terminalDetach({ projectDir, terminalId });
       terminal.dispose();
       terminalRef.current = null;
       fitRef.current = null;
@@ -629,16 +522,19 @@ function TerminalSurface({
     if (!terminal) return;
     terminal.options.fontSize = fontSize;
     terminal.options.scrollback = scrollback;
-    terminal.options.cursorBlink = cursorBlink;
     fitRef.current?.fit();
     void rpc.request.terminalResize({ projectDir, terminalId, cols: terminal.cols, rows: terminal.rows });
-  }, [projectDir, terminalId, fontSize, scrollback, cursorBlink]);
+  }, [projectDir, terminalId, fontSize, scrollback]);
+
+  useEffect(() => {
+    if (terminalRef.current) terminalRef.current.options.cursorBlink = cursorBlink && !reducedMotion;
+  }, [cursorBlink, reducedMotion]);
 
   return (
     <ContextMenu>
       <ContextMenuTrigger
         render={
-          <div ref={containerRef} className="terminal-surface relative min-h-0 flex-1 px-2 py-1.5">
+          <div ref={containerRef} className="terminal-surface relative min-h-0 flex-1 px-3 py-3">
             {attachError ? (
               <div className="absolute inset-0 z-10 grid place-content-center gap-2 bg-background/90 text-center text-sm">
                 <span>Could not attach to this terminal.</span>
@@ -672,9 +568,11 @@ function TerminalSurface({
         <ContextMenuSeparator />
         <ContextMenuItem onClick={onSplit}>Split terminal</ContextMenuItem>
         <ContextMenuItem onClick={onDuplicate}>Duplicate terminal</ContextMenuItem>
+        <ContextMenuItem onClick={onRename}>Rename terminal</ContextMenuItem>
         <ContextMenuItem onClick={onRestart}>Restart terminal</ContextMenuItem>
         <ContextMenuItem disabled={closing} onClick={onClose}>Close this terminal</ContextMenuItem>
         <ContextMenuItem disabled={closing} onClick={onCloseAll}>Kill all terminals</ContextMenuItem>
+        <ContextMenuItem onClick={onHide}>Hide terminal panel</ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   );
@@ -688,6 +586,7 @@ function TerminalChromeMenu({
   onDuplicate,
   onRestart,
   onRename,
+  onHide,
 }: {
   addSplit: () => void;
   close?: () => void;
@@ -696,6 +595,7 @@ function TerminalChromeMenu({
   onDuplicate?: () => void;
   onRestart?: () => void;
   onRename?: () => void;
+  onHide?: () => void;
 }) {
   return (
     <ContextMenuContent className="w-48">
@@ -705,6 +605,7 @@ function TerminalChromeMenu({
       {onRestart ? <ContextMenuItem onClick={onRestart}>Restart terminal</ContextMenuItem> : null}
       {close ? <ContextMenuItem disabled={closing} onClick={close}>Close this terminal</ContextMenuItem> : null}
       <ContextMenuItem disabled={closing} onClick={closeAll}>Kill all terminals</ContextMenuItem>
+      {onHide ? <ContextMenuItem onClick={onHide}>Hide terminal panel</ContextMenuItem> : null}
     </ContextMenuContent>
   );
 }

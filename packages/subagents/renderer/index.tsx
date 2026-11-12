@@ -1,3 +1,4 @@
+import { subscribeState } from "./state.ts";
 import { useCallback, useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
@@ -14,6 +15,7 @@ import {
 } from "@nativepi/extension-api/ui";
 import {
   subagentsProtocol,
+  MAX_CONFIGURED_CONCURRENCY,
   type SubagentDetail,
   type SubagentOverview,
   type SubagentStatus,
@@ -62,24 +64,10 @@ function useOverview(context: Context) {
   const [overview, setOverview] = useState<SubagentOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    void call("overview")
-      .then((value) => {
-        if (!active) return;
-        setOverview(value);
-        setError(null);
-      })
-      .catch((reason: unknown) => active && setError(errorMessage(reason)));
-    const off = on("changed", (value) => {
-      setOverview(value);
-      setError(null);
-    });
-    return () => {
-      active = false;
-      off();
-    };
-  }, [call, on]);
+  useEffect(() => subscribeState({ call, on }, (value) => {
+    setOverview(value);
+    setError(null);
+  }, (reason) => setError(reason instanceof Error ? reason.message : String(reason))), [call, on]);
 
   return { overview, setOverview, error };
 }
@@ -382,7 +370,7 @@ function SubagentSettingsControl({ context }: { context: Context }) {
         description={description}
         value={settings?.userMaxConcurrency ?? 6}
         min={1}
-        max={32}
+        max={MAX_CONFIGURED_CONCURRENCY}
         step={1}
         format={(value) => `${value}`}
         onChange={changeMaxConcurrency}

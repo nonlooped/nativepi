@@ -1,9 +1,10 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { app } from "electron";
-import { autoUpdater } from "electron-updater";
+import electronUpdater from "electron-updater";
 import { updateChannelSchema, type UpdateChannel, type UpdateState } from "../shared/rpc-schema.ts";
 
+const { autoUpdater } = electronUpdater;
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
 let state: UpdateState = { status: "unsupported", channel: "stable" };

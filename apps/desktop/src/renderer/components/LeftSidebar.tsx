@@ -26,30 +26,21 @@ export default function LeftSidebar({
   /** Reapply the collapsed state after a sibling pane changes the group layout. */
   layoutKey?: unknown;
 }) {
-  const sidebarSize = useAppStore((s) => s.sidebarSize);
-  const setSidebarSize = useAppStore((s) => s.setSidebarSize);
+  const sidebarWidth = useAppStore((s) => s.sidebarWidth);
   const panelRef = useCollapsiblePanel(open, layoutKey);
-
-  function saveSidebarSize() {
-    const size = panelRef.current?.getSize();
-    if (size && size.inPixels > 0) setSidebarSize(size.asPercentage);
-  }
 
   const content = (
     <aside
-      className={cn(
-        "sidebar-panel flex h-full min-w-0 flex-col bg-sidebar text-muted-foreground",
-        !overlay && "min-w-48",
-      )}
+      className="sidebar-panel flex h-full min-w-0 flex-col bg-sidebar text-muted-foreground"
     >
       {/* h-12 matches the conversation and context pane headers: three adjacent
           pane headers on two different baselines is a seam you cannot unsee. */}
-      <div className={cn("flex h-12 shrink-0 items-center border-b border-sidebar-border/70 px-2", TRAFFIC_LIGHTS_CLEARANCE, !overlay && DRAG_REGION)}>
-        <div className={cn("flex items-center gap-2", NO_DRAG_REGION)}>
-          <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close sidebar" aria-label="Close sidebar">
-            <SidebarSimpleIcon />
+      <div className={cn("flex h-12 shrink-0 items-center px-3", TRAFFIC_LIGHTS_CLEARANCE, !overlay && DRAG_REGION)}>
+        <div className={cn("native-header-content flex min-w-0 flex-1 items-center gap-2", NO_DRAG_REGION)}>
+          <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground" onClick={onClose} title="Close sidebar" aria-label="Close sidebar">
+            <SidebarSimpleIcon className="size-5" />
           </Button>
-          <NativePiWordmark />
+          <NativePiWordmark compact />
         </div>
       </div>
 
@@ -59,11 +50,11 @@ export default function LeftSidebar({
           over this button. `env()` is 0 on every other platform. */}
       <div
         className={cn(
-          "flex shrink-0 items-center gap-1 border-t border-sidebar-border/70 px-2 pt-1.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]",
+          "flex shrink-0 items-center gap-1 border-t border-sidebar-border/50 px-3 pt-2 pb-[max(0.625rem,env(safe-area-inset-bottom))]",
           NO_DRAG_REGION,
         )}
       >
-        <Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start text-muted-foreground" onClick={onAction}>
+        <Button variant="ghost" className="min-w-0 flex-1 justify-start text-muted-foreground" onClick={onAction}>
           {actionIcon}
           {actionLabel}
         </Button>
@@ -80,14 +71,15 @@ export default function LeftSidebar({
         panelRef={panelRef}
         collapsible
         collapsedSize="0%"
-        defaultSize={`${sidebarSize}%`}
+        defaultSize={`${sidebarWidth}px`}
+        groupResizeBehavior="preserve-pixel-size"
         minSize="192px"
-        maxSize="30%"
+        maxSize="480px"
         data-pane-motion="left"
         inert={!open || undefined}
         className={cn(
           "h-full transition-[opacity,translate] duration-200 ease-out",
-          open ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-full opacity-0",
+          open ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-2 opacity-0",
         )}
         onResize={(size, _id, previousSize) => {
           if (size.inPixels === 0 && previousSize && previousSize.inPixels > 0 && open) onClose();
@@ -101,8 +93,6 @@ export default function LeftSidebar({
           "transition-[opacity,background-color] duration-200 ease-out hover:bg-ring focus-visible:bg-ring",
           !open && "w-0 opacity-0 after:hidden",
         )}
-        onPointerUp={saveSidebarSize}
-        onKeyUp={saveSidebarSize}
       />
     </>
   );

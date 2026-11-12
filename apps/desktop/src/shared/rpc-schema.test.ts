@@ -101,11 +101,16 @@ test("a project without a name falls back to its path", () => {
   ]);
 });
 
-test("sidebar size is clamped rather than discarded", () => {
-  expect(nativePiStateSchema.parse({ panes: { sidebarSize: 99 } }).panes?.sidebarSize).toBe(30);
-  expect(nativePiStateSchema.parse({ panes: { sidebarSize: 2 } }).panes?.sidebarSize).toBe(14);
-  expect(nativePiStateSchema.parse({ panes: { sidebarSize: 22 } }).panes?.sidebarSize).toBe(22);
-  expect(nativePiStateSchema.parse({ panes: { sidebarSize: Infinity } }).panes?.sidebarSize).toBe(14);
+test("sidebar widths are saved in pixels and clamped without losing other panes", () => {
+  expect(nativePiStateSchema.parse({ panes: { sidebarWidth: 900 } }).panes?.sidebarWidth).toBe(480);
+  expect(nativePiStateSchema.parse({ panes: { sidebarWidth: 100 } }).panes?.sidebarWidth).toBe(192);
+  expect(nativePiStateSchema.parse({ panes: { sidebarWidth: 320 } }).panes?.sidebarWidth).toBe(320);
+  expect(nativePiStateSchema.parse({ panes: { sidebarWidth: Infinity } }).panes?.sidebarWidth).toBe(304);
+});
+
+test("legacy percentage widths adopt the compact pixel default and retain pane visibility", () => {
+  expect(nativePiStateSchema.parse({ panes: { sidebarSize: 22, sidebarOpen: false, contextPaneOpen: true } }).panes)
+    .toEqual({ sidebarWidth: 304, sidebarOpen: false, contextPaneOpen: true, contextPaneWidth: 304 });
 });
 
 test("graphical extension calls only accept JSON parameters", () => {
@@ -147,13 +152,22 @@ test("finished chats keep only paths with valid completion timestamps", () => {
   ).toEqual({ "one.jsonl": "2026-08-12T10:00:00.000Z" });
 });
 
-test("absent panes stay absent, so a first run can still open the pane itself", () => {
-  // `init` treats `panes === undefined` as "the user has never chosen", which is
-  // what lets NativePi open the changes pane once it sees the repo is dirty.
+test("absent panes stay absent and existing pane objects receive defaults", () => {
   expect(nativePiStateSchema.parse({}).panes).toBeUndefined();
   expect(nativePiStateSchema.parse({ panes: {} }).panes).toEqual({
     sidebarOpen: true,
-    sidebarSize: 14,
+    sidebarWidth: 304,
+    contextPaneWidth: 304,
     contextPaneOpen: false,
   });
+});
+
+
+test("saved explorer width and terminal height survive reload and malformed dimensions recover", () => {
+  const panes = { sidebarWidth: 330, contextPaneWidth: 350, terminalHeight: 270 };
+  expect(nativePiStateSchema.parse(JSON.parse(JSON.stringify({ panes }))).panes).toMatchObject(panes);
+  expect(nativePiStateSchema.parse({ panes: { contextPaneWidth: 9999, terminalHeight: -1 } }).panes)
+    .toMatchObject({ contextPaneWidth: 480, terminalHeight: undefined });
+  expect(nativePiStateSchema.parse({ panes: { contextPaneWidth: "bad", terminalHeight: Infinity } }).panes)
+    .toMatchObject({ contextPaneWidth: 304, terminalHeight: undefined });
 });

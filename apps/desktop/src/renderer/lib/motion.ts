@@ -21,6 +21,8 @@ export function useReducedMotion(): boolean {
     // mutation rather than a media-query event.
     const observer = new MutationObserver(update);
     observer.observe(document.documentElement, { attributeFilter: ["data-motion"] });
+    // Appearance can be applied between render and this subscription.
+    update();
     return () => {
       query.removeEventListener("change", update);
       observer.disconnect();
@@ -36,9 +38,4 @@ function prefersReducedMotion(): boolean {
   if (override === "reduced") return true;
   if (override === "full") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-/** Scroll behavior that respects the same preference. */
-export function scrollBehavior(): ScrollBehavior {
-  return prefersReducedMotion() ? "auto" : "smooth";
 }
