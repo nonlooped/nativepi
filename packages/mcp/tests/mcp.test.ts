@@ -5,16 +5,13 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { isJsonValue } from "../../../apps/desktop/src/shared/json.ts";
-import { configFor, saveParametersFor } from "../renderer/index.tsx";
-import mcpExtension, {
-  connectServer,
-  loadMcpServers,
-  mcpResultText,
-  mcpToolName,
-  removeMcpServer,
-  saveMcpServer,
-} from "../extensions/mcp.ts";
+import { z } from "zod";
+import { mcpProtocol } from "../types.ts";
+const isJsonValue = (value: unknown) => z.json().safeParse(value).success;
+import { configFor, saveParametersFor } from "../renderer/draft.ts";
+import mcpExtension from "../extensions/mcp.ts";
+import { connectServer, mcpResultText, mcpToolName } from "../extensions/connections.ts";
+import { loadMcpConfiguration, removeMcpServer, saveMcpServer } from "../extensions/config.ts";
 
 const temporaryDirectories: string[] = [];
 
@@ -45,6 +42,7 @@ test("new-server renderer parameters are valid JSON", () => {
   });
 
   expect(isJsonValue(parameters)).toBe(true);
+  expect(mcpProtocol.methods.save.params.parse(parameters)).toEqual(parameters);
 });
 
 test("empty optional renderer fields are valid JSON", () => {
@@ -72,7 +70,9 @@ test("empty optional renderer fields are valid JSON", () => {
   ];
 
   for (const draft of drafts) {
-    expect(isJsonValue(saveParametersFor(draft, configFor(draft)))).toBe(true);
+    const parameters = saveParametersFor(draft, configFor(draft));
+    expect(isJsonValue(parameters)).toBe(true);
+    expect(mcpProtocol.methods.save.params.parse(parameters)).toEqual(parameters);
   }
 });
 
@@ -92,7 +92,7 @@ test("trusted project servers override user servers by name", async () => {
     },
   }));
 
-  const loaded = await loadMcpServers(project, true, agentDir);
+  const loaded = await loadMcpConfiguration(project, true, agentDir);
 
   expect(loaded.diagnostics).toEqual([]);
   expect(loaded.servers.get("shared")?.config).toMatchObject({ command: "project-command" });
@@ -106,7 +106,7 @@ test("untrusted project configuration is ignored", async () => {
   await mkdir(join(project, ".pi"), { recursive: true });
   await Bun.write(join(project, ".pi", "mcp.json"), JSON.stringify({ mcpServers: { unsafe: { command: "unsafe" } } }));
 
-  const loaded = await loadMcpServers(project, false, agentDir);
+  const loaded = await loadMcpConfiguration(project, false, agentDir);
 
   expect([...loaded.servers.keys()]).toEqual(["safe"]);
 });
@@ -115,7 +115,7 @@ test("invalid configuration is reported without loading a partial file", async (
   const agentDir = await temporaryDirectory();
   await writeFile(join(agentDir, "mcp.json"), JSON.stringify({ mcpServers: { broken: { args: [] } } }));
 
-  const loaded = await loadMcpServers(await temporaryDirectory(), false, agentDir);
+  const loaded = await loadMcpConfiguration(await temporaryDirectory(), false, agentDir);
 
   expect(loaded.servers.size).toBe(0);
   expect(loaded.diagnostics[0]).toContain("Invalid");
@@ -243,6 +243,7 @@ test("Pi keeps structured MCP results and error context, and cancels pending con
   const context = {
     cwd: project,
     isProjectTrusted: () => true,
+    isIdle: () => true,
     ui: { notify: () => {}, setStatus: () => {}, theme: { fg: (_color: string, text: string) => text } },
   } as unknown as ExtensionContext;
   mcpExtension({
@@ -281,5 +282,14 @@ test("Pi keeps structured MCP results and error context, and cancels pending con
     await handlers.get("session_shutdown")?.({}, context);
     if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
     else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+  }
+});
+
+test("draft serialization rejects invalid metadata and preserves explicit keys while omitting absent fields", () => {
+  const draft = { scope: "user" as const, name: " local ", transport: "stdio" as const, command: " cmd ", args: "a\r\nb", cwd: "", url: "", metadata: '{"__proto__":"literal", "TOKEN":"value"}' };
+  const params = saveParametersFor(draft, configFor(draft));
+  expect(JSON.parse(JSON.stringify(params))).toEqual({ scope: "user", name: "local", config: { transport: "stdio", command: "cmd", args: ["a", "b"], env: { ["__proto__"]: "literal", TOKEN: "value" } } });
+  for (const metadata of ['[]', '{"TOKEN": 1}', '{"TOKEN":"a\\nb"}', 'invalid']) {
+    expect(() => configFor({ ...draft, metadata })).toThrow();
   }
 });

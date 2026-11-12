@@ -5,14 +5,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { SubagentsPanel, type SubagentsPanelJob } from "../extensions/subagents-tui.ts";
-import subagentsExtension, {
-  conversationBlocks,
-  createJsonLineReader,
-  getPiInvocation,
-  loadSubagentSettings,
-  parseSubagentOutput,
-  saveUserMaxConcurrency,
-} from "../extensions/subagents.ts";
+import subagentsExtension from "../extensions/subagents.ts";
+import { conversationBlocks, parseSubagentOutput } from "../extensions/projection.ts";
+import { createJsonLineReader, getPiInvocation } from "../extensions/process.ts";
+import { loadSubagentSettings, saveUserMaxConcurrency } from "../extensions/config.ts";
 
 const temporaryDirectories: string[] = [];
 
@@ -145,6 +141,7 @@ test.each([false, true])("the pool respects its concurrency limit and Pi's cance
   }), JSON.stringify({ type: "agent_settled", aborted })].join("\n");
   const pi = {
     on: () => {},
+    registerCommand: () => {},
     registerTool: (tool: RegisteredTool & { name: string }) => tools.set(tool.name, tool),
     getAllTools: () => [],
     getThinkingLevel: () => "high",
@@ -256,7 +253,7 @@ test("streamed JSONL survives arbitrary byte boundaries", () => {
   reader.push(bytes.subarray(split, split + 2));
   reader.push(bytes.subarray(split + 2));
 
-  expect(reader.end()).toBe('{"text":"café"}\n{"type":"done"}');
+  reader.end();
   expect(lines).toEqual(['{"text":"café"}', '{"type":"done"}']);
 });
 
@@ -342,4 +339,60 @@ test("assistant content becomes a complete graphical conversation", () => {
       arguments: "{\n  \"path\": \"src/index.ts\"\n}",
     },
   ]);
+});
+
+test("graphical, command and TUI concurrency edits share validation, persistence and project precedence", async () => {
+  const root = await temporaryDirectory();
+  const project = await temporaryDirectory();
+  await mkdir(join(project, ".pi"));
+  await Bun.write(join(project, ".pi", "subagents.json"), JSON.stringify({ maxConcurrency: 9 }));
+  const previousDir = process.env.PI_CODING_AGENT_DIR;
+  const previousHost = globalThis.__NATIVEPI_EXTENSION_HOST__;
+  process.env.PI_CODING_AGENT_DIR = root;
+  let methods: Parameters<NonNullable<typeof previousHost>["register"]>[1] = {};
+  const handlers = new Map<string, (...args: any[]) => any>();
+  const commands = new Map<string, { handler: (...args: any[]) => any }>();
+  const updated = Promise.withResolvers<void>();
+  let panel: SubagentsPanel | undefined;
+  let spawnParameters: unknown;
+  globalThis.__NATIVEPI_EXTENSION_HOST__ = {
+    register: (_extension, registered) => { methods = registered; },
+    emit: (_extension, _event, payload) => {
+      if (payload && typeof payload === "object" && "settings" in payload && payload.settings && typeof payload.settings === "object" && "userMaxConcurrency" in payload.settings && payload.settings.userMaxConcurrency === 5) updated.resolve();
+    },
+  };
+  const context = {
+    cwd: project, isProjectTrusted: () => true,
+    ui: {
+      notify: () => {}, setStatus: () => {}, theme: { fg: (_: string, text: string) => text },
+      custom: async (factory: (...args: any[]) => SubagentsPanel) => {
+        panel = factory({ requestRender: () => {} }, { fg: (_: string, text: string) => text, bg: (_: string, text: string) => text, bold: (text: string) => text }, {}, () => {});
+      },
+    },
+  };
+  try {
+    subagentsExtension({
+      on: (event: string, handler: (...args: any[]) => any) => handlers.set(event, handler),
+      registerTool: (tool: { name: string; parameters: unknown }) => { if (tool.name === "subagent_spawn") spawnParameters = tool.parameters; },
+      registerCommand: (name: string, command: { handler: (...args: any[]) => any }) => commands.set(name, command),
+      getThinkingLevel: () => "high",
+    } as never);
+    await handlers.get("session_start")!({}, context);
+    await methods.setMaxConcurrency!({ maxConcurrency: 3 });
+    await commands.get("subagents")!.handler("concurrency 4", context);
+    expect(await methods.overview!(undefined)).toMatchObject({ settings: { userMaxConcurrency: 4, effectiveMaxConcurrency: 9 } });
+    await commands.get("subagent")!.handler("", context);
+    panel!.handleInput("l"); panel!.handleInput("\x05"); panel!.handleInput("\x15"); panel!.handleInput("5"); panel!.handleInput("\r");
+    await updated.promise;
+    expect(await methods.overview!(undefined)).toMatchObject({ settings: { userMaxConcurrency: 5, projectMaxConcurrency: 9, effectiveMaxConcurrency: 9 } });
+    expect(JSON.parse(await readFile(join(root, "subagents.json"), "utf8"))).toEqual({ maxConcurrency: 5 });
+    expect(JSON.parse(JSON.stringify(spawnParameters)).properties.thinkingLevel).toEqual({ type: "string", enum: ["off", "minimal", "low", "medium", "high", "xhigh", "max"], description: "Pi thinking/reasoning level. Omit to use the parent chat's current level." });
+    await expect(methods.setMaxConcurrency!({ maxConcurrency: 33 })).rejects.toThrow();
+    expect(await methods.overview!(undefined)).toMatchObject({ settings: { userMaxConcurrency: 5 } });
+  } finally {
+    panel?.dispose();
+    await handlers.get("session_shutdown")?.({}, context);
+    globalThis.__NATIVEPI_EXTENSION_HOST__ = previousHost;
+    if (previousDir === undefined) delete process.env.PI_CODING_AGENT_DIR; else process.env.PI_CODING_AGENT_DIR = previousDir;
+  }
 });

@@ -1,10 +1,18 @@
 import { defineProtocol } from "@nativepi/extension-api";
 import { z } from "@nativepi/extension-api/schema";
 
+export const DEFAULT_MAX_CONCURRENCY = 6;
+export const MAX_CONFIGURED_CONCURRENCY = 32;
+export const concurrencySchema = z.number().int().min(1).max(MAX_CONFIGURED_CONCURRENCY);
+export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+export const thinkingLevelSchema = z.enum(THINKING_LEVELS);
+export type ThinkingLevel = z.infer<typeof thinkingLevelSchema>;
+export const SUBAGENT_TOOL_NAMES = ["subagent_spawn", "subagent_status", "subagent_list", "subagent_wait", "subagent_cancel"] as const;
+
 export const subagentSettingsSchema = z.object({
-  userMaxConcurrency: z.number().int().min(1).max(32),
-  effectiveMaxConcurrency: z.number().int().min(1).max(32),
-  projectMaxConcurrency: z.number().int().min(1).max(32).nullable(),
+  userMaxConcurrency: concurrencySchema,
+  effectiveMaxConcurrency: concurrencySchema,
+  projectMaxConcurrency: concurrencySchema.nullable(),
 });
 export type SubagentSettings = z.infer<typeof subagentSettingsSchema>;
 
@@ -87,7 +95,7 @@ export const subagentsProtocol = defineProtocol({
     detail: { params: idParamsSchema, result: subagentDetailSchema },
     cancel: { params: idParamsSchema, result: subagentDetailSchema },
     setMaxConcurrency: {
-      params: z.object({ maxConcurrency: z.number().int().min(1).max(32) }),
+      params: z.object({ maxConcurrency: concurrencySchema }),
       result: subagentOverviewSchema,
     },
   },

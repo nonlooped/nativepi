@@ -1,3 +1,4 @@
+import { subscribeState } from "./state.ts";
 import { useEffect, useId, useState } from "react";
 import type { CSSProperties } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
@@ -37,25 +38,12 @@ import {
 import {
   mcpProtocol,
   type EditableMcpServer,
-  type McpScope,
   type McpServerEntry,
   type McpState,
 } from "../types.ts";
 
 type Context = RendererContext<typeof mcpProtocol>;
-const stateCache = new Map<string, McpState>();
-
-type Draft = {
-  originalName?: string;
-  scope: McpScope;
-  name: string;
-  transport: "stdio" | "http";
-  command: string;
-  args: string;
-  cwd: string;
-  url: string;
-  metadata: string;
-};
+import { emptyDraft, draftFor, configFor, saveParametersFor, type Draft } from "./draft.ts";
 
 const stack = { display: "flex", flexDirection: "column", gap: "0.75rem" } satisfies CSSProperties;
 const row = { display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" } satisfies CSSProperties;
@@ -68,87 +56,6 @@ const mono = "ui-monospace, SFMono-Regular, Consolas, monospace";
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
-}
-
-function emptyDraft(projectTrusted: boolean): Draft {
-  return {
-    scope: projectTrusted ? "project" : "user",
-    name: "",
-    transport: "stdio",
-    command: "",
-    args: "",
-    cwd: "",
-    url: "",
-    metadata: "",
-  };
-}
-
-function draftFor(server: McpServerEntry): Draft {
-  const config = server.config;
-  return {
-    originalName: server.name,
-    scope: server.scope,
-    name: server.name,
-    transport: config.transport,
-    command: config.transport === "stdio" ? config.command : "",
-    args: config.transport === "stdio" ? config.args.join("\n") : "",
-    cwd: config.transport === "stdio" ? config.cwd ?? "" : "",
-    url: config.transport === "http" ? config.url : "",
-    metadata: JSON.stringify(
-      config.transport === "stdio" ? config.env ?? {} : config.headers ?? {},
-      null,
-      2,
-    ),
-  };
-}
-
-function stringMap(value: string, label: string) {
-  if (!value.trim()) return undefined;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(value) as unknown;
-  } catch {
-    throw new Error(`${label} must be valid JSON.`);
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`${label} must be a JSON object.`);
-  }
-  const values: Record<string, string> = {};
-  for (const [key, entry] of Object.entries(parsed)) {
-    if (typeof entry !== "string") throw new Error(`${label} value “${key}” must be text.`);
-    if (/[\r\n]/.test(entry)) throw new Error(`${label} values cannot contain line breaks.`);
-    values[key] = entry;
-  }
-  return values;
-}
-
-export function configFor(draft: Draft): EditableMcpServer {
-  if (draft.transport === "http") {
-    const headers = stringMap(draft.metadata, "Headers");
-    return {
-      transport: "http",
-      url: draft.url.trim(),
-      ...(headers ? { headers } : {}),
-    };
-  }
-  const cwd = draft.cwd.trim();
-  const env = stringMap(draft.metadata, "Environment variables");
-  return {
-    transport: "stdio",
-    command: draft.command.trim(),
-    args: draft.args ? draft.args.split(/\r?\n/) : [],
-    ...(cwd ? { cwd } : {}),
-    ...(env ? { env } : {}),
-  };
-}
-
-export function saveParametersFor(draft: Draft, config: EditableMcpServer) {
-  return {
-    scope: draft.scope,
-    ...(draft.originalName === undefined ? {} : { originalName: draft.originalName }),
-    name: draft.name.trim(),
-    config,
-  };
 }
 
 function endpoint(server: McpServerEntry) {
@@ -194,11 +101,12 @@ function ServerEditor({
     }
     setSaving(true);
     void context.channel.call("save", saveParametersFor(draft, config)).then((state) => {
-      stateCache.set(`${context.project.path}\0${context.session.file ?? ""}`, state);
       onSaved(state);
       onClose();
       const saved = state.servers.find((server) => server.scope === draft.scope && server.name === draft.name.trim());
-      if (saved?.status === "error") {
+      if (state.reloadRequired) {
+        context.actions.notify("MCP configuration saved. Reload Pi after the turn finishes to apply it.", "warning");
+      } else if (saved?.status === "error") {
         context.actions.notify(`MCP server saved, but it could not connect: ${saved.error ?? "Unknown error"}`, "warning");
       } else {
         context.actions.notify(editing ? "MCP server updated" : "MCP server added", "info");
@@ -435,6 +343,7 @@ function RemoveServerDialog({ server, busy, onClose, onRemove }: {
 }
 
 function ServerStatus({ server }: { server: McpServerEntry }) {
+  if (server.status === "pending") return <Badge variant="outline">Reload required</Badge>;
   if (server.status === "error") {
     return (
       <span style={{ ...row, flexWrap: "nowrap", color: "var(--destructive)", fontSize: "0.75rem", fontWeight: 500 }}>
@@ -531,31 +440,16 @@ function ServerRow({ server, disabled, onEdit, onRemove }: {
 
 function McpSettings({ context }: { context: Context }) {
   const { call, on } = context.channel;
-  const cacheKey = `${context.project.path}\0${context.session.file ?? ""}`;
-  const [state, setState] = useState<McpState | null>(() => stateCache.get(cacheKey) ?? null);
+  const [state, setState] = useState<McpState | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [removing, setRemoving] = useState<McpServerEntry | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    void call("state").then((value) => {
-      stateCache.set(cacheKey, value);
-      if (active) setState(value);
-    }).catch((reason: unknown) => {
-      if (active) setError(errorMessage(reason));
-    });
-    const off = on("changed", (value) => {
-      stateCache.set(cacheKey, value);
-      setState(value);
-      setError(null);
-    });
-    return () => {
-      active = false;
-      off();
-    };
-  }, [cacheKey, call, on]);
+  useEffect(() => subscribeState({ call, on }, (value) => {
+    setState(value);
+    setError(null);
+  }, (reason) => setError(reason instanceof Error ? reason.message : String(reason))), [call, on]);
 
   const remove = () => {
     if (!removing || busy) return;
@@ -563,10 +457,9 @@ function McpSettings({ context }: { context: Context }) {
     setError(null);
     void call("remove", { scope: removing.scope, name: removing.name })
       .then((value) => {
-        stateCache.set(cacheKey, value);
         setState(value);
         setRemoving(null);
-        context.actions.notify("MCP server removed", "info");
+        context.actions.notify(value.reloadRequired ? "MCP configuration saved. Reload Pi after the turn finishes to apply it." : "MCP server removed", value.reloadRequired ? "warning" : "info");
       })
       .catch((reason: unknown) => setError(errorMessage(reason)))
       .finally(() => setBusy(false));
@@ -595,6 +488,7 @@ function McpSettings({ context }: { context: Context }) {
         </Button>
       </div>
 
+      {state?.reloadRequired ? <FieldDescription>Configuration saved. Reload Pi after the turn finishes to apply pending changes. Current connections remain available.</FieldDescription> : null}
       {!state && !error ? (
         <p style={{ margin: 0, padding: "1rem 0", color: "var(--muted-foreground)", fontSize: "0.8125rem" }}>
           Loading MCP servers...

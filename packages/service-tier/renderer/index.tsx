@@ -1,3 +1,4 @@
+import { subscribeState } from "./state.ts";
 import { useEffect, useState } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CheckIcon } from "@phosphor-icons/react/Check";
@@ -33,20 +34,9 @@ function ServiceTierControl({ context }: { context: RendererContext<typeof servi
   const [saving, setSaving] = useState<ServiceTier | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const apply = (value: TierState) => {
-      if (!cancelled) setState(value);
-    };
-    void call("state")
-      .then(apply)
-      .catch(() => {});
-    const off = on("changed", apply);
-    return () => {
-      cancelled = true;
-      off();
-    };
-  }, [call, on]);
+  useEffect(() => subscribeState({ call, on }, (value) => {
+    setState(value);
+  }, () => {}), [call, on]);
 
   if (!state?.supported) return null;
 

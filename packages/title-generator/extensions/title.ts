@@ -401,14 +401,16 @@ export default function titleGeneratorExtension(pi: ExtensionAPI): void {
         const model = selectedModel(context, modelSetting);
         if (!model) return;
         const title = await generateTitle(context, prompt, model, controller);
-        if (!title || activeSessionFile !== sessionFile || pi.getSessionName()) return;
+        if (!title || controller.signal.aborted || titleAbort !== controller || activeSessionFile !== sessionFile || pi.getSessionName()) return;
         pi.setSessionName(title);
       } catch {
         // Title generation is best effort; Pi's deterministic first-message fallback remains visible.
       } finally {
         clearTimeout(timeout);
-        if (titleAbort === controller) titleAbort = undefined;
-        generationInFlight = false;
+        if (titleAbort === controller) {
+          titleAbort = undefined;
+          generationInFlight = false;
+        }
       }
     })();
   });

@@ -1,3 +1,4 @@
+import { subscribeState } from "./state.ts";
 import { useEffect, useState } from "react";
 import { defineRenderer } from "@nativepi/extension-api";
 import type { RendererContext } from "@nativepi/extension-api";
@@ -17,22 +18,10 @@ function TitleGeneratorSetting({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const apply = (value: TitleGeneratorState) => {
-      if (!cancelled) setState(value);
-    };
-    void call("state")
-      .then(apply)
-      .catch((reason: unknown) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
-      });
-    const off = on("changed", apply);
-    return () => {
-      cancelled = true;
-      off();
-    };
-  }, [call, on]);
+  useEffect(() => subscribeState({ call, on }, (value) => {
+    setState(value);
+    setError(null);
+  }, (reason) => setError(reason instanceof Error ? reason.message : String(reason))), [call, on]);
 
   const choose = (modelSetting: string) => {
     if (!state || saving || modelSetting === state.modelSetting) return;

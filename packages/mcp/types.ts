@@ -38,7 +38,7 @@ export const mcpServerEntrySchema = z.object({
   name: z.string(),
   scope: mcpScopeSchema,
   config: editableMcpServerSchema,
-  status: z.enum(["connected", "error", "overridden"]),
+  status: z.enum(["connected", "error", "overridden", "pending"]),
   toolCount: z.number().int().nonnegative(),
   error: z.string().optional(),
 });
@@ -46,6 +46,7 @@ export type McpServerEntry = z.infer<typeof mcpServerEntrySchema>;
 
 export const mcpStateSchema = z.object({
   projectTrusted: z.boolean(),
+  reloadRequired: z.boolean().optional(),
   servers: z.array(mcpServerEntrySchema),
   diagnostics: z.array(z.string()),
 });

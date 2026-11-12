@@ -22,6 +22,7 @@ type HarnessOptions = {
   reasoning?: boolean;
   requiredRetries?: number;
   requiredTitleTokens?: number;
+  titleResults?: Array<Promise<string>>;
 };
 
 function createHarness(sessionFile: string, entries: unknown[] = [], harnessOptions: HarnessOptions = {}) {
@@ -40,6 +41,7 @@ function createHarness(sessionFile: string, entries: unknown[] = [], harnessOpti
       state.streamModel = selectedModel;
       state.streamOptions = streamOptions;
       state.streamCalls += 1;
+      const delayed = harnessOptions.titleResults?.[state.streamCalls - 1];
       const result =
         selectedModel.reasoning && Number(streamOptions.maxTokens) < (harnessOptions.requiredTitleTokens ?? 256)
           ? { stopReason: "length", content: [{ type: "thinking", thinking: "I need to choose a title." }] }
@@ -47,6 +49,7 @@ function createHarness(sessionFile: string, entries: unknown[] = [], harnessOpti
       return {
         result: async () => {
           if (Number(streamOptions.maxRetries) < (harnessOptions.requiredRetries ?? 0)) throw new Error("Transient provider failure");
+          if (delayed) return { content: [{ type: "text", text: await delayed }] };
           return result;
         },
       };
@@ -168,4 +171,36 @@ test("title output is bounded by the sidebar title limit", () => {
 test("blank title output falls back to the existing prompt title", () => {
   expect(normalizeGeneratedTitle("\n  \n")).toBeNull();
   expect(titlePrompt("<skill name=\"releasing\">instructions</skill>")).toContain("Request: releasing");
+});
+
+
+test("cancelled title completion cannot name a session or clear a newer generation", async () => {
+  const old = Promise.withResolvers<string>();
+  const current = Promise.withResolvers<string>();
+  const harness = createHarness("overlap.jsonl", [], { titleResults: [old.promise, current.promise] });
+  await harness.setTitleModel?.("openai/gpt-5-mini", harness.context);
+  const start = () => harness.handlers.get("before_agent_start")?.({ messageType: "user", prompt: "review generation identity" }, harness.context);
+  start();
+  harness.handlers.get("session_start")?.({}, harness.context);
+  start();
+  expect(harness.state.streamCalls).toBe(2);
+  old.resolve("Stale title");
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(harness.names).toEqual([]);
+  start();
+  expect(harness.state.streamCalls).toBe(2);
+  current.resolve("Current title");
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(harness.names).toEqual(["Current title"]);
+});
+
+test("a provider returning after shutdown cannot apply its cancelled title", async () => {
+  const delayed = Promise.withResolvers<string>();
+  const harness = createHarness("shutdown.jsonl", [], { titleResults: [delayed.promise] });
+  await harness.setTitleModel?.("openai/gpt-5-mini", harness.context);
+  harness.handlers.get("before_agent_start")?.({ messageType: "user", prompt: "cancel title" }, harness.context);
+  harness.handlers.get("session_shutdown")?.({}, harness.context);
+  delayed.resolve("Must not apply");
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(harness.names).toEqual([]);
 });
