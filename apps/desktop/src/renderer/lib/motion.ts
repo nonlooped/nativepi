@@ -37,8 +37,3 @@ function prefersReducedMotion(): boolean {
   if (override === "full") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
-
-/** Scroll behavior that respects the same preference. */
-export function scrollBehavior(): ScrollBehavior {
-  return prefersReducedMotion() ? "auto" : "smooth";
-}

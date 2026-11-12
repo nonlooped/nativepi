@@ -65,6 +65,7 @@ export default function App() {
     (s) => s.projects.find((project) => project.path === s.activeProjectPath)?.name,
   );
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
+  const selectionVersion = useAppStore(s => s.selectionVersion);
   const error = useAppStore((s) => activeConversation(s).error);
   const externalChange = useAppStore((s) => activeConversation(s).externalChange);
   const hasConversation = useAppStore((s) => {
@@ -112,7 +113,7 @@ export default function App() {
     setContextSheetOpen(false);
   }, [layout]);
 
-  useEffect(() => setExtensionView(null), [activeProjectPath, activeSessionFile]);
+  useEffect(() => setExtensionView(null), [activeProjectPath, activeSessionFile, selectionVersion]);
 
   useEffect(() => {
     if (branchMenuRequested && layout !== "wide") setContextSheetOpen(true);
@@ -742,7 +743,7 @@ function useWorkspaceShortcuts(
           // Escape belongs to a single-line field first — it clears or closes
           // whatever the user is typing in. The composer is a textarea, so
           // stopping a run while writing the next message still works.
-          const modalOpen = settingsOpen || document.querySelector('[role="dialog"]') !== null;
+          const modalOpen = settingsOpen || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null;
           if (!modalOpen && running && (stopTurnBinding !== "Escape" || !(event.target instanceof HTMLInputElement))) {
             event.preventDefault();
             abort();

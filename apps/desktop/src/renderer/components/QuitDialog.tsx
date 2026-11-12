@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { WarningCircleIcon } from "../../shared/icons.ts";
 import type { PendingWork } from "../../shared/rpc-schema.ts";
 import { useAppStore } from "../lib/store.ts";
+import { flushPersist } from "../lib/store/internals.ts";
 import { rpc } from "../lib/rpc.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
@@ -16,6 +17,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
  */
 export default function QuitDialog() {
   const [work, setWork] = useState<PendingWork | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
   const projects = useAppStore((s) => s.projects);
 
   useEffect(() => {
@@ -25,6 +28,17 @@ export default function QuitDialog() {
     };
   }, []);
 
+  async function quit() {
+    if (busy) return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      await flushPersist(useAppStore.getState);
+      const result = await rpc.request.confirmQuit({});
+      if (!result.ok) throw new Error("Could not close NativePi. Try again.");
+    } catch (error) { setError(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  }
   if (!work) return null;
 
   const rows = summarize(work);
@@ -76,11 +90,12 @@ export default function QuitDialog() {
             direction of that confusion is learning "rightmost is safe" here and
             then meeting Delete chat in the same slot. Escape, the backdrop and
             the close button still mean keep working. */}
+        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         <DialogFooter>
           <Button variant="ghost" onClick={() => setWork(null)}>
             Keep working
           </Button>
-          <Button variant="destructive" onClick={() => void rpc.request.confirmQuit({})}>
+          <Button variant="destructive" disabled={busy} onClick={() => void quit()}>
             {rows.length > 0 ? "Stop and quit" : "Disconnect and quit"}
           </Button>
         </DialogFooter>

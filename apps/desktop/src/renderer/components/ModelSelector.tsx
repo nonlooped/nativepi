@@ -140,6 +140,9 @@ export default function ModelSelector() {
 function ReasoningSlider() {
   const thinkingLevel = useAppStore((s) => s.thinkingLevel);
   const thinkingLevels = useAppStore((s) => s.thinkingLevels);
+  const loading = useAppStore((s) => s.thinkingLevelsLoading);
+  const error = useAppStore((s) => s.thinkingLevelsError);
+  const retry = useAppStore((s) => s.refreshThinkingLevels);
   const setThinkingLevel = useAppStore((s) => s.setThinkingLevel);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const combo = hintFor("cycleThinking", keybindingOverrides);
@@ -158,8 +161,15 @@ function ReasoningSlider() {
         ) : null}
         {combo ? <Kbd className="shrink-0">{combo}</Kbd> : null}
       </div>
-      {thinkingLevels.length === 0 ? (
-        <p className="mt-2 text-xs text-muted-foreground">Loading this model’s levels…</p>
+      {error ? (
+        <div className="mt-2 flex items-center gap-2">
+          <p role="alert" className="min-w-0 flex-1 text-xs text-destructive">{error}</p>
+          <Button variant="ghost" size="sm" onClick={() => void retry()}>Retry levels</Button>
+        </div>
+      ) : thinkingLevels.length === 0 ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {loading ? "Loading this model’s levels…" : "No reasoning levels available."}
+        </p>
       ) : thinkingLevels.length === 1 ? (
         <p className="mt-2 text-xs text-muted-foreground">
           This model uses {thinkingLabel(thinkingLevels[0]!)} reasoning.

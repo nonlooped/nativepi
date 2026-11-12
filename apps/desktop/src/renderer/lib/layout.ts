@@ -48,7 +48,3 @@ export function useWorkspaceLayout(): WorkspaceLayout {
 
   return layout;
 }
-
-export function usePhoneLayout(): boolean {
-  return useWorkspaceLayout() === "compact";
-}

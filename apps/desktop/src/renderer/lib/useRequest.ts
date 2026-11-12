@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-/**
- * Run a one-shot async read and track its outcome.
- *
- * Every dialog and pane that fetches something over RPC needs the same three
- * things: a null-means-loading value, an error to show instead, and a guard so a
- * response that arrives after the user moved on cannot overwrite what replaced
- * it. Writing that out per call site is how those guards get forgotten.
- *
- * Deliberately not a cache. The app's real state lives in the store; this covers
- * the reads that belong to one mounted component and die with it.
- */
+/** One-shot component reads. The caller's deps define when to use its new `run` closure. */
 export interface RequestState<T> {
   /** The result, or `null` while in flight and after a failure. */
   data: T | null;
@@ -32,7 +22,7 @@ export function useRequest<T>(run: () => Promise<T>, deps: unknown[]): RequestSt
     setData(null);
     setError(null);
 
-    run().then(
+    (async () => run())().then(
       (value) => {
         if (!cancelled) setData(value);
       },

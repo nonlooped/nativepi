@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Collapsible } from "@base-ui/react/collapsible";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
@@ -53,6 +53,11 @@ export default function SourceControl({
   const [selected, setSelected] = useState<string | null>(null);
   const [pendingRevert, setPendingRevert] = useState<GitChangedFile | null>(null);
   const [busy, setBusy] = useState<CommitAction | "stage" | null>(null);
+  const operation = useRef(false);
+  const alive = useRef(true);
+  const messageVersion = useRef(0);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  const revision = useAppStore(s => s.gitRevision);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const showPullRequest = useAppStore((s) => s.repoHost?.host !== "gitlab");
@@ -71,64 +76,55 @@ export default function SourceControl({
     if (stagedFiles.length > 0) setCommitOpen(true);
   }, [stagedFiles.length]);
 
+  async function run(kind: CommitAction | "stage" | "generate", work: () => Promise<void>) {
+    if (operation.current) return;
+    operation.current = true;
+    if (kind === "generate") setGenerating(true); else setBusy(kind);
+    setError(null);
+    try { await work(); }
+    catch (error) { if (alive.current) setError(error instanceof Error ? error.message : String(error)); }
+    finally {
+      operation.current = false;
+      if (alive.current) { setBusy(null); setGenerating(false); }
+    }
+  }
   async function generate() {
-    if (stagedFiles.length === 0 || generating) return;
-    setGenerating(true);
-    setError(null);
-    const result = await rpc.request.gitGenerateCommitMessage({
-      projectDir,
-      sessionFile,
-      ...(commitMessageModel === "active" ? {} : { model: commitMessageModel }),
+    if (!stagedFiles.length) return;
+    const version = messageVersion.current;
+    await run("generate", async () => {
+      const result = await rpc.request.gitGenerateCommitMessage({ projectDir, sessionFile,
+        ...(commitMessageModel === "active" ? {} : { model: commitMessageModel }) });
+      if (!result.message) throw new Error(result.error ?? "Pi could not generate a commit message.");
+      const current = useAppStore.getState();
+      if (alive.current && current.activeProjectPath === projectDir && current.activeSessionFile === sessionFile && version === messageVersion.current) setMessage(result.message);
     });
-    const current = useAppStore.getState();
-    if (current.activeProjectPath !== projectDir || activeConversation(current).sessionFile !== sessionFile) {
-      setGenerating(false);
-      return;
-    }
-    setGenerating(false);
-    if (!result.message) return setError(result.error ?? "Pi could not generate a commit message.");
-    setMessage(result.message);
   }
-
   async function commit(action: CommitAction) {
-    if (!message.trim() || stagedFiles.length === 0) return;
-    setBusy(action);
-    setError(null);
-    const committed = await rpc.request.gitCommit({ projectDir, message });
-    if (!committed.ok) {
-      setBusy(null);
-      return setError(committed.error ?? "Git could not create the commit.");
-    }
-
-    setMessage("");
-    await refreshGit();
-    if (action === "commit") {
-      setBusy(null);
-      return showHint("Commit created");
-    }
-
-    const sent = action === "sync"
-      ? await rpc.request.gitSync({ projectDir })
-      : await rpc.request.gitPush({ projectDir });
-    setBusy(null);
-    await refreshGit();
-    if (!sent.ok) return setError(`Commit created, but Git could not ${action === "sync" ? "sync" : "push"}: ${sent.error ?? "Unknown error"}`);
-    showHint(action === "sync" ? "Committed and synced" : "Committed and pushed");
+    if (!message.trim() || !stagedFiles.length) return;
+    const version = messageVersion.current;
+    await run(action, async () => {
+      const result = await rpc.request.gitCommit({ projectDir, message });
+      if (!result.ok) throw new Error(result.error ?? "Git could not create the commit.");
+      if (alive.current && version === messageVersion.current) setMessage("");
+      await refreshGit();
+      if (action === "commit") { if (alive.current) showHint("Commit created"); return; }
+      const sent = action === "sync" ? await rpc.request.gitSync({ projectDir }) : await rpc.request.gitPush({ projectDir });
+      await refreshGit();
+      if (!sent.ok) throw new Error(`Commit created, but Git could not ${action}: ${sent.error ?? "Unknown error"}`);
+      if (alive.current) showHint(action === "sync" ? "Committed and synced" : "Committed and pushed");
+    });
   }
-
-  async function mutate(run: () => Promise<{ ok: boolean; error?: string }>) {
-    setBusy("stage");
-    setError(null);
-    const result = await run();
-    setBusy(null);
-    if (!result.ok) return setError(result.error ?? "Git could not update the index.");
-    setSelected(null);
-    await refreshGit();
+  async function mutate(work: () => Promise<{ ok: boolean; error?: string }>) {
+    await run("stage", async () => {
+      const result = await work();
+      if (!result.ok) throw new Error(result.error ?? "Git could not update the index.");
+      await refreshGit();
+    });
   }
-
-  const canCommit = Boolean(message.trim()) && stagedFiles.length > 0 && busy === null;
-  const commitDisabledReason = busy !== null ? "Working…" : stagedFiles.length === 0 ? "Stage changes first" : !message.trim() ? "Add a commit message" : undefined;
-  const canGenerate = stagedFiles.length > 0 && !generating;
+  const disabled = busy !== null || generating;
+  const canCommit = Boolean(message.trim()) && stagedFiles.length > 0 && !disabled;
+  const commitDisabledReason = disabled ? "Working…" : stagedFiles.length === 0 ? "Stage changes first" : !message.trim() ? "Add a commit message" : undefined;
+  const canGenerate = stagedFiles.length > 0 && !disabled;
 
   return (
     <div className="flex flex-col pb-5">
@@ -195,7 +191,7 @@ export default function SourceControl({
           <Textarea
             id="source-control-message"
             value={message}
-            onChange={(event) => setMessage(event.target.value)}
+            onChange={(event) => { ++messageVersion.current; setMessage(event.target.value); }}
             onKeyDown={(event) => {
               if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && canCommit) void commit("commit");
             }}
@@ -230,11 +226,11 @@ export default function SourceControl({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        {error ? <p role="alert" className="whitespace-pre-wrap text-xs leading-5 text-destructive">{error}</p> : null}
         </Collapsible.Panel>
       </section>
       </Collapsible.Root>
 
+      {error ? <p role="alert" className="whitespace-pre-wrap px-3 text-xs leading-5 text-destructive">{error}</p> : null}
       <RepoHostPanel />
 
       <FileGroup
@@ -243,7 +239,9 @@ export default function SourceControl({
         staged
         projectDir={projectDir}
         selected={selected}
-        disabled={busy !== null}
+        disabled={disabled}
+        revision={revision}
+        mutate={mutate}
         onSelect={setSelected}
         onAll={() => void mutate(() => rpc.request.gitUnstageAll({ projectDir }))}
         onFile={(file) => void mutate(() => rpc.request.gitUnstageFile({ projectDir, file: file.path, originalPath: file.originalPath }))}
@@ -254,7 +252,9 @@ export default function SourceControl({
         staged={false}
         projectDir={projectDir}
         selected={selected}
-        disabled={busy !== null}
+        disabled={disabled}
+        revision={revision}
+        mutate={mutate}
         onSelect={setSelected}
         onAll={() => void mutate(() => rpc.request.gitStageAll({ projectDir }))}
         onFile={(file) => void mutate(() => rpc.request.gitStageFile({ projectDir, file: file.path }))}
@@ -284,6 +284,8 @@ function FileGroup({
   projectDir,
   selected,
   disabled,
+  revision,
+  mutate,
   onSelect,
   onAll,
   onFile,
@@ -295,6 +297,8 @@ function FileGroup({
   projectDir: string;
   selected: string | null;
   disabled: boolean;
+  revision: number;
+  mutate: (work: () => Promise<{ ok: boolean; error?: string }>) => Promise<void>;
   onSelect: (key: string | null) => void;
   onAll: () => void;
   onFile: (file: GitChangedFile) => void;
@@ -375,7 +379,7 @@ function FileGroup({
                     </Button>
                   </div>
                 </FileContextMenu>
-                {active ? <FileDiff key={key} file={file} projectDir={projectDir} staged={staged} /> : null}
+                {active ? <FileDiff key={key} file={file} projectDir={projectDir} staged={staged} revision={revision} disabled={disabled} mutate={mutate} /> : null}
               </div>
             );
           })}
@@ -385,11 +389,11 @@ function FileGroup({
   );
 }
 
-function FileDiff({ file, projectDir, staged }: { file: GitChangedFile; projectDir: string; staged: boolean }) {
+function FileDiff({ file, projectDir, staged, revision, disabled, mutate }: { file: GitChangedFile; projectDir: string; staged: boolean; revision: number; disabled: boolean; mutate: (work: () => Promise<{ ok: boolean; error?: string }>) => Promise<void> }) {
   const [stagedVersion, setStagedVersion] = useState(0);
   const { data, error, reload } = useRequest(
     () => rpc.request.gitDiff({ projectDir, file: file.path, untracked: file.state === "untracked", staged }),
-    [projectDir, file.path, file.state, staged, stagedVersion],
+    [projectDir, file.path, file.state, staged, stagedVersion, revision],
   );
   const patch = data?.diff.patch ?? null;
 
@@ -410,7 +414,7 @@ function FileDiff({ file, projectDir, staged }: { file: GitChangedFile; projectD
       ) : (
         <>
           {!staged ? (
-            <HunkActions projectDir={projectDir} file={file} stagedVersion={stagedVersion} onStaged={() => setStagedVersion((value) => value + 1)} />
+            <HunkActions projectDir={projectDir} file={file} stagedVersion={stagedVersion} revision={revision} disabled={disabled} mutate={mutate} onStaged={() => setStagedVersion((value) => value + 1)} />
           ) : null}
           <Suspense fallback={null}>
             <DiffView patch={patch} />
@@ -425,17 +429,22 @@ function HunkActions({
   projectDir,
   file,
   stagedVersion,
+  revision,
+  disabled,
+  mutate,
   onStaged,
 }: {
   projectDir: string;
   file: GitChangedFile;
   stagedVersion: number;
+  revision: number;
+  disabled: boolean;
+  mutate: (work: () => Promise<{ ok: boolean; error?: string }>) => Promise<void>;
   onStaged: () => void;
 }) {
-  const refreshGit = useAppStore((s) => s.refreshGit);
   const { data, loading, error } = useRequest(
     () => rpc.request.gitHunks({ projectDir, file: file.path, untracked: file.state === "untracked" }),
-    [projectDir, file.path, file.state, stagedVersion],
+    [projectDir, file.path, file.state, stagedVersion, revision],
   );
   const [busy, setBusy] = useState<number | null>(null);
   const [partsOpen, setPartsOpen] = useState(false);
@@ -446,11 +455,11 @@ function HunkActions({
   async function stage(patch: string, index: number) {
     setBusy(index);
     setFailure(null);
-    const result = await rpc.request.gitStageHunk({ projectDir, file: file.path, untracked: file.state === "untracked", patch });
-    setBusy(null);
-    if (!result.ok) return setFailure(result.error ?? "Git could not stage this change.");
-    await refreshGit();
-    onStaged();
+    try {
+      await mutate(() => rpc.request.gitStageHunk({ projectDir, file: file.path, untracked: file.state === "untracked", patch }));
+      onStaged();
+    } finally { setBusy(null); }
+
   }
 
   return (
@@ -467,7 +476,7 @@ function HunkActions({
             {data.hunks.map((hunk, index) => (
               <div key={hunk.patch} className="flex min-w-0 items-center gap-2 rounded-md px-1 py-1 hover:bg-muted/50">
                 <span className="min-w-0 flex-1 truncate text-xs">Change {index + 1} <span className="font-mono text-muted-foreground">{hunkLocation(hunk.header)}</span></span>
-                <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => void stage(hunk.patch, index)}>
+                <Button size="sm" variant="outline" disabled={disabled} onClick={() => void stage(hunk.patch, index)}>
                   {busy === index ? "Staging…" : "Stage"}
                 </Button>
               </div>

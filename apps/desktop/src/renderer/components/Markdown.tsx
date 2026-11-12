@@ -235,7 +235,7 @@ function MarkdownImage({ src, alt, title }: { src?: string; alt?: string; title?
   }, [local, src, projectDir]);
 
   if (!src) return <span>{alt || "Image"} — Image could not be loaded.</span>;
-  if (!local) return <img src={src} alt={alt} title={title} loading="lazy" />;
+  if (!local) return <span title={title}>{alt || "Image"} — Remote images are not loaded.</span>;
   if (loaded?.source === src && loaded.projectDir === projectDir) {
     if (loaded.src) return <img src={loaded.src} alt={alt} title={title} loading="lazy" />;
     if (loaded.error) return <span title={loaded.error}>{alt || "Image"} — Image could not be loaded.</span>;

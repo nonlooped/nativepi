@@ -42,6 +42,12 @@ export function activeConversation(s: AppState): Conversation {
   return conversationFor(s, s.activeProjectPath);
 }
 
+/** Replacing an error transfers banner ownership, even when the text is identical. */
+export function mergeConversation(current: Conversation, patch: Partial<Conversation>): Conversation {
+  const errorOwner = Object.hasOwn(patch, "error") ? { modelControlError: undefined } : {};
+  return { ...current, ...errorOwner, ...patch };
+}
+
 /** Merge a patch into one project's conversation, creating it if needed. */
 export function patchConversation(
   set: SetState,
@@ -51,8 +57,8 @@ export function patchConversation(
 ): void {
   set((s) => {
     const key = sessionFile ?? projectDir;
-    const current = s.conversations[key] ?? emptyConversation();
+    const current = s.conversations[key] ?? { ...emptyConversation(), projectDir, sessionFile };
     const resolved = typeof patch === "function" ? patch(current) : patch;
-    return { conversations: { ...s.conversations, [key]: { ...current, ...resolved } } };
+    return { conversations: { ...s.conversations, [key]: mergeConversation(current, resolved) } };
   });
 }

@@ -4,10 +4,9 @@ import { ChartLineUpIcon } from "@phosphor-icons/react/ChartLineUp";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import type { UsageDashboard } from "../../../shared/pi-types.ts";
-import { rpc } from "../../lib/rpc.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { useRequest } from "../../lib/useRequest.ts";
-import { createRequestCache } from "../../lib/requestCache.ts";
+import { createUsageDashboardReader, usageProjectsKey } from "./usageReads.ts";
 import { providerIconName } from "../../lib/providerIcons.ts";
 import { useReducedMotion } from "../../lib/motion.ts";
 import BrandIcon from "../BrandIcon.tsx";
@@ -20,7 +19,7 @@ import SubscriptionUsageSettings from "./SubscriptionUsageSettings.tsx";
 
 const ALL_PROJECTS = "all-projects";
 const PROVIDER_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)"];
-const dashboardCache = createRequestCache<string, Awaited<ReturnType<typeof rpc.request.getUsageDashboard>>>();
+const dashboardReader = createUsageDashboardReader();
 
 type Range = "7" | "30" | "90" | "all";
 type ChartMetric = "cost" | "tokens";
@@ -32,13 +31,13 @@ export default function UsageSettings() {
   const [projectPath, setProjectPath] = useState(ALL_PROJECTS);
   const [range, setRange] = useState<Range>("30");
   const selectedProjects = projectPath === ALL_PROJECTS ? projects : projects.filter((project) => project.path === projectPath);
-  const cacheKey = JSON.stringify(selectedProjects.map(({ path, name }) => [path, name]));
+  const cacheKey = usageProjectsKey(selectedProjects);
   const request = useRequest(
-    () => dashboardCache.load(cacheKey, () => rpc.request.getUsageDashboard({ projects: selectedProjects })),
+    () => dashboardReader.load(selectedProjects),
     [cacheKey],
   );
-  const dashboard = request.data?.dashboard ?? null;
-  const error = request.data?.error ?? request.error;
+  const dashboard = request.data;
+  const error = request.error;
   const period = periodLabel(range, dashboard?.daily ?? []);
 
   return (
@@ -109,7 +108,7 @@ export default function UsageSettings() {
                 variant="outline"
                 size="icon-lg"
                 onClick={() => {
-                  dashboardCache.invalidate(cacheKey);
+                  dashboardReader.invalidate(selectedProjects);
                   request.reload();
                 }}
                 disabled={request.loading}

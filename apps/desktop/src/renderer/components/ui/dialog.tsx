@@ -15,7 +15,7 @@ function DialogContent({
   showCloseButton = true,
 }: {
   className?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   showCloseButton?: boolean;
 }) {
   return (
@@ -45,11 +45,11 @@ function DialogContent({
   );
 }
 
-function DialogHeader({ className, children }: { className?: string; children: React.ReactNode }) {
+function DialogHeader({ className, children }: { className?: string; children?: React.ReactNode }) {
   return <div className={cn("flex shrink-0 flex-col gap-1", className)}>{children}</div>;
 }
 
-function DialogFooter({ className, children }: { className?: string; children: React.ReactNode }) {
+function DialogFooter({ className, children }: { className?: string; children?: React.ReactNode }) {
   return (
     <div className={cn("flex shrink-0 flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end", className)}>
       {children}

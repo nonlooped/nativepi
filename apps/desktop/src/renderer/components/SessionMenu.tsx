@@ -72,20 +72,12 @@ export default function SessionMenu({
   // the one on screen. Requiring it to also be the active session left every
   // chat running in a background project freely deletable mid-run.
   const blocked = running;
-  const inProject = (action: () => unknown | Promise<unknown>) => () => {
-    const store = useAppStore.getState();
-    const already = store.activeProjectPath === projectPath && store.activeSessionFile === session.path;
-    const select = already ? Promise.resolve() : store.selectChat(session.path, projectPath);
-    void select.then(action);
-  };
-
   async function doClone() {
-    await useAppStore.getState().cloneChat(session.path);
+    await useAppStore.getState().cloneChat(session.path, projectPath);
   }
 
   async function doExport() {
-    const projectDir = useAppStore.getState().activeProjectPath;
-    if (!projectDir) return;
+    const projectDir = projectPath;
     const res = await rpc.request.exportHtml({ projectDir, sessionFile: session.path });
     if (!res.ok || !res.path) {
       // Silence here was indistinguishable from a menu item that does nothing.
@@ -106,12 +98,12 @@ export default function SessionMenu({
         ? useAppStore.getState().returnChatToFocus(session.path)
         : useAppStore.getState().finishChat(session.path),
     finished,
-    rename: inProject(() => setDialog("rename")),
-    fork: inProject(() => setDialog("fork")),
-    clone: inProject(doClone),
-    compact: inProject(() => useAppStore.getState().compactActive()),
-    tree: inProject(() => setDialog("tree")),
-    export: inProject(doExport),
+    rename: () => setDialog("rename"),
+    fork: () => setDialog("fork"),
+    clone: () => void doClone(),
+    compact: () => void useAppStore.getState().compactActive(),
+    tree: () => setDialog("tree"),
+    export: () => void doExport().catch(error => toast.error(String(error))),
     copyTitle: () => void navigator.clipboard.writeText(chatTitle(session)).then(() => showHint("Title copied")),
     reveal: () => void rpc.request.showInFolder({ path: session.path }),
     copyPath: () => void navigator.clipboard.writeText(session.path).then(() => showHint("Path copied")),
@@ -157,15 +149,15 @@ export default function SessionMenu({
           destructive
           onConfirm={() => {
             setDialog(null);
-            inProject(() => useAppStore.getState().deleteChat(session.path))();
+            void useAppStore.getState().deleteChat(session.path, projectPath).then(result => { if (!result.ok) toast.error(result.error ?? "Unable to delete chat"); });
           }}
           onCancel={() => setDialog(null)}
         />
       ) : null}
 
-      {dialog === "rename" ? <RenameDialog session={session} onClose={() => setDialog(null)} /> : null}
-      {dialog === "fork" ? <ForkDialog session={session} onClose={() => setDialog(null)} /> : null}
-      {dialog === "tree" ? <TreeDialog session={session} onClose={() => setDialog(null)} /> : null}
+      {dialog === "rename" ? <RenameDialog projectDir={projectPath} session={session} onClose={() => setDialog(null)} /> : null}
+      {dialog === "fork" ? <ForkDialog projectDir={projectPath} session={session} onClose={() => setDialog(null)} /> : null}
+      {dialog === "tree" ? <TreeDialog projectDir={projectPath} session={session} onClose={() => setDialog(null)} /> : null}
       {dialog === "export" ? (
         <ExportDialog path={exportPath} onClose={() => setDialog(null)} />
       ) : null}
@@ -257,7 +249,7 @@ function SessionItems({ actions }: { actions: SessionActions }) {
   );
 }
 
-function RenameDialog({ session, onClose }: { session: SessionSummary; onClose: () => void }) {
+function RenameDialog({ projectDir, session, onClose }: { projectDir: string; session: SessionSummary; onClose: () => void }) {
   const renameChat = useAppStore((s) => s.renameChat);
   const [name, setName] = useState(session.name ?? "");
   const [error, setError] = useState<string>();
@@ -265,10 +257,10 @@ function RenameDialog({ session, onClose }: { session: SessionSummary; onClose: 
 
   async function save() {
     const trimmed = name.trim();
-    if (!trimmed) return;
+    if (!trimmed || saving) return;
     setSaving(true);
     try {
-      const res = await renameChat(session.path, trimmed);
+      const res = await renameChat(session.path, trimmed, projectDir);
       if (res.ok) onClose();
       else setError(res.error ?? "Unable to rename this chat. Try again.");
     } finally {
@@ -309,9 +301,8 @@ function RenameDialog({ session, onClose }: { session: SessionSummary; onClose: 
   );
 }
 
-function ForkDialog({ session, onClose }: { session: SessionSummary; onClose: () => void }) {
+function ForkDialog({ projectDir, session, onClose }: { projectDir: string; session: SessionSummary; onClose: () => void }) {
   const forkChat = useAppStore((s) => s.forkChat);
-  const projectDir = useAppStore((s) => s.activeProjectPath);
   const [forkError, setForkError] = useState<string>();
   const [forking, setForking] = useState(false);
 
@@ -323,9 +314,10 @@ function ForkDialog({ session, onClose }: { session: SessionSummary; onClose: ()
   const error = forkError ?? request.data?.error ?? request.error ?? undefined;
 
   async function fork(entryId: string) {
+    if (forking) return;
     setForking(true);
     try {
-      const res = await forkChat(session.path, entryId);
+      const res = await forkChat(session.path, entryId, projectDir);
       if (res.ok) onClose();
       else setForkError(res.error ?? "Unable to fork this chat. Try again.");
     } finally {
@@ -369,8 +361,7 @@ function ForkDialog({ session, onClose }: { session: SessionSummary; onClose: ()
   );
 }
 
-function TreeDialog({ session, onClose }: { session: SessionSummary; onClose: () => void }) {
-  const projectDir = useAppStore((s) => s.activeProjectPath);
+function TreeDialog({ projectDir, session, onClose }: { projectDir: string; session: SessionSummary; onClose: () => void }) {
 
   const request = useRequest(
     async () => (projectDir ? await rpc.request.getTree({ projectDir, sessionFile: session.path }) : null),

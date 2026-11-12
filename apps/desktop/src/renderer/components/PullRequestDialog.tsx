@@ -38,11 +38,11 @@ export default function PullRequestDialog({ projectDir, onClose }: { projectDir:
   }, [projectDir]);
 
   async function createPullRequest() {
-    if (!projectDir || !title.trim()) return;
+    if (!projectDir || !title.trim() || busy || !target || target.blocker) return;
     setBusy(true);
     setError(null);
     try {
-      const result = await rpc.request.gitPushAndCreatePr({ projectDir, title, body });
+      const result = await rpc.request.gitPushAndCreatePr({ projectDir, title, body, expectedTarget: target });
       if (!result.ok) return setError(result.error ?? "GitHub CLI could not open the pull request.");
       if (result.url) window.open(result.url, "_blank", "noopener,noreferrer");
       onClose();

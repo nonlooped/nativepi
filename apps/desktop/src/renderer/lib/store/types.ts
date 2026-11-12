@@ -1,4 +1,5 @@
 import type {
+  HostEvents,
   AuthNotice,
   AuthProviderInfo,
   AuthPromptRequest,
@@ -80,7 +81,9 @@ export interface PendingMessage {
 }
 
 export interface AuthFlow {
+  flowId?: string;
   projectDir?: string;
+  sessionFile?: string | null;
   providerId: string;
   providerName: string;
   type: "api_key" | "oauth";
@@ -103,7 +106,8 @@ export interface WorkspaceSlice {
   removeProject: (path: string) => Promise<void>;
   selectProject: (path: string) => Promise<void>;
   selectAdjacentProject: (direction: 1 | -1) => Promise<void>;
-  restartPi: () => Promise<void>;
+  restartPi: (projectDir?: string) => Promise<void>;
+  restartAllPi: () => Promise<void>;
   onStatus: (projectDir: string, status: PiStatus) => void;
 }
 
@@ -129,6 +133,8 @@ export interface Conversation {
   pending: PendingMessage[];
   error?: string;
   errorRecovery?: ErrorRecovery;
+  /** Present only while the banner belongs to the model/levels reader. */
+  modelControlError?: true;
   externalChange: { sessionFile: string } | null;
 }
 
@@ -138,6 +144,7 @@ export interface ChatSlice {
   sessionLoadStates: Record<string, SessionLoadStatus>;
   activeSessionFile: string | null;
   isNewChat: boolean;
+  selectionVersion: number;
   pinnedChats: string[];
   /** Chats the user has removed from the focus queue, keyed by completion time. */
   finishedChats: Record<string, string>;
@@ -183,16 +190,17 @@ export interface ChatSlice {
   enqueue: (behavior: "steer" | "followUp") => Promise<void>;
   abort: () => void;
   abortRetry: () => void;
-  renameChat: (sessionFile: string, name: string) => Promise<{ ok: boolean; error?: string }>;
-  cloneChat: (sessionFile: string) => Promise<{ ok: boolean; error?: string }>;
-  deleteChat: (sessionFile: string) => Promise<{ ok: boolean; error?: string }>;
-  forkChat: (sessionFile: string, entryId: string) => Promise<{ ok: boolean; error?: string }>;
+  renameChat: (sessionFile: string, name: string, projectDir?: string) => Promise<{ ok: boolean; error?: string }>;
+  cloneChat: (sessionFile: string, projectDir?: string) => Promise<{ ok: boolean; error?: string }>;
+  deleteChat: (sessionFile: string, projectDir?: string) => Promise<{ ok: boolean; error?: string }>;
+  forkChat: (sessionFile: string, entryId: string, projectDir?: string) => Promise<{ ok: boolean; error?: string }>;
   compactActive: () => Promise<void>;
   reloadActiveSession: () => Promise<void>;
+  refreshSession: (projectDir: string, sessionFile: string) => Promise<void>;
   clearError: () => void;
 
-  onEvent: (payload: { projectDir: string; sessionFile?: string; event: PiEvent | PiEventBatch }) => void;
-  onPiError: (projectDir: string, message: string, sessionFile?: string) => void;
+  onEvent: (payload: { projectDir: string; sessionFile?: string; runtimeId?: string; sequence?: number; event: PiEvent | PiEventBatch }) => void;
+  onPiError: (projectDir: string, message: string, sessionFile?: string, runtimeId?: string) => void;
   onSessionChangedExternally: (payload: { projectDir: string; sessionFile: string }) => void;
 }
 
@@ -205,6 +213,9 @@ export interface ModelSlice {
   thinkingLevelReady: boolean;
   thinkingLevelVersion: number;
   thinkingLevels: ThinkingLevel[];
+  thinkingLevelsLoading: boolean;
+  thinkingLevelsError?: string;
+  refreshThinkingLevels: () => Promise<void>;
 
   setModel: (model: ModelInfo) => Promise<void>;
   toggleFavoriteModel: (model: ModelInfo) => void;
@@ -229,13 +240,14 @@ export interface AuthSlice {
   dismissTrust: () => void;
   revokeTrust: () => Promise<void>;
   promptTrust: () => void;
-  onAuthPrompt: (payload: { projectDir?: string; id: string; prompt: AuthPromptRequest }) => void;
-  onAuthNotice: (payload: { projectDir?: string; notice: AuthNotice }) => void;
+  onAuthPrompt: (payload: HostEvents["authPrompt"]) => void;
+  onAuthNotice: (payload: HostEvents["authNotice"]) => void;
 }
 
 /** What the project looks like right now: working tree, and loaded extensions. */
 export interface ProjectContextSlice {
   git: GitStatus | null;
+  gitRevision: number;
   /** The PR/MR (or, failing that, issue) for the current branch. `undefined` while loading. */
   repoHost: RepoHostContext | null | undefined;
   extPrompts: ExtensionPrompt[];
@@ -256,7 +268,7 @@ export interface ProjectContextSlice {
   switchBranch: (branch: string, create: boolean) => Promise<{ ok: boolean; error?: string }>;
   reloadExtensions: () => Promise<void>;
   respondExtension: (value: { value?: string; confirmed?: boolean; cancel?: boolean }) => void;
-  onTuiFrame: (payload: { projectDir: string; sessionFile?: string; frame: TuiHostFrame }) => void;
+  onTuiFrame: (payload: HostEvents["tuiFrame"]) => void;
 }
 
 /**

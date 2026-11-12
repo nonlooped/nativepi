@@ -24,6 +24,8 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
+import { attachTerminal } from "../lib/terminalAttachment.ts";
+import { createTerminalDock, type DockState } from "../lib/terminalDock.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 
 function columnForTextOffset(line: { length: number; getCell(index: number): { getChars(): string; getWidth(): number } | undefined }, offset: number) {
@@ -56,125 +58,28 @@ export default function TerminalDock({
   projectDir: string;
   onMinimize: () => void;
 }) {
-  const [terminals, setTerminals] = useState<TerminalSession[]>([]);
-  const [shells, setShells] = useState<ShellProfile[]>([]);
-  // Only a dock with no terminals at all reports through `error`, because that
-  // message replaces the whole panel. A shell that fails to open while others
-  // are running is a toast: tearing the panel down would dispose every live
-  // xterm to report that a new one did not start.
-  const [error, setError] = useState<string | null>(null);
-  const [closing, setClosing] = useState(false);
-  const [restarts, setRestarts] = useState<Record<string, number>>({});
+  const [state, setState] = useState<DockState>({ terminals: [], shells: [], error: null, closing: false, restarts: {} });
+  const { terminals, shells, error, closing, restarts } = state;
   const [confirmingKillAll, setConfirmingKillAll] = useState(false);
   const preferredShellId = useAppStore((s) => s.preferences.preferredShellId);
   const setPreference = useAppStore((s) => s.setPreference);
-
+  const controller = useRef<ReturnType<typeof createTerminalDock> | null>(null);
+  const preferredShell = useEffectEvent(() => preferredShellId || undefined);
+  const minimized = useEffectEvent(onMinimize);
   useEffect(() => {
-    let cancelled = false;
-    void rpc.request.terminalEnsure({ projectDir, shellId: preferredShellId || undefined }).then(
-      ({ terminals: next }) => {
-        if (!cancelled) setTerminals(next);
-      },
-      (reason: unknown) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
-      },
-    );
-    void rpc.request.terminalListShells({}).then(
-      ({ shells: next }) => {
-        if (!cancelled) setShells(next);
-      },
-      () => {},
-    );
-    const offExit = rpc.events.on("terminalExit", ({ projectDir: exitedProject, terminalId, exitCode }) => {
-      if (exitedProject !== projectDir) return;
-      setTerminals((current) =>
-        current.map((terminal) =>
-          terminal.id === terminalId ? { ...terminal, exited: true, exitCode } : terminal,
-        ),
-      );
-    });
-    const offRestart = rpc.events.on("terminalRestart", ({ projectDir: restartedProject, terminal }) => {
-      if (restartedProject !== projectDir) return;
-      setTerminals((current) => current.map((session) => (session.id === terminal.id ? terminal : session)));
-      // A restart keeps the terminal's id but empties its buffer in the main
-      // process, so the surface has to be rebuilt to drop the dead shell's
-      // scrollback. This counter is the only thing that says so — nothing else
-      // about the session changes.
-      setRestarts((current) => ({ ...current, [terminal.id]: (current[terminal.id] ?? 0) + 1 }));
-    });
-    return () => {
-      cancelled = true;
-      offExit();
-      offRestart();
-    };
-  }, [projectDir, preferredShellId]);
-
-  async function addSplit(shellId?: string, name?: string) {
-    try {
-      const { terminal } = await rpc.request.terminalCreate({ projectDir, shellId, name });
-      setTerminals((current) => [...current, terminal]);
-    } catch (reason) {
-      const message = reason instanceof Error ? reason.message : String(reason);
-      if (terminals.length === 0) setError(message);
-      else toast.error(`Could not open another shell: ${message}`);
-    }
-  }
-
-  async function duplicateSplit(session: TerminalSession) {
-    await addSplit(session.shellId, `${session.name} copy`);
-  }
-
-  async function restartSplit(terminalId: string) {
-    try {
-      const { terminal } = await rpc.request.terminalRestart({ projectDir, terminalId });
-      setTerminals((current) => current.map((session) => (session.id === terminalId ? terminal : session)));
-    } catch (reason) {
-      toast.error(reason instanceof Error ? reason.message : String(reason));
-    }
-  }
-
-  async function renameSplit(terminalId: string, name: string) {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    setTerminals((current) =>
-      current.map((session) => (session.id === terminalId ? { ...session, name: trimmed } : session)),
-    );
-    try {
-      await rpc.request.terminalRename({ projectDir, terminalId, name: trimmed });
-    } catch (reason) {
-      toast.error(reason instanceof Error ? reason.message : String(reason));
-    }
-  }
-
-  async function closeSplit(terminalId: string) {
-    if (closing) return;
-    setClosing(true);
-    try {
-      await rpc.request.terminalClose({ projectDir, terminalId });
-      const next = terminals.filter((terminal) => terminal.id !== terminalId);
-      setTerminals(next);
-      if (next.length === 0) onMinimize();
-      else setClosing(false);
-    } catch (reason) {
-      setClosing(false);
-      toast.error(reason instanceof Error ? reason.message : String(reason));
-    }
-  }
-
-  async function closeAll() {
-    if (closing) return;
-    setClosing(true);
-    try {
-      await Promise.all(
-        terminals.map((terminal) => rpc.request.terminalClose({ projectDir, terminalId: terminal.id })),
-      );
-      setTerminals([]);
-      onMinimize();
-    } catch (reason) {
-      setClosing(false);
-      toast.error(reason instanceof Error ? reason.message : String(reason));
-    }
-  }
+    const dock = createTerminalDock(projectDir, setState, minimized, message => toast.error(message));
+    controller.current = dock;
+    void dock.start(preferredShell());
+    const offExit = rpc.events.on("terminalExit", payload => { if (payload.projectDir === projectDir) dock.exited(payload.terminalId, payload.exitCode); });
+    const offRestart = rpc.events.on("terminalRestart", payload => { if (payload.projectDir === projectDir) dock.restarted(payload.terminal); });
+    return () => { controller.current = null; dock.dispose(); offExit(); offRestart(); };
+  }, [projectDir]);
+  const addSplit = (shellId?: string, name?: string) => controller.current?.create(shellId, name);
+  const duplicateSplit = (session: TerminalSession) => addSplit(session.shellId, `${session.name} copy`);
+  const restartSplit = (id: string) => controller.current?.restart(id);
+  const renameSplit = (id: string, name: string) => { if (name.trim()) void controller.current?.rename(id, name); };
+  const closeSplit = (id: string) => controller.current?.close(id);
+  const closeAll = () => controller.current?.close();
 
   return (
     <section aria-label="Integrated terminal" className="terminal-dock-enter flex h-full min-h-0 flex-col bg-background">
@@ -539,16 +444,12 @@ function TerminalSurface({
       },
     });
 
+    setAttachError(false);
     let disposed = false;
-    let snapshotSequence = -1;
-    let live = false;
-    const pending: { data: string; sequence: number }[] = [];
-    const offData = rpc.events.on("terminalData", (payload) => {
-      if (payload.projectDir !== projectDir || payload.terminalId !== terminalId) return;
-      updateWorkingDirectory(cwdRef, controlRef, payload.data);
-      if (live) terminal.write(payload.data);
-      else pending.push(payload);
-    });
+    const detach = attachTerminal(projectDir, terminalId, data => {
+      updateWorkingDirectory(cwdRef, controlRef, data);
+      terminal.write(data);
+    }, () => noticeIfAlreadyExited(terminal), () => setAttachError(true));
     const offExit = rpc.events.on("terminalExit", (payload) => {
       if (payload.projectDir !== projectDir || payload.terminalId !== terminalId) return;
       terminal.write(`\r\n[Process exited with code ${payload.exitCode}]\r\n`);
@@ -556,26 +457,6 @@ function TerminalSurface({
     const input = terminal.onData((data) => {
       void rpc.request.terminalWrite({ projectDir, terminalId, data });
     });
-
-    void rpc.request.terminalAttach({ projectDir, terminalId }).then(
-      ({ output, sequence }) => {
-        if (disposed) return;
-        snapshotSequence = sequence;
-        updateWorkingDirectory(cwdRef, controlRef, output);
-        terminal.write(output);
-        for (const item of pending) {
-          if (item.sequence > snapshotSequence) {
-            updateWorkingDirectory(cwdRef, controlRef, item.data);
-            terminal.write(item.data);
-          }
-        }
-        live = true;
-        noticeIfAlreadyExited(terminal);
-      },
-      () => {
-        if (!disposed) setAttachError(true);
-      },
-    );
 
     let frame = 0;
     const resize = () => {
@@ -607,9 +488,8 @@ function TerminalSurface({
       window.removeEventListener(THEME_CHANGE_EVENT, applyColors);
       input.dispose();
       linkProvider.dispose();
-      offData();
+      detach();
       offExit();
-      void rpc.request.terminalDetach({ projectDir, terminalId });
       terminal.dispose();
       terminalRef.current = null;
       fitRef.current = null;

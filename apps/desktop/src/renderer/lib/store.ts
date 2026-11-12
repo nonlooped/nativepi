@@ -7,7 +7,7 @@ import { createPiSettingsSlice } from "./store/piSettings.ts";
 import { createProjectContextSlice } from "./store/projectContext.ts";
 import { createUiSlice } from "./store/ui.ts";
 import { createWorkspaceSlice } from "./store/workspace.ts";
-import type { AppState } from "./store/types.ts";
+import type { AppState, SliceCreator } from "./store/types.ts";
 import { flushPersist } from "./store/internals.ts";
 
 /**
@@ -18,7 +18,7 @@ import { flushPersist } from "./store/internals.ts";
  * is not an isolation boundary: every slice is created with the same `set` and
  * `get`, so actions call across slices exactly as they did before.
  */
-export const useAppStore = create<AppState>((set, get) => ({
+export const createAppState: SliceCreator<AppState> = (set, get) => ({
   ...createWorkspaceSlice(set, get),
   ...createChatSlice(set, get),
   ...createModelSlice(set, get),
@@ -26,9 +26,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   ...createProjectContextSlice(set, get),
   ...createPiSettingsSlice(set, get),
   ...createUiSlice(set, get),
-}));
+});
 
-window.addEventListener?.("beforeunload", () => flushPersist(useAppStore.getState));
+export const useAppStore = create<AppState>(createAppState);
+
+window.addEventListener?.("beforeunload", () => { void flushPersist(useAppStore.getState).catch(() => {}); });
 
 /**
  * Route host events into the store.
@@ -40,8 +42,8 @@ window.addEventListener?.("beforeunload", () => flushPersist(useAppStore.getStat
  */
 rpc.events.on("piStatus", ({ projectDir, status }) => useAppStore.getState().onStatus(projectDir, status));
 rpc.events.on("piEvent", (payload) => useAppStore.getState().onEvent(payload));
-rpc.events.on("piError", ({ projectDir, sessionFile, message }) =>
-  useAppStore.getState().onPiError(projectDir, message, sessionFile),
+rpc.events.on("piError", ({ projectDir, sessionFile, message, runtimeId }) =>
+  useAppStore.getState().onPiError(projectDir, message, sessionFile, runtimeId),
 );
 rpc.events.on("sessionChangedExternally", (payload) =>
   useAppStore.getState().onSessionChangedExternally(payload),

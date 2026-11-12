@@ -9,26 +9,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field.tsx";
 import { cn } from "@/lib/utils.ts";
 
-/**
- * One settings screen's worth of layout.
- *
- * Every row is the same shape — a label, a sentence of explanation, and one
- * control on the right — so the shape lives here rather than being retyped in
- * nine panels. The rows carry the rules on purpose: a divider between settings
- * reads as a list, while a card around each one reads as nine unrelated widgets.
- *
- * The exception is a setting that has state of its own rather than just a value:
- * a link that is or is not being served, an extension that is or is not loaded,
- * an update that is or is not waiting. Those get `SettingsCard`, because a state
- * dot and an outcome need somewhere to live that a two-column row does not have.
- *
- * Buttons in either right-hand column are `size="xl"`. That is the 2.5rem form
- * scale DESIGN.md gives `input` and `button-form`, and it is what `Input`,
- * `SelectTrigger` and `Segmented` below already stand at — a shorter button in
- * the same column is visibly out of line with the row above it. Compact sizes
- * stay for section headers and inline row actions, which are not form controls.
- */
-
+// Settings controls use DESIGN.md's 2.5rem form scale; compact sizes are for section actions.
 export function SettingsSection({
   heading,
   description,
@@ -55,14 +36,7 @@ export function SettingsSection({
   );
 }
 
-/**
- * A single setting.
- *
- * `htmlFor` is required for controls that are focusable form elements and
- * omitted for the ones that are not, which is why the label element is chosen
- * rather than always rendered as one: a `<label for>` pointing at nothing is
- * worse for a screen reader than a plain paragraph.
- */
+/** Supply `htmlFor` when the control has a matching form-field ID. */
 function Row({
   label,
   description,
@@ -76,14 +50,7 @@ function Row({
   htmlFor?: string;
   /** Put the control on its own line, for anything wider than a few characters. */
   wide?: boolean;
-  /**
-   * Let the control column give width back to the label when it is too wide.
-   *
-   * Controls are fixed-width by default so they keep their proportions, but a
-   * row holding a URL or a filesystem path has a max-content width wider than
-   * the panel, and a column that cannot shrink makes the label absorb the whole
-   * overflow — one word per line beside a full-width link.
-   */
+  /** Allow long URLs and paths to shrink without squeezing out the label. */
   shrinkable?: boolean;
   children: React.ReactNode;
 }) {
@@ -109,9 +76,6 @@ function Row({
     );
   }
 
-  // Label and control sit side by side where there is room for both, and stack
-  // below it. A 14rem select next to a two-line explanation is what turns a
-  // settings list into two columns of four-character-wide text on a phone.
   return (
     <Field orientation="horizontal" className="flex flex-col gap-3 border-b border-border/70 py-5 first:pt-0 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
       {text}
@@ -188,13 +152,7 @@ export function SelectRow<T extends string>({
   );
 }
 
-/**
- * A small enumeration, all of it visible.
- *
- * A select hides every alternative behind a click, which is the right trade for
- * a long list and the wrong one for three words. Anything past four options, or
- * with labels longer than a couple of words, stays a `SelectRow`.
- */
+/** Prefer visible alternatives for up to four short labels. */
 export function ChoiceRow<T extends string>({
   label,
   description,
@@ -219,7 +177,6 @@ export function ChoiceRow<T extends string>({
 
 type SegmentedOption<T extends string> = { value: T; label: string; disabled?: boolean; title?: string };
 
-/** The segmented control itself, for the panels that need one outside a row. */
 export function Segmented<T extends string>({
   label,
   value,
@@ -263,12 +220,6 @@ export function Segmented<T extends string>({
   );
 }
 
-/**
- * A choice whose options are easier to recognize than to read.
- *
- * Conversation width and diff layout are both shapes, and a picture of the shape
- * settles the question faster than the sentence describing it does.
- */
 export function ChoiceCards<T extends string>({
   label,
   description,
@@ -282,10 +233,6 @@ export function ChoiceCards<T extends string>({
   options: { value: T; label: string; preview: React.ReactNode }[];
   onChange: (value: T) => void;
 }) {
-  // A radio group is a single tab stop the arrows move within. Declaring the
-  // roles without that behaviour promised an interaction the cards did not have,
-  // so the keyboard contract is implemented rather than the roles dropped: these
-  // are a picture of one setting's alternatives, which is what a radio group is.
   const move = (index: number, step: number) => {
     const next = options[(index + step + options.length) % options.length];
     if (next) onChange(next.value);
@@ -359,14 +306,7 @@ const TONE_TEXT = {
 
 export type CardTone = keyof typeof TONE_DOT;
 
-/**
- * A setting that is a thing rather than a value.
- *
- * The state line is the point: it says what is true right now, in colour and in
- * a word, so that the surrounding paragraph can be shorter or absent. `children`
- * holds whatever only exists once the thing is on — a link, a device list — and
- * is separated by a rule rather than a second card.
- */
+/** Stateful settings use a status line and optional detail below the action. */
 export function SettingsCard({
   icon,
   title,
@@ -456,15 +396,8 @@ export function SliderRow({
 }
 
 /**
- * A free-text setting, committed on blur rather than per keystroke.
- *
- * Every one of these writes a file, and half of them restart Pi; saving while
- * someone is halfway through typing a shell path would write a dozen invalid
- * ones on the way to the valid one.
- *
- * Unmounting counts as leaving the field. Closing Settings with Escape never
- * fires a blur, so a value typed and not tabbed out of used to be dropped
- * without a word.
+ * File-backed settings commit on blur or unmount, so partially typed paths are
+ * never saved per keystroke. Closing Settings with Escape need not fire blur.
  */
 export function TextRow({
   label,
@@ -482,16 +415,22 @@ export function TextRow({
   onCommit: (value: string) => void;
 }) {
   const id = useId();
-  const field = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const pending = useRef<{ source: string; typed: string } | null>(null);
   const commitOnUnmount = useEffectEvent(() => {
-    const typed = field.current?.value;
-    if (typed !== undefined && typed !== value) onCommit(typed);
+    const draft = pending.current;
+    pending.current = null;
+    if (draft && draft.source === value && draft.typed !== value) onCommit(draft.typed);
   });
 
   useEffect(() => () => commitOnUnmount(), []);
+  useEffect(() => { pending.current = null; }, [value]);
 
+  const edit = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    pending.current = { source: value, typed: event.currentTarget.value };
+  };
   const commit = (event: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (event.target.value !== value) onCommit(event.target.value);
+    pending.current = null;
+    if (event.currentTarget.value !== value) onCommit(event.currentTarget.value);
   };
 
   return (
@@ -500,10 +439,10 @@ export function TextRow({
         <Textarea
           id={id}
           key={value}
-          ref={field as React.Ref<HTMLTextAreaElement>}
           defaultValue={value}
           placeholder={placeholder}
           onBlur={commit}
+          onChange={edit}
           spellCheck={false}
           // `field-sizing: content` on the base component means it grows with
           // what is typed; `rows` would be ignored, so the floor is set here.
@@ -513,10 +452,10 @@ export function TextRow({
         <Input
           id={id}
           key={value}
-          ref={field as React.Ref<HTMLInputElement>}
           defaultValue={value}
           placeholder={placeholder}
           onBlur={commit}
+          onChange={edit}
           onKeyDown={(event) => {
             if (event.key === "Enter") event.currentTarget.blur();
           }}
@@ -528,7 +467,6 @@ export function TextRow({
   );
 }
 
-/** A setting whose control performs an action rather than holding a value. */
 export function ActionRow({
   label,
   description,
@@ -545,7 +483,6 @@ export function ActionRow({
   );
 }
 
-/** A value the user can read and copy but not edit, such as a path or a version. */
 export function ReadonlyRow({
   label,
   description,
@@ -560,8 +497,6 @@ export function ReadonlyRow({
   return (
     <Row label={label} description={description} shrinkable>
       <div className="flex min-w-0 items-center gap-2">
-        {/* A path or a version can be longer than a phone is wide, and it is the
-            one thing in the row the reader came to copy. */}
         <span className="min-w-0 break-all select-all font-mono text-xs text-muted-foreground">{value}</span>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>

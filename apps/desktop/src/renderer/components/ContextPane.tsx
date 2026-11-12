@@ -103,7 +103,7 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
           <PaneMessage>This folder is not a Git repository.</PaneMessage>
         ) : projectDir ? (
           <Suspense fallback={<PaneMessage>Loading source control…</PaneMessage>}>
-            <SourceControl projectDir={projectDir} git={git} onOpenPullRequest={() => setPullRequestOpen(true)} />
+            <SourceControl key={projectDir} projectDir={projectDir} git={git} onOpenPullRequest={() => setPullRequestOpen(true)} />
           </Suspense>
         ) : null}
         <ExtensionPanels />
@@ -111,7 +111,7 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
 
       {pullRequestOpen ? (
         <Suspense fallback={null}>
-          <PullRequestDialog projectDir={projectDir} onClose={() => setPullRequestOpen(false)} />
+          <PullRequestDialog key={projectDir} projectDir={projectDir} onClose={() => setPullRequestOpen(false)} />
         </Suspense>
       ) : null}
     </aside>

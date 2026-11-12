@@ -217,6 +217,13 @@ async function applyExtensionCompletion(
   const caret = caretOffset(element);
   if (caret === null) return;
   const before = serialize(element);
+  // Observe navigation while the provider works, including A -> B -> A.
+  let changedSession = false;
+  const unsubscribe = useAppStore.subscribe((state, previous) => {
+    if (state.selectionVersion !== previous.selectionVersion || state.activeProjectPath !== previous.activeProjectPath || state.activeSessionFile !== previous.activeSessionFile) {
+      changedSession = true;
+    }
+  });
   const { lines, cursorLine, cursorCol } = linesAt(before, caret);
 
   const reply = await rpc.request
@@ -229,9 +236,10 @@ async function applyExtensionCompletion(
       item: { value: option.value, label: option.label, description: option.detail || undefined },
       prefix: option.prefix,
     })
-    .catch(() => null);
+    .catch(() => null)
+    .finally(unsubscribe);
   const edit = reply?.edit;
-  if (!edit) return;
+  if (!edit || changedSession || !element.isConnected) return;
 
   // The provider was asked about the draft as it stood, and answers with the
   // whole draft rewritten. A provider slow enough for the user to have typed in

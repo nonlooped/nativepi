@@ -4,164 +4,179 @@ import { rpc } from "../rpc.ts";
 import { showHint } from "../toast.tsx";
 import { dropAllSurfaces, dropSurface, retainSurfaceHistory, writeSurface } from "../tuiSurfaces.ts";
 import { patchConversation } from "./conversation.ts";
-import { markGitRefreshed, persist } from "./internals.ts";
+import { markGitRefreshed, persist, runtime, observeRuntime } from "./internals.ts";
 import { NO_EXTENSION_UI_STATE, type ProjectContextSlice, type SliceCreator } from "./types.ts";
 
-export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set, get) => ({
-  git: null,
-  repoHost: undefined,
-  extPrompts: [],
-  extensionPromptsByProject: {},
-  extStatuses: {},
-  extWidgets: {},
-  extRenderers: [],
-  extLoadErrors: [],
-  extSurfaces: [],
-  extTriggers: [],
-  extUiState: NO_EXTENSION_UI_STATE,
+export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set, get) => {
+  let gitRead = 0;
+  let hostRead = 0;
+  return {
+    git: null,
+    gitRevision: 0,
+    repoHost: undefined,
+    extPrompts: [],
+    extensionPromptsByProject: {},
+    extStatuses: {},
+    extWidgets: {},
+    extRenderers: [],
+    extLoadErrors: [],
+    extSurfaces: [],
+    extTriggers: [],
+    extUiState: NO_EXTENSION_UI_STATE,
 
-  refreshGit: async () => {
-    const path = get().activeProjectPath;
-    if (!path) return;
-    markGitRefreshed();
-    const { status } = await rpc.request.gitStatus({ projectDir: path });
-    if (get().activeProjectPath !== path) return;
-    if (!status) return;
-    set({ git: status });
-    // First run only: a repo that already has changes is the one case where
-    // opening the pane unprompted tells the user something they wanted to know.
-    if (!get().contextPaneChosen && status.isRepo && status.files.length > 0) {
-      set({ contextPaneOpen: true, contextPaneChosen: true });
-      persist(get);
-    }
-  },
-
-  refreshRepoHost: async () => {
-    const path = get().activeProjectPath;
-    if (!path) return;
-    const { context } = await rpc.request.repoHostContext({ projectDir: path });
-    if (get().activeProjectPath !== path) return;
-    set({ repoHost: context });
-  },
-
-  switchBranch: async (branch, create) => {
-    const path = get().activeProjectPath;
-    if (!path) return { ok: false, error: "No project is open." };
-    const res = await rpc.request.gitCheckout({ projectDir: path, branch, create });
-    if (!res.ok) return res;
-    if (get().activeProjectPath === path) {
-      await get().refreshGit();
-      await get().refreshRepoHost();
-      showHint(branch);
-    }
-    return res;
-  },
-
-  // Extensions are loaded by Pi at startup, so a reload is a restart.
-  reloadExtensions: async () => get().restartPi(),
-
-  respondExtension: ({ value, confirmed, cancel }) => {
-    const s = get();
-    const current = s.extPrompts[0];
-    if (!current) return;
-    const { projectDir, sessionFile } = current;
-    const response = cancel
-      ? ({ type: "extension_ui_response", id: current.id, cancelled: true } as const)
-      : current.method === "confirm"
-        ? ({ type: "extension_ui_response", id: current.id, confirmed: confirmed ?? false } as const)
-        : ({ type: "extension_ui_response", id: current.id, value: value ?? "" } as const);
-    const prompts = s.extPrompts.slice(1);
-    set({
-      extPrompts: prompts,
-      extensionPromptsByProject: { ...s.extensionPromptsByProject, [projectDir]: prompts },
-    });
-    void rpc.request.extensionRespond({ projectDir, sessionFile, response });
-  },
-
-  /**
-   * Fold a pi-tui frame into the window.
-   *
-   * Drawing does not pass through here: `writeSurface` hands it to the pane's
-   * terminal, which is written to rather than re-rendered, and a store update per
-   * keystroke would re-render the window around it. What the store keeps is the
-   * list of surfaces to mount and the chrome an extension has changed.
-   *
-   * Only the project on screen is folded in, for the reason the extension prompts
-   * are: a background project's footer has nothing to attach to.
-   */
-  onTuiFrame: ({ projectDir, sessionFile, frame }) => {
-    if (projectDir !== get().activeProjectPath || (sessionFile ?? null) !== (get().activeSessionFile ?? null)) return;
-    switch (frame.type) {
-      // Keyed by id rather than appended: a resync re-announces surfaces the
-      // window may still be holding, and the same pane twice is not two panes.
-      case "nativepi_tui_open": {
-        const isDuplicate = get().extSurfaces.some((surface) => surface.id === frame.surface.id);
-        // A resync repeats open for a mounted surface. Dropping it would also
-        // drop xterm's active write listener, leaving the visible pane frozen.
-        // A different chat has already cleared all surfaces before it syncs, so
-        // only a genuinely new id needs its old replay buffer discarded.
-        if (!isDuplicate) dropSurface(frame.surface.id);
-        if (frame.surface.placement === "timeline") {
-          retainSurfaceHistory(frame.surface.id);
-          // Custom messages reach the host as `message_end` and are persisted
-          // without an `entry_appended` event, so the live transcript never sees
-          // their real entry id. The surface carries that id; put a stub in the
-          // transcript so EntryView can match it before the next session read.
-          const entryId = frame.surface.entryId;
-          const activeProject = get().activeProjectPath;
-          if (entryId && activeProject) {
-            patchConversation(set, activeProject, get().activeSessionFile, (conversation) => {
-              if (conversation.entries.some((entry) => entry.id === entryId)) return {};
-              return {
-                entries: [
-                  ...conversation.entries,
-                  {
-                    type: "custom_message",
-                    id: entryId,
-                    parentId: null,
-                    timestamp: new Date().toISOString(),
-                    customType: frame.surface.key,
-                    display: true,
-                  },
-                ],
-              };
-            });
-          }
-        }
-        set((s) => ({
-          extSurfaces: [...s.extSurfaces.filter((surface) => surface.id !== frame.surface.id), frame.surface],
-        }));
-        return;
+    refreshGit: async () => {
+      const path = get().activeProjectPath;
+      if (!path) return;
+      const version = ++gitRead;
+      markGitRefreshed(get);
+      let status;
+      try { ({ status } = await rpc.request.gitStatus({ projectDir: path })); } catch { return; }
+      if (get().activeProjectPath !== path || version !== gitRead) return;
+      if (!status) return;
+      set(s => ({ git: status, gitRevision: s.gitRevision + 1 }));
+      // First run only: a repo that already has changes is the one case where
+      // opening the pane unprompted tells the user something they wanted to know.
+      if (!get().contextPaneChosen && status.isRepo && status.files.length > 0) {
+        set({ contextPaneOpen: true, contextPaneChosen: true });
+        persist(get);
       }
-      case "nativepi_tui_write":
-        writeSurface(frame.surfaceId, frame.data);
-        return;
-      case "nativepi_tui_close":
-        dropSurface(frame.surfaceId);
-        set((s) => ({ extSurfaces: s.extSurfaces.filter((surface) => surface.id !== frame.surfaceId) }));
-        return;
-      case "nativepi_tui_reset":
-        dropAllSurfaces();
-        set({ extSurfaces: [], extTriggers: [], extUiState: NO_EXTENSION_UI_STATE });
-        return;
-      case "nativepi_tui_triggers":
-        set({ extTriggers: frame.characters });
-        return;
-      // A patch carries only the fields the extension set, and `null` is a value
-      // in three of them — "restore the default" — so absence is the only thing
-      // that means "leave this alone".
-      case "nativepi_tui_state":
-        set((s) => ({ extUiState: { ...s.extUiState, ...frame.state } }));
-        return;
-      // At the caret where there is one, which is what `pasteToEditor` means in
-      // the terminal: an extension completing a path mid-sentence is not asking
-      // for a new paragraph at the end of the draft.
-      case "nativepi_tui_paste":
-        if (!insertAtComposerCaret(frame.text)) get().insertIntoComposer(frame.text);
-        return;
-      case "nativepi_tui_ext_event":
-        dispatchExtensionEvent(frame.extension, frame.event, frame.payload);
-        return;
-    }
-  },
-});
+    },
+
+    refreshRepoHost: async () => {
+      const path = get().activeProjectPath;
+      if (!path) return;
+      const version = ++hostRead;
+      let context;
+      try { ({ context } = await rpc.request.repoHostContext({ projectDir: path })); } catch { return; }
+      if (get().activeProjectPath !== path) return;
+      if (version !== hostRead) return;
+      set({ repoHost: context });
+    },
+
+    switchBranch: async (branch, create) => {
+      const path = get().activeProjectPath;
+      if (!path) return { ok: false, error: "No project is open." };
+      let res;
+      try { res = await rpc.request.gitCheckout({ projectDir: path, branch, create }); } catch (error) { return { ok: false, error: error instanceof Error ? error.message : String(error) }; }
+      if (!res.ok) return res;
+      if (get().activeProjectPath === path) {
+        await get().refreshGit();
+        await get().refreshRepoHost();
+        showHint(branch);
+      }
+      return res;
+    },
+
+    // Extensions are loaded by Pi at startup, so a reload is a restart.
+    reloadExtensions: async () => get().restartPi(),
+
+    respondExtension: ({ value, confirmed, cancel }) => {
+      const s = get();
+      const current = s.extPrompts[0];
+      if (!current) return;
+      const { projectDir, sessionFile } = current;
+      const response = cancel
+        ? ({ type: "extension_ui_response", id: current.id, cancelled: true } as const)
+        : current.method === "confirm"
+          ? ({ type: "extension_ui_response", id: current.id, confirmed: confirmed ?? false } as const)
+          : ({ type: "extension_ui_response", id: current.id, value: value ?? "" } as const);
+      const prompts = s.extPrompts.slice(1);
+      set({
+        extPrompts: prompts,
+        extensionPromptsByProject: { ...s.extensionPromptsByProject, [projectDir]: prompts },
+      });
+      void rpc.request.extensionRespond({ projectDir, sessionFile, response });
+    },
+
+    /**
+     * Fold a pi-tui frame into the window.
+     *
+     * Drawing does not pass through here: `writeSurface` hands it to the pane's
+     * terminal, which is written to rather than re-rendered, and a store update per
+     * keystroke would re-render the window around it. What the store keeps is the
+     * list of surfaces to mount and the chrome an extension has changed.
+     *
+     * Only the project on screen is folded in, for the reason the extension prompts
+     * are: a background project's footer has nothing to attach to.
+     */
+    onTuiFrame: ({ projectDir, sessionFile: sourceSession, runtimeId, frame }) => {
+      const sessionFile = sourceSession ?? (runtimeId ? runtime(get).bindings.get(runtimeId) : undefined);
+      if (runtimeId && runtime(get).retired.has(runtimeId)) return;
+      if (runtimeId) observeRuntime(get, projectDir, sessionFile, runtimeId);
+      if (!sessionFile && runtime(get).blockedDrafts.has(projectDir)) return;
+      if (projectDir !== get().activeProjectPath || (sessionFile ?? null) !== (get().activeSessionFile ?? null)) return;
+      switch (frame.type) {
+        // Keyed by id rather than appended: a resync re-announces surfaces the
+        // window may still be holding, and the same pane twice is not two panes.
+        case "nativepi_tui_open": {
+          const isDuplicate = get().extSurfaces.some((surface) => surface.id === frame.surface.id);
+          // A resync repeats open for a mounted surface. Dropping it would also
+          // drop xterm's active write listener, leaving the visible pane frozen.
+          // A different chat has already cleared all surfaces before it syncs, so
+          // only a genuinely new id needs its old replay buffer discarded.
+          if (!isDuplicate) dropSurface(frame.surface.id);
+          if (frame.surface.placement === "timeline") {
+            retainSurfaceHistory(frame.surface.id);
+            // Custom messages reach the host as `message_end` and are persisted
+            // without an `entry_appended` event, so the live transcript never sees
+            // their real entry id. The surface carries that id; put a stub in the
+            // transcript so EntryView can match it before the next session read.
+            const entryId = frame.surface.entryId;
+            const activeProject = get().activeProjectPath;
+            if (entryId && activeProject) {
+              patchConversation(set, activeProject, get().activeSessionFile, (conversation) => {
+                if (conversation.entries.some((entry) => entry.id === entryId)) return {};
+                return {
+                  entries: [
+                    ...conversation.entries,
+                    {
+                      type: "custom_message",
+                      id: entryId,
+                      parentId: null,
+                      timestamp: new Date().toISOString(),
+                      customType: frame.surface.key,
+                      display: true,
+                    },
+                  ],
+                };
+              });
+            }
+          }
+          set((s) => ({
+            extSurfaces: [...s.extSurfaces.filter((surface) => surface.id !== frame.surface.id), frame.surface],
+          }));
+          return;
+        }
+        case "nativepi_tui_write":
+          writeSurface(frame.surfaceId, frame.data);
+          return;
+        case "nativepi_tui_close":
+          dropSurface(frame.surfaceId);
+          set((s) => ({ extSurfaces: s.extSurfaces.filter((surface) => surface.id !== frame.surfaceId) }));
+          return;
+        case "nativepi_tui_reset":
+          dropAllSurfaces();
+          set({ extSurfaces: [], extTriggers: [], extUiState: NO_EXTENSION_UI_STATE });
+          return;
+        case "nativepi_tui_triggers":
+          set({ extTriggers: frame.characters });
+          return;
+        // A patch carries only the fields the extension set, and `null` is a value
+        // in three of them — "restore the default" — so absence is the only thing
+        // that means "leave this alone".
+        case "nativepi_tui_state":
+          set((s) => ({ extUiState: { ...s.extUiState, ...frame.state } }));
+          return;
+        // At the caret where there is one, which is what `pasteToEditor` means in
+        // the terminal: an extension completing a path mid-sentence is not asking
+        // for a new paragraph at the end of the draft.
+        case "nativepi_tui_paste":
+          if (!insertAtComposerCaret(frame.text)) get().insertIntoComposer(frame.text);
+          return;
+        case "nativepi_tui_ext_event":
+          dispatchExtensionEvent(frame.extension, frame.event, frame.payload);
+          return;
+      }
+    },
+  };
+};

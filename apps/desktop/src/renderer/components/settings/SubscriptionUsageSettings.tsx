@@ -3,36 +3,13 @@ import { ChartDonutIcon } from "@phosphor-icons/react/ChartDonut";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { PlugsConnectedIcon } from "@phosphor-icons/react/PlugsConnected";
-import { z } from "zod";
+import { useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { useAppStore } from "../../lib/store.ts";
-import { rpc } from "../../lib/rpc.ts";
 import { useRequest } from "../../lib/useRequest.ts";
-import { createRequestCache } from "../../lib/requestCache.ts";
+import { createSubscriptionUsageReader, type SubscriptionUsage, type SubscriptionUsageLimit } from "./usageReads.ts";
 import { providerIconName } from "../../lib/providerIcons.ts";
 import BrandIcon from "../BrandIcon.tsx";
-
-const subscriptionUsageLimitSchema = z.object({
-  label: z.string(),
-  usedPercent: z.number().finite(),
-  resetAt: z.string().optional(),
-  windowSeconds: z.number().finite().positive().optional(),
-});
-
-const subscriptionUsageSchema = z.object({
-  provider: z.string(),
-  limits: z.array(subscriptionUsageLimitSchema),
-});
-
-const subscriptionUsageResultSchema = z.object({
-  usages: z.array(subscriptionUsageSchema).optional(),
-});
-
-type SubscriptionUsageLimit = z.infer<typeof subscriptionUsageLimitSchema>;
-type SubscriptionUsage = z.infer<typeof subscriptionUsageSchema>;
-type SubscriptionUsageResult = { usages: SubscriptionUsage[] };
-
-const usageCache = createRequestCache<string, SubscriptionUsageResult>();
 
 function providerLabel(provider: string) {
   return provider === "github-copilot"
@@ -77,7 +54,8 @@ function resetTitle(resetAt?: string) {
 }
 
 function pace(limit: SubscriptionUsageLimit) {
-  if (!limit.resetAt || !limit.windowSeconds) return undefined;
+  // The package accepts any finite window; pacing needs a positive duration.
+  if (!limit.resetAt || limit.windowSeconds === undefined || limit.windowSeconds <= 0) return undefined;
   const reset = Date.parse(limit.resetAt);
   if (Number.isNaN(reset)) return undefined;
   const windowMs = limit.windowSeconds * 1000;
@@ -98,35 +76,14 @@ export default function SubscriptionUsageSettings() {
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const projects = useAppStore((s) => s.projects);
   const projectDir = activeProjectPath ?? projects[0]?.path ?? null;
-  const cacheKey = `${projectDir ?? ""}\0${activeSessionFile ?? ""}`;
-
+  const sessionFile = activeProjectPath ? activeSessionFile : null;
+  const [usageReader] = useState(createSubscriptionUsageReader);
   const request = useRequest(
-    () => usageCache.load(cacheKey, async () => {
-      if (!projectDir) return { usages: [] };
-      const { result, error } = await rpc.request.callExtension({
-        projectDir,
-        sessionFile: activeSessionFile ?? null,
-        extension: "@nativepi/subscription-usage",
-        method: "usages",
-      });
-      if (error) throw new Error(error);
-      const parsed = subscriptionUsageResultSchema.safeParse(result);
-      if (!parsed.success) throw new Error("The subscription provider returned invalid usage data.");
-      const usages = (parsed.data.usages ?? []).map((usage) => ({
-        ...usage,
-        limits: usage.limits.toSorted((a, b) => b.usedPercent - a.usedPercent),
-      }));
-      usages.sort((a, b) => {
-        const aMax = a.limits.reduce((m, l) => Math.max(m, l.usedPercent), 0);
-        const bMax = b.limits.reduce((m, l) => Math.max(m, l.usedPercent), 0);
-        return bMax - aMax;
-      });
-      return { usages };
-    }),
-    [cacheKey],
+    () => usageReader.load(projectDir, sessionFile),
+    [projectDir, sessionFile],
   );
   const refresh = () => {
-    usageCache.invalidate(cacheKey);
+    usageReader.invalidate(projectDir, sessionFile);
     request.reload();
   };
 
@@ -185,6 +142,7 @@ export default function SubscriptionUsageSettings() {
 
       <p className="max-w-3xl text-xs leading-5 text-body-muted-foreground">
         Subscription limits are reported by each provider and read by Pi using your stored OAuth session. They are not invoices and may lag behind actual use.
+        {request.data ? ` Last read at ${new Date(request.data.observedAt).toLocaleTimeString()}. Refresh to check again.` : ""}
       </p>
     </div>
   );
@@ -206,7 +164,7 @@ function RefreshButton({ onRefresh, loading }: { onRefresh: () => void; loading:
 }
 
 function ProviderCard({ usage }: { usage: SubscriptionUsage }) {
-  const sorted = [...usage.limits].sort((a, b) => b.usedPercent - a.usedPercent);
+  const sorted = usage.limits;
   const mostConstrained = sorted[0];
   const remaining = mostConstrained ? Math.max(0, 100 - mostConstrained.usedPercent) : undefined;
 
