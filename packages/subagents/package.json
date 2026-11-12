@@ -46,18 +46,18 @@
     "@phosphor-icons/react": "^2.1.10"
   },
   "peerDependencies": {
-    "@earendil-works/pi-ai": "*",
-    "@earendil-works/pi-coding-agent": "^1.1.0",
-    "@earendil-works/pi-tui": "1.2.0",
+    "@earendil-works/pi-ai": "^1.5.2",
+    "@earendil-works/pi-coding-agent": "^1.5.2",
+    "@earendil-works/pi-tui": "1.5.2",
     "typebox": "*"
   },
   "devDependencies": {
-    "@earendil-works/pi-ai": "1.2.0",
-    "@earendil-works/pi-coding-agent": "1.2.0",
-    "@earendil-works/pi-tui": "1.2.0",
-    "@types/bun": "^1.4.3",
+    "@earendil-works/pi-ai": "1.5.2",
+    "@earendil-works/pi-coding-agent": "1.5.2",
+    "@earendil-works/pi-tui": "1.5.2",
+    "@types/bun": "^1.4.4",
     "@types/react": "^19.3.0",
-    "react": "^19.3.0",
+    "react": "^19.3.1",
     "typescript": "^7.0.2"
   }
 }

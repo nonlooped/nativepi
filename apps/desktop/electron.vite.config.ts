@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
-import { defineConfig, externalizeDepsPlugin } from "electron-vite";
+import { defineConfig } from "electron-vite";
 import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -15,9 +15,8 @@ const materialIcons = resolve(
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
     build: {
-      rollupOptions: {
+      rolldownOptions: {
         input: {
           index: resolve("src/main/index.ts"),
           // Pi runs in its own process, started from this second entry rather than
@@ -40,9 +39,8 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
     build: {
-      rollupOptions: {
+      rolldownOptions: {
         input: {
           index: resolve("src/preload/index.ts"),
         },
@@ -68,7 +66,7 @@ export default defineConfig({
       tailwindcss(),
     ],
     build: {
-      rollupOptions: {
+      rolldownOptions: {
         input: {
           index: resolve("src/renderer/index.html"),
         },
