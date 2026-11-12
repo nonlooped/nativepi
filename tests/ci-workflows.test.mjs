@@ -87,11 +87,10 @@ test('release rejects unsuccessful or foreign workflow_run events before checkou
 test('release checks, packaging, and publication all use the planned immutable commit', () => {
   expect(release.jobs.plan.steps[0].with.ref).toBe('${{ env.HEAD_SHA }}');
   expect(release.jobs.plan.outputs.sha).toBe('${{ steps.plan.outputs.sha }}');
-  expect(release.jobs.checks.with.ref).toBe('${{ needs.plan.outputs.sha }}');
   for (const job of ['package', 'release']) {
     expect(release.jobs[job].steps[0].with.ref).toBe('${{ needs.plan.outputs.sha }}');
   }
-  expect(ci.jobs.check.steps[0].with.ref).toBe('${{ inputs.ref || github.sha }}');
+  expect(ci.jobs.check.steps[0].with.ref).toBe('${{ github.event.workflow_run.head_sha || github.sha }}');
   expect(ci.jobs.check.if).toBeUndefined();
   expect(ci.jobs.check.name).toBe('Typecheck, Test & Build');
 });

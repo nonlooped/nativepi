@@ -31,11 +31,11 @@ mock.module("electron", () => ({
 app: { getPath: () => tmpdir() }, BrowserWindow: class {},
 dialog: {}, shell: {}, powerSaveBlocker: {},
 }));
-mock.module("electron-updater", () => ({ autoUpdater: {} }));
+mock.module("electron-updater", () => ({ default: { autoUpdater: {} } }));
 mock.module("node-pty", () => ({ spawn: () => { throw new Error("Unexpected terminal"); } }));
 
 const processes = [];
-mock.module("node:child_process", () => ({ ...childProcess, spawn: (_executable, args) => {
+mock.module("node:child_process", () => ({ ...childProcess, fork: (_executable, args) => {
 const proc = new EventEmitter();
 proc.stdout = new PassThrough();
 proc.stderr = new PassThrough();

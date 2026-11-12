@@ -23,6 +23,7 @@
     "build": "bun scripts/prepare-node-pty.mjs && electron-vite build",
     "typecheck": "tsc --noEmit",
     "package": "bun run build && electron-builder",
+    "test:unit": "bun run scripts/test-unit.ts",
     "test:dom": "bun run scripts/test-dom.ts"
   },
   "dependencies": {

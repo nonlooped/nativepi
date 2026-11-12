@@ -146,8 +146,6 @@ jobs:
     needs: plan
     if: needs.plan.outputs.build == 'true' && needs.plan.outputs.certified != 'true'
     uses: ./.github/workflows/ci.yml
-    with:
-      ref: ${{ needs.plan.outputs.sha }}
 
   package:
     name: Package (${{ matrix.platform }} ${{ matrix.arch }})

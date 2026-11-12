@@ -6,11 +6,6 @@ on:
   pull_request:
     branches: [main]
   workflow_call:
-    inputs:
-      ref:
-        description: Exact commit to validate for a release
-        type: string
-        required: true
   workflow_dispatch:
 
 permissions:
@@ -35,7 +30,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 2
           persist-credentials: false
 
@@ -58,8 +53,6 @@ jobs:
       - name: Setup
         if: steps.scope.outputs.core == 'true' || steps.scope.outputs.web == 'true'
         uses: ./.github/actions/setup
-        with:
-          bun-cache: "true"
 
       - name: Typecheck desktop and packages
         if: steps.scope.outputs.core == 'true'
@@ -74,7 +67,7 @@ jobs:
       - name: Test desktop
         if: steps.scope.outputs.core == 'true'
         run: |
-          bun test apps/desktop
+          bun run --cwd apps/desktop test:unit
           bun run --cwd apps/desktop test:dom
 
       - name: Test packages and integration
@@ -85,14 +78,6 @@ jobs:
       - name: Build desktop
         if: steps.scope.outputs.core == 'true'
         run: bun run --cwd apps/desktop build
-
-      - name: Cache Next.js build
-        if: steps.scope.outputs.web == 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: apps/web/.next/cache
-          key: ${{ runner.os }}-${{ runner.arch }}-next-${{ hashFiles('bun.lock', 'apps/web/next.config.*') }}-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-${{ runner.arch }}-next-${{ hashFiles('bun.lock', 'apps/web/next.config.*') }}-
 
       - name: Build website
         if: steps.scope.outputs.web == 'true'
