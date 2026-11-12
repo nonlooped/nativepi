@@ -1,91 +1,74 @@
+import { createFrameWriter } from "./frameWriter.ts";
 import { PassThrough } from "node:stream";
 import { AgentSession, main, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
-import { isTuiFrameType, tuiClientFrameSchema, type TuiClientFrame, type TuiHostFrame } from "../../../shared/tui-frames.ts";
+import { isTuiFrameType, tuiClientFrameSchema, type TuiClientFrame } from "../../../shared/tui-frames.ts";
 import { jsonValueSchema, type JsonValue } from "../../../shared/json.ts";
 import { toNotice, toPromptRequest } from "../../../shared/providerAuth.ts";
 import { shapeProviders } from "../../../shared/providerShape.ts";
 import type { ContextInspector } from "../../../shared/pi-types.ts";
 import { hostInternals, withTerminalUi, type HostInternals } from "./uiContext.ts";
 import { callExtensionMethod, installExtensionChannel, installExtensionMethodLifecycle } from "./extensionChannel.ts";
-
 /**
- * How NativePi starts Pi.
- *
- * This is Pi's own `rpc-entry` with two things done first, and it exists because
- * `runRpcMode` builds its extension UI context internally and takes no options.
- * Rather than reimplement RPC mode — six hundred lines of commands, session
- * replacement and trust that Pi maintains — the one line that matters is
- * intercepted: `bindExtensions` is where every mode installs its context, so
- * wrapping it layers the terminal half over Pi's without touching the rest.
- *
- * Everything else about RPC mode is unchanged, including session replacement,
- * which rebinds and therefore re-wraps on its own.
- */
-
+* How NativePi starts Pi.
+*
+* This is Pi's own `rpc-entry` with two things done first, and it exists because
+* `runRpcMode` builds its extension UI context internally and takes no options.
+* Rather than reimplement RPC mode — six hundred lines of commands, session
+* replacement and trust that Pi maintains — the one line that matters is
+* intercepted: `bindExtensions` is where every mode installs its context, so
+* wrapping it layers the terminal half over Pi's without touching the rest.
+*
+* Everything else about RPC mode is unchanged, including session replacement,
+* which rebinds and therefore re-wraps on its own.
+*/
 /**
- * stdout, before Pi takes it away.
- *
- * `runRpcMode` calls `takeOverStdout()`, which redirects `process.stdout.write`
- * to stderr so a stray `console.log` inside an extension cannot corrupt the
- * protocol. Frames have to go to the real stdout, so the real write is captured
- * at module load — the same thing Pi's own output guard does, in the same order.
- */
-const write = process.stdout.write.bind(process.stdout);
-
-/** Serialised, because two overlapping writes on a pipe interleave into garbage. */
-let tail: Promise<void> = Promise.resolve();
-
-function send(frame: TuiHostFrame): void {
-  const line = `${JSON.stringify(frame)}\n`;
-  tail = tail.then(
-    () =>
-      new Promise<void>((resolve) => {
-        // A full pipe reports EAGAIN on Windows rather than buffering; the retry
-        // is what Pi's own raw stdout writer does, for the same reason.
-        const attempt = () => {
-          try {
-            write(line, (error) => (error ? setTimeout(attempt, 10) : resolve()));
-          } catch {
-            setTimeout(attempt, 10);
-          }
-        };
-        attempt();
-      }),
-  );
-}
-
+* stdout, before Pi takes it away.
+*
+* `runRpcMode` calls `takeOverStdout()`, which redirects `process.stdout.write`
+* to stderr so a stray `console.log` inside an extension cannot corrupt the
+* protocol. Frames have to go to the real stdout, so the real write is captured
+* at module load — the same thing Pi's own output guard does, in the same order.
+*/
+const frames = createFrameWriter(process.stdout.write.bind(process.stdout), error => console.error("NativePi side channel closed", error));
+const send = frames.send;
+process.stdout.on("error", frames.handleError);
+process.stdout.once("close", () => frames.dispose());
+process.once("exit", () => frames.dispose());
 /**
- * The live extension UI context, and the composer state it answers with.
- *
- * Pi rebinds extensions whenever the session is replaced, so the context is not
- * stable for the life of the process. The composer text the window last reported
- * is replayed into the new one, because `getEditorText()` is synchronous and must
- * not start answering with an empty string just because the user switched chats.
- */
+* The live extension UI context, and the composer state it answers with.
+*
+* Pi rebinds extensions whenever the session is replaced, so the context is not
+* stable for the life of the process. The composer text the window last reported
+* is replayed into the new one, because `getEditorText()` is synchronous and must
+* not start answering with an empty string just because the user switched chats.
+*/
 let internals: HostInternals | undefined;
 let lastEditorFrame: TuiClientFrame | undefined;
-
 /**
- * The session currently bound to `internals`, tracked alongside it.
- *
- * `bindExtensions` is the only hook every mode calls into, so it is also where
- * this is captured — the only place that has `this: AgentSession` in hand,
- * whose `modelRuntime` is the only runtime that has run extension `activate()`.
- */
+* The session currently bound to `internals`, tracked alongside it.
+*
+* `bindExtensions` is the only hook every mode calls into, so it is also where
+* this is captured — the only place that has `this: AgentSession` in hand,
+* whose `modelRuntime` is the only runtime that has run extension `activate()`.
+*/
 let currentSession: AgentSession | undefined;
 let runtimePromise: Promise<ModelRuntime> | undefined;
 let authPromptSeq = 1;
-const pendingAuthPrompts = new Map<string, (result: { value?: string; cancel?: boolean }) => void>();
-
+const pendingAuthPrompts = new Map<string, (result: {
+  value?: string;
+  cancel?: boolean;
+}) => void>();
 function providerRuntime(): Promise<ModelRuntime> {
-  if (currentSession) return Promise.resolve(currentSession.modelRuntime);
-  if (!runtimePromise) runtimePromise = ModelRuntime.create({ allowModelNetwork: true });
+  if (currentSession)
+    return Promise.resolve(currentSession.modelRuntime);
+  if (!runtimePromise)
+    runtimePromise = ModelRuntime.create({ allowModelNetwork: true });
   return runtimePromise;
 }
-
 function handleClientFrame(frame: TuiClientFrame): void {
-  if (frame.type === "nativepi_tui_editor") lastEditorFrame = frame;
+  if (frame.type === "nativepi_tui_editor")
+    lastEditorFrame = frame;
   if (frame.type === "nativepi_tui_auth_respond") {
     pendingAuthPrompts.get(frame.id)?.(frame);
     return;
@@ -99,7 +82,7 @@ function handleClientFrame(frame: TuiClientFrame): void {
     return;
   }
   if (frame.type === "nativepi_tui_login") {
-    void respondLogin(frame.requestId, frame.providerId, frame.authType);
+    void respondLogin(frame.requestId, frame.providerId, frame.authType, frame.flowId);
     return;
   }
   if (frame.type === "nativepi_tui_logout") {
@@ -112,10 +95,10 @@ function handleClientFrame(frame: TuiClientFrame): void {
   }
   internals?.handle(frame);
 }
-
 async function respondContextInspector(requestId: string): Promise<void> {
   try {
-    if (!currentSession) throw new Error("No active Pi session");
+    if (!currentSession)
+      throw new Error("No active Pi session");
     const session = currentSession;
     const usage = session.getContextUsage();
     const inspector: ContextInspector = {
@@ -123,82 +106,81 @@ async function respondContextInspector(requestId: string): Promise<void> {
       contextWindow: usage?.contextWindow ?? session.model?.contextWindow ?? 0,
     };
     send({ type: "nativepi_tui_reply", requestId, data: jsonValueSchema.parse(inspector) });
-  } catch (err) {
+  }
+  catch (err) {
     send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
   }
 }
-
 async function respondProviders(requestId: string): Promise<void> {
   try {
     const providers = await shapeProviders(await providerRuntime());
     send({ type: "nativepi_tui_reply", requestId, data: jsonValueSchema.parse(providers) });
-  } catch (err) {
+  }
+  catch (err) {
     send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
   }
 }
-
-async function respondLogin(requestId: string, providerId: string, authType: "api_key" | "oauth"): Promise<void> {
+async function respondLogin(requestId: string, providerId: string, authType: "api_key" | "oauth", flowId?: string): Promise<void> {
   const promptIds = new Set<string>();
   try {
-    if (!currentSession) throw new Error("No active Pi session");
+    if (!currentSession)
+      throw new Error("No active Pi session");
     await currentSession.modelRuntime.login(providerId, authType, {
-      prompt: (prompt) =>
-        new Promise<string>((resolve, reject) => {
-          const id = `auth-${authPromptSeq++}`;
-          promptIds.add(id);
-          pendingAuthPrompts.set(id, ({ value, cancel }) => {
-            pendingAuthPrompts.delete(id);
-            if (cancel || value === undefined) reject(new Error("Login cancelled"));
-            else resolve(value);
-          });
-          send({ type: "nativepi_tui_auth_prompt", id, prompt: toPromptRequest(prompt) });
-        }),
-      notify: (event) => send({ type: "nativepi_tui_auth_notice", notice: toNotice(event) }),
+      prompt: (prompt) => new Promise<string>((resolve, reject) => {
+        const id = `auth-${authPromptSeq++}`;
+        promptIds.add(id);
+        pendingAuthPrompts.set(id, ({ value, cancel }) => {
+          pendingAuthPrompts.delete(id);
+          if (cancel || value === undefined)
+            reject(new Error("Login cancelled"));
+          else
+            resolve(value);
+        });
+        send({ type: "nativepi_tui_auth_prompt", flowId, id, prompt: toPromptRequest(prompt) });
+      }),
+      notify: (event) => send({ type: "nativepi_tui_auth_notice", flowId, notice: toNotice(event) }),
     });
     send({ type: "nativepi_tui_reply", requestId, data: true });
-  } catch (err) {
+  }
+  catch (err) {
     send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
-  } finally {
-    for (const id of promptIds) pendingAuthPrompts.delete(id);
+  }
+  finally {
+    for (const id of promptIds)
+      pendingAuthPrompts.delete(id);
   }
 }
-
 async function respondLogout(requestId: string, providerId: string): Promise<void> {
   try {
-    if (!currentSession) throw new Error("No active Pi session");
+    if (!currentSession)
+      throw new Error("No active Pi session");
     await currentSession.modelRuntime.logout(providerId);
     send({ type: "nativepi_tui_reply", requestId, data: true });
-  } catch (err) {
+  }
+  catch (err) {
     send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
   }
 }
-
-async function respondExtensionCall(
-  requestId: string,
-  extension: string,
-  method: string,
-  params: JsonValue | undefined,
-): Promise<void> {
+async function respondExtensionCall(requestId: string, extension: string, method: string, params: JsonValue | undefined): Promise<void> {
   try {
     send({ type: "nativepi_tui_reply", requestId, data: await callExtensionMethod(extension, method, params) });
-  } catch (err) {
+  }
+  catch (err) {
     send({ type: "nativepi_tui_reply", requestId, error: err instanceof Error ? err.message : String(err) });
   }
 }
-
 /**
- * Pi's stdin, minus our frames.
- *
- * Pi's RPC mode reads `process.stdin` and answers anything it cannot parse with
- * an error response, so frames cannot simply share the stream. They share the
- * pipe instead: this reader takes the lines addressed to the host and passes the
- * rest through untouched, so Pi sees exactly the protocol it documents.
- */
+* Pi's stdin, minus our frames.
+*
+* Pi's RPC mode reads `process.stdin` and answers anything it cannot parse with
+* an error response, so frames cannot simply share the stream. They share the
+* pipe instead: this reader takes the lines addressed to the host and passes the
+* rest through untouched, so Pi sees exactly the protocol it documents.
+*/
 function filterStdin(): void {
   const piStdin = new PassThrough();
   const source = process.stdin;
   let buffer = "";
-
   source.setEncoding("utf8");
   source.on("data", (chunk: string) => {
     buffer += chunk;
@@ -210,33 +192,41 @@ function filterStdin(): void {
       let parsed: unknown;
       try {
         parsed = JSON.parse(line.trim());
-      } catch {
+      }
+      catch {
         parsed = undefined;
       }
-      const type = (parsed as { type?: unknown } | undefined)?.type;
+      const type = (parsed as {
+        type?: unknown;
+      } | undefined)?.type;
       if (isTuiFrameType(type)) {
         const frame = tuiClientFrameSchema.safeParse(parsed);
-        if (frame.success) handleClientFrame(frame.data);
-      } else piStdin.write(`${line}\n`);
+        if (frame.success)
+          handleClientFrame(frame.data);
+      }
+      else
+        piStdin.write(`${line}\n`);
     }
   });
+  source.once("close", () => frames.dispose());
+  source.once("error", error => frames.dispose(error));
   source.on("end", () => {
-    if (buffer) piStdin.write(buffer);
+    frames.dispose();
+    if (buffer)
+      piStdin.write(buffer);
     piStdin.end();
   });
-
   // Pi reads `process.stdin` when RPC mode starts, and pauses it while a command
   // runs, so the property has to be the filtered stream rather than a copy.
   Object.defineProperty(process, "stdin", { value: piStdin, configurable: true });
 }
-
 function installUiContext(): void {
   installExtensionMethodLifecycle(AgentSession.prototype);
   const bind = AgentSession.prototype.bindExtensions;
-  AgentSession.prototype.bindExtensions = function patched(
-    this: AgentSession,
-    bindings: { uiContext?: ExtensionUIContext; mode?: string },
-  ) {
+  AgentSession.prototype.bindExtensions = function patched(this: AgentSession, bindings: {
+    uiContext?: ExtensionUIContext;
+    mode?: string;
+  }) {
     // A rebind replaces the context, so the panes the old one opened have to be
     // closed: their components belong to a session that no longer exists.
     internals?.dispose();
@@ -247,7 +237,8 @@ function installUiContext(): void {
       const wrapped = withTerminalUi(bindings.uiContext, { send });
       installed = hostInternals(wrapped);
       internals = installed;
-      if (lastEditorFrame) internals?.handle(lastEditorFrame);
+      if (lastEditorFrame)
+        internals?.handle(lastEditorFrame);
       // "tui" is what extensions guard `custom()` and component factories behind,
       // and with the surfaces above that guard is now true.
       const actions = (bindings as Parameters<typeof bind>[0]).commandContextActions;
@@ -260,7 +251,11 @@ function installUiContext(): void {
           commandContextActions: {
             ...actions,
             reload: async () => {
-              installed?.dispose();
+              // Pi rejects reload during response/compaction. Preserve the live
+              // UI and method registrations when that authoritative guard fires.
+              if (this.isStreaming || this.isCompacting)
+                return reload();
+              installed?.reset();
               await reload();
               installed?.bindSession(this);
             },
@@ -272,20 +267,20 @@ function installUiContext(): void {
       // Renderers are registered before bind, while session_start may append the
       // first custom entry during bind. Attach only after both are complete.
       installed?.bindSession(this);
-      if (this.sessionFile) send({ type: "nativepi_tui_session", sessionFile: this.sessionFile });
+      if (this.sessionFile)
+        send({ type: "nativepi_tui_session", sessionFile: this.sessionFile });
     });
   } as typeof bind;
 }
-
 /**
- * The one startup step `rpc-entry` does that `main` does not.
- *
- * Pi's entry point configures undici's global dispatcher before any request can
- * be made; `main` configures it again later with the user's idle timeout. The
- * module is not published in Pi's `exports` map, so it is reached the same way as
- * the keybindings manager, and skipped if that ever stops working — the cost is
- * undici's defaults for the first few seconds, not a broken process.
- */
+* The one startup step `rpc-entry` does that `main` does not.
+*
+* Pi's entry point configures undici's global dispatcher before any request can
+* be made; `main` configures it again later with the user's idle timeout. The
+* module is not published in Pi's `exports` map, so it is reached the same way as
+* the keybindings manager, and skipped if that ever stops working — the cost is
+* undici's defaults for the first few seconds, not a broken process.
+*/
 async function configureHttp(): Promise<void> {
   try {
     const index = import.meta.resolve("@earendil-works/pi-coding-agent");
@@ -293,19 +288,17 @@ async function configureHttp(): Promise<void> {
       configureHttpDispatcher?: () => void;
     };
     module.configureHttpDispatcher?.();
-  } catch {
+  }
+  catch {
   }
 }
-
 process.title = "nativepi-pi-host";
 process.env["PI_CODING_AGENT"] = "true";
 process.env["AI_AGENT"] = "pi";
 process.env["NATIVEPI_HOST"] = "1";
-process.emitWarning = () => {};
+process.emitWarning = () => { };
 filterStdin();
 installUiContext();
 // Before `main`, because extensions call `connect()` during activation.
 installExtensionChannel(send);
-void configureHttp().then(() =>
-  main(["--mode", "rpc", ...process.argv.slice(2)]),
-);
+void configureHttp().then(() => main(["--mode", "rpc", ...process.argv.slice(2)])).finally(() => frames.dispose());

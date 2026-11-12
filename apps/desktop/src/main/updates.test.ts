@@ -4,7 +4,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { UpdateState } from "../shared/rpc-schema.ts";
-
+const originalPlatform = process.platform;
+Object.defineProperty(process, "platform", { value: "linux" });
 const dataDir = mkdtempSync(join(tmpdir(), "nativepi-updates-"));
 let version = "1.15.0-nightly.202610091200";
 const updater = Object.assign(new EventEmitter(), {
@@ -16,24 +17,22 @@ const updater = Object.assign(new EventEmitter(), {
     updater.emit("update-not-available");
     return null;
   }),
-  quitAndInstall: mock((_silent: boolean, _restart: boolean) => {}),
+  quitAndInstall: mock((_silent: boolean, _restart: boolean) => { }),
 });
-
 mock.module("electron", () => ({
   app: { isPackaged: true, getVersion: () => version, getPath: () => dataDir },
 }));
-mock.module("electron-updater", () => ({ autoUpdater: updater }));
+mock.module("electron-updater", () => ({ default: { autoUpdater: updater } }));
 const { checkForUpdate, installUpdate, setUpdateChannel, startUpdates, updateState } = await import("./updates.ts");
-
 const changes: UpdateState[] = [];
 startUpdates((state) => changes.push(state));
-
 afterAll(() => {
+  Object.defineProperty(process, "platform", { value: originalPlatform });
   // Only the isolated directory created by this test; never Electron user data.
-  if (!dataDir.startsWith(join(tmpdir(), "nativepi-updates-"))) throw new Error("Invalid test directory");
+  if (!dataDir.startsWith(join(tmpdir(), "nativepi-updates-")))
+    throw new Error("Invalid test directory");
   rmSync(dataDir, { recursive: true, force: true });
 });
-
 test("a nightly install follows nightlies and downloads without disturbing the current run", async () => {
   await checkForUpdate();
   expect(updateState()).toEqual({ status: "idle", channel: "nightly" });
@@ -46,7 +45,6 @@ test("a nightly install follows nightlies and downloads without disturbing the c
   expect(updateState()).toEqual({ status: "downloading", channel: "nightly", version: "1.15.0-nightly.202610091300", percent: 32 });
   expect(updater.quitAndInstall).not.toHaveBeenCalled();
 });
-
 test("switching mid-download is rejected without changing the persisted channel", async () => {
   const checks = updater.checkForUpdates.mock.calls.length;
   await expect(setUpdateChannel("stable")).rejects.toThrow("Wait for the current update");
@@ -55,7 +53,6 @@ test("switching mid-download is rejected without changing the persisted channel"
   await checkForUpdate();
   expect(updater.checkForUpdates.mock.calls.length).toBe(checks);
 });
-
 test("leaving nightly discards a ready installer and checks stable even when stable is older", async () => {
   updater.emit("update-downloaded", { version: "1.15.0-nightly.202610091300" });
   const checks = updater.checkForUpdates.mock.calls.length;
@@ -74,7 +71,6 @@ test("leaving nightly discards a ready installer and checks stable even when sta
   installUpdate();
   expect(updater.quitAndInstall).toHaveBeenCalledWith(false, true);
 });
-
 test("a failed channel save keeps the downloaded installer and current preference", async () => {
   const file = join(dataDir, "update-channel.json");
   // A path occupied by a directory makes the actual file write fail on every platform.
@@ -84,11 +80,11 @@ test("a failed channel save keeps the downloaded installer and current preferenc
   expect(updateState().channel).toBe("stable");
   expect(updateState().status).toBe("ready");
   expect(updater.autoInstallOnAppQuit).toBeTrue();
-  if (file !== join(dataDir, "update-channel.json")) throw new Error("Invalid test channel path");
+  if (file !== join(dataDir, "update-channel.json"))
+    throw new Error("Invalid test channel path");
   rmSync(file, { recursive: true });
   writeFileSync(file, JSON.stringify({ channel: "stable" }));
 });
-
 test("stable installs opt into nightlies without permitting older releases", async () => {
   version = "1.14.0";
   await setUpdateChannel("nightly");
@@ -97,7 +93,6 @@ test("stable installs opt into nightlies without permitting older releases", asy
   expect(updater.allowDowngrade).toBeFalse();
   expect(changes.at(-1)?.channel).toBe("nightly");
 });
-
 test("a failed new-channel check cannot install an old-channel download on quit", async () => {
   updater.emit("update-downloaded", { version: "1.15.0-nightly.202610091300" });
   updater.checkForUpdates.mockImplementationOnce(async () => { throw new Error("GitHub is unreachable"); });
@@ -108,7 +103,6 @@ test("a failed new-channel check cannot install an old-channel download on quit"
   installUpdate();
   expect(updater.quitAndInstall.mock.calls.length).toBe(installations);
 });
-
 test("a saved channel survives restart and an invalid preference follows the installed build", async () => {
   const file = join(dataDir, "update-channel.json");
   for (const [installed, saved, expected] of [
@@ -126,7 +120,6 @@ test("a saved channel survives restart and an invalid preference follows the ins
     expect(updater.allowPrerelease).toBe(expected === "nightly");
   }
 });
-
 test("unsigned macOS builds offer both channels without downloading an unusable update", async () => {
   const platform = process.platform;
   const checks = updater.checkForUpdates.mock.calls.length;
@@ -146,7 +139,8 @@ test("unsigned macOS builds offer both channels without downloading an unusable 
     const installations = updater.quitAndInstall.mock.calls.length;
     installUpdate();
     expect(updater.quitAndInstall.mock.calls.length).toBe(installations);
-  } finally {
+  }
+  finally {
     Object.defineProperty(process, "platform", { value: platform });
   }
 });

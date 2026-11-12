@@ -6,80 +6,81 @@ import type { AuthProviderInfo } from "../../shared/rpc-schema.ts";
 import type { ContextInspector } from "../../shared/pi-types.ts";
 import { contextInspectorSchema } from "../../shared/tui-frames.ts";
 import { jsonValueSchema, type JsonValue } from "../../shared/json.ts";
-import { drainLines, serializeCommand, type PiCommand, type PiMessage } from "./protocol.ts";
-
+import { drainLines, type PiCommand, type PiMessage } from "./protocol.ts";
 /**
- * Why this is hand-rolled rather than Pi's own `RpcClient`.
- *
- * Pi exports an `RpcClient` covering every command below, and it is the obvious
- * thing to reach for. It cannot be used here: it spawns with a hardcoded
- * `spawn("node", [cliPath])`, and its options expose `cliPath`, `args` and `env`
- * but not the executable. A packaged Electron app has no system `node` to find,
- * so NativePi has to launch Pi through `process.execPath` with
- * `ELECTRON_RUN_AS_NODE` — see the constructor.
- *
- * `RpcClient` also has no equivalent of `sendRaw`, which extension UI responses
- * need in order to reply outside the request/response envelope — and neither it
- * nor Pi's protocol knows about the pi-tui frames NativePi carries on the same
- * pipe, which is the other half of what this class routes.
- */
-
+* Why this is hand-rolled rather than Pi's own `RpcClient`.
+*
+* Pi exports an `RpcClient` covering every command below, and it is the obvious
+* thing to reach for. It cannot be used here: it spawns with a hardcoded
+* `spawn("node", [cliPath])`, and its options expose `cliPath`, `args` and `env`
+* but not the executable. A packaged Electron app has no system `node` to find,
+* so NativePi has to launch Pi through `process.execPath` with
+* `ELECTRON_RUN_AS_NODE` — see the constructor.
+*
+* `RpcClient` also has no equivalent of `sendRaw`, which extension UI responses
+* need in order to reply outside the request/response envelope — and neither it
+* nor Pi's protocol knows about the pi-tui frames NativePi carries on the same
+* pipe, which is the other half of what this class routes.
+*/
 /**
- * NativePi's Pi entry point, resolved from the application root so main-process
- * code splitting cannot change where the launcher looks for it.
- *
- * Pi's own `rpc-entry` is not used: it builds an extension UI context that drops
- * every pi-tui component, and the context is not injectable. `pi-host` is that
- * entry plus the context that renders them — see `pi/host/entry.ts`.
- */
+* NativePi's Pi entry point, resolved from the application root so main-process
+* code splitting cannot change where the launcher looks for it.
+*
+* Pi's own `rpc-entry` is not used: it builds an extension UI context that drops
+* every pi-tui component, and the context is not injectable. `pi-host` is that
+* entry plus the context that renders them — see `pi/host/entry.ts`.
+*/
 function resolvePiEntry(): string {
   if (process.versions.electron) {
     // Requiring Electron under plain Node/Bun can download its binary.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const electron = require("electron") as { app?: { getAppPath: () => string } };
+    const electron = require("electron") as {
+      app?: {
+        getAppPath: () => string;
+      };
+    };
     const getAppPath = electron.app?.getAppPath;
-    if (getAppPath) return join(getAppPath.call(electron.app), "out", "main", "pi-host.js");
+    if (getAppPath)
+      return join(getAppPath.call(electron.app), "out", "main", "pi-host.js");
   }
   return fileURLToPath(new URL("./pi-host.js", import.meta.url));
 }
-
 let nextRequestId = 1;
-
 /** How long the composer waits for an extension's completions before giving up. */
 const FRAME_REQUEST_TIMEOUT_MS = 2000;
-const EXTENSION_CALL_TIMEOUT_MS = 30_000;
+const EXTENSION_CALL_TIMEOUT_MS = 30000;
 const STOP_TIMEOUT_MS = 5000;
-
 export class PiProcess {
   readonly projectDir: string;
   boundSessionFile: string | undefined;
   // Includes retry/compaction waits and queued continuations, until Pi settles.
   isRunning = false;
-
   private proc: ChildProcessWithoutNullStreams;
   private onEvent: (msg: PiMessage) => void;
   private onFrame: (frame: TuiHostFrame) => void;
-  private pending = new Map<string, { resolve: (data: unknown) => void; reject: (err: Error) => void }>();
-  private frameWaiters = new Map<string, { resolve: (data: unknown) => void; reject: (err: Error) => void }>();
+  private pending = new Map<string, {
+    resolve: (data: unknown) => void;
+    reject: (err: Error) => void;
+  }>();
+  private frameWaiters = new Map<string, {
+    resolve: (data: unknown) => void;
+    reject: (err: Error) => void;
+  }>();
   private buffer = "";
   private readonly ended: Promise<void>;
   private resolveEnded!: () => void;
   private stopping = false;
-
-  constructor(
-    projectDir: string,
-    onEvent: (msg: PiMessage) => void,
-    onExit: (code: number | null, error?: Error, expected?: boolean) => void,
-    onFrame: (frame: TuiHostFrame) => void = () => {},
-    args: string[] = [],
-  ) {
+  private terminalError?: Error;
+  private channelError?: Error;
+  private closed = false;
+  private stopTask?: Promise<void>;
+  constructor(projectDir: string, onEvent: (msg: PiMessage) => void, onExit: (code: number | null, error?: Error, expected?: boolean) => void, onFrame: (frame: TuiHostFrame) => void = () => { }, args: string[] = []) {
     this.projectDir = projectDir;
     this.onEvent = onEvent;
     this.onFrame = onFrame;
     this.ended = new Promise((resolve) => {
       this.resolveEnded = resolve;
     });
-
     // Electron's process.execPath is the Electron binary; ELECTRON_RUN_AS_NODE
     // makes it behave as plain Node so the Pi host entry runs correctly.
     this.proc = spawn(process.execPath, [resolvePiEntry(), ...args], {
@@ -88,42 +89,66 @@ export class PiProcess {
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
     });
-
     this.proc.stdout.setEncoding("utf8");
     this.proc.stdout.on("data", (chunk: string) => {
+      if (this.terminalError)
+        return;
       this.buffer += chunk;
       const { messages, rest } = drainLines(this.buffer);
       this.buffer = rest;
-      for (const msg of messages) this.dispatch(msg);
+      for (const msg of messages)
+        this.dispatch(msg);
     });
-
     this.proc.stderr.setEncoding("utf8");
     this.proc.stderr.on("data", (chunk: string) => {
-      if (chunk.trim()) console.error(`[pi ${projectDir}]`, chunk.trimEnd());
+      if (chunk.trim())
+        console.error(`[pi ${projectDir}]`, chunk.trimEnd());
     });
-
     let finished = false;
     const finish = (code: number | null, error?: Error) => {
-      if (finished) return;
+      if (finished)
+        return;
       finished = true;
+      this.closed = true;
       this.isRunning = false;
-      this.rejectAll(error ?? new Error(`Pi exited (${code ?? "?"})`));
+      this.terminalError ??= error ?? new Error(`Pi exited (${code ?? "?"})`);
+      this.rejectAll(this.terminalError);
       this.resolveEnded();
-      onExit(code, error, this.stopping);
+      onExit(code, error ?? this.channelError, this.stopping && !this.channelError);
     };
-    this.proc.on("error", (error) => finish(null, error));
-    this.proc.stdin.on("error", (error) => finish(null, error));
-    this.proc.on("exit", (code) => finish(code));
+    this.proc.on("error", (error) => {
+      this.channelError = error;
+      this.terminalError ??= error;
+      this.rejectAll(error);
+      if (!this.proc.pid)
+        finish(null, error);
+      else
+        void this.stop();
+    });
+    this.proc.stdin.on("error", (error) => {
+      if (this.stopping)
+        return;
+      this.channelError = error;
+      this.terminalError ??= error;
+      this.rejectAll(error);
+      void this.stop();
+    });
+    this.proc.on("close", (code) => finish(code));
   }
-
+  get hasPendingRequests(): boolean { return this.pending.size > 0 || this.frameWaiters.size > 0; }
+  get isAvailable(): boolean { return !this.stopping && !this.terminalError; }
   private dispatch(msg: PiMessage): void {
+    if (!this.isAvailable)
+      return;
     if (msg.type === "response") {
       const id = typeof msg["id"] === "string" ? (msg["id"] as string) : undefined;
       const waiter = id ? this.pending.get(id) : undefined;
       if (waiter && id) {
         this.pending.delete(id);
-        if (msg["success"] === false) waiter.reject(new Error(String(msg["error"] ?? "Pi command failed")));
-        else waiter.resolve(msg["data"]);
+        if (msg["success"] === false)
+          waiter.reject(new Error(String(msg["error"] ?? "Pi command failed")));
+        else
+          waiter.resolve(msg["data"]);
       }
       return;
     }
@@ -142,38 +167,40 @@ export class PiProcess {
         const waiter = this.frameWaiters.get(requestId);
         if (waiter) {
           this.frameWaiters.delete(requestId);
-          if (error) waiter.reject(new Error(error));
-          else waiter.resolve(data);
+          if (error)
+            waiter.reject(new Error(error));
+          else
+            waiter.resolve(data);
         }
         return;
       }
       this.onFrame(frame.data);
       return;
     }
-    if (msg.type === "agent_start") this.isRunning = true;
-    else if (msg.type === "agent_settled") this.isRunning = false;
+    if (msg.type === "agent_start")
+      this.isRunning = true;
+    else if (msg.type === "agent_settled")
+      this.isRunning = false;
     this.onEvent(msg);
   }
-
   send(command: PiCommand): void {
     this.write(command);
   }
-
   sendRaw(payload: object): void {
+    if (this.terminalError || this.stopping)
+      throw this.terminalError ?? new Error("Pi is stopping");
     this.proc.stdin.write(JSON.stringify(payload) + "\n");
   }
-
   sendFrame(frame: TuiClientFrame): void {
     this.sendRaw(frame);
   }
-
   /**
-   * Ask the host something and wait for the answer.
-   *
-   * Bounded rather than open-ended: the only caller is the composer's autocomplete
-   * menu, where an extension provider that hangs would otherwise hold the menu
-   * open on a promise that never settles while the user keeps typing.
-   */
+  * Ask the host something and wait for the answer.
+  *
+  * Bounded rather than open-ended: the only caller is the composer's autocomplete
+  * menu, where an extension provider that hangs would otherwise hold the menu
+  * open on a promise that never settles while the user keeps typing.
+  */
   frameRequest<T>(build: (requestId: string) => TuiClientFrame, timeoutMs = FRAME_REQUEST_TIMEOUT_MS): Promise<T> {
     const requestId = `f-${nextRequestId++}`;
     return new Promise<T>((resolve, reject) => {
@@ -186,106 +213,134 @@ export class PiProcess {
       }
       this.frameWaiters.set(requestId, {
         resolve: (data) => {
-          if (timer) clearTimeout(timer);
+          if (timer)
+            clearTimeout(timer);
           resolve(data as T);
         },
         reject: (error) => {
-          if (timer) clearTimeout(timer);
+          if (timer)
+            clearTimeout(timer);
           reject(error);
         },
       });
-      this.sendFrame(build(requestId));
+      try {
+        this.sendFrame(build(requestId));
+      }
+      catch (error) {
+        const waiter = this.frameWaiters.get(requestId);
+        this.frameWaiters.delete(requestId);
+        waiter?.reject(error instanceof Error ? error : new Error(String(error)));
+      }
     });
   }
-
   /**
-   * The active session's providers, including any an extension registered.
-   *
-   * Not a `PiCommand`: Pi's own RPC protocol has no such command, and
-   * `session.modelRuntime` only lives inside the Pi process, so this goes over
-   * the same frame side channel as extension UI rather than `request()`.
-   */
+  * The active session's providers, including any an extension registered.
+  *
+  * Not a `PiCommand`: Pi's own RPC protocol has no such command, and
+  * `session.modelRuntime` only lives inside the Pi process, so this goes over
+  * the same frame side channel as extension UI rather than `request()`.
+  */
   getProviders(): Promise<AuthProviderInfo[]> {
     return this.frameRequest<AuthProviderInfo[]>((requestId) => ({ type: "nativepi_tui_get_providers", requestId }));
   }
-
   getContextInspector(): Promise<ContextInspector> {
-    return this.frameRequest<unknown>((requestId) => ({ type: "nativepi_tui_get_context_inspector", requestId })).then(
-      (data) => contextInspectorSchema.parse(data),
-    );
+    return this.frameRequest<unknown>((requestId) => ({ type: "nativepi_tui_get_context_inspector", requestId })).then((data) => contextInspectorSchema.parse(data));
   }
-
-  loginProvider(providerId: string, authType: "api_key" | "oauth"): Promise<void> {
-    return this.frameRequest<true>(
-      (requestId) => ({ type: "nativepi_tui_login", requestId, providerId, authType }),
-      0,
-    ).then(() => undefined);
+  loginProvider(providerId: string, authType: "api_key" | "oauth", flowId?: string): Promise<void> {
+    return this.frameRequest<true>((requestId) => ({ type: "nativepi_tui_login", requestId, providerId, authType, flowId }), 0).then(() => undefined);
   }
-
   logoutProvider(providerId: string): Promise<void> {
-    return this.frameRequest<true>((requestId) => ({ type: "nativepi_tui_logout", requestId, providerId }), 0).then(
-      () => undefined,
-    );
+    return this.frameRequest<true>((requestId) => ({ type: "nativepi_tui_logout", requestId, providerId }), 0).then(() => undefined);
   }
-
   /**
-   * Call a method a graphical extension's Pi half registered.
-   *
-   * Given longer than the autocomplete round trip the default is sized for: a
-   * panel asking its extension for data can legitimately shell out or hit the
-   * network, where a completion menu cannot.
-   */
+  * Call a method a graphical extension's Pi half registered.
+  *
+  * Given longer than the autocomplete round trip the default is sized for: a
+  * panel asking its extension for data can legitimately shell out or hit the
+  * network, where a completion menu cannot.
+  */
   callExtension(extension: string, method: string, params: JsonValue | undefined): Promise<JsonValue> {
     if (!jsonValueSchema.safeParse(params).success && params !== undefined) {
       return Promise.reject(new Error("Extension call parameters must be a JSON value."));
     }
-    return this.frameRequest<JsonValue>(
-      (requestId) => ({ type: "nativepi_tui_ext_call", requestId, extension, method, ...(params === undefined ? {} : { params }) }),
-      EXTENSION_CALL_TIMEOUT_MS,
-    );
+    return this.frameRequest<JsonValue>((requestId) => ({ type: "nativepi_tui_ext_call", requestId, extension, method, ...(params === undefined ? {} : { params }) }), EXTENSION_CALL_TIMEOUT_MS);
   }
-
-  respondAuthPrompt(id: string, result: { value?: string; cancel?: boolean }): void {
+  respondAuthPrompt(id: string, result: {
+    value?: string;
+    cancel?: boolean;
+  }): void {
     this.sendFrame({ type: "nativepi_tui_auth_respond", id, ...result });
   }
-
   request<T = unknown>(command: PiCommand): Promise<T> {
     const id = `lc-${nextRequestId++}`;
     return new Promise<T>((resolve, reject) => {
       this.pending.set(id, { resolve: resolve as (d: unknown) => void, reject });
-      this.write({ ...command, id });
+      try {
+        this.write({ ...command, id });
+      }
+      catch (error) {
+        this.pending.delete(id);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
     });
   }
-
   private write(command: PiCommand): void {
-    this.proc.stdin.write(serializeCommand(command));
+    this.sendRaw(command);
   }
-
   private rejectAll(err: Error): void {
-    for (const waiter of this.pending.values()) waiter.reject(err);
+    for (const waiter of this.pending.values())
+      waiter.reject(err);
     this.pending.clear();
-    for (const waiter of this.frameWaiters.values()) waiter.reject(err);
+    for (const waiter of this.frameWaiters.values())
+      waiter.reject(err);
     this.frameWaiters.clear();
   }
-
-  async stop(): Promise<void> {
+  stop(): Promise<void> {
+    return this.stopTask ??= this.stopChild();
+  }
+  private async stopChild(): Promise<void> {
+    if (this.closed)
+      return;
     this.stopping = true;
+    this.terminalError ??= new Error("Pi is stopping");
+    this.rejectAll(this.terminalError);
     try {
       this.proc.stdin.end();
-    } catch {
     }
-    try {
-      if (!this.proc.killed) this.proc.kill();
-    } catch {}
-    const timedOut = await Promise.race([
-      this.ended.then(() => false),
-      new Promise<true>((resolve) => setTimeout(() => resolve(true), STOP_TIMEOUT_MS)),
-    ]);
-    if (timedOut) {
+    catch {
+    }
+    if (this.channelError) {
       try {
-        this.proc.kill("SIGKILL");
-      } catch {}
-      await this.ended;
+        this.proc.kill();
+      }
+      catch { }
+    }
+    const wait = async (ms: number): Promise<boolean> => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([
+          this.ended.then(() => false),
+          new Promise<true>(resolve => { timer = setTimeout(() => resolve(true), ms); }),
+        ]);
+      }
+      finally {
+        clearTimeout(timer);
+      }
+    };
+    // EOF lets Pi abort work, dispose extensions and settle credential writes on
+    // Windows too, where killing the child cannot provide a graceful signal.
+    if (await wait(STOP_TIMEOUT_MS)) {
+      try {
+        this.proc.kill();
+      }
+      catch { }
+      if (await wait(2000)) {
+        try {
+          this.proc.kill("SIGKILL");
+        }
+        catch { }
+        await this.ended;
+      }
     }
   }
 }
