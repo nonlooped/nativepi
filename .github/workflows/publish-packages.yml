@@ -17,7 +17,12 @@ concurrency:
 jobs:
   verify-main:
     name: Verify main and plan packages
-    runs-on: ubuntu-latest
+    if: >-
+      github.repository == 'nonlooped/nativepi' &&
+      (github.event_name != 'workflow_run' ||
+       (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       actions: read
@@ -30,7 +35,7 @@ jobs:
       # This step runs before any candidate code is checked out.
       - name: Verify successful main push CI
         id: verify
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const repository = `${context.repo.owner}/${context.repo.repo}`;
@@ -57,14 +62,15 @@ jobs:
             core.setOutput('sha', sha);
 
       - name: Checkout certified commit
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.verify.outputs.sha }}
           persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: ">=24.15.0 <25"
+          package-manager-cache: false
 
       - name: Plan unpublished versions
         id: plan
@@ -74,7 +80,7 @@ jobs:
     name: Publish extension API
     needs: verify-main
     if: needs.verify-main.outputs.api != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -83,17 +89,19 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.verify-main.outputs.api) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.verify-main.outputs.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: ">=24.15.0 <25"
+          package-manager-cache: false
           registry-url: https://registry.npmjs.org
-      # Trusted publishing needs npm 11.5.1 or newer.
-      - run: npm install -g npm@latest
-      - run: node scripts/publish-packages.mjs stage '${{ matrix.directory }}'
+      # Node >=24.15 ships npm >=11.12.1, which supports trusted publishing.
+      - run: node scripts/publish-packages.mjs stage "$PACKAGE_DIRECTORY"
+        env:
+          PACKAGE_DIRECTORY: ${{ matrix.directory }}
       - run: npm publish
         working-directory: ${{ matrix.directory }}
 
@@ -101,11 +109,11 @@ jobs:
     name: Publish ${{ matrix.package }}
     needs: [verify-main, publish-api]
     if: >-
-      always() &&
+      !cancelled() &&
       needs.verify-main.result == 'success' &&
       (needs.publish-api.result == 'success' || needs.publish-api.result == 'skipped') &&
       needs.verify-main.outputs.extensions != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -115,15 +123,17 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.verify-main.outputs.extensions) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.verify-main.outputs.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: ">=24.15.0 <25"
+          package-manager-cache: false
           registry-url: https://registry.npmjs.org
-      - run: npm install -g npm@latest
-      - run: node scripts/publish-packages.mjs stage '${{ matrix.directory }}'
+      - run: node scripts/publish-packages.mjs stage "$PACKAGE_DIRECTORY"
+        env:
+          PACKAGE_DIRECTORY: ${{ matrix.directory }}
       - run: npm publish
         working-directory: ${{ matrix.directory }}

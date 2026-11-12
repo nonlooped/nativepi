@@ -93,6 +93,16 @@ test("a nightly is planned only when app files changed since the last release", 
   assert.equal(nightly.prerelease, "true")
 })
 
+test("website-only changes do not package desktop nightlies, but force and shared changes still do", (t) => {
+  const { cwd, plan, commit } = fixture(t)
+  mkdirSync(join(cwd, "apps/web"), { recursive: true })
+  commit("apps/web/page.tsx", "website change")
+  assert.equal(plan("nightly").release, "false")
+  assert.equal(plan("nightly", "--force").release, "true")
+  commit("bun.lock", "shared dependency change")
+  assert.equal(plan("nightly").release, "true")
+})
+
 test("a manual nightly can be forced without app changes", (t) => {
   const { plan, git, run } = fixture(t)
   assert.equal(plan("nightly").release, "false")

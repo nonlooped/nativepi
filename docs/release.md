@@ -4,7 +4,10 @@ Add user-facing changes to [CHANGELOG.md](../CHANGELOG.md) under **Unreleased**;
 leave app versions unchanged. The [Release workflow](../.github/workflows/release.yml)
 owns version bumps, tags, and GitHub releases. Publication requires `main`,
 passing CI, and successful packaging on every supported platform. Published
-releases and assets are never overwritten.
+releases and assets are never overwritten. Planning, checks, packaging, and
+publication use the same immutable source commit. A successful main-push CI
+verdict avoids duplicate checks; otherwise packaging waits for the complete
+reusable CI run to pass. Failed or canceled checks cannot start packaging.
 
 | Channel | Trigger | Result |
 | --- | --- | --- |
@@ -13,8 +16,8 @@ releases and assets are never overwritten.
 | Build-only | Manual, from any ref | Installer artifacts retained for seven days; no publication or tag |
 
 Automatic nightlies require application changes since the nearest release tag
-and a 30-minute cooldown. Markdown, `docs/`, and `.github/` changes alone do not
-qualify. Scheduled runs do not retry a failed release for the same commit;
+and a 30-minute cooldown. Markdown, `docs/`, `.github/`, and website-only (`apps/web/`) changes do not
+qualify. Shared dependency changes still qualify. Scheduled runs do not retry a failed release for the same commit;
 retry manually or push a fix.
 
 ## Manual runs
@@ -33,6 +36,9 @@ bun run package --win --x64 --publish never
 # Linux: compile the terminal addon first, then use --linux --x64 or --linux --arm64:
 # bun run --cwd apps/desktop node-gyp rebuild --directory node_modules/node-pty
 ```
+
+Build-only runs have separate concurrency groups and do not displace queued
+publications.
 
 Output: `apps/desktop/release`. Installers are unsigned; macOS builds are also
 unnotarized and require manual updates.

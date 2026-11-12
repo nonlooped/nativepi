@@ -14,7 +14,7 @@ const VERSIONED_WORKSPACES = ["", "apps/desktop"]
 const STABLE = /^(\d+)\.(\d+)\.(\d+)$/
 const VERSION = /^\d+\.\d+\.\d+(-nightly\.\d+)?$/
 // Changes to these paths alone do not warrant a nightly build.
-const NON_APP_PATH = /^(docs\/|\.github\/)|\.md$/
+const NON_APP_PATH = /^(docs\/|\.github\/|apps\/web\/)|\.md$/
 
 /** Every stable release is the next minor version. */
 export function nextVersion(current) {
