@@ -1,4 +1,4 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { fork, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isTuiFrameType, tuiHostFrameSchema, type TuiClientFrame, type TuiHostFrame } from "../../shared/tui-frames.ts";
@@ -14,8 +14,8 @@ import { drainLines, type PiCommand, type PiMessage } from "./protocol.ts";
 * thing to reach for. It cannot be used here: it spawns with a hardcoded
 * `spawn("node", [cliPath])`, and its options expose `cliPath`, `args` and `env`
 * but not the executable. A packaged Electron app has no system `node` to find,
-* so NativePi has to launch Pi through `process.execPath` with
-* `ELECTRON_RUN_AS_NODE` — see the constructor.
+* so NativePi uses Electron's `fork`, which sets `ELECTRON_RUN_AS_NODE` and
+* selects its background helper executable on macOS — see the constructor.
 *
 * `RpcClient` also has no equivalent of `sendRaw`, which extension UI responses
 * need in order to reply outside the request/response envelope — and neither it
@@ -81,14 +81,15 @@ export class PiProcess {
     this.ended = new Promise((resolve) => {
       this.resolveEnded = resolve;
     });
-    // Electron's process.execPath is the Electron binary; ELECTRON_RUN_AS_NODE
-    // makes it behave as plain Node so the Pi host entry runs correctly.
-    this.proc = spawn(process.execPath, [resolvePiEntry(), ...args], {
+    // Electron's fork selects its LSUIElement helper on macOS. Spawning the main
+    // app binary instead makes each Pi host appear as a separate Dock app.
+    this.proc = fork(resolvePiEntry(), args, {
       cwd: projectDir,
       env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
-      stdio: ["pipe", "pipe", "pipe"],
+      execArgv: [],
+      silent: true,
       windowsHide: true,
-    });
+    }) as ChildProcessWithoutNullStreams;
     this.proc.stdout.setEncoding("utf8");
     this.proc.stdout.on("data", (chunk: string) => {
       if (this.terminalError)

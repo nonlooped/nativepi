@@ -12,7 +12,8 @@ class Child extends EventEmitter {
   event(value: unknown) { this.stdout.write(JSON.stringify(value) + "\n"); }
 }
 const children: Child[] = [];
-mock.module("node:child_process", () => ({ ...childProcess, spawn: () => { const child = new Child(); children.push(child); return child; } }));
+const fork = mock(() => { const child = new Child(); children.push(child); return child; });
+mock.module("node:child_process", () => ({ ...childProcess, fork }));
 const { PiProcess } = await import("./client.ts");
 function processFixture() {
   const events: unknown[] = [];
@@ -20,6 +21,17 @@ function processFixture() {
   const pi = new PiProcess("/temporary", event => events.push(event), (...args) => exits.push(args));
   return { pi, child: children.at(-1)!, events, exits };
 }
+test("Pi uses Electron's background fork with piped protocol streams and no inherited runtime flags", async () => {
+  const { pi } = processFixture();
+  expect(fork).toHaveBeenLastCalledWith(expect.stringContaining("pi-host.js"), [], {
+    cwd: "/temporary",
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+    execArgv: [],
+    silent: true,
+    windowsHide: true,
+  });
+  await pi.stop();
+});
 test("close drains final stdout then rejects every later request", async () => {
   const { pi, child, events, exits } = processFixture();
   child.emit("exit", 0);
