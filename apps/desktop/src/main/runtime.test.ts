@@ -95,7 +95,7 @@ class FakePi {
 }
 mock.module("electron", () => ({ app: { getPath: () => root }, BrowserWindow: class {
   }, dialog: {}, shell: {}, powerSaveBlocker: { start: () => 1, isStarted: () => true, stop: () => { } } }));
-mock.module("electron-updater", () => ({ autoUpdater: {} }));
+mock.module("electron-updater", () => ({ default: { autoUpdater: {} } }));
 mock.module("./pi/client.ts", () => ({ PiProcess: FakePi }));
 mock.module("./terminal.ts", () => ({
   attachTerminal: () => { attachments++; return { output: "snapshot", sequence: 7 }; }, detachTerminal: () => { attachments--; },

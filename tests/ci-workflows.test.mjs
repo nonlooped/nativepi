@@ -90,7 +90,8 @@ test('release checks, packaging, and publication all use the planned immutable c
   for (const job of ['package', 'release']) {
     expect(release.jobs[job].steps[0].with.ref).toBe('${{ needs.plan.outputs.sha }}');
   }
-  expect(ci.jobs.check.steps[0].with.ref).toBe('${{ github.event.workflow_run.head_sha || github.sha }}');
+  expect(ci.jobs.check.steps[0].with.ref).toBeUndefined();
+  expect(release.jobs.checks.if).toContain("needs.plan.outputs.certified != 'true'");
   expect(ci.jobs.check.if).toBeUndefined();
   expect(ci.jobs.check.name).toBe('Typecheck, Test & Build');
 });

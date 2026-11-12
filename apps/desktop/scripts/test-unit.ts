@@ -7,7 +7,8 @@ const files = [...new Bun.Glob("**/*.test.{ts,tsx,mjs}").scanSync({ cwd, onlyFil
 if (!files.length) throw new Error("No unit tests found.");
 let failed = false;
 for (const file of files) {
-  const result = Bun.spawnSync([process.execPath, "test", file], {
+  const preload = file.startsWith("src/renderer/lib/store/") ? ["--preload", "./src/renderer/lib/store/testBridge.ts"] : [];
+  const result = Bun.spawnSync([process.execPath, "test", ...preload, file], {
     cwd, stdin: "inherit", stdout: "inherit", stderr: "inherit",
   });
   if (result.exitCode !== 0) failed = true;
