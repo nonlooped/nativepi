@@ -78,14 +78,10 @@ pi install -l ./relative/project-package`}
           sign-in flow, so the same setup works in its command line.
         </p>
         <p>
-          Prefer Pi&apos;s built-in support for new connections. If you use the
-          optional <code>@nativepi/mcp</code> connection editor, disable Pi&apos;s
-          built-in MCP extension with <code>{'"extensions": ["-builtin:mcp"]'}</code>{" "}
-          in Pi settings to avoid connecting each server twice. Add that exclusion
-          alongside existing entries. This package&apos;s graphical editor is under
-          <strong> Settings → Extensions → MCP servers</strong>; it exposes tools
-          but does not implement Pi&apos;s built-in OAuth, resources, prompts, or
-          tool search. Remove the exclusion when returning to the built-in support.
+          The former NativePi MCP package has been retired. Remove it with
+          <code> pi remove npm:@nativepi/mcp</code> and remove any
+          <code> -builtin:mcp</code> exclusion from Pi settings. Existing
+          <code> mcp.json</code> server definitions remain usable.
         </p>
         <p>
           See Pi&apos;s{" "}

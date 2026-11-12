@@ -1,4 +1,8 @@
+import { excludeRetiredPackages } from "./retiredPackages.ts";
+import { installServiceTier } from "./serviceTier.ts";
+import { observeChatTitle } from "./chatTitle.ts";
 import { createFrameWriter } from "./frameWriter.ts";
+import { fileURLToPath } from "node:url";
 import { PassThrough } from "node:stream";
 import { AgentSession, main, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
@@ -12,14 +16,15 @@ import { callExtensionMethod, installExtensionChannel, installExtensionMethodLif
 /**
 * How NativePi starts Pi.
 *
-* This is Pi's own `rpc-entry` with two things done first, and it exists because
+* This runs Pi's own RPC mode and adds its terminal UI bridge, plus the shipped
+* app tools, naming, and provider service-tier controls. The bridge exists because
 * `runRpcMode` builds its extension UI context internally and takes no options.
 * Rather than reimplement RPC mode — six hundred lines of commands, session
 * replacement and trust that Pi maintains — the one line that matters is
 * intercepted: `bindExtensions` is where every mode installs its context, so
 * wrapping it layers the terminal half over Pi's without touching the rest.
 *
-* Everything else about RPC mode is unchanged, including session replacement,
+* Pi still owns RPC commands and the agent loop, including session replacement,
 * which rebinds and therefore re-wraps on its own.
 */
 /**
@@ -53,6 +58,8 @@ let lastEditorFrame: TuiClientFrame | undefined;
 * whose `modelRuntime` is the only runtime that has run extension `activate()`.
 */
 let currentSession: AgentSession | undefined;
+let stopTitleObserver: (() => void) | undefined;
+let stopServiceTier: (() => void) | undefined;
 let runtimePromise: Promise<ModelRuntime> | undefined;
 let authPromptSeq = 1;
 const pendingAuthPrompts = new Map<string, (result: {
@@ -67,6 +74,17 @@ function providerRuntime(): Promise<ModelRuntime> {
   return runtimePromise;
 }
 function handleClientFrame(frame: TuiClientFrame): void {
+  if (frame.type === "nativepi_tui_accept_title") {
+    try {
+      const session = currentSession;
+      const accepted = Boolean(session && session.sessionFile === frame.sessionFile && !session.sessionManager.getSessionName());
+      if (accepted) session!.setSessionName(frame.title);
+      send({ type: "nativepi_tui_reply", requestId: frame.requestId, data: accepted });
+    } catch (error) {
+      send({ type: "nativepi_tui_reply", requestId: frame.requestId, error: String(error) });
+    }
+    return;
+  }
   if (frame.type === "nativepi_tui_editor")
     lastEditorFrame = frame;
   if (frame.type === "nativepi_tui_auth_respond") {
@@ -222,6 +240,17 @@ function filterStdin(): void {
 }
 function installUiContext(): void {
   installExtensionMethodLifecycle(AgentSession.prototype);
+  const dispose = AgentSession.prototype.dispose;
+  AgentSession.prototype.dispose = function () {
+    if (currentSession === this) {
+      stopTitleObserver?.();
+      stopTitleObserver = undefined;
+      stopServiceTier?.();
+      stopServiceTier = undefined;
+      currentSession = undefined;
+    }
+    dispose.call(this);
+  };
   const bind = AgentSession.prototype.bindExtensions;
   AgentSession.prototype.bindExtensions = function patched(this: AgentSession, bindings: {
     uiContext?: ExtensionUIContext;
@@ -231,6 +260,14 @@ function installUiContext(): void {
     // closed: their components belong to a session that no longer exists.
     internals?.dispose();
     internals = undefined;
+    if (currentSession !== this) {
+      stopServiceTier?.();
+      stopServiceTier = process.argv.includes("--no-session") ? undefined : installServiceTier(this);
+      stopTitleObserver?.();
+      stopTitleObserver = process.argv.includes("--no-session") ? undefined : observeChatTitle(this, (sessionFile, title) => {
+        send({ type: "nativepi_tui_propose_title", sessionFile, title });
+      });
+    }
     currentSession = this;
     let installed: HostInternals | undefined;
     if (bindings.uiContext) {
@@ -298,7 +335,9 @@ process.env["AI_AGENT"] = "pi";
 process.env["NATIVEPI_HOST"] = "1";
 process.emitWarning = () => { };
 filterStdin();
+excludeRetiredPackages();
 installUiContext();
 // Before `main`, because extensions call `connect()` during activation.
 installExtensionChannel(send);
-void configureHttp().then(() => main(["--mode", "rpc", ...process.argv.slice(2)])).finally(() => frames.dispose());
+const appTools = fileURLToPath(new URL("./app-tools.js", import.meta.url));
+void configureHttp().then(() => main(["--mode", "rpc", ...(process.argv.includes("--no-session") ? [] : ["-e", appTools]), ...process.argv.slice(2)])).finally(() => frames.dispose());

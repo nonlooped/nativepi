@@ -1,11 +1,8 @@
 import { test, expect } from "bun:test";
-import { subscribeState as mcp } from "../packages/mcp/renderer/state.ts";
 import { subscribeState as subagents } from "../packages/subagents/renderer/state.ts";
-import { subscribeState as titles } from "../packages/title-generator/renderer/state.ts";
-import { subscribeState as tiers } from "../packages/service-tier/renderer/state.ts";
 
 type Subscribe = (channel: { call: () => Promise<unknown>; on: (event: string, listener: (value: unknown) => void) => () => void }, apply: (value: unknown) => void, fail: (error: unknown) => void) => () => void;
-for (const [name, subscribe] of Object.entries({ mcp, subagents, titles, tiers }) as Array<[string, Subscribe]>) {
+for (const [name, subscribe] of Object.entries({ subagents }) as Array<[string, Subscribe]>) {
   test(`${name} ignores a delayed snapshot/error after a newer event, and ignores unmounted results`, async () => {
     for (const reject of [false, true]) {
       const pending = Promise.withResolvers<unknown>();

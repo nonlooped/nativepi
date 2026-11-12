@@ -117,6 +117,8 @@ export const tuiCompletionEditSchema = z.object({
 export type TuiCompletionEdit = z.infer<typeof tuiCompletionEditSchema>;
 /** Frames the Pi host writes to the app. */
 export const tuiHostFrameSchema = z.discriminatedUnion("type", [
+  /** Naming proposes a title; the main process authorizes the session write. */
+  z.object({ type: z.literal("nativepi_tui_propose_title"), sessionFile: z.string().min(1).max(32767), title: z.string().min(1).max(80) }),
   /** Keeps main-process routing aligned when an extension replaces the session. */
   z.object({ type: z.literal("nativepi_tui_session"), sessionFile: z.string().min(1).max(32767) }),
   z.object({ type: z.literal("nativepi_tui_open"), surface: surfaceSchema }),
@@ -165,6 +167,7 @@ export const tuiHostFrameSchema = z.discriminatedUnion("type", [
 export type TuiHostFrame = z.infer<typeof tuiHostFrameSchema>;
 /** Frames the app writes to the Pi host. */
 export const tuiClientFrameSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("nativepi_tui_accept_title"), requestId: z.string().min(1).max(64), sessionFile: z.string().min(1).max(32767), title: z.string().min(1).max(80) }),
   z.object({ type: z.literal("nativepi_tui_input"), surfaceId: z.string().min(1).max(64), data: z.string().max(4096) }),
   z.object({
     type: z.literal("nativepi_tui_resize"),
