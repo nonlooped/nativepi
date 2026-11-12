@@ -11,7 +11,7 @@ export function serviceTiers(model?: { provider: string; api: string } | null): 
 }
 export function recordedServiceTier(entries: readonly unknown[]): string {
   for (const value of entries.toReversed()) {
-    if (!value || typeof value !== "object" || !("type" in value) || value.type !== "custom" || !("customType" in value) || value.customType !== SERVICE_TIER_ENTRY || !("data" in value)) continue;
+    if (!value || typeof value !== "object" || !("type" in value) || value.type !== "custom" || !("customType" in value) || (value.customType !== SERVICE_TIER_ENTRY && value.customType !== "service-tier") || !("data" in value)) continue;
     const data = value.data;
     if (!data || typeof data !== "object" || !("tier" in data)) continue;
     if (data.tier === "fast") return "priority";

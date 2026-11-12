@@ -9,7 +9,8 @@ test("limits tiers by provider and transport, without a stale model list", () =>
   expect(serviceTiers({ provider: "anthropic", api: "anthropic-messages" })).toEqual(["auto", "standard_only"]);
 });
 test("restores prior package choices and ignores malformed entries", () => {
-  expect(recordedServiceTier([entry("fast")])).toBe("priority");
+  expect(recordedServiceTier([{ ...entry("fast"), customType: "service-tier" }])).toBe("priority");
+  expect(recordedServiceTier([{ ...entry("standard"), customType: "service-tier" }, entry("priority")])).toBe("priority");
   expect(recordedServiceTier([entry("standard")])).toBe("default");
   expect(recordedServiceTier([entry("priority"), entry("bad"), null])).toBe("priority");
 });

@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - Refresh the README for the current workspace, settings, Git tools, Pi extensions, and browser access; replace outdated imagery with full-resolution isolated-demo screenshots and distinguish development from released builds.
 
+### Fixed
+- Load providers for new chats after opening a project without trust, and restore service tiers saved by the retired extension.
+
 ### Changed
 - Remove reserved macOS traffic-light spacing in fullscreen and restore it when leaving fullscreen.
 - Temporarily replace the website with an under-construction notice and redirect documentation links while content and screenshots are refreshed.

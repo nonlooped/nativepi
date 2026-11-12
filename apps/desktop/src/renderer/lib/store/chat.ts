@@ -372,7 +372,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
       set({ models: [], model: undefined, providers: [], providersLoaded: false, thinkingLevels: [], thinkingLevelsLoading: true, thinkingLevelsError: undefined });
       reportActiveDraft(get);
       const trust = get().trust;
-      if (projectDir && !coldSubmits.has(projectDir) && trust && (!trust.required || trust.trusted)) void warmProject(set, get, projectDir).catch(() => {});
+      if (projectDir && !coldSubmits.has(projectDir) && trust && !get().trustPrompt) void warmProject(set, get, projectDir).catch(() => {});
     },
 
     newChatIn: async (projectDir) => {

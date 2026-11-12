@@ -537,3 +537,24 @@ test("delayed history cannot overwrite messages streamed while it loads", async 
 
   expect(useAppStore.getState().conversations["chat.jsonl"]?.entries).toHaveLength(1);
 });
+
+
+test("new chat loads providers after opening without project trust", async () => {
+  let providersRequested = false;
+  stubInvoke(async channel => {
+    if (channel === "getSessionProviders") { providersRequested = true; return { providers: [] }; }
+    if (channel === "loadGraphicalExtensions") return { extensions: [] };
+    if (channel === "getModels") return { models: [] };
+    if (channel === "getThinkingLevels") return { levels: [] };
+    return {};
+  });
+  useAppStore.setState({ activeProjectPath: "A:\\untrusted", trust: { required: true, trusted: false }, trustPrompt: null });
+  useAppStore.getState().newChat();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(providersRequested).toBe(true);
+  providersRequested = false;
+  useAppStore.setState({ trustPrompt: { projectPath: "A:\\untrusted" } });
+  useAppStore.getState().newChat();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(providersRequested).toBe(false);
+});
