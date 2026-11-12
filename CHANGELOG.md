@@ -7,10 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- Refresh the README for the current workspace, settings, Git tools, Pi extensions, and browser access; replace outdated imagery with full-resolution isolated-demo screenshots and distinguish development from released builds.
+
 ### Changed
+- Remove reserved macOS traffic-light spacing in fullscreen and restore it when leaving fullscreen.
+- Temporarily replace the website with an under-construction notice and redirect documentation links while content and screenshots are refreshed.
+- Align control and menu sizes, strengthen page and detail hierarchy, and adapt Settings grids and workspace headers to their pane width. Keep long select labels clear of checkmarks, bound popovers, and correct scaled composer and terminal alignment.
+- Use a monochrome NativePi palette across light and dark appearances, with consistent surface, text, border, status, chart, diff, and icon hierarchy.
+- Unify desktop typography with a shared type scale, consistent dialog and settings headings, readable transcript tables and inline code, and aligned usage figures.
+- Rebuild the file browser and dedicated diff viewer with bounded Git reads, explicit oversized-diff states, refresh, and stage/unstage actions; open files in the preferred external editor.
+- Remove the project trust badge from workspace chrome and use panel-outline icons for terminal and right-sidebar controls.
+- Simplify the terminal dock to a compact corner toolbar with side-by-side and stacked splits, new-terminal and close controls; repair macOS terminal helper permissions during setup and builds so shells can start.
+- Refine the model picker with provider-grouped rows, compact provider filtering, and a reasoning dropdown; add Baseten, Meta, Typesafe, and Qwen individual China provider marks.
+- Remove the composer context inspector, use a paperclip to attach images and local file mentions, and add workspace and branch switchers below the composer.
+- Keep thread titles on one line, discover local project icons with initial fallbacks, show the current project branch, remove the Focus heading, and consolidate search, filtering, and creation into one sidebar toolbar.
+- Give active thread cards a compact title/status line and a project/branch line with a restrained provider mark; keep compact finished threads at the bottom when space allows.
+- Increase the compact wordmark and sidebar collapse icon together, preserving equal macOS spacing and vertical alignment.
+- Give the macOS traffic lights, sidebar toggle, and wordmark equal spacing.
+- Refine workspace chrome with a compact wordmark, consistent sidebar controls, a search-led toolbar, and a project/chat breadcrumb.
+- Default the threads sidebar to 304px and persist resized widths in pixels, preventing it from expanding with large windows. Older percentage widths adopt the new default.
+- Balance Settings proportions on large displays, use more of the content pane, and unify setting groups with aligned controls, quieter descriptions, and spacing that adapts to the pane width.
+- Widen the Settings sidebar and replace its heading with a compact search field that filters pages by name, group, and description.
+- Give Settings pages relevant sidebar icons, distinguish category headings with smaller uppercase labels and separators, and replace Back actions with a persistent top-right close button.
+- Give Settings more screen space and group focused pages under Interface, Pi, and Application, with direct navigation to keyboard, terminal, general, and about controls.
+- Simplify new chats to a heading and composer, guide unconnected users to Providers, reduce Settings to a smaller overlay with fixed navigation, and refine modal spacing and confirmation copy.
+- Replace the onboarding panel with a simple project opener, enlarge shared buttons, and default new interface-scale preferences to 110%. Add Command/Ctrl +/− and 0 shortcuts for saved interface scaling.
+- Refine popup, pane, hover, and icon motion; add brief feedback for run status, queued messages, attachments, and compact disclosures.
 - Bundle Pi 1.5.2 and update maintained direct desktop, website, extension, and build dependencies to their latest stable versions.
+- Polish pass: add a focus halo to the composer, key-cap shortcut hints with macOS glyphs, uppercase section labels in the sidebar, a cleaner search and project-picker input without the boxed focus ring, a full-width "Worked for" divider, label-style table and code-block headers, a hairline ring on your message bubbles, a jump-to-latest arrow pill, a richer welcome state, and a short staggered entrance for the welcome and new-chat screens that follows the reduced-motion setting.
 
 ### Fixed
+- Keep the collapsed-sidebar toggle and NativePi wordmark aligned and sized consistently with the expanded sidebar, including macOS traffic-light alignment at different interface scales.
+- Ignore clicks on the current sidebar thread instead of reloading its conversation and resetting its controls.
+- Prevent the new-thread screen from flashing while switching between existing threads or loading another project's conversation.
+- Keep per-thread Pi hosts in the background on macOS instead of showing separate `nativepi-pi-host` Dock apps.
+- Align the macOS sidebar wordmark and collapse button with the native traffic lights, including at different interface scales.
+- Show the NativePi wordmark only once across the sidebar and empty workspace headers.
+- Apply motion preferences consistently to chart tooltips, terminal cursors, download progress, and extension working indicators.
+- Avoid unnecessary desktop nightlies for website-only changes.
+- Package releases from the exact validated commit and stop packaging when required checks fail or are canceled.
 - Keep older session reads from overriding newer chat selection or turn state, save restored drafts and extension editor changes across chat switches, and save drafts before confirmed quit or update installation.
 - Keep image preparation and retries attached to the right chat when creating or switching conversations.
 - Preserve Pi settings edits and restart notices across overlapping saves, Settings navigation, and failed restarts.

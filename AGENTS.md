@@ -6,18 +6,18 @@ macOS, and Linux. It is a wrapper, not an agent harness.
 ## Task-specific context
 
 - [PRODUCT.md](apps/desktop/PRODUCT.md): product scope and ownership boundaries.
-- [DESIGN.md](apps/desktop/DESIGN.md): desktop UI and visual conventions.
 - [CONTRIBUTING.md](CONTRIBUTING.md): setup, checks, and contribution conventions.
 - [docs/release.md](docs/release.md): packaging and release operations.
 
 ## Pi boundary
 
 Pi owns agent behavior, configuration, authentication, tools, extensions, and
-sessions. Call Pi and present its results; do not add NativePi-owned LLM requests
-or agent tools. NativePi may add app features and start ordinary turns, but must
+sessions. Call Pi and present its results. NativePi ships chat naming, the
+ask_user tool, and service-tier controls through Pi APIs; these are explicit
+app features. Do not add other NativePi-owned LLM requests or agent tools. NativePi may add app features and start ordinary turns, but must
 not change model context, tool execution, or
 sequence work between runs. The same prompt and Pi configuration should behave
-similarly in the CLI and NativePi. Additional agent capabilities belong in
+similarly in the CLI and NativePi. Other additional agent capabilities belong in
 separately installable Pi extension packages usable in both.
 
 Pi session files are the conversation source of truth. Persist only
