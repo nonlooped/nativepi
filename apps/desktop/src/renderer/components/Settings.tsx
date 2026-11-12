@@ -1,70 +1,71 @@
-import { lazy, Suspense, useEffect, useState } from "react";
-import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
-import { BrainIcon } from "@phosphor-icons/react/Brain";
-import { ChartLineUpIcon } from "@phosphor-icons/react/ChartLineUp";
-import { DesktopTowerIcon } from "@phosphor-icons/react/DesktopTower";
-import { PaintBrushIcon } from "@phosphor-icons/react/PaintBrush";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
+import { Input } from "@/components/ui/input.tsx";
+import { PaletteIcon } from "@phosphor-icons/react/Palette";
+import { ColumnsIcon } from "@phosphor-icons/react/Columns";
+import { KeyboardIcon } from "@phosphor-icons/react/Keyboard";
 import { PlugsConnectedIcon } from "@phosphor-icons/react/PlugsConnected";
+import { BrainIcon } from "@phosphor-icons/react/Brain";
 import { PuzzlePieceIcon } from "@phosphor-icons/react/PuzzlePiece";
+import { ChartLineUpIcon } from "@phosphor-icons/react/ChartLineUp";
+import { SlidersHorizontalIcon } from "@phosphor-icons/react/SlidersHorizontal";
+import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
+import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
+import { InfoIcon } from "@phosphor-icons/react/Info";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { XIcon } from "@phosphor-icons/react/X";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { StopIcon } from "@phosphor-icons/react/Stop";
-import { ToolboxIcon } from "@phosphor-icons/react/Toolbox";
-import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { Button } from "@/components/ui/button.tsx";
-import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.tsx";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet.tsx";
-import { DRAG_REGION, NO_DRAG_REGION, TRAFFIC_LIGHTS_CLEARANCE, WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
-import { useWorkspaceLayout } from "../lib/layout.ts";
-import LeftSidebar from "./LeftSidebar.tsx";
+import { NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 
 const AccessSettings = lazy(() => import("./settings/AccessSettings.tsx"));
 const AgentSettings = lazy(() => import("./settings/AgentSettings.tsx"));
 const AppearanceSettings = lazy(() => import("./settings/AppearanceSettings.tsx"));
 const ExtensionsManager = lazy(() => import("./ExtensionsManager.tsx"));
 const ProviderSettings = lazy(() => import("./settings/ProviderSettings.tsx"));
-const SystemSettings = lazy(() => import("./settings/SystemSettings.tsx"));
+const GeneralSettings = lazy(() => import("./settings/GeneralSettings.tsx"));
+const AboutSettings = lazy(() => import("./settings/AboutSettings.tsx"));
 const UsageSettings = lazy(() => import("./settings/UsageSettings.tsx"));
-const WorkbenchSettings = lazy(() => import("./settings/WorkbenchSettings.tsx"));
+const TerminalSettings = lazy(() => import("./settings/TerminalSettings.tsx"));
+const KeybindSettings = lazy(() => import("./settings/KeybindSettings.tsx"));
 
-/** Eight task-oriented destinations, ordered from everyday choices to maintenance. */
+/** Sidebar headings group focused pages, rather than adding another navigation layer. */
 export const CATEGORIES = [
-  { name: "Appearance", icon: PaintBrushIcon, blurb: "Theme, layout, diffs, scale, and motion." },
-  { name: "Providers", icon: PlugsConnectedIcon, blurb: "Connect the model providers Pi can use." },
-  { name: "Agent", icon: BrainIcon, blurb: "Everyday defaults for how Pi runs a turn." },
-  { name: "Usage", icon: ChartLineUpIcon, blurb: "Local costs, tokens, and provider subscription limits." },
-  { name: "Extensions", icon: PuzzlePieceIcon, blurb: "Install and manage packages that extend Pi." },
-  { name: "Workbench", icon: ToolboxIcon, blurb: "Terminal preferences and keyboard shortcuts." },
-  { name: "Access", icon: WifiHighIcon, blurb: "Open this workspace from another device." },
-  { name: "System", icon: DesktopTowerIcon, blurb: "Startup, notifications, updates, diagnostics, and files." },
+  { name: "Theme & motion", icon: PaletteIcon, group: "Interface", blurb: "Colors and animation." },
+  { name: "Layout & diffs", icon: ColumnsIcon, group: "Interface", blurb: "Interface scale, conversation width, and file changes." },
+  { name: "Keyboard", icon: KeyboardIcon, group: "Interface", blurb: "Shortcuts for the workspace." },
+  { name: "Providers", icon: PlugsConnectedIcon, group: "Pi", blurb: "Connect the model providers Pi can use." },
+  { name: "Behavior", icon: BrainIcon, group: "Pi", blurb: "Reasoning, reliability, images, and project trust." },
+  { name: "Extensions", icon: PuzzlePieceIcon, group: "Pi", blurb: "Packages that extend Pi." },
+  { name: "Usage", icon: ChartLineUpIcon, group: "Pi", blurb: "Local costs, tokens, and subscription limits." },
+  { name: "General", icon: SlidersHorizontalIcon, group: "Application", blurb: "Startup and notifications." },
+  { name: "Terminal", icon: TerminalWindowIcon, group: "Application", blurb: "The integrated terminal and Pi’s shell." },
+  { name: "Access", icon: WifiHighIcon, group: "Application", blurb: "Open this workspace from another device." },
+  { name: "About", icon: InfoIcon, group: "Application", blurb: "Updates, diagnostics, and local files." },
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number]["name"];
-
-/** Categories backed by Pi's settings file, which is read when the screen opens. */
-const PI_BACKED = new Set<Category>(["Agent", "Workbench"]);
-
-function isCategory(value: string | null): value is Category {
-  return CATEGORIES.some((category) => category.name === value);
+const PI_BACKED = new Set<Category>(["Behavior", "Terminal", "Keyboard"]);
+const LEGACY_PAGES: Record<string, Category> = {
+  Appearance: "Theme & motion", Agent: "Behavior", Workbench: "Terminal", System: "General",
+};
+export function settingsPage(value: string | null): Category {
+  return CATEGORIES.find((page) => page.name === value)?.name
+    ?? (value ? LEGACY_PAGES[value] : undefined) ?? "Theme & motion";
 }
 
 export default function Settings() {
   const closeSettings = useAppStore((s) => s.closeSettings);
   const loadPiSettings = useAppStore((s) => s.loadPiSettings);
   const initialCategory = useAppStore((s) => s.settingsCategory);
-  const [category, setCategory] = useState<Category>(isCategory(initialCategory) ? initialCategory : "Appearance");
+  const [category, setCategory] = useState<Category>(settingsPage(initialCategory));
 
   useEffect(() => {
-    if (isCategory(initialCategory)) setCategory(initialCategory);
+    if (initialCategory) setCategory(settingsPage(initialCategory));
   }, [initialCategory]);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [railSheetOpen, setRailSheetOpen] = useState(false);
-  const layout = useWorkspaceLayout();
-  const blurb = CATEGORIES.find((entry) => entry.name === category)?.blurb;
-  // A docked category rail and a settings panel do not both fit a phone. The
-  // rail becomes a sheet over the panel, the same move the workspace makes with
-  // its own sidebar at this width.
-  const railDocked = layout !== "compact" && sidebarOpen;
 
   // Pi's settings file is shared with the Pi command line and editable by hand,
   // so it is re-read whenever a screen that shows it is opened rather than
@@ -98,94 +99,68 @@ export default function Settings() {
   );
 
   return (
-    <ResizablePanelGroup orientation="horizontal" className="bg-background text-foreground">
-      {layout !== "compact" ? (
-        <LeftSidebar
-          actionIcon={<ArrowLeftIcon data-icon="inline-start" />}
-          actionLabel="Back"
-          onAction={closeSettings}
-          onClose={() => setSidebarOpen(false)}
-          open={sidebarOpen}
-        >
-          {rail}
-        </LeftSidebar>
-      ) : null}
+    <div className="@container/settings-shell flex h-full min-w-0 bg-background text-foreground">
+      <aside className="hidden w-56 shrink-0 flex-col @min-[48rem]/settings-shell:flex border-r border-border/70 bg-sidebar/50">
+        {rail}
+      </aside>
 
-      <ResizablePanel id="settings" minSize="35%">
-        <main className="h-full min-w-0 overflow-y-auto">
+      <div className="min-w-0 flex-1">
+        <main key={category} className="h-full min-w-0 overflow-y-auto">
           <header
             className={cn(
-              "flex h-12 items-center gap-2 border-b border-border/70 px-5 sm:px-10",
-              WINDOW_CONTROLS_CLEARANCE,
-              !railDocked && TRAFFIC_LIGHTS_CLEARANCE,
-              DRAG_REGION,
+              "sticky top-0 z-10 flex h-12 items-center gap-2 border-b border-border/50 bg-background px-5 @min-[48rem]/settings-shell:px-8",
             )}
           >
-            {!railDocked ? (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => (layout === "compact" ? setRailSheetOpen(true) : setSidebarOpen(true))}
-                  title="Open sidebar"
-                  aria-label="Open sidebar"
-                  className={NO_DRAG_REGION}
-                >
-                  <SidebarSimpleIcon />
-                </Button>
-                {/* The way out of settings otherwise lives only in the collapsed
-                    rail's footer, leaving Escape as the sole exit — and a phone
-                    has no Escape. */}
-                <Button variant="ghost" size="sm" onClick={closeSettings} className={NO_DRAG_REGION}>
-                  <ArrowLeftIcon data-icon="inline-start" />
-                  Back
-                </Button>
-              </>
-            ) : null}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setRailSheetOpen(true)}
+              title="Open sidebar"
+              aria-label="Open sidebar"
+              className={cn(NO_DRAG_REGION, "@min-[48rem]/settings-shell:hidden")}
+            >
+              <SidebarSimpleIcon />
+            </Button>
             <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">Settings / {category}</span>
             <div className="flex-1" />
             <RunningAgentBadge />
+            <Button variant="ghost" size="icon" onClick={closeSettings} aria-label="Close settings" title="Close settings" className="shrink-0">
+              <XIcon />
+            </Button>
           </header>
 
-          <div className="mx-auto w-full max-w-6xl px-5 pb-16 pt-8 sm:px-10 sm:pt-10">
-            <div className="mb-9 flex max-w-3xl flex-col gap-1.5">
-              <h1 className="text-balance font-heading text-3xl font-semibold tracking-[-0.035em]">{category}</h1>
-              {blurb ? <p className="text-pretty text-sm leading-6 text-body-muted-foreground">{blurb}</p> : null}
+          <div className="mx-auto w-full max-w-5xl px-5 py-6 @min-[48rem]/settings-shell:px-8 @min-[48rem]/settings-shell:py-8">
+            <div className="mb-6">
+              <h1 className="text-balance text-headline">{category}</h1>
             </div>
 
-            <Suspense fallback={<div className="py-8 text-sm text-body-muted-foreground">Loading {category.toLowerCase()}…</div>}>
-              <CategoryPanel category={category} />
-            </Suspense>
+            <div className="@container/settings-content">
+              <Suspense fallback={<div className="py-8 text-sm text-body-muted-foreground">Loading {category.toLowerCase()}…</div>}>
+                <CategoryPanel category={category} />
+              </Suspense>
+            </div>
           </div>
         </main>
-      </ResizablePanel>
+      </div>
 
-      {layout === "compact" ? (
-        <Sheet open={railSheetOpen} onOpenChange={setRailSheetOpen}>
-          <SheetContent
-            side="left"
-            showCloseButton={false}
-            className="w-[min(20rem,85vw)] border-sidebar-border bg-sidebar p-0"
-          >
-            <SheetTitle className="sr-only">Settings categories</SheetTitle>
-            <SheetDescription className="sr-only">Choose which settings to view.</SheetDescription>
-            <div className="flex h-full flex-col">
-              {rail}
-              <div className="shrink-0 border-t border-sidebar-border p-3">
-                <Button variant="ghost" className="w-full justify-start" onClick={closeSettings}>
-                  <ArrowLeftIcon data-icon="inline-start" />
-                  Back
-                </Button>
-              </div>
-            </div>
-          </SheetContent>
-        </Sheet>
-      ) : null}
-    </ResizablePanelGroup>
+      <Sheet open={railSheetOpen} onOpenChange={setRailSheetOpen}>
+        <SheetContent
+          side="left"
+          className="w-[min(20rem,85vw)] border-sidebar-border bg-sidebar p-0"
+        >
+          <SheetTitle className="sr-only">Settings categories</SheetTitle>
+          <SheetDescription className="sr-only">Choose which settings to view.</SheetDescription>
+          <div className="flex h-full flex-col">
+            <div className="flex h-12 shrink-0 items-center px-4 text-sm font-medium">Settings</div>
+            {rail}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }
 
-/** The category list, shown docked on a wide window and in a sheet on a phone. */
+/** The category list docks only when the settings surface has room for both panes. */
 function CategoryNav({
   category,
   onSelect,
@@ -193,30 +168,51 @@ function CategoryNav({
   category: Category;
   onSelect: (category: Category) => void;
 }) {
+  const [query, setQuery] = useState("");
+  const search = query.trim().toLocaleLowerCase();
+  const pages = CATEGORIES.filter((page) => `${page.name} ${page.group} ${page.blurb}`.toLocaleLowerCase().includes(search));
+
   return (
-    // Scrolls rather than compressing: eight categories do not fit a short
-    // window, and the Back button below must stay reachable.
-    <nav
-      aria-label="Settings categories"
-      className={cn("flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-3 pt-1", NO_DRAG_REGION)}
-    >
-      <p className="px-2 pb-2 font-heading text-sm font-semibold">Settings</p>
-      {CATEGORIES.map(({ name, icon: Icon }) => (
-        <button
-          key={name}
-          type="button"
-          aria-current={category === name ? "page" : undefined}
-          onClick={() => onSelect(name)}
-          className={cn(
-            "flex h-9 shrink-0 items-center gap-2 rounded-lg px-2.5 text-left text-sm font-medium text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-            category === name && "bg-sidebar-accent text-sidebar-accent-foreground",
-          )}
-        >
-          <Icon className="shrink-0" />
-          {name}
-        </button>
-      ))}
-    </nav>
+    <div className={cn("flex min-h-0 flex-1 flex-col", NO_DRAG_REGION)}>
+      <div className="relative mx-3 my-2 shrink-0">
+        <MagnifyingGlassIcon aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="search"
+          aria-label="Search settings"
+          placeholder="Search settings"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          className="h-8 pl-8"
+        />
+      </div>
+      <nav aria-label="Settings categories" className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        {(["Interface", "Pi", "Application"] as const).map((group) => {
+          const matches = pages.filter((page) => page.group === group);
+          if (!matches.length) return null;
+          return (
+            <div key={group} className="mt-4 flex shrink-0 flex-col gap-0.5 pt-2 first:mt-0">
+              <h2 className="px-2.5 pb-1.5 text-[0.6875rem] font-medium tracking-[0.06em] text-muted-foreground uppercase">{group}</h2>
+              {matches.map(({ name, icon: Icon }) => (
+                <button
+                  key={name}
+                  type="button"
+                  aria-current={category === name ? "page" : undefined}
+                  onClick={() => onSelect(name)}
+                  className={cn(
+                    "flex min-h-9 shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm font-medium text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                    category === name && "bg-sidebar-accent text-sidebar-accent-foreground [&>svg]:text-foreground",
+                  )}
+                >
+                  <Icon aria-hidden="true" className="size-4 shrink-0" />
+                  {name}
+                </button>
+              ))}
+            </div>
+          );
+        })}
+        {!pages.length ? <p role="status" className="px-2.5 py-4 text-sm text-muted-foreground">No matching settings.</p> : null}
+      </nav>
+    </div>
   );
 }
 
@@ -226,33 +222,35 @@ function CategoryPanel({ category }: { category: Category }) {
       return <UsageSettings />;
     case "Access":
       return <AccessSettings />;
-    case "Appearance":
-      return <AppearanceSettings />;
-    case "Agent":
+    case "Theme & motion":
+      return <AppearanceSettings page="theme" />;
+    case "Layout & diffs":
+      return <AppearanceSettings page="layout" />;
+    case "Behavior":
       return <AgentSettings />;
     case "Providers":
       return <ProviderSettings />;
     case "Extensions":
       return <ExtensionsManager />;
-    case "Workbench":
-      return <WorkbenchSettings />;
-    case "System":
-      return <SystemSettings />;
+    case "Keyboard":
+      return <KeybindSettings />;
+    case "Terminal":
+      return <TerminalSettings />;
+    case "General":
+      return <GeneralSettings />;
+    case "About":
+      return <AboutSettings />;
   }
 }
 
 function RunningAgentBadge() {
   const running = useAppStore((s) => activeConversation(s).running);
   const abort = useAppStore((s) => s.abort);
-  const closeSettings = useAppStore((s) => s.closeSettings);
   if (!running) return null;
 
   return (
     <div className={cn("flex items-center gap-2 text-xs", NO_DRAG_REGION)}>
       <span className="hidden text-muted-foreground sm:inline">An agent turn is running</span>
-      <Button variant="ghost" size="sm" onClick={closeSettings} className="hidden sm:inline-flex">
-        Back to chat
-      </Button>
       <Button variant="destructive" size="sm" onClick={abort}>
         <StopIcon weight="fill" data-icon="inline-start" />
         Stop

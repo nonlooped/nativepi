@@ -1,18 +1,17 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { tinykeys } from "tinykeys";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
+import { ArrowLineDownIcon } from "@phosphor-icons/react/ArrowLineDown";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
-import { GitDiffIcon } from "@phosphor-icons/react/GitDiff";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
-import { SlidersHorizontalIcon } from "@phosphor-icons/react/SlidersHorizontal";
-import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
 import { XIcon } from "@phosphor-icons/react/X";
 import Sidebar from "./components/Sidebar.tsx";
 import Composer from "./components/Composer.tsx";
+import NewThread from "./components/NewThread.tsx";
 import { ExtensionConversationControls, ExtensionConversationView } from "./components/ExtensionSlots.tsx";
 import DropZone from "./components/DropZone.tsx";
 import ExtensionUi from "./components/ExtensionUi.tsx";
@@ -23,10 +22,8 @@ import Settings from "./components/Settings.tsx";
 import Toaster from "./components/Toaster.tsx";
 import TrustDialog from "./components/TrustDialog.tsx";
 import WindowControls from "./components/WindowControls.tsx";
-import BrandIcon from "./components/BrandIcon.tsx";
 import { activeConversation, useAppStore } from "./lib/store.ts";
 import { startNewChatFlow } from "./lib/newChat.ts";
-import { providerIconName } from "./lib/providerIcons.ts";
 import { isRemote } from "./lib/rpc.ts";
 import { chatTitle } from "./lib/transcript.ts";
 import { bindingFor, bindings, hintFor, withHint } from "./lib/shortcuts.ts";
@@ -48,6 +45,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { DRAG_REGION, NO_DRAG_REGION, SCROLLBAR_GUTTER_OFFSET, TRAFFIC_LIGHTS_CLEARANCE, WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { useTurnCompletionSignal } from "./lib/completion.ts";
 import { useAppearance } from "./lib/appearance.ts";
+import { DEFAULT_INTERFACE_SCALE, stepInterfaceScale } from "../shared/interface-scale.ts";
 import { useWorkspaceLayout, type WorkspaceLayout } from "./lib/layout.ts";
 
 const ChatSearchDialog = lazy(() => import("./components/ChatSearchDialog.tsx"));
@@ -65,15 +63,22 @@ export default function App() {
     (s) => s.projects.find((project) => project.path === s.activeProjectPath)?.name,
   );
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
+  const isNewChat = useAppStore((s) => s.isNewChat);
   const selectionVersion = useAppStore(s => s.selectionVersion);
   const error = useAppStore((s) => activeConversation(s).error);
   const externalChange = useAppStore((s) => activeConversation(s).externalChange);
   const hasConversation = useAppStore((s) => {
     const c = activeConversation(s);
-    return c.entries.length > 0 || !!c.streaming || c.pending.length > 0 || c.running;
+    // A selected session is still a conversation while its history is loading
+    // (or empty). Never render new-thread onboarding during that gap.
+    return !!s.activeSessionFile || c.entries.length > 0 || !!c.streaming || c.pending.length > 0 || c.running;
   });
   const settingsOpen = useAppStore((s) => s.settingsOpen);
   const closeSettings = useAppStore((s) => s.closeSettings);
+  const horizontalGroup = useRef<HTMLDivElement>(null);
+  const verticalGroup = useRef<HTMLDivElement>(null);
+  const contextPaneWidth = useAppStore((s) => s.contextPaneWidth);
+  const terminalHeight = useAppStore((s) => s.terminalHeight);
   const contextPaneOpen = useAppStore((s) => s.contextPaneOpen);
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
@@ -92,7 +97,6 @@ export default function App() {
   const contextDocked = layout === "wide" && contextPaneOpen;
   const contextPanelRef = useCollapsiblePanel(contextPaneOpen, layout === "wide" ? activeProjectPath : null);
   const terminalOpen = activeProjectPath ? terminalProjects.has(activeProjectPath) : false;
-  const branchMenuRequested = useAppStore((s) => s.branchMenuRequested);
 
   const toggleTerminal = () => {
     if (!activeProjectPath) return;
@@ -115,9 +119,6 @@ export default function App() {
 
   useEffect(() => setExtensionView(null), [activeProjectPath, activeSessionFile, selectionVersion]);
 
-  useEffect(() => {
-    if (branchMenuRequested && layout !== "wide") setContextSheetOpen(true);
-  }, [branchMenuRequested, layout]);
 
   useWorkspaceShortcuts(
     layout,
@@ -155,7 +156,17 @@ export default function App() {
           an agent was mid-edit — and its most likely entry point is the
           composer's own "Connect a provider" button. */}
       <div className="h-full" inert={settingsOpen || undefined}>
-      <ResizablePanelGroup orientation="horizontal">
+      <ResizablePanelGroup orientation="horizontal" elementRef={horizontalGroup}
+        onLayoutChanged={(_, meta) => {
+          if (!meta.isUserInteraction) return;
+          const state = useAppStore.getState();
+          const panels = horizontalGroup.current?.querySelectorAll<HTMLElement>(":scope > [data-slot=resizable-panel]");
+          panels?.forEach((panel) => {
+            if (panel.clientWidth <= 0) return;
+            if (panel.id === "projects") state.setSidebarWidth(panel.clientWidth);
+            if (panel.id === "context") state.setContextPaneWidth(panel.clientWidth);
+          });
+        }}>
         {layout !== "compact" ? (
           <Sidebar
             open={sidebarOpen}
@@ -166,11 +177,16 @@ export default function App() {
           />
         ) : null}
         <ResizablePanel id="conversation" minSize="35%">
-          <ResizablePanelGroup orientation="vertical">
+          <ResizablePanelGroup orientation="vertical" elementRef={verticalGroup}
+            onLayoutChanged={(_, meta) => {
+              if (!meta.isUserInteraction) return;
+              const panel = verticalGroup.current?.querySelector<HTMLElement>(":scope > [data-terminal-pane]");
+              if (panel && panel.clientHeight > 0) useAppStore.getState().setTerminalHeight(panel.clientHeight);
+            }}>
           <ResizablePanel id="workspace" minSize="35%">
           {/* `relative` anchors `PiStartingNotice`, which floats under the
               header rather than taking a row and shifting the conversation. */}
-          <main className="conversation-shell relative flex h-full min-h-0 min-w-0 flex-col">
+          <main className="conversation-shell @container/conversation relative flex h-full min-h-0 min-w-0 flex-col">
             <WorkspaceHeader
               layout={layout}
               sidebarDocked={sidebarDocked}
@@ -195,24 +211,14 @@ export default function App() {
                     <Suspense fallback={<SurfaceLoading label="Loading conversation…" />}>
                       <Transcript key={activeSessionFile ?? "new"} />
                     </Suspense>
-                  ) : (
+                  ) : isNewChat ? (
                     <div className="flex min-h-0 flex-1 overflow-y-auto px-4 pb-8 sm:px-6">
-                      <div className="mx-auto my-auto w-full max-w-(--conversation-width)">
-                        <div className="mb-5 max-w-xl px-1 text-left">
-                          <p className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                            <FolderOpenIcon className="shrink-0" weight="fill" />
-                            Ready to work
-                          </p>
-                          <h1 className="text-balance font-heading text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
-                            {activeProjectName ?? "New project"}
-                          </h1>
-                          <p className="mt-2 text-pretty text-sm leading-6 text-body-muted-foreground">
-                            Tell Pi what you want to understand, fix, or build.
-                          </p>
-                        </div>
-                        <Composer prominent />
+                      <div className="stagger-enter mx-auto my-auto w-full max-w-(--conversation-width)">
+                        <NewThread />
                       </div>
                     </div>
+                  ) : (
+                    <SurfaceLoading label="Loading conversation…" />
                   )}
                   {externalChange ? <ExternalChangeNotice /> : null}
                   {error ? <ErrorBanner /> : null}
@@ -227,7 +233,7 @@ export default function App() {
           {activeProjectPath && terminalOpen ? (
             <>
               <ResizableHandle className="hover:bg-ring focus-visible:bg-ring" />
-              <ResizablePanel id={`terminal-${activeProjectPath}`} defaultSize="34%" minSize="15%" maxSize="65%">
+              <ResizablePanel id={`terminal-${activeProjectPath}`} data-terminal-pane defaultSize={terminalHeight ? `${terminalHeight}px` : "34%"} groupResizeBehavior="preserve-pixel-size" minSize="15%" maxSize="65%">
                 <Suspense fallback={<SurfaceLoading label="Loading terminal…" />}>
                   <TerminalDock key={activeProjectPath} projectDir={activeProjectPath} onMinimize={toggleTerminal} />
                 </Suspense>
@@ -251,14 +257,15 @@ export default function App() {
               panelRef={contextPanelRef}
               collapsible
               collapsedSize="0%"
-              defaultSize="28%"
-              minSize="20%"
-              maxSize="45%"
+              defaultSize={`${contextPaneWidth}px`}
+              groupResizeBehavior="preserve-pixel-size"
+              minSize="192px"
+              maxSize="480px"
               data-pane-motion="right"
               inert={!contextPaneOpen || undefined}
               className={cn(
                 "h-full transition-[opacity,translate] duration-200 ease-out",
-                contextPaneOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-full opacity-0",
+                contextPaneOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-2 opacity-0",
               )}
               onResize={(size, _id, previousSize) => {
                 if (size.inPixels === 0 && previousSize && previousSize.inPixels > 0 && contextPaneOpen) {
@@ -308,7 +315,7 @@ export default function App() {
             className="w-[min(28rem,92vw)] border-sidebar-border bg-sidebar p-0 sm:max-w-none"
           >
             <SheetTitle className="sr-only">Project context</SheetTitle>
-            <SheetDescription className="sr-only">Browse files and changes, and review extension panels.</SheetDescription>
+            <SheetDescription className="sr-only">Browse files, and review extension panels.</SheetDescription>
             {contextSheetOpen ? (
               <Suspense fallback={<SurfaceLoading label="Loading project context…" />}>
                 <ContextPane onClose={() => setContextSheetOpen(false)} />
@@ -340,14 +347,14 @@ export default function App() {
 
       {settingsOpen ? (
         <div
-          className="fixed inset-0 z-40 bg-overlay p-0 sm:p-5"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-overlay p-0 backdrop-blur-sm sm:p-6"
           onClick={closeSettings}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-label="Settings"
-            className="settings-viewport h-full w-full overflow-hidden bg-background sm:rounded-xl"
+            className="settings-viewport h-full w-full overflow-hidden bg-background sm:h-[88%] sm:max-h-[60rem] sm:w-[94%] sm:max-w-[100rem] sm:rounded-xl sm:border sm:shadow-xl"
             onClick={(event) => event.stopPropagation()}
           >
             <Settings />
@@ -376,31 +383,6 @@ function SurfaceLoading({ label }: { label: string }) {
     <div className="flex min-h-0 flex-1 items-center justify-center bg-background text-sm text-body-muted-foreground" role="status">
       {label}
     </div>
-  );
-}
-
-function OnboardingStep({
-  index,
-  title,
-  children,
-}: {
-  index: number;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <li className="flex items-start gap-3">
-      <span
-        aria-hidden="true"
-        className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular-nums text-muted-foreground"
-      >
-        {index}
-      </span>
-      <div className="min-w-0">
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-sm leading-6 text-body-muted-foreground">{children}</p>
-      </div>
-    </li>
   );
 }
 
@@ -470,8 +452,6 @@ function WorkspaceHeader({
       ? s.sessionsByProject[s.activeProjectPath]?.find((session) => session.path === s.activeSessionFile)
       : undefined,
   );
-  const selectedProvider = useAppStore((s) => s.model?.provider);
-  const provider = selectedProvider ?? activeSession?.providers[0];
   const title = isNewChat ? "New chat" : activeSession ? chatTitle(activeSession) : "Untitled chat";
   const compact = layout === "compact";
   const sharing = useAppStore((s) => s.accessHandoffs.length > 0);
@@ -479,47 +459,46 @@ function WorkspaceHeader({
 
   return (
     <header
-      className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-2 border-b border-border/70 pr-2 pl-2 sm:pl-5 ${sidebarDocked ? "" : TRAFFIC_LIGHTS_CLEARANCE} ${contextDocked ? "" : WINDOW_CONTROLS_CLEARANCE}`}
+      className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-2 border-b border-border/70 pr-2 ${sidebarDocked ? "pl-2 sm:pl-5" : "pl-3"} ${sidebarDocked ? "" : TRAFFIC_LIGHTS_CLEARANCE} ${contextDocked ? "" : WINDOW_CONTROLS_CLEARANCE}`}
     >
-      {!sidebarDocked ? (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onOpenSidebar}
-          title={withHint("Open sidebar", "toggleSidebar", keybindingOverrides)}
-          aria-label="Open sidebar"
-          className={NO_DRAG_REGION}
-        >
-          <SidebarSimpleIcon />
-        </Button>
-      ) : null}
-      <div className="min-w-0 flex-1 self-stretch">
-        {activeProjectPath ? (
-          <div className="flex h-full min-w-0 items-center gap-2 text-sm font-medium">
-            {provider ? (
-              <span className="inline-flex shrink-0 text-muted-foreground" title={`Model provider: ${provider}`}>
-                <BrandIcon name={providerIconName(provider)} size={16} />
+      <div className="native-header-content flex min-w-0 flex-1 items-center gap-2">
+        {!sidebarDocked ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenSidebar}
+            title={withHint("Open sidebar", "toggleSidebar", keybindingOverrides)}
+            aria-label="Open sidebar"
+            className={NO_DRAG_REGION}
+          >
+            <SidebarSimpleIcon className="size-5" />
+          </Button>
+        ) : null}
+        <div className="flex min-w-0 flex-1 items-center">
+          {activeProjectPath ? (
+            <div className="flex h-full min-w-0 items-center gap-3 text-sm">
+              <FolderOpenIcon aria-hidden="true" className="hidden size-4 shrink-0 text-muted-foreground @min-[36rem]/conversation:block" />
+              <span className="hidden min-w-0 max-w-40 shrink truncate text-muted-foreground @min-[36rem]/conversation:block" title={activeProjectPath}>
+                {activeProjectName ?? activeProjectPath}
               </span>
-            ) : null}
-            {activeSession && !isNewChat ? (
-              <h1 className="flex min-w-0">
-                <ChatTitle sessionPath={activeSession.path} title={title} />
-              </h1>
-            ) : (
-              <span className="min-w-0 max-w-80 truncate" title={title}>
-                {title}
-              </span>
-            )}
-            <span className="hidden min-w-0 truncate text-muted-foreground sm:inline">
-              {activeProjectName ?? activeProjectPath}
-            </span>
-          </div>
-        ) : (
-          <NativePiWordmark className="flex h-full items-center" />
-        )}
+              <span aria-hidden="true" className="hidden shrink-0 text-muted-foreground/50 @min-[36rem]/conversation:block">/</span>
+              {activeSession && !isNewChat ? (
+                <h1 className="flex min-w-0 font-medium">
+                  <ChatTitle sessionPath={activeSession.path} title={title} />
+                </h1>
+              ) : (
+                <span className="min-w-0 truncate font-medium" title={title}>
+                  {title}
+                </span>
+              )}
+            </div>
+          ) : (
+            sidebarDocked ? null : <NativePiWordmark compact />
+          )}
+        </div>
       </div>
       {activeProjectPath ? (
-        <div className={cn(NO_DRAG_REGION, "hidden min-w-0 shrink items-center gap-1 min-[480px]:flex")}>
+        <div className={cn(NO_DRAG_REGION, "hidden min-w-0 shrink items-center gap-1 @min-[30rem]/conversation:flex")}>
           <ExtensionConversationControls active={extensionView} onSelect={onSelectExtensionView} />
         </div>
       ) : null}
@@ -544,13 +523,13 @@ function WorkspaceHeader({
           title={withHint(terminalOpen ? "Hide terminal" : "Show terminal", "toggleTerminal", keybindingOverrides)}
           aria-label={terminalOpen ? "Hide terminal" : "Show terminal"}
           aria-pressed={terminalOpen}
-          className={cn(NO_DRAG_REGION, "hidden min-[480px]:flex")}
+          className={cn(NO_DRAG_REGION, "hidden @min-[30rem]/conversation:flex")}
         >
-          <TerminalWindowIcon />
+          <SidebarSimpleIcon className="-rotate-90" />
         </Button>
       ) : null}
       {activeProjectPath ? (
-        <div className={cn(NO_DRAG_REGION, "min-[480px]:hidden")}>
+        <div className={cn(NO_DRAG_REGION, "@min-[30rem]/conversation:hidden")}>
           <HeaderCompactOverflow
             terminalOpen={terminalOpen}
             onToggleTerminal={onToggleTerminal}
@@ -564,15 +543,15 @@ function WorkspaceHeader({
           variant="ghost"
           size="icon-sm"
           onClick={onOpenContext}
-          title={withHint("Show files and changes", "toggleContextPane", keybindingOverrides)}
-          aria-label="Show files and changes"
+          title={withHint("Show files", "toggleContextPane", keybindingOverrides)}
+          aria-label="Show files"
           // Always false while rendered — the button leaves the header once the
           // pane is docked — but the attribute still tells assistive tech this
           // is a pane toggle, matching the terminal button beside it.
           aria-pressed={false}
           className={NO_DRAG_REGION}
         >
-          <GitDiffIcon />
+          <SidebarSimpleIcon className="-scale-x-100" />
         </Button>
       ) : null}
     </header>
@@ -689,7 +668,7 @@ function HeaderCompactOverflow({
           : null}
         {extensionViews.length > 0 ? <div className="my-1 h-px bg-border/50" aria-hidden /> : null}
         <DropdownMenuItem onClick={onToggleTerminal} className="gap-2">
-          <TerminalWindowIcon />
+          <SidebarSimpleIcon className="-rotate-90" />
           {terminalOpen ? "Hide terminal" : "Show terminal"}
           <span className="ml-auto text-xs text-muted-foreground">{hintFor("toggleTerminal", keybindingOverrides)}</span>
         </DropdownMenuItem>
@@ -738,6 +717,15 @@ function useWorkspaceShortcuts(
       window,
       bindings({
         openSettings: always(openSettings),
+        increaseScale: always(() => {
+          const { preferences, setPreference } = useAppStore.getState();
+          setPreference("interfaceScale", stepInterfaceScale(preferences.interfaceScale, 1));
+        }),
+        decreaseScale: always(() => {
+          const { preferences, setPreference } = useAppStore.getState();
+          setPreference("interfaceScale", stepInterfaceScale(preferences.interfaceScale, -1));
+        }),
+        resetScale: always(() => useAppStore.getState().setPreference("interfaceScale", DEFAULT_INTERFACE_SCALE)),
 
         stopTurn: (event) => {
           // Escape belongs to a single-line field first — it clears or closes
@@ -883,50 +871,31 @@ function ErrorBanner() {
 
 function WelcomeScreen() {
   const addProject = useAppStore((s) => s.addProject);
-  const openSettings = useAppStore((s) => s.openSettings);
 
   return (
-    <div className="flex min-h-0 flex-1 overflow-y-auto px-5 py-10 sm:px-8">
-      <div className="mx-auto my-auto grid w-full max-w-4xl items-center gap-10 md:grid-cols-[minmax(0,1.08fr)_minmax(18rem,0.92fr)] md:gap-16">
-        <section className="flex min-w-0 flex-col items-start text-left">
-          <NativePiWordmark display />
-          <h1 className="mt-7 max-w-xl text-balance font-heading text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
-            Pi, in a focused desktop workspace.
-          </h1>
-          <p className="mt-3 max-w-[58ch] text-pretty text-sm leading-6 text-body-muted-foreground">
-            Open a local project, direct the agent, and review every change without giving up your Pi setup.
+    <div className="flex min-h-0 flex-1 overflow-y-auto px-6 py-10">
+      <section className="stagger-enter m-auto flex w-full max-w-md flex-col items-center text-center">
+        <span
+          style={{ "--i": 0 } as React.CSSProperties}
+          className="mb-6 flex size-14 items-center justify-center rounded-2xl bg-card text-foreground shadow-sm ring-1 ring-foreground/10 ring-inset"
+        >
+          <FolderOpenIcon className="size-7" weight="duotone" aria-hidden="true" />
+        </span>
+        <h1 style={{ "--i": 0 } as React.CSSProperties} className="text-balance text-headline">Open a project</h1>
+        <p style={{ "--i": 1 } as React.CSSProperties} className="mt-3 max-w-[38ch] text-balance text-sm leading-6 text-body-muted-foreground">
+          Pi works inside the folder you pick. Chats stay in Pi's own session files, so the CLI sees them too.
+        </p>
+        <Button style={{ "--i": 2 } as React.CSSProperties} size="xl" className="mt-7" onClick={() => void addProject()}>
+          <FolderOpenIcon data-icon="inline-start" weight="fill" />
+          Open folder
+        </Button>
+        {isRemote ? null : (
+          <p style={{ "--i": 3 } as React.CSSProperties} className="mt-8 flex items-center gap-2 rounded-xl border border-dashed border-border/80 px-4 py-2.5 text-xs text-muted-foreground">
+            <ArrowLineDownIcon aria-hidden="true" />
+            Or drop a folder anywhere in this window
           </p>
-          <div className="mt-7 flex flex-wrap items-center justify-start gap-2">
-            <Button size="lg" onClick={() => void addProject()}>
-              <FolderOpenIcon data-icon="inline-start" weight="fill" />
-              Open folder
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => openSettings("Providers")}>
-              <SlidersHorizontalIcon data-icon="inline-start" />
-              Connect a provider
-            </Button>
-          </div>
-          {isRemote ? null : (
-            <p className="mt-3 text-xs text-muted-foreground">You can also drag a folder onto this window.</p>
-          )}
-        </section>
-
-        <section className="border-t border-border/70 pt-7 md:border-t-0 md:border-l md:py-2 md:pl-10">
-          <h2 className="font-heading text-sm font-semibold">Start with your existing Pi setup</h2>
-          <ol className="mt-5 flex w-full flex-col gap-5 text-left">
-            <OnboardingStep index={1} title="Connect a provider">
-              Sign in with a subscription or add an API key. Existing Pi credentials are already available.
-            </OnboardingStep>
-            <OnboardingStep index={2} title="Open a project folder">
-              Pi starts in that folder with the same settings, sessions, skills, and extensions.
-            </OnboardingStep>
-            <OnboardingStep index={3} title="Describe the work">
-              Follow the run, inspect changed files, and steer Pi while it works.
-            </OnboardingStep>
-          </ol>
-        </section>
-      </div>
+        )}
+      </section>
     </div>
   );
 }
-

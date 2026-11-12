@@ -1,3 +1,5 @@
+import { chipText } from "../composerText.ts";
+import { mentionPath } from "../drops.ts";
 import { createHydration } from "./hydration.ts";
 import type { AgentMessage, PiEventBatch, SessionEntry, SessionSummary, ThinkingLevel } from "../../../shared/pi-types.ts";
 import type { ExtensionUiRequest } from "../../../shared/pi-types.ts";
@@ -442,6 +444,16 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
       if (files.length === 0) return;
       const target = attachmentTarget(draftKey(get));
       const key = target.key;
+      const documents = files.filter((file) => !file.type.startsWith("image/"));
+      const paths = documents.map((file) => ({ file, path: rpc.filePath(file) }));
+      const mentions = paths.filter((item) => item.path).map((item) => chipText("file", mentionPath(get().activeProjectPath!, item.path)));
+      if (mentions.length) {
+        const draft = get().drafts[key] ?? "";
+        get().setDraft(`${draft}${draft && !/\s$/.test(draft) ? " " : ""}${mentions.join(" ")} `);
+      }
+      const unavailable = paths.filter((item) => !item.path);
+      if (unavailable.length) showAttachmentsRejected(unavailable.map((item) => `${item.file.name} (local file path unavailable)`));
+      files = files.filter((file) => file.type.startsWith("image/"));
       const oversized = files.filter((file) => file.size > MAX_IMAGE_BYTES);
       const readable = files.filter((file) => file.size <= MAX_IMAGE_BYTES);
       if (oversized.length > 0) showAttachmentsRejected(oversized.map((file) => file.name || "Pasted image"));

@@ -81,13 +81,20 @@ function createWindow(): void {
     frame: !isMac,
     titleBarStyle: isMac ? "hiddenInset" : "hidden",
     trafficLightPosition: isMac ? { x: 16, y: 17 } : undefined,
-    backgroundColor: "#0c0c0e",
+    backgroundColor: "#141414",
     webPreferences: {
       preload: join(mainDir, "../preload/index.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
     },
+  });
+  // Let the renderer's saved interface scale handle these keys. Electron's
+  // default View menu otherwise consumes them and applies a second page zoom.
+  win.webContents.on("before-input-event", (_event, input) => {
+    const modifier = isMac ? input.meta : input.control;
+    win.webContents.setIgnoreMenuShortcuts(modifier && !input.alt
+      && ["Equal", "Minus", "Digit0"].includes(input.code));
   });
   host?.setMainWindow(win);
   /**
@@ -123,6 +130,12 @@ function createWindow(): void {
   const sendMaximized = () => {
     win.webContents.send("windowMaximized", { maximized: win.isMaximized() });
   };
+  win.on("enter-full-screen", () => {
+    win.webContents.send("windowFullScreen", { fullscreen: true });
+  });
+  win.on("leave-full-screen", () => {
+    win.webContents.send("windowFullScreen", { fullscreen: false });
+  });
   win.on("maximize", sendMaximized);
   win.on("unmaximize", sendMaximized);
   win.webContents.setWindowOpenHandler(({ url }) => {

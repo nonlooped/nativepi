@@ -118,10 +118,10 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
         preferences: loaded.preferences,
         keybindingOverrides: sanitizeOverrides(loaded.keybindingOverrides ?? {}),
         sidebarOpen: loaded.panes?.sidebarOpen ?? true,
-        sidebarSize: loaded.panes?.sidebarSize ?? 14,
+        sidebarWidth: loaded.panes?.sidebarWidth ?? 304,
+        contextPaneWidth: loaded.panes?.contextPaneWidth ?? 304,
+        terminalHeight: loaded.panes?.terminalHeight,
         contextPaneOpen: loaded.panes?.contextPaneOpen ?? false,
-        // Only a saved preference counts as a choice; on a first run NativePi
-        // may open the pane itself once it knows the repo has changes.
         contextPaneChosen: loaded.panes !== undefined,
       });
       if (!loaded.focusStartedAt) persist(get);

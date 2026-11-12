@@ -272,7 +272,7 @@ function RenameDialog({ projectDir, session, onClose }: { projectDir: string; se
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle className="font-heading text-base font-semibold">Rename chat</DialogTitle>
+          <DialogTitle className="text-title">Rename chat</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             The name shown in the sidebar. It replaces the first message NativePi otherwise uses as a title.
           </DialogDescription>
@@ -329,7 +329,7 @@ function ForkDialog({ projectDir, session, onClose }: { projectDir: string; sess
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-heading text-base font-semibold">Fork from a message</DialogTitle>
+          <DialogTitle className="text-title">Fork from a message</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             Branch into a new chat starting at a chosen message. The original chat is left unchanged.
           </DialogDescription>
@@ -376,7 +376,7 @@ function TreeDialog({ projectDir, session, onClose }: { projectDir: string; sess
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-heading text-base font-semibold">Chat branches</DialogTitle>
+          <DialogTitle className="text-title">Chat branches</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             Branches created by forking. The highlighted entry is the current tip.
           </DialogDescription>
@@ -423,7 +423,7 @@ function ExportDialog({ path, onClose }: { path: string; onClose: () => void }) 
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-heading text-base font-semibold">Exported to HTML</DialogTitle>
+          <DialogTitle className="text-title">Exported to HTML</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             A standalone copy of this chat was written to:
           </DialogDescription>

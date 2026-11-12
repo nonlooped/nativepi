@@ -9,7 +9,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field.tsx";
 import { cn } from "@/lib/utils.ts";
 
-// Settings controls use DESIGN.md's 2.5rem form scale; compact sizes are for section actions.
+// Consistent setting groups; rows adapt to the content pane, not the window.
 export function SettingsSection({
   heading,
   description,
@@ -23,15 +23,15 @@ export function SettingsSection({
   return (
     <section
       aria-labelledby={id}
-      className="grid gap-3 border-t border-border/70 pt-6 lg:grid-cols-[minmax(11rem,0.48fr)_minmax(0,1.52fr)] lg:gap-10"
+      className="flex min-w-0 flex-col gap-3"
     >
-      <div className="max-w-sm">
-        <h2 id={id} className="font-heading text-sm font-semibold">
+      <div className="px-1">
+        <h2 id={id} className="text-title">
           {heading}
         </h2>
-        {description ? <p className="mt-1 text-pretty text-sm leading-5 text-body-muted-foreground">{description}</p> : null}
+        {description ? <p className="mt-1 text-pretty text-sm text-body-muted-foreground">{description}</p> : null}
       </div>
-      <FieldGroup className="flex flex-col">{children}</FieldGroup>
+      <FieldGroup className="settings-list gap-0">{children}</FieldGroup>
     </section>
   );
 }
@@ -63,13 +63,13 @@ function Row({
       ) : (
         <FieldTitle className="text-sm font-medium">{label}</FieldTitle>
       )}
-      {description ? <FieldDescription className="max-w-[60ch] text-sm leading-5">{description}</FieldDescription> : null}
+      {description ? <FieldDescription className="max-w-[64ch] text-sm">{description}</FieldDescription> : null}
     </FieldContent>
   );
 
   if (wide) {
     return (
-      <Field orientation="vertical" className="flex flex-col gap-3 border-b border-border/70 py-5 first:pt-0 last:border-b-0 last:pb-0">
+      <Field orientation="vertical" className="settings-row-wide flex flex-col gap-3 border-b border-border/50 py-4 last:border-b-0">
         {text}
         {children}
       </Field>
@@ -77,9 +77,9 @@ function Row({
   }
 
   return (
-    <Field orientation="horizontal" className="flex flex-col gap-3 border-b border-border/70 py-5 first:pt-0 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+    <Field orientation="horizontal" className="settings-row border-b border-border/50 py-4 last:border-b-0">
       {text}
-      <div className={shrinkable ? "min-w-0" : "sm:shrink-0"}>{children}</div>
+      <div className={cn("settings-row-control", shrinkable && "min-w-0")}>{children}</div>
     </Field>
   );
 }
@@ -133,11 +133,10 @@ export function SelectRow<T extends string>({
         disabled={disabled}
         items={options}
       >
-        {/* 2.5rem is the form scale DESIGN.md gives both `input` and
-            `button-form`, and a settings list puts all three in one column. The
+        {/* Use the same compact form height throughout Settings. The
             trigger's own height is a `data-size` variant, so a plain `h-10`
             would lose to it on specificity and the row would stay compact. */}
-        <SelectTrigger aria-label={label} className="w-full px-3 text-sm data-[size=default]:h-10 sm:w-auto sm:min-w-44">
+        <SelectTrigger aria-label={label} className="w-full px-3 text-sm data-[size=default]:h-9 @min-[36rem]/settings-content:w-auto @min-[36rem]/settings-content:min-w-44">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -203,7 +202,7 @@ export function Segmented<T extends string>({
       }}
       spacing={0}
       aria-label={label}
-      className={cn("h-auto min-h-11 w-full flex-wrap rounded-md bg-muted/60 p-1 sm:h-11 sm:w-auto sm:flex-nowrap", className)}
+      className={cn("h-auto min-h-10 w-full flex-wrap rounded-md bg-muted/60 p-1 @min-[36rem]/settings-content:w-auto", className)}
     >
       {options.map((option) => (
         <ToggleGroupItem
@@ -211,7 +210,7 @@ export function Segmented<T extends string>({
           value={option.value}
           disabled={disabled || option.disabled}
           title={option.title}
-          className="h-9 flex-1 px-3 text-sm text-muted-foreground data-pressed:bg-accent data-pressed:text-accent-foreground sm:flex-none"
+          className="h-8 flex-1 px-3 text-sm text-muted-foreground data-pressed:bg-accent data-pressed:text-accent-foreground @min-[36rem]/settings-content:flex-none"
         >
           {option.label}
         </ToggleGroupItem>
@@ -241,7 +240,7 @@ export function ChoiceCards<T extends string>({
 
   return (
     <Row label={label} description={description} wide>
-      <div role="radiogroup" aria-label={label} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div role="radiogroup" aria-label={label} className={cn("grid grid-cols-2 gap-2 @min-[32rem]/settings-content:grid-cols-4", options.length > 4 && "@min-[44rem]/settings-content:grid-cols-5")}>
         {options.map((option, index) => {
           const selected = option.value === value;
           return (
@@ -327,10 +326,10 @@ export function SettingsCard({
   children?: React.ReactNode;
 }) {
   return (
-    <section className="border-t border-border/70">
-      <div className="flex flex-col gap-3 py-6 sm:flex-row sm:items-start sm:gap-4">
+    <section className="border-b border-border/50 py-4 last:border-b-0">
+      <div className="flex flex-col gap-3 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-start @min-[36rem]/settings-content:gap-4">
         {icon ? (
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground [&_svg]:size-[1.125rem]">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground [&_svg]:size-[1.125rem]">
             {icon}
           </span>
         ) : null}
@@ -342,7 +341,7 @@ export function SettingsCard({
               {status}
             </p>
           ) : null}
-          {description ? <p className="mt-1 text-sm leading-5 text-body-muted-foreground">{description}</p> : null}
+          {description ? <p className="mt-1 text-sm text-body-muted-foreground">{description}</p> : null}
           {error ? (
             <p role="alert" className="mt-2 text-sm text-destructive">
               {error}
@@ -377,7 +376,7 @@ export function SliderRow({
 }) {
   return (
     <Row label={label} description={description}>
-      <div className="flex w-full items-center gap-4 sm:w-56">
+      <div className="flex w-full items-center gap-4 @min-[36rem]/settings-content:w-56">
         <Slider
           value={[value]}
           min={min}
@@ -460,7 +459,7 @@ export function TextRow({
             if (event.key === "Enter") event.currentTarget.blur();
           }}
           spellCheck={false}
-          className="w-full font-mono text-xs sm:w-72"
+          className="h-9 w-full font-mono text-xs @min-[36rem]/settings-content:w-64"
         />
       )}
     </Row>

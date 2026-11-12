@@ -1,3 +1,4 @@
+import { readProjectDiffPreview } from "./diffPreview.ts";
 import { app, BrowserWindow, dialog, shell } from "electron";
 import { stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -374,7 +375,23 @@ function stopAllSessionWatches(): void {
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
+async function acceptChatTitle(projectDir: string, pi: PiProcess, sessionFile: string, title: string): Promise<void> {
+  const binding = runtimeBindings.get(pi);
+  if (!binding || binding.file !== sessionFile || !pi.isAvailable) return;
+  await binding.ready;
+  await assertCoherent(sessionFile);
+  if (!ownsBinding(pi, binding)) return;
+  const finish = beginSessionWrite(pi, binding);
+  try {
+    const accepted = await pi.frameRequest<boolean>(requestId => ({ type: "nativepi_tui_accept_title", requestId, sessionFile, title }));
+    if (accepted) notifySessionsChanged(projectDir);
+  } finally { await finish(); }
+}
 function forwardPiFrame(projectDir: string, pi: PiProcess, frame: TuiHostFrame): void {
+  if (frame.type === "nativepi_tui_propose_title") {
+    void acceptChatTitle(projectDir, pi, frame.sessionFile, frame.title).catch(error => console.error("Could not name chat", error));
+    return;
+  }
   const surfaces = interactiveSurfaces.get(pi) ?? new Set<string>();
   interactiveSurfaces.set(pi, surfaces);
   if (frame.type === "nativepi_tui_open" && ["editor", "overlay"].includes(frame.surface.placement))
@@ -1150,6 +1167,7 @@ const handlers: HandlerMap = {
     app.quit();
     return { ok: true };
   },
+  windowIsFullScreen: () => ({ fullscreen: mainWindow?.isFullScreen() ?? false }),
   windowIsMaximized: () => ({ maximized: mainWindow?.isMaximized() ?? false }),
   openExternal: async ({ url }) => {
     try {
@@ -1514,6 +1532,11 @@ const handlers: HandlerMap = {
     catch {
       return { files: [] };
     }
+  },
+  readProjectDiffPreview: async (params) => {
+    const { projectDir, file, mode } = requestParams.readProjectDiffPreview.parse(params);
+    if (!await knownProject(projectDir)) throw new Error("That project is not available.");
+    return readProjectDiffPreview(projectDir, file, mode);
   },
   readProjectDirectory: async (params) => {
     const { projectDir, path: dir } = requestParams.readProjectDirectory.parse(params);

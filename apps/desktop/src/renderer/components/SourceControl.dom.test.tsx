@@ -25,15 +25,15 @@ async function mount(status = git) {
 const button = (label: string) => container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
 domTest("an accepted status refresh reloads an already open same-status diff and rejects the older reply", async () => {
   const old = deferred(); const next = deferred(); let reads = 0;
-  stubInvoke(async c => c === "gitDiff" ? (++reads === 1 ? old.promise : next.promise) : c === "gitLog" ? { commits: [] } : {});
+  stubInvoke(async c => c === "readProjectDiffPreview" ? (++reads === 1 ? old.promise : next.promise) : c === "gitLog" ? { commits: [] } : c === "gitHunks" ? { hunks: [] } : {});
   await mount();
   await act(async () => container.querySelector<HTMLButtonElement>('button[title="long/文件 with spaces.ts"]')!.click());
   expect(reads).toBe(1);
   await act(async () => useAppStore.setState({ gitRevision: 1 }));
   expect(reads).toBe(2);
-  await act(async () => next.resolve({ diff: { patch: "" } }));
+  await act(async () => next.resolve({ kind: "diff", patch: "" }));
   expect(container.textContent).toContain("No textual diff");
-  await act(async () => old.resolve({ diff: { patch: "obsolete diff" } }));
+  await act(async () => old.resolve({ kind: "diff", patch: "obsolete diff" }));
   expect(container.textContent).not.toContain("obsolete diff");
 });
 domTest("thrown index operations settle visibly and can be retried without repeating themselves", async () => {
@@ -49,7 +49,7 @@ domTest("thrown index operations settle visibly and can be retried without repea
 });
 domTest("Pi generation excludes staging and never overwrites a newer manually edited commit message", async () => {
   const generated = deferred();
-  stubInvoke(async c => c === "gitGenerateCommitMessage" ? generated.promise : c === "gitLog" ? { commits: [] } : {});
+  stubInvoke(async c => c === "gitGenerateCommitMessage" ? generated.promise : c === "gitLog" ? { commits: [] } : c === "gitHunks" ? { hunks: [] } : {});
   await mount({ ...git, files: [{ ...git.files[0], staged: true }] });
   const generate = container.querySelector<HTMLButtonElement>('button[title="Generate a commit message with Pi"]')!;
   await act(async () => generate.click());

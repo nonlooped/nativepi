@@ -4,7 +4,6 @@ import type { Preferences } from "../../shared/rpc-schema.ts";
 import {
   builtInTheme,
   NATIVE_THEME,
-  NATIVE_THEME_ID,
   type CustomTheme,
   type ThemeAppearance,
   type ThemeColors,
@@ -70,8 +69,6 @@ const CUSTOM_PROPERTIES = [
 const OBSOLETE_THEME_PROPERTIES = ["--theme-font-sans", "--theme-font-heading", "--theme-font-mono", "--radius"] as const;
 
 export function themeCssProperties(colors: ThemeColors): Record<string, string> {
-  const quietBorder = `color-mix(in oklch, ${colors.border} 55%, transparent)`;
-  const paneBorder = `color-mix(in oklch, ${colors.border} 65%, transparent)`;
   const charts = chartColors(colors);
   const contrast = increasedContrastColors(colors);
   return {
@@ -79,7 +76,9 @@ export function themeCssProperties(colors: ThemeColors): Record<string, string> 
     "--foreground": colors.foreground,
     "--card": colors.surface,
     "--card-foreground": colors.foreground,
-    "--popover": colors.surface,
+    "--popover": relativeLuminance(colors.background) > 0.5
+      ? colors.surface
+      : `color-mix(in oklch, ${colors.surface}, ${colors.foreground} 3%)`,
     "--popover-foreground": colors.foreground,
     "--primary": colors.primary,
     "--primary-foreground": colors.primaryForeground,
@@ -87,7 +86,7 @@ export function themeCssProperties(colors: ThemeColors): Record<string, string> 
     "--secondary-foreground": colors.foreground,
     "--muted": colors.muted,
     "--muted-foreground": colors.mutedForeground,
-    "--body-muted-foreground": colors.mutedForeground,
+    "--body-muted-foreground": `color-mix(in oklch, ${colors.mutedForeground}, ${colors.foreground} 30%)`,
     "--accent": colors.accent,
     "--accent-foreground": colors.foreground,
     "--destructive": colors.destructive,
@@ -97,9 +96,9 @@ export function themeCssProperties(colors: ThemeColors): Record<string, string> 
     "--warning": colors.warning,
     "--info": colors.info,
     "--active": colors.mutedForeground,
-    "--border": quietBorder,
-    "--input": colors.border,
-    "--ring": colors.primary,
+    "--border": colors.border,
+    "--input": `color-mix(in oklch, ${colors.border}, ${colors.foreground} 8%)`,
+    "--ring": colors.mutedForeground,
     "--chart-1": charts[0],
     "--chart-2": charts[1],
     "--chart-3": charts[2],
@@ -111,8 +110,8 @@ export function themeCssProperties(colors: ThemeColors): Record<string, string> 
     "--sidebar-primary-foreground": colors.primaryForeground,
     "--sidebar-accent": colors.accent,
     "--sidebar-accent-foreground": colors.foreground,
-    "--sidebar-border": paneBorder,
-    "--sidebar-ring": colors.primary,
+    "--sidebar-border": colors.border,
+    "--sidebar-ring": colors.mutedForeground,
     "--contrast-foreground": contrast.foreground,
     "--contrast-muted-foreground": contrast.mutedForeground,
     "--contrast-body-muted-foreground": contrast.foreground,
@@ -158,18 +157,12 @@ export function applyTheme(root: HTMLElement, preferences: Preferences, systemDa
   const custom = selectedCustomTheme(preferences);
   const builtIn = builtInTheme(preferences.themeId);
   const activeTheme = custom ?? builtIn?.theme;
-  const overridesDefault = !!custom || (builtIn !== undefined && builtIn.id !== NATIVE_THEME_ID);
-  const properties = activeTheme && overridesDefault
-    ? themeCssProperties(activeTheme.colors[appearance])
-    : undefined;
-  if (properties) {
-    for (const [property, value] of Object.entries(properties)) root.style.setProperty(property, value);
-  }
+  const properties = themeCssProperties((activeTheme ?? NATIVE_THEME).colors[appearance]);
+  for (const [property, value] of Object.entries(properties)) root.style.setProperty(property, value);
 
   try {
     localStorage.setItem("nativepi-theme", preferences.theme);
-    if (properties) localStorage.setItem(THEME_CACHE_KEY, JSON.stringify({ version: 3, appearance, properties }));
-    else localStorage.removeItem(THEME_CACHE_KEY);
+    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify({ version: 4, appearance, properties }));
   } catch {}
 
   window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
@@ -222,10 +215,11 @@ function composite(foreground: string, background: string, alpha: number): strin
     .toString(16).padStart(2, "0")).join("")}`;
 }
 
+/** Tonal series work with every scheme without introducing unrelated accent hues. */
 function chartColors(colors: ThemeColors): readonly [string, string, string, string, string] {
-  return relativeLuminance(colors.background) > 0.5
-    ? ["#2458b8", "#7540a8", "#a84b19", "#14736d", "#a83268"]
-    : ["#78a9ff", "#bd8cff", "#ff9b67", "#55d6c8", "#f58ab7"];
+  return [0, 0.2, 0.4, 0.6, 0.8].map((amount) =>
+    composite(colors.foreground, colors.background, 1 - amount),
+  ) as [string, string, string, string, string];
 }
 
 function increasedContrastColors(colors: ThemeColors) {

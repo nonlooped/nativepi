@@ -195,18 +195,30 @@ export async function gitLog(projectDir: string): Promise<GitCommit[]> {
       }];
   });
 }
-export async function gitDiff(projectDir: string, file: string, untracked: boolean, staged = false): Promise<GitDiff> {
-  const root = (await run(["rev-parse", "--show-toplevel"], projectDir)).stdout.trim() || projectDir;
-  // `--no-index` diffs an untracked file against nothing so its content shows as
-  // added; it exits non-zero by design, which `run` tolerates.
+export async function gitDiff(projectDir: string, file: string, untracked: boolean, staged = false, maxBytes = 32 * 1024 * 1024): Promise<GitDiff> {
+  const repository = await run(["rev-parse", "--show-toplevel"], projectDir);
+  if (repository.code !== 0) throw new Error(repository.stderr.trim() || "Could not read this repository.");
+  const root = repository.stdout.trim();
+  const selected = path.relative(root, path.resolve(root, file));
+  if (path.isAbsolute(selected) || selected === ".." || selected.startsWith(`..${path.sep}`)) throw new Error("File is outside this repository.");
+  const tracked = await run(["ls-files", "--error-unmatch", "--", selected], root);
+  if (tracked.code !== 0 && tracked.code !== 1) throw new Error(tracked.stderr.trim() || "Could not inspect this file.");
+  const isNew = !staged && (untracked || tracked.code === 1);
   const args = staged
-    ? ["diff", "--cached", "--no-color", "--", file]
-    : untracked
-      ? ["diff", "--no-color", "--no-index", "--", "/dev/null", file]
-      : ["diff", "--no-color", "--", file];
-  const res = await run(args, root);
-  return { path: file, patch: res.stdout };
+    ? ["diff", "--cached", "--no-color", "--no-ext-diff", "--no-textconv", "--", selected]
+    : isNew
+      ? ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--no-index", "--", "/dev/null", selected]
+      : ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--", selected];
+  const output = await new Promise<string>((resolve, reject) => {
+    execFile("git", ["--literal-pathspecs", ...args], { cwd: root, maxBuffer: maxBytes, windowsHide: true, timeout: 15000 }, (error, stdout, stderr) => {
+      if (error && !(isNew && error.code === 1 && stdout.length > 0)) {
+        reject(Object.assign(new Error(stderr.trim() || error.message), { code: error.code }));
+      } else resolve(stdout);
+    });
+  });
+  return { path: file, patch: output };
 }
+
 export async function gitHunks(projectDir: string, file: string, untracked: boolean): Promise<GitHunk[]> {
   const root = (await run(["rev-parse", "--show-toplevel"], projectDir)).stdout.trim() || projectDir;
   const res = await run(untracked

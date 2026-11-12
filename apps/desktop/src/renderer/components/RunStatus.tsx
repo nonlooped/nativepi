@@ -38,7 +38,7 @@ function useIndicatorFrame(
 
   if (!frames) return null;
   if (frames.length === 0) return "";
-  return stripAnsi(frames[index % frames.length] ?? "");
+  return stripAnsi(frames[reduced ? 0 : index % frames.length] ?? "");
 }
 
 export function RunStatusBar({
@@ -70,7 +70,7 @@ export function RunStatusBar({
   return (
     <div
       className={cn(
-        "pointer-events-auto flex max-w-[calc(100%-2rem)] min-w-0 items-center rounded-full border bg-popover py-1 pr-1 text-xs text-popover-foreground shadow-lg",
+        "status-enter pointer-events-auto flex max-w-[calc(100%-2rem)] min-w-0 items-center rounded-full border bg-popover py-1 pr-1 text-xs text-popover-foreground shadow-lg",
         progress ? "gap-2 pl-3" : "pl-1",
       )}
     >
@@ -131,7 +131,7 @@ export function RunStatusBar({
  */
 export function RunDoneBar({ elapsed, files, stopped }: { elapsed: string; files: number; stopped: boolean }) {
   return (
-    <div className="pointer-events-auto flex max-w-[calc(100%-2rem)] min-w-0 items-center gap-2 rounded-full border bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-lg">
+    <div className="status-enter pointer-events-auto flex max-w-[calc(100%-2rem)] min-w-0 items-center gap-2 rounded-full border bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-lg">
       {stopped ? (
         <StopIcon weight="fill" className="shrink-0 text-muted-foreground" />
       ) : (

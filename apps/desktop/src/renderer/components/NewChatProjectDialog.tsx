@@ -53,7 +53,7 @@ export default function NewChatProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl gap-0 overflow-hidden p-0">
+      <DialogContent className="max-w-xl gap-0 overflow-hidden p-0" closeClassName="top-2.5 right-3">
         <DialogTitle className="sr-only">Choose a project</DialogTitle>
         <DialogDescription className="sr-only">
           Choose the project folder where you want to start the new chat.
@@ -75,7 +75,7 @@ export default function NewChatProjectDialog({
               autoFocus
               placeholder="Choose a project"
               aria-label="Search projects"
-              className="h-12 w-full rounded-none border-0 bg-transparent pr-12 pl-11 text-base outline-none focus-visible:bg-input/20 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30"
+              className="h-12 w-full rounded-none border-0 bg-transparent pr-12 pl-11 text-base outline-none placeholder:text-muted-foreground/80"
             />
           </div>
 
@@ -89,7 +89,7 @@ export default function NewChatProjectDialog({
                 value={project}
                 index={index}
                 onClick={() => void startChat(project.path)}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground data-highlighted:ring-1 data-highlighted:ring-inset data-highlighted:ring-ring"
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
               >
                 <FolderIcon
                   className="shrink-0 text-muted-foreground"

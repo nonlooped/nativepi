@@ -1,3 +1,6 @@
+import baseten from "@lobehub/icons-static-svg/icons/baseten.svg?raw";
+import meta from "@lobehub/icons-static-svg/icons/meta.svg?raw";
+import typesafeai from "@lobehub/icons-static-svg/icons/typesafeai.svg?raw";
 import { CubeIcon } from "@phosphor-icons/react/Cube";
 import antgroup from "@lobehub/icons-static-svg/icons/antgroup.svg?raw";
 import antgroupColor from "@lobehub/icons-static-svg/icons/antgroup-color.svg?raw";
@@ -48,6 +51,10 @@ import zhipu from "@lobehub/icons-static-svg/icons/zhipu.svg?raw";
 import zhipuColor from "@lobehub/icons-static-svg/icons/zhipu-color.svg?raw";
 
 const BRAND_ICONS: Record<string, { mono: string; color?: string }> = {
+  baseten: { mono: baseten },
+  meta: { mono: meta },
+  typesafeai: { mono: typesafeai },
+
   antgroup: { mono: antgroup, color: antgroupColor },
   anthropic: { mono: anthropic },
   antigravity: { mono: antigravity, color: antigravityColor },
@@ -95,7 +102,7 @@ export default function BrandIcon({
 
   return (
     <span
-      className={["inline-flex shrink-0 [&>svg]:size-full", className].filter(Boolean).join(" ")}
+      className={["inline-flex shrink-0 grayscale [&>svg]:size-full", className].filter(Boolean).join(" ")}
       style={{ width: size, height: size }}
       aria-hidden
       // These SVG strings are compile-time assets from the pinned icon package.

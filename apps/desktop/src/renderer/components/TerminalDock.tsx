@@ -3,20 +3,22 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CheckIcon } from "@phosphor-icons/react/Check";
-import { SplitHorizontalIcon } from "@phosphor-icons/react/SplitHorizontal";
-import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
+import { ColumnsIcon } from "@phosphor-icons/react/Columns";
+import { RowsIcon } from "@phosphor-icons/react/Rows";
+import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
-import { XIcon } from "@phosphor-icons/react/X";
 import { toast } from "sonner";
 import type { ShellProfile, TerminalSession } from "../../shared/rpc-schema.ts";
 import { findTerminalLinks } from "../lib/terminalLinks.ts";
 import { currentTerminalColors, THEME_CHANGE_EVENT } from "../lib/themes.ts";
 import { useAppStore } from "../lib/store.ts";
+import { useReducedMotion } from "../lib/motion.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { DropdownMenu as Menu, DropdownMenuContent as MenuPopup, DropdownMenuGroup as MenuGroup, DropdownMenuItem as MenuItem, DropdownMenuTrigger as MenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.tsx";
 import { rpc } from "@/lib/rpc.ts";
+import { cn } from "@/lib/utils.ts";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -61,6 +63,7 @@ export default function TerminalDock({
   const [state, setState] = useState<DockState>({ terminals: [], shells: [], error: null, closing: false, restarts: {} });
   const { terminals, shells, error, closing, restarts } = state;
   const [confirmingKillAll, setConfirmingKillAll] = useState(false);
+  const [orientation, setOrientation] = useState<"horizontal" | "vertical">("horizontal");
   const preferredShellId = useAppStore((s) => s.preferences.preferredShellId);
   const setPreference = useAppStore((s) => s.setPreference);
   const controller = useRef<ReturnType<typeof createTerminalDock> | null>(null);
@@ -82,41 +85,33 @@ export default function TerminalDock({
   const closeAll = () => controller.current?.close();
 
   return (
-    <section aria-label="Integrated terminal" className="terminal-dock-enter flex h-full min-h-0 flex-col bg-background">
+    <section aria-label="Integrated terminal" className="terminal-dock-enter relative flex h-full min-h-0 flex-col bg-background">
       <ContextMenu>
-        {/* min-h rather than h: the buttons inside grow to a thumb-sized floor
-            on a touch screen, and a fixed bar height would clip them. */}
-        <ContextMenuTrigger render={<header className="flex min-h-8 shrink-0 items-center gap-2 border-b bg-sidebar/40 px-2" />}>
-        <TerminalWindowIcon aria-hidden="true" className="shrink-0 text-muted-foreground" />
-        <span className="flex-1 text-xs font-medium">Terminal</span>
-        <ShellSplitButton
-          shells={shells}
-          preferredShellId={preferredShellId}
-          onChoose={(shellId) => setPreference("preferredShellId", shellId)}
-          onSplit={(shellId) => void addSplit(shellId)}
-        />
-        {/* Confirmed, like every other control that ends work the user cannot
-            get back. Quitting the window asks about exactly these shells; the
-            button that kills them all should not be the one that does not. */}
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={() => setConfirmingKillAll(true)}
-          disabled={terminals.length === 0 || closing}
-          title="Kill all terminals"
-          aria-label="Kill all terminals"
-        >
-          <TrashIcon />
-        </Button>
-        <div aria-hidden="true" className="mx-0.5 h-4 w-px shrink-0 bg-sidebar-border" />
-        <Button variant="ghost" size="icon-xs" onClick={onMinimize} title="Hide terminal panel" aria-label="Hide terminal panel">
-          <CaretDownIcon />
-        </Button>
+        <ContextMenuTrigger render={<div role="toolbar" aria-label="Terminal controls" className="absolute right-2 top-1.5 z-20 flex items-center gap-0.5 rounded-md border border-border/40 bg-background/95 p-0.5 text-muted-foreground" />}>
+          <Button variant="ghost" size="icon-xs" disabled={closing} title="Split terminal side by side" aria-label="Split terminal side by side" onClick={() => {
+            setOrientation("horizontal");
+            void addSplit(preferredShellId || undefined);
+          }}><ColumnsIcon /></Button>
+          <Button variant="ghost" size="icon-xs" disabled={closing} title="Split terminal above and below" aria-label="Split terminal above and below" onClick={() => {
+            setOrientation("vertical");
+            void addSplit(preferredShellId || undefined);
+          }}><RowsIcon /></Button>
+          <NewTerminalButton
+            shells={shells}
+            preferredShellId={preferredShellId}
+            disabled={closing}
+            onChoose={(shellId) => setPreference("preferredShellId", shellId)}
+            onCreate={(shellId) => void addSplit(shellId)}
+          />
+          <Button variant="ghost" size="icon-xs" onClick={() => setConfirmingKillAll(true)} disabled={terminals.length === 0 || closing} title="Kill all terminals" aria-label="Kill all terminals">
+            <TrashIcon />
+          </Button>
         </ContextMenuTrigger>
         <TerminalChromeMenu
           addSplit={() => void addSplit(preferredShellId || undefined)}
           closeAll={() => setConfirmingKillAll(true)}
           closing={closing}
+          onHide={onMinimize}
         />
       </ContextMenu>
 
@@ -134,15 +129,16 @@ export default function TerminalDock({
       />
 
       {error ? (
-        <div role="alert" className="flex min-h-0 flex-1 items-center justify-center px-4 text-sm text-destructive">
-          Could not start a shell: {error}
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 py-10">
+          <p role="alert" className="max-w-xl text-center text-sm text-destructive">Could not start a shell: {error}</p>
+          <Button variant="outline" size="sm" onClick={() => void controller.current?.start(preferredShellId || undefined)}>Retry</Button>
         </div>
       ) : terminals.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center text-xs text-muted-foreground" role="status">
           Starting a shell…
         </div>
       ) : (
-        <ResizablePanelGroup orientation="horizontal">
+        <ResizablePanelGroup orientation={orientation}>
           {terminals.map((terminal, index) => (
             <TerminalSplit
               key={terminal.id}
@@ -150,6 +146,9 @@ export default function TerminalDock({
               projectDir={projectDir}
               defaultSize={`${100 / terminals.length}%`}
               showHandle={index > 0}
+              showTitle={terminals.length > 1}
+              reserveToolbar={orientation === "horizontal" ? index === terminals.length - 1 : index === 0}
+              onHide={onMinimize}
               closing={closing}
               restartCount={restarts[terminal.id] ?? 0}
               onClose={() => void closeSplit(terminal.id)}
@@ -166,21 +165,23 @@ export default function TerminalDock({
   );
 }
 
-function ShellSplitButton({
+function NewTerminalButton({
   shells,
   preferredShellId,
   onChoose,
-  onSplit,
+  onCreate,
+  disabled,
 }: {
   shells: ShellProfile[];
   preferredShellId: string;
   onChoose: (shellId: string) => void;
-  onSplit: (shellId?: string) => void;
+  onCreate: (shellId?: string) => void;
+  disabled: boolean;
 }) {
-  if (shells.length === 0) {
+  if (shells.length <= 1) {
     return (
-      <Button variant="ghost" size="icon-xs" onClick={() => onSplit()} title="Split terminal" aria-label="Split terminal">
-        <SplitHorizontalIcon />
+      <Button variant="ghost" size="icon-xs" disabled={disabled} onClick={() => onCreate(preferredShellId || undefined)} title="New terminal" aria-label="New terminal">
+        <PlusIcon />
       </Button>
     );
   }
@@ -190,15 +191,17 @@ function ShellSplitButton({
       <Button
         variant="ghost"
         size="icon-xs"
-        onClick={() => onSplit(preferredShellId || undefined)}
-        title={selected ? `Split terminal (${selected.name})` : "Split terminal"}
-        aria-label="Split terminal"
+        disabled={disabled}
+        onClick={() => onCreate(preferredShellId || undefined)}
+        title={selected ? `New terminal (${selected.name})` : "New terminal"}
+        aria-label="New terminal"
       >
-        <SplitHorizontalIcon />
+        <PlusIcon />
       </Button>
       <Menu>
         <MenuTrigger
           render={<Button variant="ghost" size="icon-xs" className="px-0" />}
+          disabled={disabled}
           title="Choose a shell"
           aria-label="Choose a shell"
         >
@@ -228,6 +231,9 @@ function TerminalSplit({
   projectDir,
   defaultSize,
   showHandle,
+  showTitle,
+  reserveToolbar,
+  onHide,
   closing,
   restartCount,
   onClose,
@@ -241,6 +247,9 @@ function TerminalSplit({
   projectDir: string;
   defaultSize: string;
   showHandle: boolean;
+  showTitle: boolean;
+  reserveToolbar: boolean;
+  onHide: () => void;
   closing: boolean;
   restartCount: number;
   onClose: () => void;
@@ -257,8 +266,8 @@ function TerminalSplit({
       {showHandle ? <ResizableHandle className="hover:bg-ring focus-visible:bg-ring" /> : null}
       <ResizablePanel id={session.id} defaultSize={defaultSize}>
         <div className="flex h-full min-h-0 flex-col">
-          <ContextMenu>
-            <ContextMenuTrigger render={<div className="flex min-h-7 shrink-0 items-center gap-1.5 border-b px-2" />}>
+          {showTitle || editingName ? <ContextMenu>
+            <ContextMenuTrigger render={<div className={cn("flex min-h-9 shrink-0 items-center gap-1.5 px-3", reserveToolbar && "pr-32")} />}>
               <StatusDot session={session} />
               {editingName ? (
                 <Input
@@ -284,9 +293,6 @@ function TerminalSplit({
                   {session.name}
                 </button>
               )}
-              <Button variant="ghost" size="icon-xs" onClick={onClose} disabled={closing} title="Close this terminal tab" aria-label="Close this terminal tab">
-                <XIcon />
-              </Button>
             </ContextMenuTrigger>
             <TerminalChromeMenu
               addSplit={onSplit}
@@ -297,7 +303,7 @@ function TerminalSplit({
               onRestart={onRestart}
               onRename={() => setEditingName(true)}
             />
-          </ContextMenu>
+          </ContextMenu> : null}
           <TerminalSurface
             session={session}
             restartCount={restartCount}
@@ -308,6 +314,8 @@ function TerminalSplit({
             onDuplicate={onDuplicate}
             onRestart={onRestart}
             closing={closing}
+            onRename={() => setEditingName(true)}
+            onHide={onHide}
           />
         </div>
       </ResizablePanel>
@@ -340,6 +348,8 @@ function TerminalSurface({
   onDuplicate,
   onRestart,
   closing,
+  onRename,
+  onHide,
 }: {
   session: TerminalSession;
   restartCount: number;
@@ -350,6 +360,8 @@ function TerminalSurface({
   onDuplicate: () => void;
   onRestart: () => void;
   closing: boolean;
+  onRename: () => void;
+  onHide: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -362,6 +374,7 @@ function TerminalSurface({
   const fontSize = useAppStore((s) => s.preferences.terminalFontSize);
   const scrollback = useAppStore((s) => s.preferences.terminalScrollback);
   const cursorBlink = useAppStore((s) => s.preferences.terminalCursorBlink);
+  const reducedMotion = useReducedMotion();
   const preferredEditorId = useAppStore((s) => s.preferences.preferredEditorId);
   const terminalId = session.id;
 
@@ -390,7 +403,7 @@ function TerminalSurface({
     controlRef.current = "";
 
     const terminal = new Terminal({
-      cursorBlink,
+      cursorBlink: cursorBlink && !reducedMotion,
       cursorStyle: "block",
       fontFamily: "Consolas, 'Cascadia Mono', ui-monospace, monospace",
       fontSize,
@@ -509,16 +522,19 @@ function TerminalSurface({
     if (!terminal) return;
     terminal.options.fontSize = fontSize;
     terminal.options.scrollback = scrollback;
-    terminal.options.cursorBlink = cursorBlink;
     fitRef.current?.fit();
     void rpc.request.terminalResize({ projectDir, terminalId, cols: terminal.cols, rows: terminal.rows });
-  }, [projectDir, terminalId, fontSize, scrollback, cursorBlink]);
+  }, [projectDir, terminalId, fontSize, scrollback]);
+
+  useEffect(() => {
+    if (terminalRef.current) terminalRef.current.options.cursorBlink = cursorBlink && !reducedMotion;
+  }, [cursorBlink, reducedMotion]);
 
   return (
     <ContextMenu>
       <ContextMenuTrigger
         render={
-          <div ref={containerRef} className="terminal-surface relative min-h-0 flex-1 px-2 py-1.5">
+          <div ref={containerRef} className="terminal-surface relative min-h-0 flex-1 px-3 py-3">
             {attachError ? (
               <div className="absolute inset-0 z-10 grid place-content-center gap-2 bg-background/90 text-center text-sm">
                 <span>Could not attach to this terminal.</span>
@@ -552,9 +568,11 @@ function TerminalSurface({
         <ContextMenuSeparator />
         <ContextMenuItem onClick={onSplit}>Split terminal</ContextMenuItem>
         <ContextMenuItem onClick={onDuplicate}>Duplicate terminal</ContextMenuItem>
+        <ContextMenuItem onClick={onRename}>Rename terminal</ContextMenuItem>
         <ContextMenuItem onClick={onRestart}>Restart terminal</ContextMenuItem>
         <ContextMenuItem disabled={closing} onClick={onClose}>Close this terminal</ContextMenuItem>
         <ContextMenuItem disabled={closing} onClick={onCloseAll}>Kill all terminals</ContextMenuItem>
+        <ContextMenuItem onClick={onHide}>Hide terminal panel</ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   );
@@ -568,6 +586,7 @@ function TerminalChromeMenu({
   onDuplicate,
   onRestart,
   onRename,
+  onHide,
 }: {
   addSplit: () => void;
   close?: () => void;
@@ -576,6 +595,7 @@ function TerminalChromeMenu({
   onDuplicate?: () => void;
   onRestart?: () => void;
   onRename?: () => void;
+  onHide?: () => void;
 }) {
   return (
     <ContextMenuContent className="w-48">
@@ -585,6 +605,7 @@ function TerminalChromeMenu({
       {onRestart ? <ContextMenuItem onClick={onRestart}>Restart terminal</ContextMenuItem> : null}
       {close ? <ContextMenuItem disabled={closing} onClick={close}>Close this terminal</ContextMenuItem> : null}
       <ContextMenuItem disabled={closing} onClick={closeAll}>Kill all terminals</ContextMenuItem>
+      {onHide ? <ContextMenuItem onClick={onHide}>Hide terminal panel</ContextMenuItem> : null}
     </ContextMenuContent>
   );
 }

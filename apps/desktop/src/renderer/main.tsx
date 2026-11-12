@@ -13,6 +13,21 @@ document.documentElement.dataset.shell = isDesktopShell ? "desktop" : "web";
 if (isDesktopShell) {
   document.documentElement.dataset.windowControls = osName() === "macOS" ? "native" : "custom";
 }
+if (isDesktopShell && osName() === "macOS") {
+  const applyFullScreen = ({ fullscreen }: { fullscreen: boolean }) => {
+    document.documentElement.dataset.windowControls = fullscreen ? "none" : "native";
+  };
+  // Subscribe before reading the initial state; a transition takes precedence
+  // over an in-flight snapshot, including when the renderer reloads.
+  let changed = false;
+  rpc.events.on("windowFullScreen", (state) => {
+    changed = true;
+    applyFullScreen(state);
+  });
+  void rpc.request.windowIsFullScreen({}).then((state) => {
+    if (!changed) applyFullScreen(state);
+  }).catch(() => {});
+}
 if (isDesktopShell) {
   window.addEventListener("error", (event) => {
     void rpc.request.reportRendererError({

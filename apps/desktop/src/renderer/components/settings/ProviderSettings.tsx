@@ -132,10 +132,10 @@ function ProviderGroup({
   return (
     <section
       aria-labelledby={headingId}
-      className="grid gap-3 border-t border-border/70 pt-6 lg:grid-cols-[minmax(11rem,0.48fr)_minmax(0,1.52fr)] lg:gap-10"
+      className="grid gap-3 border-t border-border/70 pt-6 @min-[44rem]/settings-content:grid-cols-[minmax(11rem,0.48fr)_minmax(0,1.52fr)] @min-[44rem]/settings-content:gap-10"
     >
       <div className="flex max-w-sm flex-col gap-1">
-        <h2 id={headingId} className="font-heading text-sm font-semibold">
+        <h2 id={headingId} className="text-title">
           {heading}
           <span className="ml-2 font-sans text-xs font-normal text-muted-foreground tabular-nums">
             {providers.length}
@@ -218,7 +218,7 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
 
   if (flow?.busy && !flow.error) {
     return (
-      <p className="flex items-center gap-2 px-4 pb-6 pt-1 sm:px-14 text-sm text-body-muted-foreground">
+      <p className="flex items-center gap-2 px-4 pb-6 pt-1 @min-[36rem]/settings-content:px-14 text-sm text-body-muted-foreground">
         <CircleNotchIcon className="animate-spin" />
         Preparing secure sign-in…
       </p>
@@ -226,7 +226,7 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-4 pb-6 pt-1 sm:px-14">
+    <div className="flex flex-col gap-4 px-4 pb-6 pt-1 @min-[36rem]/settings-content:px-14">
       {/* The failure accompanies the orientation copy rather than replacing it:
           "Choose how you'd like to sign in" is exactly what you still need when
           a sign-in has just failed. */}
@@ -328,7 +328,7 @@ function AuthProgress({ provider, flow }: { provider: AuthProviderInfo; flow: Au
   const messages = flow.notices.filter((n) => n.kind === "progress" || n.kind === "info");
 
   return (
-    <div className="flex flex-col gap-4 px-4 pb-6 pt-1 sm:px-14">
+    <div className="flex flex-col gap-4 px-4 pb-6 pt-1 @min-[36rem]/settings-content:px-14">
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <CircleNotchIcon className="animate-spin" />
         Waiting for you to finish signing in to {provider.name} in your browser…
@@ -398,7 +398,7 @@ function AuthPromptForm({
 
   if (prompt.request.kind === "select") {
     return (
-      <div className="flex flex-col gap-3 px-4 pb-6 pt-1 sm:px-14">
+      <div className="flex flex-col gap-3 px-4 pb-6 pt-1 @min-[36rem]/settings-content:px-14">
         <p className="text-sm font-medium">{prompt.request.message}</p>
         <div className="flex flex-wrap gap-2">
           {prompt.request.options.map((option) => (
@@ -433,7 +433,7 @@ function AuthPromptForm({
 
   return (
     <form
-      className="px-4 pb-6 pt-1 sm:px-14"
+      className="px-4 pb-6 pt-1 @min-[36rem]/settings-content:px-14"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit(value.trim());

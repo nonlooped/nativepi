@@ -169,14 +169,14 @@ function ProviderCard({ usage }: { usage: SubscriptionUsage }) {
   const remaining = mostConstrained ? Math.max(0, 100 - mostConstrained.usedPercent) : undefined;
 
   return (
-    <section className="grid gap-6 border-t border-border/70 py-7 lg:grid-cols-[minmax(12rem,0.55fr)_minmax(20rem,1.45fr)] lg:gap-10">
-      <div className="flex items-start justify-between gap-4 lg:flex-col lg:justify-start">
+    <section className="grid gap-6 border-t border-border/70 py-7 @min-[44rem]/settings-content:grid-cols-[minmax(12rem,0.55fr)_minmax(20rem,1.45fr)] @min-[44rem]/settings-content:gap-10">
+      <div className="flex items-start justify-between gap-4 @min-[44rem]/settings-content:flex-col @min-[44rem]/settings-content:justify-start">
         <div className="flex items-center gap-3">
           <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-foreground">
             <BrandIcon name={providerIconName(usage.provider)} size={21} color />
           </span>
           <div>
-            <h2 className="text-sm font-semibold leading-none">{providerLabel(usage.provider)}</h2>
+            <h2 className="text-sm font-semibold leading-normal">{providerLabel(usage.provider)}</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               {sorted.length === 0
                 ? "No limits reported"
@@ -185,9 +185,9 @@ function ProviderCard({ usage }: { usage: SubscriptionUsage }) {
           </div>
         </div>
         {remaining !== undefined ? (
-          <div className="text-right lg:text-left">
+          <div className="text-right @min-[44rem]/settings-content:text-left">
             <p
-              className="font-mono text-lg font-medium leading-none tabular-nums"
+              className="text-lg font-medium leading-tight tabular-nums"
               style={{ color: toneColor(mostConstrained!.usedPercent) }}
             >
               {Math.round(remaining)}% left
@@ -213,7 +213,7 @@ function ProviderCard({ usage }: { usage: SubscriptionUsage }) {
                   <p className="min-w-0 flex-1 truncate text-sm font-medium" title={limit.label}>
                     {limit.label}
                   </p>
-                  <p className="shrink-0 font-mono text-xs tabular-nums" style={{ color: toneColor(limit.usedPercent) }}>
+                  <p className="shrink-0 text-xs tabular-nums" style={{ color: toneColor(limit.usedPercent) }}>
                     {Math.round(left)}% left
                   </p>
                 </div>
@@ -268,7 +268,7 @@ function EmptyState({
       <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
         {icon ?? <ChartDonutIcon size={18} />}
       </span>
-      <h2 className="mt-3 font-heading text-sm font-semibold">{title}</h2>
+      <h2 className="mt-3 text-title">{title}</h2>
       <p className="mt-1.5 max-w-md text-sm leading-6 text-body-muted-foreground">{description}</p>
       {action ? <div className="mt-3">{action}</div> : null}
     </div>

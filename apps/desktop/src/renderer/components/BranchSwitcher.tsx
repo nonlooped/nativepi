@@ -12,9 +12,11 @@ import { cn } from "@/lib/utils.ts";
 export default function BranchSwitcher({
   className,
   side = "bottom",
+  handleRequests = false,
 }: {
   className?: string;
   side?: "top" | "bottom";
+  handleRequests?: boolean;
 }) {
   const isRepo = useAppStore((s) => s.git?.isRepo ?? false);
   const branch = useAppStore((s) => s.git?.branch);
@@ -26,10 +28,10 @@ export default function BranchSwitcher({
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!branchMenuRequested) return;
+    if (!handleRequests || !branchMenuRequested) return;
     consumeBranchMenuRequest();
     setOpen(true);
-  }, [branchMenuRequested, consumeBranchMenuRequest]);
+  }, [branchMenuRequested, consumeBranchMenuRequest, handleRequests]);
 
   if (!isRepo) return null;
 
@@ -50,7 +52,7 @@ export default function BranchSwitcher({
         <span className="truncate">{label}</span>
         <CaretDownIcon className="shrink-0 text-muted-foreground" />
       </MenuTrigger>
-      <MenuPopup side={side} className="max-h-none w-[min(20rem,calc(100vw-2rem))] overflow-hidden p-0">
+      <MenuPopup side={side} className="w-[min(20rem,calc(100vw-2rem))] overflow-hidden p-0">
         {open ? <BranchList onDone={() => setOpen(false)} /> : null}
       </MenuPopup>
     </Menu>
@@ -85,7 +87,7 @@ function BranchList({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div className="flex max-h-[min(24rem,60vh)] flex-col">
+    <div className="flex max-h-[min(24rem,60vh,var(--available-height))] flex-col">
       <div className="p-1.5 pb-0">
         <Input
           value={query}

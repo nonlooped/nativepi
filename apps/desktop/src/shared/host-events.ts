@@ -12,6 +12,7 @@ export const hostEventSchemas = {
   projectFilesChanged: target.extend({ path: z.string() }),
   authPrompt: z.looseObject({ flowId: z.string().optional(), runtimeId: z.string().optional(), projectDir: z.string().optional(), sessionFile: z.string().optional(), id: z.string(), prompt: authPromptSchema }),
   authNotice: z.looseObject({ flowId: z.string().optional(), runtimeId: z.string().optional(), sessionFile: z.string().optional(), projectDir: z.string().optional(), notice: authNoticeSchema }),
+  windowFullScreen: z.object({ fullscreen: z.boolean() }),
   windowMaximized: z.object({ maximized: z.boolean() }),
   updateState: z.looseObject({ status: z.enum(["unsupported", "manual", "idle", "checking", "available", "downloading", "ready", "error"]), channel: z.enum(["stable", "nightly"]) }),
   quitRequested: z.object({ work: z.object({ runs: z.array(z.string()), terminals: z.array(z.string()), viewers: z.number().int().nonnegative() }) }),

@@ -190,7 +190,7 @@ export default function ThemeSettings() {
     <>
       <ChoiceRow
         label="Appearance"
-        description="System follows this device. Every color scheme has a light and dark variant."
+        description="Follow your device or choose a light or dark appearance."
         value={preferences.theme}
         options={[
           { value: "system", label: "System" },
@@ -208,16 +208,16 @@ export default function ThemeSettings() {
       />
       <ActionRow
         label="Color schemes"
-        description="Duplicate the current scheme to customize it, or import JSON shared by someone else."
+        description="Customize a copy of this scheme or import a shared one."
       >
         <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="outline" size="xl" onClick={create} disabled={preferences.customThemes.length >= MAX_CUSTOM_THEMES}>
+          <Button variant="outline" size="lg" onClick={create} disabled={preferences.customThemes.length >= MAX_CUSTOM_THEMES}>
             <PlusIcon data-icon="inline-start" />
             Create scheme
           </Button>
           <Button
             variant="outline"
-            size="xl"
+            size="lg"
             onClick={() => setImporting(true)}
             disabled={preferences.customThemes.length >= MAX_CUSTOM_THEMES}
           >
@@ -228,7 +228,7 @@ export default function ThemeSettings() {
             <>
               <Button
                 variant="ghost"
-                size="xl"
+                size="lg"
                 onClick={() => setEditing({
                   ...activeCustom,
                   colors: {
@@ -240,11 +240,11 @@ export default function ThemeSettings() {
                 <PencilSimpleIcon data-icon="inline-start" />
                 Edit
               </Button>
-              <Button variant="ghost" size="xl" onClick={copyJson}>
+              <Button variant="ghost" size="lg" onClick={copyJson}>
                 <CopyIcon data-icon="inline-start" />
                 Copy JSON
               </Button>
-              <Button variant="destructive" size="xl" onClick={() => setDeleting(true)}>
+              <Button variant="destructive" size="lg" onClick={() => setDeleting(true)}>
                 <TrashIcon data-icon="inline-start" />
                 Delete
               </Button>
@@ -349,7 +349,7 @@ function ThemeEditor({
                 {COLOR_GROUPS.map((group) => (
                   <FieldSet key={group.legend}>
                     <FieldLegend>{group.legend}</FieldLegend>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-3 @min-[36rem]/settings-content:grid-cols-2">
                       {group.fields.map((field) => (
                         <ColorField
                           key={field.key}
@@ -395,8 +395,8 @@ function ThemePreview({ colors }: { colors: ThemeColors }) {
       style={themePreviewStyle(colors)}
       className="overflow-hidden rounded-xl border border-border bg-background font-sans text-foreground"
     >
-      <div className="grid min-h-32 grid-cols-1 sm:grid-cols-[7rem_1fr]">
-        <div className="border-b border-border bg-sidebar p-3 sm:border-e sm:border-b-0">
+      <div className="grid min-h-32 grid-cols-1 @min-[36rem]/settings-content:grid-cols-[7rem_1fr]">
+        <div className="border-b border-border bg-sidebar p-3 @min-[36rem]/settings-content:border-e @min-[36rem]/settings-content:border-b-0">
           <p className="font-heading text-xs font-semibold">Projects</p>
           <div className="mt-2 rounded-md bg-accent px-2 py-1.5 text-xs">NativePi</div>
           <p className="mt-2 truncate font-mono text-xs text-muted-foreground">src/renderer</p>

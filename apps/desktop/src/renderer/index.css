@@ -62,7 +62,20 @@ html[data-shell="desktop"][data-window-controls="custom"] .window-controls-clear
 
 
 html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-clearance {
-  padding-left: 78px;
+  /* The last traffic light ends at x=66px. Account for the toggle's
+     icon inset so the visible gaps on both sides of it are the same. */
+  --native-chrome-gap: 32px;
+  /* 2rem button around a 1.25rem icon. */
+  --native-toggle-inset: 0.375rem;
+  padding-left: calc(66px + var(--native-chrome-gap) - var(--native-toggle-inset));
+}
+
+/* Native traffic lights are fixed at y=17px with a 12px diameter (main/index.ts).
+   Keep both header states on their 23px centerline even as rem sizes scale. */
+html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-clearance > .native-header-content {
+  position: relative;
+  top: calc(23px - 1.5rem);
+  gap: calc(var(--native-chrome-gap) - var(--native-toggle-inset));
 }
 
 /* The project pane keeps its navigation below the title-bar row, so window
@@ -85,7 +98,7 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
    is no gutter to compensate for and the padding returns to matching the
    left-hand `px-5` of every element that uses this. */
 .scrollbar-gutter-offset {
-  padding-right: 30px;
+  padding-right: calc(1.25rem + 10px);
 }
 
 @media (pointer: coarse) {
@@ -107,8 +120,6 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
 @media (hover: none) {
   .hover-reveal {
     opacity: 1 !important;
-    filter: none !important;
-    scale: 1 !important;
   }
 }
 
@@ -139,7 +150,7 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   textarea,
   select,
   [contenteditable="true"] {
-    font-size: max(1rem, 1em);
+    font-size: max(16px, 1em);
   }
 }
 
@@ -187,112 +198,112 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
 
 :root {
   color-scheme: light;
-  /* Cool mineral surfaces keep the workspace crisp without turning clinical. */
-  --background: #f7f8fa;
-  --foreground: #202126;
-  --card: #fcfdff;
-  --card-foreground: #202126;
-  --popover: #fcfdff;
-  --popover-foreground: #202126;
-  --primary: #25282f;
-  --primary-foreground: #f8f9fb;
-  --secondary: #eceff3;
-  --secondary-foreground: #25272d;
-  --muted: #eceff3;
-  --muted-foreground: #60646f;
-  --body-muted-foreground: #555963;
-  --accent: #e3e7ec;
-  --accent-foreground: #202126;
-  --destructive: #c71925;
-  --bright: #25272d;
-  --favorite: #a46d00;
-  --success: #25713a;
-  --warning: #8c5900;
-  --info: #006b94;
-  --active: #5d6470;
-  --border: #d9dde3;
-  --input: #cfd4dc;
-  --ring: #69717e;
+  /* Neutral surface and text ladders; keep in sync with NATIVE_THEME. */
+  --background: #f8f8f8;
+  --foreground: #242424;
+  --card: #ffffff;
+  --card-foreground: #242424;
+  --popover: #ffffff;
+  --popover-foreground: #242424;
+  --primary: #262626;
+  --primary-foreground: #fafafa;
+  --secondary: #eeeeee;
+  --secondary-foreground: #242424;
+  --muted: #eeeeee;
+  --muted-foreground: #5c5c5c;
+  --body-muted-foreground: color-mix(in oklch, #5c5c5c, #242424 30%);
+  --accent: #e5e5e5;
+  --accent-foreground: #242424;
+  --destructive: #242424;
+  --bright: #242424;
+  --favorite: #505050;
+  --success: #505050;
+  --warning: #444444;
+  --info: #505050;
+  --active: #5c5c5c;
+  --border: #d2d2d2;
+  --input: color-mix(in oklch, #d2d2d2, #242424 8%);
+  --ring: #5c5c5c;
   --overlay: oklch(0 0 0 / 58%);
   --qr-background: oklch(1 0 0);
-  --chart-1: #2458b8;
-  --chart-2: #7540a8;
-  --chart-3: #a84b19;
-  --chart-4: #14736d;
-  --chart-5: #a83268;
-  --contrast-foreground: #121215;
-  --contrast-muted-foreground: #35373d;
-  --contrast-body-muted-foreground: #121215;
-  --contrast-border: #57585b;
-  --contrast-input: #57585b;
-  --contrast-ring: #181a1f;
-  --contrast-success: #184926;
-  --contrast-warning: #5b3a00;
-  --contrast-info: #004660;
-  --contrast-destructive: #811018;
-  --contrast-favorite: #6b4700;
+  --chart-1: #242424;
+  --chart-2: #4e4e4e;
+  --chart-3: #797979;
+  --chart-4: #a3a3a3;
+  --chart-5: #cecece;
+  --contrast-foreground: #141414;
+  --contrast-muted-foreground: #333333;
+  --contrast-body-muted-foreground: #141414;
+  --contrast-border: #545454;
+  --contrast-input: #545454;
+  --contrast-ring: #191919;
+  --contrast-success: #343434;
+  --contrast-warning: #2c2c2c;
+  --contrast-info: #343434;
+  --contrast-destructive: #171717;
+  --contrast-favorite: #343434;
   --radius: 0.625rem;
-  --sidebar: #f1f3f6;
-  --sidebar-foreground: #202126;
-  --sidebar-primary: #25282f;
-  --sidebar-primary-foreground: #f8f9fb;
-  --sidebar-accent: #e3e7ec;
-  --sidebar-accent-foreground: #202126;
-  --sidebar-border: #d5d9e0;
-  --sidebar-ring: #69717e;
+  --sidebar: #f0f0f0;
+  --sidebar-foreground: #242424;
+  --sidebar-primary: #262626;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #e5e5e5;
+  --sidebar-accent-foreground: #242424;
+  --sidebar-border: #d2d2d2;
+  --sidebar-ring: #5c5c5c;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #101114;
-  --foreground: #e9eaf0;
-  --card: #17191e;
-  --card-foreground: #f2f3f6;
-  --popover: #1b1e24;
-  --popover-foreground: #f2f3f6;
-  --primary: #e4e6eb;
-  --primary-foreground: #1b1e24;
-  --secondary: #242830;
-  --secondary-foreground: #f2f3f6;
-  --muted: #20232a;
-  --muted-foreground: #b8bbc5;
-  --body-muted-foreground: #c9ccd4;
-  --accent: #2b3038;
-  --accent-foreground: #f2f3f6;
-  --destructive: #ff9b9e;
-  --bright: #f4f5f7;
-  --favorite: #f1bb3c;
-  --success: #68cc7b;
-  --warning: #ebb04f;
-  --info: #79caee;
-  --active: #b7bdc8;
-  --border: #292d35;
-  --input: #363b45;
-  --ring: #7d8592;
-  --chart-1: #78a9ff;
-  --chart-2: #bd8cff;
-  --chart-3: #ff9b67;
-  --chart-4: #55d6c8;
-  --chart-5: #f58ab7;
-  --contrast-foreground: #f3f3f7;
-  --contrast-muted-foreground: #d8dadf;
-  --contrast-body-muted-foreground: #f3f3f7;
-  --contrast-border: #a9abae;
-  --contrast-input: #a9abae;
-  --contrast-ring: #edeff2;
-  --contrast-success: #9ddea9;
-  --contrast-warning: #f2cc8d;
-  --contrast-info: #a8ddf4;
-  --contrast-destructive: #ffbec0;
-  --contrast-favorite: #f6d380;
-  --sidebar: #14161a;
-  --sidebar-foreground: #f2f3f6;
-  --sidebar-primary: #e4e6eb;
-  --sidebar-primary-foreground: #1b1e24;
-  --sidebar-accent: #282c33;
-  --sidebar-accent-foreground: #f2f3f6;
-  --sidebar-border: #2b2f37;
-  --sidebar-ring: #7d8592;
+  --background: #141414;
+  --foreground: #e8e8e8;
+  --card: #1c1c1c;
+  --card-foreground: #e8e8e8;
+  --popover: color-mix(in oklch, #1c1c1c, #e8e8e8 3%);
+  --popover-foreground: #e8e8e8;
+  --primary: #e5e5e5;
+  --primary-foreground: #1c1c1c;
+  --secondary: #242424;
+  --secondary-foreground: #e8e8e8;
+  --muted: #242424;
+  --muted-foreground: #c0c0c0;
+  --body-muted-foreground: color-mix(in oklch, #c0c0c0, #e8e8e8 30%);
+  --accent: #303030;
+  --accent-foreground: #e8e8e8;
+  --destructive: #eeeeee;
+  --bright: #e8e8e8;
+  --favorite: #d0d0d0;
+  --success: #bdbdbd;
+  --warning: #d0d0d0;
+  --info: #bdbdbd;
+  --active: #c0c0c0;
+  --border: #3a3a3a;
+  --input: color-mix(in oklch, #3a3a3a, #e8e8e8 8%);
+  --ring: #c0c0c0;
+  --chart-1: #e8e8e8;
+  --chart-2: #bebebe;
+  --chart-3: #939393;
+  --chart-4: #696969;
+  --chart-5: #3e3e3e;
+  --contrast-foreground: #f2f2f2;
+  --contrast-muted-foreground: #dcdcdc;
+  --contrast-body-muted-foreground: #f2f2f2;
+  --contrast-border: #b0b0b0;
+  --contrast-input: #b0b0b0;
+  --contrast-ring: #eeeeee;
+  --contrast-success: #d4d4d4;
+  --contrast-warning: #e0e0e0;
+  --contrast-info: #d4d4d4;
+  --contrast-destructive: #f4f4f4;
+  --contrast-favorite: #e0e0e0;
+  --sidebar: #181818;
+  --sidebar-foreground: #e8e8e8;
+  --sidebar-primary: #e5e5e5;
+  --sidebar-primary-foreground: #1c1c1c;
+  --sidebar-accent: #303030;
+  --sidebar-accent-foreground: #e8e8e8;
+  --sidebar-border: #3a3a3a;
+  --sidebar-ring: #c0c0c0;
 }
 
 @media (prefers-contrast: more) {
@@ -322,6 +333,29 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
 @theme inline {
   --font-sans: 'Geist Variable', sans-serif;
   --font-heading: 'Geist Variable', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  /* Sizes follow the saved interface scale through rem. Controls and reading
+     text share a family, but use different leading for their different jobs. */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.5;
+  --text-reading: 0.875rem;
+  --text-reading--line-height: 1.7142857143;
+  --text-composer: 0.9375rem;
+  --text-composer--line-height: 1.6;
+  --text-title: 1rem;
+  --text-title--line-height: 1.5;
+  --text-title--font-weight: 600;
+  --text-title--letter-spacing: -0.015em;
+  --text-heading: 1.25rem;
+  --text-heading--line-height: 1.3;
+  --text-heading--font-weight: 600;
+  --text-heading--letter-spacing: -0.02em;
+  --text-headline: 1.5rem;
+  --text-headline--line-height: 1.25;
+  --text-headline--font-weight: 600;
+  --text-headline--letter-spacing: -0.025em;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -376,7 +410,7 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-sm text-foreground;
   }
   html {
     @apply font-sans antialiased;
@@ -411,14 +445,60 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
 
 .terminal-dock-enter {
   animation: terminal-dock-enter 180ms cubic-bezier(0.16, 1, 0.3, 1);
-  transform-origin: bottom;
 }
 
 @keyframes terminal-dock-enter {
   from {
-    clip-path: inset(1rem 0 0);
+    opacity: 0;
     transform: translateY(0.75rem);
   }
+}
+
+/* Feedback surfaces enter once, without animating transcript text or replaying
+   on streaming updates. Removal stays immediate for queues and attachments. */
+.status-enter {
+  animation: status-enter 150ms ease-out;
+}
+
+/* A one-shot entrance for a screen the user sees once in a while, such as the
+   welcome state: children rise in together on a short index-based stagger. The
+   whole sequence stays under ~300ms and never gates a control. */
+.stagger-enter > * {
+  animation: stagger-enter 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+.stagger-enter > :nth-child(2):not([style*="--i"]) {
+  --i: 1;
+}
+
+@keyframes stagger-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+@keyframes status-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+}
+
+/* Only compact, explicitly expanded details use layout motion. Base UI owns
+   measurement, interruption and unmounting; padding belongs to a child so the
+   panel can reach zero height. Large lists and streamed work stay immediate. */
+.disclosure-panel {
+  height: var(--collapsible-panel-height);
+  overflow: hidden;
+  transition: height 180ms cubic-bezier(0.16, 1, 0.3, 1), opacity 150ms ease-out;
+}
+
+.disclosure-panel[data-starting-style],
+.disclosure-panel[data-ending-style] {
+  height: 0;
+  opacity: 0;
 }
 
 .sidebar-panel {
@@ -448,6 +528,13 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   text-transform: lowercase;
 }
 
+.nativepi-wordmark-compact {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 1.25rem;
+  letter-spacing: -0.03em;
+}
+
 .nativepi-wordmark-native {
   color: var(--muted-foreground);
 }
@@ -458,9 +545,19 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
 }
 
 .composer-surface {
-  transition: box-shadow 150ms ease;
+  transition: box-shadow 180ms ease, border-color 180ms ease;
   box-shadow:
     0 14px 36px color-mix(in oklch, var(--background) 40%, oklch(0 0 0 / 24%)),
+    inset 0 1px color-mix(in oklch, var(--foreground) 6%, transparent);
+}
+
+/* The box the user is typing in says so: a hairline of the focus colour and a
+   soft halo, instead of the surface looking identical focused and idle. */
+.composer-surface:focus-within {
+  border-color: color-mix(in oklch, var(--ring) 55%, var(--border));
+  box-shadow:
+    0 14px 36px color-mix(in oklch, var(--background) 40%, oklch(0 0 0 / 24%)),
+    0 0 0 3px color-mix(in oklch, var(--ring) 14%, transparent),
     inset 0 1px color-mix(in oklch, var(--foreground) 6%, transparent);
 }
 
@@ -471,6 +568,14 @@ html:not(.dark) .composer-surface {
     0 1px 3px oklch(0.22 0.007 285 / 10%),
     inset 0 1px 0 oklch(1 0 0 / 85%),
     inset 0 0 0 1px oklch(0.22 0.007 285 / 6%);
+}
+
+html:not(.dark) .composer-surface:focus-within {
+  box-shadow:
+    0 8px 24px oklch(0.22 0.007 285 / 8%),
+    0 1px 3px oklch(0.22 0.007 285 / 10%),
+    0 0 0 3px color-mix(in oklch, var(--ring) 16%, transparent),
+    inset 0 1px 0 oklch(1 0 0 / 85%);
 }
 
 /* Markdown is intentionally styled here rather than by its parser. That keeps
@@ -485,6 +590,11 @@ html:not(.dark) .composer-surface {
 .markdown ol,
 .markdown blockquote {
   max-width: 66ch;
+}
+
+.markdown p,
+.markdown li {
+  text-wrap: pretty;
 }
 
 .markdown > :first-child {
@@ -517,13 +627,15 @@ html:not(.dark) .composer-surface {
   margin-block: 1.25rem 0.5rem;
   font-family: var(--font-heading);
   font-weight: 600;
-  line-height: 1.2;
-  text-wrap: balance;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  text-wrap: pretty;
 }
 
-.markdown h1 { font-size: 1.5rem; }
-.markdown h2 { font-size: 1.25rem; }
-.markdown h3 { font-size: 1rem; }
+.markdown h1 { font-size: var(--text-headline); }
+.markdown h2 { margin-block-start: 1.75rem; }
+.markdown h2 { font-size: var(--text-heading); }
+.markdown h3 { font-size: var(--text-title); }
 .markdown h4,
 .markdown h5,
 .markdown h6 { font-size: 0.9375rem; }
@@ -552,7 +664,7 @@ html:not(.dark) .composer-surface {
 
 .markdown a {
   color: var(--foreground);
-  font-weight: 550;
+  font-weight: 500;
   text-decoration: underline;
   text-decoration-color: color-mix(in oklch, var(--foreground) 40%, transparent);
   text-decoration-thickness: from-font;
@@ -564,7 +676,7 @@ html:not(.dark) .composer-surface {
   text-decoration-color: currentColor;
 }
 
-.markdown strong { font-weight: 650; }
+.markdown strong { font-weight: 600; }
 .markdown hr { margin-block: 1.25rem; border-color: var(--border); }
 
 .markdown img {
@@ -578,14 +690,12 @@ html:not(.dark) .composer-surface {
 }
 
 .markdown :not(pre) > code {
-  display: inline-block;
-  max-width: 100%;
   padding-inline: 0.35em;
   border-radius: var(--radius-sm);
   overflow-wrap: anywhere;
   background-color: color-mix(in oklch, var(--muted) 62%, transparent);
-  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-  font-size: 0.88em;
+  font-family: var(--font-mono);
+  font-size: 0.925em;
 }
 
 .markdown-code-block,
@@ -607,9 +717,11 @@ html:not(.dark) .composer-surface {
   border-bottom: 1px solid var(--border);
   padding-inline: 0.75rem 0.25rem;
   color: var(--muted-foreground);
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: capitalize;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .markdown-code-block pre,
@@ -618,9 +730,9 @@ html:not(.dark) .composer-surface {
   overflow: auto;
   padding: 0.875rem 1rem;
   background: color-mix(in oklch, var(--background) 45%, transparent);
-  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
-  line-height: 1.6;
+  line-height: 1.6666666667;
   tab-size: 2;
 }
 
@@ -646,7 +758,7 @@ html:not(.dark) .composer-surface {
 .markdown .hljs-meta { color: var(--destructive); }
 .markdown .hljs-title,
 .markdown .hljs-section,
-.markdown .hljs-function { color: var(--foreground); font-weight: 650; }
+.markdown .hljs-function { color: var(--foreground); font-weight: 600; }
 .markdown .hljs-attr,
 .markdown .hljs-attribute,
 .markdown .hljs-variable,
@@ -663,26 +775,36 @@ html:not(.dark) .composer-surface {
   width: 100%;
   min-width: max-content;
   border-collapse: collapse;
-  font-size: 0.75rem;
+  font-size: inherit;
   line-height: 1.5;
 }
 
 .markdown-table th,
 .markdown-table td {
-  border-inline-end: 1px solid var(--border);
   border-block-end: 1px solid var(--border);
   padding: 0.5rem 0.75rem;
   text-align: start;
   vertical-align: top;
 }
-
+/* Column headers read as labels, not as a second row of content: small, tracked
+   and muted, on a faint band. Row dividers carry the grid, so the inner
+   vertical rules are gone. */
 .markdown-table th {
-  background: color-mix(in oklch, var(--muted) 55%, transparent);
-  font-weight: 650;
+  background: color-mix(in oklch, var(--muted) 45%, transparent);
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding-block: 0.4375rem;
 }
-
+.markdown-table tbody tr {
+  transition: background-color 120ms ease;
+}
+.markdown-table tbody tr:hover {
+  background: color-mix(in oklch, var(--muted) 28%, transparent);
+}
 .markdown-table tr:last-child > * { border-block-end: 0; }
-.markdown-table tr > *:last-child { border-inline-end: 0; }
 
 .markdown-diagram {
   overflow-x: auto;
@@ -744,6 +866,8 @@ html:not(.dark) .composer-surface {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
 }
@@ -758,5 +882,35 @@ html[data-motion="reduced"] *::after {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  transition-delay: 0ms !important;
   scroll-behavior: auto !important;
+}
+
+/* Settings rows follow the width of their own pane, including in small windows. */
+.settings-list {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  border-radius: var(--radius-lg);
+  padding-inline: 1.25rem;
+}
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+.settings-row-control { min-width: 0; }
+.settings-row-control > * { max-width: 100%; }
+@container settings-content (min-width: 36rem) {
+  .settings-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+  }
+  .settings-row-control { flex-shrink: 0; max-width: 52%; }
 }

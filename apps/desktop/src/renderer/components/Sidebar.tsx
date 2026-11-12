@@ -7,11 +7,10 @@ import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { ClockIcon } from "@phosphor-icons/react/Clock";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderPlusIcon } from "@phosphor-icons/react/FolderPlus";
-import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
+import { FunnelSimpleIcon } from "@phosphor-icons/react/FunnelSimple";
 import { GearSixIcon } from "@phosphor-icons/react/GearSix";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
-import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import type { Project } from "../../shared/rpc-schema.ts";
@@ -34,7 +33,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx";
-import { Separator } from "@/components/ui/separator.tsx";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card.tsx";
 import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import { editorName, fileManagerName } from "@/lib/paths.ts";
@@ -43,6 +41,8 @@ import { showHint } from "../lib/toast.tsx";
 import { isChatFinished } from "../lib/chatOrganization.ts";
 import { providerIconName } from "../lib/providerIcons.ts";
 import BrandIcon from "./BrandIcon.tsx";
+import ProjectIcon from "./ProjectIcon.tsx";
+import { projectBranch, useSidebarProjects, type SidebarProject } from "../lib/sidebarProjects.ts";
 
 interface SidebarChat {
   project: Project;
@@ -51,6 +51,7 @@ interface SidebarChat {
   pinned: boolean;
   finished: boolean;
   selected: boolean;
+  presentation?: SidebarProject;
 }
 
 export default function Sidebar({
@@ -69,6 +70,8 @@ export default function Sidebar({
   layoutKey?: unknown;
 }) {
   const projects = useAppStore((s) => s.projects);
+  const presentation = useSidebarProjects(projects);
+  const git = useAppStore((s) => s.git);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const isNewChat = useAppStore((s) => s.isNewChat);
@@ -156,12 +159,18 @@ export default function Sidebar({
             focusedChats,
           ),
           selected,
+          presentation: {
+            ...presentation[project.path],
+            ...(project.path === activeProjectPath && git ? {branch: projectBranch(git)} : {}),
+          },
         });
       }
     }
     return chats;
   }, [
     activeProjectPath,
+    presentation,
+    git,
     activeSessionFile,
     finishedChats,
     focusedChats,
@@ -204,6 +213,7 @@ export default function Sidebar({
   const failedProjects = projects.filter((project) => sessionLoadStates[project.path] === "failed");
 
   async function selectChatAndClose(chat: SidebarChat) {
+    if (chat.selected) return;
     await selectChat(chat.session.path, chat.project.path);
     if (overlay) onClose();
   }
@@ -253,69 +263,56 @@ export default function Sidebar({
       overlay={overlay}
       layoutKey={layoutKey}
     >
-      <div className={cn("flex flex-col gap-2 px-2 pb-2 pt-2", NO_DRAG_REGION)}>
+      <div className={cn("flex flex-col gap-2 px-3 pb-3 pt-3", NO_DRAG_REGION)}>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
-            size="default"
-            className="min-w-0 flex-1 justify-start text-sidebar-foreground"
-            onClick={onOpenNewChat}
-            title={withHint("New chat", "newChat", keybindingOverrides)}
+            className="min-w-0 flex-1 justify-start text-muted-foreground"
+            onClick={onOpenSearch}
+            title={withHint("Search chats and messages", "search", keybindingOverrides)}
+            aria-label="Search chats and messages"
           >
-            <NotePencilIcon data-icon="inline-start" />
-            New chat
+            <MagnifyingGlassIcon data-icon="inline-start" className="size-4" />
+            Search
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Filter threads" title={scopedProject ? `Filter: ${scopedProject.name}` : "Filter threads"} className={cn(scope && "bg-sidebar-accent text-sidebar-accent-foreground")} />}>
+              <FunnelSimpleIcon className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-60">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Projects</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setScope(null)}>
+                  <span className="flex-1">All projects</span>{!scope ? <CheckCircleIcon aria-hidden="true" /> : null}
+                </DropdownMenuItem>
+                {projects.map((project) => (
+                  <DropdownMenuItem key={project.path} onClick={() => setScope(project.path)}>
+                    <ProjectIcon name={project.name} src={presentation[project.path]?.icon} />
+                    <span className="min-w-0 flex-1 truncate">{project.name}</span>
+                    {scope === project.path ? <CheckCircleIcon aria-hidden="true" /> : null}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+              {scopedProject || currentProject ? <><DropdownMenuSeparator /><ProjectActionsMenuItems
+                project={scopedProject ?? currentProject} editorId={editorId} onNewChat={startNewChat} onImport={importChat}
+                onTerminal={showTerminal} onWorktrees={setWorktreesFor} onRemove={setPendingRemoval}
+              /></> : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button variant="ghost" size="icon" onClick={() => void addProjectAndClose()} aria-label="Add project" title="Add a project folder">
+            <FolderPlusIcon className="size-4" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            onClick={onOpenSearch}
-            aria-label="Search chats and messages"
-            title={withHint("Search chats and messages", "search", keybindingOverrides)}
+            onClick={onOpenNewChat}
+            aria-label="New chat"
+            title={withHint("New chat", "newChat", keybindingOverrides)}
           >
-            <MagnifyingGlassIcon />
+            <NotePencilIcon className="size-4" />
           </Button>
         </div>
 
-        <div className="flex items-center gap-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start text-muted-foreground" />}>
-              <FolderIcon data-icon="inline-start" />
-              <span className="truncate">{scopedProject?.name ?? "All projects"}</span>
-              <CaretDownIcon data-icon="inline-end" className="ml-auto" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuGroup>
-                <DropdownMenuItem onClick={() => setScope(null)}>
-                  <FolderIcon /> All projects
-                </DropdownMenuItem>
-                {projects.map((project) => (
-                  <DropdownMenuItem key={project.path} onClick={() => setScope(project.path)}>
-                    <FolderIcon /> <span className="truncate">{project.name}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {scopedProject ? (
-            <Button variant="ghost" size="icon-sm" onClick={() => setPendingRemoval(scopedProject)} aria-label={`Remove ${scopedProject.name} from NativePi`} title="Remove project from NativePi">
-              <TrashIcon />
-            </Button>
-          ) : null}
-          {currentProject ? (
-            <ProjectActionsDropdown
-              project={currentProject}
-              editorId={editorId}
-              onNewChat={startNewChat}
-              onImport={importChat}
-              onTerminal={showTerminal}
-              onWorktrees={setWorktreesFor}
-              onRemove={setPendingRemoval}
-            />
-          ) : null}
-          <Button variant="ghost" size="icon-sm" onClick={() => void addProjectAndClose()} aria-label="Add project" title="Add a project folder">
-            <FolderPlusIcon />
-          </Button>
-        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3">
@@ -337,12 +334,12 @@ export default function Sidebar({
         ) : null}
 
         {pinned.length > 0 ? (
-          <div className="flex h-8 shrink-0 items-center gap-2 px-2 text-xs">
-            <h2 className="font-medium text-sidebar-foreground">Pinned</h2>
+          <div className="flex h-9 shrink-0 items-center gap-2 px-3 text-[0.6875rem] tracking-[0.06em] uppercase">
+            <h2 className="font-medium text-muted-foreground">Pinned</h2>
             <span className="tabular-nums text-muted-foreground/70">{pinned.length}</span>
           </div>
         ) : null}
-        <div className="flex flex-col gap-0.5">
+        <div className="flex shrink-0 flex-col gap-1.5">
           {pinned.map((chat) => (
             <FocusChatRow
               key={chat.session.path}
@@ -354,13 +351,7 @@ export default function Sidebar({
           ))}
         </div>
 
-        {focus.length > 0 || (!loading && projects.length > 0) ? (
-          <div className={cn("flex h-8 shrink-0 items-center gap-2 px-2 text-xs", pinned.length > 0 && "mt-2")}>
-            <h2 className="font-medium text-sidebar-foreground">Focus</h2>
-            <span className="tabular-nums text-muted-foreground/70">{focus.length}</span>
-          </div>
-        ) : null}
-        <div className="flex flex-col gap-0.5">
+        <div className="flex shrink-0 flex-col gap-1.5">
           {focus.map((chat) => (
             <FocusChatRow
               key={chat.session.path}
@@ -379,16 +370,14 @@ export default function Sidebar({
         ) : null}
 
         {finished.length > 0 ? (
-          <section className="mt-3" aria-label="Finished chats">
-            <button type="button" onClick={() => setFinishedOpen((value) => !value)} aria-expanded={finishedOpen} className="flex h-8 w-full items-center gap-2 rounded-md px-1 text-left text-xs text-muted-foreground hover:text-sidebar-foreground">
-              <CheckCircleIcon weight="fill" />
+          <section className="mt-auto shrink-0 pt-8" aria-label="Finished chats">
+            <button type="button" onClick={() => setFinishedOpen((value) => !value)} aria-expanded={finishedOpen} className="flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[0.6875rem] tracking-[0.06em] uppercase text-muted-foreground transition-colors hover:text-sidebar-foreground">
               <span className="font-medium">Finished</span>
-              <span className="tabular-nums text-muted-foreground/70">{finished.length}</span>
-              <Separator className="mx-1 flex-1" />
+              <span className="ml-auto tabular-nums text-muted-foreground">{finished.length}</span>
               <CaretDownIcon className={cn("transition-transform", !finishedOpen && "-rotate-90")} weight="bold" />
             </button>
             {finishedOpen ? (
-              <div className="flex flex-col gap-0.5 pt-1">
+              <div className="flex flex-col gap-1 pt-1">
                 {finished.slice(0, finishedLimit).map((chat) => (
                   <FinishedChatRow
                     key={chat.session.path}
@@ -461,38 +450,36 @@ function FocusChatRow({
             onClick={onSelect}
             aria-current={chat.selected ? "page" : undefined}
             className={cn(
-              "relative flex h-auto min-h-14 w-full flex-col items-stretch justify-center gap-1 overflow-hidden rounded-lg px-2.5 py-2 text-left text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent/40 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset active:scale-100",
-              chat.selected && "bg-sidebar-accent text-sidebar-accent-foreground",
+              "relative flex h-auto min-h-16 w-full flex-col items-stretch justify-center gap-1 overflow-hidden rounded-lg border border-transparent px-3 py-2.5 text-left text-sidebar-foreground outline-none transition-[background-color,border-color,color,scale] hover:bg-sidebar-accent/40 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset active:scale-[0.985]",
+              chat.selected && "border-border/60 bg-sidebar-accent text-sidebar-accent-foreground",
             )}
           >
-            <span className="min-w-0 truncate text-sm font-medium leading-5">{chatTitle(chat.session)}</span>
-            <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="sidebar-chat-time shrink-0 tabular-nums text-muted-foreground/80">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="min-w-0 flex-1 truncate text-sm font-medium leading-5" title={chatTitle(chat.session)}>{chatTitle(chat.session)}</span>
+              <span className={cn("inline-flex shrink-0 items-center gap-1 text-xs font-normal tabular-nums", chat.running ? "text-active" : "text-muted-foreground")} role={chat.running ? "status" : undefined}>
+                {chat.running ? <><CircleNotchIcon className="size-3 animate-spin" />Working </> : null}
                 {timeAgo(chat.session.modified, now)}
               </span>
-              {chat.running ? (
-                <span className="ml-auto inline-flex shrink-0 items-center gap-1 font-medium text-active" role="status">
-                  <CircleNotchIcon className="size-3 animate-spin" /> Working
-                </span>
-              ) : (
-                <span className="relative ml-auto flex size-6 shrink-0 items-center justify-center">
-                  {provider ? (
-                    <span
-                      className="hidden text-muted-foreground/70 transition-opacity [@media(hover:hover)]:inline-flex group-hover/focus:opacity-0 group-focus-within/focus:opacity-0"
-                      title={`Model provider: ${provider}`}
-                    >
-                      <BrandIcon name={providerIconName(provider)} size={14} />
-                    </span>
-                  ) : null}
-                </span>
-              )}
+            </span>
+            <span className="flex min-w-0 items-center gap-2 text-xs font-normal text-muted-foreground">
+              <ProjectIcon name={chat.project.name} src={chat.presentation?.icon} />
+              <span className="min-w-0 flex-1 truncate" title={chat.presentation?.branch ? `Current project branch: ${chat.presentation.branch}` : chat.project.name}>
+                {chat.project.name}{chat.presentation?.branch ? <> · {chat.presentation.branch}</> : null}
+              </span>
+              <span className="relative flex size-5 shrink-0 items-center justify-center">
+                {provider ? (
+                  <span className="hidden text-muted-foreground/60 transition-opacity [@media(hover:hover)]:inline-flex group-hover/focus:opacity-0 group-focus-within/focus:opacity-0" title={`Model provider: ${provider}`}>
+                    <BrandIcon name={providerIconName(provider)} size={14} />
+                  </span>
+                ) : null}
+              </span>
             </span>
           </HoverCardTrigger>
           {!chat.running ? (
             <Button
               variant="ghost"
               size="icon-xs"
-              className={cn(HOVER_REVEAL, "absolute right-2.5 bottom-2 group-hover/focus:scale-100 group-hover/focus:opacity-100 group-hover/focus:blur-none group-focus-within/focus:scale-100 group-focus-within/focus:opacity-100 group-focus-within/focus:blur-none")}
+              className={cn(HOVER_REVEAL, "absolute right-2.5 bottom-2 group-hover/focus:opacity-100 group-focus-within/focus:opacity-100")}
               onClick={onFinish}
               aria-label="Mark finished"
               title="Mark finished"
@@ -529,18 +516,19 @@ function FinishedChatRow({
             onClick={onSelect}
             aria-current={chat.selected ? "page" : undefined}
             className={cn(
-              "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-xs text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset active:scale-100",
+              "flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-normal text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset active:scale-100",
               chat.selected && "bg-sidebar-accent text-sidebar-accent-foreground",
             )}
           >
+            <ProjectIcon name={chat.project.name} src={chat.presentation?.icon} />
             <span className="min-w-0 flex-1 truncate">{chatTitle(chat.session)}</span>
             <span className="relative flex h-6 min-w-6 shrink-0 items-center justify-end">
-              <span className="sidebar-chat-time hidden tabular-nums text-muted-foreground/80 transition-opacity [@media(hover:hover)]:inline group-hover/finished:opacity-0 group-focus-within/finished:opacity-0">
+              <span className="sidebar-chat-time hidden text-xs tabular-nums text-muted-foreground transition-opacity [@media(hover:hover)]:inline group-hover/finished:opacity-0 group-focus-within/finished:opacity-0">
                 {timeAgo(chat.session.modified, now)}
               </span>
             </span>
           </HoverCardTrigger>
-          <Button variant="ghost" size="icon-xs" className={cn(HOVER_REVEAL, "absolute top-1/2 right-2 -translate-y-1/2 group-hover/finished:scale-100 group-hover/finished:opacity-100 group-hover/finished:blur-none group-focus-within/finished:scale-100 group-focus-within/finished:opacity-100 group-focus-within/finished:blur-none")} onClick={onReturn} aria-label="Return chat to focus" title="Return to focus">
+          <Button variant="ghost" size="icon-xs" className={cn(HOVER_REVEAL, "absolute top-1/2 right-2 -translate-y-1/2 group-hover/finished:opacity-100 group-focus-within/finished:opacity-100")} onClick={onReturn} aria-label="Return chat to focus" title="Return to focus">
             <ArrowClockwiseIcon />
           </Button>
         </div>
@@ -578,7 +566,7 @@ function ChatHoverCardContent({ chat, now }: { chat: SidebarChat; now: number })
   );
 }
 
-function ProjectActionsDropdown({
+function ProjectActionsMenuItems({
   project,
   editorId,
   onNewChat,
@@ -597,11 +585,6 @@ function ProjectActionsDropdown({
 }) {
   if (!project) return null;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`${project.name} actions`} />}>
-        <DotsThreeIcon weight="bold" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuGroup>
           <DropdownMenuLabel className="truncate">{project.name}</DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -617,8 +600,6 @@ function ProjectActionsDropdown({
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={() => onRemove(project)}>Remove from NativePi</DropdownMenuItem>
         </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

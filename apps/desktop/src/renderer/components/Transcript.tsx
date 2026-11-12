@@ -1,6 +1,7 @@
 import { transcriptItems, appendStreaming, lastTurnFileCount, activeToolName } from "../lib/transcriptProjection.ts";
 import { RunStatusBar, RunDoneBar, TurnAnnouncer, useElapsed } from "./RunStatus.tsx";
 import { Collapsible } from "@base-ui/react/collapsible";
+import { ArrowDownIcon } from "@phosphor-icons/react/ArrowDown";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
 import { CheckIcon } from "@phosphor-icons/react/Check";
 import { CircleIcon } from "@phosphor-icons/react/Circle";
@@ -228,8 +229,9 @@ function TranscriptContent() {
             written for a viewport it is no longer a child of. */}
         <MessageScrollerButton
           direction="end"
-          className="pointer-events-auto static h-8 w-auto translate-x-0 px-3.5 text-xs"
+          className="pointer-events-auto static h-8 w-auto translate-x-0 gap-1.5 bg-popover/90 px-3 text-xs backdrop-blur-md ring-1 ring-foreground/10"
         >
+          <ArrowDownIcon data-icon="inline-start" weight="bold" className="size-3" />
           Jump to latest
         </MessageScrollerButton>
         {running ? (
@@ -351,7 +353,7 @@ function UserBubble({
       <span className="sr-only">You{pending ? " (sending)" : ""}:</span>
       <Message align="end" className="justify-end">
       <Bubble variant="secondary" align="end" className={cn("max-w-[85%]", pending && "opacity-60")}>
-        <BubbleContent className="rounded-2xl rounded-br-md px-4 py-3 text-sm leading-6">
+        <BubbleContent className="rounded-2xl rounded-br-md px-4 py-3 text-reading ring-1 ring-inset ring-foreground/[0.08]">
           {skills.length > 0 || files.length > 0 ? (
           <div className={cn("flex flex-wrap justify-end gap-1.5", (images.length > 0 || text) && "pb-2")}>
             {skills.map((skill) => <PromptSkillChip key={skill} skill={skill} />)}
@@ -471,7 +473,7 @@ function AssistantResponse({
   }
 
   const article = (
-    <article ref={responseRef} className="group/message flex flex-col gap-3 text-sm leading-relaxed" aria-busy={streaming || undefined}>
+    <article ref={responseRef} className="group/message flex flex-col gap-3 text-reading" aria-busy={streaming || undefined}>
       <span className="sr-only">Assistant:</span>
       {work.length > 0 ? (
         <Collapsible.Root
@@ -481,9 +483,10 @@ function AssistantResponse({
             setWorkOpen(open);
           }}
         >
-          <Collapsible.Trigger className="group flex items-center gap-1.5 rounded-sm py-1 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+          <Collapsible.Trigger className="group flex w-full items-center gap-2 rounded-sm py-1 text-xs text-muted-foreground tabular-nums outline-none transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
             <span>{streaming ? (elapsed ? `Working · ${elapsed}` : "Working") : `Worked for ${formatDuration(startedAt, finishedAt)}`}</span>
             <CaretRightIcon className="transition-transform group-data-[panel-open]:rotate-90" />
+            <span aria-hidden="true" className="h-px flex-1 bg-border/60 transition-colors group-hover:bg-border" />
           </Collapsible.Trigger>
           <Collapsible.Panel keepMounted={keepWorkMounted} className="mt-2.5 flex flex-col gap-2 pb-2">
             {work.map((block, i) => {
@@ -660,7 +663,7 @@ function MessageActions({ text, timestamp }: { text: string; timestamp: string }
     <div
       className={cn(
         HOVER_REVEAL,
-        "flex min-h-7 items-center gap-2 text-xs text-muted-foreground group-hover/message:scale-100 group-hover/message:opacity-100 group-hover/message:blur-none group-focus-within/message:scale-100 group-focus-within/message:opacity-100 group-focus-within/message:blur-none",
+        "flex min-h-7 items-center gap-2 text-xs text-muted-foreground group-hover/message:opacity-100 group-focus-within/message:opacity-100",
       )}
     >
       <Button
@@ -768,7 +771,7 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
       >
         {header}
       </Collapsible.Trigger>
-      <Collapsible.Panel>{panel}</Collapsible.Panel>
+      <Collapsible.Panel className="disclosure-panel">{panel}</Collapsible.Panel>
     </Collapsible.Root>
   ) : (
     <div className="rounded-lg border border-border/60 bg-card/30">

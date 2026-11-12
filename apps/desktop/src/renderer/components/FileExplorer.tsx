@@ -1,299 +1,78 @@
-import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
-import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
+import { useEffect, useRef, useState } from "react";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
-import { ChatTeardropTextIcon } from "@phosphor-icons/react/ChatTeardropText";
-import { CopyIcon } from "@phosphor-icons/react/Copy";
-import { FileArrowUpIcon } from "@phosphor-icons/react/FileArrowUp";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
-import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
-import { toast } from "sonner";
-import type { ExplorerEntry } from "../../shared/pi-types.ts";
-import { buildGitOverlay, toneClass, toneLabel, type GitOverlay } from "../lib/explorerGit.ts";
-import { createExplorerDirectories, emptyExplorerDirectories } from "../lib/explorerDirectories.ts";
-import { chipText } from "../lib/composerText.ts";
-import { absoluteProjectPath, editorName, fileManagerName } from "../lib/paths.ts";
+import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
+import { Button } from "@/components/ui/button.tsx";
+import { cn } from "@/lib/utils.ts";
 import { rpc } from "../lib/rpc.ts";
 import { useAppStore } from "../lib/store.ts";
-import { Button } from "@/components/ui/button.tsx";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu.tsx";
-import { HOVER_REVEAL, cn } from "@/lib/utils.ts";
+import { createExplorerDirectories, emptyExplorerDirectories } from "../lib/explorerDirectories.ts";
 import FileTypeIcon from "./FileTypeIcon.tsx";
-
-const ROOT = "";
-
-const INDENT = 12;
-const ROW_CLASS =
-  "flex min-h-7 w-full items-center gap-1.5 rounded-md pr-2 text-left text-xs outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset";
+import { toast } from "sonner";
+import { editorName } from "../lib/paths.ts";
 
 export default function FileExplorer({ projectDir }: { projectDir: string }) {
-  return <ProjectExplorer key={projectDir} projectDir={projectDir} />;
+  return <ProjectFiles key={projectDir} projectDir={projectDir} />;
 }
 
-function ProjectExplorer({ projectDir }: { projectDir: string }) {
-  const git = useAppStore((s) => s.git);
-  const refreshGit = useAppStore((s) => s.refreshGit);
-  const [{ dirs, expanded, visible }, setDirectories] = useState(emptyExplorerDirectories);
+function ProjectFiles({ projectDir }: { projectDir: string }) {
+  const [state, setState] = useState(emptyExplorerDirectories);
+  const editorId = useAppStore(s => s.preferences.preferredEditorId);
   const controller = useRef<ReturnType<typeof createExplorerDirectories> | null>(null);
-
   useEffect(() => {
-    const directories = createExplorerDirectories(
-      (path) => rpc.request.readProjectDirectory({ projectDir, path }),
-      setDirectories,
-    );
+    const directories = createExplorerDirectories(path => rpc.request.readProjectDirectory({ projectDir, path }), setState);
     controller.current = directories;
     directories.start();
-    return () => {
-      directories.dispose();
-      controller.current = null;
-    };
+    const stop = rpc.events.on("projectFilesChanged", event => {
+      if (event.projectDir === projectDir) void directories.refresh(event.path);
+    });
+    return () => { stop(); directories.dispose(); controller.current = null; };
   }, [projectDir]);
-
-  const watched = JSON.stringify(visible);
+  const watched = JSON.stringify(state.visible);
   useEffect(() => {
     void rpc.request.watchProjectDirectories({ projectDir, paths: JSON.parse(watched) }).catch(() => {});
   }, [projectDir, watched]);
-
-  // Separate from the effect above so that leaving a project releases its
-  // watchers once, rather than every time a folder is opened.
-  useEffect(() => {
-    return () => {
-      void rpc.request.watchProjectDirectories({ projectDir, paths: [] }).catch(() => {});
-    };
+  useEffect(() => () => {
+    void rpc.request.watchProjectDirectories({ projectDir, paths: [] }).catch(() => {});
   }, [projectDir]);
 
-  // Coalesce Git refreshes during bursts of filesystem events.
-  useEffect(() => {
-    let gitTimer: ReturnType<typeof setTimeout> | undefined;
-    const stop = rpc.events.on("projectFilesChanged", (payload) => {
-      if (payload.projectDir !== projectDir) return;
-      void controller.current?.refresh(payload.path);
-      if (gitTimer === undefined) {
-        gitTimer = setTimeout(() => {
-          gitTimer = undefined;
-          void refreshGit();
-        }, 1000);
-      }
-    });
-    return () => {
-      clearTimeout(gitTimer);
-      stop();
-    };
-  }, [projectDir, refreshGit]);
-
-  const overlay = useMemo(() => buildGitOverlay(git?.files ?? []), [git]);
-
-  const rows = useMemo(() => {
-    const out: Row[] = [];
-
-    function walk(dir: string, depth: number) {
-      const state = dirs.get(dir);
-      if (!state) return;
-      if (state.status === "loading") {
-        out.push({ key: `${dir}\u0000loading`, kind: "note", depth, text: "Loading…" });
-        return;
-      }
-      if (state.status === "error") {
-        out.push({ key: `${dir}\u0000error`, kind: "note", depth, text: state.message, retry: dir });
-        return;
-      }
-      if (state.entries.length === 0) {
-        out.push({ key: `${dir}\u0000empty`, kind: "note", depth, text: dir === ROOT ? "This project has no files." : "Empty folder" });
-        return;
-      }
-      for (const entry of state.entries) {
-        out.push({ key: entry.path, kind: "entry", depth, entry });
-        if (entry.kind === "dir" && expanded.has(entry.path)) walk(entry.path, depth + 1);
-      }
+  async function openFile(file: string) {
+    try {
+      const result = await rpc.request.openFileIn({ projectDir, file, editorId });
+      if (!result.ok) throw new Error(result.error ?? "Could not open this file.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
     }
+  }
 
-    walk(ROOT, 0);
-    return out;
-  }, [dirs, expanded]);
+  function directory(path: string, depth: number): React.ReactNode {
+    const value = state.dirs.get(path);
+    if (!value || value.status === "loading") return <p className="px-3 py-2 text-xs text-muted-foreground">Loading…</p>;
+    if (value.status === "error") return <div className="px-3 py-2 text-xs" role="alert"><p className="break-words text-destructive">{value.message}</p><Button size="sm" variant="ghost" onClick={() => void controller.current?.refresh(path)}>Try again</Button></div>;
+    if (!value.entries.length) return <p className="px-3 py-2 text-xs text-muted-foreground">Empty folder</p>;
+    return <ul className={cn(depth > 0 && "ml-3 border-l border-sidebar-border pl-1")}>
+      {value.entries.map(entry => {
+        const folder = entry.kind === "dir";
+        const open = state.expanded.has(entry.path);
+        return <li key={entry.path}>
+          <button type="button" aria-expanded={folder ? open : undefined} title={folder ? entry.path : `Open ${entry.path} in ${editorName(editorId)}`}
+            className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm text-sidebar-foreground outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
+            onClick={() => folder ? controller.current?.toggle(entry.path) : void openFile(entry.path)}>
+            <CaretRightIcon aria-hidden className={cn("size-3 shrink-0", !folder && "invisible", open && "rotate-90")} />
+            {folder ? <FolderIcon className="shrink-0 text-muted-foreground" /> : <FileTypeIcon path={entry.path} />}
+            <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+          </button>
+          {folder && open && directory(entry.path, depth + 1)}
+        </li>;
+      })}
+    </ul>;
+  }
 
-  return (
-    <div className="flex flex-col px-2 py-2">
-      {rows.map((row) =>
-        row.kind === "note" ? (
-          <Note key={row.key} row={row} onRetry={(path) => { void controller.current?.refresh(path); }} />
-        ) : (
-          <EntryRow
-            key={row.key}
-            entry={row.entry}
-            depth={row.depth}
-            open={expanded.has(row.entry.path)}
-            overlay={overlay}
-            projectDir={projectDir}
-            onToggle={(path) => controller.current?.toggle(path)}
-          />
-        ),
-      )}
+  return <section className="flex min-h-0 flex-1 flex-col" aria-label="Project files">
+    <div className="flex h-10 shrink-0 items-center px-3">
+      <span className="flex-1 text-xs font-medium text-foreground">Project files</span>
+      <Button size="icon-xs" variant="ghost" title="Refresh files" aria-label="Refresh files" onClick={() => state.visible.forEach(path => void controller.current?.refresh(path))}><ArrowClockwiseIcon /></Button>
     </div>
-  );
-}
-
-type Row =
-  | { key: string; kind: "entry"; depth: number; entry: ExplorerEntry }
-  | { key: string; kind: "note"; depth: number; text: string; retry?: string };
-
-function Note({ row, onRetry }: { row: Extract<Row, { kind: "note" }>; onRetry: (dir: string) => void }) {
-  const retry = row.retry;
-  return (
-    <div
-      className={cn("flex min-h-7 items-center gap-2 pr-2 text-xs", retry !== undefined ? "text-destructive" : "text-muted-foreground")}
-      style={{ paddingLeft: `${row.depth * INDENT + 26}px` }}
-    >
-      <span className="min-w-0 flex-1 truncate">{row.text}</span>
-      {retry !== undefined ? (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-6 shrink-0 px-2 text-destructive hover:bg-destructive/15 hover:text-destructive"
-          onClick={() => onRetry(retry)}
-        >
-          Try again
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
-function EntryRow({
-  entry,
-  depth,
-  open,
-  overlay,
-  projectDir,
-  onToggle,
-}: {
-  entry: ExplorerEntry;
-  depth: number;
-  open: boolean;
-  overlay: GitOverlay;
-  projectDir: string;
-  onToggle: (dir: string) => void;
-}) {
-  const isDir = entry.kind === "dir";
-  const tone = (isDir ? overlay.dir : overlay.file).get(entry.path);
-  const absolutePath = absoluteProjectPath(projectDir, entry.path);
-  const editorId = useAppStore((s) => s.preferences.preferredEditorId);
-  const insertIntoComposer = useAppStore((s) => s.insertIntoComposer);
-
-  return (
-    <EntryMenu entry={entry} absolutePath={absolutePath} projectDir={projectDir}>
-      <div className="group/entry flex min-h-7 w-full items-center">
-      <button
-        type="button"
-        {...(isDir ? { "aria-expanded": open } : {})}
-        // Clicking a file opens it, the way clicking a file in a file tree does
-        // everywhere else. It used to reveal it in the OS file manager, which
-        // answered a click inside the window by leaving it.
-        onClick={() => (isDir ? onToggle(entry.path) : void openFile(projectDir, entry.path, editorId))}
-        className={cn(ROW_CLASS, "min-w-0 flex-1")}
-        style={{ paddingLeft: `${depth * INDENT + 6}px` }}
-        title={
-          isDir
-            ? tone
-              ? `${entry.path} — ${toneLabel(tone)}`
-              : entry.path
-            : `Open ${entry.path} in ${editorName(editorId)}${tone ? ` — ${toneLabel(tone)}` : ""}`
-        }
-      >
-        <span className="flex size-3 shrink-0 items-center justify-center text-muted-foreground">
-          {isDir ? open ? <CaretDownIcon /> : <CaretRightIcon /> : null}
-        </span>
-        {isDir ? (
-          open ? (
-            <FolderOpenIcon className="shrink-0 text-muted-foreground" />
-          ) : (
-            <FolderIcon className="shrink-0 text-muted-foreground" />
-          )
-        ) : (
-          <FileTypeIcon path={entry.path} />
-        )}
-        <span className={cn("min-w-0 flex-1 truncate", isDir && "font-medium", toneClass(tone))}>{entry.name}</span>
-      </button>
-      {!isDir ? (
-        <Button
-          variant="ghost"
-          size="xs"
-          className={cn(
-            HOVER_REVEAL,
-            "mr-1 shrink-0 group-hover/entry:scale-100 group-hover/entry:opacity-100 group-hover/entry:blur-none group-focus-within/entry:scale-100 group-focus-within/entry:opacity-100 group-focus-within/entry:blur-none",
-          )}
-          onClick={(event) => {
-            event.stopPropagation();
-            insertIntoComposer(chipText("file", entry.path));
-          }}
-          title="Mention in the message"
-        >
-          Mention
-        </Button>
-      ) : null}
-      </div>
-    </EntryMenu>
-  );
-}
-
-/** Open a file in the preferred editor, saying so when the editor will not. */
-async function openFile(projectDir: string, file: string, editorId: string): Promise<void> {
-  const result = await rpc.request.openFileIn({ projectDir, file, editorId });
-  if (!result.ok) toast.error(result.error ?? `Could not open ${file}.`);
-}
-
-/**
- * Everything the explorer offers beyond the click itself.
- *
- * Its own menu rather than the Changes pane's, because that one's actions are
- * all about a diff and a folder does not have one. What the two do share is the
- * way into an editor and a file manager, which should not depend on which of
- * the pane's two views a file was found in.
- */
-function EntryMenu({
-  entry,
-  absolutePath,
-  projectDir,
-  children,
-}: {
-  entry: ExplorerEntry;
-  absolutePath: string;
-  projectDir: string;
-  children: ReactElement;
-}) {
-  const editorId = useAppStore((s) => s.preferences.preferredEditorId);
-  const insertIntoComposer = useAppStore((s) => s.insertIntoComposer);
-
-  return (
-    <ContextMenu>
-      <ContextMenuTrigger render={children} />
-      <ContextMenuContent className="w-56">
-        {entry.kind === "file" ? (
-          <ContextMenuItem onClick={() => void openFile(projectDir, entry.path, editorId)}>
-            <FileArrowUpIcon /> Open in {editorName(editorId)}
-          </ContextMenuItem>
-        ) : null}
-        <ContextMenuItem onClick={() => void rpc.request.showInFolder({ path: absolutePath })}>
-          <FolderOpenIcon /> Reveal in {fileManagerName()}
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        {/* The explorer is the one place a path is browsed rather than typed, so
-            it is also the shortest route from finding a file to asking about it. */}
-        <ContextMenuItem onClick={() => insertIntoComposer(chipText("file", entry.path))}>
-          <ChatTeardropTextIcon /> Mention in the message
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem onClick={() => void navigator.clipboard.writeText(entry.path)}>
-          <CopyIcon /> Copy relative path
-        </ContextMenuItem>
-        <ContextMenuItem onClick={() => void navigator.clipboard.writeText(absolutePath)}>
-          <CopyIcon /> Copy absolute path
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
-  );
+    <div className="min-h-0 flex-1 overflow-auto px-2 pb-3">{directory("", 0)}</div>
+  </section>;
 }

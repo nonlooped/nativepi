@@ -51,10 +51,10 @@ for (const thrown of [false, true]) domTest(`the real picker settles a ${thrown 
   try {
     await act(async () => { root!.render(<ModelSelector />); });
     await act(async () => { container!.querySelector("button")!.click(); });
-    expect(document.querySelector('input[type="range"]')).not.toBeNull();
+    expect(document.querySelector('[role="combobox"][aria-label="Reasoning effort"]')).not.toBeNull();
     await act(async () => { button("Chosen").click(); });
     expect(document.body.textContent).toContain("Loading this model’s levels");
-    expect(document.querySelector('input[type="range"]')).toBeNull();
+    expect(document.querySelector('[role="combobox"][aria-label="Reasoning effort"]')).toBeNull();
     expect(document.querySelector('[aria-current="true"]')?.textContent).toContain("Chosen");
     await act(async () => {
       if (thrown) failed.reject(new Error("levels unavailable"));
@@ -62,14 +62,14 @@ for (const thrown of [false, true]) domTest(`the real picker settles a ${thrown 
     });
     expect(document.querySelector('[role="alert"]')?.textContent).toBe("levels unavailable");
     expect(document.body.textContent).not.toContain("Loading this model’s levels");
-    expect(document.querySelector('input[type="range"]')).toBeNull();
+    expect(document.querySelector('[role="combobox"][aria-label="Reasoning effort"]')).toBeNull();
     expect(useAppStore.getState().model).toEqual(chosen);
     await act(async () => { button("Retry levels").click(); });
     expect(document.body.textContent).toContain("Loading this model’s levels");
     expect(document.querySelector('[role="alert"]')).toBeNull();
     expect(writes).toHaveLength(1);
     await act(async () => { retry.resolve({ levels: ["off", "high"] }); });
-    expect(document.querySelector('input[type="range"]')?.getAttribute("max")).toBe("1");
+    await expectReasoningOptions(["Off", "High"]);
     expect(document.body.textContent).not.toContain("Loading this model’s levels");
     expect(document.body.textContent).not.toContain("Retry levels");
     expect(useAppStore.getState().thinkingLevels).toEqual(["off", "high"]);
@@ -103,7 +103,7 @@ domTest("the picker presents a successful empty levels reply as settled", async 
     expect(document.body.textContent).toContain("No reasoning levels available.");
     expect(document.body.textContent).not.toContain("Loading this model’s levels");
     expect(document.querySelector('[role="alert"]')).toBeNull();
-    expect(document.querySelector('input[type="range"]')).toBeNull();
+    expect(document.querySelector('[role="combobox"][aria-label="Reasoning effort"]')).toBeNull();
   } finally {
     await act(async () => { root!.unmount(); }); root = undefined;
     useAppStore.setState(original);
@@ -170,7 +170,7 @@ for (const levelsFirst of [false, true]) domTest(`actual Retry levels finishes $
       expect(document.body.textContent).toContain("Loading this model’s levels");
       await act(async () => { levels.resolve({ levels: ["off", "high"] }); });
     }
-    expect(document.querySelector('input[type="range"]')?.getAttribute("max")).toBe("1");
+    await expectReasoningOptions(["Off", "High"]);
     expect(document.querySelector('[role="alert"]')).toBeNull();
     await act(async () => { store.getState().setDraft("next"); await store.getState().send(); });
     expect(submits.at(-1).model).toEqual({ provider: "p", id: "chosen" });
@@ -198,7 +198,7 @@ for (const thrown of [false, true]) domTest(`actual picker settles superseding s
     await act(async () => { oldLevels.resolve({ levels: ["max"] }); await choosing; });
     expect(document.body.textContent).not.toContain("Loading this model’s levels");
     expect(document.querySelector('[role="alert"]')?.textContent).toBe("state unavailable");
-    expect(document.querySelector('input[type="range"]')).toBeNull();
+    expect(document.querySelector('[role="combobox"][aria-label="Reasoning effort"]')).toBeNull();
     expect(document.querySelector('[aria-current="true"]')?.textContent).toContain("Chosen");
     await act(async () => { button("Retry levels").click(); });
     expect(document.querySelector('[role="alert"]')?.textContent).toBe("recovery unavailable");
@@ -208,7 +208,7 @@ for (const thrown of [false, true]) domTest(`actual picker settles superseding s
     await act(async () => { recovery.resolve(pickerReply("getState", newerModel)); });
     expect(stateReads).toBe(3); expect(levelReads).toBe(2);
     expect(document.querySelector('[aria-current="true"]')?.textContent).toContain("Newer");
-    expect(document.querySelector('input[type="range"]')?.getAttribute("max")).toBe("1");
+    await expectReasoningOptions(["Off", "High"]);
     await act(async () => { store.getState().setDraft("next"); await store.getState().send(); });
     expect(submits.at(-1).model).toEqual({ provider: "p", id: "newer" });
   });
@@ -236,7 +236,7 @@ for (const order of ["before", "during"] as const) domTest(`actual picker failed
     expect(store.getState().conversations.a.errorRecovery).toBe("retrySend");
     await act(async () => { button("Retry levels").click(); });
     expect(document.querySelector('[role="alert"]')).toBeNull();
-    expect(document.querySelector('input[type="range"]')?.getAttribute("max")).toBe("1");
+    await expectReasoningOptions(["Off", "High"]);
     expect(store.getState().drafts.a).toBe("preserve");
     expect(store.getState().conversations.a.error).toBe("shared failure");
     expect(store.getState().conversations.a.errorRecovery).toBe("retrySend");
@@ -283,7 +283,7 @@ for (const failure of [false, true]) domTest(`cold promotion exposes bound Retry
     }
     expect(document.querySelector('[role="alert"]')).toBeNull();
     expect(document.querySelector('[aria-current="true"]')?.textContent).toContain("Newer");
-    expect(document.querySelector('input[type="range"]')).not.toBeNull();
+    expect(document.querySelector('[role="combobox"][aria-label="Reasoning effort"]')).not.toBeNull();
     await act(async () => { store.getState().setDraft("next"); await store.getState().send(); });
     expect(submits.at(-1).model).toEqual({ provider: "p", id: "newer" });
   });
@@ -320,5 +320,52 @@ for (const global of [false, true]) domTest(`failed ${global ? "global" : "proje
     expect(store.getState().conversations.a.errorRecovery).toBe("restartPi");
     await act(async () => { store.getState().setDraft("next"); await store.getState().send(); });
     expect(submits.at(-1).model).toEqual({ provider: "p", id: "newer" });
+  });
+});
+
+
+async function chooseOption(label: string, option: string) {
+  await act(async () => { document.querySelector<HTMLButtonElement>(`[role="combobox"][aria-label="${label}"]`)!.click(); });
+  const item = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(node => node.textContent?.trim() === option);
+  expect(item).toBeDefined();
+  await act(async () => { item!.click(); });
+}
+
+async function expectReasoningOptions(labels: string[]) {
+  const trigger = document.querySelector<HTMLButtonElement>('[role="combobox"][aria-label="Reasoning effort"]');
+  expect(trigger).not.toBeNull();
+  await act(async () => { trigger!.click(); });
+  expect([...document.querySelectorAll('[role="option"]')].map(node => node.textContent?.trim())).toEqual(labels);
+  const selected = document.querySelector<HTMLElement>('[role="option"][aria-selected="true"]');
+  expect(selected).not.toBeNull();
+  await act(async () => { selected!.click(); });
+}
+
+domTest("provider and favorites filters preserve search and reasoning choices update Pi", async () => {
+  stubInvoke(async channel => pickerReply(channel));
+  await withPicker(async store => {
+    const a = { provider: "alpha", id: "one", name: "Alpha model" };
+    const b = { provider: "beta", id: "two", name: "Beta model" };
+    const selected: string[] = [];
+    await act(async () => { store.setState({ models: [a, b], model: a, providers: [], favoriteModels: ["beta/two"], thinkingLevels: ["off", "high"], thinkingLevel: "off", setThinkingLevel: async level => { selected.push(level); } }); });
+    await chooseOption("Filter models", "alpha");
+    expect(document.querySelector('[data-selected-model]')?.textContent).toContain("Alpha model");
+    expect(document.body.textContent).not.toContain("Beta model");
+    await chooseOption("Filter models", "All providers");
+    expect(document.body.textContent).toContain("Beta model");
+    await chooseOption("Reasoning effort", "High");
+    expect(selected).toEqual(["high"]);
+    const search = document.querySelector<HTMLInputElement>('[aria-label="Search models"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, "Beta");
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(document.querySelector("[data-selected-model]")).toBeNull();
+    await chooseOption("Filter models", "alpha");
+    expect(search.value).toBe("Beta");
+    expect(document.body.textContent).toContain("No models match");
+    await chooseOption("Filter models", "Favorites");
+    expect(document.body.textContent).toContain("Beta model");
+    expect(document.querySelector("[data-selected-model]")).toBeNull();
   });
 });

@@ -4,7 +4,7 @@ import { rpc } from "../rpc.ts";
 import { showHint } from "../toast.tsx";
 import { dropAllSurfaces, dropSurface, retainSurfaceHistory, writeSurface } from "../tuiSurfaces.ts";
 import { patchConversation } from "./conversation.ts";
-import { markGitRefreshed, persist, runtime, observeRuntime } from "./internals.ts";
+import { markGitRefreshed, runtime, observeRuntime } from "./internals.ts";
 import { NO_EXTENSION_UI_STATE, type ProjectContextSlice, type SliceCreator } from "./types.ts";
 
 export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set, get) => {
@@ -34,12 +34,7 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
       if (get().activeProjectPath !== path || version !== gitRead) return;
       if (!status) return;
       set(s => ({ git: status, gitRevision: s.gitRevision + 1 }));
-      // First run only: a repo that already has changes is the one case where
-      // opening the pane unprompted tells the user something they wanted to know.
-      if (!get().contextPaneChosen && status.isRepo && status.files.length > 0) {
-        set({ contextPaneOpen: true, contextPaneChosen: true });
-        persist(get);
-      }
+
     },
 
     refreshRepoHost: async () => {

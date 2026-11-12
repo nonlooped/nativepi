@@ -225,7 +225,7 @@ export default function AccessSettings() {
               </div>
 
               {shared ? (
-                <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 border-t pt-4 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-center @min-[36rem]/settings-content:justify-between">
                   <p className="text-sm text-body-muted-foreground">
                     Both links carry the same token, and nothing knows who holds a copy.
                   </p>
@@ -278,7 +278,7 @@ export default function AccessSettings() {
       <Dialog open={showing !== undefined} onOpenChange={(next) => !next && setShowing(undefined)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="font-heading text-base font-semibold">
+            <DialogTitle className="text-title">
               {showing?.scope === "remote" ? "Public link" : "Network link"}
             </DialogTitle>
             <DialogDescription className="text-sm leading-relaxed text-body-muted-foreground">
@@ -365,7 +365,7 @@ function LinkPanel({
           }}
           items={choices}
         >
-          <SelectTrigger aria-label="Network address" className="w-full text-xs sm:w-56">
+          <SelectTrigger aria-label="Network address" className="w-full text-xs @min-[36rem]/settings-content:w-56">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

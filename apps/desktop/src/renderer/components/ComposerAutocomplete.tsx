@@ -279,7 +279,7 @@ export function AutocompleteMenu({ state }: { state: ComposerAutocomplete }) {
     >
       <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5">
         <p className="text-xs font-medium text-muted-foreground">{MENU_LABELS[state.kind].title}</p>
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground/80">
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Kbd>↑</Kbd>
           <Kbd>↓</Kbd>
           <span>to move</span>

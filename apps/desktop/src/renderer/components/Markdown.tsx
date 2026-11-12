@@ -128,7 +128,28 @@ function MermaidDiagram({ source }: { source: string }) {
           htmlLabels: false,
           secure: [...(mermaid.mermaidAPI.defaultConfig.secure ?? []), "htmlLabels"],
           suppressErrorRendering: true,
-          theme: document.documentElement.classList.contains("dark") ? "dark" : "default",
+          theme: "neutral",
+          themeVariables: (() => {
+            const styles = getComputedStyle(document.documentElement);
+            const color = (role: string) => styles.getPropertyValue(role).trim();
+            return {
+              darkMode: document.documentElement.classList.contains("dark"),
+              background: color("--background"),
+              primaryColor: color("--card"),
+              primaryTextColor: color("--foreground"),
+              primaryBorderColor: color("--border"),
+              secondaryColor: color("--muted"),
+              secondaryTextColor: color("--foreground"),
+              secondaryBorderColor: color("--border"),
+              tertiaryColor: color("--accent"),
+              tertiaryTextColor: color("--foreground"),
+              tertiaryBorderColor: color("--border"),
+              lineColor: color("--muted-foreground"),
+              textColor: color("--foreground"),
+              mainBkg: color("--card"),
+              nodeBorder: color("--border"),
+            };
+          })(),
           fontFamily: "inherit",
         });
         const renderId = `nativepi-mermaid-${id}-${currentThemeVersion}-${sourceHash(source)}-${mermaidRender++}`;

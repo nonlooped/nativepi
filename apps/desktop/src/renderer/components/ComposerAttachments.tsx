@@ -42,7 +42,7 @@ export default function ComposerAttachments() {
       {/* Sending waits for these, so say so: an unexplained dead Enter key reads
           as the composer being broken. */}
       {preparing > 0 && (
-        <Attachment size="sm" state="processing">
+        <Attachment size="sm" state="processing" className="status-enter">
           <AttachmentMedia>
             <CircleNotchIcon className="animate-spin" />
           </AttachmentMedia>
@@ -64,7 +64,7 @@ function ComposerAttachment({ image, onRemove }: { image: ImageAttachment; onRem
   return (
     <>
       <ContextMenu>
-        <ContextMenuTrigger render={<Attachment size="sm" />}>
+        <ContextMenuTrigger render={<Attachment size="sm" className="status-enter" />}>
           <AttachmentMedia variant="image">
             <img src={src} alt="" className="outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
           </AttachmentMedia>

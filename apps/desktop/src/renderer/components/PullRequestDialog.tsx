@@ -60,7 +60,7 @@ export default function PullRequestDialog({ projectDir, onClose }: { projectDir:
       <Dialog open={projectDir !== null && !confirming} onOpenChange={(open) => !open && onClose()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-heading text-base font-semibold">Open pull request</DialogTitle>
+            <DialogTitle className="text-title">Open pull request</DialogTitle>
             <DialogDescription>Push this branch and open a pull request on GitHub.</DialogDescription>
           </DialogHeader>
           <FieldGroup className="flex flex-col gap-3">

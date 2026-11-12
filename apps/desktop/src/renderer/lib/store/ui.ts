@@ -12,7 +12,11 @@ let handoffId = 0;
 export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   settingsOpen: false,
   settingsCategory: null,
-  sidebarSize: 14,
+  sidebarWidth: 304,
+  contextPaneWidth: 304,
+  terminalHeight: undefined,
+  setContextPaneWidth: (contextPaneWidth) => { set({ contextPaneWidth }); persist(get); },
+  setTerminalHeight: (terminalHeight) => { set({ terminalHeight }); persist(get); },
   sidebarOpen: true,
   sidebarScope: null,
   reopenLastProject: true,
@@ -30,8 +34,8 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   openSettings: (category) => set({ settingsOpen: true, ...(category ? { settingsCategory: category } : {}) }),
   closeSettings: () => set({ settingsOpen: false }),
 
-  setSidebarSize: (sidebarSize) => {
-    set({ sidebarSize });
+  setSidebarWidth: (sidebarWidth) => {
+    set({ sidebarWidth });
     persist(get);
   },
 

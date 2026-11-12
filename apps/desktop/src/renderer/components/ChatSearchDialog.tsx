@@ -94,7 +94,7 @@ export default function ChatSearchDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => next ? onOpenChange(true) : close()}>
-      <DialogContent className="max-w-xl gap-0 overflow-hidden p-0">
+      <DialogContent className="max-w-xl gap-0 overflow-hidden p-0" closeClassName="top-2.5 right-3">
         <DialogTitle className="sr-only">Search chats and messages</DialogTitle>
         <DialogDescription className="sr-only">
           {scopedName
@@ -118,7 +118,7 @@ export default function ChatSearchDialog({
               autoFocus
               placeholder={scopedName ? `Search chats in ${scopedName}` : "Search chats and messages"}
               aria-label={scopedName ? `Search chats in ${scopedName}` : "Search chats and messages"}
-              className="h-12 w-full rounded-none border-0 bg-transparent pl-11 pr-12 text-base outline-none focus-visible:bg-input/20 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/30"
+              className="h-12 w-full rounded-none border-0 bg-transparent pl-11 pr-12 text-base outline-none placeholder:text-muted-foreground/80"
             />
           </div>
 
@@ -172,17 +172,17 @@ export default function ChatSearchDialog({
                 value={result}
                 index={index}
                 onClick={() => navigate(result)}
-                className="flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground data-highlighted:ring-1 data-highlighted:ring-inset data-highlighted:ring-ring"
+                className="flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
               >
                 <span className="flex min-w-0 items-baseline gap-2">
                   <span className="truncate text-sm font-semibold">{highlight(result.title, query)}</span>
-                  <span className="ml-auto shrink-0 text-xs font-medium text-foreground/75">{project?.name ?? result.projectDir}</span>
+                  <span className="ml-auto shrink-0 text-xs font-medium text-muted-foreground">{project?.name ?? result.projectDir}</span>
                 </span>
                 <span className="line-clamp-2 text-sm leading-relaxed text-body-muted-foreground">
                   <span className="font-medium text-foreground">{source}:</span>{" "}
                   {highlight(normalizePreview(result.snippet), query)}
                 </span>
-                <span className="text-xs text-muted-foreground/80">{relativeTime(result.modified)}</span>
+                <span className="text-xs text-muted-foreground">{relativeTime(result.modified)}</span>
               </Combobox.Item>
             );
           })}

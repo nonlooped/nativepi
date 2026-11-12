@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
-import { ShieldWarningIcon } from "@phosphor-icons/react/ShieldWarning";
 import { useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -17,13 +16,11 @@ export default function TrustDialog() {
     <Dialog open onOpenChange={(next) => !next && dismissTrust()}>
       <DialogContent className="min-w-0 gap-3">
         <DialogHeader className="min-w-0">
-          <DialogTitle className="flex items-center gap-2 font-heading text-base font-semibold">
-            <ShieldWarningIcon weight="fill" className="size-5 text-warning" />
+          <DialogTitle className="flex items-center gap-2 text-title">
             Trust this project?
           </DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-body-muted-foreground">
-            Local Pi extensions or skills in this folder can run with your permissions. Continue only if you recognize
-            what it contains.
+            Trust allows this folder’s Pi extensions and skills to run with your permissions, including code discovered later.
           </DialogDescription>
         </DialogHeader>
 
@@ -35,23 +32,14 @@ export default function TrustDialog() {
         </div>
 
         <p className="min-w-0 text-xs leading-relaxed text-body-muted-foreground">
-          Continuing without trust keeps local extensions and skills disabled. You can change this later from project
-          status.
+          Without trust, local extensions and skills stay disabled.
         </p>
 
-        {/*
-          Not `destructive`: in this palette coral means "this destroys
-          something", and for a developer opening their own repository the
-          correct action then looks like a delete button. The warning is carried
-          by the icon, the copy, and the enumerated file list — the affirmative
-          keeps the ordinary primary treatment, and Escape still takes the safe
-          path.
-        */}
-        <div className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <Button variant="ghost" className="w-full max-w-full whitespace-normal sm:w-auto" onClick={dismissTrust}>
-            Continue without trust
+        <div className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end sm:border-t sm:border-border/60 sm:pt-5">
+          <Button variant="outline" size="lg" className="w-full max-w-full whitespace-normal sm:w-auto" onClick={dismissTrust}>
+            Open without trust
           </Button>
-          <Button className="w-full max-w-full whitespace-normal sm:w-auto" onClick={() => void trustActiveProject()}>
+          <Button size="lg" className="w-full max-w-full whitespace-normal sm:w-auto" onClick={() => void trustActiveProject()}>
             Trust and load code
           </Button>
         </div>
@@ -88,22 +76,16 @@ function LocalCodeSummary({ projectPath }: { projectPath: string }) {
     return (
       <p className="flex items-center gap-2 text-xs text-muted-foreground">
         <CircleNotchIcon className="animate-spin" />
-        Checking what this folder would run…
+        Checking local code…
       </p>
     );
   }
 
   if (state.failed) {
-    return <p className="text-xs text-warning">Could not read this folder's extensions. Trust it only if you know it.</p>;
+    return <p className="text-xs text-warning">Could not list local extensions.</p>;
   }
 
-  if (state.names.length === 0) {
-    return (
-      <p className="text-xs text-muted-foreground">
-        Pi reported no resolvable extensions yet. Trusting also allows any it discovers later in this folder.
-      </p>
-    );
-  }
+  if (state.names.length === 0) return null;
 
   return (
     <div className="flex flex-col gap-1.5">

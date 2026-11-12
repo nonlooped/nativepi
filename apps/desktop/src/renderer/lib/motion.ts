@@ -21,6 +21,8 @@ export function useReducedMotion(): boolean {
     // mutation rather than a media-query event.
     const observer = new MutationObserver(update);
     observer.observe(document.documentElement, { attributeFilter: ["data-motion"] });
+    // Appearance can be applied between render and this subscription.
+    update();
     return () => {
       query.removeEventListener("change", update);
       observer.disconnect();

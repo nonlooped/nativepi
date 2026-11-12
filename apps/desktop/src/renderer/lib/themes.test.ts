@@ -66,9 +66,9 @@ test("custom themes resolve the requested variant and map only color roles", () 
   expect(resolved).toEqual(custom.colors.light);
   expect(properties["--background"]).toBe(custom.colors.light.background);
   expect(properties["--card"]).toBe(custom.colors.light.surface);
-  expect(properties["--border"]).toBe(`color-mix(in oklch, ${custom.colors.light.border} 55%, transparent)`);
-  expect(properties["--input"]).toBe(custom.colors.light.border);
-  expect(properties["--sidebar-border"]).toBe(`color-mix(in oklch, ${custom.colors.light.border} 65%, transparent)`);
+  expect(properties["--border"]).toBe(custom.colors.light.border);
+  expect(properties["--input"]).toBe(`color-mix(in oklch, ${custom.colors.light.border}, ${custom.colors.light.foreground} 8%)`);
+  expect(properties["--sidebar-border"]).toBe(custom.colors.light.border);
   expect(properties["--chart-2"]).not.toBe(custom.colors.light.info);
   expect(properties["--contrast-foreground"]).toBeDefined();
   expect(Object.keys(properties).some((property) => property.includes("font") || property.includes("radius"))).toBeFalse();
@@ -77,4 +77,28 @@ test("custom themes resolve the requested variant and map only color roles", () 
 test("a selected built-in theme follows the appearance preference", () => {
   const preferences = { ...DEFAULT_PREFERENCES, theme: "dark" as const, themeId: "midnight" };
   expect(resolvedTheme(preferences, false)).toBe(BUILT_IN_THEMES[1]!.theme.colors.dark);
+});
+
+
+test("NativePi stays monochrome across semantic and chart roles", () => {
+  for (const colors of Object.values(NATIVE_THEME.colors)) {
+    const properties = themeCssProperties(colors);
+    const palette = [...Object.values(colors), ...Object.entries(properties)
+      .filter(([key]) => key.startsWith("--chart-") || key.startsWith("--contrast-"))
+      .map(([, value]) => value)];
+    for (const color of palette) {
+      expect(color.slice(1, 3)).toBe(color.slice(3, 5));
+      expect(color.slice(3, 5)).toBe(color.slice(5, 7));
+    }
+  }
+});
+
+test("startup CSS matches the resolved NativePi palette before preferences load", async () => {
+  const css = await Bun.file(new URL("../index.css", import.meta.url)).text();
+  for (const [selector, appearance] of [[":root", "light"], [".dark", "dark"]] as const) {
+    const block = css.slice(css.indexOf(`${selector} {`)).split("\n}")[0]!;
+    for (const [property, value] of Object.entries(themeCssProperties(NATIVE_THEME.colors[appearance]))) {
+      expect(block).toContain(`  ${property}: ${value};`);
+    }
+  }
 });

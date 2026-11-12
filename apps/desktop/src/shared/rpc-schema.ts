@@ -1,3 +1,5 @@
+import type { DiffPreviewResult } from "./diff-preview.ts";
+import { DEFAULT_INTERFACE_SCALE, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE } from "./interface-scale.ts";
 import type { requestParams } from "./request-params.ts";
 import { z } from "zod";
 import type { PiPaths, PiSettings, PiSettingsPatch } from "./pi-settings.ts";
@@ -160,8 +162,12 @@ const paneStateSchema = z.object({
   sidebarOpen: z.boolean().catch(true),
   // Clamped, not rejected: a size outside the resizable range would render the
   // sidebar unusable, and dropping the whole object over it loses the rest.
-  sidebarSize: z.number().finite().catch(14).pipe(z.transform((size) => Math.min(30, Math.max(14, size)))),
+  // Older percentage-based sidebarSize values intentionally fall back to the
+  // new default: there is no saved window width to convert them accurately.
+  sidebarWidth: z.number().finite().catch(304).pipe(z.transform((size) => Math.min(480, Math.max(192, size)))),
   contextPaneOpen: z.boolean().catch(false),
+  contextPaneWidth: z.number().finite().catch(304).pipe(z.transform((size) => Math.min(480, Math.max(192, size)))),
+  terminalHeight: z.number().finite().positive().optional().catch(undefined),
 });
 /**
 * The preferences NativePi owns, as opposed to the ones Pi owns.
@@ -169,7 +175,7 @@ const paneStateSchema = z.object({
 * Everything here changes how this window looks or behaves and means nothing to
 * the Pi CLI; anything about how the agent runs belongs in Pi's own settings —
 * see `shared/pi-settings.ts`. Numbers are clamped rather than rejected for the
-* same reason `sidebarSize` is: a value outside the range would render something
+* same reason `sidebarWidth` is: a value outside the range would render something
 * unusable, and dropping the whole object over one field loses the rest.
 */
 const clamped = (fallback: number, min: number, max: number) => z
@@ -184,7 +190,7 @@ export const preferencesSchema = z.object({
   themeId: z.string().min(1).max(80).catch(NATIVE_THEME_ID),
   customThemes: customThemesSchema,
   conversationWidth: z.enum(["narrow", "medium", "wide", "full"]).catch("medium"),
-  interfaceScale: clamped(1, 0.9, 1.4),
+  interfaceScale: clamped(DEFAULT_INTERFACE_SCALE, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE),
   diffStyle: z.enum(["unified", "split"]).catch("unified"),
   reducedMotion: z.enum(["system", "always", "never"]).catch("system"),
   terminalFontSize: clamped(13, 9, 24),
@@ -709,6 +715,10 @@ export type HostRequestContracts = {
       ok: boolean;
     };
   };
+  windowIsFullScreen: {
+    params: Record<string, never>;
+    response: { fullscreen: boolean };
+  };
   windowIsMaximized: {
     params: Record<string, never>;
     response: {
@@ -1228,6 +1238,10 @@ export type HostRequestContracts = {
   * explorer calls this once per folder the user opens and never speculatively,
   * which is why there is no "list the whole project" channel beside it.
   */
+  readProjectDiffPreview: {
+    params: { projectDir: string; file: string; mode: "working" | "staged" };
+    response: DiffPreviewResult;
+  };
   readProjectDirectory: {
     params: {
       projectDir: string;
@@ -1417,6 +1431,9 @@ export type HostEvents = {
     sessionFile?: string;
     projectDir?: string;
     notice: AuthNotice;
+  };
+  windowFullScreen: {
+    fullscreen: boolean;
   };
   windowMaximized: {
     maximized: boolean;

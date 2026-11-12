@@ -52,7 +52,7 @@ function UserMessage({ message }: { message: ConversationMessage }) {
       <span className="sr-only">You:</span>
       <Message align="end" className="justify-end">
         <Bubble variant="secondary" align="end" className="max-w-[85%]">
-          <BubbleContent className="rounded-2xl rounded-br-md px-4 py-3 text-sm leading-6">
+          <BubbleContent className="rounded-2xl rounded-br-md px-4 py-3 text-reading">
             <Markdown>{messageText(message)}</Markdown>
           </BubbleContent>
         </Bubble>
@@ -146,7 +146,7 @@ function WorkBlock({ block }: { block: ConversationContentBlock }) {
     ) : <p className="text-xs italic text-muted-foreground">Thought privately</p>;
   }
   return (
-    <Markdown className="text-sm text-muted-foreground">
+    <Markdown className="text-reading text-muted-foreground">
       {block.text}
     </Markdown>
   );
@@ -171,7 +171,7 @@ function AssistantTurn({ turn, running }: { turn: Turn; running: boolean }) {
 
   if (turn.assistants.length === 0 && !running) return null;
   return (
-    <article className="flex flex-col gap-3 text-sm leading-relaxed" aria-busy={running || undefined}>
+    <article className="flex flex-col gap-3 text-reading" aria-busy={running || undefined}>
       <span className="sr-only">Assistant:</span>
       {work.length > 0 || (running && !finalText) ? (
         <Collapsible.Root

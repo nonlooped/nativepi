@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { ImageAttachment } from "../../../shared/rpc-schema.ts";
 
-import { stubInvoke } from "./testBridge.ts";
+import { stubInvoke, stubFilePath } from "./testBridge.ts";
 
 // Bun has `File` but not `FileReader`, and reading the bytes is the await these
 // tests are about.
@@ -106,4 +106,21 @@ test("an image prepared while a cold submit binds follows the new session", asyn
   await attaching;
 
   expect(useAppStore.getState().attachments["new.jsonl"]?.map((item) => item.id)).toEqual(["late"]);
+});
+
+
+test("the attachment picker adds non-image files as mentions without reading their bytes", async () => {
+  const key = "new:/project";
+  useAppStore.setState({ activeProjectPath: "/project", activeSessionFile: null, drafts: { [key]: "Review" }, attachments: {}, preparing: {} });
+  stubFilePath((file) => `/project/${file.name}`);
+  let reads = 0;
+  stubInvoke(async (channel) => { if (channel === "prepareImages") reads++; return {}; });
+  try {
+    await useAppStore.getState().attach([new File(["hello"], "notes.txt", { type: "text/plain" }), new File(["data"], "archive.zip")]);
+    expect(useAppStore.getState().drafts[key]).toContain("notes.txt");
+    expect(useAppStore.getState().drafts[key]).toContain("archive.zip");
+    expect(useAppStore.getState().drafts[key]).toStartWith("Review ");
+    expect(reads).toBe(0);
+    expect(useAppStore.getState().attachments).toEqual({});
+  } finally { stubFilePath(() => ""); }
 });

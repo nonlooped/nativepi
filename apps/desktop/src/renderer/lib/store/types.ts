@@ -309,7 +309,11 @@ export interface AccessHandoff {
 export interface UiSlice {
   settingsOpen: boolean;
   settingsCategory: string | null;
-  sidebarSize: number;
+  sidebarWidth: number;
+  contextPaneWidth: number;
+  terminalHeight: number | undefined;
+  setContextPaneWidth: (width: number) => void;
+  setTerminalHeight: (height: number) => void;
   sidebarOpen: boolean;
   /** Sidebar project filter. View-only; not persisted. */
   sidebarScope: string | null;
@@ -331,7 +335,7 @@ export interface UiSlice {
 
   openSettings: (category?: string) => void;
   closeSettings: () => void;
-  setSidebarSize: (size: number) => void;
+  setSidebarWidth: (size: number) => void;
   setSidebarOpen: (open: boolean) => void;
   setSidebarScope: (path: string | null) => void;
   toggleSidebar: () => void;

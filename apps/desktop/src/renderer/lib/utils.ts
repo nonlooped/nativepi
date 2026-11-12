@@ -1,5 +1,10 @@
 import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { extendTailwindMerge } from "tailwind-merge"
+
+// Keep semantic sizes distinct from text colors when a component adds overrides.
+const twMerge = extendTailwindMerge({
+  extend: { theme: { text: ["reading", "composer", "title", "heading", "headline"] } },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -19,7 +24,7 @@ export const SCROLLBAR_GUTTER_OFFSET = "scrollbar-gutter-offset"
 
 /** A control that is revealed on hover, and therefore always shown on touch. */
 export const HOVER_REVEAL =
-  "hover-reveal scale-[0.25] opacity-0 blur-[4px] transition-[opacity,filter,scale] duration-200 ease-[cubic-bezier(0.2,0,0,1)]"
+  "hover-reveal opacity-0 transition-opacity duration-150 ease-out"
 
 /** Shared, interruptible motion for menus and anchored selection surfaces. */
 export const POPUP_MOTION =

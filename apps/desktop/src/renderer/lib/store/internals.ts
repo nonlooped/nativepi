@@ -228,7 +228,9 @@ function persistedState(get: GetState): NativePiState {
     focusStartedAt: s.focusStartedAt,
     panes: {
       sidebarOpen: s.sidebarOpen,
-      sidebarSize: s.sidebarSize,
+      sidebarWidth: s.sidebarWidth,
+      contextPaneWidth: s.contextPaneWidth,
+      terminalHeight: s.terminalHeight,
       contextPaneOpen: s.contextPaneOpen,
     },
     reopenLastProject: s.reopenLastProject,
