@@ -76,19 +76,20 @@ test('release does not allocate packaging runners for failed, cancelled, or unce
 
 test('release rejects unsuccessful or foreign workflow_run events before checkout', () => {
   const repository = 'nonlooped/nativepi';
-  const run = { event: 'push', conclusion: 'success', head_branch: 'main', head_repository: { full_name: repository }, repository: { full_name: repository } };
-  const check = candidate => allows(release.jobs.plan.if, { github: { repository, event_name: 'workflow_run', event: { workflow_run: candidate } }, inputs: {} });
+  const run = { head_sha: 'certified', event: 'push', conclusion: 'success', head_branch: 'main', head_repository: { full_name: repository }, repository: { full_name: repository } };
+  const check = candidate => allows(release.jobs.plan.if, { github: { repository, sha: 'certified', event_name: 'workflow_run', event: { workflow_run: candidate } }, inputs: {} });
   expect(check(run)).toBe(true);
-  for (const override of [{ event: 'pull_request' }, { conclusion: 'failure' }, { conclusion: 'cancelled' }, { head_branch: 'other' }, { head_repository: { full_name: 'fork/nativepi' } }, { repository: { full_name: 'fork/nativepi' } }]) {
+  for (const override of [{ head_sha: 'superseded' }, { event: 'pull_request' }, { conclusion: 'failure' }, { conclusion: 'cancelled' }, { head_branch: 'other' }, { head_repository: { full_name: 'fork/nativepi' } }, { repository: { full_name: 'fork/nativepi' } }]) {
     expect(check({ ...run, ...override })).toBe(false);
   }
 });
 
 test('release checks, packaging, and publication all use the planned immutable commit', () => {
-  expect(release.jobs.plan.steps[0].with.ref).toBe('${{ env.HEAD_SHA }}');
+  expect(release.jobs.plan.steps[0].with.ref).toBeUndefined();
+  expect(release.jobs.plan.env.HEAD_SHA).toBe('${{ github.sha }}');
   expect(release.jobs.plan.outputs.sha).toBe('${{ steps.plan.outputs.sha }}');
   for (const job of ['package', 'release']) {
-    expect(release.jobs[job].steps[0].with.ref).toBe('${{ needs.plan.outputs.sha }}');
+    expect(release.jobs[job].steps[0].with?.ref).toBeUndefined();
   }
   expect(ci.jobs.check.steps[0].with.ref).toBeUndefined();
   expect(release.jobs.checks.if).toContain("needs.plan.outputs.certified != 'true'");
