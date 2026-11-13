@@ -26,7 +26,8 @@ mock.module("./lib/sidebarProjects.ts", () => ({ useSidebarProjects: () => ({
 }) }));
 mock.module("./lib/appearance.ts", () => ({ useAppearance: () => {} }));
 mock.module("./lib/completion.ts", () => ({ useTurnCompletionSignal: () => {} }));
-mock.module("./lib/layout.ts", () => ({ useWorkspaceLayout: () => "wide" }));
+let workspaceLayout = "wide";
+mock.module("./lib/layout.ts", () => ({ useWorkspaceLayout: () => workspaceLayout }));
 type Changed = (layout: Record<string, number>, meta: { isUserInteraction: boolean }) => void;
 const changed: Record<string, Changed> = {};
 const panelResizes: Record<string, (size: { inPixels: number }, id: string, previous?: { inPixels: number }) => void> = {};
@@ -50,6 +51,7 @@ let container: HTMLDivElement;
 afterEach(async () => {
   if (root) await act(async () => root!.unmount());
   root = undefined;
+  workspaceLayout = "wide";
   container?.remove();
 });
 async function mount() {
@@ -150,4 +152,17 @@ test("collapsing the terminal and context panel updates visibility without losin
   expect(useAppStore.getState().contextPaneOpen).toBe(false);
   expect(useAppStore.getState()).toMatchObject({ terminalHeight: 280, contextPaneWidth: 320 });
   expect(container.querySelector("[data-terminal-pane]")).toBeNull();
+});
+
+
+test("narrow windows collapse both docked sidebars while preserving open preferences", async () => {
+  workspaceLayout = "narrow";
+  useAppStore.setState({ sidebarOpen: true });
+  await mount();
+  expect(container.querySelector("#projects")).toBeNull();
+  expect(container.querySelector("#context")).toBeNull();
+  expect(useAppStore.getState().sidebarOpen).toBe(true);
+  workspaceLayout = "wide";
+  await act(async () => root!.render(<App />));
+  expect(container.querySelector("#projects")).not.toBeNull();
 });

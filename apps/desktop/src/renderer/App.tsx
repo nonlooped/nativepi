@@ -98,7 +98,7 @@ export default function App() {
   const terminalProjects = useAppStore((s) => s.terminalProjects);
   const hasTuiOverlay = useAppStore((s) => s.extSurfaces.some((surface) => surface.placement === "overlay"));
   const toggleProjectTerminal = useAppStore((s) => s.toggleTerminal);
-  const sidebarDocked = layout !== "compact" && sidebarOpen;
+  const sidebarDocked = layout === "wide" && sidebarOpen;
   const contextDocked = layout === "wide" && contextPaneOpen;
   const contextPanelRef = useCollapsiblePanel(contextPaneOpen, layout === "wide" ? activeProjectPath : null);
   const terminalOpen = activeProjectPath ? terminalProjects.has(activeProjectPath) : false;
@@ -173,7 +173,7 @@ export default function App() {
             if (panel.id === "context") state.setContextPaneWidth(panel.clientWidth);
           });
         }}>
-        {layout !== "compact" ? (
+        {layout === "wide" ? (
           <Sidebar
             presentation={projectPresentation}
             open={sidebarOpen}
@@ -202,7 +202,7 @@ export default function App() {
               terminalOpen={terminalOpen}
               extensionView={extensionView}
               onSelectExtensionView={setExtensionView}
-              onOpenSidebar={() => (layout === "compact" ? setSidebarSheetOpen(true) : setSidebarOpen(true))}
+              onOpenSidebar={() => (layout !== "wide" ? setSidebarSheetOpen(true) : setSidebarOpen(true))}
               onOpenContext={() => (layout === "wide" ? toggleContextPane() : setContextSheetOpen(true))}
               onToggleTerminal={toggleTerminal}
             />
@@ -294,7 +294,7 @@ export default function App() {
       </ResizablePanelGroup>
       </div>
 
-      {layout === "compact" ? (
+      {layout !== "wide" ? (
         <Sheet open={sidebarSheetOpen} onOpenChange={setSidebarSheetOpen}>
           <SheetContent
             side="left"
@@ -756,7 +756,7 @@ function useWorkspaceShortcuts(
         },
 
         toggleSidebar: always(() => {
-          if (layout === "compact") setSidebarSheetOpen((open) => !open);
+          if (layout !== "wide") setSidebarSheetOpen((open) => !open);
           else toggleSidebar();
         }),
 

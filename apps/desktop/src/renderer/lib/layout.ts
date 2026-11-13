@@ -3,13 +3,9 @@ import { useEffect, useState } from "react";
 /**
  * How much room the window has for panes.
  *
- * `wide` docks both side panes, `narrow` keeps the project sidebar and sheets
- * the context pane, and `compact` sheets project navigation too.
- *
- * The desktop window cannot shrink below 720px, so `compact` is for a phone
- * (or a browser tab that narrow) rather than a resized NativePi window. A
- * tablet or a 720px desktop window is `narrow`: two columns, conversation
- * protected, context in a sheet.
+ * `wide` docks both side panes; `narrow` and `compact` open both in sheets
+ * so the conversation has the full window width. `compact` also uses smaller
+ * header controls for phone-sized windows.
  *
  * The thresholds live here rather than in Tailwind breakpoints because the
  * settings screen and the workspace have to agree on them.
