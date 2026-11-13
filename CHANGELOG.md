@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Documentation
-- Refresh the README for the current workspace, settings, Git tools, Pi extensions, and browser access; replace outdated imagery with full-resolution isolated-demo screenshots and distinguish development from released builds.
+- Trim the README to a short pitch, install and development quick start, and links to the guides; move retired-package upgrade notes to `docs/upgrade.md`. Workspace screenshots remain the isolated-demo captures.
 
 ### Fixed
 - Load providers for new chats after opening a project without trust, and restore service tiers saved by the retired extension.
