@@ -1,9 +1,9 @@
 # Upgrading from the retired packages
 
 Pi now supplies MCP connections and the Meta provider directly. NativePi also
-ships automatic chat titles, the `ask_user` tool, and a `/speed` command for
-provider service tiers. These run through Pi's APIs; no optional package is
-needed.
+ships automatic chat titles, the `ask_user` tool, and service-tier controls in
+the composer model picker. The `/speed` command remains available. These run
+through Pi's APIs; no optional package is needed.
 
 Existing npm installations of the retired packages are ignored inside NativePi
 to prevent duplicate tools, requests, and providers. Pi CLI configuration is
@@ -32,12 +32,14 @@ Add `--local` for project installations. Then:
 Configure MCP with `pi mcp` or `mcp.json`, and inspect it with `/mcp`. Meta uses
 `META_API_KEY` or Pi's Meta sign-in.
 
-Use `/speed` to choose a tier for the current chat, or `/speed auto` to restore
-the provider default. OpenAI Responses offers Standard, Priority, and Flex;
-Codex offers Standard and Priority; Anthropic offers Automatic and Standard
-only. The provider enforces model and account eligibility. A saved choice is
-ignored on unsupported providers. Priority can increase costs or subscription
-usage; Flex can be slower or temporarily unavailable.
+Open the composer model picker and use **Speed** beside reasoning to choose a tier
+for the current chat. Choose **Standard** or **Priority**. New chats and older
+Automatic or Flex selections use Standard. OpenAI and Codex receive the matching
+explicit service tier. For Anthropic, Standard uses standard-only capacity;
+Priority allows reserved Priority capacity when available, with the provider's
+standard-capacity fallback. The provider enforces model and account eligibility.
+A saved choice is ignored on unsupported providers. Priority can increase costs
+or subscription usage.
 
 Optional packages still available:
 

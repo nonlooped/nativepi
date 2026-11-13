@@ -1,3 +1,4 @@
+import { serviceTierSchema } from "./service-tier.ts";
 import { thinkingLevelSchema } from "./pi-values.ts";
 import { z } from "zod";
 import { extensionCallParamsSchema, nativePiStateSchema, updateChannelSchema, type HostRequests, type HostRequestName, type HostRequestContracts } from "./rpc-schema.ts";
@@ -28,6 +29,7 @@ export const requestParams = {
   submit: target.extend({ sessionFile: path.nullable(), message: text, images: z.array(image).max(100).optional(), model: z.object({ provider: id, id }).optional(), thinkingLevel: thinking.optional(), streamingBehavior: z.enum(["steer", "followUp"]).optional() }),
   enqueue: session.extend({ behavior: z.enum(["steer", "followUp"]), message: text, images: z.array(image).max(100).optional() }),
   prepareImages: z.object({ files: z.array(z.object({ name: z.string().max(32767), mimeType: z.string().max(200), data: z.string().max(64 * 1024 * 1024) })).max(100) }),
+  getServiceTier: target, setServiceTier: target.extend({ tier: serviceTierSchema, provider: id, modelId: id }),
   abort: target, getModels: target, getState: target, getThinkingLevels: target,
   setModel: target.extend({ provider: id, modelId: id }), setThinkingLevel: target.extend({ level: thinking }),
   renameChat: session.extend({ name: z.string().max(10000) }), cloneChat: session, deleteChat: session, watchSession: project.extend({ sessionFile: path.nullable() }), watchProjectSessions: project, unwatchProjectSessions: project,

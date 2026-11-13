@@ -1,3 +1,4 @@
+import { serviceTierStateSchema } from "../shared/service-tier.ts";
 import { readProjectDiffPreview } from "./diffPreview.ts";
 import { app, BrowserWindow, dialog, shell } from "electron";
 import { stat, writeFile } from "node:fs/promises";
@@ -899,6 +900,19 @@ const handlers: HandlerMap = {
     catch (err) {
       return { error: errorMessage(err) };
     }
+  },
+  getServiceTier: async ({ projectDir, sessionFile }) => {
+    try {
+      const pi = await ensurePi(projectDir, sessionFile ?? undefined);
+      const state = serviceTierStateSchema.parse(await pi.frameRequest(requestId => ({ type: "nativepi_tui_get_service_tier", requestId })));
+      return { state };
+    } catch (error) { return { error: errorMessage(error) }; }
+  },
+  setServiceTier: async ({ tier, provider, modelId }, runtime) => {
+    try {
+      const state = serviceTierStateSchema.parse(await runtime!.frameRequest(requestId => ({ type: "nativepi_tui_set_service_tier", requestId, tier, provider, modelId, sessionFile: runtime!.boundSessionFile })));
+      return { ok: true, state };
+    } catch (error) { return { ok: false, error: errorMessage(error) }; }
   },
   getThinkingLevels: async ({ projectDir, sessionFile }) => {
     try {
@@ -1824,7 +1838,7 @@ let desktopClient: HostClient | undefined;
 function reconcileDirectories(project: string): void {
   setExplorerWatches(project, [...new Set([...clients].flatMap(client => client.directories.get(project) ?? []))]);
 }
-const sessionWrites = new Set<HostRequestName>(["submit", "enqueue", "setModel", "setThinkingLevel", "renameChat", "cloneChat", "forkChat", "compact", "deleteChat", "callExtension", "extensionRespond"]);
+const sessionWrites = new Set<HostRequestName>(["submit", "enqueue", "setModel", "setThinkingLevel", "setServiceTier", "renameChat", "cloneChat", "forkChat", "compact", "deleteChat", "callExtension", "extensionRespond"]);
 // These operations use only a live process (or delete a cold file). All other
 // mutations acquire Pi before capturing the binding they may write through.
 const existingSessionWrites = new Set<HostRequestName>(["enqueue", "extensionRespond", "tuiSend", "deleteChat"]);

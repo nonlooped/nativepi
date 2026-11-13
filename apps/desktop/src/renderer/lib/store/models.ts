@@ -1,3 +1,4 @@
+import { serviceTierStateSchema, serviceTierTarget } from "../../../shared/service-tier.ts";
 import type { ThinkingLevel } from "../../../shared/pi-types.ts";
 import { modelKey } from "../../../shared/messages.ts";
 import { rpc } from "../rpc.ts";
@@ -22,7 +23,45 @@ export function thinkingLabel(level: ThinkingLevel): string {
 export const createModelSlice: SliceCreator<ModelSlice> = (set, get) => {
   const modelWrites = new Map<string, { epoch: string }>();
   let levelWrite = 0;
+  let tierRead = 0;
+  let tierWrite = 0;
   return {
+    serviceTierLoading: false,
+    serviceTierSaving: false,
+    refreshServiceTier: async () => {
+      const { activeProjectPath: projectDir, activeSessionFile: sessionFile, model } = get();
+      if (!projectDir || !model || (!sessionFile && runtime(get).blockedDrafts.has(projectDir))) return;
+      const target = serviceTierTarget(projectDir, sessionFile, model);
+      const selected = selectionGuard(get);
+      const operation = ++tierRead;
+      const current = () => selected() && operation === tierRead && serviceTierTarget(get().activeProjectPath, get().activeSessionFile, get().model) === target;
+      set({ serviceTierTarget: target, serviceTierLoading: true, serviceTierError: undefined,
+        ...(get().serviceTierTarget === target ? {} : { serviceTier: undefined, serviceTierSaving: false }) });
+      try {
+        const result = await rpc.request.getServiceTier({ projectDir, sessionFile });
+        if (!result.state) throw new Error(result.error ?? "Could not read the service tier.");
+        if (current()) set({ serviceTier: serviceTierStateSchema.parse(result.state), serviceTierLoading: false });
+      } catch (error) {
+        if (current()) set({ serviceTierLoading: false, serviceTierError: error instanceof Error ? error.message : String(error) });
+      }
+    },
+    setServiceTier: async (tier) => {
+      const { activeProjectPath: projectDir, activeSessionFile: sessionFile, model } = get();
+      if (!projectDir || !model || get().serviceTierSaving) return;
+      const selected = selectionGuard(get);
+      const target = serviceTierTarget(projectDir, sessionFile, model);
+      const operation = ++tierWrite;
+      ++tierRead;
+      const current = () => selected() && operation === tierWrite && serviceTierTarget(get().activeProjectPath, get().activeSessionFile, get().model) === target;
+      set({ serviceTierSaving: true, serviceTierLoading: false, serviceTierError: undefined });
+      try {
+        const result = await rpc.request.setServiceTier({ projectDir, sessionFile, tier, provider: model.provider, modelId: model.id });
+        if (!result.ok || !result.state) throw new Error(result.error ?? "Could not change the service tier.");
+        if (current()) set({ serviceTier: serviceTierStateSchema.parse(result.state) });
+      } catch (error) {
+        if (current()) set({ serviceTierError: error instanceof Error ? error.message : String(error) });
+      } finally { if (current()) set({ serviceTierSaving: false }); }
+    },
     models: [],
     favoriteModels: [],
     thinkingLevel: "off",

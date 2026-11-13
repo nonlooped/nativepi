@@ -1,3 +1,4 @@
+import { serviceTierSchema } from "./service-tier.ts";
 import { z } from "zod";
 import type { ContextInspector } from "./pi-types.ts";
 import { jsonValueSchema } from "./json.ts";
@@ -117,6 +118,7 @@ export const tuiCompletionEditSchema = z.object({
 export type TuiCompletionEdit = z.infer<typeof tuiCompletionEditSchema>;
 /** Frames the Pi host writes to the app. */
 export const tuiHostFrameSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("nativepi_tui_service_tier_changed") }),
   /** Naming proposes a title; the main process authorizes the session write. */
   z.object({ type: z.literal("nativepi_tui_propose_title"), sessionFile: z.string().min(1).max(32767), title: z.string().min(1).max(80) }),
   /** Keeps main-process routing aligned when an extension replaces the session. */
@@ -167,6 +169,8 @@ export const tuiHostFrameSchema = z.discriminatedUnion("type", [
 export type TuiHostFrame = z.infer<typeof tuiHostFrameSchema>;
 /** Frames the app writes to the Pi host. */
 export const tuiClientFrameSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("nativepi_tui_get_service_tier"), requestId: z.string().min(1).max(64) }),
+  z.object({ type: z.literal("nativepi_tui_set_service_tier"), requestId: z.string().min(1).max(64), tier: serviceTierSchema, provider: z.string().min(1).max(500), modelId: z.string().min(1).max(500), sessionFile: z.string().min(1).max(32767).optional() }),
   z.object({ type: z.literal("nativepi_tui_accept_title"), requestId: z.string().min(1).max(64), sessionFile: z.string().min(1).max(32767), title: z.string().min(1).max(80) }),
   z.object({ type: z.literal("nativepi_tui_input"), surfaceId: z.string().min(1).max(64), data: z.string().max(4096) }),
   z.object({

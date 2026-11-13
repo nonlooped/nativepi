@@ -38,7 +38,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 ## Current Capabilities
 
 - Automatic names for new chats after the first successful answer, generated through Pi's authenticated model runtime and saved as Pi session names without replacing manual names.
-- A shipped `ask_user` Pi tool with native choice and free-text dialogs, including explicit cancellation, plus `/speed` service-tier selection for supported OpenAI, Codex, and Anthropic transports.
+- A shipped `ask_user` Pi tool with native choice and free-text dialogs, including explicit cancellation, plus service-tier selection beside reasoning in the composer model picker (also available through `/speed`) for supported OpenAI, Codex, and Anthropic transports.
 
 - Pinned, Focus, and Finished chat lists, project filtering, title and transcript search, and direct opening in installed editors or the system file manager.
 - New, resume, rename, clone, fork, delete, import, HTML export, chat branches, and compaction workflows backed by Pi.

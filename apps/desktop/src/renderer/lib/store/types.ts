@@ -1,3 +1,4 @@
+import type { ServiceTier, ServiceTierState } from "../../../shared/service-tier.ts";
 import type {
   HostEvents,
   AuthNotice,
@@ -206,6 +207,13 @@ export interface ChatSlice {
 
 /** Which model answers, and how hard it thinks. */
 export interface ModelSlice {
+  serviceTier?: ServiceTierState;
+  serviceTierTarget?: string;
+  serviceTierLoading: boolean;
+  serviceTierSaving: boolean;
+  serviceTierError?: string;
+  refreshServiceTier: () => Promise<void>;
+  setServiceTier: (tier: ServiceTier) => Promise<void>;
   models: ModelInfo[];
   model?: ModelInfo;
   favoriteModels: string[];

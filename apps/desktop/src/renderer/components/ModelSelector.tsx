@@ -4,10 +4,8 @@ import type { ModelInfo } from "../../shared/pi-types.ts";
 import { modelKey } from "../../shared/messages.ts";
 import { thinkingLabel, useAppStore } from "../lib/store.ts";
 import { providerIconName } from "../lib/providerIcons.ts";
-import { hintFor } from "../lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { Kbd } from "@/components/ui/kbd.tsx";
 import {
   Popover,
   PopoverContent,
@@ -26,6 +24,7 @@ import {
 } from "@/components/ui/select.tsx";
 import { NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import BrandIcon from "./BrandIcon.tsx";
+import ServiceTierSelector from "./ServiceTierSelector.tsx";
 
 export default function ModelSelector() {
   const models = useAppStore((s) => s.models);
@@ -87,11 +86,11 @@ export default function ModelSelector() {
             className="min-w-0 max-w-[min(16rem,100%)] justify-start gap-1.5 px-2 font-normal"
           />
         }
-        title={models.length === 0 ? "Loading models from Pi…" : "Change model and reasoning"}
+        title={models.length === 0 ? "Loading models from Pi…" : "Change model, reasoning, and service tier"}
         aria-label={
           models.length === 0
             ? "Loading models"
-            : `Model ${label}, reasoning ${thinkingLabel(thinkingLevel)}. Change model and reasoning`
+            : `Model ${label}, reasoning ${thinkingLabel(thinkingLevel)}. Change model, reasoning, and service tier`
         }
       >
         {model ? <ModelProviderIcon provider={model.provider} /> : null}
@@ -116,7 +115,7 @@ export default function ModelSelector() {
       >
         <PopoverTitle className="sr-only">Choose a model</PopoverTitle>
         <PopoverDescription className="sr-only">
-          Search models from every provider and adjust reasoning effort.
+          Search models from every provider and adjust reasoning and service tier.
         </PopoverDescription>
 
         <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2.5">
@@ -171,7 +170,10 @@ export default function ModelSelector() {
           />
         </ModelScrollArea>
 
-        <ReasoningControl />
+        <div className="flex shrink-0 flex-wrap items-start gap-x-2 gap-y-1 border-t border-border/60 px-2 py-2">
+          <ReasoningControl />
+          <ServiceTierSelector />
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -184,15 +186,11 @@ function ReasoningControl() {
   const error = useAppStore((s) => s.thinkingLevelsError);
   const retry = useAppStore((s) => s.refreshThinkingLevels);
   const setThinkingLevel = useAppStore((s) => s.setThinkingLevel);
-  const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
-  const combo = hintFor("cycleThinking", keybindingOverrides);
   const options = thinkingLevels.map((level) => ({ value: level, label: thinkingLabel(level) }));
 
   return (
-    <section className="shrink-0 border-t border-border/60 px-4 py-2.5" aria-label="Reasoning">
+    <section className="min-w-0 flex-1" aria-label="Reasoning">
       <div className="flex min-h-8 items-center gap-2">
-        <span className="flex-1 text-xs text-muted-foreground">Reasoning effort</span>
-        {combo ? <Kbd className="text-muted-foreground">{combo}</Kbd> : null}
         {!error && thinkingLevels.length > 0 ? (
           <Select
             value={thinkingLevels.includes(thinkingLevel) ? thinkingLevel : null}
@@ -202,7 +200,7 @@ function ReasoningControl() {
               if (level && level !== thinkingLevel) void setThinkingLevel(level);
             }}
           >
-            <SelectTrigger aria-label="Reasoning effort" className="min-w-24 border-0 bg-transparent px-2 text-sm dark:bg-transparent dark:hover:bg-muted">
+            <SelectTrigger aria-label="Reasoning effort" title="Reasoning effort" className="h-8 min-w-24 border-0 bg-transparent px-2 text-sm dark:bg-transparent dark:hover:bg-muted">
               <SelectValue placeholder="Choose…" />
             </SelectTrigger>
             <SelectContent side="top" align="end" alignItemWithTrigger={false} className="min-w-36">

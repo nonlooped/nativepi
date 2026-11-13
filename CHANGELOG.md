@@ -11,10 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trim the README to a short pitch, install and development quick start, and links to the guides; move retired-package upgrade notes to `docs/upgrade.md`. Workspace screenshots remain the isolated-demo captures.
 
 ### Fixed
+- Normalize leftover Automatic service-tier values to Standard and prevent blank selected rows after an update.
 - Reuse unchanged untracked-file line counts and session summaries, bound partial-staging diff reads, and virtualize diff rows to keep large projects and histories responsive.
 - Load providers for new chats after opening a project without trust, and restore service tiers saved by the retired extension.
 
 ### Changed
+- Limit service tiers to Standard and Priority, defaulting new chats and previous Automatic/Flex choices to Standard.
+- Place provider-aware service-tier controls beside reasoning in the composer model picker, with saved session choices and speed/cost descriptions; remove the visible reasoning label and shortcut hint.
 - Remove reserved macOS traffic-light spacing in fullscreen and restore it when leaving fullscreen.
 - Temporarily replace the website with an under-construction notice and redirect documentation links while content and screenshots are refreshed.
 - Align control and menu sizes, strengthen page and detail hierarchy, and adapt Settings grids and workspace headers to their pane width. Keep long select labels clear of checkmarks, bound popovers, and correct scaled composer and terminal alignment.

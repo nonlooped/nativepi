@@ -1,3 +1,4 @@
+import type { ServiceTier, ServiceTierState } from "./service-tier.ts";
 import type { DiffPreviewResult } from "./diff-preview.ts";
 import { DEFAULT_INTERFACE_SCALE, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE } from "./interface-scale.ts";
 import type { requestParams } from "./request-params.ts";
@@ -441,6 +442,14 @@ export type HostRequestContracts = {
       state?: RpcSessionState;
       error?: string;
     };
+  };
+  getServiceTier: {
+    params: { projectDir: string; sessionFile?: string | null };
+    response: { state?: ServiceTierState; error?: string };
+  };
+  setServiceTier: {
+    params: { projectDir: string; sessionFile?: string | null; tier: ServiceTier; provider: string; modelId: string };
+    response: { ok: boolean; state?: ServiceTierState; error?: string };
   };
   getThinkingLevels: {
     params: {

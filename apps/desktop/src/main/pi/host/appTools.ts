@@ -15,19 +15,17 @@ export default function appTools(pi: ExtensionAPI): void {
       }
       const current = recordedServiceTier(context.sessionManager.getEntries());
       const labels: Record<string, string> = {
-        auto: "Automatic — use the provider default",
         default: "Standard — normal pricing and speed",
         priority: "Priority — faster responses, higher usage or cost",
-        flex: "Flex — lower cost, slower responses; availability varies by model",
-        standard_only: "Standard only — do not use reserved Priority capacity",
       };
-      const requested = args.trim().toLowerCase();
+      const argument = args.trim().toLowerCase();
+      const requested = argument === "standard" ? "default" : argument;
       const choices = tiers.map(tier => `${labels[tier]}${tier === current ? " (current)" : ""}`);
       const choice = requested || await context.ui.select("Service tier", choices);
       if (!choice) return;
       const tier = requested || tiers[choices.indexOf(choice)];
-      if (!tier || !tiers.includes(tier)) {
-        context.ui.notify(`Choose one of: ${tiers.join(", ")}.`, "warning");
+      if (!tier || !tiers.some(value => value === tier)) {
+        context.ui.notify(`Choose standard or priority.`, "warning");
         return;
       }
       pi.appendEntry(SERVICE_TIER_ENTRY, { tier });

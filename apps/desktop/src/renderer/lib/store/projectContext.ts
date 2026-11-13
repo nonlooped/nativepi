@@ -101,6 +101,9 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
       if (!sessionFile && runtime(get).blockedDrafts.has(projectDir)) return;
       if (projectDir !== get().activeProjectPath || (sessionFile ?? null) !== (get().activeSessionFile ?? null)) return;
       switch (frame.type) {
+        case "nativepi_tui_service_tier_changed":
+          void get().refreshServiceTier();
+          return;
         // Keyed by id rather than appended: a resync re-announces surfaces the
         // window may still be holding, and the same pane twice is not two panes.
         case "nativepi_tui_open": {

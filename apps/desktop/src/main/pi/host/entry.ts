@@ -1,5 +1,5 @@
 import { excludeRetiredPackages } from "./retiredPackages.ts";
-import { installServiceTier } from "./serviceTier.ts";
+import { readServiceTier, setServiceTier, SERVICE_TIER_ENTRY, installServiceTier } from "./serviceTier.ts";
 import { observeChatTitle } from "./chatTitle.ts";
 import { createFrameWriter } from "./frameWriter.ts";
 import { fileURLToPath } from "node:url";
@@ -60,6 +60,7 @@ let lastEditorFrame: TuiClientFrame | undefined;
 let currentSession: AgentSession | undefined;
 let stopTitleObserver: (() => void) | undefined;
 let stopServiceTier: (() => void) | undefined;
+let stopTierEvents: (() => void) | undefined;
 let runtimePromise: Promise<ModelRuntime> | undefined;
 let authPromptSeq = 1;
 const pendingAuthPrompts = new Map<string, (result: {
@@ -74,6 +75,22 @@ function providerRuntime(): Promise<ModelRuntime> {
   return runtimePromise;
 }
 function handleClientFrame(frame: TuiClientFrame): void {
+  if (frame.type === "nativepi_tui_get_service_tier" || frame.type === "nativepi_tui_set_service_tier") {
+    try {
+      if (!currentSession) throw new Error("No active Pi session");
+      if (frame.type === "nativepi_tui_set_service_tier" && frame.sessionFile && currentSession.sessionFile !== frame.sessionFile)
+        throw new Error("The selected chat changed. Choose a service tier again.");
+      if (frame.type === "nativepi_tui_set_service_tier" && (currentSession.model?.provider !== frame.provider || currentSession.model?.id !== frame.modelId))
+        throw new Error("The selected model changed. Choose a service tier again.");
+      const data = frame.type === "nativepi_tui_set_service_tier"
+        ? setServiceTier(currentSession, frame.tier) : readServiceTier(currentSession);
+      send({ type: "nativepi_tui_reply", requestId: frame.requestId, data });
+      if (frame.type === "nativepi_tui_set_service_tier") send({ type: "nativepi_tui_service_tier_changed" });
+    } catch (error) {
+      send({ type: "nativepi_tui_reply", requestId: frame.requestId, error: error instanceof Error ? error.message : String(error) });
+    }
+    return;
+  }
   if (frame.type === "nativepi_tui_accept_title") {
     try {
       const session = currentSession;
@@ -245,6 +262,7 @@ function installUiContext(): void {
     if (currentSession === this) {
       stopTitleObserver?.();
       stopTitleObserver = undefined;
+      stopTierEvents?.();
       stopServiceTier?.();
       stopServiceTier = undefined;
       currentSession = undefined;
@@ -261,8 +279,13 @@ function installUiContext(): void {
     internals?.dispose();
     internals = undefined;
     if (currentSession !== this) {
+      stopTierEvents?.();
       stopServiceTier?.();
       stopServiceTier = process.argv.includes("--no-session") ? undefined : installServiceTier(this);
+      stopTierEvents = this.subscribe(event => {
+        if (event.type === "entry_appended" && event.entry.type === "custom" && event.entry.customType === SERVICE_TIER_ENTRY)
+          send({ type: "nativepi_tui_service_tier_changed" });
+      });
       stopTitleObserver?.();
       stopTitleObserver = process.argv.includes("--no-session") ? undefined : observeChatTitle(this, (sessionFile, title) => {
         send({ type: "nativepi_tui_propose_title", sessionFile, title });
