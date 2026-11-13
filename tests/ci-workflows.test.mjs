@@ -127,3 +127,9 @@ test('scope CLI compares a PR merge with its base, excluding changes already on 
     expect(readFileSync(output, 'utf8')).toBe('core=false\nweb=false\n');
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
+
+
+test('release packaging installs all workspace dependencies used by the desktop build', () => {
+  const setup = release.jobs.package.steps.find(step => step.uses === './.github/actions/setup');
+  expect(setup.with['install-filter']).toBeUndefined();
+});

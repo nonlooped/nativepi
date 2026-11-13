@@ -187,7 +187,6 @@ jobs:
         with:
           bun-cache: 'true'
           electron-cache: 'true'
-          install-filter: '@nativepi/desktop'
       # node-pty ships prebuilds for Windows and macOS only; compile on each Linux architecture.
       - name: Build the Linux terminal addon
         if: matrix.platform == 'linux'
