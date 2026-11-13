@@ -75,8 +75,8 @@ const codeCSS = `
   --diffs-bg-deletion-override: color-mix(in oklch, var(--destructive) 14%, var(--background));
   --diffs-bg-addition-number-override: color-mix(in oklch, var(--success) 15%, var(--background));
   --diffs-bg-deletion-number-override: color-mix(in oklch, var(--destructive) 20%, var(--background));
-  --diffs-bg-addition-emphasis-override: color-mix(in oklch, var(--success) 22%, var(--background));
-  --diffs-bg-deletion-emphasis-override: color-mix(in oklch, var(--destructive) 30%, var(--background));
+  --diffs-bg-addition-emphasis-override: color-mix(in oklch, var(--success) 17%, var(--background));
+  --diffs-bg-deletion-emphasis-override: color-mix(in oklch, var(--destructive) 22%, var(--background));
   --diffs-modified-color-override: var(--muted-foreground);
   --diffs-addition-color-override: var(--success);
   --diffs-deletion-color-override: var(--destructive);
