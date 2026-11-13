@@ -92,6 +92,52 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     return run;
   }
   return {
+    destinationDrafts: {},
+    collapsedChatFolders: [],
+    toggleChatFolder: (id) => { set(s => ({ collapsedChatFolders: s.collapsedChatFolders.includes(id) ? s.collapsedChatFolders.filter(value => value !== id) : [...s.collapsedChatFolders, id] })); persist(get); },
+    destination: "work", chatRoot: null, chatFolders: [], chatFolderBySession: {}, chatExtensions: [],
+    setDestination: async (destination) => {
+      const s = get();
+      if (destination === s.destination) return;
+      set({ destination, destinationDrafts: { ...s.destinationDrafts, [s.destination]: s.isNewChat }, ...(s.destination === "work" ? { lastWorkProject: s.activeProjectPath ?? undefined } : {}) });
+      const target = destination === "chat" ? s.chatRoot : s.lastWorkProject ?? s.projects[0]?.path;
+      if (target) {
+        const remembered = getLastChat(get, target);
+        if (remembered && !s.destinationDrafts[destination]) await get().selectChat(remembered, target);
+        else {
+          await get().selectProject(target);
+          if (get().destination === destination && s.destinationDrafts[destination]) get().newChat();
+        }
+      } else set({ activeProjectPath: null, activeSessionFile: null });
+      persist(get);
+    },
+    setChatExtensions: (paths) => { set({ chatExtensions: paths }); persist(get); },
+    addChatFolder: (name) => {
+      name = name.trim(); if (!name) return;
+      const used = new Set(get().chatFolders.map(f => f.color));
+      let color = "";
+      for (let n = 0; !color || used.has(color); n++) {
+        const hue = ((get().chatFolders.length + n) * 137.508) % 360;
+        const rgb = [0, 8, 4].map(offset => { const k = (offset + hue / 30) % 12; return Math.round(255 * (0.52 - 0.28 * Math.max(-1, Math.min(k - 3, 9 - k, 1)))).toString(16).padStart(2, "0"); });
+        color = `#${rgb.join("")}`;
+      }
+      set(s => ({ chatFolders: [...s.chatFolders, { id: crypto.randomUUID(), name: name.slice(0, 100), color }] })); persist(get);
+    },
+    moveToChatFolder: (session, folder) => {
+      set(s => { const next = { ...s.chatFolderBySession }; if (folder) next[session] = folder; else delete next[session]; return { chatFolderBySession: next }; }); persist(get);
+    },
+    deleteChatFolder: async (id) => {
+      const s = get(); if (!s.chatRoot) return;
+      // Retain the folder and remaining memberships if any session cannot be deleted.
+      for (const [session, folder] of Object.entries(s.chatFolderBySession)) {
+        if (folder !== id || session === s.chatRoot) continue;
+        const result = await get().deleteChat(session, s.chatRoot);
+        if (!result.ok) throw new Error(result.error ?? "A chat could not be deleted.");
+        if (get().sessionsByProject[s.chatRoot]?.some(value => value.path === session)) throw new Error("A chat could not be deleted. The folder has been retained.");
+        get().moveToChatFolder(session, null);
+      }
+      set(s => ({ chatFolders: s.chatFolders.filter(f => f.id !== id), collapsedChatFolders: s.collapsedChatFolders.filter(value => value !== id), chatFolderBySession: Object.fromEntries(Object.entries(s.chatFolderBySession).filter(([, folder]) => folder !== id)) })); persist(get);
+    },
     ready: false,
     projects: [],
     activeProjectPath: null,
@@ -99,12 +145,17 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
 
     init: async () => {
       const loaded = await rpc.request.loadState({});
+      const { path: chatRoot } = await rpc.request.chatWorkspace({});
       replaceLastChats(get, loaded.lastChatByProject ?? {});
       const reopenLastProject = loaded.reopenLastProject ?? true;
-      const restoreProject = reopenLastProject ? (loaded.lastProjectPath ?? null) : null;
+      const restoreProject = loaded.destination === "chat" ? chatRoot : reopenLastProject ? (loaded.lastWorkProject ?? loaded.lastProjectPath ?? null) : null;
       const focusStartedAt = loaded.focusStartedAt ?? new Date().toISOString();
       set({
         ready: true,
+        destinationDrafts: loaded.destinationDrafts,
+        collapsedChatFolders: loaded.collapsedChatFolders,
+        destination: loaded.destination, chatRoot, chatFolders: loaded.chatFolders,
+        chatFolderBySession: loaded.chatFolderBySession, chatExtensions: loaded.chatExtensions, lastWorkProject: loaded.lastWorkProject,
         projects: loaded.projects,
         drafts: loaded.drafts ?? {},
         favoriteModels: loaded.favoriteModels ?? [],
@@ -129,7 +180,10 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       // Read once as well as subscribing: the first check runs while the window
       // is still loading, so its result may already have been pushed and missed.
       void rpc.request.updateState({}).then((update) => get().onUpdateState(update));
-      if (restoreProject) await get().selectProject(restoreProject);
+      if (restoreProject) {
+        await get().selectProject(restoreProject);
+        if (loaded.destinationDrafts?.[loaded.destination]) get().newChat();
+      }
     },
 
     addProject: async () => {

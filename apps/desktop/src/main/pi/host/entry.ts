@@ -363,4 +363,4 @@ installUiContext();
 // Before `main`, because extensions call `connect()` during activation.
 installExtensionChannel(send);
 const appTools = fileURLToPath(new URL("./app-tools.js", import.meta.url));
-void configureHttp().then(() => main(["--mode", "rpc", ...(process.argv.includes("--no-session") ? [] : ["-e", appTools]), ...process.argv.slice(2)])).finally(() => frames.dispose());
+void configureHttp().then(() => main(["--mode", "rpc", ...(process.argv.includes("--no-session") ? [] : ["-e", appTools, "-e", fileURLToPath(new URL("./web-access.js", import.meta.url))]), ...process.argv.slice(2)])).finally(() => frames.dispose());

@@ -22,7 +22,7 @@ const packageChange = project.extend({ source: id, scope: z.enum(["user", "proje
 const branch = project.extend({ branch: id, create: z.boolean() });
 const hunks = file.extend({ untracked: z.boolean() });
 export const requestParams = {
-  pickProject: empty, loadState: empty, saveState: z.object({ state: nativePiStateSchema }), listSessions: project,
+  chatWorkspace: empty, pickProject: empty, loadState: empty, saveState: z.object({ state: nativePiStateSchema }), listSessions: project,
   searchSessions: z.object({ requestId: id, projectDirs: z.array(path).max(100), query: z.string().min(1).max(500) }),
   cancelSearchSessions: z.object({ requestId: id }), readSession: z.object({ sessionFile: path }), readSessionSnapshot: session, reloadSession: session,
   ensurePi: target, restartPi: project, restartAllPi: empty, importSession: project.extend({ sourceFile: path.optional() }),

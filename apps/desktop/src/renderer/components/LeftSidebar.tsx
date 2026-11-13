@@ -26,6 +26,8 @@ export default function LeftSidebar({
   /** Reapply the collapsed state after a sibling pane changes the group layout. */
   layoutKey?: unknown;
 }) {
+  const destination = useAppStore(s => s.destination);
+  const setDestination = useAppStore(s => s.setDestination);
   const sidebarWidth = useAppStore((s) => s.sidebarWidth);
   const panelRef = useCollapsiblePanel(open, layoutKey);
 
@@ -44,6 +46,9 @@ export default function LeftSidebar({
         </div>
       </div>
 
+      <div className="mx-3 my-2 flex rounded-lg bg-sidebar-accent/60 p-1" aria-label="Destination">
+        {(["chat", "work"] as const).map(mode => <Button key={mode} variant={destination === mode ? "secondary" : "ghost"} size="sm" className="flex-1" aria-pressed={destination === mode} onClick={() => void setDestination(mode)}>{mode === "chat" ? "Chat" : "Work"}</Button>)}
+      </div>
       {children}
 
       {/* The bottom padding clears the iOS home indicator, which otherwise sits

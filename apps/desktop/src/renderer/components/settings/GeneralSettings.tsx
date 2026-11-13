@@ -1,3 +1,4 @@
+import ChatExtensionSettings from "./ChatExtensionSettings.tsx";
 import { useState } from "react";
 import { BellIcon } from "@phosphor-icons/react/Bell";
 import { PowerIcon } from "@phosphor-icons/react/Power";
@@ -27,6 +28,7 @@ export default function GeneralSettings() {
         onChange={setReopenLastProject}
       />
 
+      <ChatExtensionSettings />
       <NotificationCard enabled={notifyOnTurnEnd} silent={!notificationSound} />
       <SwitchRow
         label="Notify when a turn finishes"

@@ -23,6 +23,10 @@ import ConfirmDialog from "./ConfirmDialog.tsx";
 import WorktreeDialog from "./WorktreeDialog.tsx";
 import SessionMenu from "./SessionMenu.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog.tsx";
+import { TrashIcon } from "@phosphor-icons/react/Trash";
+import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { Button } from "@/components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -54,15 +58,9 @@ interface SidebarChat {
   presentation?: SidebarProject;
 }
 
-export default function Sidebar({
-  presentation,
-  onClose,
-  onOpenSearch,
-  onOpenNewChat,
-  open = true,
-  overlay = false,
-  layoutKey,
-}: {
+const SIDEBAR_CHAT_ROW = "relative flex h-auto min-h-16 w-full flex-col items-stretch justify-center gap-1 overflow-hidden rounded-lg px-3 py-2.5 text-left text-sidebar-foreground outline-none transition-[background-color,color,scale] hover:bg-sidebar-accent/40 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset active:scale-[0.985]";
+
+interface SidebarProps {
   presentation: Record<string, SidebarProject>;
   onClose: () => void;
   onOpenSearch: () => void;
@@ -70,7 +68,17 @@ export default function Sidebar({
   open?: boolean;
   overlay?: boolean;
   layoutKey?: unknown;
-}) {
+}
+
+export default function Sidebar(props: SidebarProps) {
+  const destination = useAppStore(s => s.destination);
+  const openSettings = useAppStore(s => s.openSettings);
+  return <LeftSidebar actionIcon={<GearSixIcon data-icon="inline-start" />} actionLabel="Settings" onAction={() => { openSettings(); if (props.overlay) props.onClose(); }} onClose={props.onClose} open={props.open ?? true} overlay={props.overlay} layoutKey={props.layoutKey}>
+    {destination === "chat" ? <ChatContents {...props} /> : <WorkContents {...props} />}
+  </LeftSidebar>;
+}
+
+function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, overlay = false }: SidebarProps) {
   const projects = useAppStore((s) => s.projects);
   const git = useAppStore((s) => s.git);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -90,7 +98,6 @@ export default function Sidebar({
     ),
   );
   const addProject = useAppStore((s) => s.addProject);
-  const openSettings = useAppStore((s) => s.openSettings);
   const selectChat = useAppStore((s) => s.selectChat);
   const newChatIn = useAppStore((s) => s.newChatIn);
   const removeProject = useAppStore((s) => s.removeProject);
@@ -252,18 +259,7 @@ export default function Sidebar({
   }
 
   return (
-    <LeftSidebar
-      actionIcon={<GearSixIcon data-icon="inline-start" />}
-      actionLabel="Settings"
-      onAction={() => {
-        openSettings();
-        if (overlay) onClose();
-      }}
-      onClose={onClose}
-      open={open}
-      overlay={overlay}
-      layoutKey={layoutKey}
-    >
+    <>
       <div className={cn("flex flex-col gap-2 px-3 pb-3 pt-3", NO_DRAG_REGION)}>
         <div className="flex items-center gap-1">
           <Button
@@ -430,7 +426,7 @@ export default function Sidebar({
         }}
         onCancel={() => setPendingRemoval(null)}
       />
-    </LeftSidebar>
+    </>
   );
 }
 
@@ -458,7 +454,7 @@ function FocusChatRow({
             onClick={onSelect}
             aria-current={chat.selected ? "page" : undefined}
             className={cn(
-              "relative flex h-auto min-h-16 w-full flex-col items-stretch justify-center gap-1 overflow-hidden rounded-lg px-3 py-2.5 text-left text-sidebar-foreground outline-none transition-[background-color,color,scale] hover:bg-sidebar-accent/40 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset active:scale-[0.985]",
+              SIDEBAR_CHAT_ROW,
               chat.selected && "bg-sidebar-accent text-sidebar-accent-foreground",
             )}
           >
@@ -634,4 +630,88 @@ function ChatHistoryState({
       {action}
     </div>
   );
+}
+
+function ChatContents({ onClose, onOpenSearch, onOpenNewChat, overlay = false }: SidebarProps) {
+  const root = useAppStore(s => s.chatRoot);
+  const sessions = useAppStore(s => root ? s.sessionsByProject[root] : undefined);
+  const folders = useAppStore(s => s.chatFolders);
+  const membership = useAppStore(s => s.chatFolderBySession);
+  const conversations = useAppStore(s => s.conversations);
+  const active = useAppStore(s => s.activeSessionFile);
+  const refresh = useAppStore(s => s.refreshSessions);
+  const collapsed = useAppStore(s => s.collapsedChatFolders);
+  const toggleFolder = useAppStore(s => s.toggleChatFolder);
+  const [create, setCreate] = useState(false);
+  const [name, setName] = useState("");
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  useEffect(() => {
+    if (!root) return;
+    void refresh(root).catch(() => setError("Could not load chats. Try searching or reopen Chat."));
+    void rpc.request.watchProjectSessions({ projectDir: root });
+    return () => { void rpc.request.unwatchProjectSessions({ projectDir: root }); };
+  }, [root, refresh]);
+  const folder = folders.find(f => f.id === removing);
+  function newChat(folderId: string | null) {
+    if (root) useAppStore.getState().moveToChatFolder(root, folderId);
+    if (folderId && collapsed.includes(folderId)) toggleFolder(folderId);
+    onOpenNewChat();
+  }
+  function chatRow(session: NonNullable<typeof sessions>[number]) {
+    return <SessionMenu key={session.path} projectPath={root!} session={session} selected={active === session.path} running={conversations[session.path]?.running ?? false} pinned={false}>
+      <DropdownMenu>
+        <div className="group relative flex w-full min-w-0 items-center">
+          <Button variant={active === session.path ? "secondary" : "ghost"} title={chatTitle(session)} className={cn(SIDEBAR_CHAT_ROW, active === session.path && "bg-sidebar-accent text-sidebar-accent-foreground")} onClick={() => { void useAppStore.getState().selectChat(session.path, root!); if (overlay) onClose(); }}><span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-sm font-medium leading-5">{chatTitle(session)}</span><span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{conversations[session.path]?.running ? "Working" : timeAgo(session.modified, Date.now())}</span></span><span className="truncate text-xs font-normal text-muted-foreground">{session.lastPrompt || "New conversation"}</span></Button>
+          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="absolute right-2 bottom-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Move ${chatTitle(session)}`} />}><FolderIcon /></DropdownMenuTrigger>
+        </div>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={() => useAppStore.getState().moveToChatFolder(session.path, null)}>Move out of folder</DropdownMenuItem>
+          {folders.map(f => <DropdownMenuItem key={f.id} onClick={() => { useAppStore.getState().moveToChatFolder(session.path, f.id); if (collapsed.includes(f.id)) toggleFolder(f.id); }}><FolderIcon style={{ color: f.color }} />{f.name}</DropdownMenuItem>)}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </SessionMenu>;
+  }
+  return <>
+    <div className={cn("flex flex-col gap-2 px-3 pb-3 pt-3", NO_DRAG_REGION)}>
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" className="min-w-0 flex-1 justify-start text-muted-foreground" onClick={onOpenSearch}><MagnifyingGlassIcon className="size-4" />Search</Button>
+        <Button variant="ghost" size="icon" aria-label="New folder" title="New folder" onClick={() => setCreate(true)}><FolderPlusIcon className="size-4" /></Button>
+        <Button variant="ghost" size="icon" aria-label="New chat" title="New chat" onClick={() => newChat(null)}><NotePencilIcon className="size-4" /></Button>
+      </div>
+    </div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3">
+      {error ? <p role="alert" className="py-2 text-sm text-destructive">{error}</p> : null}
+      {folders.map(f => {
+        const expanded = !collapsed.includes(f.id);
+        const children = sessions?.filter(session => membership[session.path] === f.id) ?? [];
+        return <section key={f.id} className="mt-1" aria-label={f.name}>
+          <div className="group/folder flex items-center rounded-md hover:bg-sidebar-accent/50">
+            <Button variant="ghost" className="min-w-0 flex-1 justify-start gap-2" aria-expanded={expanded} onClick={() => toggleFolder(f.id)}>
+              <CaretDownIcon className={expanded ? "" : "-rotate-90"} />
+              <FolderIcon weight="fill" style={{ color: f.color }} /><span className="truncate">{f.name}</span>
+              <span className="ml-auto text-xs tabular-nums text-muted-foreground">{children.length}</span>
+            </Button>
+            <div className="flex opacity-0 group-hover/folder:opacity-100 group-focus-within/folder:opacity-100">
+              <Button variant="ghost" size="icon-sm" aria-label={`New chat in ${f.name}`} onClick={() => newChat(f.id)}><PlusIcon /></Button>
+              <Button variant="ghost" size="icon-sm" aria-label={`Delete ${f.name}`} disabled={deleting} onClick={() => setRemoving(f.id)}><TrashIcon /></Button>
+            </div>
+          </div>
+          {expanded ? <div className="ml-5 border-l pl-2" style={{ borderColor: f.color + "55" }}>
+            {children.map(chatRow)}
+            {!children.length ? <Button variant="ghost" className="w-full justify-start text-muted-foreground font-normal" onClick={() => newChat(f.id)}>Start a chat here</Button> : null}
+          </div> : null}
+        </section>;
+      })}
+      <div className="mt-4 space-y-0.5">{sessions?.filter(session => !folders.some(folder => folder.id === membership[session.path])).map(chatRow)}</div>
+      {sessions?.length === 0 && folders.length === 0 ? <p className="px-2 py-4 text-sm text-muted-foreground">Start a conversation, or create a folder for related chats.</p> : null}
+    </div>
+    <Dialog open={create} onOpenChange={setCreate}><DialogContent><DialogTitle>New folder</DialogTitle><DialogDescription>Organize related chats. Each folder gets its own color.</DialogDescription><form onSubmit={event => { event.preventDefault(); useAppStore.getState().addChatFolder(name); setName(""); setCreate(false); }}><Input autoFocus aria-label="Folder name" value={name} maxLength={100} onChange={event => setName(event.target.value)} /><Button className="mt-4" type="submit" disabled={!name.trim()}>Create folder</Button></form></DialogContent></Dialog>
+    <ConfirmDialog open={!!folder && !deleting} title={`Delete ${folder?.name ?? "folder"}?`} description="This folder and all chats within it will be permanently deleted. This cannot be undone." confirmLabel="Delete folder and chats" destructive onCancel={() => setRemoving(null)} onConfirm={() => {
+      if (!folder) return;
+      setDeleting(true); setError("");
+      void useAppStore.getState().deleteChatFolder(folder.id).catch(error => setError(error instanceof Error ? error.message : "Could not delete folder.")).finally(() => { setDeleting(false); setRemoving(null); });
+    }} />
+  </>;
 }

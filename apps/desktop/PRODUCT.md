@@ -25,6 +25,16 @@ Success means NativePi is useful as the daily desktop interface for Pi project w
 
 NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains the product core and source of truth for agent behavior, providers, models, authentication, tools, prompts, skills, extensions, queues, compaction, and sessions. NativePi presents those capabilities directly without a second conversation model. Chat naming, ask_user, and provider service-tier selection are shipped app features implemented through Pi APIs.
 
+## Chat and Work
+
+NativePi offers two independent destinations. Work is the project-based workflow described below. Chat starts without a project picker, using an internal working directory only because Pi requires one. Its transcripts remain ordinary Pi session files. Existing project conversations stay in Work; conversations cannot be transferred between destinations.
+
+Chat folders are NativePi-owned organization metadata, with unique colors and persistent collapsed state. Chats appear inside their folders, and unfiled chats appear outside them. Moving a chat changes only its folder membership. Deleting a folder permanently deletes its chats after explicit confirmation; failed deletions retain the folder and remaining memberships.
+
+The shipped `@nativepi/chat-mode` Pi extension disables built-in edit/write tools, enables read-only exploration, and supplies conversational instructions. The shell remains available for diagnostics and information gathering; instructions against changes are behavioral guidance, not a sandbox. Automatic extension discovery, skills, templates, and context-file discovery are disabled in Chat. Settings → General can explicitly enable whole user extensions, including their full tools. The profile still instructs Pi to avoid work tasks. Settings changes affect newly started Pi processes; restart Pi to update existing processes.
+
+The shipped `@nativepi/web-access` Pi extension supplies Exa-backed web search and page reading in both destinations. Requests go directly from the user's machine to Exa's hosted MCP endpoint. No search account, API key, payment, or NativePi server is required. Exa's anonymous service is rate-limited and externally operated: NativePi honors retry timing, suppresses immediate retries during a cooldown, and reports unavailability without interrupting ordinary chat. Both extension packages can also run in Pi's CLI.
+
 ## Operating Context
 
 - NativePi is a Windows, macOS, or Linux desktop application used alongside local code projects, Git repositories, and the existing Pi CLI ecosystem. Its workspace can be shared temporarily to a browser on the local network or through a temporary public link.

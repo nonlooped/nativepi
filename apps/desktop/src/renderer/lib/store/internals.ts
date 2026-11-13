@@ -121,7 +121,7 @@ export function gitRefreshedWithin(get: GetState, ms: number): boolean {
 }
 
 export function rememberProject(set: SetState, get: GetState, path: string): void {
-  if (get().projects.some((project) => project.path === path)) return;
+  if (path === get().chatRoot || get().projects.some((project) => project.path === path)) return;
   const name = path.split(/[/\\]/).filter(Boolean).pop() ?? path;
   set((s) => ({ projects: [...s.projects, { path, name }] }));
   persist(get);
@@ -150,6 +150,8 @@ export function enterProjectFolder(set: SetState, get: GetState, path: string): 
   const stillSelected = () => selection === runtime(get).folder && get().activeProjectPath === path;
   const extPrompts = get().extensionPromptsByProject[path] ?? [];
   set((state) => ({
+    destination: path === state.chatRoot ? "chat" : "work",
+    lastWorkProject: path === state.chatRoot ? state.lastWorkProject : path,
     activeProjectPath: path,
     activeSessionFile: null,
     isNewChat: false,
@@ -217,6 +219,10 @@ function persistedState(get: GetState): NativePiState {
   if (s.activeProjectPath && s.activeSessionFile) map[s.activeProjectPath] = s.activeSessionFile;
   return {
     version: 1,
+    destinationDrafts: { ...s.destinationDrafts, [s.destination]: s.isNewChat },
+    collapsedChatFolders: s.collapsedChatFolders,
+    destination: s.destination, chatFolders: s.chatFolders, chatFolderBySession: s.chatFolderBySession,
+    chatExtensions: s.chatExtensions, lastWorkProject: s.destination === "work" ? s.activeProjectPath ?? undefined : s.lastWorkProject,
     projects: s.projects,
     lastProjectPath: s.activeProjectPath ?? undefined,
     lastChatByProject: map,

@@ -217,6 +217,13 @@ export const nativePiStateSchema = z.object({
     const parsed = projectSchema.safeParse(entry);
     return parsed.success ? [{ path: parsed.data.path, name: parsed.data.name || parsed.data.path }] : [];
   }))),
+  destination: z.enum(["chat", "work"]).catch("work"),
+  chatFolders: z.array(z.object({ id: z.string().min(1), name: z.string().trim().min(1).max(100), color: z.string().regex(/^#[0-9a-f]{6}$/i) })).catch([]),
+  chatFolderBySession: z.record(z.string(), z.string()).catch({}),
+  destinationDrafts: z.record(z.string(), z.boolean()).catch({}),
+  collapsedChatFolders: z.array(z.string()).catch([]),
+  chatExtensions: z.array(z.string().min(1).max(32767)).catch([]),
+  lastWorkProject: z.string().optional().catch(undefined),
   lastProjectPath: z.string().optional().catch(undefined),
   lastChatByProject: z.record(z.string(), z.string()).catch({}),
   drafts: z.record(z.string(), z.string()).catch({}),
@@ -252,6 +259,7 @@ export const nativePiStateSchema = z.object({
 });
 export type NativePiState = z.infer<typeof nativePiStateSchema>;
 export type HostRequestContracts = {
+  chatWorkspace: { params: Record<string, never>; response: { path: string }; };
   pickProject: {
     params: Record<string, never>;
     response: {

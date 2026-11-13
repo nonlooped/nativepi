@@ -5,7 +5,8 @@ import { useAppStore } from "./store.ts";
  * are pinned. With none, open the folder picker instead of an empty dialog.
  */
 export function startNewChatFlow(pickProject: () => void): void {
-  const { projects, addProject, newChatIn } = useAppStore.getState();
+  const { projects, addProject, newChatIn, destination, chatRoot } = useAppStore.getState();
+  if (destination === "chat") { if (chatRoot) void newChatIn(chatRoot); return; }
   if (projects.length === 0) {
     void addProject();
     return;

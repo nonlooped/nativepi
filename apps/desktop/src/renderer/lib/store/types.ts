@@ -96,6 +96,20 @@ export interface AuthFlow {
 
 /** Project folders the user has pinned, and the folder of the open chat. */
 export interface WorkspaceSlice {
+  destination: "chat" | "work";
+  chatRoot: string | null;
+  lastWorkProject?: string;
+  chatFolders: { id: string; name: string; color: string }[];
+  chatFolderBySession: Record<string, string>;
+  destinationDrafts: Record<string, boolean>;
+  collapsedChatFolders: string[];
+  toggleChatFolder: (id: string) => void;
+  chatExtensions: string[];
+  setDestination: (destination: "chat" | "work") => Promise<void>;
+  setChatExtensions: (paths: string[]) => void;
+  addChatFolder: (name: string) => void;
+  moveToChatFolder: (session: string, folder: string | null) => void;
+  deleteChatFolder: (id: string) => Promise<void>;
   ready: boolean;
   projects: Project[];
   activeProjectPath: string | null;

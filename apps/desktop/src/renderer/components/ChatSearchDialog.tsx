@@ -25,6 +25,8 @@ export default function ChatSearchDialog({
   onOpenChange: (open: boolean) => void;
   onNavigate?: () => void;
 }) {
+  const destination = useAppStore(s => s.destination);
+  const chatRoot = useAppStore(s => s.chatRoot);
   const projects = useAppStore((s) => s.projects);
   const sidebarScope = useAppStore((s) => s.sidebarScope);
   const scopedName = useAppStore(
@@ -61,7 +63,7 @@ export default function ChatSearchDialog({
     const timer = window.setTimeout(() => {
       void rpc.request.searchSessions({
         requestId,
-        projectDirs: sidebarScope ? [sidebarScope] : projects.map((project) => project.path),
+        projectDirs: destination === "chat" ? (chatRoot ? [chatRoot] : []) : sidebarScope ? [sidebarScope] : projects.map((project) => project.path),
         query: search,
       })
         .then(({ results: next }) => {
@@ -80,7 +82,7 @@ export default function ChatSearchDialog({
       window.clearTimeout(timer);
       void rpc.request.cancelSearchSessions({ requestId });
     };
-  }, [open, projects, query, requestId, retryRequest, sidebarScope]);
+  }, [open, projects, query, requestId, retryRequest, sidebarScope, destination, chatRoot]);
 
   function close() {
     onOpenChange(false);

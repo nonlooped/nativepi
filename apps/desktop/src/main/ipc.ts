@@ -1,7 +1,7 @@
 import { serviceTierStateSchema } from "../shared/service-tier.ts";
 import { readProjectDiffPreview } from "./diffPreview.ts";
 import { app, BrowserWindow, dialog, shell } from "electron";
-import { stat, writeFile } from "node:fs/promises";
+import { mkdir, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
@@ -502,6 +502,8 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
     status(projectDir, "starting", projectDir);
     let pi!: PiProcess;
     let startupFailureReported = false;
+    const chatMode = resolve(projectDir) === resolve(join(app.getPath("userData"), "conversations"));
+    const chatArgs = chatMode ? ["--no-extensions", "--no-context-files", "--no-skills", "--no-prompt-templates", "-e", join(app.getAppPath(), "out/main/chat-mode.js"), ...(await loadState()).chatExtensions.flatMap(path => ["-e", path])] : [];
     pi = new PiProcess(projectDir, (msg) => forwardEvent(projectDir, pi, msg), (code, processError, expected) => {
       // Panes belong to the process that drew them: a Pi that dies takes its
       // surfaces with it, and the window has to be told or they stay on screen
@@ -541,6 +543,7 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
         status(projectDir, "exited", `exit ${code ?? "?"}`);
       }
     }, (frame) => forwardPiFrame(projectDir, pi, frame), [
+      ...chatArgs,
       ...(sessionFile ? ["--session", sessionFile] : []),
     ]);
     if (!sessionFile)
@@ -699,6 +702,7 @@ const handlers: HandlerMap = {
       : await dialog.showOpenDialog(options);
     return { path: result.canceled || !result.filePaths[0] ? null : result.filePaths[0] };
   },
+  chatWorkspace: async () => { const path = join(app.getPath("userData"), "conversations"); await mkdir(path, { recursive: true }); return { path }; },
   loadState: () => loadState(),
   saveState: async ({ state }) => {
     await saveState(state);
@@ -1625,7 +1629,10 @@ const handlers: HandlerMap = {
   },
   loadGraphicalExtensions: async ({ projectDir }) => {
     try {
-      return { extensions: await loadGraphicalExtensions(projectDir) };
+      const extensions = await loadGraphicalExtensions(projectDir);
+      if (resolve(projectDir) !== resolve(join(app.getPath("userData"), "conversations"))) return { extensions };
+      const allowed = (await loadState()).chatExtensions;
+      return { extensions: extensions.filter(extension => allowed.some(file => resolve(file).startsWith(resolve(extension.id) + (process.platform === "win32" ? "\\" : "/")))) };
     }
     catch {
       return { extensions: [] };

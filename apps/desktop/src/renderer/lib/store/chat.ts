@@ -560,6 +560,10 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
       if (res.sessionFile) {
         if (s.activeSessionFile) patchConversation(set, projectDir, res.sessionFile, { projectDir, sessionFile: res.sessionFile });
         if (!s.activeSessionFile) {
+          if (projectDir === s.chatRoot && s.chatFolderBySession[projectDir]) {
+            const folderId = s.chatFolderBySession[projectDir]!;
+            if (get().chatFolders.some(folder => folder.id === folderId)) get().moveToChatFolder(res.sessionFile, folderId);
+          }
           const timestamp = new Date().toISOString();
           addSidebarSession(set, projectDir, {
             path: res.sessionFile,

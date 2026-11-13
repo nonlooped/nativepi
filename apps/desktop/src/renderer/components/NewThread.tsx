@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button.tsx";
 import Composer from "./Composer.tsx";
 
 export default function NewThread() {
+  const destination = useAppStore(s => s.destination);
   const ready = useAppStore((s) => s.providers.some((provider) => provider.ready));
   const loaded = useAppStore((s) => s.providersLoaded);
   const openSettings = useAppStore((s) => s.openSettings);
@@ -11,7 +12,7 @@ export default function NewThread() {
       <div className="new-chat-scroll">
         <div className="new-chat-content mx-auto my-auto w-full max-w-(--conversation-width)">
           {!loaded ? <p role="status" className="text-center text-sm text-muted-foreground">Checking providers…</p> : ready ? <>
-            <h1 className="new-chat-heading text-center text-balance">What should we work on?</h1>
+            <h1 className="new-chat-heading text-center text-balance">{destination === "chat" ? "What’s on your mind?" : "What should we work on?"}</h1>
             <Composer prominent />
           </> : <div className="text-center">
             <h1 className="new-chat-heading text-balance">Connect a provider</h1>

@@ -57,3 +57,18 @@ test("a retired hot-reload store cannot save even after an old async callback co
   await flushPersist(store.getState);
   expect(writes).toEqual([]);
 });
+
+test("destinations and folder organization persist through the workspace schema", async () => {
+  const { nativePiStateSchema } = await import("../../../shared/rpc-schema.ts");
+  const store = fixture(); let saved: any;
+  stubInvoke(async (channel, params: any) => { if (channel === "saveState") saved = params.state; return { ok: true }; });
+  store.setState({ ready: true, destination: "chat", chatRoot: "/chat", activeProjectPath: "/chat", lastWorkProject: "/work", chatExtensions: ["/extension.ts"] });
+  store.getState().addChatFolder("Research");
+  const folder = store.getState().chatFolders[0]!;
+  store.getState().toggleChatFolder(folder.id); store.getState().moveToChatFolder("/session", folder.id);
+  await flushPersist(store.getState);
+  const loaded = nativePiStateSchema.parse(saved);
+  expect(loaded.destination).toBe("chat"); expect(loaded.lastWorkProject).toBe("/work");
+  expect(loaded.chatFolders).toEqual([folder]); expect(loaded.collapsedChatFolders).toEqual([folder.id]);
+  expect(loaded.chatFolderBySession["/session"]).toBe(folder.id); expect(loaded.chatExtensions).toEqual(["/extension.ts"]);
+});

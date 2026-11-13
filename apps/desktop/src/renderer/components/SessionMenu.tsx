@@ -185,10 +185,11 @@ type SessionActions = {
 };
 
 function SessionItems({ actions }: { actions: SessionActions }) {
+  const chatMode = useAppStore(s => s.destination === "chat");
   return (
     <>
       <ContextMenuGroup>
-        <ContextMenuItem onClick={actions.togglePin}>
+        {!chatMode ? <><ContextMenuItem onClick={actions.togglePin}>
           {actions.pinned ? <PushPinSlashIcon /> : <PushPinIcon />}
           {actions.pinned ? "Unpin chat" : "Pin chat"}
         </ContextMenuItem>
@@ -196,6 +197,7 @@ function SessionItems({ actions }: { actions: SessionActions }) {
           {actions.finished ? <ArrowCounterClockwiseIcon /> : <CheckCircleIcon />}
           {actions.finished ? "Return to focus" : "Mark finished"}
         </ContextMenuItem>
+        </> : null}
         <ContextMenuItem onClick={actions.rename}>
           <PencilSimpleIcon /> Rename
         </ContextMenuItem>

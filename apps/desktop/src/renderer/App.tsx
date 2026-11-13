@@ -59,6 +59,7 @@ const Transcript = lazy(() => import("./components/Transcript.tsx"));
 const TuiOverlay = lazy(() => import("./components/TuiSurface.tsx"));
 
 export default function App() {
+  const chatMode = useAppStore(s => s.destination === "chat");
   const projects = useAppStore((s) => s.projects);
   const projectPresentation = useSidebarProjects(projects);
   const init = useAppStore((s) => s.init);
@@ -99,12 +100,12 @@ export default function App() {
   const hasTuiOverlay = useAppStore((s) => s.extSurfaces.some((surface) => surface.placement === "overlay"));
   const toggleProjectTerminal = useAppStore((s) => s.toggleTerminal);
   const sidebarDocked = layout === "wide" && sidebarOpen;
-  const contextDocked = layout === "wide" && contextPaneOpen;
+  const contextDocked = !chatMode && layout === "wide" && contextPaneOpen;
   const contextPanelRef = useCollapsiblePanel(contextPaneOpen, layout === "wide" ? activeProjectPath : null);
-  const terminalOpen = activeProjectPath ? terminalProjects.has(activeProjectPath) : false;
+  const terminalOpen = !chatMode && activeProjectPath ? terminalProjects.has(activeProjectPath) : false;
 
   const toggleTerminal = () => {
-    if (!activeProjectPath) return;
+    if (!activeProjectPath || chatMode) return;
     toggleProjectTerminal(activeProjectPath);
   };
 
@@ -254,7 +255,7 @@ export default function App() {
           </ResizablePanelGroup>
         </ResizablePanel>
 
-        {activeProjectPath && layout === "wide" ? (
+        {!chatMode && activeProjectPath && layout === "wide" ? (
           <>
             <ResizableHandle
               disabled={!contextPaneOpen}
@@ -321,7 +322,7 @@ export default function App() {
       ) : null}
 
       {layout !== "wide" && activeProjectPath ? (
-        <Sheet open={contextSheetOpen} onOpenChange={setContextSheetOpen}>
+        <Sheet open={!chatMode && contextSheetOpen} onOpenChange={setContextSheetOpen}>
           <SheetContent
             side="right"
             showCloseButton={false}
@@ -457,6 +458,7 @@ function WorkspaceHeader({
   onToggleTerminal: () => void;
 }) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
+  const chatMode = useAppStore(s => s.destination === "chat");
   const isNewChat = useAppStore((s) => s.isNewChat);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const activeProjectName = useAppStore(
@@ -493,10 +495,10 @@ function WorkspaceHeader({
           {activeProjectPath ? (
             <div className="flex h-full min-w-0 items-center gap-3 text-sm">
               <span className="hidden shrink-0 @min-[36rem]/conversation:block">
-                <ProjectIcon name={activeProjectName ?? activeProjectPath} src={projectIcon} />
+                {!chatMode ? <ProjectIcon name={activeProjectName ?? activeProjectPath} src={projectIcon} /> : null}
               </span>
-              <span className="hidden min-w-0 max-w-40 shrink truncate text-muted-foreground @min-[36rem]/conversation:block" title={activeProjectPath}>
-                {activeProjectName ?? activeProjectPath}
+              <span className="hidden min-w-0 max-w-40 shrink truncate text-muted-foreground @min-[36rem]/conversation:block" title={chatMode ? "Chat" : activeProjectPath}>
+                {chatMode ? "Chat" : activeProjectName ?? activeProjectPath}
               </span>
               <span aria-hidden="true" className="hidden shrink-0 text-muted-foreground/50 @min-[36rem]/conversation:block">/</span>
               {activeSession && !isNewChat ? (
@@ -531,8 +533,8 @@ function WorkspaceHeader({
           Sharing
         </Button>
       ) : null}
-      {activeProjectPath ? <ProjectStatus compact={compact} className={NO_DRAG_REGION} /> : null}
-      {activeProjectPath ? (
+      {!chatMode && activeProjectPath ? <ProjectStatus compact={compact} className={NO_DRAG_REGION} /> : null}
+      {!chatMode && activeProjectPath ? (
         <Button
           variant="ghost"
           size="icon-sm"
@@ -545,7 +547,7 @@ function WorkspaceHeader({
           <SidebarSimpleIcon className="-rotate-90" />
         </Button>
       ) : null}
-      {activeProjectPath ? (
+      {!chatMode && activeProjectPath ? (
         <div className={cn(NO_DRAG_REGION, "@min-[30rem]/conversation:hidden")}>
           <HeaderCompactOverflow
             terminalOpen={terminalOpen}
@@ -555,7 +557,7 @@ function WorkspaceHeader({
           />
         </div>
       ) : null}
-      {activeProjectPath && !contextDocked ? (
+      {!chatMode && activeProjectPath && !contextDocked ? (
         <Button
           variant="ghost"
           size="icon-sm"
@@ -770,6 +772,7 @@ function useWorkspaceShortcuts(
         previousProject: always(() => void selectAdjacentProject(-1)),
 
         toggleContextPane: withProject(() => {
+          if (useAppStore.getState().destination === "chat") return;
           if (layout === "wide") toggleContextPane();
           else setContextSheetOpen((open) => !open);
         }),
