@@ -9,7 +9,7 @@ import type { AppState } from "./types.ts";
 const stores: StoreApi<AppState>[] = [];
 function fixture() {
   const store = createStore<AppState>()(createAppState);
-  store.setState({ activeProjectPath: "/p", activeSessionFile: "a", trust: { required: true, trusted: false } });
+  store.setState({ ready: true, activeProjectPath: "/p", activeSessionFile: "a", trust: { required: true, trusted: false } });
   stores.push(store);
   return store;
 }

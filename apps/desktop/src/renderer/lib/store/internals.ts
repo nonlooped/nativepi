@@ -41,6 +41,7 @@ interface Runtime {
   lastGitRefresh: number;
   draftReports: Map<string, ReturnType<typeof setTimeout>>;
   saveTimer?: ReturnType<typeof setTimeout>;
+  disposed?: boolean;
 }
 const runtimes = new WeakMap<GetState, Runtime>();
 export function observeRuntime(get: GetState, projectDir: string, sessionFile: string | null | undefined, id: string): void {
@@ -240,7 +241,7 @@ function persistedState(get: GetState): NativePiState {
 }
 
 export async function flushPersist(get: GetState): Promise<void> {
-  if (isRemote) return;
+  if (isRemote || !get().ready || runtime(get).disposed) return;
   clearTimeout(runtime(get).saveTimer);
   runtime(get).saveTimer = undefined;
   const result = await rpc.request.saveState({ state: persistedState(get) });
@@ -248,10 +249,11 @@ export async function flushPersist(get: GetState): Promise<void> {
 }
 
 export function persist(get: GetState): void {
-  if (isRemote) return;
+  if (isRemote || !get().ready || runtime(get).disposed) return;
   clearTimeout(runtime(get).saveTimer);
   runtime(get).saveTimer = setTimeout(() => {
     runtime(get).saveTimer = undefined;
+    if (!get().ready || runtime(get).disposed) return;
     void rpc.request.saveState({ state: persistedState(get) }).catch(() => {});
   }, 250);
 }

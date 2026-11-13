@@ -8,7 +8,7 @@ import { createProjectContextSlice } from "./store/projectContext.ts";
 import { createUiSlice } from "./store/ui.ts";
 import { createWorkspaceSlice } from "./store/workspace.ts";
 import type { AppState, SliceCreator } from "./store/types.ts";
-import { flushPersist } from "./store/internals.ts";
+import { flushPersist, runtime } from "./store/internals.ts";
 
 /**
  * One store, assembled from slices.
@@ -30,7 +30,8 @@ export const createAppState: SliceCreator<AppState> = (set, get) => ({
 
 export const useAppStore = create<AppState>(createAppState);
 
-window.addEventListener?.("beforeunload", () => { void flushPersist(useAppStore.getState).catch(() => {}); });
+const beforeUnload = () => { void flushPersist(useAppStore.getState).catch(() => {}); };
+window.addEventListener?.("beforeunload", beforeUnload);
 
 /**
  * Route host events into the store.
@@ -40,21 +41,34 @@ window.addEventListener?.("beforeunload", () => { void flushPersist(useAppStore.
  * that happened to work only because of module load order. Each listener reads
  * the store lazily, so nothing runs before the store above exists.
  */
-rpc.events.on("piStatus", ({ projectDir, status }) => useAppStore.getState().onStatus(projectDir, status));
-rpc.events.on("piEvent", (payload) => useAppStore.getState().onEvent(payload));
-rpc.events.on("piError", ({ projectDir, sessionFile, message, runtimeId }) =>
-  useAppStore.getState().onPiError(projectDir, message, sessionFile, runtimeId),
-);
-rpc.events.on("sessionChangedExternally", (payload) =>
-  useAppStore.getState().onSessionChangedExternally(payload),
-);
-rpc.events.on("sessionsChanged", ({ projectDir }) => {
-  void useAppStore.getState().refreshSessions(projectDir);
+const unsubscribeHostEvents = [
+  rpc.events.on("piStatus", ({ projectDir, status }) => useAppStore.getState().onStatus(projectDir, status)),
+  rpc.events.on("piEvent", (payload) => useAppStore.getState().onEvent(payload)),
+  rpc.events.on("piError", ({ projectDir, sessionFile, message, runtimeId }) =>
+    useAppStore.getState().onPiError(projectDir, message, sessionFile, runtimeId),
+  ),
+  rpc.events.on("sessionChangedExternally", (payload) =>
+    useAppStore.getState().onSessionChangedExternally(payload),
+  ),
+  rpc.events.on("sessionsChanged", ({ projectDir }) => {
+    void useAppStore.getState().refreshSessions(projectDir);
+  }),
+  rpc.events.on("authPrompt", (payload) => useAppStore.getState().onAuthPrompt(payload)),
+  rpc.events.on("authNotice", (payload) => useAppStore.getState().onAuthNotice(payload)),
+  rpc.events.on("updateState", (state) => useAppStore.getState().onUpdateState(state)),
+  rpc.events.on("tuiFrame", (payload) => useAppStore.getState().onTuiFrame(payload)),
+];
+if (import.meta.hot) import.meta.hot.dispose(() => {
+  window.removeEventListener?.("beforeunload", beforeUnload);
+  for (const unsubscribe of unsubscribeHostEvents) unsubscribe();
+  const owner = runtime(useAppStore.getState);
+  // Only a dirty, initialized store has anything to flush on replacement.
+  if (owner.saveTimer) void flushPersist(useAppStore.getState).catch(() => {});
+  clearTimeout(owner.saveTimer);
+  owner.saveTimer = undefined;
+  owner.disposed = true;
+  useAppStore.setState({ ready: false });
 });
-rpc.events.on("authPrompt", (payload) => useAppStore.getState().onAuthPrompt(payload));
-rpc.events.on("authNotice", (payload) => useAppStore.getState().onAuthNotice(payload));
-rpc.events.on("updateState", (state) => useAppStore.getState().onUpdateState(state));
-rpc.events.on("tuiFrame", (payload) => useAppStore.getState().onTuiFrame(payload));
 
 export { thinkingLabel } from "./store/models.ts";
 export { activeConversation } from "./store/conversation.ts";

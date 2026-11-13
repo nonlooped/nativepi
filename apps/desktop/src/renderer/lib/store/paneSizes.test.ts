@@ -18,6 +18,7 @@ test("all pane dimensions persist through workspace initialization", async () =>
   const { flushPersist } = await import("./internals.ts");
   useAppStore.setState({ onUpdateState: () => {}, loadProviders: async () => {} });
   const state = useAppStore.getState();
+  await state.init();
   state.setSidebarWidth(328);
   state.setContextPaneWidth(352);
   state.setTerminalHeight(296);
