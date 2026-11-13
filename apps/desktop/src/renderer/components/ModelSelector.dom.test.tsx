@@ -348,10 +348,10 @@ domTest("provider and favorites filters preserve search and reasoning choices up
     const b = { provider: "beta", id: "two", name: "Beta model" };
     const selected: string[] = [];
     await act(async () => { store.setState({ models: [a, b], model: a, providers: [], favoriteModels: ["beta/two"], thinkingLevels: ["off", "high"], thinkingLevel: "off", setThinkingLevel: async level => { selected.push(level); } }); });
-    await chooseOption("Filter models", "alpha");
+    await chooseFilter("alpha");
     expect(document.querySelector('[data-selected-model]')?.textContent).toContain("Alpha model");
     expect(document.body.textContent).not.toContain("Beta model");
-    await chooseOption("Filter models", "All providers");
+    await chooseFilter("All models");
     expect(document.body.textContent).toContain("Beta model");
     await chooseOption("Reasoning effort", "High");
     expect(selected).toEqual(["high"]);
@@ -361,11 +361,75 @@ domTest("provider and favorites filters preserve search and reasoning choices up
       search.dispatchEvent(new Event("input", { bubbles: true }));
     });
     expect(document.querySelector("[data-selected-model]")).toBeNull();
-    await chooseOption("Filter models", "alpha");
+    await chooseFilter("alpha");
     expect(search.value).toBe("Beta");
     expect(document.body.textContent).toContain("No models match");
-    await chooseOption("Filter models", "Favorites");
+    await chooseFilter("Favorites");
     expect(document.body.textContent).toContain("Beta model");
     expect(document.querySelector("[data-selected-model]")).toBeNull();
+  });
+});
+
+async function chooseFilter(label: string) {
+  const filter = [...document.querySelectorAll<HTMLButtonElement>('nav[aria-label="Filter models"] button')]
+    .find(node => node.textContent?.trim() === label);
+  expect(filter).toBeDefined();
+  await act(async () => { filter!.click(); });
+}
+
+domTest("favorites lead without duplicate rows and search supports provider and model terms in any order", async () => {
+  stubInvoke(async channel => pickerReply(channel));
+  await withPicker(async store => {
+    const a = { provider: "alpha", id: "one", name: "Alpha model", contextWindow: 200000 };
+    const b = { provider: "beta", id: "two", name: "Beta model" };
+    await act(async () => {
+      store.setState({ models: [a, b], model: a, providers: [], favoriteModels: ["beta/two"] });
+    });
+    const choices = () => [...document.querySelectorAll<HTMLButtonElement>("[data-model-choice]")];
+    expect(choices()).toHaveLength(2);
+    expect(choices()[0]!.textContent).toContain("Beta model");
+    expect(choices()[1]!.textContent).toContain("200K context");
+    const search = document.querySelector<HTMLInputElement>('[aria-label="Search models"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, "one alpha");
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(choices()).toHaveLength(1);
+    expect(choices()[0]!.textContent).toContain("Alpha model");
+    await chooseFilter("Favorites");
+    expect(choices()).toHaveLength(0);
+    expect(search.value).toBe("one alpha");
+  });
+});
+
+domTest("arrow keys move between search and model rows; activation selects through Pi", async () => {
+  const writes: unknown[] = [];
+  stubInvoke(async (channel, params) => {
+    if (channel === "setModel") writes.push(params);
+    return pickerReply(channel);
+  });
+  await withPicker(async store => {
+    await act(async () => { store.setState({ favoriteModels: [] }); });
+    const search = document.querySelector<HTMLInputElement>('[aria-label="Search models"]')!;
+    const rows = [...document.querySelectorAll<HTMLButtonElement>("[data-model-choice]")];
+    const key = async (target: HTMLElement, value: string) => {
+      await act(async () => { target.dispatchEvent(new KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true })); });
+    };
+    search.focus();
+    await key(search, "ArrowDown");
+    expect(document.activeElement).toBe(rows[0]);
+    await key(rows[0]!, "End");
+    expect(document.activeElement).toBe(rows.at(-1)!);
+    await key(rows.at(-1)!, "Home");
+    expect(document.activeElement).toBe(rows[0]);
+    await key(rows[0]!, "ArrowUp");
+    expect(document.activeElement).toBe(search);
+    await key(search, "ArrowUp");
+    expect(document.activeElement).toBe(rows.at(-1)!);
+    // Native buttons translate Enter to click in a browser; happy-dom does not.
+    await act(async () => { rows.at(-1)!.click(); });
+    expect(writes).toHaveLength(1);
+    expect(store.getState().model?.id).toBe("newer");
+    expect(document.querySelector('[aria-label="Reasoning effort"]')).not.toBeNull();
   });
 });
