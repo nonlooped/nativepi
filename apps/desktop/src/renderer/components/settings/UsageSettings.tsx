@@ -226,6 +226,7 @@ function UsageChart({ daily, providers }: { daily: UsageDashboard["daily"]; prov
     providers.map((provider, index) => [provider.provider, { label: prettyProvider(provider.provider), color: providerColor(index) }]),
   );
   const max = Math.max(0, ...data.flatMap((point) => providers.map((provider) => Number(point[provider.provider] ?? 0))));
+  const axis = axisTicks(max);
 
   return (
     <div className="min-w-0 @min-[52rem]/settings-content:border-l @min-[52rem]/settings-content:border-border/70 @min-[52rem]/settings-content:pl-10">
@@ -270,8 +271,9 @@ function UsageChart({ daily, providers }: { daily: UsageDashboard["daily"]; prov
               width={48}
               tickLine={false}
               axisLine={false}
-              domain={[0, max === 0 ? 1 : max * 1.08]}
-              tickFormatter={(value: number) => metric === "cost" ? compactCost(value) : formatTokens(value)}
+              domain={[0, axis[axis.length - 1]!]}
+              ticks={axis}
+              tickFormatter={(value: number) => metric === "cost" ? compactCost(value, axis[axis.length - 1]) : formatTokens(value)}
               tick={{ fontSize: "var(--text-xs)", fill: "var(--muted-foreground)" }}
             />
             <ChartTooltip isAnimationActive={!reducedMotion} animationDuration={150} cursor={{ stroke: "var(--border)" }} content={<UsageTooltip metric={metric} />} />
@@ -531,8 +533,19 @@ function cost(value: number) {
   return `$${value.toFixed(2)}`;
 }
 
-function compactCost(value: number) {
+/** Four even intervals on a round step, with headroom so the line never touches the top. */
+function axisTicks(max: number) {
+  if (max === 0) return [0, 1];
+  const wanted = (max * 1.08) / 4;
+  const magnitude = 10 ** Math.floor(Math.log10(wanted));
+  const step = ([1, 2, 2.5, 5, 10].find((candidate) => candidate * magnitude >= wanted) ?? 10) * magnitude;
+  return [0, 1, 2, 3, 4].map((index) => Number((index * step).toPrecision(12)));
+}
+
+/** Axis labels. Ticks are not round amounts, so cheap charts keep the precision that tells them apart. */
+function compactCost(value: number, scale = value) {
   if (value >= 1_000) return `$${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}K`;
+  if (scale < 1) return `$${Number(value.toFixed(3))}`;
   return `$${value.toFixed(value >= 10 ? 0 : 2)}`;
 }
 
