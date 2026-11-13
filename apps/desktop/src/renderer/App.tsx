@@ -237,7 +237,14 @@ export default function App() {
           {activeProjectPath && terminalOpen ? (
             <>
               <ResizableHandle className="hover:bg-ring focus-visible:bg-ring" />
-              <ResizablePanel id={`terminal-${activeProjectPath}`} data-terminal-pane defaultSize={terminalHeight ? `${terminalHeight}px` : "34%"} groupResizeBehavior="preserve-pixel-size" minSize="15%" maxSize="65%">
+              <ResizablePanel id={`terminal-${activeProjectPath}`} data-terminal-pane defaultSize={terminalHeight ? `${terminalHeight}px` : "34%"} groupResizeBehavior="preserve-pixel-size" minSize="120px" maxSize="65%"
+                collapsible collapsedSize="0%" collapsedThreshold="24px"
+                onResize={(size, _id, previousSize) => {
+                  if (size.inPixels === 0 && previousSize && previousSize.inPixels > 0 && terminalOpen) {
+                    toggleTerminal();
+                  }
+                }}
+              >
                 <Suspense fallback={<SurfaceLoading label="Loading terminal…" />}>
                   <TerminalDock key={activeProjectPath} projectDir={activeProjectPath} onMinimize={toggleTerminal} />
                 </Suspense>
@@ -261,6 +268,7 @@ export default function App() {
               panelRef={contextPanelRef}
               collapsible
               collapsedSize="0%"
+              collapsedThreshold="24px"
               defaultSize={`${contextPaneWidth}px`}
               groupResizeBehavior="preserve-pixel-size"
               minSize="192px"

@@ -71,6 +71,7 @@ export default function LeftSidebar({
         panelRef={panelRef}
         collapsible
         collapsedSize="0%"
+        collapsedThreshold="24px"
         defaultSize={`${sidebarWidth}px`}
         groupResizeBehavior="preserve-pixel-size"
         minSize="192px"

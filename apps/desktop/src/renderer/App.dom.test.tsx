@@ -29,8 +29,11 @@ mock.module("./lib/completion.ts", () => ({ useTurnCompletionSignal: () => {} })
 mock.module("./lib/layout.ts", () => ({ useWorkspaceLayout: () => "wide" }));
 type Changed = (layout: Record<string, number>, meta: { isUserInteraction: boolean }) => void;
 const changed: Record<string, Changed> = {};
-const Panel = ({ children, id, ...props }: { children?: ReactNode; id?: string; "data-terminal-pane"?: boolean }) =>
-  <div id={id} data-slot="resizable-panel" data-terminal-pane={props["data-terminal-pane"]}>{children}</div>;
+const panelResizes: Record<string, (size: { inPixels: number }, id: string, previous?: { inPixels: number }) => void> = {};
+const Panel = ({ children, id, ...props }: { children?: ReactNode; id?: string; "data-terminal-pane"?: boolean; onResize?: typeof panelResizes[string] }) => {
+  if (id && props.onResize) panelResizes[id] = props.onResize;
+  return <div id={id} data-slot="resizable-panel" data-terminal-pane={props["data-terminal-pane"]}>{children}</div>;
+};
 const Group = ({children, orientation, elementRef, onLayoutChanged}: {
   children?: ReactNode; orientation: string; elementRef?: Ref<HTMLDivElement>; onLayoutChanged: Changed;
 }) => {
@@ -51,7 +54,7 @@ afterEach(async () => {
 });
 async function mount() {
   useAppStore.setState({
-    ready: true, init: async () => {},
+    ready: true, init: async () => {}, destination: "work",
     projects: [{ path: "/project", name: "Project" }], activeProjectPath: "/project",
     activeSessionFile: "a", isNewChat: false, contextPaneOpen: false,
     conversations: { a: { ...emptyConversation(), entries: [{ id: "history-a" } as never] } },
@@ -128,4 +131,23 @@ test("workspace breadcrumb uses the active project's icon and updates on project
     projects: [{ path: "/other", name: "Other" }], activeProjectPath: "/other",
   }));
   expect(container.querySelector("header img")?.getAttribute("src")).toBe("data:image/png;base64,other");
+});
+
+
+test("collapsing the terminal and context panel updates visibility without losing saved sizes", async () => {
+  useAppStore.setState({ terminalProjects: new Set(["/project"]), terminalHeight: 280, contextPaneWidth: 320 });
+  await mount();
+  await act(async () => useAppStore.setState({ contextPaneOpen: true }));
+  await act(async () => {
+    panelResizes["terminal-/project"]!({ inPixels: 0 }, "terminal-/project");
+  });
+  expect(useAppStore.getState().terminalProjects.has("/project")).toBe(true);
+  await act(async () => {
+    panelResizes["terminal-/project"]!({ inPixels: 0 }, "terminal-/project", { inPixels: 120 });
+    panelResizes.context!({ inPixels: 0 }, "context", { inPixels: 192 });
+  });
+  expect(useAppStore.getState().terminalProjects.has("/project")).toBe(false);
+  expect(useAppStore.getState().contextPaneOpen).toBe(false);
+  expect(useAppStore.getState()).toMatchObject({ terminalHeight: 280, contextPaneWidth: 320 });
+  expect(container.querySelector("[data-terminal-pane]")).toBeNull();
 });
