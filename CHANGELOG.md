@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trim the README to a short pitch, install and development quick start, and links to the guides; move retired-package upgrade notes to `docs/upgrade.md`. Workspace screenshots remain the isolated-demo captures.
 
 ### Fixed
+- Restore semantic status, syntax, diff, chart, favorite, file, project, and provider colors while keeping NativePi surfaces, controls, and focus accents monochrome.
 - Restore the quit-dialog save-order regression test after adding the workspace initialization guard, and match the host modifier key in shortcut tests.
 - Prevent development reloads from saving an uninitialized workspace over the project list and chat organization; retire old store listeners and wait for pending saves before reloading state. Report unreadable state instead of silently resetting it.
 - Reuse unchanged untracked-file line counts and session summaries, bound partial-staging diff reads, and virtualize diff rows to keep large projects and histories responsive.

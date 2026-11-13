@@ -89,7 +89,7 @@ const BRAND_ICONS: Record<string, { mono: string; color?: string }> = {
 export default function BrandIcon({
   name,
   size = 16,
-  color = false,
+  color = true,
   className,
 }: {
   name: string;
@@ -102,7 +102,7 @@ export default function BrandIcon({
 
   return (
     <span
-      className={["inline-flex shrink-0 grayscale [&>svg]:size-full", className].filter(Boolean).join(" ")}
+      className={["inline-flex shrink-0 [&>svg]:size-full", className].filter(Boolean).join(" ")}
       style={{ width: size, height: size }}
       aria-hidden
       // These SVG strings are compile-time assets from the pinned icon package.

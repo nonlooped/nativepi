@@ -98,7 +98,7 @@ export function themeCssProperties(colors: ThemeColors): Record<string, string> 
     "--active": colors.info,
     "--border": colors.border,
     "--input": `color-mix(in oklch, ${colors.border}, ${colors.foreground} 8%)`,
-    "--ring": colors.info,
+    "--ring": colors.primary,
     "--chart-1": charts[0],
     "--chart-2": charts[1],
     "--chart-3": charts[2],
@@ -111,7 +111,7 @@ export function themeCssProperties(colors: ThemeColors): Record<string, string> 
     "--sidebar-accent": colors.accent,
     "--sidebar-accent-foreground": colors.foreground,
     "--sidebar-border": colors.border,
-    "--sidebar-ring": colors.info,
+    "--sidebar-ring": colors.primary,
     "--contrast-foreground": contrast.foreground,
     "--contrast-muted-foreground": contrast.mutedForeground,
     "--contrast-body-muted-foreground": contrast.foreground,
@@ -162,7 +162,7 @@ export function applyTheme(root: HTMLElement, preferences: Preferences, systemDa
 
   try {
     localStorage.setItem("nativepi-theme", preferences.theme);
-    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify({ version: 5, appearance, properties }));
+    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify({ version: 6, appearance, properties }));
   } catch {}
 
   window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
@@ -233,7 +233,7 @@ function increasedContrastColors(colors: ThemeColors) {
     foreground: mixHex(colors.foreground, target, 0.45),
     mutedForeground: mixHex(colors.mutedForeground, target, 0.45),
     border: mixHex(colors.border, target, 0.6),
-    ring: mixHex(colors.info, target, 0.35),
+    ring: mixHex(colors.primary, target, 0.35),
     success: mixHex(colors.success, target, 0.35),
     warning: mixHex(colors.warning, target, 0.35),
     info: mixHex(colors.info, target, 0.35),
@@ -275,11 +275,11 @@ export function themeContrastIssues(colors: ThemeColors): string[] {
     [colors.favorite, colors.background, "Favorite indicators on the workspace", 3, 30],
     [colors.favorite, colors.surface, "Favorite indicators on raised surfaces", 3, 30],
     [colors.favorite, colors.sidebar, "Favorite indicators in the sidebar", 3, 30],
-    [colors.info, colors.background, "Focus indicators on the workspace", 3, 30],
-    [colors.info, colors.surface, "Focus indicators on raised surfaces", 3, 30],
-    [colors.info, colors.sidebar, "Focus indicators in the sidebar", 3, 30],
-    [colors.info, colors.muted, "Focus indicators on muted surfaces", 3, 30],
-    [colors.info, colors.accent, "Focus indicators on selected surfaces", 3, 30],
+    [colors.primary, colors.background, "Focus indicators on the workspace", 3, 30],
+    [colors.primary, colors.surface, "Focus indicators on raised surfaces", 3, 30],
+    [colors.primary, colors.sidebar, "Focus indicators in the sidebar", 3, 30],
+    [colors.primary, colors.muted, "Focus indicators on muted surfaces", 3, 30],
+    [colors.primary, colors.accent, "Focus indicators on selected surfaces", 3, 30],
     ...chartColors(colors).flatMap((foreground, index) => [
       [foreground, colors.background, `Chart series ${index + 1} on the workspace`, 3, 30] as const,
       [foreground, colors.surface, `Chart series ${index + 1} on raised surfaces`, 3, 30] as const,

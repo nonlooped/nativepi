@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../lib/store.ts";
 import { diffHighlighterReady, primeDiffHighlighter } from "../lib/diffHighlighter.ts";
 import { Button } from "@/components/ui/button.tsx";
-import { NATIVE_THEME_ID } from "../../shared/themes.ts";
 import { cn } from "@/lib/utils.ts";
 
 /** Read-only diff surface; the host owns Git semantics. */
@@ -14,7 +13,6 @@ export default function DiffView({ patch, className, embedded }: { patch: string
   const [ready, setReady] = useState(diffHighlighterReady);
   const [failed, setFailed] = useState(false);
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
-  const monochrome = useAppStore(s => s.preferences.themeId === NATIVE_THEME_ID);
   const preferred = useAppStore(s => s.preferences.diffStyle);
   const setPreference = useAppStore(s => s.setPreference);
 
@@ -42,7 +40,7 @@ export default function DiffView({ patch, className, embedded }: { patch: string
     themeType: dark ? "dark" as const : "light" as const,
     disableFileHeader: true,
     overflow: wrap ? "wrap" as const : "scroll" as const,
-    unsafeCSS: codeCSS + (monochrome ? "\n[data-line] span { color: inherit !important; }" : ""),
+    unsafeCSS: codeCSS,
   };
   const empty = !patch.trim();
   return <div ref={container} className={cn("flex min-h-0 min-w-0 flex-col text-xs", embedded ? "max-h-96" : "h-full", className)}>

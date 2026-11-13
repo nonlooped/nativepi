@@ -42,7 +42,7 @@ test("increased contrast strengthens every generated role in both appearances", 
         ["foreground", "--contrast-foreground"],
         ["mutedForeground", "--contrast-muted-foreground"],
         ["border", "--contrast-border"],
-        ["info", "--contrast-ring"],
+        ["primary", "--contrast-ring"],
         ["success", "--contrast-success"],
         ["warning", "--contrast-warning"],
         ["info", "--contrast-info"],
@@ -80,16 +80,25 @@ test("a selected built-in theme follows the appearance preference", () => {
 });
 
 
-test("NativePi stays monochrome across semantic and chart roles", () => {
+test("NativePi keeps chrome neutral and semantic content distinguishable", () => {
   for (const colors of Object.values(NATIVE_THEME.colors)) {
     const properties = themeCssProperties(colors);
-    const palette = [...Object.values(colors), ...Object.entries(properties)
-      .filter(([key]) => key.startsWith("--chart-") || key.startsWith("--contrast-"))
-      .map(([, value]) => value)];
-    for (const color of palette) {
-      expect(color.slice(1, 3)).toBe(color.slice(3, 5));
-      expect(color.slice(3, 5)).toBe(color.slice(5, 7));
+    const neutral = (color: string) => color.slice(1, 3) === color.slice(3, 5)
+      && color.slice(3, 5) === color.slice(5, 7);
+    for (const role of ["background", "foreground", "surface", "primary", "primaryForeground",
+      "muted", "mutedForeground", "accent", "border", "sidebar"] as const) {
+      expect(neutral(colors[role])).toBeTrue();
     }
+    for (const role of ["success", "warning", "destructive", "info", "favorite"] as const) {
+      expect(neutral(colors[role])).toBeFalse();
+      expect(neutral(properties[`--contrast-${role}`]!)).toBeFalse();
+    }
+    expect(new Set([colors.success, colors.warning, colors.destructive, colors.info, colors.favorite]).size).toBe(5);
+    expect(new Set([1, 2, 3, 4, 5].map(index => properties[`--chart-${index}`])).size).toBe(5);
+    expect(properties["--chart-1"]).toBe(colors.info);
+    expect(properties["--chart-2"]).toBe(colors.success);
+    expect(properties["--ring"]).toBe(colors.primary);
+    expect(properties["--sidebar-ring"]).toBe(colors.primary);
   }
 });
 
@@ -104,8 +113,8 @@ test("NativePi light surfaces stay below near-white while preserving readable te
 });
 
 test("focus validation checks the rendered ring on selected surfaces", () => {
-  const colors = { ...NATIVE_THEME.colors.light, info: NATIVE_THEME.colors.light.accent };
-  expect(themeCssProperties(colors)["--ring"]).toBe(colors.info);
+  const colors = { ...NATIVE_THEME.colors.light, primary: NATIVE_THEME.colors.light.accent };
+  expect(themeCssProperties(colors)["--ring"]).toBe(colors.primary);
   expect(themeContrastIssues(colors).some((issue) => issue.startsWith("Focus indicators on selected surfaces is 1.0:1"))).toBeTrue();
 });
 

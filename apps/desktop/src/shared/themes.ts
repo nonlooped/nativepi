@@ -71,7 +71,10 @@ export interface BuiltInTheme {
   theme: ThemeFile;
 }
 
-/** Every color scheme has independently tuned light and dark variants. */
+/**
+ * Every color scheme has independently tuned light and dark variants.
+ * NativePi keeps chrome neutral; status and content roles retain meaningful hues.
+ */
 export const BUILT_IN_THEMES: BuiltInTheme[] = [
   {
     id: NATIVE_THEME_ID,
@@ -90,11 +93,11 @@ export const BUILT_IN_THEMES: BuiltInTheme[] = [
           accent: "#cecece",
           border: "#ababab",
           sidebar: "#d2d2d2",
-          destructive: "#292929",
-          success: "#3e3e3e",
-          warning: "#333333",
-          info: "#3e3e3e",
-          favorite: "#3e3e3e",
+          destructive: "#8c1024",
+          success: "#12552f",
+          warning: "#684200",
+          info: "#174985",
+          favorite: "#805500",
         },
         dark: {
           background: "#181818",
@@ -107,11 +110,11 @@ export const BUILT_IN_THEMES: BuiltInTheme[] = [
           accent: "#383838",
           border: "#505050",
           sidebar: "#202020",
-          destructive: "#eeeeee",
-          success: "#cccccc",
-          warning: "#dedede",
-          info: "#cccccc",
-          favorite: "#dedede",
+          destructive: "#ffa8b0",
+          success: "#76d49b",
+          warning: "#f1bd6c",
+          info: "#9ac8ff",
+          favorite: "#ffd166",
         },
       },
     },
