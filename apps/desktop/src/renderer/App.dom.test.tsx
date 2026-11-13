@@ -19,6 +19,10 @@ mock.module("./components/Transcript.tsx", () => ({ default: () => {
   const entries = useAppStore(s => activeConversation(s).entries);
   return <div data-testid="transcript">{entries.map(entry => entry.id).join(",")}</div>;
 } }));
+mock.module("./lib/sidebarProjects.ts", () => ({ useSidebarProjects: () => ({
+  "/project": { icon: "data:image/png;base64,project" },
+  "/other": { icon: "data:image/png;base64,other" },
+}) }));
 mock.module("./lib/appearance.ts", () => ({ useAppearance: () => {} }));
 mock.module("./lib/completion.ts", () => ({ useTurnCompletionSignal: () => {} }));
 mock.module("./lib/layout.ts", () => ({ useWorkspaceLayout: () => "wide" }));
@@ -111,4 +115,14 @@ test("completed user resizes save all three dimensions, while automatic layouts 
   Object.defineProperty(right, "clientWidth", { value: 0 });
   await act(async () => changed.horizontal!({}, { isUserInteraction: true }));
   expect(useAppStore.getState()).toMatchObject({ sidebarWidth: 320, contextPaneWidth: 360 });
+});
+
+
+test("workspace breadcrumb uses the active project's icon and updates on project changes", async () => {
+  await mount();
+  expect(container.querySelector("header img")?.getAttribute("src")).toBe("data:image/png;base64,project");
+  await act(async () => useAppStore.setState({
+    projects: [{ path: "/other", name: "Other" }], activeProjectPath: "/other",
+  }));
+  expect(container.querySelector("header img")?.getAttribute("src")).toBe("data:image/png;base64,other");
 });

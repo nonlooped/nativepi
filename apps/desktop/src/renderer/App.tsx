@@ -10,6 +10,8 @@ import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
 import { XIcon } from "@phosphor-icons/react/X";
 import Sidebar from "./components/Sidebar.tsx";
+import ProjectIcon from "./components/ProjectIcon.tsx";
+import { useSidebarProjects } from "./lib/sidebarProjects.ts";
 import Composer from "./components/Composer.tsx";
 import NewThread from "./components/NewThread.tsx";
 import { ExtensionConversationControls, ExtensionConversationView } from "./components/ExtensionSlots.tsx";
@@ -56,6 +58,8 @@ const Transcript = lazy(() => import("./components/Transcript.tsx"));
 const TuiOverlay = lazy(() => import("./components/TuiSurface.tsx"));
 
 export default function App() {
+  const projects = useAppStore((s) => s.projects);
+  const projectPresentation = useSidebarProjects(projects);
   const init = useAppStore((s) => s.init);
   const ready = useAppStore((s) => s.ready);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -169,6 +173,7 @@ export default function App() {
         }}>
         {layout !== "compact" ? (
           <Sidebar
+            presentation={projectPresentation}
             open={sidebarOpen}
             layoutKey={contextDocked}
             onClose={() => setSidebarOpen(false)}
@@ -188,6 +193,7 @@ export default function App() {
               header rather than taking a row and shifting the conversation. */}
           <main className="conversation-shell @container/conversation relative flex h-full min-h-0 min-w-0 flex-col">
             <WorkspaceHeader
+              projectIcon={activeProjectPath ? projectPresentation[activeProjectPath]?.icon : undefined}
               layout={layout}
               sidebarDocked={sidebarDocked}
               contextDocked={contextDocked}
@@ -292,6 +298,7 @@ export default function App() {
             <SheetTitle className="sr-only">Projects and chats</SheetTitle>
             <SheetDescription className="sr-only">Open a project or chat in NativePi.</SheetDescription>
             <Sidebar
+              presentation={projectPresentation}
               overlay
               onClose={() => setSidebarSheetOpen(false)}
               onOpenSearch={() => {
@@ -421,6 +428,7 @@ function ExternalChangeNotice() {
 
 /** The drag-region title bar: project, chat title, and pane toggles. */
 function WorkspaceHeader({
+  projectIcon,
   layout,
   sidebarDocked,
   contextDocked,
@@ -431,6 +439,7 @@ function WorkspaceHeader({
   onOpenContext,
   onToggleTerminal,
 }: {
+  projectIcon?: string;
   layout: WorkspaceLayout;
   sidebarDocked: boolean;
   contextDocked: boolean;
@@ -459,7 +468,7 @@ function WorkspaceHeader({
 
   return (
     <header
-      className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-2 border-b border-border/70 pr-2 ${sidebarDocked ? "pl-2 sm:pl-5" : "pl-3"} ${sidebarDocked ? "" : TRAFFIC_LIGHTS_CLEARANCE} ${contextDocked ? "" : WINDOW_CONTROLS_CLEARANCE}`}
+      className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-2 pr-2 ${sidebarDocked ? "pl-2 sm:pl-5" : "pl-3"} ${sidebarDocked ? "" : TRAFFIC_LIGHTS_CLEARANCE} ${contextDocked ? "" : WINDOW_CONTROLS_CLEARANCE}`}
     >
       <div className="native-header-content flex min-w-0 flex-1 items-center gap-2">
         {!sidebarDocked ? (
@@ -477,7 +486,9 @@ function WorkspaceHeader({
         <div className="flex min-w-0 flex-1 items-center">
           {activeProjectPath ? (
             <div className="flex h-full min-w-0 items-center gap-3 text-sm">
-              <FolderOpenIcon aria-hidden="true" className="hidden size-4 shrink-0 text-muted-foreground @min-[36rem]/conversation:block" />
+              <span className="hidden shrink-0 @min-[36rem]/conversation:block">
+                <ProjectIcon name={activeProjectName ?? activeProjectPath} src={projectIcon} />
+              </span>
               <span className="hidden min-w-0 max-w-40 shrink truncate text-muted-foreground @min-[36rem]/conversation:block" title={activeProjectPath}>
                 {activeProjectName ?? activeProjectPath}
               </span>

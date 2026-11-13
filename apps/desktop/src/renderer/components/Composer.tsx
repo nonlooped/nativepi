@@ -126,7 +126,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
         <ExtensionStatuses />
         <ComposerWidgets placement="aboveComposer" />
         <QueuedMessages />
-        <div className="mx-auto w-full max-w-(--conversation-width) overflow-hidden rounded-xl border bg-card/60 px-3 py-2">
+        <div className="mx-auto w-full max-w-(--conversation-width) overflow-hidden rounded-xl bg-card/60 px-3 py-2">
           <Suspense fallback={null}>
             <TuiAutoPane surface={editorSurface} maxRows={24} focus />
           </Suspense>
@@ -154,7 +154,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           treated as a project or a chat instead. */}
       <div
         className={cn(
-          "composer-surface relative mx-auto flex w-full max-w-(--conversation-width) flex-col rounded-2xl border border-border/70 bg-card px-3 pb-3 pt-2",
+          "composer-surface relative mx-auto flex w-full max-w-(--conversation-width) flex-col rounded-2xl border border-transparent bg-card px-3 pb-3 pt-2",
           dropTarget && "ring-2 ring-ring",
         )}
         onDragOver={(event) => {
@@ -343,7 +343,7 @@ function QueuedMessages() {
 
 function QueueRow({ label, text }: { label: string; text: string }) {
   return (
-    <li className="status-enter flex items-start gap-2 rounded-xl border bg-card/60 px-3 py-2 text-sm">
+    <li className="status-enter flex items-start gap-2 rounded-xl bg-card/60 px-3 py-2 text-sm">
       <span className="mt-0.5 shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
         {label}
       </span>

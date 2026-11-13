@@ -21,7 +21,7 @@ mock.module('./BrandIcon.tsx',()=>({default:()=>null}));
 const {default:Sidebar}=await import('./Sidebar.tsx');
 let root:Root;let container:HTMLDivElement;
 afterEach(async()=>{if(root)await act(async()=>root.unmount());container?.remove();selectChat.mockClear();setScope.mockClear();onClose.mockClear();state.activeSessionFile='/session'});
-async function mount(overlay=false){container=document.createElement('div');document.body.append(container);root=createRoot(container);await act(async()=>root.render(<Sidebar overlay={overlay} onClose={onClose} onOpenSearch={noop} onOpenNewChat={noop}/>))}
+async function mount(overlay=false){container=document.createElement('div');document.body.append(container);root=createRoot(container);await act(async()=>root.render(<Sidebar presentation={{"/project": {branch: "stale-branch"}}} overlay={overlay} onClose={onClose} onOpenSearch={noop} onOpenNewChat={noop}/>))}
 test('compact rows retain the full title, project and fresh branch, without a Focus heading',async()=>{
  await mount();expect([...container.querySelectorAll('h2')].some(h=>h.textContent==='Focus')).toBe(false);
  const label=container.querySelector(`[title="${title}"]`)!;

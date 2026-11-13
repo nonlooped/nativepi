@@ -33,7 +33,7 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
         </div>
       </header>
 
-      <div className={cn("flex shrink-0 items-center gap-2 border-b border-sidebar-border px-2 pb-2", NO_DRAG_REGION)}>
+      <div className={cn("flex shrink-0 items-center gap-2 px-2 pb-2", NO_DRAG_REGION)}>
         <span className="flex min-w-0 flex-1 items-center gap-2 px-2 text-sm"><FilesIcon />Files</span>
         <Button
           variant="ghost"

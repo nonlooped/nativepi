@@ -50,7 +50,7 @@ export default function LeftSidebar({
           over this button. `env()` is 0 on every other platform. */}
       <div
         className={cn(
-          "flex shrink-0 items-center gap-1 border-t border-sidebar-border/50 px-3 pt-2 pb-[max(0.625rem,env(safe-area-inset-bottom))]",
+          "flex shrink-0 items-center gap-1 px-3 pt-2 pb-[max(0.625rem,env(safe-area-inset-bottom))]",
           NO_DRAG_REGION,
         )}
       >

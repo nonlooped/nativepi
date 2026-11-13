@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Load providers for new chats after opening a project without trust, and restore service tiers saved by the retired extension.
 
 ### Changed
+- Soften workspace chrome with fewer header, pane, selected-chat, and tool-card borders, plus a quieter idle composer and terminal toolbar. Use the sidebar project icon in the conversation breadcrumb.
 - Deepen NativePi’s dark-mode surfaces toward near-black and dim text and primary controls while preserving subdued contrast and semantic colors.
 - Lower the default NativePi theme’s text, border, control, and surface contrast in light and dark modes, with quieter status colors and stronger colors reserved for the system increased-contrast preference.
 - Run the full CI checks before code pushes through an automatically installed Git hook.

@@ -42,7 +42,7 @@ import { isChatFinished } from "../lib/chatOrganization.ts";
 import { providerIconName } from "../lib/providerIcons.ts";
 import BrandIcon from "./BrandIcon.tsx";
 import ProjectIcon from "./ProjectIcon.tsx";
-import { projectBranch, useSidebarProjects, type SidebarProject } from "../lib/sidebarProjects.ts";
+import { projectBranch, type SidebarProject } from "../lib/sidebarProjects.ts";
 
 interface SidebarChat {
   project: Project;
@@ -55,6 +55,7 @@ interface SidebarChat {
 }
 
 export default function Sidebar({
+  presentation,
   onClose,
   onOpenSearch,
   onOpenNewChat,
@@ -62,6 +63,7 @@ export default function Sidebar({
   overlay = false,
   layoutKey,
 }: {
+  presentation: Record<string, SidebarProject>;
   onClose: () => void;
   onOpenSearch: () => void;
   onOpenNewChat: () => void;
@@ -70,7 +72,6 @@ export default function Sidebar({
   layoutKey?: unknown;
 }) {
   const projects = useAppStore((s) => s.projects);
-  const presentation = useSidebarProjects(projects);
   const git = useAppStore((s) => s.git);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
@@ -450,8 +451,8 @@ function FocusChatRow({
             onClick={onSelect}
             aria-current={chat.selected ? "page" : undefined}
             className={cn(
-              "relative flex h-auto min-h-16 w-full flex-col items-stretch justify-center gap-1 overflow-hidden rounded-lg border border-transparent px-3 py-2.5 text-left text-sidebar-foreground outline-none transition-[background-color,border-color,color,scale] hover:bg-sidebar-accent/40 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset active:scale-[0.985]",
-              chat.selected && "border-input bg-sidebar-accent text-sidebar-accent-foreground",
+              "relative flex h-auto min-h-16 w-full flex-col items-stretch justify-center gap-1 overflow-hidden rounded-lg px-3 py-2.5 text-left text-sidebar-foreground outline-none transition-[background-color,color,scale] hover:bg-sidebar-accent/40 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset active:scale-[0.985]",
+              chat.selected && "bg-sidebar-accent text-sidebar-accent-foreground",
             )}
           >
             <span className="flex min-w-0 items-center gap-2">
