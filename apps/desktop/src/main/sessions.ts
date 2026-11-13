@@ -51,12 +51,10 @@ async function sessionSidebarFields(sessionFile: string): Promise<{
   if (cached && cached.revision === revision)
     return cached.result;
   const result = await sessionSidebarFieldsUncached(sessionFile);
-  sidebarFieldsCache.set(sessionFile, { revision, result });
-  // Bound growth: a machine with thousands of sessions should not keep them all.
-  if (sidebarFieldsCache.size > 500) {
-    const first = sidebarFieldsCache.keys().next().value as string | undefined;
-    if (first)
-      sidebarFieldsCache.delete(first);
+  // A full scan larger than capacity must not evict entries it has yet to
+  // reach. Keep warm hits while still refreshing externally changed files.
+  if (sidebarFieldsCache.has(sessionFile) || sidebarFieldsCache.size < 500) {
+    sidebarFieldsCache.set(sessionFile, { revision, result });
   }
   return result;
 }

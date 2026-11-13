@@ -57,7 +57,7 @@ export default function DiffPreview({ projectDir, path, mode, revision = 0, onBa
       </div>
     </div>
     {actions}
-    <div className="min-h-0 flex-1 overflow-auto border-t bg-background">
+    <div className="min-h-0 flex-1 overflow-hidden border-t bg-background">
       {error ? <div role="alert" className="space-y-2 p-4 text-xs"><p className="break-words text-destructive">{error}</p><Button variant="outline" size="sm" onClick={reload}>Try again</Button></div>
         : !data ? <p role="status" className="p-4 text-xs text-muted-foreground">Loading…</p>
         : data.kind === "large" ? <div className="p-4 text-xs leading-5 text-muted-foreground"><p>This diff is too large to preview.</p><p>Open it in {editorName(editorId)} to view its contents.</p></div>

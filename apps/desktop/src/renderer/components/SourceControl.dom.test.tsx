@@ -60,3 +60,21 @@ domTest("Pi generation excludes staging and never overwrites a newer manually ed
   expect(input.value).toBe("my message");
   expect(generate.disabled).toBe(false);
 });
+
+domTest("untracked previews skip useless hunk downloads and retain whole-file staging", async () => {
+  let hunks = 0; let stages = 0;
+  stubInvoke(async c => {
+    if (c === "gitHunks") { hunks++; return { hunks: [] }; }
+    if (c === "gitStageFile") { stages++; return { ok: true }; }
+    if (c === "gitStatus") return { status: git };
+    if (c === "gitLog") return { commits: [] };
+    if (c === "readProjectDiffPreview") return { kind: "large", bytes: 1048577 };
+    return {};
+  });
+  await mount({ ...git, files: [{ path: "large.txt", state: "untracked", staged: false, unstaged: true }] });
+  await act(async () => container.querySelector<HTMLButtonElement>('button[title="large.txt"]')!.click());
+  expect(container.textContent).toContain("too large to preview");
+  expect(hunks).toBe(0);
+  await act(async () => [...container.querySelectorAll("button")].find(button => button.textContent === "Stage file")!.click());
+  expect(stages).toBe(1);
+});

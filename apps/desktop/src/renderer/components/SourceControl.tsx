@@ -365,7 +365,9 @@ function HunkActions({
   onStaged: () => void;
 }) {
   const { data, loading, error } = useRequest(
-    () => rpc.request.gitHunks({ projectDir, file: file.path, untracked: file.state === "untracked" }),
+    // New files have one hunk, so only whole-file staging is useful.
+    () => file.state === "untracked" ? Promise.resolve({ hunks: [] })
+      : rpc.request.gitHunks({ projectDir, file: file.path, untracked: false }),
     [projectDir, file.path, file.state, stagedVersion, revision],
   );
   const [busy, setBusy] = useState<number | null>(null);

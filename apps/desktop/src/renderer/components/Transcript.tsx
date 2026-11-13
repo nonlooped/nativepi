@@ -636,9 +636,9 @@ function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; 
       </button>
       </FileContextMenu> : null}
       {open && file.patch ? (
-        <div className="max-h-96 overflow-auto border-t border-border/50 bg-background">
+        <div className="border-t border-border/50 bg-background">
           <Suspense fallback={null}>
-            <DiffView patch={file.patch} className="py-1.5" />
+            <DiffView embedded patch={file.patch} className="py-1.5" />
           </Suspense>
         </div>
       ) : null}
@@ -712,9 +712,9 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
       {errorOutput}
     </pre>
   ) : diffPatch ? (
-    <div className="max-h-96 overflow-auto border-t border-border/50 bg-background/30">
+    <div className="border-t border-border/50 bg-background/30">
       <Suspense fallback={null}>
-        <DiffView patch={diffPatch} className="py-1.5" />
+        <DiffView embedded patch={diffPatch} className="py-1.5" />
       </Suspense>
     </div>
   ) : output ? (

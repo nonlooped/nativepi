@@ -256,3 +256,48 @@ for (const selected of literalFilenames) {
     }
   });
 }
+
+test("untracked line counts survive status expiry and invalidate on rewrites, replacement and deletion", async () => {
+  const { spyOn } = await import("bun:test");
+  const fs = await import("node:fs");
+  const { rename, stat, utimes } = await import("node:fs/promises");
+  const dir = await repo();
+  const file = path.join(dir, "cached.txt");
+  await writeFile(file, "a\nb\n");
+  let now = Date.now();
+  const clock = spyOn(Date, "now").mockImplementation(() => now);
+  const reads = spyOn(fs, "createReadStream");
+  const refresh = () => { now += 2000; return gitStatus(dir); };
+  const fileReads = () => reads.mock.calls.filter(args => String(args[0]).endsWith("/cached.txt")).length;
+  try {
+    expect((await refresh()).insertions).toBe(2);
+    expect(fileReads()).toBe(1);
+    expect((await refresh()).insertions).toBe(2);
+    expect(fileReads()).toBe(1);
+    const original = await stat(file);
+    await writeFile(file, "abcd"); // Same size, restored mtime: ctime must invalidate it.
+    await utimes(file, original.atime, original.mtime);
+    expect((await refresh()).insertions).toBe(1);
+    expect(fileReads()).toBe(2);
+    await writeFile(path.join(dir, "replacement"), "\n\n\n\n");
+    await rename(path.join(dir, "replacement"), file);
+    expect((await refresh()).insertions).toBe(4);
+    await rm(file);
+    expect((await refresh()).insertions).toBe(0);
+    await writeFile(file, "last\n");
+    expect((await refresh()).insertions).toBe(1);
+  } finally { reads.mockRestore(); clock.mockRestore(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test("oversized hunks reject instead of returning truncated patches, while whole-file staging remains available", async () => {
+  const { MAX_DIFF_PREVIEW_BYTES } = await import("../shared/diff-preview.ts");
+  const dir = await repo();
+  try {
+    await writeFile(path.join(dir, "large.txt"), "row\n".repeat(MAX_DIFF_PREVIEW_BYTES));
+    await expect(gitHunks(dir, "large.txt", true)).rejects.toMatchObject({ code: "ERR_CHILD_PROCESS_STDIO_MAXBUFFER" });
+    expect(await gitStageFile(dir, "large.txt")).toEqual({ ok: true });
+    await writeFile(path.join(dir, "large.txt"), "changed\n".repeat(MAX_DIFF_PREVIEW_BYTES));
+    await expect(gitHunks(dir, "large.txt", false)).rejects.toMatchObject({ code: "ERR_CHILD_PROCESS_STDIO_MAXBUFFER" });
+    await expect(gitHunks(dir, "../outside", true)).rejects.toThrow("outside");
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});

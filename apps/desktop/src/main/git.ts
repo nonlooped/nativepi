@@ -2,6 +2,8 @@ import { runRepositoryCommand } from "./repoCommand.ts";
 import { execFile } from "node:child_process";
 import { createReadStream, existsSync } from "node:fs";
 import path from "node:path";
+import { stat } from "node:fs/promises";
+import { MAX_DIFF_PREVIEW_BYTES } from "../shared/diff-preview.ts";
 import type { GitBranch, GitCommit, GitDiff, GitHunk, GitPrTarget, GitStatus } from "../shared/pi-types.ts";
 function run(args: string[], cwd: string) {
   return runRepositoryCommand("git", ["--literal-pathspecs", ...args], cwd, 32 * 1024 * 1024);
@@ -46,6 +48,25 @@ export function gitStatus(projectDir: string): Promise<GitStatus> {
       gitStatusRequests.delete(projectDir);
   });
   return request;
+}
+// Keep counts across the short status TTL, but only for still-untracked paths.
+type LineCount = { revision: string; count: number };
+const untrackedCounts = new Map<string, Map<string, LineCount>>();
+const MAX_CACHED_LINE_COUNTS = 2000;
+async function fileRevision(file: string): Promise<string | undefined> {
+  const value = await stat(file).catch(() => undefined);
+  return value && `${value.dev}:${value.ino}:${value.size}:${value.mtimeMs}:${value.ctimeMs}`;
+}
+async function cachedLineCount(file: string, cache: Map<string, LineCount>): Promise<number> {
+  const revision = await fileRevision(file);
+  const cached = cache.get(file);
+  if (revision !== undefined && cached?.revision === revision) return cached.count;
+  const count = await textLineCount(file);
+  // Don't retain a count assembled while another process was changing the file.
+  if (revision !== undefined && revision === await fileRevision(file)) {
+    if (cache.has(file) || cache.size < MAX_CACHED_LINE_COUNTS) cache.set(file, { revision, count });
+  } else cache.delete(file);
+  return count;
 }
 async function textLineCount(file: string): Promise<number> {
   let breaks = 0;
@@ -137,8 +158,13 @@ async function readGitStatus(projectDir: string): Promise<GitStatus> {
       deletions += Number(removed) || 0;
   }
   const untracked = files.filter((file) => file.state === "untracked");
+  const countsCache = untrackedCounts.get(root) ?? new Map<string, LineCount>();
+  const paths = new Set(untracked.map(file => path.join(root, file.path)));
+  for (const file of countsCache.keys()) if (!paths.has(file)) countsCache.delete(file);
+  if (paths.size) untrackedCounts.set(root, countsCache);
+  else untrackedCounts.delete(root);
   for (let index = 0; index < untracked.length; index += 4) {
-    const counts = await Promise.all(untracked.slice(index, index + 4).map((file) => textLineCount(path.join(root, file.path))));
+    const counts = await Promise.all(untracked.slice(index, index + 4).map((file) => cachedLineCount(path.join(root, file.path), countsCache)));
     insertions += counts.reduce((total, count) => total + count, 0);
   }
   const result: GitStatus = {
@@ -196,6 +222,9 @@ export async function gitLog(projectDir: string): Promise<GitCommit[]> {
   });
 }
 export async function gitDiff(projectDir: string, file: string, untracked: boolean, staged = false, maxBytes = 32 * 1024 * 1024): Promise<GitDiff> {
+  return readGitDiff(projectDir, file, untracked, staged, maxBytes);
+}
+async function readGitDiff(projectDir: string, file: string, untracked: boolean, staged: boolean, maxBytes: number, zeroContext = false): Promise<GitDiff> {
   const repository = await run(["rev-parse", "--show-toplevel"], projectDir);
   if (repository.code !== 0) throw new Error(repository.stderr.trim() || "Could not read this repository.");
   const root = repository.stdout.trim();
@@ -209,6 +238,7 @@ export async function gitDiff(projectDir: string, file: string, untracked: boole
     : isNew
       ? ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--no-index", "--", "/dev/null", selected]
       : ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--", selected];
+  if (zeroContext) args.splice(1, 0, "--unified=0");
   const output = await new Promise<string>((resolve, reject) => {
     execFile("git", ["--literal-pathspecs", ...args], { cwd: root, maxBuffer: maxBytes, windowsHide: true, timeout: 15000 }, (error, stdout, stderr) => {
       if (error && !(isNew && error.code === 1 && stdout.length > 0)) {
@@ -220,17 +250,16 @@ export async function gitDiff(projectDir: string, file: string, untracked: boole
 }
 
 export async function gitHunks(projectDir: string, file: string, untracked: boolean): Promise<GitHunk[]> {
-  const root = (await run(["rev-parse", "--show-toplevel"], projectDir)).stdout.trim() || projectDir;
-  const res = await run(untracked
-    ? ["diff", "--no-color", "--unified=0", "--no-index", "--", "/dev/null", file]
-    : ["diff", "--no-color", "--unified=0", "--", file], root);
-  const starts = [...res.stdout.matchAll(/^@@/gm)].map((match) => match.index ?? 0);
+  // Share preview path validation, timeout and byte limit. Overflow rejects the
+  // request rather than turning a truncated patch into a stageable hunk.
+  const { patch } = await readGitDiff(projectDir, file, untracked, false, MAX_DIFF_PREVIEW_BYTES, true);
+  const starts = [...patch.matchAll(/^@@/gm)].map((match) => match.index ?? 0);
   if (starts.length === 0)
     return [];
-  const prefix = res.stdout.slice(0, starts[0]);
+  const prefix = patch.slice(0, starts[0]);
   return starts.map((start, index) => ({
-    header: res.stdout.slice(start, res.stdout.indexOf("\n", start)).trim(),
-    patch: prefix + res.stdout.slice(start, starts[index + 1]),
+    header: patch.slice(start, patch.indexOf("\n", start)).trim(),
+    patch: prefix + patch.slice(start, starts[index + 1]),
   }));
 }
 export async function gitStageHunk(projectDir: string, file: string, untracked: boolean, patch: string): Promise<{
