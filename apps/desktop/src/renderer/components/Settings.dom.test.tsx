@@ -17,12 +17,13 @@ let container: HTMLDivElement;
 afterEach(async () => { if(root) await act(async () => root.unmount()); container?.remove(); loadPiSettings.mockClear(); closeSettings.mockClear(); });
 async function mount() { container=document.createElement("div"); document.body.append(container); root=createRoot(container); await act(async () => root.render(<Settings />)); }
 test("legacy destinations still resolve to their replacement pages", () => {
-  expect(settingsPage("Appearance")).toBe("Theme & motion");
+  expect(settingsPage("Appearance")).toBe("Appearance");
+  expect(settingsPage("Theme & motion")).toBe("Appearance");
   expect(settingsPage("Workbench")).toBe("Terminal");
   expect(settingsPage("System")).toBe("General");
   expect(settingsPage("Agent")).toBe("Behavior");
   expect(settingsPage("Providers")).toBe("Providers");
-  expect(settingsPage("unknown")).toBe("Theme & motion");
+  expect(settingsPage("unknown")).toBe("Appearance");
 });
 test("sidebar exposes grouped pages with no collapse control and routes appearance pages separately", async () => {
   initial=null; await mount();

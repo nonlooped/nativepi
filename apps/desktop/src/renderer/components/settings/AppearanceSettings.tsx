@@ -5,6 +5,7 @@ import { osName } from "../../lib/platform.ts";
 import { cn } from "@/lib/utils.ts";
 import { ChoiceCards, ChoiceRow, SliderRow } from "./rows.tsx";
 import ThemeSettings from "./ThemeSettings.tsx";
+import ChatBackgroundSettings from "./ChatBackgroundSettings.tsx";
 
 /** A stack of fake message lines, used to draw the width and diff previews. */
 function Lines({ widths, className }: { widths: string[]; className?: string }) {
@@ -58,6 +59,7 @@ export default function AppearanceSettings({ page }: { page: "theme" | "layout" 
     <div className="settings-list">
       {page === "theme" ? <>
         <ThemeSettings />
+        <ChatBackgroundSettings />
       </> : null}
 
       {page === "layout" ? <>

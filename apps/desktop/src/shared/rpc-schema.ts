@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { PiPaths, PiSettings, PiSettingsPatch } from "./pi-settings.ts";
 import { jsonValueSchema, type JsonValue } from "./json.ts";
 import { customThemesSchema, NATIVE_THEME_ID } from "./themes.ts";
+import { chatBackgroundSchema } from "./chat-background.ts";
 import type { CommandInfo, ExtensionUiResponse, ExplorerEntry, FileEntry, ForkPoint, GitBranch, GitCommit, GitDiff, GitHunk, GitPrTarget, GitStatus, GraphicalExtension, ImageContent, ModelInfo, PackageInfo, PiEvent, PiEventBatch, ResolvedExtension, RpcSessionState, ContextInspector, SessionSearchResult, SessionSummary, SessionTreeNode, SkillInfo, ThinkingLevel, UsageDashboard, } from "./pi-types.ts";
 import type { RepoHostContext } from "./repo-host-types.ts";
 import type { TuiClientFrame, TuiCompletionEdit, TuiCompletionItem, TuiCompletions, TuiHostFrame, } from "./tui-frames.ts";
@@ -190,6 +191,7 @@ export const preferencesSchema = z.object({
   theme: z.enum(["system", "light", "dark"]).catch("system"),
   themeId: z.string().min(1).max(80).catch(NATIVE_THEME_ID),
   customThemes: customThemesSchema,
+  chatBackground: chatBackgroundSchema,
   conversationWidth: z.enum(["narrow", "medium", "wide", "full"]).catch("medium"),
   interfaceScale: clamped(DEFAULT_INTERFACE_SCALE, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE),
   diffStyle: z.enum(["unified", "split"]).catch("unified"),

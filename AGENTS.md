@@ -32,6 +32,9 @@ extension surfaces when upgrading Pi.
 
 ## Engineering choices
 
+- Follow the design philosophy: create, review, enhance, polish, repeat. Use
+  this process at all times instead of one-shotting designs for time or
+  simplicity. Design is a very important and heavily underrated aspect of any app.
 - Prefer the smallest correct change and maintained packages or platform APIs
   over custom infrastructure. Simplicity matters more than speculative reuse.
 - Use Bun for package management; keep `bun.lock` as the only lockfile.

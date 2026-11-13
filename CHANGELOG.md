@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Load providers for new chats after opening a project without trust, and restore service tiers saved by the retired extension.
 
 ### Changed
+- Add a continuous, theme-colored dithered workspace with translucent sidebars and a subtle cursor lens, most visible on new chats and subdued behind conversations. Settings → Appearance offers three bundled high-resolution landscapes, a custom image, and a plain option; reduced motion disables the cursor effect.
 - Match the Files pane reference with a plain heading, search/collapse/refresh/close toolbar, lighter rows, and colored folder icons from the existing file-icon theme; align heading height, spacing, and controls with the workspace chrome. Search lists matching project paths without expanding the directory tree.
 - Consolidate the files pane into one larger Files heading with a tree icon and inline refresh/hide controls; remove repeated project labels and strengthen file rows with more spacing, weight, and clearer icons.
 - Soften workspace chrome with fewer header, pane, selected-chat, and tool-card borders, plus a quieter idle composer and terminal toolbar. Use the sidebar project icon in the conversation breadcrumb.

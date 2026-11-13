@@ -14,6 +14,7 @@ import ProjectIcon from "./components/ProjectIcon.tsx";
 import { useSidebarProjects } from "./lib/sidebarProjects.ts";
 import Composer from "./components/Composer.tsx";
 import NewThread from "./components/NewThread.tsx";
+import ChatBackdrop from "./components/ChatBackdrop.tsx";
 import { ExtensionConversationControls, ExtensionConversationView } from "./components/ExtensionSlots.tsx";
 import DropZone from "./components/DropZone.tsx";
 import ExtensionUi from "./components/ExtensionUi.tsx";
@@ -154,7 +155,8 @@ export default function App() {
   }
 
   return (
-    <div className="app-viewport relative h-full overflow-hidden bg-background text-foreground">
+    <div className="app-viewport relative h-full overflow-hidden bg-background text-foreground" data-chat-state={isNewChat && !hasConversation ? "new" : "thread"}>
+      {activeProjectPath ? <ChatBackdrop /> : null}
       {/* Settings is an overlay, not a replacement. It used to early-return over
           the whole app, unmounting the transcript, composer and run status while
           an agent was mid-edit — and its most likely entry point is the
@@ -212,17 +214,13 @@ export default function App() {
                   <ExtensionConversationView active={extensionView} onClose={() => setExtensionView(null)} />
                 </Suspense>
               ) : (
-                <div className="flex min-h-0 flex-1 flex-col">
+                <div className="chat-stage flex min-h-0 flex-1 flex-col">
                   {hasConversation ? (
                     <Suspense fallback={<SurfaceLoading label="Loading conversation…" />}>
                       <Transcript key={activeSessionFile ?? "new"} />
                     </Suspense>
                   ) : isNewChat ? (
-                    <div className="flex min-h-0 flex-1 overflow-y-auto px-4 pb-8 sm:px-6">
-                      <div className="stagger-enter mx-auto my-auto w-full max-w-(--conversation-width)">
-                        <NewThread />
-                      </div>
-                    </div>
+                    <NewThread />
                   ) : (
                     <SurfaceLoading label="Loading conversation…" />
                   )}

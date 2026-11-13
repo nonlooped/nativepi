@@ -33,7 +33,7 @@ const KeybindSettings = lazy(() => import("./settings/KeybindSettings.tsx"));
 
 /** Sidebar headings group focused pages, rather than adding another navigation layer. */
 export const CATEGORIES = [
-  { name: "Theme & motion", icon: PaletteIcon, group: "Interface", blurb: "Colors and animation." },
+  { name: "Appearance", icon: PaletteIcon, group: "Interface", blurb: "Colors, backgrounds, and animation." },
   { name: "Layout & diffs", icon: ColumnsIcon, group: "Interface", blurb: "Interface scale, conversation width, and file changes." },
   { name: "Keyboard", icon: KeyboardIcon, group: "Interface", blurb: "Shortcuts for the workspace." },
   { name: "Providers", icon: PlugsConnectedIcon, group: "Pi", blurb: "Connect the model providers Pi can use." },
@@ -49,11 +49,11 @@ export const CATEGORIES = [
 export type Category = (typeof CATEGORIES)[number]["name"];
 const PI_BACKED = new Set<Category>(["Behavior", "Terminal", "Keyboard"]);
 const LEGACY_PAGES: Record<string, Category> = {
-  Appearance: "Theme & motion", Agent: "Behavior", Workbench: "Terminal", System: "General",
+  "Theme & motion": "Appearance", Agent: "Behavior", Workbench: "Terminal", System: "General",
 };
 export function settingsPage(value: string | null): Category {
   return CATEGORIES.find((page) => page.name === value)?.name
-    ?? (value ? LEGACY_PAGES[value] : undefined) ?? "Theme & motion";
+    ?? (value ? LEGACY_PAGES[value] : undefined) ?? "Appearance";
 }
 
 export default function Settings() {
@@ -222,7 +222,7 @@ function CategoryPanel({ category }: { category: Category }) {
       return <UsageSettings />;
     case "Access":
       return <AccessSettings />;
-    case "Theme & motion":
+    case "Appearance":
       return <AppearanceSettings page="theme" />;
     case "Layout & diffs":
       return <AppearanceSettings page="layout" />;

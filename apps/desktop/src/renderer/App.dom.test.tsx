@@ -15,6 +15,7 @@ mock.module("./components/ProjectStatus.tsx", () => ({ default: () => null, PiSt
 mock.module("./components/ExtensionSlots.tsx", () => ({ ExtensionConversationControls: () => null, ExtensionConversationView: () => null }));
 mock.module("./components/Composer.tsx", () => ({ default: () => <textarea aria-label="Message" /> }));
 mock.module("./components/NewThread.tsx", () => ({ default: () => <h2>What should we work on?</h2> }));
+mock.module("./components/ChatBackdrop.tsx", () => ({ default: () => <div data-testid="chat-backdrop" /> }));
 mock.module("./components/Transcript.tsx", () => ({ default: () => {
   const entries = useAppStore(s => activeConversation(s).entries);
   return <div data-testid="transcript">{entries.map(entry => entry.id).join(",")}</div>;
@@ -61,6 +62,7 @@ async function mount() {
   await act(async () => root!.render(<App />));
 }
 function expectConversation() {
+  expect(container.querySelector('[data-chat-state="thread"] [data-testid="chat-backdrop"]')).not.toBeNull();
   expect(container.querySelector('[data-testid="transcript"]')).not.toBeNull();
   expect(container.querySelector("textarea")).not.toBeNull();
   expect(container.textContent).not.toContain("What should we work on?");
@@ -88,6 +90,7 @@ test("folder navigation waits for a selection, but a deliberate new draft shows 
   expect(container.textContent).toContain("Loading conversation…");
   await act(async () => useAppStore.setState({ isNewChat: true }));
   expect(container.textContent).toContain("What should we work on?");
+  expect(container.querySelector('[data-chat-state="new"] [data-testid="chat-backdrop"]')).not.toBeNull();
 });
 
 

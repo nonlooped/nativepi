@@ -145,10 +145,14 @@ function safePiSettings(settings: PiSettings | undefined) {
 }
 
 function safeNativePiState(state: NativePiState) {
-  const { customThemes, ...preferences } = state.preferences;
+  const { customThemes, chatBackground, ...preferences } = state.preferences;
   return {
     reopenLastProject: state.reopenLastProject,
-    preferences: { ...preferences, customThemeCount: customThemes.length },
+    preferences: {
+      ...preferences,
+      customThemeCount: customThemes.length,
+      chatBackground: { preset: chatBackground.preset, hasCustomImage: !!chatBackground.customImage },
+    },
     projectCount: state.projects.length,
     favoriteModelCount: state.favoriteModels.length,
     keybindingOverrideCount: Object.keys(state.keybindingOverrides).length,
