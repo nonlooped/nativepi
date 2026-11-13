@@ -364,6 +364,13 @@ export default function Sidebar({
           ))}
         </div>
 
+        {!loading && projects.length > 0 && failedProjects.length === 0 && pinned.length === 0 && focus.length === 0 && finished.length > 0 ? (
+          <div className="px-3 pt-3 text-xs leading-relaxed text-muted-foreground">
+            <p className="font-medium text-sidebar-foreground/80">No active chats</p>
+            <p className="mt-0.5">Start a chat, or return one from Finished.</p>
+          </div>
+        ) : null}
+
         {!loading && projects.length === 0 ? (
           <button type="button" onClick={() => void addProjectAndClose()} className="flex items-center gap-2 rounded-lg border border-dashed px-2.5 py-3 text-left text-xs text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none">
             <FolderPlusIcon className="shrink-0" /> Open your first folder
