@@ -162,7 +162,7 @@ export function applyTheme(root: HTMLElement, preferences: Preferences, systemDa
 
   try {
     localStorage.setItem("nativepi-theme", preferences.theme);
-    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify({ version: 7, appearance, properties }));
+    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify({ version: 8, appearance, properties }));
   } catch {}
 
   window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
