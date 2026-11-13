@@ -55,6 +55,12 @@ extension surfaces when upgrading Pi.
   Check for stale processes if the app appears to serve old state.
 - Do not watch or poll hosted CI unless requested.
 - Use Conventional Commit titles, with no body or attribution trailers.
+- After finishing work, commit the changes following repository conventions;
+  staging and committing do not need to be hunk-specific.
+- When publishing, push small features or changes directly to `main`. Push
+  unrelated changes directly to `main` as separate commits. Open a new PR for
+  a noticeable UI change or refactor and use the `before-and-after` skill. Open
+  a new PR for a large, unified change or refactor.
 - Record user-visible changes in `CHANGELOG.md` under Unreleased. App version
   bumps, tags, and releases belong to the Release workflow. Extension package
   version bumps on `main` trigger npm publication after CI; treat them as
