@@ -1,44 +1,35 @@
 import { useEffect, useState } from "react";
 
 /**
- * How much room the window has for panes.
- *
- * `wide` docks both side panes; `narrow` and `compact` open both in sheets
- * so the conversation has the full window width. `compact` also uses smaller
- * header controls for phone-sized windows.
- *
- * The thresholds live here rather than in Tailwind breakpoints because the
- * settings screen and the workspace have to agree on them.
+ * Both side panes dock when the window uses most of the display's available
+ * width. Smaller windows open them in sheets; compact windows also simplify
+ * the header. Compare CSS pixels on both sides so display scaling is respected.
  */
 export type WorkspaceLayout = "wide" | "narrow" | "compact";
 
-export const COMPACT_MAX = 639;
-export const NARROW_MAX = 1099;
-
-export function workspaceLayoutFor(width: number): WorkspaceLayout {
-  if (width <= COMPACT_MAX) return "compact";
-  if (width <= NARROW_MAX) return "narrow";
+export function workspaceLayoutFor(width: number, availableWidth: number): WorkspaceLayout {
+  const fraction = width / availableWidth;
+  if (fraction <= 0.45) return "compact";
+  if (fraction <= 0.75) return "narrow";
   return "wide";
 }
 
 function currentWorkspaceLayout(): WorkspaceLayout {
   if (typeof window === "undefined") return "wide";
-  return workspaceLayoutFor(window.innerWidth);
+  return workspaceLayoutFor(window.innerWidth, window.screen.availWidth || window.innerWidth);
 }
 
 export function useWorkspaceLayout(): WorkspaceLayout {
   const [layout, setLayout] = useState(currentWorkspaceLayout);
 
   useEffect(() => {
-    const narrow = window.matchMedia(`(max-width: ${NARROW_MAX}px)`);
-    const compact = window.matchMedia(`(max-width: ${COMPACT_MAX}px)`);
     const update = () => setLayout(currentWorkspaceLayout());
-    narrow.addEventListener("change", update);
-    compact.addEventListener("change", update);
+    window.addEventListener("resize", update);
+    window.addEventListener("focus", update);
     update();
     return () => {
-      narrow.removeEventListener("change", update);
-      compact.removeEventListener("change", update);
+      window.removeEventListener("resize", update);
+      window.removeEventListener("focus", update);
     };
   }, []);
 

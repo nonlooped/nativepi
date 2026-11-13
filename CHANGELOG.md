@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trim the README to a short pitch, install and development quick start, and links to the guides; move retired-package upgrade notes to `docs/upgrade.md`. Workspace screenshots remain the isolated-demo captures.
 
 ### Fixed
-- Collapse both sidebars at narrow window widths, with navigation and project context available in sheets.
+- Scale sidebar collapse thresholds with the current display’s available width, with navigation and project context available in sheets when the window is narrow.
 - Collapse sidebars and the terminal dock when dragged past their minimum size to free workspace space.
 - Keep the dithered background visible while a conversation loads, instead of covering it with a solid surface.
 - Remove the empty gap above Pi-backed settings panels such as Behavior, label the usage chart's cost axis with round, distinguishable amounts, and explain an empty Focus list in the sidebar.
