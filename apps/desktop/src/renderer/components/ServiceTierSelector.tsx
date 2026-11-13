@@ -1,3 +1,4 @@
+import { LightningIcon } from "@phosphor-icons/react/Lightning";
 import { useEffect } from "react";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { serviceTierDescriptions, serviceTierLabels, serviceTierSchema, serviceTierTarget } from "../../shared/service-tier.ts";
@@ -20,7 +21,6 @@ export default function ServiceTierSelector() {
   if (!project || !model || target !== serviceTierTarget(project, session, model)) return null;
   if (error) return (
     <section className="min-w-0 flex-1" aria-label="Speed">
-      <p className="px-2 pb-0.5 text-xs text-muted-foreground">Speed</p>
       <Button variant="ghost" className="w-full justify-start px-2 text-xs text-destructive" title={error} onClick={() => void refresh()}>Retry service tier</Button>
     </section>
   );
@@ -31,11 +31,11 @@ export default function ServiceTierSelector() {
   const items = tiers.map(value => ({ value, label: serviceTierLabels[value] }));
   return (
     <section className="min-w-0 flex-1" aria-label="Speed">
-      <p className="px-2 pb-0.5 text-xs text-muted-foreground">Speed</p>
       <Select value={tier} items={items} disabled={busy || loading || saving}
         onValueChange={value => { if ((value === "default" || value === "priority") && value !== tier) void select(value); }}>
         <SelectTrigger aria-label="Service tier" title={busy ? "Service tier can be changed when Pi is idle" : "Change service tier"}
-          className="h-8 w-full border-0 bg-muted/40 px-2 text-xs font-normal shadow-none hover:bg-muted dark:bg-muted/40 dark:hover:bg-muted">
+          className="h-8 w-full gap-2 rounded-full border-border/50 bg-foreground/3 px-3 text-xs font-normal shadow-none hover:bg-muted dark:bg-foreground/3 dark:hover:bg-muted">
+          <LightningIcon className="size-4 text-muted-foreground" weight={tier === "priority" ? "fill" : "regular"} aria-hidden />
           <SelectValue />
         </SelectTrigger>
         <SelectContent side="top" align="start" alignItemWithTrigger={false} className="w-72 max-w-[calc(100vw-2rem)]">

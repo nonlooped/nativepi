@@ -351,7 +351,7 @@ domTest("provider and favorites filters preserve search and reasoning choices up
     await chooseFilter("alpha");
     expect(document.querySelector('[data-selected-model]')?.textContent).toContain("Alpha model");
     expect(document.body.textContent).not.toContain("Beta model");
-    await chooseFilter("All models");
+    await chooseFilter("beta");
     expect(document.body.textContent).toContain("Beta model");
     await chooseOption("Reasoning effort", "High");
     expect(selected).toEqual(["high"]);
@@ -377,7 +377,7 @@ async function chooseFilter(label: string) {
   await act(async () => { filter!.click(); });
 }
 
-domTest("favorites lead without duplicate rows and search supports provider and model terms in any order", async () => {
+domTest("provider scopes stay separate and search supports provider and model terms in any order", async () => {
   stubInvoke(async channel => pickerReply(channel));
   await withPicker(async store => {
     const a = { provider: "alpha", id: "one", name: "Alpha model", contextWindow: 200000 };
@@ -386,9 +386,13 @@ domTest("favorites lead without duplicate rows and search supports provider and 
       store.setState({ models: [a, b], model: a, providers: [], favoriteModels: ["beta/two"] });
     });
     const choices = () => [...document.querySelectorAll<HTMLButtonElement>("[data-model-choice]")];
-    expect(choices()).toHaveLength(2);
+    expect(choices()).toHaveLength(1);
+    expect(choices()[0]!.title).toContain("200K context");
+    expect(document.querySelector('nav [aria-label="All models"]')).toBeNull();
+    await chooseFilter("Favorites");
+    expect(choices()).toHaveLength(1);
     expect(choices()[0]!.textContent).toContain("Beta model");
-    expect(choices()[1]!.title).toContain("200K context");
+    await chooseFilter("alpha");
     const search = document.querySelector<HTMLInputElement>('[aria-label="Search models"]')!;
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, "one alpha");
@@ -452,5 +456,22 @@ domTest("starring a keyboard-focused model keeps its row and focus when it moves
     });
     expect(store.getState().favoriteModels).not.toContain("p/chosen");
     expect(document.activeElement).toBe(row);
+  });
+});
+
+domTest("the picker opens on the current provider and falls back when a provider disappears", async () => {
+  stubInvoke(async channel => pickerReply(channel));
+  await withPicker(async store => {
+    const a = { provider: "alpha", id: "a", name: "Alpha model" };
+    const b = { provider: "beta", id: "b", name: "Beta model" };
+    await act(async () => { store.setState({ models: [a, b], model: b, providers: [] }); });
+    expect(document.querySelector('nav [aria-label="beta"]')?.getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelector("[data-model-choice]")?.textContent).toContain("Beta model");
+    await chooseFilter("alpha");
+    await act(async () => { store.setState({ models: [b] }); });
+    expect(document.querySelector('nav [aria-label="beta"]')?.getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelector("[data-model-choice]")?.textContent).toContain("Beta model");
+    await act(async () => { store.setState({ model: null }); });
+    expect(document.querySelector("[data-model-choice]")?.textContent).toContain("Beta model");
   });
 });

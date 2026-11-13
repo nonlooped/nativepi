@@ -8,7 +8,7 @@ if (typeof document !== "undefined") {
   globalThis.requestAnimationFrame = window.requestAnimationFrame.bind(window);
   globalThis.cancelAnimationFrame = window.cancelAnimationFrame.bind(window);
 }
-domTest("shows saved tiers beside reasoning with consistent field titles", async () => {
+domTest("shows saved tiers beside reasoning with matching icon controls and no field titles", async () => {
   const { emptyConversation } = await import("../lib/store/conversation.ts");
   const { useAppStore } = await import("../lib/store.ts");
   const { default: ModelSelector } = await import("./ModelSelector.tsx");
@@ -37,8 +37,10 @@ domTest("shows saved tiers beside reasoning with consistent field titles", async
     const reasoning = document.querySelector('[aria-label="Reasoning effort"]')!;
     expect(reasoning).not.toBeNull();
     expect(reasoning.closest("section")?.parentElement).toBe(trigger().closest("section")?.parentElement);
-    expect(reasoning.closest("section")?.querySelector("p")?.textContent).toBe("Reasoning");
-    expect(trigger().closest("section")?.querySelector("p")?.textContent).toBe("Speed");
+    expect(reasoning.closest("section")?.querySelector("p")).toBeNull();
+    expect(reasoning.querySelector("svg")).not.toBeNull();
+    expect(trigger().closest("section")?.querySelector("p")).toBeNull();
+    expect(trigger().querySelector("svg")).not.toBeNull();
     expect(document.body.textContent).not.toContain("Reasoning effort");
     expect(document.querySelector('[data-slot="kbd"]')).toBeNull();
     await act(async () => { trigger().click(); });

@@ -1,4 +1,4 @@
-import { SquaresFourIcon } from "@phosphor-icons/react/SquaresFour";
+import { BrainIcon } from "@phosphor-icons/react/Brain";
 import { CaretDownIcon, CheckIcon, MagnifyingGlassIcon, StarIcon, WarningCircleIcon } from "../../shared/icons.ts";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { ModelInfo } from "../../shared/pi-types.ts";
@@ -37,7 +37,7 @@ export default function ModelSelector() {
   const openSettings = useAppStore((s) => s.openSettings);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [scope, setScope] = useState("all");
+  const [scope, setScope] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -73,14 +73,17 @@ export default function ModelSelector() {
     rows[index]?.scrollIntoView({ block: "nearest" });
   }
   const availableProviders = [...new Set(models.map((item) => item.provider))];
+  const activeScope = scope === "favorites" || (scope !== null && availableProviders.includes(scope))
+    ? scope
+    : model && availableProviders.includes(model.provider) ? model.provider : availableProviders[0] ?? "favorites";
   const favoriteModelKeys = new Set(favoriteModels);
   const providerNames = new Map(providers.map((item) => [item.id, item.name]));
   const label = model ? friendlyModelName(model) : "Model";
   const queryTerms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
 
   const visibleModels = models.filter((item) => {
-    if (scope === "favorites" && !favoriteModelKeys.has(modelKey(item))) return false;
-    if (scope !== "all" && scope !== "favorites" && item.provider !== scope) return false;
+    if (activeScope === "favorites" && !favoriteModelKeys.has(modelKey(item))) return false;
+    if (activeScope !== "favorites" && item.provider !== activeScope) return false;
     if (!queryTerms.length) return true;
     const providerName = providerNames.get(item.provider) ?? "";
     const searchable = `${item.name ?? item.id} ${item.id} ${item.provider} ${providerName}`.toLocaleLowerCase();
@@ -108,7 +111,7 @@ export default function ModelSelector() {
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
         setQuery("");
-        setScope("all");
+        setScope(null);
       }}
     >
       <PopoverTrigger
@@ -156,7 +159,6 @@ export default function ModelSelector() {
         <div className="flex min-h-0 flex-1">
           <nav aria-label="Filter models" className="flex w-10 shrink-0 flex-col items-center gap-1 overflow-y-auto overscroll-contain border-r border-border/40 px-1 py-1.5">
             {[
-              { value: "all", label: "All models" },
               { value: "favorites", label: "Favorites" },
               ...availableProviders.map((id) => ({ value: id, label: providerNames.get(id) ?? id })),
             ].map((item) => (
@@ -164,15 +166,15 @@ export default function ModelSelector() {
                 key={item.value}
                 type="button"
                 aria-label={item.label}
-                aria-pressed={scope === item.value}
+                aria-pressed={activeScope === item.value}
                 onClick={() => setScope(item.value)}
                 title={item.label}
                 className={cn(
                   "flex size-8 shrink-0 items-center justify-center rounded-md outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
-                  scope === item.value ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:text-foreground",
+                  activeScope === item.value ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {item.value === "favorites" ? <StarIcon className="size-4 shrink-0" /> : item.value !== "all" ? <ModelProviderIcon provider={item.value} /> : <SquaresFourIcon className="size-4 shrink-0" />}
+                {item.value === "favorites" ? <StarIcon className="size-4 shrink-0" /> : <ModelProviderIcon provider={item.value} />}
               </button>
             ))}
           </nav>
@@ -192,7 +194,7 @@ export default function ModelSelector() {
               <ModelList
                 visibleModels={visibleModels}
                 query={query}
-                favoritesOnly={scope === "favorites"}
+                favoritesOnly={activeScope === "favorites"}
                 model={model}
                 favoriteModelKeys={favoriteModelKeys}
                 providerNames={providerNames}
@@ -222,7 +224,6 @@ function ReasoningControl() {
 
   return (
     <section className="min-w-0 flex-1" aria-label="Reasoning">
-      <p className="px-2 pb-0.5 text-xs text-muted-foreground">Reasoning</p>
       <div className="flex min-h-8 items-center gap-2">
         {!error && thinkingLevels.length > 0 ? (
           <Select
@@ -233,7 +234,8 @@ function ReasoningControl() {
               if (level && level !== thinkingLevel) void setThinkingLevel(level);
             }}
           >
-            <SelectTrigger aria-label="Reasoning effort" title="Reasoning effort" className="h-8 w-full border-0 bg-muted/40 px-2 text-xs font-normal shadow-none hover:bg-muted dark:bg-muted/40 dark:hover:bg-muted">
+            <SelectTrigger aria-label="Reasoning effort" title="Reasoning effort" className="h-8 w-full gap-2 rounded-full border-border/50 bg-foreground/3 px-3 text-xs font-normal shadow-none hover:bg-muted dark:bg-foreground/3 dark:hover:bg-muted">
+              <BrainIcon className="size-4 text-muted-foreground" aria-hidden />
               <SelectValue placeholder="Choose…" />
             </SelectTrigger>
             <SelectContent side="top" align="end" alignItemWithTrigger={false} className="min-w-36">
