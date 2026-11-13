@@ -162,7 +162,7 @@ export function applyTheme(root: HTMLElement, preferences: Preferences, systemDa
 
   try {
     localStorage.setItem("nativepi-theme", preferences.theme);
-    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify({ version: 6, appearance, properties }));
+    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify({ version: 7, appearance, properties }));
   } catch {}
 
   window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
@@ -248,7 +248,8 @@ export function contrastRatio(first: string, second: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-/** Every semantic foreground is checked on the surfaces where the renderer uses it. */
+/** Check normal text at WCAG AA without imposing the increased-contrast palette.
+ * Secondary and status text still meets 4.5:1; the APCA floor permits quieter labels. */
 export function themeContrastIssues(colors: ThemeColors): string[] {
   const surfaces = [
     [colors.background, "workspace"],
@@ -258,18 +259,18 @@ export function themeContrastIssues(colors: ThemeColors): string[] {
     [colors.accent, "selected surfaces"],
   ] as const;
   const pairs: readonly (readonly [string, string, string, number, number])[] = [
-    ...surfaces.map(([background, name]) => [colors.foreground, background, `Text on the ${name}`, 4.5, 75] as const),
-    ...surfaces.map(([background, name]) => [colors.mutedForeground, background, `Muted text on the ${name}`, 4.5, 60] as const),
+    ...surfaces.map(([background, name]) => [colors.foreground, background, `Text on the ${name}`, 4.5, 60] as const),
+    ...surfaces.map(([background, name]) => [colors.mutedForeground, background, `Muted text on the ${name}`, 4.5, 40] as const),
     [colors.primaryForeground, colors.primary, "Text on primary actions", 4.5, 60],
     ...(["destructive", "success", "warning", "info"] as const).flatMap((role) => {
       const label = role[0]!.toUpperCase() + role.slice(1);
       const foreground = colors[role];
       return [
-        [foreground, colors.background, `${label} on the workspace`, 4.5, 60] as const,
-        [foreground, colors.surface, `${label} on raised surfaces`, 4.5, 60] as const,
-        [foreground, colors.sidebar, `${label} in the sidebar`, 4.5, 60] as const,
-        [foreground, composite(foreground, colors.background, 0.1), `${label} on its translucent status surface`, 4.5, 60] as const,
-        [foreground, composite(foreground, colors.surface, 0.1), `${label} on its translucent raised surface`, 4.5, 60] as const,
+        [foreground, colors.background, `${label} on the workspace`, 4.5, 40] as const,
+        [foreground, colors.surface, `${label} on raised surfaces`, 4.5, 40] as const,
+        [foreground, colors.sidebar, `${label} in the sidebar`, 4.5, 40] as const,
+        [foreground, composite(foreground, colors.background, 0.1), `${label} on its translucent status surface`, 4.5, 40] as const,
+        [foreground, composite(foreground, colors.surface, 0.1), `${label} on its translucent raised surface`, 4.5, 40] as const,
       ];
     }),
     [colors.favorite, colors.background, "Favorite indicators on the workspace", 3, 30],

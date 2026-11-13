@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Load providers for new chats after opening a project without trust, and restore service tiers saved by the retired extension.
 
 ### Changed
+- Lower the default NativePi theme’s text, border, control, and surface contrast in light and dark modes, with quieter status colors and stronger colors reserved for the system increased-contrast preference.
 - Run the full CI checks before code pushes through an automatically installed Git hook.
 - Soften the monochrome light theme with subdued gray surfaces, clarify selection, focus, settings, tool activity, and terminal hierarchy, and improve chart labels and series distinction. Preserve grayscale in NativePi while restoring syntax colors in other schemes’ diffs.
 - Limit service tiers to Standard and Priority, defaulting new chats and previous Automatic/Flex choices to Standard.

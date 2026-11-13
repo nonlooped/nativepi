@@ -23,7 +23,7 @@ test("contrast uses the WCAG ratio", () => {
 test("an unreadable foreground is named before a theme can be saved", () => {
   const colors = { ...NATIVE_THEME.colors.light, foreground: NATIVE_THEME.colors.light.background };
   expect(themeContrastIssues(colors)).toContain(
-    "Text on the workspace is 1.0:1 and APCA 0; use colors that reach 4.5:1 and APCA 75.",
+    "Text on the workspace is 1.0:1 and APCA 0; use colors that reach 4.5:1 and APCA 60.",
   );
 });
 
@@ -108,8 +108,18 @@ test("NativePi light surfaces stay below near-white while preserving readable te
   for (const color of [colors.background, colors.surface, colors.sidebar, colors.muted, colors.accent]) {
     expect(contrastRatio(color, "#000000")).toBeLessThan(18);
   }
-  expect(contrastRatio(colors.background, "#000000")).toBeLessThan(16);
+  expect(contrastRatio(colors.background, "#000000")).toBeLessThan(17);
   expect(themeContrastIssues(colors)).toEqual([]);
+});
+
+test("default contrast stays softer than the increased-contrast treatment", () => {
+  for (const colors of Object.values(NATIVE_THEME.colors)) {
+    expect(contrastRatio(colors.foreground, colors.background)).toBeLessThan(11);
+    expect(contrastRatio(colors.mutedForeground, colors.background)).toBeLessThan(7);
+    expect(contrastRatio(colors.border, colors.background)).toBeLessThan(1.6);
+    expect(contrastRatio(colors.surface, colors.background)).toBeLessThan(1.15);
+    expect(themeContrastIssues(colors)).toEqual([]);
+  }
 });
 
 test("focus validation checks the rendered ring on selected surfaces", () => {
