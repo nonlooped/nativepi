@@ -43,6 +43,13 @@ export default function ModelSelector() {
   useEffect(() => {
     listRef.current?.scrollTo({ top: 0 });
   }, [query, scope]);
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => {
+      listRef.current?.querySelector("[data-selected-model]")?.scrollIntoView({ block: "nearest" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
 
   function navigateModels(event: KeyboardEvent<HTMLElement>) {
     if (event.altKey || event.ctrlKey || event.metaKey || event.nativeEvent.isComposing) return;
@@ -146,19 +153,8 @@ export default function ModelSelector() {
           Search models from every provider and adjust reasoning and service tier.
         </PopoverDescription>
 
-        <div className="flex shrink-0 items-center gap-1.5 px-3 pt-2 pb-1">
-          <MagnifyingGlassIcon className="shrink-0 text-muted-foreground" />
-          <Input
-            ref={searchRef}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search models…"
-            aria-label="Search models"
-            className="h-8 min-w-0 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 dark:bg-transparent"
-          />
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col">
-          <nav aria-label="Filter models" className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border/50 px-2 pb-1.5">
+        <div className="flex min-h-0 flex-1">
+          <nav aria-label="Filter models" className="flex w-10 shrink-0 flex-col items-center gap-1 overflow-y-auto overscroll-contain border-r border-border/40 px-1 py-1.5">
             {[
               { value: "all", label: "All models" },
               { value: "favorites", label: "Favorites" },
@@ -179,20 +175,30 @@ export default function ModelSelector() {
                 {item.value === "favorites" ? <StarIcon className="size-4 shrink-0" /> : item.value !== "all" ? <ModelProviderIcon provider={item.value} /> : <SquaresFourIcon className="size-4 shrink-0" />}
               </button>
             ))}
-            <span className="ml-auto shrink-0 px-1 text-xs tabular-nums text-muted-foreground" aria-live="polite" aria-label={`${visibleModels.length} models`}>
-              {visibleModels.length}
-            </span>
           </nav>
-          <div ref={listRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-1">
-            <ModelList
-              visibleModels={visibleModels}
-              query={query}
-              favoritesOnly={scope === "favorites"}
-              model={model}
-              favoriteModelKeys={favoriteModelKeys}
-              providerNames={providerNames}
-              onSelect={(next) => void setModel(next)}
-            />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="mx-2 flex shrink-0 items-center gap-1.5 border-b border-border/50 py-1 focus-within:border-ring">
+              <MagnifyingGlassIcon className="ml-1 size-3.5 shrink-0 text-muted-foreground" />
+              <Input
+                ref={searchRef}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search models…"
+                aria-label="Search models"
+                className="h-8 min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0 dark:bg-transparent"
+              />
+            </div>
+            <div ref={listRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-1">
+              <ModelList
+                visibleModels={visibleModels}
+                query={query}
+                favoritesOnly={scope === "favorites"}
+                model={model}
+                favoriteModelKeys={favoriteModelKeys}
+                providerNames={providerNames}
+                onSelect={(next) => void setModel(next)}
+              />
+            </div>
           </div>
         </div>
 
@@ -273,39 +279,24 @@ function ModelList({
   providerNames: Map<string, string>;
   onSelect: (model: ModelInfo) => void;
 }) {
-  const groups = new Map<string | null, ModelInfo[]>();
-  const favorites = visibleModels.filter((candidate) => favoriteModelKeys.has(modelKey(candidate)));
-  if (favorites.length) groups.set(null, favorites);
-  for (const candidate of visibleModels) {
-    if (favoriteModelKeys.has(modelKey(candidate))) continue;
-    const group = groups.get(candidate.provider);
-    if (group) group.push(candidate);
-    else groups.set(candidate.provider, [candidate]);
-  }
-
-  if (visibleModels.length > 0) {
+  // Keep one keyed row per model so starring it preserves keyboard focus.
+  const ordered = [
+    ...visibleModels.filter((candidate) => favoriteModelKeys.has(modelKey(candidate))),
+    ...visibleModels.filter((candidate) => !favoriteModelKeys.has(modelKey(candidate))),
+  ];
+  if (ordered.length > 0) {
     return (
-      <div className="space-y-1">
-        {[...groups].map(([provider, candidates]) => (
-          <section key={provider === null ? "favorites" : `provider:${provider}`} aria-label={provider === null ? "Favorites" : providerNames.get(provider) ?? provider}>
-            <div className="flex items-center gap-2 px-2.5 pb-1 pt-1.5 text-xs font-medium text-muted-foreground">
-              {provider === null ? <StarIcon className="size-4" /> : <ModelProviderIcon provider={provider} />}
-              <span className="truncate">{provider === null ? "Favorites" : providerNames.get(provider) ?? provider}</span>
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {candidates.map((candidate) => (
-                <ModelRow
-                  key={modelKey(candidate)}
-                  model={candidate}
-                  favorite={favoriteModelKeys.has(modelKey(candidate))}
-                  selected={isSameModel(candidate, model)}
-                  providerName={providerNames.get(candidate.provider) ?? candidate.provider}
-                  query={query}
-                  onSelect={onSelect}
-                />
-              ))}
-            </div>
-          </section>
+      <div className="flex flex-col gap-0.5">
+        {ordered.map((candidate) => (
+          <ModelRow
+            key={modelKey(candidate)}
+            model={candidate}
+            favorite={favoriteModelKeys.has(modelKey(candidate))}
+            selected={isSameModel(candidate, model)}
+            providerName={providerNames.get(candidate.provider) ?? candidate.provider}
+            query={query}
+            onSelect={onSelect}
+          />
         ))}
       </div>
     );
@@ -340,7 +331,7 @@ function ModelRow({
   return (
     <div
       data-selected-model={selected || undefined}
-      className={cn("group/model flex min-h-9 items-stretch rounded-md hover:bg-muted/70", selected && "bg-accent/80")}
+      className={cn("group/model flex min-h-8 items-stretch rounded-md hover:bg-muted/70", selected && "bg-accent/80")}
     >
       <button
         type="button"
@@ -353,12 +344,11 @@ function ModelRow({
           event.preventDefault();
           toggleFavoriteModel(model);
         }}
-        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-l-md px-2.5 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-l-md px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
       >
-        {favorite ? <ModelProviderIcon provider={model.provider} /> : null}
-        <span className={cn("min-w-0 flex-1 truncate text-sm", selected && "font-medium")}>{highlightMatch(display, query)}</span>
+        <ModelProviderIcon provider={model.provider} />
+        <span className={cn("min-w-0 flex-1 truncate text-[13px]", selected && "font-medium")}>{highlightMatch(display, query)}</span>
         {selected ? <CheckIcon className="size-3.5 shrink-0" /> : null}
-        {context ? <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground" aria-label={`${context} context`}>{context}</span> : null}
       </button>
       <button
         type="button"
@@ -367,7 +357,7 @@ function ModelRow({
         title={`${favorite ? "Remove from favorites" : "Add to favorites"} (F)`}
         onClick={() => toggleFavoriteModel(model)}
         className={cn(
-          "flex w-8 shrink-0 items-center justify-center rounded-r-md text-muted-foreground/40 outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset group-hover/model:text-muted-foreground",
+          "flex w-8 shrink-0 items-center justify-center rounded-r-md text-muted-foreground/60 opacity-0 outline-none hover-reveal focus-visible:opacity-100 group-hover/model:opacity-100 group-focus-within/model:opacity-100 hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset group-hover/model:text-muted-foreground",
           favorite && "text-favorite opacity-100 group-hover/model:text-favorite",
         )}
       >

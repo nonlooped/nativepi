@@ -388,7 +388,7 @@ domTest("favorites lead without duplicate rows and search supports provider and 
     const choices = () => [...document.querySelectorAll<HTMLButtonElement>("[data-model-choice]")];
     expect(choices()).toHaveLength(2);
     expect(choices()[0]!.textContent).toContain("Beta model");
-    expect(choices()[1]!.querySelector('[aria-label="200K context"]')).not.toBeNull();
+    expect(choices()[1]!.title).toContain("200K context");
     const search = document.querySelector<HTMLInputElement>('[aria-label="Search models"]')!;
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, "one alpha");
@@ -431,5 +431,26 @@ domTest("arrow keys move between search and model rows; activation selects throu
     expect(writes).toHaveLength(1);
     expect(store.getState().model?.id).toBe("newer");
     expect(document.querySelector('[aria-label="Reasoning effort"]')).not.toBeNull();
+  });
+});
+
+domTest("starring a keyboard-focused model keeps its row and focus when it moves to favorites", async () => {
+  stubInvoke(async channel => pickerReply(channel));
+  await withPicker(async store => {
+    await act(async () => { store.setState({ favoriteModels: [] }); });
+    const row = [...document.querySelectorAll<HTMLButtonElement>("[data-model-choice]")]
+      .find(node => node.textContent?.includes("Chosen"))!;
+    row.focus();
+    await act(async () => {
+      row.dispatchEvent(new KeyboardEvent("keydown", { key: "f", bubbles: true, cancelable: true }));
+    });
+    expect(store.getState().favoriteModels).toContain("p/chosen");
+    expect(document.querySelector("[data-model-choice]")).toBe(row);
+    expect(document.activeElement).toBe(row);
+    await act(async () => {
+      row.dispatchEvent(new KeyboardEvent("keydown", { key: "f", bubbles: true, cancelable: true }));
+    });
+    expect(store.getState().favoriteModels).not.toContain("p/chosen");
+    expect(document.activeElement).toBe(row);
   });
 });

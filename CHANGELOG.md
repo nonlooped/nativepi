@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Load providers for new chats after opening a project without trust, and restore service tiers saved by the retired extension.
 
 ### Changed
-- Redesign the model picker with compact icon filters, favorites first, model context sizes, and arrow-key navigation from search. Limit its size on small viewports and give reasoning and speed matching field titles.
+- Redesign the model picker with a narrow provider icon rail, favorites first, compact model rows, context details on hover, and arrow-key navigation from search. Limit its size on small viewports, reveal the selected model on opening, and give reasoning and speed matching field titles.
 - Add a theme-colored dithered workspace with layered translucent sidebars and terminals, plus cursor ripples that briefly disturb the background’s fixed dot grid. The scene is strongest on new chats and subdued behind conversations. Settings → Appearance offers three bundled high-resolution landscapes, a custom image, and a plain option; reduced motion keeps the background static.
 - Match the Files pane reference with a plain heading, search/collapse/refresh/close toolbar, lighter rows, and colored folder icons from the existing file-icon theme; align heading height, spacing, and controls with the workspace chrome. Search lists matching project paths without expanding the directory tree.
 - Consolidate the files pane into one larger Files heading with a tree icon and inline refresh/hide controls; remove repeated project labels and strengthen file rows with more spacing, weight, and clearer icons.
