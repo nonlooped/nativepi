@@ -385,7 +385,7 @@ export default function App() {
 
 function SurfaceLoading({ label }: { label: string }) {
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center bg-background text-sm text-body-muted-foreground" role="status">
+    <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-body-muted-foreground" role="status">
       {label}
     </div>
   );
@@ -603,7 +603,7 @@ function ChatTitle({ sessionPath, title }: { sessionPath: string; title: string 
         onClick={() => setEditing(true)}
         className={cn(
           NO_DRAG_REGION,
-          "min-w-0 max-w-80 truncate rounded-md px-1 py-0.5 text-left outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
+          "min-w-0 max-w-lg truncate rounded-md px-1 py-0.5 text-left outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
         )}
       >
         {title}
@@ -630,7 +630,7 @@ function ChatTitle({ sessionPath, title }: { sessionPath: string; title: string 
           setEditing(false);
         }
       }}
-      className={cn(NO_DRAG_REGION, "h-7 max-w-80 min-w-32 px-2 text-sm")}
+      className={cn(NO_DRAG_REGION, "h-7 max-w-lg min-w-32 px-2 text-sm")}
     />
   );
 }
