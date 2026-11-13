@@ -85,9 +85,9 @@ export default function TerminalDock({
   const closeAll = () => controller.current?.close();
 
   return (
-    <section aria-label="Integrated terminal" className="terminal-dock-enter relative flex h-full min-h-0 flex-col bg-background">
+    <section aria-label="Integrated terminal" className="terminal-dock-enter relative flex h-full min-h-0 flex-col bg-sidebar">
       <ContextMenu>
-        <ContextMenuTrigger render={<div role="toolbar" aria-label="Terminal controls" className="absolute right-2 top-1.5 z-20 flex items-center gap-0.5 rounded-md border border-border/40 bg-background/95 p-0.5 text-muted-foreground" />}>
+        <ContextMenuTrigger render={<div role="toolbar" aria-label="Terminal controls" className="absolute right-2 top-1.5 z-20 flex items-center gap-0.5 rounded-md border border-border bg-sidebar/95 p-0.5 text-muted-foreground" />}>
           <Button variant="ghost" size="icon-xs" disabled={closing} title="Split terminal side by side" aria-label="Split terminal side by side" onClick={() => {
             setOrientation("horizontal");
             void addSplit(preferredShellId || undefined);
@@ -409,6 +409,8 @@ function TerminalSurface({
       fontSize,
       lineHeight: 1.2,
       scrollback,
+      // Shells often emit light ANSI colors even on light backgrounds.
+      minimumContrastRatio: 4.5,
       theme: currentTerminalColors(),
     });
     terminalRef.current = terminal;

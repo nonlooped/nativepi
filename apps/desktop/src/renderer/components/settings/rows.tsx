@@ -57,11 +57,11 @@ function Row({
   const text = (
     <FieldContent className="min-w-0 max-w-[66ch] gap-1">
       {htmlFor ? (
-        <FieldLabel htmlFor={htmlFor} className="w-fit text-sm font-medium">
+        <FieldLabel htmlFor={htmlFor} className="w-fit text-sm font-semibold">
           {label}
         </FieldLabel>
       ) : (
-        <FieldTitle className="text-sm font-medium">{label}</FieldTitle>
+        <FieldTitle className="text-sm font-semibold">{label}</FieldTitle>
       )}
       {description ? <FieldDescription className="max-w-[64ch] text-sm">{description}</FieldDescription> : null}
     </FieldContent>
@@ -210,7 +210,7 @@ export function Segmented<T extends string>({
           value={option.value}
           disabled={disabled || option.disabled}
           title={option.title}
-          className="h-8 flex-1 px-3 text-sm text-muted-foreground data-pressed:bg-accent data-pressed:text-accent-foreground @min-[36rem]/settings-content:flex-none"
+          className="h-8 flex-1 px-3 text-sm text-muted-foreground data-pressed:bg-accent data-pressed:text-accent-foreground data-pressed:font-semibold data-pressed:shadow-[inset_0_0_0_1px_var(--input)] @min-[36rem]/settings-content:flex-none"
         >
           {option.label}
         </ToggleGroupItem>

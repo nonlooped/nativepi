@@ -96,7 +96,7 @@ function TerminalPreview({
   scrollback: number;
 }) {
   return (
-    <div aria-hidden="true" className="overflow-hidden rounded-xl border bg-background/60">
+    <div aria-hidden="true" className="overflow-hidden rounded-xl border bg-sidebar">
       <div className="flex items-center justify-between gap-3 border-b px-3 py-1.5">
         <span className="text-xs text-muted-foreground">Preview</span>
         <span className="text-xs tabular-nums text-muted-foreground">

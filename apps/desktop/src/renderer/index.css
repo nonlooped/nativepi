@@ -199,111 +199,111 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
 :root {
   color-scheme: light;
   /* Neutral surface and text ladders; keep in sync with NATIVE_THEME. */
-  --background: #f8f8f8;
-  --foreground: #242424;
-  --card: #ffffff;
-  --card-foreground: #242424;
-  --popover: #ffffff;
-  --popover-foreground: #242424;
-  --primary: #262626;
-  --primary-foreground: #fafafa;
-  --secondary: #eeeeee;
-  --secondary-foreground: #242424;
-  --muted: #eeeeee;
-  --muted-foreground: #5c5c5c;
-  --body-muted-foreground: color-mix(in oklch, #5c5c5c, #242424 30%);
-  --accent: #e5e5e5;
-  --accent-foreground: #242424;
-  --destructive: #242424;
-  --bright: #242424;
-  --favorite: #505050;
-  --success: #505050;
-  --warning: #444444;
-  --info: #505050;
-  --active: #5c5c5c;
-  --border: #d2d2d2;
-  --input: color-mix(in oklch, #d2d2d2, #242424 8%);
-  --ring: #5c5c5c;
+  --background: #dddddd;
+  --foreground: #1c1c1c;
+  --card: #e9e9e9;
+  --card-foreground: #1c1c1c;
+  --popover: #e9e9e9;
+  --popover-foreground: #1c1c1c;
+  --primary: #333333;
+  --primary-foreground: #eeeeee;
+  --secondary: #d0d0d0;
+  --secondary-foreground: #1c1c1c;
+  --muted: #d0d0d0;
+  --muted-foreground: #444444;
+  --body-muted-foreground: #444444;
+  --accent: #cecece;
+  --accent-foreground: #1c1c1c;
+  --destructive: #292929;
+  --bright: #1c1c1c;
+  --favorite: #3e3e3e;
+  --success: #3e3e3e;
+  --warning: #333333;
+  --info: #3e3e3e;
+  --active: #3e3e3e;
+  --border: #ababab;
+  --input: color-mix(in oklch, #ababab, #1c1c1c 8%);
+  --ring: #3e3e3e;
   --overlay: oklch(0 0 0 / 58%);
   --qr-background: oklch(1 0 0);
-  --chart-1: #242424;
-  --chart-2: #4e4e4e;
-  --chart-3: #797979;
-  --chart-4: #a3a3a3;
-  --chart-5: #cecece;
-  --contrast-foreground: #141414;
-  --contrast-muted-foreground: #333333;
-  --contrast-body-muted-foreground: #141414;
-  --contrast-border: #545454;
-  --contrast-input: #545454;
-  --contrast-ring: #191919;
-  --contrast-success: #343434;
-  --contrast-warning: #2c2c2c;
-  --contrast-info: #343434;
-  --contrast-destructive: #171717;
-  --contrast-favorite: #343434;
+  --chart-1: #1c1c1c;
+  --chart-2: #333333;
+  --chart-3: #4a4a4a;
+  --chart-4: #616161;
+  --chart-5: #717171;
+  --contrast-foreground: #0f0f0f;
+  --contrast-muted-foreground: #252525;
+  --contrast-body-muted-foreground: #0f0f0f;
+  --contrast-border: #444444;
+  --contrast-input: #444444;
+  --contrast-ring: #282828;
+  --contrast-success: #282828;
+  --contrast-warning: #212121;
+  --contrast-info: #282828;
+  --contrast-destructive: #1b1b1b;
+  --contrast-favorite: #282828;
   --radius: 0.625rem;
-  --sidebar: #f0f0f0;
-  --sidebar-foreground: #242424;
-  --sidebar-primary: #262626;
-  --sidebar-primary-foreground: #fafafa;
-  --sidebar-accent: #e5e5e5;
-  --sidebar-accent-foreground: #242424;
-  --sidebar-border: #d2d2d2;
-  --sidebar-ring: #5c5c5c;
+  --sidebar: #d2d2d2;
+  --sidebar-foreground: #1c1c1c;
+  --sidebar-primary: #333333;
+  --sidebar-primary-foreground: #eeeeee;
+  --sidebar-accent: #cecece;
+  --sidebar-accent-foreground: #1c1c1c;
+  --sidebar-border: #ababab;
+  --sidebar-ring: #3e3e3e;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #141414;
-  --foreground: #e8e8e8;
-  --card: #1c1c1c;
-  --card-foreground: #e8e8e8;
-  --popover: color-mix(in oklch, #1c1c1c, #e8e8e8 3%);
-  --popover-foreground: #e8e8e8;
-  --primary: #e5e5e5;
-  --primary-foreground: #1c1c1c;
-  --secondary: #242424;
-  --secondary-foreground: #e8e8e8;
-  --muted: #242424;
-  --muted-foreground: #c0c0c0;
-  --body-muted-foreground: color-mix(in oklch, #c0c0c0, #e8e8e8 30%);
-  --accent: #303030;
-  --accent-foreground: #e8e8e8;
+  --background: #181818;
+  --foreground: #e6e6e6;
+  --card: #262626;
+  --card-foreground: #e6e6e6;
+  --popover: color-mix(in oklch, #262626, #e6e6e6 3%);
+  --popover-foreground: #e6e6e6;
+  --primary: #d8d8d8;
+  --primary-foreground: #202020;
+  --secondary: #303030;
+  --secondary-foreground: #e6e6e6;
+  --muted: #303030;
+  --muted-foreground: #bfbfbf;
+  --body-muted-foreground: #bfbfbf;
+  --accent: #383838;
+  --accent-foreground: #e6e6e6;
   --destructive: #eeeeee;
-  --bright: #e8e8e8;
-  --favorite: #d0d0d0;
-  --success: #bdbdbd;
-  --warning: #d0d0d0;
-  --info: #bdbdbd;
-  --active: #c0c0c0;
-  --border: #3a3a3a;
-  --input: color-mix(in oklch, #3a3a3a, #e8e8e8 8%);
-  --ring: #c0c0c0;
-  --chart-1: #e8e8e8;
-  --chart-2: #bebebe;
-  --chart-3: #939393;
-  --chart-4: #696969;
-  --chart-5: #3e3e3e;
-  --contrast-foreground: #f2f2f2;
+  --bright: #e6e6e6;
+  --favorite: #dedede;
+  --success: #cccccc;
+  --warning: #dedede;
+  --info: #cccccc;
+  --active: #cccccc;
+  --border: #505050;
+  --input: color-mix(in oklch, #505050, #e6e6e6 8%);
+  --ring: #cccccc;
+  --chart-1: #e6e6e6;
+  --chart-2: #cdcdcd;
+  --chart-3: #b5b5b5;
+  --chart-4: #9c9c9c;
+  --chart-5: #8b8b8b;
+  --contrast-foreground: #f1f1f1;
   --contrast-muted-foreground: #dcdcdc;
-  --contrast-body-muted-foreground: #f2f2f2;
-  --contrast-border: #b0b0b0;
-  --contrast-input: #b0b0b0;
-  --contrast-ring: #eeeeee;
-  --contrast-success: #d4d4d4;
-  --contrast-warning: #e0e0e0;
-  --contrast-info: #d4d4d4;
+  --contrast-body-muted-foreground: #f1f1f1;
+  --contrast-border: #b9b9b9;
+  --contrast-input: #b9b9b9;
+  --contrast-ring: #dedede;
+  --contrast-success: #dedede;
+  --contrast-warning: #eaeaea;
+  --contrast-info: #dedede;
   --contrast-destructive: #f4f4f4;
-  --contrast-favorite: #e0e0e0;
-  --sidebar: #181818;
-  --sidebar-foreground: #e8e8e8;
-  --sidebar-primary: #e5e5e5;
-  --sidebar-primary-foreground: #1c1c1c;
-  --sidebar-accent: #303030;
-  --sidebar-accent-foreground: #e8e8e8;
-  --sidebar-border: #3a3a3a;
-  --sidebar-ring: #c0c0c0;
+  --contrast-favorite: #eaeaea;
+  --sidebar: #202020;
+  --sidebar-foreground: #e6e6e6;
+  --sidebar-primary: #d8d8d8;
+  --sidebar-primary-foreground: #202020;
+  --sidebar-accent: #383838;
+  --sidebar-accent-foreground: #e6e6e6;
+  --sidebar-border: #505050;
+  --sidebar-ring: #cccccc;
 }
 
 @media (prefers-contrast: more) {
@@ -557,7 +557,7 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   border-color: color-mix(in oklch, var(--ring) 55%, var(--border));
   box-shadow:
     0 14px 36px color-mix(in oklch, var(--background) 40%, oklch(0 0 0 / 24%)),
-    0 0 0 3px color-mix(in oklch, var(--ring) 14%, transparent),
+    0 0 0 3px color-mix(in oklch, var(--ring) 28%, transparent),
     inset 0 1px color-mix(in oklch, var(--foreground) 6%, transparent);
 }
 
@@ -566,7 +566,7 @@ html:not(.dark) .composer-surface {
   box-shadow:
     0 8px 24px oklch(0.22 0.007 285 / 8%),
     0 1px 3px oklch(0.22 0.007 285 / 10%),
-    inset 0 1px 0 oklch(1 0 0 / 85%),
+    inset 0 1px 0 color-mix(in oklch, var(--card), var(--foreground) 5%),
     inset 0 0 0 1px oklch(0.22 0.007 285 / 6%);
 }
 
@@ -574,8 +574,8 @@ html:not(.dark) .composer-surface:focus-within {
   box-shadow:
     0 8px 24px oklch(0.22 0.007 285 / 8%),
     0 1px 3px oklch(0.22 0.007 285 / 10%),
-    0 0 0 3px color-mix(in oklch, var(--ring) 16%, transparent),
-    inset 0 1px 0 oklch(1 0 0 / 85%);
+    0 0 0 3px color-mix(in oklch, var(--ring) 28%, transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--card), var(--foreground) 5%);
 }
 
 /* Markdown is intentionally styled here rather than by its parser. That keeps
@@ -790,8 +790,8 @@ html:not(.dark) .composer-surface:focus-within {
    and muted, on a faint band. Row dividers carry the grid, so the inner
    vertical rules are gone. */
 .markdown-table th {
-  background: color-mix(in oklch, var(--muted) 45%, transparent);
-  color: var(--muted-foreground);
+  background: var(--muted);
+  color: var(--foreground);
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.06em;

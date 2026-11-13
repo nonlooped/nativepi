@@ -86,7 +86,7 @@ export function themeCssProperties(colors: ThemeColors): Record<string, string> 
     "--secondary-foreground": colors.foreground,
     "--muted": colors.muted,
     "--muted-foreground": colors.mutedForeground,
-    "--body-muted-foreground": `color-mix(in oklch, ${colors.mutedForeground}, ${colors.foreground} 30%)`,
+    "--body-muted-foreground": colors.mutedForeground,
     "--accent": colors.accent,
     "--accent-foreground": colors.foreground,
     "--destructive": colors.destructive,
@@ -95,10 +95,10 @@ export function themeCssProperties(colors: ThemeColors): Record<string, string> 
     "--success": colors.success,
     "--warning": colors.warning,
     "--info": colors.info,
-    "--active": colors.mutedForeground,
+    "--active": colors.info,
     "--border": colors.border,
     "--input": `color-mix(in oklch, ${colors.border}, ${colors.foreground} 8%)`,
-    "--ring": colors.mutedForeground,
+    "--ring": colors.info,
     "--chart-1": charts[0],
     "--chart-2": charts[1],
     "--chart-3": charts[2],
@@ -111,7 +111,7 @@ export function themeCssProperties(colors: ThemeColors): Record<string, string> 
     "--sidebar-accent": colors.accent,
     "--sidebar-accent-foreground": colors.foreground,
     "--sidebar-border": colors.border,
-    "--sidebar-ring": colors.mutedForeground,
+    "--sidebar-ring": colors.info,
     "--contrast-foreground": contrast.foreground,
     "--contrast-muted-foreground": contrast.mutedForeground,
     "--contrast-body-muted-foreground": contrast.foreground,
@@ -162,7 +162,7 @@ export function applyTheme(root: HTMLElement, preferences: Preferences, systemDa
 
   try {
     localStorage.setItem("nativepi-theme", preferences.theme);
-    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify({ version: 4, appearance, properties }));
+    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify({ version: 5, appearance, properties }));
   } catch {}
 
   window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
@@ -178,7 +178,7 @@ export function currentTerminalColors(): {
   const styles = getComputedStyle(document.documentElement);
   const foreground = styles.getPropertyValue("--foreground").trim();
   return {
-    background: styles.getPropertyValue("--background").trim(),
+    background: styles.getPropertyValue("--sidebar").trim(),
     foreground,
     cursor: foreground,
     selectionBackground: styles.getPropertyValue("--accent").trim(),
@@ -215,11 +215,16 @@ function composite(foreground: string, background: string, alpha: number): strin
     .toString(16).padStart(2, "0")).join("")}`;
 }
 
-/** Tonal series work with every scheme without introducing unrelated accent hues. */
+/** Reuse the scheme's readable hues rather than fading later series into the ground. */
 function chartColors(colors: ThemeColors): readonly [string, string, string, string, string] {
-  return [0, 0.2, 0.4, 0.6, 0.8].map((amount) =>
-    composite(colors.foreground, colors.background, 1 - amount),
-  ) as [string, string, string, string, string];
+  const hues = [colors.info, colors.success, colors.favorite, colors.destructive, colors.primary] as const;
+  const monochrome = hues.every((color) => {
+    const [red, green, blue] = hexChannels(color);
+    return red === green && green === blue;
+  });
+  return monochrome
+    ? [1, 0.88, 0.76, 0.64, 0.56].map((alpha) => composite(colors.foreground, colors.background, alpha)) as [string, string, string, string, string]
+    : hues;
 }
 
 function increasedContrastColors(colors: ThemeColors) {
@@ -228,7 +233,7 @@ function increasedContrastColors(colors: ThemeColors) {
     foreground: mixHex(colors.foreground, target, 0.45),
     mutedForeground: mixHex(colors.mutedForeground, target, 0.45),
     border: mixHex(colors.border, target, 0.6),
-    ring: mixHex(colors.primary, target, 0.35),
+    ring: mixHex(colors.info, target, 0.35),
     success: mixHex(colors.success, target, 0.35),
     warning: mixHex(colors.warning, target, 0.35),
     info: mixHex(colors.info, target, 0.35),
@@ -270,9 +275,15 @@ export function themeContrastIssues(colors: ThemeColors): string[] {
     [colors.favorite, colors.background, "Favorite indicators on the workspace", 3, 30],
     [colors.favorite, colors.surface, "Favorite indicators on raised surfaces", 3, 30],
     [colors.favorite, colors.sidebar, "Favorite indicators in the sidebar", 3, 30],
-    [colors.primary, colors.background, "Focus indicators on the workspace", 3, 30],
-    [colors.primary, colors.surface, "Focus indicators on raised surfaces", 3, 30],
-    [colors.primary, colors.sidebar, "Focus indicators in the sidebar", 3, 30],
+    [colors.info, colors.background, "Focus indicators on the workspace", 3, 30],
+    [colors.info, colors.surface, "Focus indicators on raised surfaces", 3, 30],
+    [colors.info, colors.sidebar, "Focus indicators in the sidebar", 3, 30],
+    [colors.info, colors.muted, "Focus indicators on muted surfaces", 3, 30],
+    [colors.info, colors.accent, "Focus indicators on selected surfaces", 3, 30],
+    ...chartColors(colors).flatMap((foreground, index) => [
+      [foreground, colors.background, `Chart series ${index + 1} on the workspace`, 3, 30] as const,
+      [foreground, colors.surface, `Chart series ${index + 1} on raised surfaces`, 3, 30] as const,
+    ]),
   ];
   return pairs.flatMap(([foreground, background, label, minimumRatio, minimumLc]) => {
     const ratio = contrastRatio(foreground, background);

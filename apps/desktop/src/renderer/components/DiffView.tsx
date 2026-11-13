@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../lib/store.ts";
 import { diffHighlighterReady, primeDiffHighlighter } from "../lib/diffHighlighter.ts";
 import { Button } from "@/components/ui/button.tsx";
+import { NATIVE_THEME_ID } from "../../shared/themes.ts";
 import { cn } from "@/lib/utils.ts";
 
 /** Read-only diff surface; the host owns Git semantics. */
@@ -13,6 +14,7 @@ export default function DiffView({ patch, className, embedded }: { patch: string
   const [ready, setReady] = useState(diffHighlighterReady);
   const [failed, setFailed] = useState(false);
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
+  const monochrome = useAppStore(s => s.preferences.themeId === NATIVE_THEME_ID);
   const preferred = useAppStore(s => s.preferences.diffStyle);
   const setPreference = useAppStore(s => s.setPreference);
 
@@ -40,7 +42,7 @@ export default function DiffView({ patch, className, embedded }: { patch: string
     themeType: dark ? "dark" as const : "light" as const,
     disableFileHeader: true,
     overflow: wrap ? "wrap" as const : "scroll" as const,
-    unsafeCSS: codeCSS,
+    unsafeCSS: codeCSS + (monochrome ? "\n[data-line] span { color: inherit !important; }" : ""),
   };
   const empty = !patch.trim();
   return <div ref={container} className={cn("flex min-h-0 min-w-0 flex-col text-xs", embedded ? "max-h-96" : "h-full", className)}>
@@ -71,16 +73,14 @@ const codeCSS = `
   --diffs-fg-number: var(--muted-foreground);
   --diffs-bg-separator-override: var(--muted);
   --diffs-fg-number-override: var(--muted-foreground);
-  --diffs-bg-addition-override: color-mix(in oklch, var(--foreground) 6%, var(--background));
-  --diffs-bg-deletion-override: color-mix(in oklch, var(--foreground) 12%, var(--background));
-  --diffs-bg-addition-number-override: var(--muted);
-  --diffs-bg-deletion-number-override: var(--accent);
-  --diffs-bg-addition-emphasis-override: color-mix(in oklch, var(--foreground) 16%, var(--background));
-  --diffs-bg-deletion-emphasis-override: color-mix(in oklch, var(--foreground) 24%, var(--background));
+  --diffs-bg-addition-override: color-mix(in oklch, var(--success) 9%, var(--background));
+  --diffs-bg-deletion-override: color-mix(in oklch, var(--destructive) 14%, var(--background));
+  --diffs-bg-addition-number-override: color-mix(in oklch, var(--success) 15%, var(--background));
+  --diffs-bg-deletion-number-override: color-mix(in oklch, var(--destructive) 20%, var(--background));
+  --diffs-bg-addition-emphasis-override: color-mix(in oklch, var(--success) 22%, var(--background));
+  --diffs-bg-deletion-emphasis-override: color-mix(in oklch, var(--destructive) 30%, var(--background));
   --diffs-modified-color-override: var(--muted-foreground);
   --diffs-addition-color-override: var(--success);
   --diffs-deletion-color-override: var(--destructive);
 }
-/* Syntax themes ship their own hues inside the shadow root. */
-[data-line] span { color: inherit !important; }
 `;

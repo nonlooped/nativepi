@@ -18,7 +18,8 @@ import { cn } from "@/lib/utils.ts";
 import SubscriptionUsageSettings from "./SubscriptionUsageSettings.tsx";
 
 const ALL_PROJECTS = "all-projects";
-const PROVIDER_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)"];
+const PROVIDER_DASHES = [undefined, "8 3", "2 3", "8 3 2 3", "1 3"] as const;
+const PROVIDER_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 const dashboardReader = createUsageDashboardReader();
 
 type Range = "7" | "30" | "90" | "all";
@@ -234,7 +235,9 @@ function UsageChart({ daily, providers }: { daily: UsageDashboard["daily"]; prov
           <div className="flex flex-wrap gap-x-4 gap-y-1.5">
             {providers.map((provider, index) => (
               <span key={provider.provider} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="size-2 rounded-full" style={{ backgroundColor: providerColor(index) }} aria-hidden />
+                <svg className="h-2 w-5" aria-hidden="true" viewBox="0 0 20 8">
+                  <line x1="0" y1="4" x2="20" y2="4" stroke={providerColor(index)} strokeWidth="2" strokeDasharray={PROVIDER_DASHES[index % PROVIDER_DASHES.length]} />
+                </svg>
                 {prettyProvider(provider.provider)}
               </span>
             ))}
@@ -262,14 +265,14 @@ function UsageChart({ daily, providers }: { daily: UsageDashboard["daily"]; prov
         <ChartContainer config={config} className="mt-5 h-64 w-full aspect-auto" initialDimension={{ width: 640, height: 256 }}>
           <AreaChart accessibilityLayer data={data} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
             <CartesianGrid vertical={false} className="stroke-border/60" />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={10} minTickGap={28} tick={{ fontSize: "var(--text-xs)" }} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={10} minTickGap={28} tick={{ fontSize: "var(--text-xs)", fill: "var(--muted-foreground)" }} />
             <YAxis
               width={48}
               tickLine={false}
               axisLine={false}
               domain={[0, max === 0 ? 1 : max * 1.08]}
               tickFormatter={(value: number) => metric === "cost" ? compactCost(value) : formatTokens(value)}
-              tick={{ fontSize: "var(--text-xs)" }}
+              tick={{ fontSize: "var(--text-xs)", fill: "var(--muted-foreground)" }}
             />
             <ChartTooltip isAnimationActive={!reducedMotion} animationDuration={150} cursor={{ stroke: "var(--border)" }} content={<UsageTooltip metric={metric} />} />
             {providers.map((provider, index) => (
@@ -282,6 +285,7 @@ function UsageChart({ daily, providers }: { daily: UsageDashboard["daily"]; prov
                 fillOpacity={0.08}
                 stroke={providerColor(index)}
                 strokeWidth={2}
+                strokeDasharray={PROVIDER_DASHES[index % PROVIDER_DASHES.length]}
                 dot={false}
                 activeDot={{ r: 3, strokeWidth: 2, fill: "var(--background)", stroke: providerColor(index) }}
                 isAnimationActive={!reducedMotion}

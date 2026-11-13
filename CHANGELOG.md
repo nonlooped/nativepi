@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Load providers for new chats after opening a project without trust, and restore service tiers saved by the retired extension.
 
 ### Changed
+- Soften the monochrome light theme with subdued gray surfaces, clarify selection, focus, settings, tool activity, and terminal hierarchy, and improve chart labels and series distinction. Preserve grayscale in NativePi while restoring syntax colors in other schemes’ diffs.
 - Limit service tiers to Standard and Priority, defaulting new chats and previous Automatic/Flex choices to Standard.
 - Place provider-aware service-tier controls beside reasoning in the composer model picker, with saved session choices and speed/cost descriptions; remove the visible reasoning label and shortcut hint.
 - Remove reserved macOS traffic-light spacing in fullscreen and restore it when leaving fullscreen.

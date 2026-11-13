@@ -47,8 +47,8 @@ export default function Toaster() {
             "h-7 shrink-0 rounded-md bg-secondary px-2.5 font-semibold text-secondary-foreground outline-none transition-colors hover:bg-secondary/80 focus-visible:ring-2 focus-visible:ring-ring",
           closeButton:
             "pointer-events-auto flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring",
-          error: "border-destructive/40",
-          warning: "border-warning/40",
+          error: "border-destructive/60 [&_[data-icon]]:text-destructive",
+          warning: "border-warning/60 [&_[data-icon]]:text-warning",
         },
       }}
     />

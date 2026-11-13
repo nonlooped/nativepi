@@ -451,7 +451,7 @@ function FocusChatRow({
             aria-current={chat.selected ? "page" : undefined}
             className={cn(
               "relative flex h-auto min-h-16 w-full flex-col items-stretch justify-center gap-1 overflow-hidden rounded-lg border border-transparent px-3 py-2.5 text-left text-sidebar-foreground outline-none transition-[background-color,border-color,color,scale] hover:bg-sidebar-accent/40 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset active:scale-[0.985]",
-              chat.selected && "border-border/60 bg-sidebar-accent text-sidebar-accent-foreground",
+              chat.selected && "border-input bg-sidebar-accent text-sidebar-accent-foreground",
             )}
           >
             <span className="flex min-w-0 items-center gap-2">
@@ -517,7 +517,7 @@ function FinishedChatRow({
             aria-current={chat.selected ? "page" : undefined}
             className={cn(
               "flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-normal text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset active:scale-100",
-              chat.selected && "bg-sidebar-accent text-sidebar-accent-foreground",
+              chat.selected && "bg-sidebar-accent font-medium text-sidebar-accent-foreground ring-1 ring-inset ring-input",
             )}
           >
             <ProjectIcon name={chat.project.name} src={chat.presentation?.icon} />

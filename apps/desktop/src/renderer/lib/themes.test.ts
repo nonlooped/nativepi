@@ -21,7 +21,7 @@ test("contrast uses the WCAG ratio", () => {
 });
 
 test("an unreadable foreground is named before a theme can be saved", () => {
-  const colors = { ...NATIVE_THEME.colors.light, foreground: "#f9f6f2" };
+  const colors = { ...NATIVE_THEME.colors.light, foreground: NATIVE_THEME.colors.light.background };
   expect(themeContrastIssues(colors)).toContain(
     "Text on the workspace is 1.0:1 and APCA 0; use colors that reach 4.5:1 and APCA 75.",
   );
@@ -42,7 +42,7 @@ test("increased contrast strengthens every generated role in both appearances", 
         ["foreground", "--contrast-foreground"],
         ["mutedForeground", "--contrast-muted-foreground"],
         ["border", "--contrast-border"],
-        ["primary", "--contrast-ring"],
+        ["info", "--contrast-ring"],
         ["success", "--contrast-success"],
         ["warning", "--contrast-warning"],
         ["info", "--contrast-info"],
@@ -91,6 +91,22 @@ test("NativePi stays monochrome across semantic and chart roles", () => {
       expect(color.slice(3, 5)).toBe(color.slice(5, 7));
     }
   }
+});
+
+test("NativePi light surfaces stay below near-white while preserving readable text", () => {
+  const colors = NATIVE_THEME.colors.light;
+  // Keep large light surfaces subdued, even if a later palette edit passes text contrast.
+  for (const color of [colors.background, colors.surface, colors.sidebar, colors.muted, colors.accent]) {
+    expect(contrastRatio(color, "#000000")).toBeLessThan(18);
+  }
+  expect(contrastRatio(colors.background, "#000000")).toBeLessThan(16);
+  expect(themeContrastIssues(colors)).toEqual([]);
+});
+
+test("focus validation checks the rendered ring on selected surfaces", () => {
+  const colors = { ...NATIVE_THEME.colors.light, info: NATIVE_THEME.colors.light.accent };
+  expect(themeCssProperties(colors)["--ring"]).toBe(colors.info);
+  expect(themeContrastIssues(colors).some((issue) => issue.startsWith("Focus indicators on selected surfaces is 1.0:1"))).toBeTrue();
 });
 
 test("startup CSS matches the resolved NativePi palette before preferences load", async () => {

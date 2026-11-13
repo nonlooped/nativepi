@@ -748,7 +748,7 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
           Running
         </span>
       ) : failed ? (
-        <span className="shrink-0 text-muted-foreground">Failed</span>
+        <span className="shrink-0 font-medium text-destructive">Failed</span>
       ) : (
         <span className="shrink-0 text-success" aria-label="Completed" title="Completed">
           <CheckIcon />
@@ -764,7 +764,7 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
     <Collapsible.Root
       open={open}
       onOpenChange={setOpen}
-      className="overflow-hidden rounded-lg border border-border/60 bg-card/30 transition-[background-color,border-color] data-[panel-open]:bg-card/50"
+      className="overflow-hidden rounded-lg border border-border bg-card/40 transition-[background-color,border-color] data-[panel-open]:bg-card/70"
     >
       <Collapsible.Trigger
         className="group flex min-h-10 w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-xs outline-none transition-colors hover:bg-muted/35 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
@@ -774,7 +774,7 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
       <Collapsible.Panel className="disclosure-panel">{panel}</Collapsible.Panel>
     </Collapsible.Root>
   ) : (
-    <div className="rounded-lg border border-border/60 bg-card/30">
+    <div className="rounded-lg border border-border bg-card/50">
       <div className="flex min-h-10 items-center gap-2.5 px-2.5 py-1.5 text-xs">{header}</div>
     </div>
   );
