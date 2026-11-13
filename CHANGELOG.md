@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trim the README to a short pitch, install and development quick start, and links to the guides; move retired-package upgrade notes to `docs/upgrade.md`. Workspace screenshots remain the isolated-demo captures.
 
 ### Fixed
+- Keep the dithered background visible while a conversation loads, instead of covering it with a solid surface.
+- Remove the empty gap above Pi-backed settings panels such as Behavior, label the usage chart's cost axis with round, distinguishable amounts, and explain an empty Focus list in the sidebar.
+- Soften whole-line diff emphasis, give long chat titles more room in the header, fade the dithered plate in once drawn, and restore solid panels when the system asks for reduced transparency; ripple frames now redraw only the disturbed region.
 - Restore semantic status, syntax, diff, chart, favorite, file, project, and provider colors while keeping NativePi surfaces, controls, and focus accents monochrome.
 - Restore the quit-dialog save-order regression test after adding the workspace initialization guard, and match the host modifier key in shortcut tests.
 - Prevent development reloads from saving an uninitialized workspace over the project list and chat organization; retire old store listeners and wait for pending saves before reloading state. Report unreadable state instead of silently resetting it.
