@@ -2,12 +2,15 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { stubInvoke } from "../lib/store/testBridge.ts";
+import { THEME_CHANGE_EVENT } from "../lib/themes.ts";
+
+const terminalOptions: Record<string, unknown>[] = [];
 
 mock.module("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} } }));
 mock.module("@xterm/xterm", () => ({ Terminal: class {
   options: Record<string, unknown>;
   cols = 80; rows = 24;
-  constructor(options: Record<string, unknown>) { this.options = options; }
+  constructor(options: Record<string, unknown>) { this.options = options; terminalOptions.push(options); }
   attachCustomKeyEventHandler() {}
   loadAddon() {}
   open() {}
@@ -30,6 +33,8 @@ let container: HTMLDivElement | undefined;
 afterEach(async () => {
   if (root) await act(async () => { root!.unmount(); });
   container?.remove(); root = undefined;
+  terminalOptions.length = 0;
+  document.documentElement.style.removeProperty("--sidebar");
 });
 async function render() {
   container = document.createElement("div"); document.body.append(container);
@@ -42,6 +47,24 @@ async function click(label: string) {
   await act(async () => { target!.click(); });
 }
 const session = (id: string) => ({ id, projectDir: "/project", name: `Terminal ${id}`, shellId: "default", exited: false });
+
+domTest("terminal cells let the dock surface show through and keep their contrast color on theme changes", async () => {
+  stubInvoke(async channel => {
+    if (channel === "terminalEnsure") return { terminals: [session("1")] };
+    if (channel === "terminalListShells") return { shells: [] };
+    if (channel === "terminalAttach") return { output: "", sequence: 0 };
+    return { ok: true };
+  });
+  document.documentElement.style.setProperty("--sidebar", "#18252a");
+  await render();
+  expect(terminalOptions).toHaveLength(1);
+  expect(terminalOptions[0]!.allowTransparency).toBe(true);
+  expect(terminalOptions[0]!.theme).toMatchObject({ background: "#18252a00" });
+  document.documentElement.style.setProperty("--sidebar", "#ece9e4");
+  await act(() => { window.dispatchEvent(new Event(THEME_CHANGE_EVENT)); });
+  expect(terminalOptions).toHaveLength(1);
+  expect(terminalOptions[0]!.theme).toMatchObject({ background: "#ece9e400" });
+});
 
 domTest("split controls create shells in either direction without closing or restarting existing shells", async () => {
   const calls: string[] = [];

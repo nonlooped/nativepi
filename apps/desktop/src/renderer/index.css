@@ -922,14 +922,22 @@ html[data-motion="reduced"] *::after {
 
 .app-viewport:has(> .chat-landscape) .conversation-shell { background: transparent; }
 .app-viewport:has(> .chat-landscape) .sidebar-panel {
-  background: linear-gradient(to right,
-    color-mix(in oklch, var(--sidebar) 35%, transparent),
-    color-mix(in oklch, var(--sidebar) 20%, transparent) calc(100% - 2rem), transparent);
+  background: color-mix(in oklch, var(--sidebar) 82%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: inset -1px 0 color-mix(in oklch, var(--foreground) 6%, transparent),
+    12px 0 32px -24px color-mix(in oklch, var(--foreground) 28%, transparent);
 }
 .app-viewport:has(> .chat-landscape) .context-pane {
-  background: linear-gradient(to left,
-    color-mix(in oklch, var(--sidebar) 35%, transparent),
-    color-mix(in oklch, var(--sidebar) 20%, transparent) calc(100% - 2rem), transparent);
+  background: color-mix(in oklch, var(--sidebar) 82%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: inset 1px 0 color-mix(in oklch, var(--foreground) 6%, transparent),
+    -12px 0 32px -24px color-mix(in oklch, var(--foreground) 28%, transparent);
+}
+.app-viewport:has(> .chat-landscape) .terminal-dock {
+  background: color-mix(in oklch, var(--sidebar) 78%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px color-mix(in oklch, var(--foreground) 8%, transparent),
+    0 -12px 32px -24px color-mix(in oklch, var(--foreground) 28%, transparent);
 }
 
 .new-chat {
@@ -983,19 +991,6 @@ html[data-motion="reduced"] *::after {
   line-height: 1.2;
   font-weight: 500;
   letter-spacing: -0.04em;
-}
-
-.chat-dither-cursor {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 320px;
-  height: 320px;
-  opacity: 0;
-  color: var(--foreground);
-  image-rendering: pixelated;
-  mask-image: radial-gradient(circle, #000 12%, transparent 70%);
-  transition: opacity 240ms ease-out;
 }
 
 .app-viewport:has(> .chat-landscape) .composer-surface {

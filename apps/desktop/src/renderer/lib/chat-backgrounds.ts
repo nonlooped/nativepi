@@ -28,6 +28,10 @@ const BAYER = [
   42, 26, 38, 22, 41, 25, 37, 21,
 ];
 
+export function ditherThreshold(x: number, y: number): number {
+  return (BAYER[(y % 8) * 8 + x % 8]! + 0.5) / 64;
+}
+
 /** Turn a photograph into transparent ink in the theme's foreground color. */
 export function ditherPixels(pixels: Uint8ClampedArray, width: number, ink: readonly number[]): void {
   for (let offset = 0; offset < pixels.length; offset += 4) {
@@ -35,7 +39,7 @@ export function ditherPixels(pixels: Uint8ClampedArray, width: number, ink: read
     const x = pixel % width;
     const y = Math.floor(pixel / width);
     const luminance = (0.2126 * pixels[offset]! + 0.7152 * pixels[offset + 1]! + 0.0722 * pixels[offset + 2]!) / 255;
-    const threshold = (BAYER[(y % 8) * 8 + x % 8]! + 0.5) / 64;
+    const threshold = ditherThreshold(x, y);
     const alpha = pixels[offset + 3]!;
     pixels[offset] = ink[0]!;
     pixels[offset + 1] = ink[1]!;

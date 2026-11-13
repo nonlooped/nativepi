@@ -178,7 +178,9 @@ export function currentTerminalColors(): {
   const styles = getComputedStyle(document.documentElement);
   const foreground = styles.getPropertyValue("--foreground").trim();
   return {
-    background: styles.getPropertyValue("--sidebar").trim(),
+    // The dock paints its own surface. Keep the theme's RGB for xterm's text
+    // contrast calculations, but let that surface show through default cells.
+    background: `${styles.getPropertyValue("--sidebar").trim()}00`,
     foreground,
     cursor: foreground,
     selectionBackground: styles.getPropertyValue("--accent").trim(),

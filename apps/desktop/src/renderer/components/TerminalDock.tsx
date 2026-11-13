@@ -85,7 +85,7 @@ export default function TerminalDock({
   const closeAll = () => controller.current?.close();
 
   return (
-    <section aria-label="Integrated terminal" className="terminal-dock-enter relative flex h-full min-h-0 flex-col bg-sidebar">
+    <section aria-label="Integrated terminal" className="terminal-dock terminal-dock-enter relative flex h-full min-h-0 flex-col bg-sidebar">
       <ContextMenu>
         <ContextMenuTrigger render={<div role="toolbar" aria-label="Terminal controls" className="absolute right-2 top-1.5 z-20 flex items-center gap-0.5 rounded-lg bg-sidebar/95 shadow-sm p-0.5 text-muted-foreground" />}>
           <Button variant="ghost" size="icon-xs" disabled={closing} title="Split terminal side by side" aria-label="Split terminal side by side" onClick={() => {
@@ -403,6 +403,7 @@ function TerminalSurface({
     controlRef.current = "";
 
     const terminal = new Terminal({
+      allowTransparency: true,
       cursorBlink: cursorBlink && !reducedMotion,
       cursorStyle: "block",
       fontFamily: "Consolas, 'Cascadia Mono', ui-monospace, monospace",

@@ -15,7 +15,8 @@ let root: Root;
 let host: HTMLDivElement;
 let nextFrame = 0;
 const frames = new Map<number, FrameRequestCallback>();
-let cursorPaints = 0;
+let ripplePaints = 0;
+let frameTime = 0;
 
 async function mount(reduced = false) {
   document.documentElement.dataset.motion = reduced ? "reduced" : "full";
@@ -34,15 +35,14 @@ async function mount(reduced = false) {
     set src(_value: string) { queueMicrotask(() => this.onload?.()); }
   } as unknown as typeof Image;
   window.HTMLCanvasElement.prototype.getBoundingClientRect = function () {
-    const size = this.classList.contains("chat-dither-cursor") ? 320 : 800;
+    const size = 800;
     return { width: size, height: size, top: 0, left: 0, bottom: size, right: size, x: 0, y: 0, toJSON() {} };
   };
   window.HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement) {
-    const cursor = this.classList.contains("chat-dither-cursor");
     return {
       fillStyle: "#ffffff", fillRect() {}, clearRect() {}, drawImage() {},
       getImageData: (_x: number, _y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4).fill(128) }),
-      putImageData() { if (cursor) cursorPaints++; },
+      putImageData(...args: unknown[]) { if (args.length > 3) ripplePaints++; },
     };
   } as unknown as typeof window.HTMLCanvasElement.prototype.getContext;
   host = document.createElement("div");
@@ -56,7 +56,8 @@ async function mount(reduced = false) {
 function flushFrame() {
   const pending = [...frames.values()];
   frames.clear();
-  for (const callback of pending) callback(0);
+  frameTime = Math.max(frameTime + 16, performance.now() + 16);
+  for (const callback of pending) callback(frameTime);
 }
 
 function move(x: number, pointerType = "mouse") {
@@ -76,23 +77,22 @@ afterEach(async () => {
   window.HTMLCanvasElement.prototype.getBoundingClientRect = originals.rect;
   delete document.documentElement.dataset.motion;
   frames.clear();
-  cursorPaints = 0;
+  ripplePaints = 0;
+  frameTime = 0;
 });
 
-test("the pointer lens settles, stops on exit, and cancels its frame on unmount", async () => {
+test("the background ripples continue after pointer exit, settle, and cancel on unmount", async () => {
   await mount();
   expect(frames.size).toBe(0);
+  expect(host.querySelectorAll("canvas")).toHaveLength(1);
   move(300);
   flushFrame();
-  expect(cursorPaints).toBe(1);
-  move(500);
-  for (let step = 0; frames.size && step < 100; step++) flushFrame();
-  expect(cursorPaints).toBeGreaterThan(1);
-  expect(frames.size).toBe(0);
-  const cursor = host.querySelector<HTMLCanvasElement>(".chat-dither-cursor")!;
-  expect(cursor.style.opacity).toBe("1");
+  expect(ripplePaints).toBe(1);
   host.dispatchEvent(new Event("pointerleave"));
-  expect(cursor.style.opacity).toBe("0");
+  flushFrame();
+  expect(ripplePaints).toBe(2);
+  for (let step = 0; frames.size && step < 100; step++) flushFrame();
+  expect(frames.size).toBe(0);
   move(400);
   expect(frames.size).toBe(1);
   await act(() => root.unmount());
@@ -107,8 +107,8 @@ test("touch and reduced motion keep the landscape static", async () => {
   expect(frames.size).toBe(0);
   await act(async () => { document.documentElement.dataset.motion = "reduced"; });
   flushFrame();
-  expect(host.querySelector(".chat-dither-cursor")).toBeNull();
+  expect(host.querySelectorAll("canvas")).toHaveLength(1);
   move(500);
   expect(frames.size).toBe(0);
-  expect(cursorPaints).toBe(0);
+  expect(ripplePaints).toBe(0);
 });
