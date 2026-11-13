@@ -1,3 +1,4 @@
+import { SquaresFourIcon } from "@phosphor-icons/react/SquaresFour";
 import { CaretDownIcon, CheckIcon, MagnifyingGlassIcon, StarIcon, WarningCircleIcon } from "../../shared/icons.ts";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { ModelInfo } from "../../shared/pi-types.ts";
@@ -137,7 +138,7 @@ export default function ModelSelector() {
         onKeyDown={navigateModels}
         className={cn(
           NO_DRAG_REGION,
-          "flex max-h-[min(32rem,calc(var(--available-height)-0.75rem))] w-[min(36rem,calc(100vw-1.5rem))] flex-col gap-0 overflow-hidden rounded-xl p-0",
+          "flex max-h-[min(22rem,60dvh,calc(var(--available-height)-0.75rem))] w-[min(22rem,calc(100vw-1rem))] flex-col gap-0 overflow-hidden rounded-xl p-0",
         )}
       >
         <PopoverTitle className="sr-only">Choose a model</PopoverTitle>
@@ -145,22 +146,19 @@ export default function ModelSelector() {
           Search models from every provider and adjust reasoning and service tier.
         </PopoverDescription>
 
-        <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-4 py-3">
+        <div className="flex shrink-0 items-center gap-1.5 px-3 pt-2 pb-1">
           <MagnifyingGlassIcon className="shrink-0 text-muted-foreground" />
           <Input
             ref={searchRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by model or provider…"
+            placeholder="Search models…"
             aria-label="Search models"
             className="h-8 min-w-0 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 dark:bg-transparent"
           />
-          <span className="shrink-0 text-xs tabular-nums text-muted-foreground" aria-live="polite">
-            {visibleModels.length} {visibleModels.length === 1 ? "model" : "models"}
-          </span>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
-          <nav aria-label="Filter models" className="flex shrink-0 gap-1 overflow-x-auto border-b border-border/60 bg-muted/20 p-2 sm:w-36 sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <nav aria-label="Filter models" className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border/50 px-2 pb-1.5">
             {[
               { value: "all", label: "All models" },
               { value: "favorites", label: "Favorites" },
@@ -169,20 +167,23 @@ export default function ModelSelector() {
               <button
                 key={item.value}
                 type="button"
+                aria-label={item.label}
                 aria-pressed={scope === item.value}
                 onClick={() => setScope(item.value)}
                 title={item.label}
                 className={cn(
-                  "flex shrink-0 items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring ",
+                  "flex size-8 shrink-0 items-center justify-center rounded-md outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
                   scope === item.value ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {item.value === "favorites" ? <StarIcon className="size-4 shrink-0" /> : item.value !== "all" ? <ModelProviderIcon provider={item.value} /> : <MagnifyingGlassIcon className="size-4 shrink-0" />}
-                <span className="truncate">{item.label}</span>
+                {item.value === "favorites" ? <StarIcon className="size-4 shrink-0" /> : item.value !== "all" ? <ModelProviderIcon provider={item.value} /> : <SquaresFourIcon className="size-4 shrink-0" />}
               </button>
             ))}
+            <span className="ml-auto shrink-0 px-1 text-xs tabular-nums text-muted-foreground" aria-live="polite" aria-label={`${visibleModels.length} models`}>
+              {visibleModels.length}
+            </span>
           </nav>
-          <div ref={listRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-2">
+          <div ref={listRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-1">
             <ModelList
               visibleModels={visibleModels}
               query={query}
@@ -195,7 +196,7 @@ export default function ModelSelector() {
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-start gap-x-2 gap-y-1 border-t border-border/60 px-2 py-2">
+        <div className="flex shrink-0 items-start gap-2 border-t border-border/50 p-2">
           <ReasoningControl />
           <ServiceTierSelector />
         </div>
@@ -215,6 +216,7 @@ function ReasoningControl() {
 
   return (
     <section className="min-w-0 flex-1" aria-label="Reasoning">
+      <p className="px-2 pb-0.5 text-xs text-muted-foreground">Reasoning</p>
       <div className="flex min-h-8 items-center gap-2">
         {!error && thinkingLevels.length > 0 ? (
           <Select
@@ -225,7 +227,7 @@ function ReasoningControl() {
               if (level && level !== thinkingLevel) void setThinkingLevel(level);
             }}
           >
-            <SelectTrigger aria-label="Reasoning effort" title="Reasoning effort" className="h-8 min-w-24 border-0 bg-transparent px-2 text-sm dark:bg-transparent dark:hover:bg-muted">
+            <SelectTrigger aria-label="Reasoning effort" title="Reasoning effort" className="h-8 w-full border-0 bg-muted/40 px-2 text-xs font-normal shadow-none hover:bg-muted dark:bg-muted/40 dark:hover:bg-muted">
               <SelectValue placeholder="Choose…" />
             </SelectTrigger>
             <SelectContent side="top" align="end" alignItemWithTrigger={false} className="min-w-36">
@@ -283,10 +285,10 @@ function ModelList({
 
   if (visibleModels.length > 0) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-1">
         {[...groups].map(([provider, candidates]) => (
           <section key={provider === null ? "favorites" : `provider:${provider}`} aria-label={provider === null ? "Favorites" : providerNames.get(provider) ?? provider}>
-            <div className="flex items-center gap-2.5 px-2.5 pb-1.5 pt-1 text-xs font-medium text-muted-foreground">
+            <div className="flex items-center gap-2 px-2.5 pb-1 pt-1.5 text-xs font-medium text-muted-foreground">
               {provider === null ? <StarIcon className="size-4" /> : <ModelProviderIcon provider={provider} />}
               <span className="truncate">{provider === null ? "Favorites" : providerNames.get(provider) ?? provider}</span>
             </div>
@@ -338,7 +340,7 @@ function ModelRow({
   return (
     <div
       data-selected-model={selected || undefined}
-      className={cn("group/model flex min-h-12 items-stretch rounded-md hover:bg-muted/70", selected && "bg-accent/80")}
+      className={cn("group/model flex min-h-9 items-stretch rounded-md hover:bg-muted/70", selected && "bg-accent/80")}
     >
       <button
         type="button"
@@ -353,16 +355,10 @@ function ModelRow({
         }}
         className="flex min-w-0 flex-1 items-center gap-2.5 rounded-l-md px-2.5 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
       >
-        <span className="min-w-0 flex-1">
-          <span className={cn("block break-words text-sm leading-snug [overflow-wrap:anywhere]", selected && "font-medium")}>{highlightMatch(display, query)}</span>
-          {favorite || context ? (
-            <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
-              {favorite ? <span className="truncate">{providerName}</span> : null}
-              {context ? <span className="tabular-nums">{context} context</span> : null}
-            </span>
-          ) : null}
-        </span>
-        {selected ? <CheckIcon className="size-4 shrink-0" /> : null}
+        {favorite ? <ModelProviderIcon provider={model.provider} /> : null}
+        <span className={cn("min-w-0 flex-1 truncate text-sm", selected && "font-medium")}>{highlightMatch(display, query)}</span>
+        {selected ? <CheckIcon className="size-3.5 shrink-0" /> : null}
+        {context ? <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground" aria-label={`${context} context`}>{context}</span> : null}
       </button>
       <button
         type="button"

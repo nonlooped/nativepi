@@ -372,7 +372,7 @@ domTest("provider and favorites filters preserve search and reasoning choices up
 
 async function chooseFilter(label: string) {
   const filter = [...document.querySelectorAll<HTMLButtonElement>('nav[aria-label="Filter models"] button')]
-    .find(node => node.textContent?.trim() === label);
+    .find(node => node.getAttribute("aria-label") === label);
   expect(filter).toBeDefined();
   await act(async () => { filter!.click(); });
 }
@@ -388,7 +388,7 @@ domTest("favorites lead without duplicate rows and search supports provider and 
     const choices = () => [...document.querySelectorAll<HTMLButtonElement>("[data-model-choice]")];
     expect(choices()).toHaveLength(2);
     expect(choices()[0]!.textContent).toContain("Beta model");
-    expect(choices()[1]!.textContent).toContain("200K context");
+    expect(choices()[1]!.querySelector('[aria-label="200K context"]')).not.toBeNull();
     const search = document.querySelector<HTMLInputElement>('[aria-label="Search models"]')!;
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, "one alpha");
