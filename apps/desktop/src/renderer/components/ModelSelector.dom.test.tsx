@@ -471,7 +471,7 @@ domTest("the picker opens on the current provider and falls back when a provider
     await act(async () => { store.setState({ models: [b] }); });
     expect(document.querySelector('nav [aria-label="beta"]')?.getAttribute("aria-pressed")).toBe("true");
     expect(document.querySelector("[data-model-choice]")?.textContent).toContain("Beta model");
-    await act(async () => { store.setState({ model: null }); });
+    await act(async () => { store.setState({ model: undefined }); });
     expect(document.querySelector("[data-model-choice]")?.textContent).toContain("Beta model");
   });
 });
