@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
-import { FilesIcon } from "@phosphor-icons/react/Files";
+import { TreeStructureIcon } from "@phosphor-icons/react/TreeStructure";
+import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { useAppStore } from "../lib/store.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -12,32 +13,19 @@ const FileExplorer = lazy(() => import("./FileExplorer.tsx"));
 export default function ContextPane({ onClose }: { onClose?: () => void }) {
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const projectDir = useAppStore((s) => s.activeProjectPath);
-  const projectName = useAppStore(
-    (s) => s.projects.find((project) => project.path === s.activeProjectPath)?.name,
-  );
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
 
-  return (
-    <aside className="context-pane flex h-full min-w-0 flex-col bg-sidebar text-muted-foreground">
-      <header
-        className={cn(
-          "flex h-12 shrink-0 items-center px-3",
-          DRAG_REGION,
-          WINDOW_CONTROLS_CLEARANCE,
-        )}
-      >
-        <div className="min-w-0">
-          <h2 className="truncate text-sm font-medium text-foreground" title={projectDir ?? undefined}>
-            {projectName ?? projectDir ?? "No project"}
-          </h2>
-        </div>
-      </header>
-
-      <div className={cn("flex shrink-0 items-center gap-2 px-2 pb-2", NO_DRAG_REGION)}>
-        <span className="flex min-w-0 flex-1 items-center gap-2 px-2 text-sm"><FilesIcon />Files</span>
+  const header = (refresh?: () => void) => (
+    <header className={cn("flex h-12 shrink-0 items-center gap-2 px-3", DRAG_REGION, WINDOW_CONTROLS_CLEARANCE)}>
+      <TreeStructureIcon className="size-5 shrink-0 text-muted-foreground" weight="duotone" aria-hidden />
+      <h2 className="min-w-0 flex-1 truncate text-title text-foreground">Files</h2>
+      <div className={cn("flex items-center gap-0.5", NO_DRAG_REGION)}>
+        <Button variant="ghost" size="icon-sm" onClick={refresh} disabled={!refresh} title="Refresh files" aria-label="Refresh files">
+          <ArrowClockwiseIcon />
+        </Button>
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-sm"
           onClick={onClose ?? toggleContextPane}
           title={withHint("Hide files", "toggleContextPane", keybindingOverrides)}
           aria-label="Hide files"
@@ -45,16 +33,19 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
           <SidebarSimpleIcon className="-scale-x-100" />
         </Button>
       </div>
+    </header>
+  );
 
+  return (
+    <aside className="context-pane flex h-full min-w-0 flex-col bg-sidebar text-muted-foreground">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain">
         {projectDir ? (
-          <Suspense fallback={<PaneMessage>Loading project files…</PaneMessage>}>
-            <FileExplorer projectDir={projectDir} />
+          <Suspense fallback={<>{header()}<PaneMessage>Loading project files…</PaneMessage></>}>
+            <FileExplorer projectDir={projectDir} renderHeader={header} />
           </Suspense>
-        ) : <PaneMessage>No project is open.</PaneMessage>}
+        ) : <>{header()}<PaneMessage>No project is open.</PaneMessage></>}
         <div className="max-h-48 shrink-0 overflow-auto"><ExtensionPanels /></div>
       </div>
-
     </aside>
   );
 }

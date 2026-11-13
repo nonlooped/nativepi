@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
-import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
 import { rpc } from "../lib/rpc.ts";
@@ -11,11 +10,13 @@ import FileTypeIcon from "./FileTypeIcon.tsx";
 import { toast } from "sonner";
 import { editorName } from "../lib/paths.ts";
 
-export default function FileExplorer({ projectDir }: { projectDir: string }) {
-  return <ProjectFiles key={projectDir} projectDir={projectDir} />;
+type FileExplorerProps = { projectDir: string; renderHeader: (refresh: () => void) => ReactNode };
+
+export default function FileExplorer({ projectDir, renderHeader }: FileExplorerProps) {
+  return <ProjectFiles key={projectDir} projectDir={projectDir} renderHeader={renderHeader} />;
 }
 
-function ProjectFiles({ projectDir }: { projectDir: string }) {
+function ProjectFiles({ projectDir, renderHeader }: FileExplorerProps) {
   const [state, setState] = useState(emptyExplorerDirectories);
   const editorId = useAppStore(s => s.preferences.preferredEditorId);
   const controller = useRef<ReturnType<typeof createExplorerDirectories> | null>(null);
@@ -56,10 +57,10 @@ function ProjectFiles({ projectDir }: { projectDir: string }) {
         const open = state.expanded.has(entry.path);
         return <li key={entry.path}>
           <button type="button" aria-expanded={folder ? open : undefined} title={folder ? entry.path : `Open ${entry.path} in ${editorName(editorId)}`}
-            className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm text-sidebar-foreground outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
+            className="flex min-h-9 w-full min-w-0 items-center gap-2.5 rounded-lg px-2.5 text-left text-sm font-medium text-sidebar-foreground outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
             onClick={() => folder ? controller.current?.toggle(entry.path) : void openFile(entry.path)}>
-            <CaretRightIcon aria-hidden className={cn("size-3 shrink-0", !folder && "invisible", open && "rotate-90")} />
-            {folder ? <FolderIcon className="shrink-0 text-muted-foreground" /> : <FileTypeIcon path={entry.path} />}
+            <CaretRightIcon aria-hidden className={cn("size-3 shrink-0 text-muted-foreground", !folder && "invisible", open && "rotate-90")} />
+            {folder ? <FolderIcon weight={open ? "fill" : "duotone"} className="size-4 shrink-0 text-sidebar-foreground/75" /> : <FileTypeIcon path={entry.path} size={18} />}
             <span className="min-w-0 flex-1 truncate">{entry.name}</span>
           </button>
           {folder && open && directory(entry.path, depth + 1)}
@@ -69,10 +70,7 @@ function ProjectFiles({ projectDir }: { projectDir: string }) {
   }
 
   return <section className="flex min-h-0 flex-1 flex-col" aria-label="Project files">
-    <div className="flex h-10 shrink-0 items-center px-3">
-      <span className="flex-1 text-xs font-medium text-foreground">Project files</span>
-      <Button size="icon-xs" variant="ghost" title="Refresh files" aria-label="Refresh files" onClick={() => state.visible.forEach(path => void controller.current?.refresh(path))}><ArrowClockwiseIcon /></Button>
-    </div>
-    <div className="min-h-0 flex-1 overflow-auto px-2 pb-3">{directory("", 0)}</div>
+    {renderHeader(() => state.visible.forEach(path => void controller.current?.refresh(path)))}
+    <div className="min-h-0 flex-1 overflow-auto px-2 pt-2 pb-3">{directory("", 0)}</div>
   </section>;
 }
