@@ -60,10 +60,16 @@ export function iconName(path: string): string {
   return DEFAULT_ICON;
 }
 
-/** The SVG source for `path`, always resolvable: unknown types fall back to a blank page. */
-export function iconSvg(path: string): string {
-  // The manifest points at `./../icons/<name>.svg`, and clones add a `.clone`
-  // infix, so the file name is read off the definition rather than rebuilt.
-  const iconPath = iconDefinitions[iconName(path)]?.iconPath ?? "";
-  return SVG_BY_FILE.get(basename(iconPath)) ?? SVG_BY_FILE.get(`${DEFAULT_ICON}.svg`) ?? "";
+/** Use the catalog's folder associations as well as its file associations. */
+export function folderIconName(path: string, expanded = false): string {
+  const names: Record<string, string> = expanded ? manifest.folderNamesExpanded : manifest.folderNames;
+  return names[basename(path).toLowerCase()] ?? (expanded ? manifest.folderExpanded : manifest.folder);
+}
+
+/** The SVG source for a file or folder, including name-specific folder colors. */
+export function iconSvg(path: string, folder = false, expanded = false): string {
+  const name = folder ? folderIconName(path, expanded) : iconName(path);
+  // Cloned icons can use a different filename from their manifest key.
+  const iconPath = iconDefinitions[name]?.iconPath ?? "";
+  return SVG_BY_FILE.get(basename(iconPath)) ?? SVG_BY_FILE.get(`${folder ? "folder" : DEFAULT_ICON}.svg`) ?? "";
 }

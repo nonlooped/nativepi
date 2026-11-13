@@ -1,7 +1,8 @@
 import { lazy, Suspense } from "react";
-import { TreeStructureIcon } from "@phosphor-icons/react/TreeStructure";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
+import { ArrowsInLineVerticalIcon } from "@phosphor-icons/react/ArrowsInLineVertical";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
-import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
+import { XIcon } from "@phosphor-icons/react/X";
 import { useAppStore } from "../lib/store.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { DRAG_REGION, NO_DRAG_REGION, WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
@@ -15,22 +16,23 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
 
-  const header = (refresh?: () => void) => (
+  const header = (actions?: { refresh: () => void; collapse: () => void; search: () => void; searching: boolean }) => (
     <header className={cn("flex h-12 shrink-0 items-center gap-2 px-3", DRAG_REGION, WINDOW_CONTROLS_CLEARANCE)}>
-      <TreeStructureIcon className="size-5 shrink-0 text-muted-foreground" weight="duotone" aria-hidden />
-      <h2 className="min-w-0 flex-1 truncate text-title text-foreground">Files</h2>
+      <h2 className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">Files</h2>
       <div className={cn("flex items-center gap-0.5", NO_DRAG_REGION)}>
-        <Button variant="ghost" size="icon-sm" onClick={refresh} disabled={!refresh} title="Refresh files" aria-label="Refresh files">
+        <Button variant="ghost" size="icon" onClick={actions?.search} disabled={!actions} aria-pressed={actions?.searching ?? false} title="Search files" aria-label="Search files"><MagnifyingGlassIcon /></Button>
+        <Button variant="ghost" size="icon" onClick={actions?.collapse} disabled={!actions} title="Collapse folders" aria-label="Collapse folders"><ArrowsInLineVerticalIcon /></Button>
+        <Button variant="ghost" size="icon" onClick={actions?.refresh} disabled={!actions} title="Refresh files" aria-label="Refresh files">
           <ArrowClockwiseIcon />
         </Button>
         <Button
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           onClick={onClose ?? toggleContextPane}
           title={withHint("Hide files", "toggleContextPane", keybindingOverrides)}
           aria-label="Hide files"
         >
-          <SidebarSimpleIcon className="-scale-x-100" />
+          <XIcon />
         </Button>
       </div>
     </header>

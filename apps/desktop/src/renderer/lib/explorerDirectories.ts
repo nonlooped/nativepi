@@ -79,6 +79,11 @@ export function createExplorerDirectories(
       state = { ...state, expanded };
       updateVisible();
     },
+    collapseAll() {
+      if (disposed) return;
+      state = { ...state, expanded: new Set() };
+      updateVisible();
+    },
     dispose() {
       disposed = true;
       requests.clear();

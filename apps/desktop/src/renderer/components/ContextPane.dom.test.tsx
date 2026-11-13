@@ -6,6 +6,7 @@ import { useAppStore } from "../lib/store.ts";
 
 mock.module("./ExtensionSlots.tsx", () => ({ ExtensionPanels: () => null }));
 mock.module("./FileTypeIcon.tsx", () => ({ default: () => null }));
+await import("./FileExplorer.tsx");
 const { default: ContextPane } = await import("./ContextPane.tsx");
 let root: Root | undefined;
 let container: HTMLDivElement;
@@ -48,6 +49,9 @@ test("one Files header owns refresh and hide; refresh preserves expanded folders
   expect(reads).toEqual(["", "src"]);
   expect(folder.getAttribute("aria-expanded")).toBe("true");
   expect(container.textContent).toContain("main.ts");
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Collapse folders"]')!.click());
+  expect(folder.getAttribute("aria-expanded")).toBe("false");
+  expect(container.textContent).not.toContain("main.ts");
   await act(async () => container.querySelector<HTMLButtonElement>('header [aria-label="Hide files"]')!.click());
   expect(closed).toBeTrue();
 });
@@ -57,4 +61,33 @@ test("empty workspace keeps the Files header and disables refresh", async () => 
   expect(container.querySelector("h2")?.textContent).toBe("Files");
   expect(container.querySelector<HTMLButtonElement>('[aria-label="Refresh files"]')?.disabled).toBeTrue();
   expect(container.textContent).toContain("No project is open.");
+});
+
+
+test("search finds unexpanded project paths, opens them, and preserves the query on refresh", async () => {
+  let opened: unknown;
+  let searches = 0;
+  stubInvoke(async (channel, params) => {
+    if (channel === "readProjectDirectory") return { entries: [] };
+    if (channel === "listProjectFiles") { searches++; return { files: ["src/deep/Button.tsx", "README.md"] }; }
+    if (channel === "openFileIn") { opened = params; return { ok: true }; }
+    return {};
+  });
+  await mount("/project");
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Search files"]')!.click());
+  const input = container.querySelector<HTMLInputElement>('[aria-label="Search project files"]')!;
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+    setter.call(input, "button");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  expect(container.textContent).toContain("src/deep/Button.tsx");
+  expect(container.textContent).not.toContain("README.md");
+  await act(async () => container.querySelector<HTMLButtonElement>('[title="src/deep/Button.tsx"]')!.click());
+  expect(opened).toMatchObject({ projectDir: "/project", file: "src/deep/Button.tsx" });
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Refresh files"]')!.click());
+  expect(searches).toBe(2);
+  expect(input.value).toBe("button");
+  await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  expect(container.querySelector('[aria-label="Search project files"]')).toBeNull();
 });
