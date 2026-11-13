@@ -11,12 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trim the README to a short pitch, install and development quick start, and links to the guides; move retired-package upgrade notes to `docs/upgrade.md`. Workspace screenshots remain the isolated-demo captures.
 
 ### Fixed
+- Restore the quit-dialog save-order regression test after adding the workspace initialization guard, and match the host modifier key in shortcut tests.
 - Prevent development reloads from saving an uninitialized workspace over the project list and chat organization; retire old store listeners and wait for pending saves before reloading state. Report unreadable state instead of silently resetting it.
 - Reuse unchanged untracked-file line counts and session summaries, bound partial-staging diff reads, and virtualize diff rows to keep large projects and histories responsive.
 - Normalize leftover Automatic service-tier values to Standard and prevent blank selected rows after an update.
 - Load providers for new chats after opening a project without trust, and restore service tiers saved by the retired extension.
 
 ### Changed
+- Run the full CI checks before code pushes through an automatically installed Git hook.
 - Soften the monochrome light theme with subdued gray surfaces, clarify selection, focus, settings, tool activity, and terminal hierarchy, and improve chart labels and series distinction. Preserve grayscale in NativePi while restoring syntax colors in other schemes’ diffs.
 - Limit service tiers to Standard and Priority, defaulting new chats and previous Automatic/Flex choices to Standard.
 - Place provider-aware service-tier controls beside reasoning in the composer model picker, with saved session choices and speed/cost descriptions; remove the visible reasoning label and shortcut hint.

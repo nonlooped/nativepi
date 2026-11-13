@@ -59,19 +59,21 @@ function fired(stroke: Keystroke): ShortcutId | null {
 }
 
 describe("every shortcut fires on the keystroke it advertises", () => {
+  // tinykeys resolves $mod from the runtime's navigator (Bun exposes the host OS).
+  const mod = /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? { meta: true } : { ctrl: true };
   const cases: [ShortcutId, Keystroke][] = [
-    ["newChat", { key: "N", code: "KeyN", ctrl: true, shift: true }],
-    ["importChat", { key: "O", code: "KeyO", ctrl: true, shift: true }],
-    ["search", { key: "k", code: "KeyK", ctrl: true }],
+    ["newChat", { key: "N", code: "KeyN", ...mod, shift: true }],
+    ["importChat", { key: "O", code: "KeyO", ...mod, shift: true }],
+    ["search", { key: "k", code: "KeyK", ...mod }],
     ["stopTurn", { key: "Escape", code: "Escape" }],
-    ["toggleSidebar", { key: "b", code: "KeyB", ctrl: true }],
-    ["toggleContextPane", { key: "j", code: "KeyJ", ctrl: true }],
-    ["toggleTerminal", { key: "`", code: "Backquote", ctrl: true }],
-    ["openSettings", { key: ",", code: "Comma", ctrl: true }],
-    ["cycleThinking", { key: ".", code: "Period", ctrl: true }],
-    ["jumpToLatest", { key: "End", code: "End", ctrl: true }],
-    ["nextProject", { key: "ArrowDown", code: "ArrowDown", ctrl: true, alt: true }],
-    ["previousProject", { key: "ArrowUp", code: "ArrowUp", ctrl: true, alt: true }],
+    ["toggleSidebar", { key: "b", code: "KeyB", ...mod }],
+    ["toggleContextPane", { key: "j", code: "KeyJ", ...mod }],
+    ["toggleTerminal", { key: "`", code: "Backquote", ...mod }],
+    ["openSettings", { key: ",", code: "Comma", ...mod }],
+    ["cycleThinking", { key: ".", code: "Period", ...mod }],
+    ["jumpToLatest", { key: "End", code: "End", ...mod }],
+    ["nextProject", { key: "ArrowDown", code: "ArrowDown", ...mod, alt: true }],
+    ["previousProject", { key: "ArrowUp", code: "ArrowUp", ...mod, alt: true }],
   ];
 
   for (const [id, stroke] of cases) {

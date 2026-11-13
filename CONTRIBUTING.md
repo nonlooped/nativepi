@@ -50,7 +50,21 @@ contract lives in `packages/extension-api`.
 
 ## Before you open a pull request
 
-Run focused checks for the areas you changed. For example:
+`bun install` installs the repository's pre-push hook automatically (outside CI).
+For an existing checkout, run `bun run hooks:install` once. Each code push runs
+`bun run ci`: frozen-lockfile installation, checksum-pinned workflow linting,
+all typechecks, website lint, unit/DOM/integration tests, and both production
+builds. Commands come directly from `.github/workflows/ci.yml`; local pushes
+always use the full main-branch scope. The first run downloads actionlint to
+`.cache/`; Bun, Bash (Git Bash on Windows), and `tar` must be available on PATH.
+
+Commit or stash changes before pushing, and push the checked-out commit. This
+ensures checks validate the tree being sent; deletion-only pushes skip checks.
+You can also run `bun run ci` on work in progress before committing. Local runs
+use your OS and installed Node/Bun; GitHub still verifies Ubuntu with its pinned
+toolchain. Installer packaging remains in the Release workflow.
+
+During development, run focused checks for the areas you changed. For example:
 
 ```sh
 bun run --cwd apps/desktop typecheck
@@ -86,7 +100,8 @@ always run package and integration tests, including compiled documentation
 examples. The `Typecheck, Test & Build` status always reports a verdict.
 
 CI also validates workflows with checksum-pinned actionlint. When updating it,
-update both its version and Linux x64 archive checksum in `.github/workflows/ci.yml`.
+update its version and Linux x64 archive checksum in `.github/workflows/ci.yml`,
+and the platform archive checksums in `scripts/lint-workflows.ts`.
 Release and CI regression tests live in `tests/`; run `bun test ./tests` when
 changing those workflows.
 

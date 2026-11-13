@@ -18,7 +18,7 @@ domTest("confirmed quit waits for the latest draft save and keeps the modal open
   let saved!: (value: unknown) => void;
   const calls: [string, any][] = [];
   stubInvoke(async (c, p) => { calls.push([c, p]); return c === "saveState" ? new Promise(resolve => { saved = resolve; }) : { ok: false }; });
-  useAppStore.setState({ drafts: { session: "latest unsent text" } });
+  useAppStore.setState({ ready: true, drafts: { session: "latest unsent text" } });
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   await act(async () => root!.render(<QuitDialog />));
   await act(async () => requested({ work: { runs: [], terminals: [], viewers: 1 } }));

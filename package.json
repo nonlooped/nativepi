@@ -26,7 +26,10 @@
     "check": "bun run --filter '*' typecheck && bun run --cwd apps/web lint",
     "test": "bun run --cwd apps/desktop test:unit && bun test packages tests && bun run --cwd apps/desktop test:dom",
     "build": "bun run --filter '*' build",
-    "package": "bun run --cwd apps/desktop package"
+    "package": "bun run --cwd apps/desktop package",
+    "postinstall": "node scripts/install-hooks.mjs",
+    "hooks:install": "node scripts/install-hooks.mjs",
+    "ci": "bun scripts/ci.ts"
   },
   "overrides": {
     "katex": "0.19.1",
