@@ -958,18 +958,48 @@ html[data-motion="reduced"] *::after {
   mask-image: linear-gradient(to bottom, transparent 5%, #000 65%, #0008 100%),
     radial-gradient(ellipse 45% 30% at 50% 46%, #0005 15%, #000 100%);
   mask-composite: intersect;
+  transition: opacity 400ms ease-out;
 }
 
 .app-viewport[data-chat-state="thread"] > .chat-landscape {
   opacity: 0.12;
 }
 
+/* The plate is drawn after the image decodes; fade it in rather than popping. */
 .chat-landscape > .chat-dither-plate {
   display: block;
   width: 100%;
   height: 100%;
   color: var(--foreground);
   image-rendering: pixelated;
+  opacity: 0;
+  transition: opacity 600ms ease-out;
+}
+
+.chat-landscape > .chat-dither-plate[data-ready="true"] {
+  opacity: 1;
+}
+
+/* Layered translucency is decoration: honor the system's request for solid surfaces. */
+@media (prefers-reduced-transparency: reduce) {
+  .app-viewport:has(> .chat-landscape) .sidebar-panel,
+  .app-viewport:has(> .chat-landscape) .context-pane,
+  .app-viewport:has(> .chat-landscape) .terminal-dock {
+    background: var(--sidebar);
+    backdrop-filter: none;
+  }
+  .app-viewport:has(> .chat-landscape) .composer-surface {
+    background: var(--card);
+  }
+  .app-viewport:has(> .chat-landscape) [data-slot="bubble"][data-variant="secondary"] > [data-slot="bubble-content"] {
+    background: var(--secondary);
+  }
+}
+
+/* Increased contrast: keep the grain, but quieter behind text. */
+@media (prefers-contrast: more) {
+  .chat-landscape { opacity: 0.08; }
+  .app-viewport[data-chat-state="thread"] > .chat-landscape { opacity: 0.05; }
 }
 
 .new-chat-scroll {

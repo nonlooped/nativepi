@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { ditherPixels } from "./chat-backgrounds.ts";
-import { rippleDither } from "./dither-ripples.ts";
+import { restoreInk, rippleDither } from "./dither-ripples.ts";
 
 const width = 400;
 const height = 300;
@@ -55,4 +55,18 @@ test("ripples at the edge stay bounded by the canvas", () => {
   expect(region?.top).toBe(0);
   expect(region?.right).toBeLessThan(width);
   expect(region?.bottom).toBeLessThan(height);
+});
+
+test("frames reuse the field and restore only the disturbed region", () => {
+  const base = plate();
+  const pixels = base.slice();
+  const density = new Float32Array(width * height).fill(1 - 128 / 255);
+  const field = new Float32Array(width * height);
+  const first = rippleDither(pixels, density, field, width, height, 1, [{ x: 200, y: 150, startedAt: 0, strength: 1 }], 300);
+  expect(field.every((value) => value === 0)).toBe(true);
+  expect(pixels).not.toEqual(base);
+  restoreInk(pixels, base, width, first);
+  expect(pixels).toEqual(base);
+  const again = rippleDither(pixels, density, field, width, height, 1, [{ x: 200, y: 150, startedAt: 0, strength: 1 }], 300);
+  expect(again).toEqual(first);
 });

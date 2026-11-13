@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ditherPixels } from "../lib/chat-backgrounds.ts";
-import { rippleDither, unionInkBounds, RIPPLE_DURATION_MS, type DitherRipple, type InkBounds } from "../lib/dither-ripples.ts";
+import { rippleDither, restoreInk, unionInkBounds, RIPPLE_DURATION_MS, type DitherRipple, type InkBounds } from "../lib/dither-ripples.ts";
 import { useReducedMotion } from "../lib/motion.ts";
 
 /** A fixed ink plate with short-lived disturbances in its own dither grid. */
@@ -44,7 +44,8 @@ export default function ChatLandscape({ src }: { src: string }) {
       rippleFrame = 0;
       if (disposed || !base || !output) return;
       ripples = ripples.filter((ripple) => now - ripple.startedAt < RIPPLE_DURATION_MS);
-      output.data.set(base.data);
+      // Only the previous frame's disturbance can differ from the base plate.
+      restoreInk(output.data, base.data, canvas.width, previousRegion);
       const region = rippleDither(output.data, density, field, canvas.width, canvas.height, dot, ripples, now);
       paint(output, unionInkBounds(previousRegion, region));
       previousRegion = region;
@@ -97,6 +98,7 @@ export default function ChatLandscape({ src }: { src: string }) {
       base = pixels;
       context.putImageData(base, 0, 0);
       output = context.getImageData(0, 0, canvas.width, canvas.height);
+      canvas.dataset.ready = "true";
     };
     const schedule = () => {
       cancelAnimationFrame(frame);
