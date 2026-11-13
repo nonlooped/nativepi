@@ -47,6 +47,9 @@ function PiSettingsStatus() {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const running = useAppStore((s) => Object.values(s.conversations).some((conversation) => conversation.running));
 
+  // An empty wrapper would still claim a gap in the panel's flex column.
+  if (!error && !restartPending) return null;
+
   return (
     <div className="flex flex-col gap-2">
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
