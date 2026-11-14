@@ -1,14 +1,14 @@
 import { z } from "zod";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
-import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { StopIcon } from "@phosphor-icons/react/Stop";
-import { UsersThreeIcon } from "@phosphor-icons/react/UsersThree";
 import { toast } from "sonner";
 import type { ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
 import { threadReferenceSchema } from "../../shared/orchestration.ts";
 import { textOf } from "../../shared/messages.ts";
 import { useAppStore } from "../lib/store.ts";
 import { delegateStatus } from "../lib/delegates.ts";
+import { providerIconName } from "../lib/providerIcons.ts";
+import BrandIcon from "./BrandIcon.tsx";
 import { rpc } from "../lib/rpc.ts";
 import { Button } from "./ui/button.tsx";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "./ui/hover-card.tsx";
@@ -51,12 +51,14 @@ export default function DelegateInvocation({ call, result }: { call: ToolCall; r
   const pendingQuestions = child?.assignment?.questions ?? [];
   const questions = lead ? lead.inbox.filter(message => message.source.id === childId && message.kind === "question" && pendingQuestions.includes(message.id)) : [];
   const configuration = relationship?.configuration;
+  const requestedProvider = z.object({ provider: z.string().min(1) }).safeParse(call.arguments.configuration);
+  const provider = configuration?.provider ?? (requestedProvider.success ? requestedProvider.data.provider : "");
   const description = configuration ? `${configuration.provider}/${configuration.model} · ${configuration.reasoning} · ${configuration.tier ?? "default"}\n${relationship?.workspace.mode === "worktree" ? `Worktree: ${relationship.workspace.branch}\nBase: ${relationship.workspace.base}` : "Shared checkout"}\n${ref?.cwd}` : ref?.cwd;
   return <div className="min-w-0" data-delegate-invocation={call.id}>
     <div className="flex min-w-0 items-center gap-1 rounded-lg bg-muted/20">
       <HoverCard>
       <HoverCardTrigger delay={350} render={<Button variant="ghost" disabled={!ref || child?.available === false} />} className="h-auto min-h-11 min-w-0 flex-1 justify-start gap-2.5 px-3 py-2 text-left disabled:opacity-100" aria-label={`Open delegate: ${label}`} onClick={() => ref && void useAppStore.getState().selectChat(ref.file, ref.cwd)}>
-        {working ? <CircleNotchIcon className="size-3.5 shrink-0 animate-spin text-active motion-reduce:animate-none" /> : <UsersThreeIcon className="size-3.5 shrink-0 text-muted-foreground" />}
+        <BrandIcon name={providerIconName(provider)} size={16} className="shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-medium text-foreground">{label}</span>
         <span className={failed ? "shrink-0 text-destructive" : "shrink-0 text-muted-foreground"} role="status">{status}</span>
         {ref ? <CaretRightIcon className="size-3.5 shrink-0 text-muted-foreground" /> : null}
