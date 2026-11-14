@@ -40,7 +40,7 @@ export default function LeftSidebar({
       <div className={cn("flex h-12 shrink-0 items-center px-3", TRAFFIC_LIGHTS_CLEARANCE, !overlay && DRAG_REGION)}>
         <div className={cn("native-header-content flex min-w-0 flex-1 items-center gap-0", NO_DRAG_REGION)}>
           <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground" onClick={onClose} title="Close sidebar" aria-label="Close sidebar">
-            <SidebarSimpleIcon className="size-[12px]" />
+            <SidebarSimpleIcon className="size-[20px]" />
           </Button>
           <NavigationControls />
         </div>

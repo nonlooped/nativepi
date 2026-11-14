@@ -541,7 +541,7 @@ function WorkspaceHeader({
             aria-label="Open sidebar"
             className={NO_DRAG_REGION}
           >
-            <SidebarSimpleIcon className="size-[12px]" />
+            <SidebarSimpleIcon className="size-[20px]" />
           </Button>
         ) : null}
         {!sidebarDocked ? <NavigationControls /> : null}

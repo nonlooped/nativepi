@@ -16,8 +16,8 @@ export default function NavigationControls() {
   }
   return (
     <nav aria-label="Chat history" className="app-no-drag ml-auto flex shrink-0 items-center">
-      <Button variant="ghost" size="icon" disabled={!canGoBack} onClick={() => go(-1)} title="Go back" aria-label="Go back"><CaretLeftIcon className="size-[12px]" /></Button>
-      <Button variant="ghost" size="icon" disabled={!canGoForward} onClick={() => go(1)} title="Go forward" aria-label="Go forward"><CaretRightIcon className="size-[12px]" /></Button>
+      <Button variant="ghost" size="icon" disabled={!canGoBack} onClick={() => go(-1)} title="Go back" aria-label="Go back"><CaretLeftIcon className="size-[20px]" /></Button>
+      <Button variant="ghost" size="icon" disabled={!canGoForward} onClick={() => go(1)} title="Go forward" aria-label="Go forward"><CaretRightIcon className="size-[20px]" /></Button>
     </nav>
   );
 }

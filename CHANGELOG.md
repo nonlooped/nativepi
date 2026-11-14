@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional next-message suggestions in the empty composer after Pi finishes, with Tab to accept and Escape to dismiss.
 
 ### Changed
+- Match the visible sidebar and history icon heights to the macOS window controls and align their centers.
 - Replace the top-left wordmark with back/forward chat navigation and move NativePi branding into the new-chat view.
 - Refine source-control history with compact commit rows, bounded branch markers, clearer commit details, and readable changed-file paths.
 - Give Files and Source Control separate right-sidebar buttons, with compact commits, folder-based staging, independent push/sync, searchable commit history, and diffs in the main workspace.

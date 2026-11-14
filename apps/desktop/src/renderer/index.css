@@ -65,16 +65,16 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   /* The last traffic light ends at x=66px. Account for the toggle's
      icon inset so the visible gaps on both sides of it are the same. */
   --native-chrome-gap: 32px;
-  /* 2rem button around a 12px icon, matching the native lights. */
-  --native-toggle-inset: calc((2rem - 12px) / 2);
+  /* Phosphor glyphs occupy about 70% of their 20px SVG box. */
+  --native-toggle-inset: calc((2rem - 20px) / 2);
   padding-left: calc(66px + var(--native-chrome-gap) - var(--native-toggle-inset));
 }
 
-/* Native traffic lights are fixed at y=17px with a 12px diameter (main/index.ts).
-   Keep both header states on their 23px centerline even as rem sizes scale. */
+/* Native traffic lights start at y=17px and render 14px tall on macOS.
+   Keep both header states on their 24px centerline even as rem sizes scale. */
 html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-clearance > .native-header-content {
   position: relative;
-  top: calc(23px - 1.5rem);
+  top: calc(24px - 1.5rem);
 }
 
 /* The project pane keeps its navigation below the title-bar row, so window
