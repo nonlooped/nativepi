@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 
-const require = createRequire(import.meta.url);
+const loadNativeModule = createRequire(import.meta.url);
 let setActiveAppearance: ((handle: Buffer, active: boolean) => void) | null | undefined;
 
 /** Windows has no Electron equivalent of macOS's visualEffectState: active.
@@ -11,7 +11,7 @@ export function setWindowsMaterialActive(handle: Buffer, active: boolean): void 
   try {
     if (!setActiveAppearance) {
       // Load native code only on Windows, when the main window needs Acrylic.
-      const koffi: typeof import("koffi") = require("koffi");
+      const koffi: typeof import("koffi") = loadNativeModule("koffi");
       koffi.struct("NativePiWindowCompositionAttributeData", {
         attribute: "int32_t",
         data: "void *",
