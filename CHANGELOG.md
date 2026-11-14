@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Mention Pi models and threads across all projects from the @ picker; agents can discover and share the same references with mention_catalog.
 - Add Pi-native Work delegates with explicit model/reasoning/speed/tools, shared-directory or retained-worktree assignments, progress and clarification messages, follow-ups, and inspectable transcripts without user composers.
 - Add independent thread discovery, history search/read, creation, durable peer inboxes, explicit wake, group Stop, idle-only Finish, and protected deletion. Accepted records survive restart without automatically resuming interrupted execution.
 

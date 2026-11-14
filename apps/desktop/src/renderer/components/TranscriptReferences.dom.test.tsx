@@ -21,7 +21,7 @@ async function mount(text: string, provider = false) {
   calls.length = 0;
   stubInvoke(async (name, params) => {
     calls.push({ name, params });
-    return name === "listSkills" ? { skills: [{ name: "review", path: "/skills/review/SKILL.md", description: "Review changes", scope: "user" }] }
+    return name === "listMentionThreads" ? { threads: [] } : name === "listSkills" ? { skills: [{ name: "review", path: "/skills/review/SKILL.md", description: "Review changes", scope: "user" }] }
       : name === "readProjectMedia" ? { src: "data:video/mp4;base64,YQ==" } : { ok: true };
   });
   useAppStore.setState({ activeProjectPath: "/project", activeSessionFile: "chat.jsonl", sessionsByProject: {}, transcriptTarget: null,
@@ -103,7 +103,7 @@ domTest("copy restores authored references rather than shortened chip labels", a
 domTest("unknown chat references cannot trigger arbitrary session reads", async () => {
   await mount("A message.");
   await openReference({ kind: "thread", session: "/private/not-a-chat.jsonl", entry: "entry" });
-  expect(calls).toHaveLength(0);
+  expect(calls).toEqual([{ name: "listMentionThreads", params: {} }]);
   expect(useAppStore.getState().activeSessionFile).toBe("chat.jsonl");
   expect(useAppStore.getState().transcriptTarget).toBeNull();
 });

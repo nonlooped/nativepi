@@ -104,3 +104,15 @@ test("equal-sized file snapshots cannot share ranked results", () => {
   expect(rankFiles(second, "").map(row => row.value)).not.toContain("src/first.ts");
   expect(rankFiles(first, "")).toBe(rankFiles(first, ""));
 });
+
+ test("model and thread mentions preserve exact identifiers through insertion", async () => {
+  const { rankReferences } = await import("./autocomplete.ts");
+  const { referenceFor } = await import("./markdownReferences.ts");
+  const models = [{ provider: "custom", id: "model/v2", name: "My model" }];
+  const threads = [{ path: "/outside project/thread.jsonl", title: "Other project", cwd: "/outside project" }];
+  const model = rankReferences(models, threads, "custom")[0]!;
+  expect(referenceFor(completionText({ kind: "file", query: "", start: 0, end: 1 }, model.value))).toEqual({ kind: "model", provider: "custom", id: "model/v2", label: "custom/model/v2" });
+  const thread = rankReferences(models, threads, "Other")[0]!;
+  expect(referenceFor(`@${thread.value}`)).toMatchObject({ kind: "thread", session: threads[0]!.path });
+  expect(rankReferences(models, threads, "missing")).toEqual([]);
+});

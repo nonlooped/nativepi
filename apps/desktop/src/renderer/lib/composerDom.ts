@@ -1,3 +1,4 @@
+import { referenceFor } from "./markdownReferences.ts";
 import { CHIP_CLASS } from "./composerChips.ts";
 import { chipText, parseSegments, type ChipKind } from "./composerText.ts";
 import { fileIconSvg } from "./fileIcons.ts";
@@ -31,7 +32,7 @@ const SKILL_GLYPH =
  * than as a page with a folded corner.
  */
 function chipGlyph(document: Document, kind: ChipKind, value: string): Node {
-  if (kind === "skill") {
+  if (kind === "skill" || value.startsWith("nativepi://")) {
     const glyph = document.createElement("span");
     glyph.className = "inline-flex shrink-0";
     glyph.innerHTML = SKILL_GLYPH;
@@ -58,7 +59,9 @@ export function createChip(document: Document, kind: ChipKind, value: string): H
   chip.contentEditable = "false";
   chip.className = CHIP_CLASS[kind];
   chip.appendChild(chipGlyph(document, kind, value));
-  chip.appendChild(document.createTextNode(kind === "file" ? basename(value) : value));
+  const reference = referenceFor(value);
+
+  chip.appendChild(document.createTextNode(reference?.kind === "model" ? reference.label : reference?.kind === "thread" ? new URL(value).searchParams.get("title") || "Thread" : kind === "file" ? basename(value) : value));
   chip.title = kind === "skill" ? `Skill: ${value}` : value;
   return chip;
 }

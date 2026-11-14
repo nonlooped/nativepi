@@ -350,3 +350,15 @@ export function rankFiles(files: string[], query: string): FileOption[] {
   index.queries.set(needle, result);
   return result;
 }
+
+/** References retain exact Pi identifiers in plain text, including across renames. */
+export function rankReferences(models: { provider: string; id: string; name?: string }[], threads: { path: string; title: string; cwd: string }[], query: string): FileOption[] {
+  const entries = [
+    ...models.map(model => ({ label: model.name || model.id, detail: `Model · ${model.provider}/${model.id}`, value: `nativepi://model?${new URLSearchParams({ provider: model.provider, id: model.id })}` })),
+    ...threads.map(thread => ({ label: thread.title, detail: `Thread · ${thread.cwd}`, value: `nativepi://thread?${new URLSearchParams({ session: thread.path, title: thread.title })}` })),
+  ];
+  return entries.flatMap(entry => {
+    const match = fuzzyMatch(`${entry.label} ${entry.detail}`, query);
+    return match ? [{ option: { ...entry, kind: "file" as const, dir: false, positions: match.positions.filter(p => p < entry.label.length) }, score: match.score }] : [];
+  }).sort((a, b) => b.score - a.score).slice(0, 20).map(entry => entry.option);
+}

@@ -289,6 +289,7 @@ export type HostRequestContracts = {
       ok: boolean;
     };
   };
+  listMentionThreads: { params: Record<string, never>; response: { threads: { path: string; id: string; title: string; cwd: string }[] } };
   listSessions: {
     params: {
       projectDir: string;

@@ -26,7 +26,7 @@ export const requestParams = {
   stopThread: z.object({ sessionFile: path }),
   wakeThread: z.object({ threadId: id, messageIds: z.array(id).min(1).max(100) }),
   organizeThread: z.object({ sessionFile: path, action: z.enum(["finish", "focus", "pin"]) }),
-  workWorkspace: empty, chatWorkspace: empty, pickProject: empty, loadState: empty, saveState: z.object({ state: nativePiStateSchema }), listSessions: project,
+  workWorkspace: empty, chatWorkspace: empty, pickProject: empty, loadState: empty, saveState: z.object({ state: nativePiStateSchema }), listSessions: project, listMentionThreads: empty,
   searchSessions: z.object({ requestId: id, projectDirs: z.array(path).max(100), query: z.string().min(1).max(500) }),
   cancelSearchSessions: z.object({ requestId: id }), readSession: z.object({ sessionFile: path }), readSessionSnapshot: session, reloadSession: session,
   ensurePi: target, restartPi: project, restartAllPi: empty, importSession: project.extend({ sourceFile: path.optional() }),

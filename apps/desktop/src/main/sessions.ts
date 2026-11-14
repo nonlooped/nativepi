@@ -164,6 +164,10 @@ export function listSessions(projectDir: string): Promise<SessionSummary[]> {
   return listing;
 }
 function safeSessionDate(value: Date, fallback: number): string { return Number.isFinite(value.getTime()) ? value.toISOString() : new Date(fallback).toISOString(); }
+export async function listMentionThreads() {
+  return (await SessionManager.listAll()).map(session => ({ path: session.path, id: session.id, title: session.name || session.firstMessage || "Untitled thread", cwd: session.cwd }));
+}
+
 async function listSessionsUncached(projectDir: string) {
   const sessions = await SessionManager.list(projectDir);
   const filtered = sessions.filter((session) => session.messageCount > 0 || !!session.name);

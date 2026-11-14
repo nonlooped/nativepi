@@ -23,7 +23,7 @@ import { stopPackageOperations } from "./pi/services.ts";
 import { ephemeralProjects, stopEphemeral } from "./pi/ephemeral.ts";
 import { PiProcess } from "./pi/client.ts";
 import type { PiMessage } from "./pi/protocol.ts";
-import { deleteSession, listSessions, readSession, searchSessions, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
+import { deleteSession, listMentionThreads, listSessions, readSession, searchSessions, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
 import { drainState, loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
 import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitCommitDetails, gitCommitDiff, gitDiff, gitHunks, gitLog, gitPrTarget, gitRevertFile, gitPush, gitPushAndCreatePr, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
@@ -961,6 +961,7 @@ const handlers: HandlerMap = {
     }
     return { ok: true };
   },
+  listMentionThreads: async () => ({ threads: await listMentionThreads() }),
   listSessions: async ({ projectDir }) => ({ sessions: await listSessions(projectDir) }),
   searchSessions: async (params) => {
     const { requestId, projectDirs, query } = requestParams.searchSessions.parse(params);
