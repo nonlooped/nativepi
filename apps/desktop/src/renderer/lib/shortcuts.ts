@@ -2,6 +2,13 @@ export type ShortcutId =
   | "increaseScale"
   | "decreaseScale"
   | "resetScale"
+  | "focusComposer"
+  | "selectModel"
+  | "nextChat"
+  | "previousChat"
+  | "showChat"
+  | "showWork"
+  | "openProject"
   | "newChat"
   | "importChat"
   | "search"
@@ -30,6 +37,55 @@ export interface ShortcutDef {
 
 export const SHORTCUTS: ShortcutDef[] = [
   {
+    id: "focusComposer",
+    binding: "$mod+KeyL",
+    label: "Focus message composer",
+    description: "Return to the message field without changing your draft.",
+    group: "Chat",
+  },
+  {
+    id: "selectModel",
+    binding: "$mod+Shift+KeyM",
+    label: "Choose model",
+    description: "Open the model, reasoning, and service-tier picker.",
+    group: "Chat",
+  },
+  {
+    id: "nextChat",
+    binding: "$mod+Shift+BracketRight",
+    label: "Next chat in project",
+    description: "Open the next chat in the current project’s session list, wrapping at the end.",
+    group: "Navigation",
+  },
+  {
+    id: "previousChat",
+    binding: "$mod+Shift+BracketLeft",
+    label: "Previous chat in project",
+    description: "Open the previous chat in the current project’s session list, wrapping at the beginning.",
+    group: "Navigation",
+  },
+  {
+    id: "showChat",
+    binding: "$mod+Digit1",
+    label: "Go to Chat",
+    description: "Open Chat and restore its last conversation or draft.",
+    group: "Navigation",
+  },
+  {
+    id: "showWork",
+    binding: "$mod+Digit2",
+    label: "Go to Work",
+    description: "Open Work and restore its last project and conversation or draft.",
+    group: "Navigation",
+  },
+  {
+    id: "openProject",
+    binding: "$mod+KeyO",
+    label: "Open project",
+    description: "Choose a project folder and open it in Work.",
+    group: "Application",
+  },
+  {
     id: "increaseScale",
     binding: "$mod+Equal",
     label: "Increase interface scale",
@@ -54,14 +110,14 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: "newChat",
     binding: "$mod+Shift+KeyN",
     label: "New chat",
-    description: "Start a fresh chat. Asks which project only when more than one is pinned.",
+    description: "Start a fresh chat. In Work, choose a project or No project.",
     group: "Chat",
   },
   {
     id: "importChat",
     binding: "$mod+Shift+KeyO",
     label: "Import chat",
-    description: "Open an existing Pi session file into this project.",
+    description: "Import an existing Pi session file into the current destination.",
     group: "Chat",
   },
   {
@@ -230,6 +286,8 @@ const KEY_LABELS: Record<string, string> = {
   Period: ".",
   Comma: ",",
   Slash: "/",
+  BracketLeft: "[",
+  BracketRight: "]",
 };
 
 function partLabel(part: string): string {

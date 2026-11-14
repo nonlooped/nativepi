@@ -259,6 +259,21 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       if (selectedRememberedChat && !historyLoaded) void get().refreshSessions(path);
     },
 
+    selectAdjacentChat: async (direction) => {
+      const s = get();
+      const project = s.activeProjectPath;
+      if (!project) return;
+      const sessions = s.sessionsByProject[project] ?? [];
+      if (!sessions.length) return;
+      const current = s.isNewChat ? -1 : sessions.findIndex(session => session.path === s.activeSessionFile);
+      const index = current < 0
+        ? direction === 1 ? 0 : sessions.length - 1
+        : (current + direction + sessions.length) % sessions.length;
+      const next = sessions[index]!;
+      if (!s.isNewChat && next.path === s.activeSessionFile) return;
+      await get().selectChat(next.path, project);
+    },
+
     selectAdjacentProject: async (direction) => {
       const s = get();
       if (s.projects.length < 2) return;

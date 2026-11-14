@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { tinykeys } from "tinykeys";
+import { createKeybindingsHandler, tinykeys } from "tinykeys";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { ArrowLineDownIcon } from "@phosphor-icons/react/ArrowLineDown";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
@@ -699,7 +699,7 @@ function HeaderCompactOverflow({
 }
 
 /** Global keyboard shortcuts for the workspace, routed per layout. */
-function useWorkspaceShortcuts(
+export function useWorkspaceShortcuts(
   layout: WorkspaceLayout,
   setSidebarSheetOpen: React.Dispatch<React.SetStateAction<boolean>>,
   setContextSheetOpen: React.Dispatch<React.SetStateAction<boolean>>,
@@ -734,7 +734,29 @@ function useWorkspaceShortcuts(
       run();
     };
 
-    return tinykeys(
+    // New navigation commands must not move focus or change conversations
+    // underneath a dialog, Settings, or an extension's custom editor.
+    const workspace = (run: () => void) => (event: KeyboardEvent) => {
+      const s = useAppStore.getState();
+      if (s.settingsOpen || document.querySelector('[role="dialog"], [role="alertdialog"]')
+        || s.extSurfaces.some(surface => surface.placement === "editor" || surface.placement === "overlay")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      run();
+    };
+
+    // Capture these commands before xterm sends their control keys to the shell.
+    const navigation = createKeybindingsHandler(bindings({
+      focusComposer: workspace(() => document.querySelector<HTMLElement>('[data-composer-input][contenteditable="true"]')?.focus()),
+      selectModel: workspace(() => document.querySelector<HTMLButtonElement>('[data-model-picker-trigger]:not(:disabled)')?.click()),
+      nextChat: workspace(() => void useAppStore.getState().selectAdjacentChat(1)),
+      previousChat: workspace(() => void useAppStore.getState().selectAdjacentChat(-1)),
+      showChat: workspace(() => void useAppStore.getState().setDestination("chat")),
+      showWork: workspace(() => void useAppStore.getState().setDestination("work")),
+      openProject: workspace(() => void useAppStore.getState().addProject()),
+    }, keybindingOverrides), { ignore: event => (event as KeyboardEvent).isComposing });
+    window.addEventListener("keydown", navigation, true);
+    const unsubscribe = tinykeys(
       window,
       bindings({
         openSettings: always(openSettings),
@@ -800,6 +822,10 @@ function useWorkspaceShortcuts(
       // candidate window, not to NativePi.
       { ignore: (event) => (event as KeyboardEvent).isComposing },
     );
+    return () => {
+      window.removeEventListener("keydown", navigation, true);
+      unsubscribe();
+    };
   }, [
     abort,
     activeProjectPath,

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createKeybindingsHandler } from "tinykeys";
-import { bindings, type ShortcutId } from "./shortcuts.ts";
+import { bindings, SHORTCUTS, type ShortcutId } from "./shortcuts.ts";
 
 /**
  * Exercises the real tinykeys matcher against the real binding strings.
@@ -38,20 +38,7 @@ function press(stroke: Keystroke): KeyboardEvent {
 /** Which shortcut, if any, a keystroke triggers. */
 function fired(stroke: Keystroke): ShortcutId | null {
   let hit: ShortcutId | null = null;
-  const ids: ShortcutId[] = [
-    "newChat",
-    "importChat",
-    "search",
-    "stopTurn",
-    "toggleSidebar",
-    "toggleContextPane",
-    "toggleTerminal",
-    "openSettings",
-    "cycleThinking",
-    "jumpToLatest",
-    "nextProject",
-    "previousProject",
-  ];
+  const ids = SHORTCUTS.map(shortcut => shortcut.id);
   const handlers = Object.fromEntries(ids.map((id) => [id, () => (hit = id)]));
   const handle = createKeybindingsHandler(bindings(handlers), { ignore: () => false });
   handle(press(stroke));
@@ -62,6 +49,13 @@ describe("every shortcut fires on the keystroke it advertises", () => {
   // tinykeys resolves $mod from the runtime's navigator (Bun exposes the host OS).
   const mod = /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? { meta: true } : { ctrl: true };
   const cases: [ShortcutId, Keystroke][] = [
+    ["focusComposer", { key: "l", code: "KeyL", ...mod }],
+    ["selectModel", { key: "M", code: "KeyM", ...mod, shift: true }],
+    ["nextChat", { key: "}", code: "BracketRight", ...mod, shift: true }],
+    ["previousChat", { key: "{", code: "BracketLeft", ...mod, shift: true }],
+    ["showChat", { key: "1", code: "Digit1", ...mod }],
+    ["showWork", { key: "2", code: "Digit2", ...mod }],
+    ["openProject", { key: "o", code: "KeyO", ...mod }],
     ["newChat", { key: "N", code: "KeyN", ...mod, shift: true }],
     ["importChat", { key: "O", code: "KeyO", ...mod, shift: true }],
     ["search", { key: "k", code: "KeyK", ...mod }],

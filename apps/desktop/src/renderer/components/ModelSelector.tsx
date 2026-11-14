@@ -23,10 +23,12 @@ import {
   SelectValue,
 } from "@/components/ui/select.tsx";
 import { NO_DRAG_REGION, cn } from "@/lib/utils.ts";
+import { withHint } from "../lib/shortcuts.ts";
 import BrandIcon from "./BrandIcon.tsx";
 import ServiceTierSelector from "./ServiceTierSelector.tsx";
 
 export default function ModelSelector() {
+  const keybindingOverrides = useAppStore(s => s.keybindingOverrides);
   const models = useAppStore((s) => s.models);
   const model = useAppStore((s) => s.model);
   const setModel = useAppStore((s) => s.setModel);
@@ -115,6 +117,7 @@ export default function ModelSelector() {
       }}
     >
       <PopoverTrigger
+        data-model-picker-trigger=""
         disabled={models.length === 0}
         render={
           <Button
@@ -122,7 +125,7 @@ export default function ModelSelector() {
             className="min-w-0 max-w-[min(16rem,100%)] justify-start gap-1.5 px-2 font-normal"
           />
         }
-        title={models.length === 0 ? "Loading models from Pi…" : "Change model, reasoning, and service tier"}
+        title={models.length === 0 ? "Loading models from Pi…" : withHint("Change model, reasoning, and service tier", "selectModel", keybindingOverrides)}
         aria-label={
           models.length === 0
             ? "Loading models"
