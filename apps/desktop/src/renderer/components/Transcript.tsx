@@ -169,7 +169,7 @@ function TranscriptContent() {
         >
         <MessageScroller className="min-h-0 flex-1">
           <MessageScrollerViewport aria-label="Conversation transcript" aria-live="off">
-            <MessageScrollerContent className={cn("mx-auto w-full max-w-(--conversation-width) gap-8 px-5 py-6", (running || runDone) && "pb-16")}>
+            <MessageScrollerContent className={cn("mx-auto w-full max-w-(--conversation-width) gap-3 px-5 py-6", (running || runDone) && "pb-16")}>
           {hasExtensionHeader ? <MessageScrollerItem messageId="extension-header">
             <ExtensionHeader />
           </MessageScrollerItem> : null}
@@ -350,7 +350,7 @@ function UserBubble({
   const forkChat = useAppStore((s) => s.forkChat);
   const quoteInReply = useAppStore((s) => s.quoteInReply);
   const article = (
-    <article id={entryId ? `entry-${entryId}` : undefined} className="group/message flex flex-col items-end py-1" aria-busy={pending || undefined}>
+    <article id={entryId ? `entry-${entryId}` : undefined} className="group/message flex flex-col items-end" aria-busy={pending || undefined}>
       <span className="sr-only">You{pending ? " (sending)" : ""}:</span>
       <Message align="end" className="justify-end">
       <Bubble variant="secondary" align="end" className={cn("max-w-[85%]", pending && "opacity-60")}>

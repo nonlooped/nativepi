@@ -589,13 +589,6 @@ html:not(.dark) .composer-surface:focus-within {
 }
 
 .markdown p,
-.markdown ul,
-.markdown ol,
-.markdown blockquote {
-  max-width: 66ch;
-}
-
-.markdown p,
 .markdown li {
   text-wrap: pretty;
 }

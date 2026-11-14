@@ -59,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace outdated workspace, settings, and website images with current app captures, including an interactive HTML artifact. Remove the old social preview image.
 
 ### Fixed
+- Let message text use the selected conversation width and tighten spacing between prompts and responses.
 - Improve next-message suggestions by using Pi’s full prepared conversation context instead of truncated excerpts.
 - Open saved chats at the latest user message and the start of its answer, keeping short exchanges together and preventing old jump-to-latest requests from overriding the opening position.
 - Exclude skills from `/` composer suggestions; find them through the dedicated `$` prefix.
