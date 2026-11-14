@@ -7,17 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.18.0] - 2026-11-14
-
-### Added
-- Optional next-message suggestions in the empty composer after Pi finishes, with Tab to accept and Escape to dismiss.
-
 ### Changed
 - Make Paper the default color scheme and rename the glass scheme to Acrylic, preserving saved scheme selections.
 - Keep NativePi’s glass material active when its window loses focus on macOS and Windows.
 - Rework the NativePi color scheme with live macOS vibrancy and Windows 11 Acrylic, translucent app surfaces, and a window-wide dither texture instead of a photo. Unsupported desktops and browser access keep a solid backdrop.
 - Match the visible sidebar and history icon heights to the macOS window controls and align their centers.
 - Replace the top-left wordmark with back/forward chat navigation and move NativePi branding into the new-chat view.
+
+### Fixed
+- Keep back and forward navigation enabled states current in both expanded and collapsed sidebar layouts.
+
+## [1.18.0] - 2026-11-14
+
+### Added
+- Optional next-message suggestions in the empty composer after Pi finishes, with Tab to accept and Escape to dismiss.
+
+### Changed
 - Refine source-control history with compact commit rows, bounded branch markers, clearer commit details, and readable changed-file paths.
 - Give Files and Source Control separate right-sidebar buttons, with compact commits, folder-based staging, independent push/sync, searchable commit history, and diffs in the main workspace.
 - Right-align user prompts in transcripts.
@@ -70,7 +75,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace outdated workspace, settings, and website images with current app captures, including an interactive HTML artifact. Remove the old social preview image.
 
 ### Fixed
-- Keep back and forward navigation enabled states current in both expanded and collapsed sidebar layouts.
 - Preserve typed text, line breaks, and inline skill/file chips when sending a message, with chips styled like the composer.
 - Let message text use the selected conversation width and tighten spacing between prompts and responses.
 - Improve next-message suggestions by using Pi’s full prepared conversation context instead of truncated excerpts.
