@@ -1,7 +1,6 @@
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { Input } from "@/components/ui/input.tsx";
 import { PaletteIcon } from "@phosphor-icons/react/Palette";
-import { ColumnsIcon } from "@phosphor-icons/react/Columns";
 import { KeyboardIcon } from "@phosphor-icons/react/Keyboard";
 import { PlugsConnectedIcon } from "@phosphor-icons/react/PlugsConnected";
 import { BrainIcon } from "@phosphor-icons/react/Brain";
@@ -11,7 +10,7 @@ import { SlidersHorizontalIcon } from "@phosphor-icons/react/SlidersHorizontal";
 import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
 import { InfoIcon } from "@phosphor-icons/react/Info";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { XIcon } from "@phosphor-icons/react/X";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { StopIcon } from "@phosphor-icons/react/Stop";
@@ -20,21 +19,21 @@ import { Button } from "@/components/ui/button.tsx";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet.tsx";
 import { NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 
-const AccessSettings = lazy(() => import("./settings/AccessSettings.tsx"));
-const AgentSettings = lazy(() => import("./settings/AgentSettings.tsx"));
-const AppearanceSettings = lazy(() => import("./settings/AppearanceSettings.tsx"));
-const ExtensionsManager = lazy(() => import("./ExtensionsManager.tsx"));
-const ProviderSettings = lazy(() => import("./settings/ProviderSettings.tsx"));
-const GeneralSettings = lazy(() => import("./settings/GeneralSettings.tsx"));
-const AboutSettings = lazy(() => import("./settings/AboutSettings.tsx"));
-const UsageSettings = lazy(() => import("./settings/UsageSettings.tsx"));
-const TerminalSettings = lazy(() => import("./settings/TerminalSettings.tsx"));
-const KeybindSettings = lazy(() => import("./settings/KeybindSettings.tsx"));
+import AccessSettings from "./settings/AccessSettings.tsx";
+import AgentSettings from "./settings/AgentSettings.tsx";
+import AppearanceSettings from "./settings/AppearanceSettings.tsx";
+import ExtensionsManager from "./ExtensionsManager.tsx";
+import ChatExtensionSettings from "./settings/ChatExtensionSettings.tsx";
+import ProviderSettings from "./settings/ProviderSettings.tsx";
+import GeneralSettings from "./settings/GeneralSettings.tsx";
+import AboutSettings from "./settings/AboutSettings.tsx";
+import UsageSettings from "./settings/UsageSettings.tsx";
+import TerminalSettings from "./settings/TerminalSettings.tsx";
+import KeybindSettings from "./settings/KeybindSettings.tsx";
 
 /** Sidebar headings group focused pages, rather than adding another navigation layer. */
 export const CATEGORIES = [
-  { name: "Appearance", icon: PaletteIcon, group: "Interface", blurb: "Colors, backgrounds, and animation." },
-  { name: "Layout & diffs", icon: ColumnsIcon, group: "Interface", blurb: "Interface scale, conversation width, and file changes." },
+  { name: "Appearance", icon: PaletteIcon, group: "Interface", blurb: "Colors, backgrounds, layout, file changes, and motion." },
   { name: "Keyboard", icon: KeyboardIcon, group: "Interface", blurb: "Shortcuts for the workspace." },
   { name: "Providers", icon: PlugsConnectedIcon, group: "Pi", blurb: "Connect the model providers Pi can use." },
   { name: "Behavior", icon: BrainIcon, group: "Pi", blurb: "Reasoning, reliability, images, and project trust." },
@@ -47,9 +46,8 @@ export const CATEGORIES = [
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number]["name"];
-const PI_BACKED = new Set<Category>(["Behavior", "Terminal", "Keyboard"]);
 const LEGACY_PAGES: Record<string, Category> = {
-  "Theme & motion": "Appearance", Agent: "Behavior", Workbench: "Terminal", System: "General",
+  "Layout & diffs": "Appearance", "Theme & motion": "Appearance", Agent: "Behavior", Workbench: "Terminal", System: "General",
 };
 export function settingsPage(value: string | null): Category {
   return CATEGORIES.find((page) => page.name === value)?.name
@@ -68,11 +66,10 @@ export default function Settings() {
   const [railSheetOpen, setRailSheetOpen] = useState(false);
 
   // Pi's settings file is shared with the Pi command line and editable by hand,
-  // so it is re-read whenever a screen that shows it is opened rather than
-  // cached for the lifetime of the window.
+  // so refresh on entry while keeping the eagerly prepared snapshot visible.
   useEffect(() => {
-    if (PI_BACKED.has(category)) void loadPiSettings();
-  }, [category, loadPiSettings]);
+    void loadPiSettings();
+  }, [loadPiSettings]);
 
   // Escape belongs to this screen, not to the "stop the turn" shortcut it used
   // to be answered by — rebinding that one silently took the keyboard way out of
@@ -100,44 +97,43 @@ export default function Settings() {
 
   return (
     <div className="@container/settings-shell flex h-full min-w-0 bg-background text-foreground">
-      <aside className="hidden w-56 shrink-0 flex-col @min-[48rem]/settings-shell:flex border-r border-border/70 bg-sidebar/50">
+      <aside className="hidden w-52 shrink-0 flex-col @min-[48rem]/settings-shell:flex border-r border-border/70 bg-sidebar/60">
         {rail}
       </aside>
 
-      <div className="min-w-0 flex-1">
-        <main key={category} className="h-full min-w-0 overflow-y-auto">
-          <header
-            className={cn(
-              "sticky top-0 z-10 flex h-12 items-center gap-2 border-b border-border/50 bg-background px-5 @min-[48rem]/settings-shell:px-8",
-            )}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header
+          className={cn(
+            "flex h-14 shrink-0 items-center gap-2 px-5 @min-[48rem]/settings-shell:px-8",
+          )}
+        >
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setRailSheetOpen(true)}
+            title="Open sidebar"
+            aria-label="Open sidebar"
+            className={cn(NO_DRAG_REGION, "@min-[48rem]/settings-shell:hidden")}
           >
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setRailSheetOpen(true)}
-              title="Open sidebar"
-              aria-label="Open sidebar"
-              className={cn(NO_DRAG_REGION, "@min-[48rem]/settings-shell:hidden")}
-            >
-              <SidebarSimpleIcon />
-            </Button>
-            <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">Settings / {category}</span>
-            <div className="flex-1" />
-            <RunningAgentBadge />
-            <Button variant="ghost" size="icon" onClick={closeSettings} aria-label="Close settings" title="Close settings" className="shrink-0">
-              <XIcon />
-            </Button>
-          </header>
+            <SidebarSimpleIcon />
+          </Button>
+          <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">Settings</span>
+          <div className="flex-1" />
+          <RunningAgentBadge />
+          <Button variant="ghost" size="icon" onClick={closeSettings} aria-label="Close settings" title="Close settings" className="shrink-0">
+            <XIcon />
+          </Button>
+        </header>
 
-          <div className="mx-auto w-full max-w-5xl px-5 py-6 @min-[48rem]/settings-shell:px-8 @min-[48rem]/settings-shell:py-8">
-            <div className="mb-6">
-              <h1 className="text-balance text-headline">{category}</h1>
+        <main key={category} className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-[52rem] px-5 pb-12 pt-2 @min-[48rem]/settings-shell:px-8">
+            <div className="mb-7 border-b border-border/70 pb-5">
+              <h1 className="text-xl font-semibold tracking-tight">{category}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">{CATEGORIES.find(page => page.name === category)?.blurb}</p>
             </div>
 
             <div className="@container/settings-content">
-              <Suspense fallback={<div className="py-8 text-sm text-body-muted-foreground">Loading {category.toLowerCase()}…</div>}>
-                <CategoryPanel category={category} />
-              </Suspense>
+              <CategoryPanel category={category} />
             </div>
           </div>
         </main>
@@ -174,12 +170,12 @@ function CategoryNav({
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", NO_DRAG_REGION)}>
-      <div className="relative mx-3 my-2 shrink-0">
+      <div className="relative mx-3 mb-2 mt-4 shrink-0">
         <MagnifyingGlassIcon aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
-          aria-label="Search settings"
-          placeholder="Search settings"
+          aria-label="Filter categories"
+          placeholder="Filter categories"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           className="h-8 pl-8"
@@ -190,8 +186,8 @@ function CategoryNav({
           const matches = pages.filter((page) => page.group === group);
           if (!matches.length) return null;
           return (
-            <div key={group} className="mt-4 flex shrink-0 flex-col gap-0.5 pt-2 first:mt-0">
-              <h2 className="px-2.5 pb-1.5 text-[0.6875rem] font-medium tracking-[0.06em] text-muted-foreground uppercase">{group}</h2>
+            <div key={group} className="mt-5 flex shrink-0 flex-col gap-0.5 pt-1 first:mt-0">
+              <h2 className="px-2.5 pb-1.5 text-xs font-medium text-muted-foreground">{group}</h2>
               {matches.map(({ name, icon: Icon }) => (
                 <button
                   key={name}
@@ -199,7 +195,7 @@ function CategoryNav({
                   aria-current={category === name ? "page" : undefined}
                   onClick={() => onSelect(name)}
                   className={cn(
-                    "flex min-h-9 shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm font-medium text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                    "flex min-h-8 shrink-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[0.8125rem] font-medium text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
                     category === name && "bg-sidebar-accent text-sidebar-accent-foreground [&>svg]:text-foreground",
                   )}
                 >
@@ -210,7 +206,7 @@ function CategoryNav({
             </div>
           );
         })}
-        {!pages.length ? <p role="status" className="px-2.5 py-4 text-sm text-muted-foreground">No matching settings.</p> : null}
+        {!pages.length ? <p role="status" className="px-2.5 py-4 text-sm text-muted-foreground">No matching categories.</p> : null}
       </nav>
     </div>
   );
@@ -223,15 +219,18 @@ function CategoryPanel({ category }: { category: Category }) {
     case "Access":
       return <AccessSettings />;
     case "Appearance":
-      return <AppearanceSettings page="theme" />;
-    case "Layout & diffs":
-      return <AppearanceSettings page="layout" />;
+      return <AppearanceSettings />;
     case "Behavior":
       return <AgentSettings />;
     case "Providers":
       return <ProviderSettings />;
     case "Extensions":
-      return <ExtensionsManager />;
+      return (
+        <div className="flex flex-col gap-8">
+          <ExtensionsManager />
+          <ChatExtensionSettings />
+        </div>
+      );
     case "Keyboard":
       return <KeybindSettings />;
     case "Terminal":

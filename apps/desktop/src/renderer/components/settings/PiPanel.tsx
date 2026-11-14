@@ -33,7 +33,7 @@ export default function PiPanel({ children }: { children: (settings: PiSettings)
   }
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-6">
       <PiSettingsStatus />
       {children(settings)}
     </div>

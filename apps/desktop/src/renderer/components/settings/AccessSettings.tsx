@@ -109,7 +109,7 @@ export default function AccessSettings() {
         action={
           <Button
             variant={status.local.running ? "destructive" : "default"}
-            size="xl"
+            size="sm"
             disabled={Boolean(busy)}
             onClick={() => void run(
               "local",
@@ -232,7 +232,7 @@ export default function AccessSettings() {
                   <div className="flex shrink-0 items-center gap-2">
                     <Button
                       variant="outline"
-                      size="xl"
+                      size="sm"
                       disabled={Boolean(busy) || remote.state === "starting"}
                       onClick={() => setPending("replace")}
                     >
@@ -241,7 +241,7 @@ export default function AccessSettings() {
                     </Button>
                     <Button
                       variant="destructive"
-                      size="xl"
+                      size="sm"
                       disabled={Boolean(busy) || remote.state === "starting"}
                       onClick={() => setPending("revoke")}
                     >
@@ -396,7 +396,7 @@ function RemoteAction({
 }) {
   if (status.state === "running") {
     return (
-      <Button variant="destructive" size="xl" disabled={busy} onClick={() => void onRun("remote", () => rpc.request.stopRemoteAccess({}))}>
+      <Button variant="destructive" size="sm" disabled={busy} onClick={() => void onRun("remote", () => rpc.request.stopRemoteAccess({}))}>
         <StopIcon weight="fill" data-icon="inline-start" />
         {busy ? "Working…" : "Stop"}
       </Button>
@@ -404,7 +404,7 @@ function RemoteAction({
   }
   if (status.state === "error") {
     return (
-      <Button variant="outline" size="xl" disabled={busy} onClick={() => void onRun("remote", () => rpc.request.startRemoteAccess({}))}>
+      <Button variant="outline" size="sm" disabled={busy} onClick={() => void onRun("remote", () => rpc.request.startRemoteAccess({}))}>
         <ArrowsClockwiseIcon data-icon="inline-start" />
         {busy ? "Working…" : "Try again"}
       </Button>
@@ -413,7 +413,7 @@ function RemoteAction({
   return (
     <Button
       variant="outline"
-      size="xl"
+      size="sm"
       disabled={busy || status.state === "starting"}
       onClick={() => void onRun("remote", () => rpc.request.startRemoteAccess({}))}
     >

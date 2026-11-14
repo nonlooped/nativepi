@@ -308,13 +308,13 @@ export default function ExtensionsManager() {
         {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
 
         {installedPackages === null ? (
-          <p className="rounded-lg border border-dashed px-3 py-5 text-sm text-muted-foreground">Loading…</p>
+          <p className="py-4 text-sm text-muted-foreground">Loading…</p>
         ) : installedPackages.length === 0 ? (
-          <p className="rounded-lg border border-dashed px-3 py-5 text-sm text-muted-foreground">
+          <p className="py-4 text-sm text-muted-foreground">
             No npm or Git packages installed.
           </p>
         ) : (
-          <div className="rounded-lg border bg-card/30 px-3">
+          <div className="border-t border-border/70">
             {installedPackages.map((pkg) => (
               <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
                 <ContextMenuTrigger render={<div className="group flex min-h-14 items-center gap-3 border-b py-2.5 last:border-b-0" />}>
@@ -381,11 +381,11 @@ export default function ExtensionsManager() {
         </div>
 
         {localPackages === null || localExtensions === null ? (
-          <p className="rounded-lg border border-dashed px-3 py-5 text-sm text-muted-foreground">Loading…</p>
+          <p className="py-4 text-sm text-muted-foreground">Loading…</p>
         ) : localPackages.length === 0 && localExtensions.length === 0 ? (
-          <p className="rounded-lg border border-dashed px-3 py-5 text-sm text-muted-foreground">No local extensions found.</p>
+          <p className="py-4 text-sm text-muted-foreground">No local extensions found.</p>
         ) : (
-          <div className="rounded-lg border bg-card/30 px-3">
+          <div className="border-t border-border/70">
             {localPackages.map((pkg) => (
               <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
                 <ContextMenuTrigger render={<div className="group flex min-h-12 items-center gap-3 border-b py-2 last:border-b-0" />}>

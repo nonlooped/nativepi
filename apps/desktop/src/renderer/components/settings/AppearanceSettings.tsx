@@ -3,7 +3,7 @@ import { hintFor } from "../../lib/shortcuts.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { osName } from "../../lib/platform.ts";
 import { cn } from "@/lib/utils.ts";
-import { ChoiceCards, ChoiceRow, SliderRow } from "./rows.tsx";
+import { ChoiceCards, ChoiceRow, SettingsSection, SliderRow } from "./rows.tsx";
 import ThemeSettings from "./ThemeSettings.tsx";
 import ChatBackgroundSettings from "./ChatBackgroundSettings.tsx";
 
@@ -46,7 +46,7 @@ function WidthPreview({ width }: { width: string }) {
   );
 }
 
-export default function AppearanceSettings({ page }: { page: "theme" | "layout" }) {
+export default function AppearanceSettings() {
   const preferences = useAppStore((s) => s.preferences);
   const setPreference = useAppStore((s) => s.setPreference);
   // Named rather than hard-coded: this screen is also served to a phone over
@@ -56,13 +56,13 @@ export default function AppearanceSettings({ page }: { page: "theme" | "layout" 
   const overrides = useAppStore((s) => s.keybindingOverrides);
 
   return (
-    <div className="settings-list">
-      {page === "theme" ? <>
+    <div className="flex flex-col gap-8">
+      <SettingsSection heading="Colors & background">
         <ThemeSettings />
         <ChatBackgroundSettings />
-      </> : null}
+      </SettingsSection>
 
-      {page === "layout" ? <>
+      <SettingsSection heading="Layout & diffs">
         <ChoiceCards
           label="Conversation width"
           description="How far messages, diffs and the composer may spread on a wide window."
@@ -141,9 +141,9 @@ export default function AppearanceSettings({ page }: { page: "theme" | "layout" 
           ]}
           onChange={(value) => setPreference("diffStyle", value)}
         />
-      </> : null}
+      </SettingsSection>
 
-      {page === "theme" ? <>
+      <SettingsSection heading="Motion">
         <ChoiceRow
           label="Animation"
           description={`NativePi follows the reduced-motion setting in ${system} unless you override it here.`}
@@ -155,7 +155,7 @@ export default function AppearanceSettings({ page }: { page: "theme" | "layout" 
           ]}
           onChange={(value) => setPreference("reducedMotion", value)}
         />
-      </> : null}
+      </SettingsSection>
     </div>
   );
 }

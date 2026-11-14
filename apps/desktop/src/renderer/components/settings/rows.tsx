@@ -25,11 +25,11 @@ export function SettingsSection({
       aria-labelledby={id}
       className="flex min-w-0 flex-col gap-3"
     >
-      <div className="px-1">
-        <h2 id={id} className="text-title">
+      <div className="border-b border-border/70 pb-2">
+        <h2 id={id} className="text-sm font-semibold">
           {heading}
         </h2>
-        {description ? <p className="mt-1 text-pretty text-sm text-body-muted-foreground">{description}</p> : null}
+        {description ? <p className="mt-1 max-w-[60ch] text-pretty text-xs leading-relaxed text-body-muted-foreground">{description}</p> : null}
       </div>
       <FieldGroup className="settings-list gap-0">{children}</FieldGroup>
     </section>
@@ -43,6 +43,7 @@ function Row({
   htmlFor,
   wide,
   shrinkable,
+  inline,
   children,
 }: {
   label: React.ReactNode;
@@ -52,24 +53,26 @@ function Row({
   wide?: boolean;
   /** Allow long URLs and paths to shrink without squeezing out the label. */
   shrinkable?: boolean;
+  /** Keep small controls beside their label even in narrow panes. */
+  inline?: boolean;
   children: React.ReactNode;
 }) {
   const text = (
-    <FieldContent className="min-w-0 max-w-[66ch] gap-1">
+    <FieldContent className="min-w-0 max-w-[60ch] gap-1">
       {htmlFor ? (
-        <FieldLabel htmlFor={htmlFor} className="w-fit text-sm font-semibold">
+        <FieldLabel htmlFor={htmlFor} className="w-fit text-sm font-medium">
           {label}
         </FieldLabel>
       ) : (
-        <FieldTitle className="text-sm font-semibold">{label}</FieldTitle>
+        <FieldTitle className="text-sm font-medium">{label}</FieldTitle>
       )}
-      {description ? <FieldDescription className="max-w-[64ch] text-sm">{description}</FieldDescription> : null}
+      {description ? <FieldDescription className="max-w-[60ch] text-xs leading-relaxed">{description}</FieldDescription> : null}
     </FieldContent>
   );
 
   if (wide) {
     return (
-      <Field orientation="vertical" className="settings-row-wide flex flex-col gap-3 border-b border-border/50 py-4 last:border-b-0">
+      <Field orientation="vertical" className="settings-row-wide flex flex-col gap-3 border-b border-border/40 py-3 last:border-b-0">
         {text}
         {children}
       </Field>
@@ -77,7 +80,7 @@ function Row({
   }
 
   return (
-    <Field orientation="horizontal" className="settings-row border-b border-border/50 py-4 last:border-b-0">
+    <Field orientation="horizontal" className={cn("settings-row border-b border-border/40 py-3 last:border-b-0", inline && "settings-row-inline")}>
       {text}
       <div className={cn("settings-row-control", shrinkable && "min-w-0")}>{children}</div>
     </Field>
@@ -99,7 +102,7 @@ export function SwitchRow({
 }) {
   const id = useId();
   return (
-    <Row label={label} description={description} htmlFor={id}>
+    <Row label={label} description={description} htmlFor={id} inline>
       <Switch id={id} checked={checked} onCheckedChange={onChange} disabled={disabled} />
     </Row>
   );
@@ -133,10 +136,8 @@ export function SelectRow<T extends string>({
         disabled={disabled}
         items={options}
       >
-        {/* Use the same compact form height throughout Settings. The
-            trigger's own height is a `data-size` variant, so a plain `h-10`
-            would lose to it on specificity and the row would stay compact. */}
-        <SelectTrigger aria-label={label} className="w-full px-3 text-sm data-[size=default]:h-9 @min-[36rem]/settings-content:w-auto @min-[36rem]/settings-content:min-w-44">
+        {/* Match the trigger’s data-size specificity for a compact height. */}
+        <SelectTrigger aria-label={label} className="w-full px-3 text-sm data-[size=default]:h-8 @min-[36rem]/settings-content:w-auto @min-[36rem]/settings-content:min-w-44">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -202,7 +203,7 @@ export function Segmented<T extends string>({
       }}
       spacing={0}
       aria-label={label}
-      className={cn("h-auto min-h-10 w-full flex-wrap rounded-md bg-muted/60 p-1 @min-[36rem]/settings-content:w-auto", className)}
+      className={cn("h-auto min-h-9 w-full flex-wrap rounded-md bg-muted/60 p-1 @min-[36rem]/settings-content:w-auto", className)}
     >
       {options.map((option) => (
         <ToggleGroupItem
@@ -210,7 +211,7 @@ export function Segmented<T extends string>({
           value={option.value}
           disabled={disabled || option.disabled}
           title={option.title}
-          className="h-8 flex-1 px-3 text-sm text-muted-foreground data-pressed:bg-accent data-pressed:text-accent-foreground data-pressed:font-semibold data-pressed:shadow-[inset_0_0_0_1px_var(--input)] @min-[36rem]/settings-content:flex-none"
+          className="h-7 flex-1 px-3 text-sm text-muted-foreground data-pressed:bg-accent data-pressed:text-accent-foreground data-pressed:font-medium data-pressed:shadow-[inset_0_0_0_1px_var(--input)] @min-[36rem]/settings-content:flex-none"
         >
           {option.label}
         </ToggleGroupItem>
@@ -326,22 +327,22 @@ export function SettingsCard({
   children?: React.ReactNode;
 }) {
   return (
-    <section className="border-b border-border/50 py-4 last:border-b-0">
+    <section className="border-b border-border/40 py-3 last:border-b-0">
       <div className="flex flex-col gap-3 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-start @min-[36rem]/settings-content:gap-4">
         {icon ? (
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground [&_svg]:size-[1.125rem]">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground [&_svg]:size-[1.125rem]">
             {icon}
           </span>
         ) : null}
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold">{title}</h3>
+          <h3 className="text-sm font-medium">{title}</h3>
           {status ? (
             <p className={cn("mt-1 flex items-center gap-1.5 text-sm", TONE_TEXT[tone])}>
               <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", TONE_DOT[tone])} />
               {status}
             </p>
           ) : null}
-          {description ? <p className="mt-1 text-sm text-body-muted-foreground">{description}</p> : null}
+          {description ? <p className="mt-1 max-w-[60ch] text-xs leading-relaxed text-body-muted-foreground">{description}</p> : null}
           {error ? (
             <p role="alert" className="mt-2 text-sm text-destructive">
               {error}
@@ -350,7 +351,7 @@ export function SettingsCard({
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      {children ? <div className="border-t border-border/70 py-5">{children}</div> : null}
+      {children ? <div className="mt-3 border-t border-border/40 pt-1">{children}</div> : null}
     </section>
   );
 }
@@ -459,7 +460,7 @@ export function TextRow({
             if (event.key === "Enter") event.currentTarget.blur();
           }}
           spellCheck={false}
-          className="h-9 w-full font-mono text-xs @min-[36rem]/settings-content:w-64"
+          className="h-8 w-full font-mono text-xs @min-[36rem]/settings-content:w-64"
         />
       )}
     </Row>

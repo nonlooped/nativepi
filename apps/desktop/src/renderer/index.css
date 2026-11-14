@@ -893,9 +893,6 @@ html[data-motion="reduced"] *::after {
   min-width: 0;
   flex-direction: column;
   gap: 0;
-  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
-  border-radius: var(--radius-lg);
-  padding-inline: 1.25rem;
 }
 .settings-row {
   display: flex;
@@ -903,6 +900,11 @@ html[data-motion="reduced"] *::after {
   align-items: stretch;
   gap: 0.75rem;
 }
+.settings-row.settings-row-inline {
+  flex-direction: row;
+  align-items: center;
+}
+.settings-row > [data-slot="field-content"] { align-self: center; }
 .settings-row-control { min-width: 0; }
 .settings-row-control > * { max-width: 100%; }
 @container settings-content (min-width: 36rem) {

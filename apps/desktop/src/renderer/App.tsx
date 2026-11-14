@@ -368,7 +368,7 @@ export default function App() {
             role="dialog"
             aria-modal="true"
             aria-label="Settings"
-            className="settings-viewport h-full w-full overflow-hidden bg-background sm:h-[88%] sm:max-h-[60rem] sm:w-[94%] sm:max-w-[100rem] sm:rounded-xl sm:border sm:shadow-xl"
+            className="settings-viewport h-full w-full overflow-hidden bg-background sm:h-[88%] sm:max-h-[54rem] sm:w-[94%] sm:max-w-[70rem] sm:rounded-xl sm:border sm:shadow-xl"
             onClick={(event) => event.stopPropagation()}
           >
             <Settings />

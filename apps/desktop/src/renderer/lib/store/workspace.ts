@@ -144,6 +144,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     piStatus: {},
 
     init: async () => {
+      void get().loadPiSettings();
       const loaded = await rpc.request.loadState({});
       const [{ path: chatRoot }, { path: workRoot }] = await Promise.all([rpc.request.chatWorkspace({}), rpc.request.workWorkspace({})]);
       replaceLastChats(get, loaded.lastChatByProject ?? {});

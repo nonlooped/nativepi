@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAppStore } from "../../lib/store.ts";
 import { rpc } from "../../lib/rpc.ts";
-import { SwitchRow } from "./rows.tsx";
+import { SettingsSection, SwitchRow } from "./rows.tsx";
 import type { ResolvedExtension } from "../../../shared/pi-types.ts";
 
 export default function ChatExtensionSettings() {
@@ -17,10 +17,8 @@ export default function ChatExtensionSettings() {
   }, [root]);
   const groups = new Map<string, ResolvedExtension[]>();
   for (const extension of extensions.filter(e => e.scope === "user")) { const id = extension.origin === "top-level" ? extension.path : extension.source; groups.set(id, [...(groups.get(id) ?? []), extension]); }
-  return <section className="space-y-3">
-    <h3 className="text-sm font-medium">Extensions in Chat</h3>
-    <p className="text-sm text-muted-foreground">Installed extensions are off in Chat by default. Enabling one loads its full capabilities. Chat still instructs Pi to answer questions and avoid making changes. Changes apply to newly started Pi sessions; restart Pi to update open chats.</p>
+  return <SettingsSection heading="Extensions in Chat" description="Off by default. Enabling an extension gives Chat all of its tools and capabilities. Restart Pi to apply changes to open chats.">
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
     {groups.size === 0 ? <p className="text-sm text-muted-foreground">No user-installed extensions found.</p> : [...groups].map(([source, entries]) => <SwitchRow key={source} label={source} description={entries.map(e => e.path.split(/[/\\]/).pop()).join(", ")} checked={entries.every(e => enabled.includes(e.path))} onChange={checked => setEnabled(checked ? [...new Set([...enabled, ...entries.map(e => e.path)])] : enabled.filter(path => !entries.some(e => e.path === path)))} />)}
-  </section>;
+  </SettingsSection>;
 }

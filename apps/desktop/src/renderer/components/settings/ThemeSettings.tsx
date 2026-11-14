@@ -211,13 +211,13 @@ export default function ThemeSettings() {
         description="Customize a copy of this scheme or import a shared one."
       >
         <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="outline" size="lg" onClick={create} disabled={preferences.customThemes.length >= MAX_CUSTOM_THEMES}>
+          <Button variant="outline" size="sm" onClick={create} disabled={preferences.customThemes.length >= MAX_CUSTOM_THEMES}>
             <PlusIcon data-icon="inline-start" />
             Create scheme
           </Button>
           <Button
             variant="outline"
-            size="lg"
+            size="sm"
             onClick={() => setImporting(true)}
             disabled={preferences.customThemes.length >= MAX_CUSTOM_THEMES}
           >
@@ -228,7 +228,7 @@ export default function ThemeSettings() {
             <>
               <Button
                 variant="ghost"
-                size="lg"
+                size="sm"
                 onClick={() => setEditing({
                   ...activeCustom,
                   colors: {
@@ -240,11 +240,11 @@ export default function ThemeSettings() {
                 <PencilSimpleIcon data-icon="inline-start" />
                 Edit
               </Button>
-              <Button variant="ghost" size="lg" onClick={copyJson}>
+              <Button variant="ghost" size="sm" onClick={copyJson}>
                 <CopyIcon data-icon="inline-start" />
                 Copy JSON
               </Button>
-              <Button variant="destructive" size="lg" onClick={() => setDeleting(true)}>
+              <Button variant="destructive" size="sm" onClick={() => setDeleting(true)}>
                 <TrashIcon data-icon="inline-start" />
                 Delete
               </Button>

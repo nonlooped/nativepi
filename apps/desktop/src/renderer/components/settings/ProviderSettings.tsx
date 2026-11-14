@@ -135,7 +135,7 @@ function ProviderGroup({
       className="grid gap-3 border-t border-border/70 pt-6 @min-[44rem]/settings-content:grid-cols-[minmax(11rem,0.48fr)_minmax(0,1.52fr)] @min-[44rem]/settings-content:gap-10"
     >
       <div className="flex max-w-sm flex-col gap-1">
-        <h2 id={headingId} className="text-title">
+        <h2 id={headingId} className="text-sm font-semibold">
           {heading}
           <span className="ml-2 font-sans text-xs font-normal text-muted-foreground tabular-nums">
             {providers.length}

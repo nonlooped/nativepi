@@ -59,7 +59,7 @@ export default function KeybindSettings() {
       <div className="flex flex-col gap-3 border-b border-border/70 pb-5 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-end @min-[36rem]/settings-content:justify-between">
         <div className="flex max-w-2xl flex-col gap-1">
           <h2 className="font-heading text-sm font-semibold">Keyboard shortcuts</h2>
-          <p className="text-sm leading-5 text-body-muted-foreground">
+          <p className="text-xs leading-relaxed text-body-muted-foreground">
             Select a shortcut, then press its new keys. Press Escape to cancel.
           </p>
         </div>
@@ -91,13 +91,13 @@ export default function KeybindSettings() {
                 <div
                   key={shortcut.id}
                   className={cn(
-                    "group flex flex-col gap-2 border-t py-3.5 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-center @min-[36rem]/settings-content:justify-between @min-[36rem]/settings-content:gap-8",
+                    "group flex flex-col gap-2 border-t border-border/40 py-3 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-center @min-[36rem]/settings-content:justify-between @min-[36rem]/settings-content:gap-8",
                     unbound && "rounded-lg bg-warning/10 px-2",
                   )}
                 >
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <p className="text-sm font-medium">{shortcut.label}</p>
-                    <p className="text-sm leading-5 text-body-muted-foreground">
+                    <p className="text-xs leading-relaxed text-body-muted-foreground">
                       {unbound
                         ? "Unbound when another shortcut took these keys."
                         : shortcut.description}

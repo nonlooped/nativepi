@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Redesign Settings with compact navigation, unboxed sections, aligned controls, and combined appearance and layout preferences. Move Chat extension controls to Extensions and load settings pages eagerly, preparing local Pi configuration at startup.
+
 ### Added
 - Render files, folders, source locations, skills, web links, pull requests, and chat references as compact transcript chips; expand quoted responses, source-linked replies, terminal selections, and on-demand image, video, and audio previews inline.
 - Start Work chats with “No project” for general device tasks, with normal Pi tools and a dedicated working directory.

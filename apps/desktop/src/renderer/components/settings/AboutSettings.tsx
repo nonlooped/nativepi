@@ -81,18 +81,18 @@ function Updates() {
       error={actionError}
       action={
         update.status === "manual" ? (
-          <Button size="xl" variant="outline" disabled={busy} onClick={() => void runAction(async () => {
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void runAction(async () => {
             const result = await rpc.request.openExternal({ url: `${REPOSITORY_URL}/releases${update.channel === "stable" ? "/latest" : ""}` });
             if (!result.ok) throw new Error("Could not open the downloads page.");
           })}>
             View downloads
           </Button>
         ) : update.status === "ready" ? (
-          <Button size="xl" disabled={busy} onClick={() => void runAction(installUpdate)}>
+          <Button size="sm" disabled={busy} onClick={() => void runAction(installUpdate)}>
             Restart and install
           </Button>
         ) : (
-          <Button size="xl" variant="outline" disabled={busy} onClick={() => void runAction(checkForUpdate)}>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void runAction(checkForUpdate)}>
             {busy ? "Working…" : "Check now"}
           </Button>
         )
@@ -159,7 +159,7 @@ export default function AboutSettings() {
             label="Diagnostics"
             description="Copy system details, recent logs, package state, and redacted configuration for a bug report."
           >
-            <Button size="xl" variant="outline" disabled={exporting} onClick={() => void exportDiagnostics()}>
+            <Button size="sm" variant="outline" disabled={exporting} onClick={() => void exportDiagnostics()}>
               <CopyIcon data-icon="inline-start" />
               {exporting ? "Copying…" : "Copy diagnostics"}
             </Button>
