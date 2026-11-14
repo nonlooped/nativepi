@@ -138,6 +138,8 @@ export default function AboutSettings() {
 
   return (
     <div className="flex flex-col gap-8">
+      <Updates />
+
       <SettingsSection heading="Version">
         <ReadonlyRow
           label="NativePi"
@@ -150,8 +152,6 @@ export default function AboutSettings() {
         />
         <ReadonlyRow label="Pi" value={versions.data?.pi ?? "…"} />
       </SettingsSection>
-
-      <Updates />
 
       {!isRemote ? (
         <SettingsSection heading="Support">

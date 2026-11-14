@@ -10,14 +10,6 @@ export default function GeneralSettings() {
 
   return (
     <div className="flex flex-col gap-8">
-      <SettingsSection heading="Startup">
-        <SwitchRow
-          label="Reopen last project"
-          description="Return to the project you were working in when NativePi starts."
-          checked={reopenLastProject}
-          onChange={setReopenLastProject}
-        />
-      </SettingsSection>
       <SettingsSection heading="Notifications">
         <SwitchRow
           label="Notify when a turn finishes"
@@ -30,6 +22,14 @@ export default function GeneralSettings() {
           checked={notificationSound}
           onChange={(value) => setPreference("notificationSound", value)}
           disabled={!notifyOnTurnEnd}
+        />
+      </SettingsSection>
+      <SettingsSection heading="Startup">
+        <SwitchRow
+          label="Reopen last project"
+          description="Return to the project you were working in when NativePi starts."
+          checked={reopenLastProject}
+          onChange={setReopenLastProject}
         />
       </SettingsSection>
     </div>

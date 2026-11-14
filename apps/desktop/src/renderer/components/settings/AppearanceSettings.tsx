@@ -15,12 +15,27 @@ export default function AppearanceSettings() {
 
   return (
     <div className="flex flex-col gap-8">
-      <SettingsSection heading="Colors & background">
-        <ThemeSettings />
-        <ChatBackgroundSettings />
-      </SettingsSection>
-
-      <SettingsSection heading="Layout & diffs">
+      <SettingsSection heading="Interface">
+        <ChoiceRow
+          label="Light & dark"
+          value={preferences.theme}
+          options={[
+            { value: "system", label: "System" },
+            { value: "light", label: "Light" },
+            { value: "dark", label: "Dark" },
+          ]}
+          onChange={(value) => setPreference("theme", value)}
+        />
+        <SliderRow
+          label="Interface scale"
+          description="Scale text, spacing, and controls."
+          value={preferences.interfaceScale}
+          min={MIN_INTERFACE_SCALE}
+          max={MAX_INTERFACE_SCALE}
+          step={INTERFACE_SCALE_STEP}
+          format={(value) => `${Math.round(value * 100)}%`}
+          onChange={(value) => setPreference("interfaceScale", value)}
+        />
         <ChoiceRow
           label="Conversation width"
           description="Width of messages and the composer."
@@ -33,16 +48,6 @@ export default function AppearanceSettings() {
           ]}
           onChange={(value) => setPreference("conversationWidth", value)}
         />
-        <SliderRow
-          label="Interface scale"
-          description="Scale text, spacing, and controls."
-          value={preferences.interfaceScale}
-          min={MIN_INTERFACE_SCALE}
-          max={MAX_INTERFACE_SCALE}
-          step={INTERFACE_SCALE_STEP}
-          format={(value) => `${Math.round(value * 100)}%`}
-          onChange={(value) => setPreference("interfaceScale", value)}
-        />
 
         <ChoiceRow
           label="Diff layout"
@@ -54,9 +59,6 @@ export default function AppearanceSettings() {
           ]}
           onChange={(value) => setPreference("diffStyle", value)}
         />
-      </SettingsSection>
-
-      <SettingsSection heading="Motion">
         <ChoiceRow
           label="Animation"
           description={`NativePi follows the reduced-motion setting in ${system} unless you override it here.`}
@@ -69,6 +71,12 @@ export default function AppearanceSettings() {
           onChange={(value) => setPreference("reducedMotion", value)}
         />
       </SettingsSection>
+
+      <SettingsSection heading="Colors">
+        <ThemeSettings />
+      </SettingsSection>
+
+      <ChatBackgroundSettings />
     </div>
   );
 }

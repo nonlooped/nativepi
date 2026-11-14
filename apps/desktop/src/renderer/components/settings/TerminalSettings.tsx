@@ -21,11 +21,6 @@ export default function TerminalSettings() {
         heading="Integrated terminal"
         description="Changes apply to open terminals without losing scrollback."
       >
-        <TerminalPreview
-          fontSize={preferences.terminalFontSize}
-          cursorBlink={preferences.terminalCursorBlink}
-          scrollback={preferences.terminalScrollback}
-        />
         <SliderRow
           label="Font size"
           value={preferences.terminalFontSize}
@@ -49,6 +44,11 @@ export default function TerminalSettings() {
           label="Blink the cursor"
           checked={preferences.terminalCursorBlink}
           onChange={(value) => setPreference("terminalCursorBlink", value)}
+        />
+        <TerminalPreview
+          fontSize={preferences.terminalFontSize}
+          cursorBlink={preferences.terminalCursorBlink}
+          scrollback={preferences.terminalScrollback}
         />
       </SettingsSection>
 

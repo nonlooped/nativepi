@@ -33,7 +33,19 @@ export default function AgentSettings() {
               checked={settings.hideThinkingBlock}
               onChange={(value) => void update("hideThinkingBlock", value)}
             />
-
+          </SettingsSection>
+          <SettingsSection heading="Project trust">
+            <ChoiceRow
+              label="New project folders"
+              description="Whether new folders may load local extensions, skills, and settings with your permissions."
+              value={settings.defaultProjectTrust}
+              options={[
+                { value: "ask", label: "Ask" },
+                { value: "always", label: "Always trust" },
+                { value: "never", label: "Never trust" },
+              ]}
+              onChange={(value) => void update("defaultProjectTrust", value)}
+            />
           </SettingsSection>
           <SettingsSection heading="Reliability">
             <SwitchRow
@@ -48,7 +60,6 @@ export default function AgentSettings() {
               checked={settings.autoRetry}
               onChange={(value) => void update("autoRetry", value)}
             />
-
           </SettingsSection>
           <SettingsSection heading="Images">
             <SwitchRow
@@ -63,20 +74,6 @@ export default function AgentSettings() {
               checked={settings.autoResizeImages}
               onChange={(value) => void update("autoResizeImages", value)}
               disabled={settings.blockImages}
-            />
-
-          </SettingsSection>
-          <SettingsSection heading="Project trust">
-            <ChoiceRow
-              label="New project folders"
-              description="Whether new folders may load local extensions, skills, and settings with your permissions."
-              value={settings.defaultProjectTrust}
-              options={[
-                { value: "ask", label: "Ask" },
-                { value: "always", label: "Always trust" },
-                { value: "never", label: "Never trust" },
-              ]}
-              onChange={(value) => void update("defaultProjectTrust", value)}
             />
           </SettingsSection>
         </div>

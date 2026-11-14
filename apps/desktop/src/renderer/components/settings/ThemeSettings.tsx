@@ -48,7 +48,7 @@ import { Input } from "@/components/ui/input.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { showHint } from "../../lib/toast.tsx";
 import ConfirmDialog from "../ConfirmDialog.tsx";
-import { ActionRow, ChoiceCards, ChoiceRow, Segmented } from "./rows.tsx";
+import { ActionRow, ChoiceCards, Segmented } from "./rows.tsx";
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
@@ -188,16 +188,6 @@ export default function ThemeSettings() {
 
   return (
     <>
-      <ChoiceRow
-        label="Light & dark"
-        value={preferences.theme}
-        options={[
-          { value: "system", label: "System" },
-          { value: "light", label: "Light" },
-          { value: "dark", label: "Dark" },
-        ]}
-        onChange={(value) => setPreference("theme", value)}
-      />
       <ChoiceCards
         label="Color scheme"
         description="Choose the colors NativePi uses in both appearances."

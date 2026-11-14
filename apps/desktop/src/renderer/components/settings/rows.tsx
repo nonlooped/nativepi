@@ -25,13 +25,13 @@ export function SettingsSection({
       aria-labelledby={id}
       className="flex min-w-0 flex-col gap-1"
     >
-      <div className="border-b border-border/40 pb-2">
-        <h2 id={id} className="text-sm font-semibold">
+      <div className="border-b border-border/60 pb-2.5">
+        <h2 id={id} className="text-[0.9375rem] font-semibold leading-6 text-foreground">
           {heading}
         </h2>
-        {description ? <p className="mt-1 max-w-[60ch] text-pretty text-xs leading-relaxed text-body-muted-foreground">{description}</p> : null}
+        {description ? <p className="mt-1 max-w-[60ch] text-pretty text-[0.8125rem] leading-5 text-body-muted-foreground">{description}</p> : null}
       </div>
-      <FieldGroup className="settings-list gap-0">{children}</FieldGroup>
+      <FieldGroup className="settings-list gap-0 [&>.settings-row+.settings-row]:border-t [&>.settings-row+.settings-row]:border-border/30">{children}</FieldGroup>
     </section>
   );
 }
@@ -60,7 +60,7 @@ function Row({
   children: React.ReactNode;
 }) {
   const text = (
-    <FieldContent className="min-w-0 max-w-[60ch] gap-0.5 [overflow-wrap:anywhere]">
+    <FieldContent className="min-w-0 w-full max-w-[60ch] gap-0.5 [overflow-wrap:anywhere]">
       {htmlFor ? (
         <FieldLabel htmlFor={htmlFor} className="w-fit text-sm font-medium">
           {label}
@@ -68,13 +68,13 @@ function Row({
       ) : (
         <FieldTitle className="text-sm font-medium">{label}</FieldTitle>
       )}
-      {description ? <FieldDescription className="max-w-[60ch] text-xs leading-relaxed">{description}</FieldDescription> : null}
+      {description ? <FieldDescription className="max-w-[60ch] text-[0.8125rem] leading-5 text-body-muted-foreground">{description}</FieldDescription> : null}
     </FieldContent>
   );
 
   if (wide) {
     return (
-      <Field orientation="vertical" className="settings-row-wide flex flex-col gap-3 py-2.5">
+      <Field orientation="vertical" className="settings-row-wide flex flex-col gap-3 py-3">
         {text}
         {children}
       </Field>
@@ -82,7 +82,7 @@ function Row({
   }
 
   return (
-    <Field orientation="horizontal" data-disabled={disabled || undefined} className={cn("settings-row py-2.5", inline && "settings-row-inline")}>
+    <Field orientation="horizontal" data-disabled={disabled || undefined} className={cn("settings-row py-3", inline && "settings-row-inline")}>
       {text}
       <div className={cn("settings-row-control", shrinkable && "min-w-0")}>{children}</div>
     </Field>
@@ -213,7 +213,7 @@ export function Segmented<T extends string>({
           value={option.value}
           disabled={disabled || option.disabled}
           title={option.title}
-          className="h-7 flex-1 px-2.5 text-xs text-muted-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:font-medium data-pressed:shadow-sm @min-[36rem]/settings-content:flex-none"
+          className="h-7 flex-1 px-2.5 text-xs text-muted-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:font-medium data-pressed:shadow-sm data-pressed:ring-1 data-pressed:ring-border @min-[36rem]/settings-content:flex-none"
         >
           {option.label}
         </ToggleGroupItem>
@@ -267,7 +267,7 @@ export function ChoiceCards<T extends string>({
               onClick={() => onChange(option.value)}
               className={cn(
                 "relative flex flex-col gap-2 rounded-md border border-transparent p-2 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:border-foreground focus-visible:ring-2 focus-visible:ring-ring",
-                selected && "border-input bg-muted/40",
+                selected && "border-primary/50 bg-accent/50",
               )}
             >
               <span
@@ -278,7 +278,7 @@ export function ChoiceCards<T extends string>({
               </span>
               <span className="px-0.5 text-xs font-medium">{option.label}</span>
               {selected ? (
-                <span className="absolute right-2 top-2 flex size-4 items-center justify-center rounded-full bg-muted text-foreground" aria-hidden="true">
+                <span className="absolute right-2 top-2 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground" aria-hidden="true">
                   <CheckIcon />
                 </span>
               ) : null}
@@ -344,7 +344,7 @@ export function SettingsCard({
               </p>
             ) : null}
           </div>
-          {description ? <p className="mt-1 max-w-[60ch] text-xs leading-relaxed text-body-muted-foreground">{description}</p> : null}
+          {description ? <p className="mt-1 max-w-[60ch] text-[0.8125rem] leading-5 text-body-muted-foreground">{description}</p> : null}
           {error ? (
             <p role="alert" className="mt-2 text-sm text-destructive">
               {error}

@@ -1,14 +1,14 @@
-import { useId, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
 import { CheckIcon } from "../../../shared/icons.ts";
 import { BACKGROUND_IMAGE_ACCEPT } from "../../../shared/chat-background.ts";
 import { CHAT_BACKGROUNDS, importChatBackground } from "../../lib/chat-backgrounds.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { rpc } from "../../lib/rpc.ts";
+import { SettingsSection } from "./rows.tsx";
 import { Button } from "../ui/button.tsx";
 
 export default function ChatBackgroundSettings() {
-  const headingId = useId();
   const background = useAppStore((s) => s.preferences.chatBackground);
   const setPreference = useAppStore((s) => s.setPreference);
   const input = useRef<HTMLInputElement>(null);
@@ -34,9 +34,7 @@ export default function ChatBackgroundSettings() {
   };
 
   return (
-    <section className="py-2.5" aria-labelledby={headingId}>
-      <h2 id={headingId} className="text-sm font-medium">Background</h2>
-      <p className="mt-1 text-xs leading-relaxed text-body-muted-foreground">Most visible in new chats; quieter behind messages.</p>
+    <SettingsSection heading="Background" description="Most visible in new chats; quieter behind messages.">
       <input ref={input} type="file" accept={BACKGROUND_IMAGE_ACCEPT} className="hidden" aria-label="Choose a background image"
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
@@ -63,7 +61,7 @@ export default function ChatBackgroundSettings() {
         </button> : null}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Button variant="outline" disabled={busy} onClick={() => input.current?.click()}>
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => input.current?.click()}>
           <UploadSimpleIcon /> {busy ? "Preparing image…" : background.customImage ? "Replace your image" : "Choose your own image"}
         </Button>
         {background.customImage ? <Button variant="ghost" size="sm" disabled={busy} onClick={() => {
@@ -75,6 +73,6 @@ export default function ChatBackgroundSettings() {
       {selected ? <button type="button" className="mt-2 text-left text-xs text-muted-foreground hover:text-foreground"
         onClick={() => void rpc.request.openExternal({ url: selected.url })}>Photo by {selected.photographer} / Unsplash</button>
         : <p className="mt-2 text-xs text-muted-foreground">{background.preset === "custom" ? "Your image is saved locally in NativePi." : "Bundled backgrounds are available offline."}</p>}
-    </section>
+    </SettingsSection>
   );
 }
