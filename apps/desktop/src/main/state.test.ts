@@ -55,3 +55,18 @@ test("queued transformations read the latest state without losing concurrent fie
   expect(state.pinnedChats).toEqual(["other"]);
   expect(state.drafts).toEqual({ keep: "draft" });
 });
+
+test("a stale renderer save cannot reverse host organization and deleted metadata stays removed", async () => {
+  const { updateState, noteDeletedSession } = await import("./state.ts");
+  const old = await loadState();
+  await updateState(state => ({ ...state, organizationRevision: state.organizationRevision + 1, finishedChats: { ...state.finishedChats, target: new Date().toISOString() }, pinnedChats: [] }));
+  noteDeletedSession("deleted");
+  await saveState({ ...old, drafts: { deleted: "stale draft", keep: "draft" }, lastChatByProject: { project: "deleted" }, chatFolderBySession: { deleted: "folder" } });
+  const fresh = await loadState();
+  expect(fresh.finishedChats.target).toBeDefined();
+  expect(fresh.pinnedChats).toEqual([]);
+  expect(fresh.organizationRevision).toBeGreaterThan(old.organizationRevision);
+  expect(fresh.drafts).toEqual({ keep: "draft" });
+  expect(fresh.lastChatByProject).toEqual({});
+  expect(fresh.chatFolderBySession).toEqual({});
+});

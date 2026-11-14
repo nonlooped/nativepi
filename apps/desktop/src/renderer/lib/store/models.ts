@@ -46,6 +46,7 @@ export const createModelSlice: SliceCreator<ModelSlice> = (set, get) => {
       }
     },
     setServiceTier: async (tier) => {
+      if (get().destination === "work" && get().activeSessionFile && ((get().ready && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.relationship || thread.roleUnavailable)))) return;
       const { activeProjectPath: projectDir, activeSessionFile: sessionFile, model } = get();
       if (!projectDir || !model || get().serviceTierSaving) return;
       const selected = selectionGuard(get);
@@ -72,6 +73,7 @@ export const createModelSlice: SliceCreator<ModelSlice> = (set, get) => {
     thinkingLevelsError: undefined,
 
     setModel: async (model) => {
+      if (get().destination === "work" && get().activeSessionFile && ((get().ready && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.relationship || thread.roleUnavailable)))) return;
       const projectDir = get().activeProjectPath;
       if (!projectDir) return;
       const sessionFile = get().activeSessionFile;
@@ -146,6 +148,7 @@ export const createModelSlice: SliceCreator<ModelSlice> = (set, get) => {
     },
 
     setThinkingLevel: async (level) => {
+      if (get().destination === "work" && get().activeSessionFile && ((get().ready && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.relationship || thread.roleUnavailable)))) return;
       const projectDir = get().activeProjectPath;
       if (!projectDir) return;
       const sessionFile = get().activeSessionFile;

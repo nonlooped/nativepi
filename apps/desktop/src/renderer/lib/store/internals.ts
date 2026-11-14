@@ -219,6 +219,7 @@ function persistedState(get: GetState): NativePiState {
   if (s.activeProjectPath && s.activeSessionFile) map[s.activeProjectPath] = s.activeSessionFile;
   return {
     version: 1,
+    organizationRevision: s.organizationRevision,
     destinationDrafts: { ...s.destinationDrafts, [s.destination]: s.isNewChat },
     collapsedChatFolders: s.collapsedChatFolders,
     destination: s.destination, chatFolders: s.chatFolders, chatFolderBySession: s.chatFolderBySession,

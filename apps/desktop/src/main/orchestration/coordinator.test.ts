@@ -150,3 +150,36 @@ test("late outcomes cannot complete a newer assignment or execution attempt", as
   await f.coordinator.settled("child", { assignmentId: first.id, attempt: first.attempt, aborted: false, stopReason: "stop", resultEntry: "old" });
   expect(f.coordinator.snapshot("child").assignment?.state).toBe("running");
 });
+
+test("repeated Stop is single-flight while the actual runtimes are disposing", async () => {
+  const f = fixture(); await f.setup(); await f.coordinator.assign("lead", "child", "task", "Work");
+  const release = Promise.withResolvers<void>();
+  f.adapter.stop = async ref => { f.stopped.push(ref.id); await release.promise; };
+  const first = f.coordinator.stop("lead");
+  expect(f.coordinator.stop("lead")).toBe(first);
+  expect(f.coordinator.stop("child")).toBe(first);
+  release.resolve(); await first;
+  expect(f.stopped.sort()).toEqual(["child", "lead"]);
+});
+test("a wait for a completed assignment cannot accidentally wait for its newer follow-up", async () => {
+  const f = fixture(); await f.setup();
+  const first = await f.coordinator.assign("lead", "child", "task", "Work");
+  await f.coordinator.settled("child", { assignmentId: first.id, attempt: first.attempt, taskMessageId: first.taskMessageId, aborted: false, stopReason: "stop", resultEntry: "done" });
+  await f.coordinator.assign("lead", "child", "followup", "More work");
+  const result = await f.coordinator.wait("lead", ["child"], true, new AbortController().signal, 1000, { child: first.id });
+  expect(result[0]?.assignment?.state).toBe("completed");
+  expect(f.coordinator.snapshot("child").assignment?.state).toBe("running");
+});
+
+test("lost sender acknowledgment reconciles against a recipient that already consumed the message", async () => {
+  const f = fixture(); await f.setup();
+  const append = f.adapter.append;
+  f.adapter.append = async (ref, record) => { if (ref.id === "lead" && record.kind === "message" && record.stage === "acknowledged") throw new Error("ack lost"); await append(ref, record); };
+  await expect(f.coordinator.send("lead", "peer", "message", "Accepted content")).rejects.toThrow("ack lost");
+  const message = f.coordinator.snapshot("peer").inbox[0]!;
+  await f.coordinator.wake("peer", [message.id], new AbortController().signal);
+  f.adapter.append = append;
+  expect(await f.coordinator.reconcileDeliveries("lead")).toEqual([{ messageId: message.id, delivered: true }]);
+  expect(f.coordinator.snapshot("lead").pendingDelivery).toHaveLength(0);
+  expect(f.dispatched).toHaveLength(1);
+});

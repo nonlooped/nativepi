@@ -577,7 +577,7 @@ async function worktreePathFor(projectDir: string, branch: string): Promise<stri
     candidate = path.join(base, `${slug}-${n}`);
   return candidate;
 }
-export async function gitAddWorktree(projectDir: string, branch: string, create: boolean): Promise<{
+export async function gitAddWorktree(projectDir: string, branch: string, create: boolean, baseRef?: string): Promise<{
   ok: boolean;
   path?: string;
   error?: string;
@@ -585,6 +585,12 @@ export async function gitAddWorktree(projectDir: string, branch: string, create:
   const target = await worktreePathFor(projectDir, branch);
   if (!target)
     return { ok: false, error: "This folder is not a Git repository." };
-  const res = await run(create ? ["worktree", "add", "-b", branch, target] : ["worktree", "add", target, branch], projectDir);
+  const res = await run(create ? ["worktree", "add", "-b", branch, target, ...(baseRef ? [baseRef] : [])] : ["worktree", "add", target, branch], projectDir);
   return res.code === 0 ? { ok: true, path: target } : { ok: false, error: failure(res) };
+}
+
+export async function gitResolveWorktreeBase(projectDir: string, ref = "HEAD"): Promise<string> {
+  const result = await run(["rev-parse", "--verify", "--end-of-options", `${ref}^{commit}`], projectDir);
+  if (result.code !== 0) throw new Error(failure(result));
+  return result.stdout.trim();
 }

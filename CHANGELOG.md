@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add Pi-native Work delegates with explicit model/reasoning/speed/tools, shared-directory or retained-worktree assignments, progress and clarification messages, follow-ups, and inspectable transcripts without user composers.
+- Add independent thread discovery, history search/read, creation, durable peer inboxes, explicit wake, group Stop, idle-only Finish, and protected deletion. Accepted records survive restart without automatically resuming interrupted execution.
+
+
 ### Changed
 - Make Paper the default color scheme and rename the glass scheme to Acrylic, preserving saved scheme selections.
 - Keep NativePi’s glass material active when its window loses focus on macOS and Windows.

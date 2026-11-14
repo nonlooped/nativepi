@@ -7,6 +7,9 @@ class Child extends EventEmitter {
   stderr = new PassThrough();
   stdin = new PassThrough();
   killed = false;
+  connected = true;
+  sent: Record<string, unknown>[] = [];
+  send(value: Record<string, unknown>, callback?: (error?: Error) => void) { this.sent.push(value); callback?.(); return true; }
   constructor() { super(); this.stdin.once("finish", () => queueMicrotask(() => this.emit("close", 0))); }
   kill = mock(() => { this.killed = true; queueMicrotask(() => this.emit("close", 0)); return true; });
   event(value: unknown) { this.stdout.write(JSON.stringify(value) + "\n"); }
@@ -78,5 +81,43 @@ test("invalid extension input sends nothing and leaves the next valid call usabl
   const frame = JSON.parse(child.stdin.read().toString());
   child.event({ type: "nativepi_tui_reply", requestId: frame.requestId, data: null });
   expect(await valid).toBeNull();
+  await pi.stop();
+});
+
+test("private orchestration correlates requests, cancels pending waits and ignores late replies", async () => {
+  const { pi, child } = processFixture();
+  const ref = { id: "session", cwd: "/temporary", file: "/session" };
+  const catalog = pi.orchestration(ref, "catalog");
+  const request = child.sent.at(-1)!;
+  child.emit("message", { type: "nativepi_orchestration_reply", requestId: "other", result: "wrong" });
+  child.emit("message", { type: "nativepi_orchestration_reply", requestId: request.requestId, result: { models: [] } });
+  expect(await catalog).toEqual({ models: [] });
+  expect(pi.hasOrchestrationWork).toBe(false);
+  const controller = new AbortController();
+  const pending = pi.orchestration(ref, "catalog", undefined, controller.signal).then(() => "unexpected", error => error.message);
+  const cancelledId = child.sent.at(-1)!.requestId;
+  controller.abort();
+  expect(await pending).toContain("cancelled");
+  child.emit("message", { type: "nativepi_orchestration_reply", requestId: cancelledId, result: "late" });
+  expect(pi.hasOrchestrationWork).toBe(false);
+  await pi.stop();
+});
+test("child tool waits cancel through fork IPC and disconnect settles host requests", async () => {
+  const { pi, child } = processFixture();
+  let calls = 0;
+  pi.onOrchestration = async (_action, _params, _operationId, signal) => {
+    calls++;
+    await new Promise<void>(resolve => signal.addEventListener("abort", () => resolve(), { once: true }));
+    return { cancelled: signal.aborted };
+  };
+  const request = { type: "nativepi_orchestration_request", requestId: "wait", operationId: "tool", action: "delegate_wait", params: {} };
+  child.emit("message", request); child.emit("message", request);
+  expect(calls).toBe(1); expect(pi.hasOrchestrationWork).toBe(true);
+  child.emit("message", { type: "nativepi_orchestration_cancel", requestId: "wait" });
+  await Promise.resolve(); await Promise.resolve();
+  expect(child.sent).toContainEqual({ type: "nativepi_orchestration_reply", requestId: "wait", result: { cancelled: true } });
+  const pending = pi.orchestration({ id: "session", cwd: "/temporary", file: "/session" }, "catalog").then(() => "unexpected", error => error.message);
+  child.emit("disconnect");
+  expect(await pending).toContain("disconnected");
   await pi.stop();
 });

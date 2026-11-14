@@ -1,3 +1,4 @@
+import type { OrchestrationSnapshot, OrganizationSnapshot } from "./orchestration.ts";
 import { chatTitleSettingsSchema, DEFAULT_CHAT_TITLE_SETTINGS, type ChatTitleCatalog } from "./chat-title.ts";
 import type { ServiceTier, ServiceTierState } from "./service-tier.ts";
 import type { DiffPreviewResult } from "./diff-preview.ts";
@@ -211,6 +212,7 @@ export type Preferences = z.infer<typeof preferencesSchema>;
 export const DEFAULT_PREFERENCES: Preferences = preferencesSchema.parse({});
 export const nativePiStateSchema = z.object({
   version: z.literal(1).catch(1),
+  organizationRevision: z.number().int().nonnegative().catch(0),
   // Filtered per element, not all-or-nothing: one unreadable entry should cost
   // the user that project, not every project they have ever opened.
   projects: z
@@ -262,6 +264,11 @@ export const nativePiStateSchema = z.object({
 });
 export type NativePiState = z.infer<typeof nativePiStateSchema>;
 export type HostRequestContracts = {
+  orchestrationSnapshot: { params: { sessionFile?: string }; response: OrchestrationSnapshot };
+  stopThread: { params: { sessionFile: string }; response: { ok: boolean } };
+  wakeThread: { params: { threadId: string; messageIds: string[] }; response: { ok: boolean } };
+  organizeThread: { params: { sessionFile: string; action: "finish" | "focus" | "pin" }; response: OrganizationSnapshot };
+
   workWorkspace: { params: Record<string, never>; response: { path: string }; };
   chatWorkspace: { params: Record<string, never>; response: { path: string }; };
   pickProject: {
@@ -1434,6 +1441,8 @@ export type HostRequests = {
   };
 };
 export type HostEvents = {
+  orchestrationChanged: OrchestrationSnapshot;
+  organizationChanged: OrganizationSnapshot;
   piStatus: {
     projectDir: string;
     status: PiStatus;

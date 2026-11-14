@@ -1,3 +1,4 @@
+import type { OrchestrationSnapshot, OrganizationSnapshot } from "../../../shared/orchestration.ts";
 import type { ServiceTier, ServiceTierState } from "../../../shared/service-tier.ts";
 import type {
   HostEvents,
@@ -96,6 +97,13 @@ export interface AuthFlow {
 
 /** Project folders the user has pinned, and the folder of the open chat. */
 export interface WorkspaceSlice {
+  organizationRevision: number;
+  orchestration: OrchestrationSnapshot;
+  orchestrationLoaded: boolean;
+  refreshOrchestration: () => Promise<void>;
+  applyOrchestration: (snapshot: OrchestrationSnapshot) => void;
+  applyOrganization: (snapshot: OrganizationSnapshot) => void;
+
   destination: "chat" | "work";
   chatRoot: string | null;
   workRoot: string | null;
@@ -192,7 +200,7 @@ export interface ChatSlice {
 
   refreshSessions: (projectPath: string) => Promise<void>;
   togglePinnedChat: (sessionFile: string) => void;
-  finishChat: (sessionFile: string) => void;
+  finishChat: (sessionFile: string) => Promise<boolean>;
   returnChatToFocus: (sessionFile: string) => void;
   selectChat: (sessionFile: string, projectDir?: string) => Promise<void>;
   newChat: () => void;

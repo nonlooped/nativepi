@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { quoteMarkdown } from "../markdownReferences.ts";
 import { chipText, skillPrompt } from "../composerText.ts";
 import { mentionPath } from "../drops.ts";
@@ -285,38 +286,15 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
       return refresh;
     },
 
-    togglePinnedChat: (sessionFile) => {
-      set((s) => {
-        const pinning = !s.pinnedChats.includes(sessionFile);
-        if (!pinning) return { pinnedChats: togglePinnedPath(s.pinnedChats, sessionFile) };
-        const { [sessionFile]: _finished, ...finishedChats } = s.finishedChats;
-        return {
-          pinnedChats: togglePinnedPath(s.pinnedChats, sessionFile),
-          finishedChats,
-          focusedChats: [...new Set([...s.focusedChats, sessionFile])],
-        };
-      });
-      persist(get);
+    togglePinnedChat: sessionFile => {
+      void rpc.request.organizeThread({ sessionFile, action: "pin" }).then(snapshot => get().applyOrganization(snapshot)).catch(error => toast.error(error instanceof Error ? error.message : "Could not pin chat"));
     },
-
-    finishChat: (sessionFile) => {
-      set((s) => ({
-        finishedChats: { ...s.finishedChats, [sessionFile]: new Date().toISOString() },
-        focusedChats: s.focusedChats.filter((path) => path !== sessionFile),
-        pinnedChats: s.pinnedChats.filter((path) => path !== sessionFile),
-      }));
-      persist(get);
+    finishChat: async sessionFile => {
+      try { get().applyOrganization(await rpc.request.organizeThread({ sessionFile, action: "finish" })); return true; }
+      catch (error) { toast.error(error instanceof Error ? error.message : "Could not finish chat"); return false; }
     },
-
-    returnChatToFocus: (sessionFile) => {
-      set((s) => {
-        const { [sessionFile]: _finished, ...finishedChats } = s.finishedChats;
-        return {
-          finishedChats,
-          focusedChats: [...new Set([...s.focusedChats, sessionFile])],
-        };
-      });
-      persist(get);
+    returnChatToFocus: sessionFile => {
+      void rpc.request.organizeThread({ sessionFile, action: "focus" }).then(snapshot => get().applyOrganization(snapshot)).catch(error => toast.error(error instanceof Error ? error.message : "Could not focus chat"));
     },
 
     selectChat: async (sessionFile, projectDir) => {
@@ -331,6 +309,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
         set((state) => ({
           selectionVersion: state.selectionVersion + 1,
           activeSessionFile: sessionFile,
+          orchestrationLoaded: false,
           isNewChat: false,
           models: [],
           model: undefined,
@@ -356,7 +335,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
         // the path back into a project that kept working in the background, and
         // its conversation has been fed every event in the meantime.
         if (!get().conversations[sessionFile]) patchConversation(set, projectPath, sessionFile, { projectDir: projectPath, sessionFile });
-        await hydration.read(projectPath, sessionFile);
+        await Promise.all([hydration.read(projectPath, sessionFile), get().refreshOrchestration()]);
         if (!selected()) return;
         const trust = get().trust;
         if (trust && (!trust.required || trust.trusted)) await warmProject(set, get, projectPath);
@@ -419,6 +398,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
     setSendBehavior: (sendBehavior) => set({ sendBehavior }),
 
     setDraft: (text) => {
+      if (get().destination === "work" && get().activeSessionFile && ((get().ready && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.relationship || thread.roleUnavailable)))) return;
       writeDraft(set, get, get().activeProjectPath, get().activeSessionFile, text);
     },
 
@@ -455,6 +435,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
      * and more, all to have the main process turn it down afterwards.
      */
     attach: async (files) => {
+      if (get().destination === "work" && get().activeSessionFile && ((get().ready && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.relationship || thread.roleUnavailable)))) return;
       if (files.length === 0) return;
       const target = attachmentTarget(draftKey(get));
       const key = target.key;
@@ -499,6 +480,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
     },
 
     send: async () => {
+      if (get().destination === "work" && get().activeSessionFile && ((get().ready && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.relationship || thread.roleUnavailable)))) return;
       // Section 16: while another writer owns this chat we send nothing, and the
       // draft stays exactly where the user left it.
       const draft = currentDraft(get);
@@ -656,6 +638,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
     },
 
     enqueue: async (behavior) => {
+      if (get().destination === "work" && get().activeSessionFile && ((get().ready && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.relationship || thread.roleUnavailable)))) return;
       const draft = currentDraft(get);
       if (!draft) return;
       if (!draft.state.activeSessionFile && coldSubmits.has(draft.projectDir)) return;

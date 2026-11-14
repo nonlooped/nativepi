@@ -1,3 +1,4 @@
+import type { OrchestrationSnapshot } from "../../shared/orchestration.ts";
 import { afterEach, expect, mock, test } from "bun:test";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -9,7 +10,7 @@ const session={path:'/session',id:'id',name:title,firstMessage:title,lastPrompt:
 const selectChat=mock(async()=>{}),setScope=mock(()=>{});
 const onClose=mock(()=>{});
 const noop=()=>{};
-const state={workRoot:null as string | null,projects:[project],activeProjectPath:'/project',activeSessionFile:'/session',isNewChat:false,sessionsByProject:{'/project':[session]},sessionLoadStates:{'/project':'loaded'},pinnedChats:[],finishedChats:{},focusedChats:[],focusStartedAt:'2026-01-01',conversations:{},preferences:{preferredEditorId:'explorer'},keybindingOverrides:{},sidebarScope:null as string | null,git:{isRepo:true,branch:'feature/current'},selectChat,setSidebarScope:setScope,addProject:noop,openSettings:noop,newChatIn:noop,removeProject:noop,importSession:noop,refreshSessions:noop,openTerminal:noop,finishChat:noop,returnChatToFocus:noop};
+const state={orchestration: { revision: 0, threads: [] } as OrchestrationSnapshot,workRoot:null as string | null,projects:[project],activeProjectPath:'/project',activeSessionFile:'/session',isNewChat:false,sessionsByProject:{'/project':[session]},sessionLoadStates:{'/project':'loaded'},pinnedChats:[],finishedChats:{},focusedChats:[],focusStartedAt:'2026-01-01',conversations:{},preferences:{preferredEditorId:'explorer'},keybindingOverrides:{},sidebarScope:null as string | null,git:{isRepo:true,branch:'feature/current'},selectChat,setSidebarScope:setScope,addProject:noop,openSettings:noop,newChatIn:noop,removeProject:noop,importSession:noop,refreshSessions:noop,openTerminal:noop,finishChat:noop,returnChatToFocus:noop};
 mock.module('../lib/store.ts',()=>({useAppStore:Object.assign((select:(s:unknown)=>unknown)=>select(state),{getState:()=>state})}));
 mock.module('../lib/sidebarProjects.ts',()=>({useSidebarProjects:()=>({'/project':{branch:'stale-branch'}}),projectBranch:(git:{branch:string})=>git.branch}));
 mock.module('../lib/rpc.ts',()=>({rpc:{request:{watchProjectSessions:async()=>({ok:true})}}}));
@@ -20,7 +21,7 @@ mock.module('./ConfirmDialog.tsx',()=>({default:()=>null}));
 mock.module('./BrandIcon.tsx',()=>({default:()=>null}));
 const {default:Sidebar}=await import('./Sidebar.tsx');
 let root:Root;let container:HTMLDivElement;
-afterEach(async()=>{if(root)await act(async()=>root.unmount());container?.remove();selectChat.mockClear();setScope.mockClear();onClose.mockClear();state.activeSessionFile='/session';state.workRoot=null;state.sidebarScope=null});
+afterEach(async()=>{if(root)await act(async()=>root.unmount());container?.remove();selectChat.mockClear();setScope.mockClear();onClose.mockClear();state.activeSessionFile='/session';state.workRoot=null;state.sidebarScope=null;state.orchestration={revision:0,threads:[]}});
 async function mount(overlay=false){container=document.createElement('div');document.body.append(container);root=createRoot(container);await act(async()=>root.render(<Sidebar presentation={{"/project": {branch: "stale-branch"}}} overlay={overlay} onClose={onClose} onOpenSearch={noop} onOpenNewChat={noop}/>))}
 test('compact rows retain the full title, project and fresh branch, without a Focus heading',async()=>{
  await mount();expect([...container.querySelectorAll('h2')].some(h=>h.textContent==='Focus')).toBe(false);
@@ -64,4 +65,17 @@ test('project-free threads appear in Work and filter without project removal act
  await act(async()=>(container.querySelector('[aria-label="Filter threads"]') as HTMLButtonElement).click());
  expect(document.body.textContent).not.toContain('Remove from NativePi');
  expect(document.body.textContent).toContain('No project');
+});
+
+test('delegate rows stay under their lead and navigate using the actual worktree cwd', async () => {
+ const lead={id:'id',cwd:'/project',file:'/session'};
+ const ref={id:'delegate',cwd:'/worktree',file:'/delegate'};
+ const relationship={operationId:'spawn',lead,delegate:ref,label:'Parallel review',configuration:{provider:'p',model:'m',reasoning:'off' as const,tools:['read']},workspace:{mode:'worktree' as const,path:ref.cwd,branch:'review',base:'commit',repository:lead.cwd}};
+ const child={ref,relationship,assignment:{id:'assignment',delegate:ref,taskMessageId:'task',attempt:1,state:'waiting' as const,questions:['question']},running:false};
+ state.orchestration={revision:1,threads:[{ref:lead,reports:[],readMessageIds:[],inbox:[],pendingDelivery:[],running:false,busy:true,delegates:[child]},{...child,reports:[],readMessageIds:[],inbox:[],pendingDelivery:[],busy:true,delegates:[]}]};
+ await mount();
+ expect(container.textContent).toContain('Waiting for lead');
+ const row=[...container.querySelectorAll('button')].find(button=>button.textContent?.includes('Parallel review'))!;
+ await act(async()=>row.click());
+ expect(selectChat).toHaveBeenCalledWith('/delegate','/worktree');
 });

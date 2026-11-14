@@ -1,3 +1,4 @@
+import { projectOrchestration } from "../../orchestration/records.ts";
 import type { AgentSession } from "@earendil-works/pi-coding-agent";
 
 export function parsePromptSuggestion(text: string): string | undefined {
@@ -19,6 +20,7 @@ export function observePromptSuggestion(
   const unsubscribe = session.subscribe(event => {
     if (event.type === "agent_start" || event.type === "compaction_start") cancel();
     if (event.type !== "agent_settled" || event.aborted || !enabled || disposed) return;
+    if (session.sessionManager && projectOrchestration(session.sessionManager.getSessionId(), session.sessionManager.getEntries()).relationship) return;
     const assistant = session.messages.at(-1);
     const model = session.model;
     const file = session.sessionFile;

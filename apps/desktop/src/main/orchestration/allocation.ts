@@ -9,7 +9,7 @@ import type { ThreadReference } from "../../shared/orchestration.ts";
  * defers custom-only new sessions, but its explicit empty-file open initializes
  * a durable session through its normal writer. No live session is opened here.
  */
-export async function allocateThread(cwd: string, sessionDir?: string): Promise<ThreadReference> {
+export async function allocateThread(cwd: string, sessionDir?: string, initialize?: (manager: SessionManager, ref: ThreadReference) => void): Promise<ThreadReference> {
   const directory = sessionDir ?? SessionManager.create(cwd).getSessionDir();
   await mkdir(directory, { recursive: true });
   const file = join(directory, `${new Date().toISOString().replace(/[:.]/g, "-")}_${randomUUID()}.jsonl`);
@@ -21,7 +21,9 @@ export async function allocateThread(cwd: string, sessionDir?: string): Promise<
     if (manager.getCwd() !== cwd) {
       throw new Error("Pi initialized the session under a different working directory.");
     }
-    return { id: manager.getSessionId(), cwd: manager.getCwd(), file };
+    const ref = { id: manager.getSessionId(), cwd: manager.getCwd(), file };
+    initialize?.(manager, ref);
+    return ref;
   } catch (error) {
     await rm(file, { force: true });
     throw error;

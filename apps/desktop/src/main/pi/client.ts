@@ -1,3 +1,4 @@
+import { orchestrationRequestSchema, orchestrationReplySchema, orchestrationCancelSchema, orchestrationOutcomeSchema, orchestrationSuppliedSchema, orchestrationRuntimeSchema, type ThreadReference } from "../../shared/orchestration.ts";
 import { fork, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -76,6 +77,64 @@ export class PiProcess {
   private closed = false;
   private stopTask?: Promise<void>;
   private artifactPreviews = new Map<string, AbortController>();
+  onOrchestration?: (action: string, params: Record<string, unknown>, operationId: string, signal: AbortSignal) => Promise<unknown>;
+  onOrchestrationOutcome?: (outcome: import("zod").z.infer<typeof orchestrationOutcomeSchema>) => void;
+  private orchestrationSessionId?: string;
+  onOrchestrationRuntime?: () => void;
+  onOrchestrationSupplied?: (sessionId: string, messageId: string) => void;
+  private orchestrationRequests = new Map<string, AbortController>();
+  private orchestrationWaiters = new Map<string, { resolve(value: unknown): void; reject(error: Error): void; cleanup(): void }>();
+  orchestration(ref: ThreadReference, action: "catalog" | "append" | "configure" | "dispatch" | "context" | "arm", payload?: unknown, signal?: AbortSignal): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      if (!this.isAvailable || !this.proc.connected || signal?.aborted) { reject(new Error("Pi unavailable or operation cancelled")); return; }
+      this.orchestrationSessionId = ref.id;
+      const requestId = `orchestration-${nextRequestId++}`;
+      const cancel = () => { this.orchestrationWaiters.delete(requestId); reject(new Error("Orchestration operation cancelled")); };
+      this.orchestrationWaiters.set(requestId, { resolve: value => {
+        if (action === "dispatch" && value && typeof value === "object" && "running" in value && typeof value.running === "boolean") { this.isRunning = value.running; this.onOrchestrationRuntime?.(); }
+        resolve(value);
+      }, reject, cleanup: () => signal?.removeEventListener("abort", cancel) });
+      signal?.addEventListener("abort", cancel, { once: true });
+      this.proc.send({ type: "nativepi_orchestration_host", requestId, sessionId: ref.id, action, payload }, error => {
+        if (!error) return;
+        const waiter = this.orchestrationWaiters.get(requestId);
+        this.orchestrationWaiters.delete(requestId); waiter?.cleanup(); waiter?.reject(error);
+      });
+    });
+  }
+  private async handleOrchestration(raw: unknown): Promise<void> {
+    const reply = orchestrationReplySchema.safeParse(raw);
+    if (reply.success) {
+      const waiter = this.orchestrationWaiters.get(reply.data.requestId);
+      this.orchestrationWaiters.delete(reply.data.requestId); waiter?.cleanup();
+      if (reply.data.error) waiter?.reject(new Error(reply.data.error)); else waiter?.resolve(reply.data.result);
+      return;
+    }
+    const runtime = orchestrationRuntimeSchema.safeParse(raw);
+    if (runtime.success && runtime.data.sessionId === this.orchestrationSessionId) { this.isRunning = runtime.data.running; this.onOrchestrationRuntime?.(); return; }
+    const supplied = orchestrationSuppliedSchema.safeParse(raw);
+    if (supplied.success) { this.onOrchestrationSupplied?.(supplied.data.sessionId, supplied.data.messageId); return; }
+    const outcome = orchestrationOutcomeSchema.safeParse(raw);
+    if (outcome.success) { this.onOrchestrationOutcome?.(outcome.data); return; }
+    const cancel = orchestrationCancelSchema.safeParse(raw);
+    if (cancel.success) { this.orchestrationRequests.get(cancel.data.requestId)?.abort(); return; }
+    const parsed = orchestrationRequestSchema.safeParse(raw);
+    if (!parsed.success || !this.onOrchestration) return;
+    const request = parsed.data;
+    if (this.orchestrationRequests.has(request.requestId)) return;
+    const controller = new AbortController();
+    this.orchestrationRequests.set(request.requestId, controller);
+    try {
+      const result = await this.onOrchestration(request.action, request.params, request.operationId, controller.signal);
+      if (this.proc.connected) this.proc.send({ type: "nativepi_orchestration_reply", requestId: request.requestId, result });
+    } catch (error) {
+      if (this.proc.connected) this.proc.send({ type: "nativepi_orchestration_reply", requestId: request.requestId, error: error instanceof Error ? error.message : String(error) });
+    } finally { this.orchestrationRequests.delete(request.requestId); }
+  }
+  fenceOrchestration(ref: ThreadReference): void {
+    if (this.proc.connected) this.proc.send({ type: "nativepi_orchestration_fence", sessionId: ref.id }, () => {});
+  }
+  get hasOrchestrationWork(): boolean { return this.orchestrationRequests.size > 0 || this.orchestrationWaiters.size > 0; }
   constructor(projectDir: string, onEvent: (msg: PiMessage) => void, onExit: (code: number | null, error?: Error, expected?: boolean) => void, onFrame: (frame: TuiHostFrame) => void = () => { }, args: string[] = []) {
     this.projectDir = projectDir;
     this.onEvent = onEvent;
@@ -92,7 +151,7 @@ export class PiProcess {
       silent: true,
       windowsHide: true,
     }) as ChildProcessWithoutNullStreams;
-    this.proc.on("message", (message: unknown) => { void this.handleArtifactPreview(message); });
+    this.proc.on("message", (message: unknown) => { void this.handleArtifactPreview(message); void this.handleOrchestration(message); });
     this.proc.stdout.setEncoding("utf8");
     this.proc.stdout.on("data", (chunk: string) => {
       if (this.terminalError)
@@ -121,6 +180,12 @@ export class PiProcess {
       this.resolveEnded();
       onExit(code, error ?? this.channelError, this.stopping && !this.channelError);
     };
+    this.proc.once("disconnect", () => {
+      if (this.stopping || this.closed) return;
+      this.channelError = new Error("Pi IPC channel disconnected");
+      this.rejectAll(this.channelError);
+      void this.stop();
+    });
     this.proc.on("error", (error) => {
       this.channelError = error;
       this.terminalError ??= error;
@@ -316,6 +381,9 @@ export class PiProcess {
     this.sendRaw(command);
   }
   private rejectAll(err: Error): void {
+    for (const controller of this.orchestrationRequests.values()) controller.abort();
+    for (const waiter of this.orchestrationWaiters.values()) { waiter.cleanup(); waiter.reject(err); }
+    this.orchestrationWaiters.clear();
     for (const waiter of this.pending.values())
       waiter.reject(err);
     this.pending.clear();

@@ -23,7 +23,9 @@ export async function loadState(): Promise<NativePiState> {
   // A renderer reload may arrive immediately after the previous renderer's
   // final save. Read after that accepted write, including its atomic rename.
   await saveQueue;
-  return readState();
+  const state = await readState();
+  if (state.focusStartedAt) return state;
+  return updateState(latest => ({ ...latest, focusStartedAt: latest.focusStartedAt ?? new Date().toISOString() }));
 }
 async function readState(): Promise<NativePiState> {
   let raw: string;
@@ -52,10 +54,17 @@ export function updateState(transform: (latest: NativePiState) => NativePiState 
   saveQueue = next.then(() => { saveFailure = undefined; }, error => { saveFailure = error; });
   return next;
 }
+const deletedSessions = new Set<string>();
+export function noteDeletedSession(file: string): void { deletedSessions.add(file); }
 export function saveState(state: NativePiState): Promise<void> {
-  const next = saveQueue.then(() => writeState(state));
-  saveQueue = next.then(() => { saveFailure = undefined; }, error => { saveFailure = error; });
-  return next;
+  return updateState(latest => ({ ...state,
+    organizationRevision: latest.organizationRevision,
+    pinnedChats: latest.pinnedChats, focusedChats: latest.focusedChats,
+    finishedChats: latest.finishedChats, focusStartedAt: latest.focusStartedAt ?? state.focusStartedAt,
+    drafts: Object.fromEntries(Object.entries(state.drafts).filter(([file]) => !deletedSessions.has(file))),
+    chatFolderBySession: Object.fromEntries(Object.entries(state.chatFolderBySession).filter(([file]) => !deletedSessions.has(file))),
+    lastChatByProject: Object.fromEntries(Object.entries(state.lastChatByProject).filter(([, file]) => !deletedSessions.has(file))),
+  })).then(() => undefined);
 }
 async function writeState(state: NativePiState): Promise<void> {
   await mkdir(dataDir(), { recursive: true });

@@ -6,6 +6,7 @@ test("an empty object yields the full set of defaults", () => {
   const state = nativePiStateSchema.parse({});
   expect(state).toEqual({
     version: 1,
+  organizationRevision: 0,
     destinationDrafts: {},
     collapsedChatFolders: [],
     destination: "work", chatFolders: [], chatFolderBySession: {}, chatExtensions: [],

@@ -1467,3 +1467,22 @@ test("title preferences reach existing hosts and newly started hosts", async () 
     await request("saveState", { state: original });
   }
 });
+
+test("host rejects forged user input and model controls for a cold delegate before starting Pi", async () => {
+  const { allocateThread } = await import("./orchestration/allocation.ts");
+  const { ORCHESTRATION_ENTRY } = await import("../shared/orchestration.ts");
+  const parent = { id: "owning-lead", cwd: root, file: join(root, "lead.jsonl") };
+  const child = await allocateThread(root, join(root, "orchestration-sessions"), (manager, ref) => {
+    manager.appendCustomEntry(ORCHESTRATION_ENTRY, { version: 1, sessionId: ref.id, operationId: "spawn", kind: "relationship", relationship: { operationId: "spawn", lead: parent, delegate: ref, label: "Inspect only", configuration: { provider: "p", model: "m", reasoning: "off", tools: ["read"] }, workspace: { mode: "shared", path: root } } });
+  });
+  const before = processes.length;
+  const cases = [
+    ["submit", { projectDir: root, sessionFile: child.file, message: "forged" }],
+    ["enqueue", { projectDir: root, sessionFile: child.file, message: "forged", behavior: "followUp" }],
+    ["setModel", { projectDir: root, sessionFile: child.file, provider: "p", modelId: "m" }],
+    ["setThinkingLevel", { projectDir: root, sessionFile: child.file, level: "high" }],
+    ["setServiceTier", { projectDir: root, sessionFile: child.file, tier: "priority", provider: "p", modelId: "m" }],
+  ] as const;
+  for (const [name, params] of cases) await expect(request(name, params as never)).rejects.toThrow("Delegate chats are inspectable");
+  expect(processes.length).toBe(before);
+});

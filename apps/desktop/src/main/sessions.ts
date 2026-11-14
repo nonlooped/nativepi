@@ -166,7 +166,7 @@ export function listSessions(projectDir: string): Promise<SessionSummary[]> {
 function safeSessionDate(value: Date, fallback: number): string { return Number.isFinite(value.getTime()) ? value.toISOString() : new Date(fallback).toISOString(); }
 async function listSessionsUncached(projectDir: string) {
   const sessions = await SessionManager.list(projectDir);
-  const filtered = sessions.filter((session) => session.messageCount > 0);
+  const filtered = sessions.filter((session) => session.messageCount > 0 || !!session.name);
   // Process with limited concurrency so 200 files do not open at once (EMFILE)
   // and benefit from the mtime cache above.
   const results: SessionSummary[] = [];
@@ -436,13 +436,13 @@ export function searchSnippet(text: string, matchIndex: number, matchLength: num
   const end = Math.min(compact.length, prefixLength + matchLength + 96);
   return `${start > 0 ? "…" : ""}${compact.slice(start, end).trim()}${end < compact.length ? "…" : ""}`;
 }
-export async function deleteSession(projectDir: string, sessionFile: string): Promise<void> {
+export async function deleteSession(projectDir: string, sessionFile: string, knownSessionDirectory?: string): Promise<void> {
   // Refuse anything that is not one of this project's own sessions: the renderer
   // supplies this path, and a delete is not recoverable. Membership is checked
   // against Pi's own listing rather than against a path shape we would other-
   // wise have to keep in sync with Pi forever.
   const resolved = path.resolve(sessionFile);
-  const sessions = await SessionManager.list(projectDir);
+  const sessions = await SessionManager.list(projectDir, knownSessionDirectory);
   if (!sessions.some((session) => path.resolve(session.path) === resolved)) {
     throw new Error("That chat does not belong to this project.");
   }

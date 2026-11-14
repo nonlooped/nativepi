@@ -96,6 +96,20 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     destinationDrafts: {},
     collapsedChatFolders: [],
     toggleChatFolder: (id) => { set(s => ({ collapsedChatFolders: s.collapsedChatFolders.includes(id) ? s.collapsedChatFolders.filter(value => value !== id) : [...s.collapsedChatFolders, id] })); persist(get); },
+    organizationRevision: 0,
+    orchestration: { revision: 0, threads: [] },
+    orchestrationLoaded: false,
+    refreshOrchestration: async () => {
+      const file = get().activeSessionFile;
+      const snapshot = await rpc.request.orchestrationSnapshot({ sessionFile: file ?? undefined });
+      get().applyOrchestration(snapshot);
+      if (get().activeSessionFile === file) set({ orchestrationLoaded: true });
+    },
+    applyOrchestration: snapshot => { if (snapshot.revision >= get().orchestration.revision) set({ orchestration: snapshot }); },
+    applyOrganization: snapshot => {
+      if (snapshot.revision < get().organizationRevision) return;
+      set({ organizationRevision: snapshot.revision, pinnedChats: snapshot.pinnedChats, finishedChats: snapshot.finishedChats, focusedChats: snapshot.focusedChats, ...(snapshot.focusStartedAt ? { focusStartedAt: snapshot.focusStartedAt } : {}) });
+    },
     destination: "work", chatRoot: null, workRoot: null, chatFolders: [], chatFolderBySession: {}, chatExtensions: [],
     setDestination: async (destination) => {
       const s = get();
@@ -151,9 +165,11 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       replaceLastChats(get, loaded.lastChatByProject ?? {});
       const reopenLastProject = loaded.reopenLastProject ?? true;
       const restoreProject = loaded.destination === "chat" ? chatRoot : reopenLastProject ? (loaded.lastWorkProject ?? loaded.lastProjectPath ?? null) : null;
-      const focusStartedAt = loaded.focusStartedAt ?? new Date().toISOString();
+      const organization = loaded.organizationRevision >= get().organizationRevision ? loaded : get();
+      const focusStartedAt = organization.focusStartedAt ?? new Date().toISOString();
       set({
         ready: true,
+        organizationRevision: organization.organizationRevision,
         destinationDrafts: loaded.destinationDrafts,
         collapsedChatFolders: loaded.collapsedChatFolders,
         destination: loaded.destination, chatRoot, workRoot, chatFolders: loaded.chatFolders,
@@ -162,9 +178,9 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
         drafts: loaded.drafts ?? {},
         favoriteModels: loaded.favoriteModels ?? [],
         commitMessageModel: loaded.commitMessageModel,
-        pinnedChats: loaded.pinnedChats ?? [],
-        finishedChats: loaded.finishedChats ?? {},
-        focusedChats: loaded.focusedChats ?? [],
+        pinnedChats: organization.pinnedChats ?? [],
+        finishedChats: organization.finishedChats ?? {},
+        focusedChats: organization.focusedChats ?? [],
         focusStartedAt,
         activeProjectPath: restoreProject,
         reopenLastProject,
@@ -178,6 +194,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
         contextPaneChosen: loaded.panes !== undefined,
       });
       if (!loaded.focusStartedAt) persist(get);
+      void get().refreshOrchestration().catch(() => {});
       if (!restoreProject) void get().loadProviders().catch(() => {});
       // Read once as well as subscribing: the first check runs while the window
       // is still loading, so its result may already have been pushed and missed.

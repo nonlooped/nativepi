@@ -1,3 +1,5 @@
+import { bindOrchestrationHost, restoreOrchestrationConfiguration } from "./orchestration.ts";
+import { installOrchestrationChannel } from "./orchestrationChannel.ts";
 import { chatTitleCatalog } from "../../chatTitleModels.ts";
 import { DEFAULT_CHAT_TITLE_SETTINGS } from "../../../shared/chat-title.ts";
 import { excludeRetiredPackages } from "./retiredPackages.ts";
@@ -276,11 +278,14 @@ function filterStdin(): void {
   // runs, so the property has to be the filtered stream rather than a copy.
   Object.defineProperty(process, "stdin", { value: piStdin, configurable: true });
 }
+let stopOrchestrationHost: (() => void) | undefined;
 function installUiContext(): void {
   installExtensionMethodLifecycle(AgentSession.prototype);
   const dispose = AgentSession.prototype.dispose;
   AgentSession.prototype.dispose = function () {
     if (currentSession === this) {
+      stopOrchestrationHost?.();
+      stopOrchestrationHost = undefined;
       promptSuggestions?.dispose();
       promptSuggestions = undefined;
       stopTitleObserver?.();
@@ -319,6 +324,8 @@ function installUiContext(): void {
         send({ type: "nativepi_tui_propose_title", sessionFile, title });
       }, () => chatTitleSettings);
     }
+    stopOrchestrationHost?.();
+    stopOrchestrationHost = bindOrchestrationHost(this);
     currentSession = this;
     let installed: HostInternals | undefined;
     if (bindings.uiContext) {
@@ -351,7 +358,8 @@ function installUiContext(): void {
         } : {}),
       } as Parameters<typeof bind>[0];
     }
-    return bind.call(this, bindings as Parameters<typeof bind>[0]).then(() => {
+    return bind.call(this, bindings as Parameters<typeof bind>[0]).then(async () => {
+      await restoreOrchestrationConfiguration(this);
       // Renderers are registered before bind, while session_start may append the
       // first custom entry during bind. Attach only after both are complete.
       installed?.bindSession(this);
@@ -388,7 +396,24 @@ process.emitWarning = () => { };
 filterStdin();
 excludeRetiredPackages();
 installUiContext();
+installOrchestrationChannel();
+process.once("disconnect", () => {
+  const session = currentSession;
+  void (async () => {
+    try {
+      if (session) { await session.abort(); session.dispose(); await session.modelRuntime.settleCredentialWrites(); }
+    } finally { process.exit(process.exitCode ?? 0); }
+  })();
+});
 // Before `main`, because extensions call `connect()` during activation.
 installExtensionChannel(send);
 const appTools = fileURLToPath(new URL("./app-tools.js", import.meta.url));
-void configureHttp().then(() => main(["--mode", "rpc", ...(process.argv.includes("--no-session") ? [] : ["-e", appTools]), ...process.argv.slice(2).filter(arg => arg !== "--nativepi-chat")])).finally(() => frames.dispose());
+void configureHttp().then(() => main(["--mode", "rpc", ...(process.argv.includes("--no-session") ? [] : ["-e", appTools]), ...process.argv.slice(2).filter(arg => arg !== "--nativepi-chat")])).then(() => {
+  frames.dispose();
+  if (process.connected) process.disconnect?.();
+}, error => {
+  console.error(error);
+  process.exitCode = 1;
+  frames.dispose();
+  if (process.connected) process.disconnect?.();
+});

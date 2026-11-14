@@ -42,6 +42,8 @@ window.addEventListener?.("beforeunload", beforeUnload);
  * the store lazily, so nothing runs before the store above exists.
  */
 const unsubscribeHostEvents = [
+  rpc.events.on("orchestrationChanged", snapshot => useAppStore.getState().applyOrchestration(snapshot)),
+  rpc.events.on("organizationChanged", snapshot => useAppStore.getState().applyOrganization(snapshot)),
   rpc.events.on("piStatus", ({ projectDir, status }) => useAppStore.getState().onStatus(projectDir, status)),
   rpc.events.on("piEvent", (payload) => useAppStore.getState().onEvent(payload)),
   rpc.events.on("piError", ({ projectDir, sessionFile, message, runtimeId }) =>
