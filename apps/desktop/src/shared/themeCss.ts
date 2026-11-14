@@ -1,6 +1,7 @@
 import { APCAcontrast, sRGBtoY } from "apca-w3";
 import type { ThemeColors } from "./themes.ts";
 
+// sRGB preserves low-chroma scheme hues when Chromium mixes surface colors.
 export function themeCssProperties(colors: ThemeColors): Record<string, string> {
   const charts = chartColors(colors);
   const contrast = increasedContrastColors(colors);
@@ -11,7 +12,7 @@ export function themeCssProperties(colors: ThemeColors): Record<string, string> 
     "--card-foreground": colors.foreground,
     "--popover": relativeLuminance(colors.background) > 0.5
       ? colors.surface
-      : `color-mix(in oklch, ${colors.surface}, ${colors.foreground} 3%)`,
+      : `color-mix(in srgb, ${colors.surface}, ${colors.foreground} 3%)`,
     "--popover-foreground": colors.foreground,
     "--primary": colors.primary,
     "--primary-foreground": colors.primaryForeground,
@@ -30,7 +31,7 @@ export function themeCssProperties(colors: ThemeColors): Record<string, string> 
     "--info": colors.info,
     "--active": colors.info,
     "--border": colors.border,
-    "--input": `color-mix(in oklch, ${colors.border}, ${colors.foreground} 8%)`,
+    "--input": `color-mix(in srgb, ${colors.border}, ${colors.foreground} 8%)`,
     "--ring": colors.primary,
     "--chart-1": charts[0],
     "--chart-2": charts[1],

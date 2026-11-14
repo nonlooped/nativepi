@@ -15,8 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Give Files and Source Control separate right-sidebar buttons, with compact commits, folder-based staging, independent push/sync, searchable commit history, and diffs in the main workspace.
 - Right-align user prompts in transcripts.
 - Coordinate the first-message composer move, run completion feedback, sidebar dialog handoffs, settings transitions, finished-chat moves, and context-pane navigation, with interruptible motion and reduced-motion support.
-- Configure chat-title models, reasoning, and service tier independently, with automatic defaults based on connected providers.
 - Simplify chat deletion and project removal confirmations by removing unnecessary internal path boxes.
+- Configure chat-title models, reasoning, and service tier independently, with automatic defaults based on connected providers.
 - Unify workspace dialogs with translucent, blurred surfaces matching settings, consistent forms and actions, compact pickers, and dedicated preview headers while preserving settings.
 - Generate new chat titles from the first message while Pi works, instead of waiting for the first successful answer.
 - Clarify typography across the desktop app with distinct field values and placeholders, stronger headings and selected items, quieter navigation and metadata, and a separate supporting-text tone.
@@ -66,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preserve typed text, line breaks, and inline skill/file chips when sending a message, with chips styled like the composer.
 - Let message text use the selected conversation width and tighten spacing between prompts and responses.
 - Improve next-message suggestions by using Pi’s full prepared conversation context instead of truncated excerpts.
+- Preserve theme hues on translucent panels, the composer, and message surfaces; prevent muted blue, teal, and warm schemes from rendering reddish chrome.
 - Open saved chats at the latest user message and the start of its answer, keeping short exchanges together and preventing old jump-to-latest requests from overriding the opening position.
 - Exclude skills from `/` composer suggestions; find them through the dedicated `$` prefix.
 - Scale sidebar collapse thresholds with the current display’s available width, with navigation and project context available in sheets when the window is narrow.

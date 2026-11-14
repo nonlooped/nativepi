@@ -166,7 +166,7 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklch, var(--muted-foreground) 55%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--muted-foreground) 55%, transparent) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -183,12 +183,12 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   min-height: 32px;
   border: 3px solid transparent;
   border-radius: 9999px;
-  background: color-mix(in oklch, var(--muted-foreground) 48%, transparent);
+  background: color-mix(in srgb, var(--muted-foreground) 48%, transparent);
   background-clip: padding-box;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklch, var(--foreground) 48%, transparent);
+  background: color-mix(in srgb, var(--foreground) 48%, transparent);
   background-clip: padding-box;
 }
 
@@ -222,7 +222,7 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   --info: #315f91;
   --active: #315f91;
   --border: #cccccc;
-  --input: color-mix(in oklch, #cccccc, #3e3e3e 8%);
+  --input: color-mix(in srgb, #cccccc, #3e3e3e 8%);
   --ring: #484848;
   --overlay: oklch(0 0 0 / 58%);
   --qr-background: oklch(1 0 0);
@@ -259,7 +259,7 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   --foreground: #bababa;
   --card: #1b1b1b;
   --card-foreground: #bababa;
-  --popover: color-mix(in oklch, #1b1b1b, #bababa 3%);
+  --popover: color-mix(in srgb, #1b1b1b, #bababa 3%);
   --popover-foreground: #bababa;
   --primary: #b4b4b4;
   --primary-foreground: #202020;
@@ -278,7 +278,7 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   --info: #83add8;
   --active: #83add8;
   --border: #303030;
-  --input: color-mix(in oklch, #303030, #bababa 8%);
+  --input: color-mix(in srgb, #303030, #bababa 8%);
   --ring: #b4b4b4;
   --chart-1: #83add8;
   --chart-2: #78b58e;
@@ -421,7 +421,7 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
 }
 
 ::selection {
-  background: color-mix(in oklch, var(--foreground) 18%, transparent);
+  background: color-mix(in srgb, var(--foreground) 18%, transparent);
   color: var(--foreground);
 }
 
@@ -550,18 +550,18 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
 .composer-surface {
   transition: box-shadow 180ms ease, border-color 180ms ease;
   box-shadow:
-    0 14px 36px color-mix(in oklch, var(--background) 40%, oklch(0 0 0 / 24%)),
-    inset 0 1px color-mix(in oklch, var(--foreground) 6%, transparent);
+    0 14px 36px color-mix(in srgb, var(--background) 40%, oklch(0 0 0 / 24%)),
+    inset 0 1px color-mix(in srgb, var(--foreground) 6%, transparent);
 }
 
 /* The box the user is typing in says so: a hairline of the focus colour and a
    soft halo, instead of the surface looking identical focused and idle. */
 .composer-surface:focus-within {
-  border-color: color-mix(in oklch, var(--ring) 55%, var(--border));
+  border-color: color-mix(in srgb, var(--ring) 55%, var(--border));
   box-shadow:
-    0 14px 36px color-mix(in oklch, var(--background) 40%, oklch(0 0 0 / 24%)),
-    0 0 0 3px color-mix(in oklch, var(--ring) 28%, transparent),
-    inset 0 1px color-mix(in oklch, var(--foreground) 6%, transparent);
+    0 14px 36px color-mix(in srgb, var(--background) 40%, oklch(0 0 0 / 24%)),
+    0 0 0 3px color-mix(in srgb, var(--ring) 28%, transparent),
+    inset 0 1px color-mix(in srgb, var(--foreground) 6%, transparent);
 }
 
 /* Light mode keeps floating surfaces soft against the mineral workspace. */
@@ -569,7 +569,7 @@ html:not(.dark) .composer-surface {
   box-shadow:
     0 8px 24px oklch(0.22 0.007 285 / 8%),
     0 1px 3px oklch(0.22 0.007 285 / 10%),
-    inset 0 1px 0 color-mix(in oklch, var(--card), var(--foreground) 5%),
+    inset 0 1px 0 color-mix(in srgb, var(--card), var(--foreground) 5%),
     inset 0 0 0 1px oklch(0.22 0.007 285 / 6%);
 }
 
@@ -577,8 +577,8 @@ html:not(.dark) .composer-surface:focus-within {
   box-shadow:
     0 8px 24px oklch(0.22 0.007 285 / 8%),
     0 1px 3px oklch(0.22 0.007 285 / 10%),
-    0 0 0 3px color-mix(in oklch, var(--ring) 28%, transparent),
-    inset 0 1px 0 color-mix(in oklch, var(--card), var(--foreground) 5%);
+    0 0 0 3px color-mix(in srgb, var(--ring) 28%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--card), var(--foreground) 5%);
 }
 
 /* Markdown is intentionally styled here rather than by its parser. That keeps
@@ -662,7 +662,7 @@ html:not(.dark) .composer-surface:focus-within {
   color: var(--foreground);
   font-weight: 500;
   text-decoration: underline;
-  text-decoration-color: color-mix(in oklch, var(--foreground) 40%, transparent);
+  text-decoration-color: color-mix(in srgb, var(--foreground) 40%, transparent);
   text-decoration-thickness: from-font;
   text-underline-offset: 0.2em;
   cursor: pointer;
@@ -681,7 +681,7 @@ html:not(.dark) .composer-surface:focus-within {
   height: auto;
   margin-block: 0.75rem;
   border-radius: var(--radius-lg);
-  outline: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
   outline-offset: -1px;
 }
 
@@ -689,7 +689,7 @@ html:not(.dark) .composer-surface:focus-within {
   padding-inline: 0.35em;
   border-radius: var(--radius-sm);
   overflow-wrap: anywhere;
-  background-color: color-mix(in oklch, var(--muted) 62%, transparent);
+  background-color: color-mix(in srgb, var(--muted) 62%, transparent);
   font-family: var(--font-mono);
   font-size: 0.925em;
 }
@@ -700,13 +700,13 @@ html:not(.dark) .composer-surface:focus-within {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: color-mix(in oklch, var(--card) 72%, transparent);
+  background: color-mix(in srgb, var(--card) 72%, transparent);
 }
 
 .markdown-code-block {
   overflow: hidden;
   border-radius: var(--radius-md);
-  background: color-mix(in oklch, var(--foreground) 4%, transparent);
+  background: color-mix(in srgb, var(--foreground) 4%, transparent);
 }
 
 .markdown-code-header {
@@ -794,7 +794,7 @@ html:not(.dark) .composer-surface:focus-within {
   transition: background-color 120ms ease;
 }
 .markdown-table tbody tr:hover {
-  background: color-mix(in oklch, var(--muted) 28%, transparent);
+  background: color-mix(in srgb, var(--muted) 28%, transparent);
 }
 .markdown-table tr:last-child > * { border-block-end: 0; }
 
@@ -881,7 +881,7 @@ html[data-motion="reduced"] *::after {
 
 /* Settings share the workspace’s quiet surfaces; focus and error colors stay intact. */
 .settings-viewport {
-  --input: color-mix(in oklch, var(--border) 55%, transparent);
+  --input: color-mix(in srgb, var(--border) 55%, transparent);
   color: var(--foreground);
 }
 
@@ -916,28 +916,30 @@ html[data-motion="reduced"] *::after {
 }
 
 /* A continuous ink landscape spans the workspace. All surfaces remain semantic,
-   so a user's color scheme supplies the palette rather than the photograph. */
+   so a user's color scheme supplies the palette rather than the photograph.
+   Use sRGB blends: Chromium can discard low-chroma hues in OKLCH mixes,
+   turning blue, teal, or ochre translucent surfaces reddish. */
 .app-viewport { isolation: isolate; }
 .chat-stage { position: relative; overflow: hidden; }
 
 .app-viewport:has(> .chat-landscape) .conversation-shell { background: transparent; }
 .app-viewport:has(> .chat-landscape) .sidebar-panel {
-  background: color-mix(in oklch, var(--sidebar) 82%, transparent);
+  background: color-mix(in srgb, var(--sidebar) 82%, transparent);
   backdrop-filter: blur(12px);
-  box-shadow: inset -1px 0 color-mix(in oklch, var(--foreground) 6%, transparent),
-    12px 0 32px -24px color-mix(in oklch, var(--foreground) 28%, transparent);
+  box-shadow: inset -1px 0 color-mix(in srgb, var(--foreground) 6%, transparent),
+    12px 0 32px -24px color-mix(in srgb, var(--foreground) 28%, transparent);
 }
 .app-viewport:has(> .chat-landscape) .context-pane {
-  background: color-mix(in oklch, var(--sidebar) 82%, transparent);
+  background: color-mix(in srgb, var(--sidebar) 82%, transparent);
   backdrop-filter: blur(12px);
-  box-shadow: inset 1px 0 color-mix(in oklch, var(--foreground) 6%, transparent),
-    -12px 0 32px -24px color-mix(in oklch, var(--foreground) 28%, transparent);
+  box-shadow: inset 1px 0 color-mix(in srgb, var(--foreground) 6%, transparent),
+    -12px 0 32px -24px color-mix(in srgb, var(--foreground) 28%, transparent);
 }
 .app-viewport:has(> .chat-landscape) .terminal-dock {
-  background: color-mix(in oklch, var(--sidebar) 78%, transparent);
+  background: color-mix(in srgb, var(--sidebar) 78%, transparent);
   backdrop-filter: blur(12px);
-  box-shadow: inset 0 1px color-mix(in oklch, var(--foreground) 8%, transparent),
-    0 -12px 32px -24px color-mix(in oklch, var(--foreground) 28%, transparent);
+  box-shadow: inset 0 1px color-mix(in srgb, var(--foreground) 8%, transparent),
+    0 -12px 32px -24px color-mix(in srgb, var(--foreground) 28%, transparent);
 }
 
 .new-chat {
@@ -1024,13 +1026,13 @@ html[data-motion="reduced"] *::after {
 }
 
 .app-viewport:has(> .chat-landscape) .composer-surface {
-  background: color-mix(in oklch, var(--card) 88%, transparent);
-  border-color: color-mix(in oklch, var(--foreground) 7%, transparent);
-  box-shadow: 0 8px 40px -16px color-mix(in oklch, var(--foreground) 16%, transparent);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  border-color: color-mix(in srgb, var(--foreground) 7%, transparent);
+  box-shadow: 0 8px 40px -16px color-mix(in srgb, var(--foreground) 16%, transparent);
 }
 
 .app-viewport:has(> .chat-landscape) [data-slot="bubble"][data-variant="secondary"] > [data-slot="bubble-content"] {
-  background: color-mix(in oklch, var(--secondary) 78%, transparent);
+  background: color-mix(in srgb, var(--secondary) 78%, transparent);
 }
 
 .chat-background-swatch {
@@ -1051,7 +1053,7 @@ html[data-motion="reduced"] *::after {
 }
 
 .chat-background-swatch[aria-pressed="true"] {
-  border-color: color-mix(in oklch, var(--foreground) 50%, transparent);
+  border-color: color-mix(in srgb, var(--foreground) 50%, transparent);
 }
 
 .chat-background-thumbnail {
@@ -1107,7 +1109,7 @@ html[data-motion="reduced"] *::after {
   gap: 0.3em;
   padding: 0.06em 0.3em;
   border-radius: 0.3rem;
-  background: color-mix(in oklch, var(--foreground) 5%, transparent);
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
   color: var(--body-muted-foreground);
   font-family: var(--font-sans);
   font-size: 0.9em;
@@ -1119,7 +1121,7 @@ html[data-motion="reduced"] *::after {
 }
 .transcript-reference > svg { width: 0.95em; height: 0.95em; flex-shrink: 0; }
 .transcript-reference > span { min-width: 0; max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.transcript-reference:hover { background: color-mix(in oklch, var(--foreground) 9%, transparent); color: var(--foreground); }
+.transcript-reference:hover { background: color-mix(in srgb, var(--foreground) 9%, transparent); color: var(--foreground); }
 .transcript-reference:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .transcript-context { margin-block: 0.4rem; }
 .transcript-context-preview pre { max-height: 24rem; overflow: auto; white-space: pre-wrap; }

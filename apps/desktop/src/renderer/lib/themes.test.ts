@@ -67,7 +67,7 @@ test("custom themes resolve the requested variant and map only color roles", () 
   expect(properties["--background"]).toBe(custom.colors.light.background);
   expect(properties["--card"]).toBe(custom.colors.light.surface);
   expect(properties["--border"]).toBe(custom.colors.light.border);
-  expect(properties["--input"]).toBe(`color-mix(in oklch, ${custom.colors.light.border}, ${custom.colors.light.foreground} 8%)`);
+  expect(properties["--input"]).toBe(`color-mix(in srgb, ${custom.colors.light.border}, ${custom.colors.light.foreground} 8%)`);
   expect(properties["--sidebar-border"]).toBe(custom.colors.light.border);
   expect(properties["--chart-2"]).not.toBe(custom.colors.light.info);
   expect(properties["--contrast-foreground"]).toBeDefined();
