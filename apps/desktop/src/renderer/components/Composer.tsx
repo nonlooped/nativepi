@@ -184,9 +184,8 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           projectPath={activeProjectPath}
           disabled={disabled}
           autoFocus={prominent}
-          // The placeholder names the one thing this keystroke will do next, so
-          // it tracks the queue behaviour rather than listing both options and
-          // leaving the user to guess which one is armed.
+          // During a turn, name the active send behavior; when idle, show the
+          // prefixes that open the composer's search menus.
           placeholder={
             disabled
               ? "Open a project to begin"
@@ -196,7 +195,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
                   ? "Steer this turn…"
                   : running
                     ? "Queue a follow-up…"
-                    : "Ask Pi to explore, explain, or change this project…"
+                    : "Ask Pi… @ files · $ skills · / commands"
           }
         />
         {/* Reply controls stay inside the composer; checkout controls sit below. */}
