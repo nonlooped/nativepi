@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Dictate prompts offline with a local multilingual speech model, an explicit first-use download with live installation progress, and editable transcripts. No account, key, or paid service is required.
 - Mention Pi models and threads across all projects from the @ picker; agents can discover and share the same references with mention_catalog.
 - Add built-in computer use in Work with bundled agent-desktop, concurrent chats with coordinated window actions and physical input, cancellable app actions, inline screenshots, and compact permission guidance under Settings → Behavior.
 - Add Pi-native Work delegates with explicit model/reasoning/speed/tools, shared-directory or retained-worktree assignments, progress and clarification messages, follow-ups, and inspectable transcripts without user composers.

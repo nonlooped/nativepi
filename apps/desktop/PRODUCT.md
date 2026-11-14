@@ -47,6 +47,8 @@ Built-in web access supplies Exa-backed web search and page reading in both dest
 
 ## Current Capabilities
 
+- Desktop voice dictation transcribes microphone audio locally with Whisper Large v3 Turbo. The first use offers an 886 MB model download with live progress and checksum verification; later dictation works offline. Audio is temporary, never uploaded or saved to Pi sessions. Transcripts enter the existing draft for review before sending. Browser Local Access does not expose dictation.
+
 - Built-in computer use in Work, including project-free chats, through pinned, bundled agent-desktop. Pi tools read accessibility trees, operate apps, and capture screenshots returned to the model and stored in the ordinary Pi session. Mouse and keyboard actions can affect the real desktop. Work chats operate concurrently in different windows. Conflicting individual actions queue in arrival order; physical input and operations that affect the shared desktop serialize. References require a fresh snapshot after another chat changes their window. Stop cancels only that chat’s queued and active actions. Settings → Behavior → Computer use checks platform permissions and offers the macOS permission guide. Chat does not expose these tools.
 
 - Optional next-message suggestions after successful turns, generated through Pi’s authenticated current model without changing the transcript. Tab accepts the suggestion as an editable draft; Escape dismisses it.

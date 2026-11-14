@@ -1,6 +1,11 @@
 import { requestParams } from "./request-params.ts";
 import type { HostRequestName, HostRequests } from "./rpc-schema.ts";
 export const desktopOnlyResponses = {
+  dictationStatus: { phase: "missing", downloaded: 0 },
+  dictationInstall: { phase: "error", downloaded: 0, error: "Dictation is only available in the desktop app." },
+  dictationCancel: { ok: true },
+  dictationTranscribe: { text: "" },
+  dictationMicrophone: { ok: true },
   computerPermissions: { available: false, permissions: {}, error: "Grant computer-use permissions from the desktop app." },
   pickProject: { path: null },
   importSession: { ok: false, canceled: true },

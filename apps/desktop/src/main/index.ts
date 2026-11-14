@@ -104,6 +104,15 @@ async function createMainWindow(): Promise<void> {
     },
   });
   bindWindowMaterial(win, preferences);
+  // Only NativePi's main document may capture microphone audio. Artifacts and
+  // embedded extension frames must not inherit that grant; other permissions
+  // retain Electron's existing default behavior.
+  win.webContents.session.setPermissionCheckHandler((contents, permission, _origin, details) =>
+    permission !== "media" || (contents === win.webContents && details.isMainFrame && details.mediaType === "audio"));
+  win.webContents.session.setPermissionRequestHandler((contents, permission, callback, details) => {
+    const audio = "mediaTypes" in details && details.mediaTypes?.length === 1 && details.mediaTypes[0] === "audio";
+    callback(permission !== "media" || (contents === win.webContents && details.isMainFrame && !!audio));
+  });
   // Let the renderer's saved interface scale handle these keys. Electron's
   // default View menu otherwise consumes them and applies a second page zoom.
   win.webContents.on("before-input-event", (_event, input) => {

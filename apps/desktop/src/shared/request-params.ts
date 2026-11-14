@@ -1,3 +1,4 @@
+import { dictationAudioSchema } from "./dictation.ts";
 import { serviceTierSchema } from "./service-tier.ts";
 import { thinkingLevelSchema } from "./pi-values.ts";
 import { z } from "zod";
@@ -35,6 +36,8 @@ export const requestParams = {
   prepareImages: z.object({ files: z.array(z.object({ name: z.string().max(32767), mimeType: z.string().max(200), data: z.string().max(64 * 1024 * 1024) })).max(100) }),
   getServiceTier: target, setServiceTier: target.extend({ tier: serviceTierSchema, provider: id, modelId: id }),
   getChatTitleModels: z.object({ projectDir: path.optional(), sessionFile: path.nullable().optional() }),
+  dictationStatus: empty, dictationInstall: z.object({ id }), dictationCancel: z.object({ id }),
+  dictationTranscribe: z.object({ id, audio: dictationAudioSchema }), dictationMicrophone: empty,
   computerStatus: empty, computerPermissions: empty,
   abort: target, getModels: target, getState: target, getThinkingLevels: target,
   setModel: target.extend({ provider: id, modelId: id }), setThinkingLevel: target.extend({ level: thinking }),

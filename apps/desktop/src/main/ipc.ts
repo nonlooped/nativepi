@@ -1,3 +1,4 @@
+import { Dictation, dictationMicrophone } from "./dictation.ts";
 import { computerStatus } from "./computerUse.ts";
 import { isChatFinished } from "../shared/chat-organization.ts";
 import { OrchestrationCoordinator } from "./orchestration/coordinator.ts";
@@ -1148,6 +1149,11 @@ const handlers: HandlerMap = {
       return { images: [], rejected: [] };
     }
   },
+  dictationStatus: () => dictation.status(),
+  dictationInstall: () => { throw new Error("Dictation needs a client"); },
+  dictationCancel: () => { throw new Error("Dictation needs a client"); },
+  dictationTranscribe: () => { throw new Error("Dictation needs a client"); },
+  dictationMicrophone: () => dictationMicrophone(),
   computerStatus: () => computerStatus(),
   computerPermissions: () => computerStatus(true),
   abort: async ({ projectDir, sessionFile }) => {
@@ -2152,6 +2158,7 @@ export class HostClient extends ClientLeases {
   }
 }
 const clients = new Set<HostClient>();
+const dictation = new Dictation(status => pushDesktop("dictationStatus", status));
 let desktopClient: HostClient | undefined;
 function reconcileDirectories(project: string): void {
   setExplorerWatches(project, [...new Set([...clients].flatMap(client => client.directories.get(project) ?? []))]);
@@ -2169,6 +2176,12 @@ export async function invokeHostRequest<K extends HostRequestName>(name: K, raw:
       record[key] = resolve(record[key]);
   if (client.disposed)
     throw new Error("This client disconnected");
+  if (name === "dictationInstall") return await dictation.install(client, (params as HostRequests["dictationInstall"]["params"]).id) as HostRequests[K]["response"];
+  if (name === "dictationCancel") return dictation.cancel(client, (params as HostRequests["dictationCancel"]["params"]).id) as HostRequests[K]["response"];
+  if (name === "dictationTranscribe") {
+    const { id, audio } = params as HostRequests["dictationTranscribe"]["params"];
+    return await dictation.transcribe(client, id, audio) as HostRequests[K]["response"];
+  }
   const values = params as {
     projectDir?: string;
     sessionFile?: string | null;
