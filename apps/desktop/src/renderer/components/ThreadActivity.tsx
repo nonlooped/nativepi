@@ -22,6 +22,7 @@ export function DelegateRows({ leadFile }: { leadFile: string }) {
   if (!lead?.delegates.length) return null;
   return <div className="mb-1 ml-5 flex max-h-40 flex-col overflow-y-auto border-l border-border pl-2">
     {lead.delegates.map(child => <Button key={child.ref.id} variant={selected === child.ref.file ? "secondary" : "ghost"} className="h-auto min-h-8 justify-start gap-2 px-2 py-1.5 text-xs font-normal" title={`${child.relationship?.label ?? "Delegate"}\n${delegateStatus(child)}\n${child.relationship?.configuration.provider}/${child.relationship?.configuration.model}\n${child.relationship?.configuration.reasoning} · ${child.relationship?.configuration.tier ?? "default"}\n${child.ref.cwd}`} onClick={() => void useAppStore.getState().selectChat(child.ref.file, child.ref.cwd)}>
+      <BrandIcon name={providerIconName(child.relationship?.configuration.provider ?? "")} size={14} className="shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate text-left">{child.relationship?.label ?? "Delegate"}</span><span className="shrink-0 text-muted-foreground">{delegateStatus(child)}</span>
     </Button>)}
   </div>;
