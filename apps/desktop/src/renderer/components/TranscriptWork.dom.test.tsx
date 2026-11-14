@@ -159,3 +159,24 @@ domTest("cold historical spawn results retain navigation without adopting the or
   expect(container.textContent).toContain("Running");
   expect(container.querySelector('[aria-label="Stop delegate: Original audit"]')).toBeNull();
 });
+
+domTest("computer screenshots remain viewable from the persisted tool result", async () => {
+  await mount();
+  const screenshot: ToolCall = { type: "toolCall", id: "screen", name: "computer_screenshot", arguments: { app: "Notes" } };
+  const result: ToolResultMessage = { role: "toolResult", toolCallId: "screen", toolName: screenshot.name, content: [{ type: "text", text: "Captured Notes" }, { type: "image", mimeType: "image/png", data: "aW1hZ2U=" }], isError: false, timestamp: 1 };
+  await act(async () => root!.render(<AssistantResponse entryId="response" messages={[message([screenshot])]} results={new Map([["screen", result]])} streaming />));
+  await click("Capture Notes");
+  expect(container.querySelector('img[alt="Computer screenshot"]')?.getAttribute("src")).toBe("data:image/png;base64,aW1hZ2U=");
+  await click("Computer screenshot.png");
+  expect(document.querySelector('[role="dialog"] img')?.getAttribute("src")).toBe("data:image/png;base64,aW1hZ2U=");
+});
+
+domTest("computer errors explain the failure without dumping protocol JSON", async () => {
+  await mount();
+  const call: ToolCall = { type: "toolCall", id: "computer", name: "computer_use", arguments: { command: "click" } };
+  const result: ToolResultMessage = { role: "toolResult", toolCallId: call.id, toolName: call.name, content: [{ type: "text", text: '{"ok":false}' }], details: { computerUse: { ok: false, command: "click", error: { code: "COMPUTER_BUSY", message: "Another Work chat is controlling the computer." } } }, isError: true, timestamp: 1 };
+  await act(async () => root!.render(<AssistantResponse entryId="response" messages={[message([call])]} results={new Map([[call.id, result]])} streaming />));
+  await click("Click");
+  expect(container.textContent).toContain("Another Work chat is controlling the computer.");
+  expect(container.textContent).not.toContain('{"ok":false}');
+});

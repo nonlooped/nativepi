@@ -1,3 +1,4 @@
+import { computerStatus } from "./computerUse.ts";
 import { isChatFinished } from "../shared/chat-organization.ts";
 import { OrchestrationCoordinator } from "./orchestration/coordinator.ts";
 import { OrchestrationService } from "./orchestration/service.ts";
@@ -1147,6 +1148,8 @@ const handlers: HandlerMap = {
       return { images: [], rejected: [] };
     }
   },
+  computerStatus: () => computerStatus(),
+  computerPermissions: () => computerStatus(true),
   abort: async ({ projectDir, sessionFile }) => {
     if (sessionFile && resolve(projectDir) !== resolve(join(app.getPath("userData"), "conversations"))) {
       await orchestrationService.discover();

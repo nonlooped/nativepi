@@ -1,3 +1,5 @@
+import { MonitorIcon } from "@phosphor-icons/react/Monitor";
+import ComputerUseSettings from "./settings/ComputerUseSettings.tsx";
 import { transitionView } from "../lib/viewTransition.ts";
 import { SettingsDialogAppearance } from "./ui/dialog-styles.ts";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
@@ -42,6 +44,7 @@ export const CATEGORIES = [
   { name: "Behavior", icon: BrainIcon, group: "Pi", blurb: "Reasoning, project trust, reliability, and images." },
   { name: "Extensions", icon: PuzzlePieceIcon, group: "Pi", blurb: "Packages that extend Pi." },
   { name: "Usage", icon: ChartLineUpIcon, group: "Pi", blurb: "Local costs, tokens, and subscription limits." },
+  { name: "Computer use", icon: MonitorIcon, group: "Application", blurb: "Desktop control and system permissions." },
   { name: "Terminal", icon: TerminalWindowIcon, group: "Application", blurb: "The integrated terminal and Pi’s shell." },
   { name: "Access", icon: WifiHighIcon, group: "Application", blurb: "Open this workspace from another device." },
   { name: "About", icon: InfoIcon, group: "Application", blurb: "Updates, diagnostics, and local files." },
@@ -225,6 +228,8 @@ function CategoryPanel({ category }: { category: Category }) {
       );
     case "Keyboard":
       return <KeybindSettings />;
+    case "Computer use":
+      return <ComputerUseSettings />;
     case "Terminal":
       return <TerminalSettings />;
     case "General":

@@ -1,6 +1,7 @@
 import { requestParams } from "./request-params.ts";
 import type { HostRequestName, HostRequests } from "./rpc-schema.ts";
 export const desktopOnlyResponses = {
+  computerPermissions: { available: false, permissions: {}, error: "Grant computer-use permissions from the desktop app." },
   pickProject: { path: null },
   importSession: { ok: false, canceled: true },
   windowMinimize: { ok: false },

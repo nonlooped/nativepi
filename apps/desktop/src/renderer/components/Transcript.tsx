@@ -1,3 +1,5 @@
+import { computerEnvelopeSchema } from "../../shared/computer-use.ts";
+import { MonitorIcon } from "@phosphor-icons/react/Monitor";
 import DelegateInvocation from "./DelegateInvocation.tsx";
 import { useLayoutMotion } from "../lib/layoutMotion.ts";
 import UserPrompt from "./UserPrompt.tsx";
@@ -729,11 +731,28 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
     }
   }
 
+  const computer = call.name === "computer_use" || call.name === "computer_screenshot";
+  const screenshots = computer && result ? result.content.filter((item): item is { type: "image"; mimeType: string; data: string } => item.type === "image" && "data" in item && typeof item.data === "string" && "mimeType" in item && item.mimeType === "image/png") : [];
+  const computerResult = computer ? computerEnvelopeSchema.safeParse((result?.details as { computerUse?: unknown } | undefined)?.computerUse) : undefined;
+  const computerError = computerResult?.success ? computerResult.data.error : undefined;
   const errorOutput = output || "The tool reported an error with no output.";
-  const panel = failed ? (
+  const panel = failed && computerError ? (
+    <div className="space-y-1 py-2 pl-5 text-xs leading-5 text-body-muted-foreground">
+      <p>{computerError.message}</p>
+      {computerError.suggestion ? <p>{computerError.suggestion}</p> : null}
+      <p className="text-muted-foreground">{computerError.code.replaceAll("_", " ").toLowerCase()}</p>
+    </div>
+  ) : failed ? (
     <pre className="max-h-72 overflow-auto pl-5 py-2 font-mono text-xs leading-5 whitespace-pre-wrap text-body-muted-foreground">
       {errorOutput}
     </pre>
+  ) : screenshots.length ? (
+    <div className="min-w-0 py-2 pl-5">
+      {screenshots.map((image, index) => <div key={index} className="flex flex-col gap-2">
+        <img src={`data:${image.mimeType};base64,${image.data}`} alt="Computer screenshot" loading="lazy" className="max-h-80 w-full rounded-md object-contain object-left outline outline-1 -outline-offset-1 outline-border/60" />
+        <TranscriptImage image={image} name="Computer screenshot.png" />
+      </div>)}
+    </div>
   ) : diffPatch ? (
     <div className="min-w-0 pl-5 py-1">
       <Suspense fallback={null}>
@@ -748,7 +767,7 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
 
   const header = (
     <>
-      {path ? <FileTypeIcon path={path} size={14} /> : call.name === "bash" ? <TerminalWindowIcon className="size-3.5 shrink-0" /> : <WrenchIcon className="size-3.5 shrink-0" />}
+      {path ? <FileTypeIcon path={path} size={14} /> : call.name === "bash" ? <TerminalWindowIcon className="size-3.5 shrink-0" /> : computer ? <MonitorIcon className="size-3.5 shrink-0" /> : <WrenchIcon className="size-3.5 shrink-0" />}
       <span className="min-w-0 flex-1 truncate">{summary || call.name}</span>
       {panel ? <CaretRightIcon className="size-3 shrink-0 group-data-[panel-open]:rotate-90" /> : null}
     </>
