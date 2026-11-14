@@ -921,8 +921,7 @@ html[data-motion="reduced"] *::after {
 .app-viewport { isolation: isolate; }
 .chat-stage { position: relative; overflow: hidden; }
 
-/* The welcome view keeps the landscape; an active thread gets a quiet page. */
-.app-viewport[data-chat-state="new"]:has(> .chat-landscape) .conversation-shell { background: transparent; }
+.app-viewport:has(> .chat-landscape) .conversation-shell { background: transparent; }
 .app-viewport:has(> .chat-landscape) .sidebar-panel {
   background: color-mix(in srgb, var(--sidebar) 82%, transparent);
   backdrop-filter: blur(12px);
@@ -963,8 +962,16 @@ html[data-motion="reduced"] *::after {
   transition: opacity 200ms ease-out;
 }
 
+/* Keep the image and its ripples visible, with less ink behind a thread. */
 .app-viewport[data-chat-state="thread"] > .chat-landscape {
-  opacity: 0.12;
+  opacity: 0.09;
+}
+
+/* A small weight increase gives conversation prose more presence over the grain.
+   Keep headings, emphasis, and semantic text colors in their existing hierarchy. */
+.conversation-content .markdown,
+.conversation-content [data-slot="bubble-content"] {
+  font-weight: 450;
 }
 
 /* The plate is drawn after the image decodes; fade it in rather than popping. */
@@ -989,6 +996,12 @@ html[data-motion="reduced"] *::after {
   .app-viewport:has(> .chat-landscape) .terminal-dock {
     background: var(--sidebar);
     backdrop-filter: none;
+  }
+  .app-viewport:has(> .chat-landscape) .composer-surface {
+    background: var(--card);
+  }
+  .app-viewport:has(> .chat-landscape) [data-slot="bubble"][data-variant="secondary"] > [data-slot="bubble-content"] {
+    background: var(--secondary);
   }
 }
 
@@ -1020,13 +1033,13 @@ html[data-motion="reduced"] *::after {
 }
 
 .app-viewport:has(> .chat-landscape) .composer-surface {
-  background: var(--card);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
   border-color: color-mix(in srgb, var(--foreground) 7%, transparent);
   box-shadow: 0 8px 40px -16px color-mix(in srgb, var(--foreground) 16%, transparent);
 }
 
 .app-viewport:has(> .chat-landscape) [data-slot="bubble"][data-variant="secondary"] > [data-slot="bubble-content"] {
-  background: var(--secondary);
+  background: color-mix(in srgb, var(--secondary) 78%, transparent);
 }
 
 .chat-background-swatch {
@@ -1231,6 +1244,7 @@ html[data-material="glass"][data-window-material="native"] .app-viewport {
    This is texture over native blur: desktop pixels never enter a canvas. */
 html[data-material="glass"] .app-viewport::before {
   content: "";
+  opacity: 0.75;
   position: absolute;
   inset: 0;
   z-index: -1;
@@ -1240,21 +1254,15 @@ html[data-material="glass"] .app-viewport::before {
 html[data-material="glass"] :is(.conversation-shell, .chat-stage) {
   background: transparent;
 }
-/* Keep native material and dither in the chrome, outside the reading surface. */
-html[data-material="glass"] .app-viewport[data-chat-state="thread"] .conversation-shell {
-  background: var(--background);
-}
 html[data-material="glass"] :is(.sidebar-panel, .context-pane, .terminal-dock) {
   background: var(--sidebar);
   box-shadow: inset 0 1px var(--glass-edge);
 }
 html[data-material="glass"] .composer-surface {
-  background: var(--glass-surface);
+  background: var(--card);
   border-color: var(--border);
+  backdrop-filter: blur(24px) saturate(125%);
   box-shadow: inset 0 1px var(--glass-edge), 0 12px 36px -16px var(--glass-shadow);
-}
-html[data-material="glass"] [data-slot="bubble"][data-variant="secondary"] > [data-slot="bubble-content"] {
-  background: var(--glass-muted);
 }
 html[data-material="glass"] :is(
   [data-slot="dialog-content"], [data-slot="sheet-content"],
