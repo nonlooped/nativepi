@@ -46,12 +46,17 @@ async function readState(): Promise<NativePiState> {
 let saveQueue = Promise.resolve();
 let saveFailure: unknown;
 export function updateState(transform: (latest: NativePiState) => NativePiState | Promise<NativePiState>): Promise<NativePiState> {
+  let persistenceFailed = false;
   const next = saveQueue.then(async () => {
-    const updated = normalize(await transform(await readState()));
-    await writeState(updated);
+    let latest: NativePiState;
+    try { latest = await readState(); } catch (error) { persistenceFailed = true; throw error; }
+    // An expected operation refusal (for example busy Finish) never attempted
+    // a save. Reject that caller without poisoning the shutdown write drain.
+    const updated = normalize(await transform(latest));
+    try { await writeState(updated); } catch (error) { persistenceFailed = true; throw error; }
     return updated;
   });
-  saveQueue = next.then(() => { saveFailure = undefined; }, error => { saveFailure = error; });
+  saveQueue = next.then(() => { saveFailure = undefined; }, error => { if (persistenceFailed) saveFailure = error; });
   return next;
 }
 const deletedSessions = new Set<string>();

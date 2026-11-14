@@ -121,3 +121,36 @@ test("child tool waits cancel through fork IPC and disconnect settles host reque
   expect(await pending).toContain("disconnected");
   await pi.stop();
 });
+
+test("session rebinding cancels old private operations and ignores their late replies", async () => {
+  const { pi, child } = processFixture();
+  const pending = pi.orchestration({ id: "old", cwd: "/temporary", file: "/old" }, "catalog").then(() => "unexpected", error => error.message);
+  const id = child.sent.at(-1)!.requestId;
+  pi.resetOrchestrationBinding();
+  expect(await pending).toContain("binding changed");
+  child.emit("message", { type: "nativepi_orchestration_reply", requestId: id, result: "late" });
+  expect(pi.hasOrchestrationWork).toBe(false);
+  await pi.stop();
+});
+
+test("a started prompt is busy during pre-agent_start preparation, while handled commands stay idle", async () => {
+  const { pi, child } = processFixture();
+  const pending = pi.request({ type: "prompt", message: "Work" });
+  const command = JSON.parse(child.stdin.read().toString());
+  child.event({ type: "response", id: command.id, command: "prompt", success: true, data: { disposition: "started" } });
+  await pending; expect(pi.isRunning).toBe(true);
+  child.event({ type: "agent_settled", aborted: false });
+  const handled = pi.request({ type: "prompt", message: "/command" });
+  const next = JSON.parse(child.stdin.read().toString());
+  child.event({ type: "response", id: next.id, command: "prompt", success: true, data: { disposition: "handled" } });
+  await handled; expect(pi.isRunning).toBe(false);
+  await pi.stop();
+});
+
+test("late private runtime notifications cannot revive a disposed process", async () => {
+  const { pi, child } = processFixture();
+  const request = pi.orchestration({ id: "session", cwd: "/temporary", file: "/session" }, "catalog").catch(() => {});
+  await pi.stop(); await request;
+  child.emit("message", { type: "nativepi_orchestration_runtime", sessionId: "session", running: true });
+  expect(pi.isRunning).toBe(false);
+});

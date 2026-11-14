@@ -11,7 +11,7 @@ async function stop(file: string) {
   try { await rpc.request.stopThread({ sessionFile: file }); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not stop thread"); }
 }
 function status(thread: ThreadSnapshot["delegates"][number]) {
-  return thread.assignment?.state === "waiting" ? "Waiting for lead" : thread.assignment?.state ?? (thread.running ? "Working" : "Preparing");
+  return thread.assignment?.state === "waiting" ? "Waiting for lead" : thread.assignment?.state ?? thread.status ?? (thread.running ? "Working" : "Preparing");
 }
 export function DelegateRows({ leadFile }: { leadFile: string }) {
   const threads = useAppStore(s => s.orchestration.threads);
@@ -27,9 +27,10 @@ export function DelegateRows({ leadFile }: { leadFile: string }) {
 export function DelegateFooter({ thread }: { thread: ThreadSnapshot }) {
   const threads = useAppStore(s => s.orchestration.threads);
   const relationship = thread.relationship!;
-  const parent = threads.find(t => t.ref.id === relationship.lead.id);
+  const error = thread.assignment?.reason ?? thread.startupError;
+  const parent = threads.find(t => t.ref.id === relationship.lead.id && t.available !== false);
   return <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-4 py-4 text-sm text-muted-foreground" data-delegate-footer>
-    <div className="min-w-0 flex-1"><p className="truncate">{relationship.label} · {status(thread)}</p><p className="truncate text-xs" title={thread.ref.cwd}>{relationship.configuration.model} · {relationship.configuration.reasoning} · {relationship.configuration.tier ?? "default"}{relationship.workspace.mode === "worktree" ? ` · ${relationship.workspace.branch}` : ""}</p>{thread.assignment?.reason ? <p className="mt-1 max-h-24 overflow-y-auto break-words text-xs text-destructive">{thread.assignment.reason}</p> : null}</div>
+    <div className="min-w-0 flex-1"><p className="truncate">{relationship.label} · {status(thread)}</p><p className="truncate text-xs" title={thread.ref.cwd}>{relationship.configuration.model} · {relationship.configuration.reasoning} · {relationship.configuration.tier ?? "default"}{relationship.workspace.mode === "worktree" ? ` · ${relationship.workspace.branch}` : ""}</p>{error ? <p className="mt-1 max-h-24 overflow-y-auto break-words text-xs text-destructive">{error}</p> : null}</div>
     {parent ? <Button variant="ghost" size="sm" onClick={() => void useAppStore.getState().selectChat(parent.ref.file, parent.ref.cwd)}><ArrowUpLeftIcon />Lead</Button> : <span className="text-xs">Lead unavailable</span>}
     {thread.busy ? <Button variant="outline" size="sm" onClick={() => void stop(thread.ref.file)}><StopIcon />Stop</Button> : null}
   </div>;
@@ -58,9 +59,12 @@ export function ThreadInputBoundary({ children }: { children: ReactNode }) {
   const file = useAppStore(s => s.activeSessionFile);
   const destination = useAppStore(s => s.destination);
   const loaded = useAppStore(s => s.orchestrationLoaded);
+  const error = useAppStore(s => s.orchestrationError);
   const threads = useAppStore(s => s.orchestration.threads);
   const thread = threads.find(thread => thread.ref.file === file);
-  if (destination === "work" && file && (!loaded || !thread)) return <div className="px-4 py-4 text-xs text-muted-foreground">Loading thread controls…</div>;
+  if (destination === "work" && file && error) return <div className="flex items-center gap-3 px-4 py-4 text-xs text-muted-foreground"><span className="min-w-0 flex-1 break-words">Thread controls unavailable: {error}</span><Button variant="ghost" size="sm" onClick={() => void useAppStore.getState().selectChat(file)}>Retry</Button></div>;
+  if (destination === "work" && file && !loaded) return <div className="px-4 py-4 text-xs text-muted-foreground">Loading thread controls…</div>;
+  if (destination === "work" && file && (!thread || thread.available === false)) return <div className="px-4 py-4 text-sm text-muted-foreground">Thread unavailable. Reload its session before sending a message.</div>;
   if (destination === "work" && thread?.roleUnavailable) return <div className="px-4 py-4 text-sm text-muted-foreground">Delegate role unavailable. Transcript remains viewable; input is disabled.</div>;
   if (destination === "work" && thread?.relationship) return <DelegateFooter thread={thread} />;
   return children;

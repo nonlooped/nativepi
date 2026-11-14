@@ -29,7 +29,7 @@ function fixture() {
   const service = new OrchestrationService(coordinator, operations);
   const invoke = (action: string, params: Record<string, unknown>, operationId = action) => service.invoke(lead, action, params, operationId, new AbortController().signal);
   const setup = async () => { await service.discover(); coordinator.resumeLead(lead.id); };
-  return { refs, entries, coordinator, operations, service, invoke, setup, dispatched, stopped, finished };
+  return { refs, entries, adapter, coordinator, operations, service, invoke, setup, dispatched, stopped, finished };
 }
 test("spawn duplicate transport allocates once, preserves exact task and supports full question/reply cycle", async () => {
   const f = fixture(); await f.setup();
@@ -95,4 +95,37 @@ test("restart preserves accepted operations without repeating allocation or exec
   const result = await service.invoke(lead, "delegate_spawn", params, "durable", new AbortController().signal) as { recovered: boolean };
   expect(result.recovered).toBe(true); expect(f.refs).toHaveLength(3);
   expect(restarted.snapshot(f.refs.at(-1)!.id).assignment?.state).toBe("interrupted");
+});
+
+test("a cold lead discovers ownership before stopping its delegate", async () => {
+  const f = fixture(); await f.setup();
+  const spawned = await f.invoke("delegate_spawn", { label: "Review", task: "Work", configuration }) as { ref: ThreadReference };
+  const cold = new OrchestrationCoordinator(f.adapter);
+  const service = new OrchestrationService(cold, f.operations);
+  await service.invoke(lead, "delegate_stop", { delegateId: spawned.ref.id }, "stop-cold", new AbortController().signal);
+  expect(cold.snapshot(spawned.ref.id).assignment?.state).toBe("stopped");
+  expect(f.stopped).toContain(spawned.ref.id);
+});
+test("an unreadable history reference does not block healthy threads' discovery", async () => {
+  const f = fixture(); await f.setup();
+  const missing = { id: "missing", cwd: "/gone", file: "/gone/session" };
+  f.refs.push(missing);
+  const read = f.adapter.read;
+  f.adapter.read = async ref => { if (ref.id === missing.id) throw new Error("ENOENT"); return read(ref); };
+  expect((await f.service.discover()).map(ref => ref.id)).toEqual(["lead", "peer"]);
+});
+
+test("worktree path/base intent is durable before creation, including Stop during creation", async () => {
+  const f = fixture(); await f.setup();
+  const entered = Promise.withResolvers<void>(), release = Promise.withResolvers<void>();
+  f.operations.workspace = async (ref, branch, base, prepared) => {
+    const workspace = { mode: "worktree" as const, path: "/retained-worktree", branch, base: base ?? "captured-head", repository: ref.cwd };
+    await prepared?.(workspace); entered.resolve(); await release.promise; return workspace;
+  };
+  const spawning = f.invoke("delegate_spawn", { label: "Work", task: "Must not run", configuration, workspace: { mode: "worktree" } }).catch(error => error);
+  await entered.promise;
+  expect(JSON.stringify(f.entries.get(lead.id))).toContain("/retained-worktree");
+  expect(JSON.stringify(f.entries.get(lead.id))).toContain("captured-head");
+  await f.coordinator.stop(lead.id); release.resolve(); await spawning;
+  expect(f.dispatched).toHaveLength(0);
 });

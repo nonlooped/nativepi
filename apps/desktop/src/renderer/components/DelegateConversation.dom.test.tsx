@@ -21,6 +21,10 @@ domTest("cold delegate hydration never mounts composer controls, including orpha
   expect(container.textContent).toContain("Explicit resumption required");
   await act(async () => useAppStore.setState({ orchestration: { revision: 2, threads: [{ ...child, relationship: undefined, roleUnavailable: true }] } }));
   expect(container.querySelector("textarea")).toBeNull(); expect(container.textContent).toContain("Delegate role unavailable");
+  await act(async () => useAppStore.setState({ orchestration: { revision: 3, threads: [{ ...child, available: false }] } }));
+  expect(container.querySelector("textarea")).toBeNull(); expect(container.textContent).toContain("Thread unavailable");
+  await act(async () => useAppStore.setState({ orchestration: { revision: 4, threads: [] } }));
+  expect(container.querySelector("textarea")).toBeNull(); expect(container.textContent).toContain("Thread unavailable");
   await act(async () => useAppStore.setState({ destination: "chat" }));
   expect(container.querySelector("textarea")).not.toBeNull();
 });
@@ -33,4 +37,13 @@ domTest("delegate store paths reject send, enqueue, draft, attachments and model
   await state.setModel({ provider: "other", id: "model" }); await state.setThinkingLevel("high"); await state.setServiceTier("priority");
   expect(useAppStore.getState().drafts[ref.file]).toBe("retained");
   expect(useAppStore.getState().attachments[ref.file]).toBeUndefined();
+});
+
+domTest("metadata failures keep input disabled and offer recovery instead of an endless loading state", async () => {
+  useAppStore.setState({ ready: true, destination: "work", activeProjectPath: ref.cwd, activeSessionFile: ref.file, orchestrationLoaded: false, orchestrationError: "Session missing", orchestration: { revision: 1, threads: [] } });
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  await act(async () => root!.render(<ThreadInputBoundary><textarea data-composer-input /></ThreadInputBoundary>));
+  expect(container.querySelector("textarea")).toBeNull();
+  expect(container.textContent).toContain("Thread controls unavailable: Session missing");
+  expect(container.querySelector("button")?.textContent).toBe("Retry");
 });

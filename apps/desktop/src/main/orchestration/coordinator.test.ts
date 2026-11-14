@@ -183,3 +183,21 @@ test("lost sender acknowledgment reconciles against a recipient that already con
   expect(f.coordinator.snapshot("lead").pendingDelivery).toHaveLength(0);
   expect(f.dispatched).toHaveLength(1);
 });
+
+test("configuration failure records a failed assignment and sender intent before any dispatch", async () => {
+  const f = fixture(); await f.setup();
+  f.adapter.configure = async () => { throw new Error("unavailable_tool: removed extension tool"); };
+  await expect(f.coordinator.assign("lead", "child", "configuration-failure", "Retained task")).rejects.toThrow("unavailable_tool");
+  expect(f.coordinator.snapshot("child").assignment).toMatchObject({ state: "failed", reason: "unavailable_tool: removed extension tool" });
+  expect(f.coordinator.snapshot("lead").pendingDelivery[0]?.content).toBe("Retained task");
+  expect(f.dispatched).toHaveLength(0);
+});
+test("a completed delegate accepts a normal follow-up after group Stop and explicit lead resumption", async () => {
+  const f = fixture(); await f.setup();
+  const assignment = await f.coordinator.assign("lead", "child", "task", "Work");
+  await f.coordinator.settled("child", { assignmentId: assignment.id, attempt: assignment.attempt, aborted: false, resultEntry: "done", stopReason: "stop" });
+  await f.coordinator.stop("lead"); f.coordinator.resumeLead("lead");
+  const next = await f.coordinator.assign("lead", "child", "follow-up", "More work");
+  expect(next.state).toBe("running");
+  expect(next.id).not.toBe(assignment.id);
+});

@@ -37,7 +37,7 @@ export class OrchestrationError extends Error {
 export const orchestrationRequestSchema = z.object({ type: z.literal("nativepi_orchestration_request"), requestId: id, operationId: id, action: id, params: z.record(z.string(), z.unknown()) });
 export const orchestrationReplySchema = z.object({ type: z.literal("nativepi_orchestration_reply"), requestId: id, result: z.unknown().optional(), error: z.string().optional() });
 export const orchestrationCancelSchema = z.object({ type: z.literal("nativepi_orchestration_cancel"), requestId: id });
-export const orchestrationHostSchema = z.object({ type: z.literal("nativepi_orchestration_host"), requestId: id, sessionId: id, action: z.enum(["catalog", "append", "configure", "dispatch", "context", "arm"]), payload: z.unknown() });
+export const orchestrationHostSchema = z.object({ type: z.literal("nativepi_orchestration_host"), requestId: id, sessionId: id, action: z.enum(["catalog", "append", "configure", "dispatch", "context", "arm"]), payload: z.unknown().optional() });
 
 const page = { cursor: z.number().int().nonnegative().optional(), limit: z.number().int().min(1).max(100).optional() };
 const target = { threadId: id };
@@ -51,7 +51,7 @@ export const orchestrationOperations = {
   delegate_stop: z.object({ delegateId: id }),
   lead_message: z.object({ content: z.string().min(1).max(32000), needsReply: z.boolean() }),
   thread_list: z.object({ ...page, cwd: z.string().optional(), state: z.enum(["focus", "finished"]).optional() }),
-  thread_search: z.object({ ...page, query: z.string().min(1).max(500), cwd: z.string().optional() }),
+  thread_search: z.object({ ...page, query: z.string().trim().min(1).max(500), cwd: z.string().optional() }),
   thread_read: z.object({ ...target, ...page, leafId: id.optional(), includeTools: z.boolean().optional(), includeThinking: z.boolean().optional() }),
   thread_create: z.object({ title: id, cwd: z.string().min(1).optional(), configuration: config, prompt: z.string().min(1).max(32000).optional(), start: z.boolean().optional() }),
   thread_message: z.object({ ...target, content: z.string().min(1).max(32000) }),
@@ -60,7 +60,7 @@ export const orchestrationOperations = {
   thread_stop: z.object(target), thread_finish: z.object(target), thread_delete: z.object(target),
 } as const;
 export type OrchestrationAction = keyof typeof orchestrationOperations;
-export const delegateSummarySchema = z.object({ roleUnavailable: z.boolean().optional(), ref: threadReferenceSchema, relationship: relationshipSchema.optional(), assignment: assignmentSchema.optional(), running: z.boolean() });
+export const delegateSummarySchema = z.object({ startupError: z.string().optional(), status: assignmentStateSchema.optional(), available: z.boolean().optional(), roleUnavailable: z.boolean().optional(), ref: threadReferenceSchema, relationship: relationshipSchema.optional(), assignment: assignmentSchema.optional(), running: z.boolean() });
 export const threadSnapshotSchema = delegateSummarySchema.extend({ readMessageIds: z.array(z.string()), reports: z.array(orchestrationMessageSchema), inbox: z.array(orchestrationMessageSchema), pendingDelivery: z.array(orchestrationMessageSchema), delegates: z.array(delegateSummarySchema), busy: z.boolean() });
 export const orchestrationSnapshotSchema = z.object({ revision: z.number().int().nonnegative(), threads: z.array(threadSnapshotSchema) });
 export type OrchestrationSnapshot = z.infer<typeof orchestrationSnapshotSchema>;

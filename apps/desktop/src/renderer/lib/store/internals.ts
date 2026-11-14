@@ -195,13 +195,14 @@ export async function applyFolderTrust(
   get: GetState,
   path: string,
   folder: FolderEntry,
+  warm = true,
 ): Promise<void> {
   const trust = await folder.trustCheck;
   if (!folder.stillSelected()) return;
   set({ trust });
   if (trust.required && !trust.trusted) {
     set({ trustPrompt: { projectPath: path } });
-  } else {
+  } else if (warm) {
     await warmProject(set, get, path);
   }
 }

@@ -561,7 +561,7 @@ export async function gitCheckout(projectDir: string, branch: string, create: bo
 * its common `.git`; submodules and separate Git dirs must use the current
 * checkout instead of placing work under hidden metadata.
 */
-async function worktreePathFor(projectDir: string, branch: string): Promise<string | null> {
+async function worktreePathFor(projectDir: string, branch: string): Promise<{ path: string; repository: string } | null> {
   const [checkout, commonDir] = await Promise.all([
     run(["rev-parse", "--show-toplevel"], projectDir),
     run(["rev-parse", "--path-format=absolute", "--git-common-dir"], projectDir),
@@ -575,16 +575,18 @@ async function worktreePathFor(projectDir: string, branch: string): Promise<stri
   let candidate = path.join(base, slug);
   for (let n = 2; existsSync(candidate); n++)
     candidate = path.join(base, `${slug}-${n}`);
-  return candidate;
+  return { path: candidate, repository: mainRoot };
 }
-export async function gitAddWorktree(projectDir: string, branch: string, create: boolean, baseRef?: string): Promise<{
+export async function gitAddWorktree(projectDir: string, branch: string, create: boolean, baseRef?: string, beforeCreate?: (workspace: { path: string; repository: string }) => Promise<void>): Promise<{
   ok: boolean;
   path?: string;
   error?: string;
 }> {
-  const target = await worktreePathFor(projectDir, branch);
-  if (!target)
+  const workspace = await worktreePathFor(projectDir, branch);
+  if (!workspace)
     return { ok: false, error: "This folder is not a Git repository." };
+  await beforeCreate?.(workspace);
+  const target = workspace.path;
   const res = await run(create ? ["worktree", "add", "-b", branch, target, ...(baseRef ? [baseRef] : [])] : ["worktree", "add", target, branch], projectDir);
   return res.code === 0 ? { ok: true, path: target } : { ok: false, error: failure(res) };
 }

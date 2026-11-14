@@ -391,3 +391,11 @@ test("delegate worktrees use the captured explicit commit without carrying dirty
   expect((await gitAddWorktree(dir, "delegate-explicit-base", true, base)).ok).toBe(false);
   expect(await readFile(path.join(dir, "a.txt"), "utf8")).toBe("dirty parent\n");
 });
+
+test("refusing the durable worktree intent creates no checkout or branch", async () => {
+  const dir = await repo();
+  let target = "";
+  await expect(gitAddWorktree(dir, "cancelled-before-create", true, undefined, async prepared => { target = prepared.path; throw new Error("stopped"); })).rejects.toThrow("stopped");
+  expect(existsSync(target)).toBe(false);
+  expect((await gitBranches(dir)).some(branch => branch.name === "cancelled-before-create")).toBe(false);
+});

@@ -2,8 +2,8 @@ import { isChatFinished } from "../shared/chat-organization.ts";
 import { OrchestrationCoordinator } from "./orchestration/coordinator.ts";
 import { OrchestrationService } from "./orchestration/service.ts";
 import { allocateThread } from "./orchestration/allocation.ts";
-import { discoverThreads } from "./orchestration/history.ts";
-import { projectOrchestration } from "./orchestration/records.ts";
+import { discoverThreads, sameDirectory } from "./orchestration/history.ts";
+import { assignmentBusy, projectOrchestration } from "./orchestration/records.ts";
 import { ORCHESTRATION_ENTRY, OrchestrationError, threadReferenceSchema, type ThreadReference, type OrchestrationSnapshot, type OrganizationSnapshot } from "../shared/orchestration.ts";
 import { updateState as transformState, noteDeletedSession } from "./state.ts";
 import { gitResolveWorktreeBase } from "./git.ts";
@@ -55,7 +55,9 @@ const pis = new Map<string, PiProcess>();
 const draftRuntimes = new WeakSet<PiProcess>();
 const userRunRuntimes = new WeakSet<PiProcess>();
 const draftPis = new Map<string, PiProcess>();
+const allocatedSessionIds = new Map<string, string>();
 const starting = new Map<string, Promise<PiProcess>>();
+const startingProjects = new Map<string, string>();
 const startingPis = new Map<string, PiProcess>();
 let shuttingDown = false;
 let runtimeGeneration = 0;
@@ -476,6 +478,7 @@ function rememberPi(pi: PiProcess, sessionFile: string | undefined): Promise<voi
   if (current && current.file === sessionFile)
     return current.ready;
   const previous = current ? current.file : pi.boundSessionFile;
+  if (current && previous !== sessionFile) pi.resetOrchestrationBinding?.();
   const ownedPrevious = previous && pis.get(previous) === pi;
   if (ownedPrevious)
     pis.delete(previous);
@@ -553,6 +556,8 @@ function orchestrationSnapshot(): OrchestrationSnapshot {
 async function guardedOrchestration(ref: ThreadReference, action: "catalog" | "append" | "configure" | "dispatch" | "context" | "arm", payload?: unknown, signal?: AbortSignal, acquire = true): Promise<unknown> {
   signal?.throwIfAborted();
   if (shuttingDown || restartingAll || restartingProjects.has(ref.cwd)) throw new Error("stopped: Host is stopping");
+  const actual = await referenceForFile(ref.file);
+  if (actual.id !== ref.id || actual.cwd !== ref.cwd) throw new Error("external_session_change: Thread identity changed");
   await assertCoherent(ref.file);
   const pi = acquire ? await ensurePi(ref.cwd, ref.file) : pis.get(ref.file);
   signal?.throwIfAborted();
@@ -570,8 +575,13 @@ async function guardedOrchestration(ref: ThreadReference, action: "catalog" | "a
 }
 const orchestration = new OrchestrationCoordinator({
   read: ref => readSession(ref.file),
-  append: async (ref, record) => { if (record.kind === "stop" && !pis.get(ref.file)?.isAvailable) return; await guardedOrchestration(ref, "append", record, undefined, (record.kind === "message" && record.stage === "inbox") || (record.kind === "relationship" && record.relationship.delegate.id === ref.id)); },
-  configure: async (ref, relationship) => { await guardedOrchestration(ref, "configure", relationship.configuration); },
+  append: async (ref, record) => {
+    if (record.kind === "stop" && !pis.get(ref.file)?.isAvailable) {
+      const assignment = orchestration.snapshot(ref.id).assignment;
+      if (assignment?.state === "completed" || assignment?.state === "stopped" || (!assignment && !orchestration.busy(ref.id))) return;
+    }
+    await guardedOrchestration(ref, "append", record, undefined, record.kind === "stop" || (record.kind === "assignment" && record.assignment.state === "preparing") || (record.kind === "message" && record.stage === "inbox") || (record.kind === "relationship" && record.relationship.delegate.id === ref.id)); },
+  configure: async (ref, relationship, signal) => { await guardedOrchestration(ref, "configure", relationship.configuration, signal); },
   dispatch: async (ref, message, signal) => {
     signal.throwIfAborted();
     const assignment = orchestration.snapshot(ref.id).assignment;
@@ -602,6 +612,7 @@ async function organize(file: string, action: "finish" | "focus" | "pin"): Promi
     if (orchestration.busy(ref.id)) throw new Error("busy: Stop or settle all group work before finishing");
   }
   await transformState(state => {
+    if (action === "finish") { const ref = orchestration.references().find(ref => ref.file === file); if (ref && orchestration.busy(ref.id)) throw new Error("busy: Group started working before Finish was committed"); }
     const finishedChats = { ...state.finishedChats };
     let pinnedChats = state.pinnedChats, focusedChats = state.focusedChats;
     if (action === "finish") { finishedChats[file] = new Date().toISOString(); pinnedChats = pinnedChats.filter(f => f !== file); focusedChats = focusedChats.filter(f => f !== file); }
@@ -631,27 +642,32 @@ const orchestrationService = new OrchestrationService(orchestration, {
   },
   allocate: async (cwd, title, initial) => {
     cwd = resolve(cwd);
-    if (cwd === resolve(join(app.getPath("userData"), "conversations"))) throw new Error("wrong_role: Chat has no orchestration tools");
+    if (await sameDirectory(cwd, join(app.getPath("userData"), "conversations"))) throw new Error("wrong_role: Chat has no orchestration tools");
     const ref = await allocateThread(cwd, undefined, (manager, ref) => {
       manager.appendSessionInfo(title);
       if (initial) manager.appendCustomEntry(ORCHESTRATION_ENTRY, { version: 1, sessionId: ref.id, operationId: initial.operationId, kind: "relationship", relationship: { ...initial, delegate: ref } });
     });
+    allocatedSessionIds.set(ref.file, ref.id);
     notifySessionsChanged(cwd);
     return ref;
   },
-  catalog: async cwd => {
+  catalog: async (cwd, signal) => {
     const pi = await ensurePi(resolve(cwd));
     const state = await pi.request<RpcSessionState>({ type: "get_state" });
     if (!state.sessionId) throw new Error("Pi session identity unavailable");
-    return pi.orchestration({ id: state.sessionId, cwd, file: state.sessionFile ?? "" }, "catalog");
+    return pi.orchestration({ id: state.sessionId, cwd, file: state.sessionFile ?? "" }, "catalog", undefined, signal);
   },
-  configuration: async (ref, config) => { await guardedOrchestration(ref, "configure", config); },
+  configuration: async (ref, config, signal) => { await guardedOrchestration(ref, "configure", config, signal); },
   workRoot: async () => { const cwd = join(app.getPath("userData"), "work"); await mkdir(cwd, { recursive: true }); return cwd; },
-  workspace: async (ref, branch, base) => {
+  workspace: async (ref, branch, base, beforeCreate) => {
     const resolvedBase = await gitResolveWorktreeBase(ref.cwd, base);
-    const result = await gitAddWorktree(ref.cwd, branch, true, resolvedBase);
+    let repository = ref.cwd;
+    const result = await gitAddWorktree(ref.cwd, branch, true, resolvedBase, async prepared => {
+      repository = prepared.repository;
+      await beforeCreate?.({ mode: "worktree", path: prepared.path, branch, base: resolvedBase, repository });
+    });
     if (!result.ok || !result.path) throw new Error(result.error ?? "Worktree allocation failed");
-    return { mode: "worktree", path: result.path, branch, base: resolvedBase, repository: ref.cwd };
+    return { mode: "worktree", path: result.path, branch, base: resolvedBase, repository };
   },
   finish: async ref => { await organize(ref.file, "finish"); },
   focus: async ref => { await organize(ref.file, "focus"); },
@@ -682,11 +698,13 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
   const inflight = starting.get(key);
   if (inflight)
     return inflight;
+  startingProjects.set(key, projectDir);
   const startup = (async () => {
     status(projectDir, "starting", projectDir);
     let pi!: PiProcess;
     let startupFailureReported = false;
-    const chatMode = resolve(projectDir) === resolve(join(app.getPath("userData"), "conversations"));
+    const chatMode = await sameDirectory(projectDir, join(app.getPath("userData"), "conversations"));
+    if (shuttingDown || restartingAll || restartingProjects.has(projectDir) || generation !== runtimeGeneration) throw new Error("Pi startup was cancelled");
     const chatArgs = chatMode ? ["--nativepi-chat", "--no-extensions", "--no-context-files", "--no-skills", "--no-prompt-templates", ...(await loadState()).chatExtensions.flatMap(path => ["-e", path])] : [];
     pi = new PiProcess(projectDir, (msg) => forwardEvent(projectDir, pi, msg), (code, processError, expected) => {
       // Panes belong to the process that drew them: a Pi that dies takes its
@@ -699,7 +717,8 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
       push("tuiFrame", { projectDir, runtimeId: runtimeIds.get(pi), sessionFile: clientSessionFile(projectDir, pi), frame: { type: "nativepi_tui_reset" } });
       if (pi.boundSessionFile) {
         const ref = orchestration.references().find(ref => ref.file === pi.boundSessionFile);
-        if (ref && orchestration.snapshot(ref.id).assignment?.state === "running") void orchestration.interrupted(ref.id, "Pi process exited");
+        if (ref) console.info("[orchestration:exit]", { sessionId: ref.id, code, expected: !!expected });
+        if (ref && assignmentBusy(orchestration.snapshot(ref.id).assignment)) void orchestration.interrupted(ref.id, "Pi process exited");
       }
       const ownedSession = pi.boundSessionFile && pis.get(pi.boundSessionFile) === pi;
       if (ownedSession)
@@ -734,8 +753,9 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
       }
     }, (frame) => forwardPiFrame(projectDir, pi, frame), [
       ...chatArgs,
-      ...(sessionFile ? ["--session", sessionFile] : []),
+      ...(sessionFile ? allocatedSessionIds.has(sessionFile) ? ["--session-id", allocatedSessionIds.get(sessionFile)!, "--session-dir", dirname(sessionFile)] : ["--session", sessionFile] : []),
     ]);
+    if (sessionFile) allocatedSessionIds.delete(sessionFile);
     if (!sessionFile)
       draftRuntimes.add(pi);
     pi.onOrchestration = async (action, params, operationId, signal) => {
@@ -812,10 +832,12 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
   void startup.then(() => {
     if (starting.get(key) === startup)
       starting.delete(key);
+    startingProjects.delete(key);
     updatePowerProtection();
   }, () => {
     if (starting.get(key) === startup)
       starting.delete(key);
+    startingProjects.delete(key);
     updatePowerProtection();
   });
   return startup;
@@ -2281,7 +2303,7 @@ function retireRuntimes(projectDir?: string): Promise<void> {
     restartingAll = true;
   const related = new Set(orchestration.references().filter(ref => !projectDir || ref.cwd === projectDir || orchestration.snapshot(ref.id).relationship?.lead.cwd === projectDir).map(ref => ref.file));
   for (const ref of orchestration.references()) if (related.has(ref.file)) { orchestration.fence(ref.id); void orchestration.interrupted(ref.id, "Pi restarted; explicit resumption required"); }
-  const acquisitions = [...starting.entries()].filter(([key]) => !projectDir || (startingPis.get(key)?.projectDir === projectDir || related.has(key))).map(([, task]) => task);
+  const acquisitions = [...starting.entries()].filter(([key]) => !projectDir || (startingProjects.get(key) === projectDir || related.has(key))).map(([, task]) => task);
   const all = [...new Set([...pis.values(), ...draftPis.values(), ...startingPis.values()])].filter(pi => !projectDir || pi.projectDir === projectDir || (pi.boundSessionFile && related.has(pi.boundSessionFile)));
   const previous = [...retirementTasks.values()];
   const task = (async () => {

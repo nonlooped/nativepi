@@ -103,6 +103,7 @@ export class PiProcess {
     });
   }
   private async handleOrchestration(raw: unknown): Promise<void> {
+    if (!this.isAvailable) return;
     const reply = orchestrationReplySchema.safeParse(raw);
     if (reply.success) {
       const waiter = this.orchestrationWaiters.get(reply.data.requestId);
@@ -130,6 +131,13 @@ export class PiProcess {
     } catch (error) {
       if (this.proc.connected) this.proc.send({ type: "nativepi_orchestration_reply", requestId: request.requestId, error: error instanceof Error ? error.message : String(error) });
     } finally { this.orchestrationRequests.delete(request.requestId); }
+  }
+  resetOrchestrationBinding(): void {
+    this.orchestrationSessionId = undefined;
+    for (const controller of this.orchestrationRequests.values()) controller.abort();
+    this.orchestrationRequests.clear();
+    for (const waiter of this.orchestrationWaiters.values()) { waiter.cleanup(); waiter.reject(new Error("Pi session binding changed")); }
+    this.orchestrationWaiters.clear();
   }
   fenceOrchestration(ref: ThreadReference): void {
     if (this.proc.connected) this.proc.send({ type: "nativepi_orchestration_fence", sessionId: ref.id }, () => {});
@@ -367,7 +375,10 @@ export class PiProcess {
   request<T = unknown>(command: PiCommand): Promise<T> {
     const id = `lc-${nextRequestId++}`;
     return new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve: resolve as (d: unknown) => void, reject });
+      this.pending.set(id, { resolve: data => {
+        if (command.type === "prompt" && data && typeof data === "object" && "disposition" in data && (data.disposition === "started" || data.disposition === "queued")) { this.isRunning = true; this.onOrchestrationRuntime?.(); }
+        resolve(data as T);
+      }, reject });
       try {
         this.write({ ...command, id });
       }
@@ -382,6 +393,7 @@ export class PiProcess {
   }
   private rejectAll(err: Error): void {
     for (const controller of this.orchestrationRequests.values()) controller.abort();
+    this.orchestrationRequests.clear();
     for (const waiter of this.orchestrationWaiters.values()) { waiter.cleanup(); waiter.reject(err); }
     this.orchestrationWaiters.clear();
     for (const waiter of this.pending.values())

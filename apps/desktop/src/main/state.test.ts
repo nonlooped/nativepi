@@ -70,3 +70,10 @@ test("a stale renderer save cannot reverse host organization and deleted metadat
   expect(fresh.lastChatByProject).toEqual({});
   expect(fresh.chatFolderBySession).toEqual({});
 });
+
+test("a refused state transform rejects its caller without poisoning the persistence drain", async () => {
+  const { updateState } = await import("./state.ts");
+  await expect(updateState(() => { throw new Error("busy: group started"); })).rejects.toThrow("busy:");
+  await drainState();
+  expect((await loadState()).finishedChats.target).toBeDefined();
+});

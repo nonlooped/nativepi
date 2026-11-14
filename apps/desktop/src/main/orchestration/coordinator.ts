@@ -11,12 +11,12 @@ export interface OrchestrationAdapter {
   fence?(ref: ThreadReference): void;
   stop(ref: ThreadReference): Promise<void>;
   running(ref: ThreadReference): boolean;
-  configure?(ref: ThreadReference, relationship: Relationship): Promise<void>;
+  configure?(ref: ThreadReference, relationship: Relationship, signal?: AbortSignal): Promise<void>;
   trace?(operationId: string, sessionId: string, kind: string, state?: string): void;
   publish(): void;
 }
 type Projection = ReturnType<typeof projectOrchestration>;
-interface Thread { ref: ThreadReference; projection: Projection; controller: AbortController; fenced: boolean }
+interface Thread { available: boolean; ref: ThreadReference; projection: Projection; controller: AbortController; fenced: boolean }
 interface Waiter { lead: string; ids: string[]; assignments: (string | undefined)[]; all: boolean; resolve: () => void }
 
 /** Coordination only: Pi owns execution, context and every durable transcript. */
@@ -29,11 +29,15 @@ export class OrchestrationCoordinator {
   private deliveries = new Map<string, Promise<OrchestrationMessage>>();
   constructor(private adapter: OrchestrationAdapter) {}
 
-  async hydrate(ref: ThreadReference): Promise<void> {
+  async hydrate(ref: ThreadReference, notify = true): Promise<void> {
     const known = this.threads.get(ref.id);
-    if (known) { if (known.ref.file !== ref.file || known.ref.cwd !== ref.cwd) throw new OrchestrationError("external_session_change", "Duplicate Pi session identity at another path. Resolve the conflicting copies."); const changed = known.ref.title !== ref.title; known.ref = ref; if (changed) this.changed(); return; }
+    if (known) { if (known.ref.file !== ref.file || known.ref.cwd !== ref.cwd) throw new OrchestrationError("external_session_change", "Duplicate Pi session identity at another path. Resolve the conflicting copies."); const changed = known.ref.title !== ref.title || !known.available; known.ref = ref; known.available = true; if (changed && notify) this.changed(); return; }
     const projection = projectOrchestration(ref.id, await this.adapter.read(ref), true);
-    if (!this.threads.has(ref.id)) { this.threads.set(ref.id, { ref, projection, controller: new AbortController(), fenced: projection.relationship ? !projection.assignment || ["interrupted", "failed", "stopped"].includes(projection.assignment.state) : true }); this.changed(); }
+    if (!this.threads.has(ref.id)) { this.threads.set(ref.id, { available: true, ref, projection, controller: new AbortController(), fenced: projection.relationship ? !projection.assignment || ["interrupted", "failed", "stopped"].includes(projection.assignment.state) : true }); if (notify) this.changed(); }
+  }
+  reconcileDiscovery(available: Set<string>): void {
+    for (const thread of this.threads.values()) thread.available = available.has(thread.ref.id);
+    this.changed();
   }
   private thread(id: string): Thread {
     const value = this.threads.get(id);
@@ -81,14 +85,23 @@ export class OrchestrationCoordinator {
   private changed(): void {
     this.adapter.publish();
     for (const waiter of [...this.waits]) {
-      const states = waiter.ids.map((id, index) => { const p = this.thread(id).projection; const assignmentId = waiter.assignments[index]; return (assignmentId ? p.assignments.get(assignmentId) : p.assignment)?.state; });
+      const states = waiter.ids.map((id, index) => { const t = this.thread(id); const p = t.projection; const assignmentId = waiter.assignments[index]; return (assignmentId ? p.assignments.get(assignmentId) : p.assignment)?.state ?? (t.fenced && t.controller.signal.aborted ? "stopped" : undefined); });
       const terminal = (state: typeof states[number]) => !!state && ["completed", "failed", "stopped", "interrupted"].includes(state);
       if (states.includes("waiting") || states.some(state => state === "failed" || state === "stopped" || state === "interrupted") || (waiter.all ? states.every(terminal) : states.some(terminal))) waiter.resolve();
     }
   }
+  private startupError(t: Thread): string | undefined {
+    const relationship = t.projection.relationship;
+    const startup = relationship && this.threads.get(relationship.lead.id)?.projection.results.get(relationship.operationId);
+    return !t.projection.assignment && startup?.status === "failed" ? startup.reason ?? "Delegate startup failed" : undefined;
+  }
+  private status(t: Thread): Assignment["state"] | undefined {
+    if (this.startupError(t)) return "failed";
+    return t.projection.assignment?.state ?? (t.projection.relationship ? t.fenced ? t.controller.signal.aborted ? "stopped" : "interrupted" : "preparing" : undefined);
+  }
   snapshot(id: string) {
     const t = this.thread(id);
-    return { readMessageIds: [...t.projection.readMessages], roleUnavailable: t.projection.unavailableRole, reports: [...(this.threads.get(t.projection.relationship?.lead.id ?? "")?.projection.inbox.values() ?? [])].filter(message => message.source.id === id && message.kind !== "peer" && message.assignmentId === t.projection.assignment?.id).slice(-25), busy: this.busy(id), ref: t.ref, relationship: t.projection.relationship, assignment: t.projection.assignment, inbox: [...t.projection.inbox.values()], pendingDelivery: [...t.projection.outbox.values()], running: this.adapter.running(t.ref), delegates: [...this.threads.values()].filter(child => child.projection.relationship?.lead.id === id).map(child => ({ ref: child.ref, relationship: child.projection.relationship, assignment: child.projection.assignment, running: this.adapter.running(child.ref) })) };
+    return { startupError: this.startupError(t), status: this.status(t), available: t.available, readMessageIds: [...t.projection.readMessages], roleUnavailable: t.projection.unavailableRole, reports: [...(this.threads.get(t.projection.relationship?.lead.id ?? "")?.projection.inbox.values() ?? [])].filter(message => message.source.id === id && message.kind !== "peer" && message.assignmentId === t.projection.assignment?.id).slice(-25), busy: this.busy(id), ref: t.ref, relationship: t.projection.relationship, assignment: t.projection.assignment, inbox: [...t.projection.inbox.values()], pendingDelivery: [...t.projection.outbox.values()], running: this.adapter.running(t.ref), delegates: [...this.threads.values()].filter(child => child.projection.relationship?.lead.id === id).map(child => ({ startupError: this.startupError(child), status: this.status(child), available: child.available, ref: child.ref, relationship: child.projection.relationship, assignment: child.projection.assignment, running: this.adapter.running(child.ref) })) };
   }
   /** Install the relationship before any task is accepted; no parent context is used. */
   async register(relationship: Relationship): Promise<void> {
@@ -183,7 +196,7 @@ export class OrchestrationCoordinator {
   async assign(leadId: string, delegateId: string, operationId: string, content: string, options: { resume?: boolean; replyTo?: string } = {}): Promise<Assignment> {
     const lead = this.lead(leadId), child = this.owned(leadId, delegateId);
     if (lead.fenced) throw new OrchestrationError("stopped", "Lead is stopped; explicit resumption is required.");
-    if ((child.fenced || ["failed", "interrupted", "stopped"].includes(child.projection.assignment?.state ?? "")) && !options.resume) throw new OrchestrationError("stopped", "Use resume to start a new execution attempt.");
+    if (((child.fenced && child.projection.assignment?.state !== "completed") || ["failed", "interrupted", "stopped"].includes(child.projection.assignment?.state ?? "")) && !options.resume) throw new OrchestrationError("stopped", "Use resume to start a new execution attempt.");
     const groupSignal = lead.controller.signal;
     return this.serial(delegateId, async () => {
       groupSignal.throwIfAborted();
@@ -197,14 +210,21 @@ export class OrchestrationCoordinator {
       if (child.fenced || options.resume) { child.controller = new AbortController(); child.fenced = false; }
       const signal = AbortSignal.any([groupSignal, child.controller.signal]);
       const message = orchestrationMessageSchema.parse({ id: `${leadId}:${operationId}`, operationId, source: lead.ref, destination: child.ref, kind: replyTo ? "reply" : previous ? "follow-up" : "task", assignmentId: previous && assignmentBusy(previous) ? previous.id : randomUUID(), replyTo, timestamp: new Date().toISOString(), content });
-      const assignment: Assignment = { id: message.assignmentId!, delegate: child.ref, taskMessageId: message.id, attempt: (previous?.attempt ?? 0) + (options.resume ? 1 : previous ? 0 : 1), state: "running", questions: replyTo ? pendingQuestions.filter(id => id !== replyTo) : [] };
-      if (child.projection.relationship) await this.adapter.configure?.(child.ref, child.projection.relationship);
-      signal.throwIfAborted();
-      await this.messageRecord(child, message, "inbox");
-      signal.throwIfAborted();
+      const assignment: Assignment = { id: message.assignmentId!, delegate: child.ref, taskMessageId: message.id, attempt: (previous?.attempt ?? 0) + (options.resume ? 1 : previous ? 0 : 1), state: "preparing", questions: replyTo ? pendingQuestions.filter(id => id !== replyTo) : [] };
       await this.record(child, { version: 1, sessionId: delegateId, operationId, kind: "assignment", assignment });
-      signal.throwIfAborted();
       try {
+        signal.throwIfAborted();
+        // The source intent precedes acceptance in the recipient. These are
+        // short Pi appends; no session write lease spans another model run.
+        await this.serial(leadId, () => this.messageRecord(lead, message, "outbox"));
+        if (child.projection.relationship) await this.adapter.configure?.(child.ref, child.projection.relationship, signal);
+        signal.throwIfAborted();
+        await this.messageRecord(child, message, "inbox");
+        await this.serial(leadId, () => this.messageRecord(lead, message, "acknowledged"));
+        signal.throwIfAborted();
+        assignment.state = "running";
+        await this.record(child, { version: 1, sessionId: delegateId, operationId, kind: "assignment", assignment });
+        signal.throwIfAborted();
         const delivery = await this.adapter.dispatch(child.ref, message, signal);
         signal.throwIfAborted();
         if (!delivery || delivery.supplied) await this.messageRecord(child, message, "consumed");
@@ -304,7 +324,7 @@ export class OrchestrationCoordinator {
       try { await this.serial(t.ref.id, async () => {
         const operationId = randomUUID();
         await this.record(t, { version: 1, sessionId: t.ref.id, operationId, kind: "stop", generation: t.projection.generation });
-        if (assignmentBusy(t.projection.assignment)) await this.record(t, { version: 1, sessionId: t.ref.id, operationId, kind: "assignment", assignment: { ...t.projection.assignment!, state: "stopped" } });
+        if (assignmentBusy(t.projection.assignment) || t.projection.assignment?.state === "interrupted") await this.record(t, { version: 1, sessionId: t.ref.id, operationId, kind: "assignment", assignment: { ...t.projection.assignment!, state: "stopped" } });
       }); } finally { await this.adapter.stop(t.ref); }
     }));
     this.changed();

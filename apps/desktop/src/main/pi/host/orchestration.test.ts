@@ -44,8 +44,12 @@ test("pinned Pi accepts a durable attributed task before completion and classifi
     const call = (action: string, payload: unknown) => new Promise<Record<string, unknown>>(resolve => {
       const requestId = `test-${++sequence}`;
       replies.set(requestId, resolve);
-      process.emit("message", { type: "nativepi_orchestration_host", requestId, sessionId: ref.id, action, payload });
+      process.emit("message", JSON.parse(JSON.stringify({ type: "nativepi_orchestration_host", requestId, sessionId: ref.id, action, payload })));
     });
+    const catalog = await call("catalog", undefined);
+    expect(catalog.error).toBeUndefined();
+    expect(JSON.stringify(catalog.result)).toContain(model.id);
+    expect(JSON.stringify(catalog.result)).not.toContain("test-only-no-network");
     const message: OrchestrationMessage = { id: "lead:task", operationId: "task", source: { id: "lead", cwd: root, file: "/lead" }, destination: ref, kind: "task", assignmentId: "assignment", timestamp: new Date().toISOString(), content: "ONLY_LEAD_TASK" };
     expect((await call("append", { version: 1, sessionId: ref.id, operationId: "task", kind: "message", stage: "inbox", message })).error).toBeUndefined();
     await call("arm", { id: "assignment", attempt: 1, taskMessageId: message.id });
@@ -117,4 +121,42 @@ test("all registered orchestration tool schemas are accepted by pinned Pi's real
   for (const tool of definitions) expect(validateToolArguments(tool, { type: "toolCall", id: "call", name: tool.name, arguments: samples[tool.name]! })).toEqual(samples[tool.name]);
   const spawn = definitions.find(tool => tool.name === "delegate_spawn")!;
   expect(() => validateToolArguments(spawn, { type: "toolCall", id: "invalid", name: spawn.name, arguments: { label: "Missing task" } })).toThrow();
+});
+
+test("disposing a host binding rejects its pending catalog request instead of leaving it hung", async () => {
+  const priorSend = process.send, connected = Object.getOwnPropertyDescriptor(process, "connected");
+  const gate = Promise.withResolvers<never[]>();
+  const frames: Record<string, unknown>[] = [];
+  Object.defineProperty(process, "connected", { configurable: true, value: true });
+  process.send = ((value: Record<string, unknown>) => { frames.push(value); return true; }) as typeof process.send;
+  const session = { sessionManager: { getSessionId: () => "reloaded" }, modelRuntime: { streamSimple: () => { throw new Error("must not execute"); }, getAvailable: () => gate.promise }, subscribe: () => () => {} } as unknown as Parameters<typeof bindOrchestrationHost>[0];
+  const dispose = bindOrchestrationHost(session);
+  try {
+    process.emit("message", { type: "nativepi_orchestration_host", requestId: "pending-catalog", sessionId: "reloaded", action: "catalog" });
+    dispose();
+    expect(frames).toContainEqual({ type: "nativepi_orchestration_reply", requestId: "pending-catalog", result: undefined, error: "external_session_change: Pi host binding changed" });
+    gate.resolve([]); await Promise.resolve(); await Promise.resolve();
+    expect(frames.filter(frame => frame.requestId === "pending-catalog")).toHaveLength(1);
+  } finally { gate.resolve([]); dispose(); process.send = priorSend; if (connected) Object.defineProperty(process, "connected", connected); else Reflect.deleteProperty(process, "connected"); }
+});
+
+test("settlement cannot borrow a successful answer from a branch without the assignment task", async () => {
+  const priorSend = process.send, connected = Object.getOwnPropertyDescriptor(process, "connected");
+  const frames: Record<string, unknown>[] = [];
+  Object.defineProperty(process, "connected", { configurable: true, value: true });
+  process.send = ((value: Record<string, unknown>) => { frames.push(value); return true; }) as typeof process.send;
+  const ref = { id: "branch-test", cwd: "/repo", file: "/session" };
+  const message = { id: "task", operationId: "task", source: { ...ref, id: "lead" }, destination: ref, kind: "task", timestamp: new Date().toISOString(), content: "New task" };
+  const entries = [{ type: "custom_message", customType: ORCHESTRATION_ENTRY, details: message }];
+  let listener: (event: any) => void = () => {};
+  const session = { sessionManager: { getSessionId: () => ref.id, getEntries: () => entries, appendCustomEntry: () => {}, getBranch: () => [{ type: "message", id: "old-answer", message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "Unrelated successful answer" }] } }] }, modelRuntime: { streamSimple: () => {} }, subscribe: (callback: typeof listener) => { listener = callback; return () => {}; } } as unknown as Parameters<typeof bindOrchestrationHost>[0];
+  const dispose = bindOrchestrationHost(session);
+  try {
+    process.emit("message", { type: "nativepi_orchestration_host", requestId: "arm", sessionId: ref.id, action: "arm", payload: { id: "assignment", attempt: 1, taskMessageId: message.id } });
+    listener({ type: "message_end", message: { role: "custom", customType: ORCHESTRATION_ENTRY, details: message } });
+    await Promise.resolve();
+    listener({ type: "agent_settled", aborted: false });
+    const outcome = frames.find(frame => frame.type === "nativepi_orchestration_outcome");
+    expect(outcome).toBeDefined(); expect(outcome?.resultEntry).toBeUndefined(); expect(outcome?.stopReason).toBeUndefined();
+  } finally { dispose(); process.send = priorSend; if (connected) Object.defineProperty(process, "connected", connected); else Reflect.deleteProperty(process, "connected"); }
 });

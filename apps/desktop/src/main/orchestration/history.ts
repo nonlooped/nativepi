@@ -1,15 +1,22 @@
+import { realpath } from "node:fs/promises";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { resolve } from "node:path";
 import { readSession, searchSnippet } from "../sessions.ts";
 import { textOf } from "../../shared/messages.ts";
 import type { ThreadReference } from "../../shared/orchestration.ts";
 
+export async function sameDirectory(left: string, right: string): Promise<boolean> {
+  const [a, b] = await Promise.all([realpath(left).catch(() => resolve(left)), realpath(right).catch(() => resolve(right))]);
+  return a === b;
+}
+
 /** Pi discovery only; never scan arbitrary directories or start a runtime. */
 export async function discoverThreads(chatRoot: string, knownDirectories: string[] = []): Promise<ThreadReference[]> {
   const lists = await Promise.all([SessionManager.listAll(), ...knownDirectories.map(directory => SessionManager.listAll(directory))]);
   const seen = new Set<string>();
-  return lists.flat().filter(info => resolve(info.cwd) !== resolve(chatRoot) && !seen.has(info.id) && !!seen.add(info.id))
-    .map(info => ({ id: info.id, cwd: resolve(info.cwd), file: resolve(info.path), title: info.name }));
+  const candidates = lists.flat().filter(info => !seen.has(info.id) && !!seen.add(info.id));
+  const chat = await Promise.all(candidates.map(info => sameDirectory(info.cwd, chatRoot)));
+  return candidates.filter((_, index) => !chat[index]).map(info => ({ id: info.id, cwd: resolve(info.cwd), file: resolve(info.path), title: info.name }));
 }
 export async function readThread(ref: ThreadReference, options: { cursor?: number; limit?: number; leafId?: string; includeTools?: boolean; includeThinking?: boolean }) {
   let entries = await readSession(ref.file);
@@ -34,6 +41,9 @@ export async function readThread(ref: ThreadReference, options: { cursor?: numbe
       const message = entry.message as Record<string, unknown>;
       if (message.role === "toolResult" && !options.includeTools) continue;
       value = { ...entry, message: { ...message, content: Array.isArray(message.content) ? message.content.filter(part => part && typeof part === "object" && part.type !== "image" && (options.includeThinking || part.type !== "thinking") && (options.includeTools || part.type !== "toolCall")) : message.content } };
+    }
+    if (entry.type === "custom_message" && Array.isArray(entry.content)) {
+      value = { ...entry, content: entry.content.filter((part: unknown) => part && typeof part === "object" && "type" in part && part.type !== "image" && (options.includeThinking || part.type !== "thinking")) };
     }
     let encoded = JSON.stringify(value);
     if (encoded.length > 24000) { value = { id: entry.id, parentId: ("parentId" in entry ? entry.parentId : undefined), type: entry.type, truncated: true, excerpt: encoded.slice(0, 16000) }; encoded = JSON.stringify(value); }

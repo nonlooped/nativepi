@@ -6,13 +6,13 @@ import { readThread, searchThreads } from "./history.ts";
 export interface ThreadServiceAdapter {
   discover(): Promise<ThreadReference[]>;
   allocate(cwd: string, title: string, initial?: Omit<Relationship, "delegate">): Promise<ThreadReference>;
-  catalog(cwd: string): Promise<unknown>;
+  catalog(cwd: string, signal?: AbortSignal): Promise<unknown>;
   workRoot(): Promise<string>;
-  workspace(ref: ThreadReference, branch: string, base?: string): Promise<Extract<Relationship["workspace"], { mode: "worktree" }>>;
+  workspace(ref: ThreadReference, branch: string, base?: string, beforeCreate?: (workspace: Relationship["workspace"]) => Promise<void>): Promise<Extract<Relationship["workspace"], { mode: "worktree" }>>;
   finish(ref: ThreadReference): Promise<void>;
   focus(ref: ThreadReference): Promise<void>;
   remove(ref: ThreadReference): Promise<void>;
-  configuration(ref: ThreadReference, configuration: Relationship["configuration"]): Promise<void>;
+  configuration(ref: ThreadReference, configuration: Relationship["configuration"], signal?: AbortSignal): Promise<void>;
   finished(file: string): Promise<boolean>;
 }
 export class OrchestrationService {
@@ -20,8 +20,12 @@ export class OrchestrationService {
   constructor(readonly coordinator: OrchestrationCoordinator, private adapter: ThreadServiceAdapter) {}
   async discover(): Promise<ThreadReference[]> {
     const refs = await this.adapter.discover();
-    await Promise.all(refs.map(ref => this.coordinator.hydrate(ref)));
-    return refs;
+    // One unreadable/deleted historical session must not disable every chat's
+    // role hydration. Isolate it, and publish one converged discovery snapshot.
+    const hydrated = await Promise.allSettled(refs.map(ref => this.coordinator.hydrate(ref, false)));
+    const available = refs.filter((_, index) => hydrated[index]?.status === "fulfilled");
+    this.coordinator.reconcileDiscovery(new Set(available.map(ref => ref.id)));
+    return available;
   }
   async invoke(actor: ThreadReference, name: string, raw: Record<string, unknown>, toolId: string, signal: AbortSignal): Promise<unknown> {
     if (!Object.hasOwn(orchestrationOperations, name)) throw new OrchestrationError("not_found", "Unknown orchestration operation");
@@ -38,12 +42,12 @@ export class OrchestrationService {
     const target = (id: string, peer = true) => {
       const ref = refs.find(ref => ref.id === id);
       if (!ref) throw new OrchestrationError("not_found", "Work thread unavailable. Discover it again; do not fabricate a replacement.");
-      if (peer && this.coordinator.snapshot(id).relationship) throw new OrchestrationError("wrong_role", "Use owned delegate operations for this target.");
+      if (peer && (this.coordinator.snapshot(id).relationship || this.coordinator.snapshot(id).roleUnavailable)) throw new OrchestrationError("wrong_role", "Use owned delegate operations for this target.");
       return ref;
     };
     if (action === "orchestration_catalog") {
       const p = orchestrationOperations.orchestration_catalog.parse(params);
-      return this.adapter.catalog(p.cwd ?? actor.cwd);
+      return this.adapter.catalog(p.cwd ?? actor.cwd, signal);
     }
     if (action === "delegate_spawn" || action === "thread_create") {
       const key = createHash("sha256").update(`${actor.id}:${toolId}`).digest("hex");
@@ -64,7 +68,11 @@ export class OrchestrationService {
         try {
           if (action === "delegate_spawn") {
             const p = orchestrationOperations.delegate_spawn.parse(params);
-            workspace = p.workspace?.mode === "worktree" ? await this.adapter.workspace(actor, p.workspace.branch ?? `nativepi-${key.slice(0, 12)}`, p.workspace.base) : { mode: "shared", path: actor.cwd };
+            workspace = p.workspace?.mode === "worktree" ? await this.adapter.workspace(actor, p.workspace.branch ?? `nativepi-${key.slice(0, 12)}`, p.workspace.base, async prepared => {
+              active.throwIfAborted(); workspace = prepared;
+              await record({ action, status: "allocated", workspace: prepared });
+              active.throwIfAborted();
+            }) : { mode: "shared", path: actor.cwd };
             await record({ action, status: "allocated", workspace });
             active.throwIfAborted();
             ref = await this.adapter.allocate(workspace.path, p.label, { operationId: key, lead: actor, label: p.label, configuration: p.configuration, workspace });
@@ -85,7 +93,7 @@ export class OrchestrationService {
             await record({ action, status: "allocated", ref });
             await this.coordinator.hydrate(ref);
             active.throwIfAborted();
-            await this.adapter.configuration(ref, p.configuration);
+            await this.adapter.configuration(ref, p.configuration, active);
             if (p.start) {
               const message = await this.coordinator.send(actor.id, ref.id, `${key}:task`, p.prompt!);
               active.throwIfAborted();
@@ -122,13 +130,13 @@ export class OrchestrationService {
     }
     if (action === "delegate_stop") {
       const p = orchestrationOperations.delegate_stop.parse(params);
-      if (!state.delegates.some(child => child.ref.id === p.delegateId)) throw new OrchestrationError("not_owner", "Delegate does not belong to you");
+      if (!this.coordinator.snapshot(actor.id).delegates.some(child => child.ref.id === p.delegateId)) throw new OrchestrationError("not_owner", "Delegate does not belong to you");
       await this.coordinator.stop(p.delegateId); return { stopped: p.delegateId };
     }
     if (action === "thread_list") {
       const p = orchestrationOperations.thread_list.parse(params), cursor = p.cursor ?? 0, limit = p.limit ?? 25;
       const leads = [];
-      for (const ref of refs) if (!this.coordinator.snapshot(ref.id).relationship && (!p.cwd || ref.cwd === p.cwd) && (!p.state || (await this.adapter.finished(ref.file)) === (p.state === "finished"))) leads.push(ref);
+      for (const ref of refs) if (!this.coordinator.snapshot(ref.id).relationship && !this.coordinator.snapshot(ref.id).roleUnavailable && (!p.cwd || ref.cwd === p.cwd) && (!p.state || (await this.adapter.finished(ref.file)) === (p.state === "finished"))) leads.push(ref);
       return { threads: leads.slice(cursor, cursor + limit).map(ref => { const snapshot = this.coordinator.snapshot(ref.id); return { ref, running: snapshot.running, busy: snapshot.busy, delegates: snapshot.delegates, inboxCount: snapshot.inbox.length, unreadCount: snapshot.inbox.filter(message => !snapshot.readMessageIds.includes(message.id)).length, pendingDeliveryCount: snapshot.pendingDelivery.length }; }), nextCursor: cursor + limit < leads.length ? cursor + limit : null };
     }
     if (action === "thread_read") {

@@ -8,7 +8,9 @@ The phase gates and verification matrix below remain the design and regression
 reference. Focused fake-runtime, pinned-Pi, real-Git, session/state, and DOM
 checks cover the implementation. Live provider calls and running-app visual
 review are manual validation; neither is required by the automated suites nor
-performed by starting the app unasked.
+performed by starting the app unasked. Launch regressions additionally check
+Electron-main ESM output with Node without launching the application; fresh
+identity binding is exercised against pinned Pi RPC `--session-id`.
 
 This plan implements NativePi's first complete orchestration feature: a thread's lead can assign work to delegates, communicate with them, and operate other threads through built-in Pi tools. Delegates use Pi's runtime, model catalog, authentication, extensions, tools, and session files. NativePi supplies coordination and the graphical workflow.
 

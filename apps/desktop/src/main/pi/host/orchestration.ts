@@ -58,10 +58,14 @@ export function registerOrchestration(pi: ExtensionAPI): void {
   });
 }
 
-export async function configureOrchestrationSession(session: AgentSession, config: z.infer<typeof delegateConfigurationSchema>): Promise<void> {
+export async function configureOrchestrationSession(session: AgentSession, config: z.infer<typeof delegateConfigurationSchema>, assertBound: () => void = () => {}): Promise<void> {
+  assertBound();
+  const sessionId = session.sessionManager.getSessionId();
   const available = new Set(session.getAllTools().map(tool => tool.name));
   for (const name of config.tools) if (!available.has(name)) throw new Error(`unavailable_tool: ${name}`);
   const models = await session.modelRuntime.getAvailable();
+  assertBound();
+  if (session.sessionManager.getSessionId() !== sessionId) throw new Error("external_session_change: Pi binding changed during configuration");
   if (globalThis.__NATIVEPI_DISPATCH_FENCED__) throw new Error("stopped: Dispatch fenced");
   const model = models.find(model => model.provider === config.provider && model.id === config.model);
   if (!model || !getSupportedThinkingLevels(model).includes(config.reasoning)) throw new Error("unsupported_configuration: Model/reasoning unavailable in this cwd");
@@ -71,6 +75,9 @@ export async function configureOrchestrationSession(session: AgentSession, confi
   } else {
     // persist:false is important: model selection must not change Pi defaults.
     await session.setModel(model, { persist: false });
+    assertBound();
+    if (session.sessionManager.getSessionId() !== sessionId) throw new Error("external_session_change: Pi binding changed during configuration");
+    if (globalThis.__NATIVEPI_DISPATCH_FENCED__) throw new Error("stopped: Dispatch fenced");
     session.setThinkingLevel(config.reasoning, { persist: false });
     session.sessionManager.appendCustomEntry(SERVICE_TIER_ENTRY, { tier: config.tier ?? "default" });
     const relationship = projectOrchestration(session.sessionManager.getSessionId(), session.sessionManager.getEntries()).relationship;
@@ -82,7 +89,10 @@ export async function restoreOrchestrationConfiguration(session: AgentSession): 
   const entries = session.sessionManager.getEntries();
   const id = session.sessionManager.getSessionId();
   const role = projectOrchestration(id, entries).relationship;
-  if (role) { await configureOrchestrationSession(session, role.configuration); return; }
+  // A delegate may have an unavailable model/tool after a reload. Keep its Pi
+  // writer available for inspection and durable failure records; the guarded
+  // assignment operation validates/restores the exact configuration before work.
+  if (role) return;
   if (entries.some(entry => entry.type === "message" && (entry.message.role === "user" || entry.message.role === "assistant"))) return;
   const profile = entries.map(entry => entry.type === "custom" && entry.customType === ORCHESTRATION_ENTRY ? orchestrationRecordSchema.safeParse(entry.data) : undefined).findLast(parsed => parsed?.success && parsed.data.sessionId === id && parsed.data.kind === "configuration");
   if (!profile?.success || profile.data.kind !== "configuration") return;
@@ -116,9 +126,11 @@ export function bindOrchestrationHost(session: AgentSession): () => void {
   session.modelRuntime.streamSimple = guardedStream;
   let armed: Pick<Assignment, "id" | "attempt" | "taskMessageId"> | undefined;
   let armedSupplied = false;
-  let afterEntry: string | undefined;
   const accepted = new Set<string>();
-  const send = (value: unknown) => { if (process.connected) process.send?.(value); };
+  const pendingReplies = new Map<string, (result?: unknown, error?: string) => void>();
+  let disposed = false;
+  const bound = () => !disposed && session.sessionManager.getSessionId() === initialId;
+  const send = (value: unknown) => { if (bound() && process.connected) process.send?.(value); };
   const listener = (raw: unknown) => {
     const fence = z.object({ type: z.literal("nativepi_orchestration_fence"), sessionId: z.string() }).safeParse(raw);
     if (fence.success) {
@@ -128,9 +140,13 @@ export function bindOrchestrationHost(session: AgentSession): () => void {
     const parsed = orchestrationHostSchema.safeParse(raw);
     if (!parsed.success) return;
     const { requestId, sessionId, action, payload } = parsed.data;
-    const reply = (result?: unknown, error?: string) => send({ type: "nativepi_orchestration_reply", requestId, result, error });
+    const reply = (result?: unknown, error?: string) => {
+      if (!pendingReplies.delete(requestId)) return;
+      if (process.connected) process.send?.({ type: "nativepi_orchestration_reply", requestId, result: bound() ? result : undefined, error: bound() ? error : "external_session_change: Pi host binding changed" });
+    };
+    pendingReplies.set(requestId, reply);
     void (async () => {
-      if (session.sessionManager.getSessionId() !== sessionId) throw new Error("external_session_change: Pi binding changed");
+      if (!bound() || initialId !== sessionId) throw new Error("external_session_change: Pi binding changed");
       if (action === "append") {
         const record = orchestrationRecordSchema.parse(payload);
         if (record.sessionId !== sessionId) throw new Error("Record identity mismatch");
@@ -138,14 +154,14 @@ export function bindOrchestrationHost(session: AgentSession): () => void {
         reply(true);
       } else if (action === "arm") {
         armed = z.object({ id: z.string(), attempt: z.number(), taskMessageId: z.string() }).parse(payload);
-        afterEntry = session.sessionManager.getLeafId() ?? undefined; armedSupplied = false; reply(true);
+        armedSupplied = false; reply(true);
       } else if (action === "catalog") {
         const models = await session.modelRuntime.getAvailable();
         reply({ models: models.map(model => ({ provider: model.provider, id: model.id, reasoning: getSupportedThinkingLevels(model), tiers: serviceTiers(model) })), tools: session.getAllTools(), activeTools: session.getActiveToolNames(), exposure: "Pi active declaration; codemode/MCP and trusted extensions may expose additional callable tools. Not a sandbox." });
       } else if (action === "configure") {
         if (globalThis.__NATIVEPI_DISPATCH_FENCED__) throw new Error("stopped: Dispatch fenced");
         const config = delegateConfigurationSchema.parse(payload);
-        await configureOrchestrationSession(session, config);
+        await configureOrchestrationSession(session, config, () => { if (!bound()) throw new Error("external_session_change: Pi host binding changed"); });
         session.sessionManager.appendCustomEntry(ORCHESTRATION_ENTRY, { version: 1, sessionId, operationId: `configuration:${sessionId}`, kind: "configuration", configuration: config });
         reply({ activeTools: session.getActiveToolNames() });
       } else {
@@ -182,6 +198,7 @@ export function bindOrchestrationHost(session: AgentSession): () => void {
     if (event.type === "message_end" && event.message.role === "custom" && event.message.customType === ORCHESTRATION_ENTRY) {
       const parsed = orchestrationMessageSchema.safeParse(event.message.details);
       if (parsed.success) queueMicrotask(() => {
+        if (!bound()) return;
         // Pi emits message_end before appending. Observe persistence after its
         // synchronous append, never acknowledge the public event itself.
         const message = parsed.data;
@@ -194,10 +211,11 @@ export function bindOrchestrationHost(session: AgentSession): () => void {
     }
     if (event.type !== "agent_settled" || !armed || !armedSupplied) return;
     const branch = session.sessionManager.getBranch();
-    const final = branch.slice(afterEntry ? branch.findIndex(entry => entry.id === afterEntry) + 1 : 0).findLast(entry => entry.type === "message" && entry.message.role === "assistant");
+    const taskIndex = branch.findIndex(entry => entry.type === "custom_message" && (entry.details as { id?: string } | undefined)?.id === armed?.taskMessageId);
+    const final = (taskIndex < 0 ? [] : branch.slice(taskIndex + 1)).findLast(entry => entry.type === "message" && entry.message.role === "assistant");
     const message = final?.type === "message" ? final.message : undefined;
     const substantive = message && "content" in message && Array.isArray(message.content) && message.content.some(part => part.type === "text" && "text" in part && typeof part.text === "string" && part.text.trim());
     send({ type: "nativepi_orchestration_outcome", sessionId: session.sessionManager.getSessionId(), assignmentId: armed.id, attempt: armed.attempt, taskMessageId: armed.taskMessageId, aborted: event.aborted, resultEntry: substantive ? final?.id : undefined, stopReason: message && "stopReason" in message ? message.stopReason : undefined, reason: message && "errorMessage" in message ? message.errorMessage : undefined });
   });
-  return () => { process.off("message", listener); unsubscribe(); if (session.modelRuntime.streamSimple === guardedStream) session.modelRuntime.streamSimple = originalStream; };
+  return () => { disposed = true; for (const reply of [...pendingReplies.values()]) reply(undefined, "external_session_change: Pi host binding changed"); process.off("message", listener); unsubscribe(); if (session.modelRuntime.streamSimple === guardedStream) session.modelRuntime.streamSimple = originalStream; };
 }

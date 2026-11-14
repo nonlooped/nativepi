@@ -100,6 +100,7 @@ export interface WorkspaceSlice {
   organizationRevision: number;
   orchestration: OrchestrationSnapshot;
   orchestrationLoaded: boolean;
+  orchestrationError: string | null;
   refreshOrchestration: () => Promise<void>;
   applyOrchestration: (snapshot: OrchestrationSnapshot) => void;
   applyOrganization: (snapshot: OrganizationSnapshot) => void;

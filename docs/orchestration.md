@@ -27,7 +27,8 @@ Use catalog-supported reasoning and optionally `tier: "priority"`. Omitted tier
 uses the provider's normal path. Invalid/unavailable models, reasoning, tiers,
 and tools fail rather than silently falling back. Configuration is checked in
 the delegate's own environment after its normal extensions activate, and is
-restored on cold follow-up. It never changes the lead's or Pi's global defaults.
+restored on cold follow-up. A configuration failure is recorded as Failed, with
+the task intent retained; opening the transcript does not retry that work. It never changes the lead's or Pi's global defaults.
 Tool selection is Pi's exposure mechanism, not a filesystem security sandbox;
 trusted extensions and codemode/MCP retain their normal behavior.
 
@@ -58,6 +59,8 @@ Delegate rows appear beneath their lead and in its activity area. Selecting a
 row opens its real Pi transcript. The footer shows actual assignment status,
 model/effort/tier, worktree branch where applicable, and a way back to its lead.
 An unavailable/deleted lead does not turn a delegate into an ordinary chat.
+Unavailable session files disable input; one unreadable history file does not
+block healthy threads.
 
 Delegates have no user composer, attachments, suggestions, slash-command
 input, or user model/speed controls. Store and host checks also reject forged
@@ -76,7 +79,9 @@ waiting-for-lead work. It never means Stop. History stays resumable.
 
 Choose `workspace: { "mode": "worktree", "branch": "review", "base": "main" }`
 explicitly. Omit `base` to capture the current HEAD commit at spawn acceptance.
-NativePi records the resolved base and uses its existing Git worktree helper.
+NativePi records the resolved base and planned checkout path before Git creates
+the worktree, using its existing Git helper. A Stop or crash during creation can
+therefore retain a discoverable workspace intent without rerunning creation.
 Dirty parent changes, ignored files, dependency directories, environment files,
 and services are not copied. Trust/configuration/catalog resolution uses the
 actual worktree. NativePi never writes a trust decision automatically.
@@ -119,7 +124,8 @@ coordination facts and attributed custom messages in the owning Pi sessions,
 using the same write leases, binding checks, and external-change protection as
 ordinary app operations. NativePi's state file contains only UI organization;
 queued host transforms and increasing revisions prevent stale desktop/browser
-saves from undoing Finish or pinning changes.
+saves from undoing Finish or pinning changes. Finish rechecks group activity
+inside that queue; a busy refusal is not a failed disk save.
 
 Sender intent precedes inbox receipt and acknowledgment. Accepted, delivered,
 supplied-to-model, and completed are distinct. Partial delivery remains pending
