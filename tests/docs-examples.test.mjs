@@ -47,7 +47,7 @@ async function typecheck(files) {
       paths: {
         "@nativepi/extension-api": [resolve(web, "../../packages/extension-api/src/index.ts")],
         "@nativepi/extension-api/*": [resolve(web, "../../packages/extension-api/src/*.ts")],
-        "@earendil-works/pi-coding-agent": [resolve(web, "../../packages/subagents/node_modules/@earendil-works/pi-coding-agent")]
+        "@earendil-works/pi-coding-agent": [resolve(web, "../desktop/node_modules/@earendil-works/pi-coding-agent")]
       }
     });
     return ts.getPreEmitDiagnostics(program).map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));

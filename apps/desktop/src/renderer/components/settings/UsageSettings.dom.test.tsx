@@ -5,7 +5,7 @@ import { useAppStore } from "../../lib/store.ts";
 import { stubInvoke } from "../../lib/store/testBridge.ts";
 import UsageSettings from "./UsageSettings.tsx";
 
-test("usage controls retain the date range across views and load subscription limits on selection", async () => {
+test("usage controls retain the selected date range without extension requests", async () => {
   useAppStore.setState({ projects: [{ path: "/p", name: "Project" }], activeProjectPath: "/p", activeSessionFile: null });
   let subscriptionReads = 0;
   stubInvoke(async channel => {
@@ -22,11 +22,8 @@ test("usage controls retain the date range across views and load subscription li
   try {
     await act(async () => root.render(<UsageSettings />));
     expect(subscriptionReads).toBe(0);
+    expect(container.textContent).not.toContain("Subscription limits");
     await act(async () => choice("90 days").click());
-    await act(async () => choice("Subscription limits").click());
-    expect(subscriptionReads).toBe(1);
-    expect(container.textContent).toContain("No subscription limits to show");
-    await act(async () => choice("Local usage").click());
     expect(choice("90 days").getAttribute("aria-pressed")).toBe("true");
     await act(async () => choice("90 days").click());
     expect(choice("90 days").getAttribute("aria-pressed")).toBe("true");

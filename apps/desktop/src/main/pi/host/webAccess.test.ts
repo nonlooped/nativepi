@@ -1,5 +1,5 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
-import { exaCall, retryDelay } from "../extensions/index.ts";
+import { exaCall, retryDelay } from "./webAccess.ts";
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
 test("retry timing accepts seconds and dates and recovers malformed values", () => {

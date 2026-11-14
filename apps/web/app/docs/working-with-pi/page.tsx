@@ -14,20 +14,21 @@ export default function WorkingWithPiPage() {
       <PageTitle
         eyebrow="Using NativePi"
         title="NativePi and Pi"
-        lede="Pi is the coding agent. NativePi is a desktop interface that starts Pi, sends it ordinary commands, and renders what it returns."
+        lede="Pi supplies the agent runtime. NativePi adds built-in tools, instructions, and a graphical workflow through Pi APIs."
       />
 
       <H2 id="pi-owns">What Pi owns</H2>
       <Prose>
         <p>
           Pi owns the agent loop, provider and model integrations,
-          authentication, tools, prompts, skills, extensions, message queues,
+          authentication, tool execution, skills, extensions, message queues,
           compaction, and sessions. A NativePi chat runs a pinned Pi build in RPC
           mode rather than reproducing those capabilities in the desktop app.
         </p>
         <p>
-          This means a prompt sent under the same Pi configuration should behave
-          similarly in NativePi and Pi&apos;s terminal interface.
+          NativePi adds its own tools and instructions, including Chat mode, web
+          access, and interactive HTML artifacts. These features are built into
+          the app and do not require separately installed NativePi packages.
         </p>
       </Prose>
 
@@ -36,7 +37,8 @@ export default function WorkingWithPiPage() {
         <p>
           NativePi owns desktop concerns: pinned projects and chats, panes,
           drafts, integrated terminals, narrow Git workflows, browser access,
-          notifications, keyboard shortcuts, and its window preferences. It also
+          notifications, keyboard shortcuts, and its window preferences. Agent
+          features use Pi for execution and save their outputs in Pi sessions. It also
           exposes controlled graphical slots for packages that opt into the{" "}
           <Link href="/docs/extension-api">extension API</Link>.
         </p>

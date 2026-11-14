@@ -41,9 +41,23 @@ standard-capacity fallback. The provider enforces model and account eligibility.
 A saved choice is ignored on unsupported providers. Priority can increase costs
 or subscription usage.
 
-Optional packages still available:
+Chat mode and Exa web access are now built into NativePi, together with inline
+HTML artifacts. No package installation is needed. Restart existing Pi processes
+to load the built-in tools. HTML artifacts are saved with the Pi conversation and
+work in both Chat and Work.
 
-- [Subagents](../packages/subagents/README.md)
-- [Tool batching guidance and statistics](../packages/throughput/README.md)
-- [Subscription usage](../packages/subscription-usage/README.md)
-- [Graphical extension API](../packages/extension-api/README.md)
+The NativePi subagents, subscription-usage, and throughput packages have been
+removed. Subscription-limit settings are gone; local cost and token usage remains.
+Existing installations of all five packages are ignored in NativePi. Remove them
+from Pi's configuration with its package manager (add `--local` for project scope):
+
+```sh
+pi remove npm:@nativepi/chat-mode
+pi remove npm:@nativepi/web-access
+pi remove npm:@nativepi/subagents
+pi remove npm:@nativepi/subscription-usage
+pi remove npm:@nativepi/throughput
+```
+
+Third-party Pi extensions and the [graphical extension API](../packages/extension-api/README.md)
+remain supported. Your Pi CLI configuration is not modified by NativePi.

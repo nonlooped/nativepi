@@ -1,9 +1,15 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { serviceTiers, SERVICE_TIER_ENTRY, recordedServiceTier } from "./serviceTier.ts";
 import { Type } from "typebox";
+import { registerArtifacts } from "./artifacts.ts";
+import webAccess from "./webAccess.ts";
+import chatMode from "./chatMode.ts";
 
 /** App-shipped tools still run through Pi's tool validation, execution, and session log. */
 export default function appTools(pi: ExtensionAPI): void {
+  webAccess(pi);
+  registerArtifacts(pi);
+  if (process.argv.includes("--nativepi-chat")) chatMode(pi);
   pi.registerCommand("speed", {
     description: "Choose this chat's provider service tier",
     handler: async (args, context) => {

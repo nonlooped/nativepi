@@ -6,22 +6,21 @@ narrow in scope. Reading this page before you start will save you a rewrite.
 
 ## Scope
 
-NativePi is a wrapper, not an agent harness. Pi owns the agent loop, providers,
-models, authentication, tools, prompts, skills, extensions, queues, compaction,
-and sessions. NativePi calls Pi and renders what Pi returns.
+Pi provides NativePi's agent runtime, providers, models, authentication, tool
+execution, queues, compaction, and sessions. NativePi also builds useful agent
+tools, instructions, and graphical workflows directly into the app through Pi's
+APIs. Features do not need a separately installable extension or Pi CLI parity.
+Third-party Pi extensions remain supported.
 
 That boundary rules out a category of otherwise reasonable contributions:
 
-- NativePi-owned AI logic, LLM requests, or agent tools beyond the shipped
-  chat naming, ask_user, and service-tier features, which use Pi APIs.
 - Provider-specific implementations for things Pi already handles.
 - Support for agent harnesses other than Pi.
 - A second conversation store or a parallel Pi domain model.
 - Checkpoints, hidden commits, or anything that rewrites Git history.
 
-If Pi already provides a capability, the right change is to call Pi and display
-the result. When you are unsure whether an idea fits, open an issue and ask
-before writing code.
+If Pi already provides a capability, use its API. Keep Pi as the execution and
+session foundation rather than adding a competing agent loop or transcript store.
 
 `AGENTS.md` summarizes project constraints and points to task-specific guidance.
 It is written for coding agents but applies equally to people.

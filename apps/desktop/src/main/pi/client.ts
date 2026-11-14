@@ -7,6 +7,7 @@ import type { ContextInspector } from "../../shared/pi-types.ts";
 import { contextInspectorSchema } from "../../shared/tui-frames.ts";
 import { jsonValueSchema, type JsonValue } from "../../shared/json.ts";
 import { drainLines, type PiCommand, type PiMessage } from "./protocol.ts";
+import { artifactProcessRequestSchema } from "../../shared/htmlArtifacts.ts";
 /**
 * Why this is hand-rolled rather than Pi's own `RpcClient`.
 *
@@ -74,6 +75,7 @@ export class PiProcess {
   private channelError?: Error;
   private closed = false;
   private stopTask?: Promise<void>;
+  private artifactPreviews = new Map<string, AbortController>();
   constructor(projectDir: string, onEvent: (msg: PiMessage) => void, onExit: (code: number | null, error?: Error, expected?: boolean) => void, onFrame: (frame: TuiHostFrame) => void = () => { }, args: string[] = []) {
     this.projectDir = projectDir;
     this.onEvent = onEvent;
@@ -90,6 +92,7 @@ export class PiProcess {
       silent: true,
       windowsHide: true,
     }) as ChildProcessWithoutNullStreams;
+    this.proc.on("message", (message: unknown) => { void this.handleArtifactPreview(message); });
     this.proc.stdout.setEncoding("utf8");
     this.proc.stdout.on("data", (chunk: string) => {
       if (this.terminalError)
@@ -111,6 +114,7 @@ export class PiProcess {
         return;
       finished = true;
       this.closed = true;
+      this.cancelArtifactPreviews();
       this.isRunning = false;
       this.terminalError ??= error ?? new Error(`Pi exited (${code ?? "?"})`);
       this.rejectAll(this.terminalError);
@@ -135,6 +139,29 @@ export class PiProcess {
       void this.stop();
     });
     this.proc.on("close", (code) => finish(code));
+  }
+  private cancelArtifactPreviews(): void {
+    for (const controller of this.artifactPreviews.values()) controller.abort();
+    this.artifactPreviews.clear();
+  }
+  private async handleArtifactPreview(message: unknown): Promise<void> {
+    if (!this.isAvailable || !message || typeof message !== "object") return;
+    if ("type" in message && message.type === "nativepi_artifact_preview_cancel" && "requestId" in message && typeof message.requestId === "string") {
+      this.artifactPreviews.get(message.requestId)?.abort();
+      return;
+    }
+    const parsed = artifactProcessRequestSchema.safeParse(message);
+    if (!parsed.success || this.artifactPreviews.has(parsed.data.requestId)) return;
+    const { requestId, input } = parsed.data;
+    const controller = new AbortController();
+    this.artifactPreviews.set(requestId, controller);
+    try {
+      const { previewHtmlArtifact } = await import("../htmlArtifactPreview.ts");
+      const result = await previewHtmlArtifact(input, controller.signal);
+      if (this.proc.connected) this.proc.send({ type: "nativepi_artifact_preview_reply", requestId, result }, () => {});
+    } catch (error) {
+      if (this.proc.connected) this.proc.send({ type: "nativepi_artifact_preview_reply", requestId, error: String(error instanceof Error ? error.message : error).slice(0, 4000) }, () => {});
+    } finally { this.artifactPreviews.delete(requestId); }
   }
   get hasPendingRequests(): boolean { return this.pending.size > 0 || this.frameWaiters.size > 0; }
   get isAvailable(): boolean { return !this.stopping && !this.terminalError; }
@@ -303,6 +330,7 @@ export class PiProcess {
     if (this.closed)
       return;
     this.stopping = true;
+    this.cancelArtifactPreviews();
     this.terminalError ??= new Error("Pi is stopping");
     this.rejectAll(this.terminalError);
     try {

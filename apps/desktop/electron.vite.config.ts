@@ -24,8 +24,6 @@ export default defineConfig({
           // pi-tui components render in the window. See `main/pi/host/entry.ts`.
           "pi-host": resolve("src/main/pi/host/entry.ts"),
           "app-tools": resolve("src/main/pi/host/appTools.ts"),
-          "chat-mode": resolve("../../packages/chat-mode/extensions/index.ts"),
-          "web-access": resolve("../../packages/web-access/extensions/index.ts"),
         },
         // Anything with native binaries or platform-specific binary lookups has to
         // stay external: bundling moves the module's relative require() paths to

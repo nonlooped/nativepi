@@ -3,6 +3,14 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { loadGraphicalExtensions } from "./extensions.ts";
+test("retired NativePi packages cannot leave dead graphical controls behind", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "nativepi-retired-renderer-"));
+  try {
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ name: "@nativepi/subagents", nativepi: { renderer: "renderer.js" } }));
+    await writeFile(path.join(root, "renderer.js"), "export default {};");
+    expect((await loadGraphicalExtensions(root, true)).find(extension => extension.id === root)).toBeUndefined();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 test("graphical renderers compile against host-provided API, schema, and React modules", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "nativepi-graphical-extension-"));
   try {

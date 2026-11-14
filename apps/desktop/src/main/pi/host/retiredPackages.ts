@@ -1,6 +1,6 @@
 import { DefaultResourceLoader } from "@earendil-works/pi-coding-agent";
 
-const retired = /^npm:@nativepi\/(?:ask-user|title-generator|service-tier|mcp|meta)(?:@[^\s]+)?$/;
+const retired = /^npm:@nativepi\/(?:ask-user|title-generator|service-tier|mcp|meta|chat-mode|web-access|subagents|subscription-usage|throughput)(?:@[^\s]+)?$/;
 export function isRetiredPackage(source: string): boolean { return retired.test(source); }
 
 /** Existing npm installations must not register duplicate tools, title hooks, or providers.

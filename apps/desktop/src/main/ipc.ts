@@ -503,7 +503,7 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
     let pi!: PiProcess;
     let startupFailureReported = false;
     const chatMode = resolve(projectDir) === resolve(join(app.getPath("userData"), "conversations"));
-    const chatArgs = chatMode ? ["--no-extensions", "--no-context-files", "--no-skills", "--no-prompt-templates", "-e", join(app.getAppPath(), "out/main/chat-mode.js"), ...(await loadState()).chatExtensions.flatMap(path => ["-e", path])] : [];
+    const chatArgs = chatMode ? ["--nativepi-chat", "--no-extensions", "--no-context-files", "--no-skills", "--no-prompt-templates", ...(await loadState()).chatExtensions.flatMap(path => ["-e", path])] : [];
     pi = new PiProcess(projectDir, (msg) => forwardEvent(projectDir, pi, msg), (code, processError, expected) => {
       // Panes belong to the process that drew them: a Pi that dies takes its
       // surfaces with it, and the window has to be told or they stay on screen

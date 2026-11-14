@@ -6,6 +6,7 @@ import path from "node:path";
 import type { Plugin } from "esbuild";
 import { isProjectTrusted, piServices } from "./pi/services.ts";
 import type { GraphicalExtension } from "../shared/pi-types.ts";
+import { isRetiredPackage } from "./pi/host/retiredPackages.ts";
 const extensionCache = new Map<string, {
   inputs: Map<string, number>;
   result: GraphicalExtension;
@@ -83,6 +84,7 @@ async function readManifest(root: string): Promise<{
 } | null> {
   try {
     const pkg = z.looseObject({ name: z.string().min(1).optional(), nativepi: z.looseObject({ renderer: z.string().min(1).optional() }).optional() }).parse(JSON.parse(await readFile(path.join(root, "package.json"), "utf8")));
+    if (pkg.name && isRetiredPackage(`npm:${pkg.name}`)) return null;
     const renderer = pkg.nativepi?.renderer;
     if (!renderer)
       return null;

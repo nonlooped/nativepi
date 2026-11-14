@@ -1,7 +1,8 @@
 # NativePi
 
 NativePi is a local desktop interface for the Pi coding agent on Windows,
-macOS, and Linux. It is a wrapper, not an agent harness.
+macOS, and Linux. Pi supplies the agent runtime; NativePi adds built-in agent
+tools, instructions, and a graphical workflow.
 
 ## Task-specific context
 
@@ -11,14 +12,12 @@ macOS, and Linux. It is a wrapper, not an agent harness.
 
 ## Pi boundary
 
-Pi owns agent behavior, configuration, authentication, tools, extensions, and
-sessions. Call Pi and present its results. NativePi ships chat naming, the
-ask_user tool, and service-tier controls through Pi APIs; these are explicit
-app features. Do not add other NativePi-owned LLM requests or agent tools. NativePi may add app features and start ordinary turns, but must
-not change model context, tool execution, or
-sequence work between runs. The same prompt and Pi configuration should behave
-similarly in the CLI and NativePi. Other additional agent capabilities belong in
-separately installable Pi extension packages usable in both.
+Pi supplies model execution, configuration, authentication, tool execution,
+extensions, and sessions. NativePi may add built-in agent tools and instructions
+through Pi's APIs. Chat mode, web access, HTML artifacts, chat naming, ask_user,
+and service-tier controls are app features, not separately installable NativePi
+extensions. New useful capabilities may be built directly into the app; they do
+not need equivalent Pi CLI behavior. Keep support for third-party Pi extensions.
 
 Pi session files are the conversation source of truth. Persist only
 NativePi-owned UI data; preserve unknown Pi fields and protect against

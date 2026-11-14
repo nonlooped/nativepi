@@ -33,9 +33,10 @@ for visitors who want to inspect the source first.
 
 ## Positioning
 
-NativePi is a Pi-only desktop wrapper, not a competing agent harness. Pi owns
-the agent loop, providers, models, authentication, tools, prompts, skills,
-extensions, queues, compaction, and sessions. NativePi renders what Pi returns.
+NativePi is a desktop coding-agent interface built on Pi. Pi supplies the agent
+runtime, providers, authentication, configuration, tool execution, and sessions.
+NativePi adds built-in tools, instructions, and graphical workflows through Pi
+APIs, including Chat mode, web access, and inline HTML artifacts.
 
 The claim a neighboring product cannot truthfully copy: nothing is locked in.
 Sessions and credentials stay in Pi's normal storage in `~/.pi/agent` and remain
@@ -108,7 +109,8 @@ README:
   tool, entry, composer, conversation-view, settings, and context contributions.
 - Project-scoped integrated terminals with selectable shells and resizable
   splits that survive being hidden or switching projects.
-- Local usage and provider-reported subscription-limit dashboards.
+- Local cost and token usage dashboards read from Pi sessions.
+- Interactive HTML artifacts that follow the selected theme and remain in the conversation.
 - Settings for appearance, notifications, Pi options, rebindable shortcuts, ten
   built-in color schemes, and editable custom schemes with JSON import/export.
 - On-demand, access-token-protected browser access to projects, chats, changes,

@@ -23,7 +23,7 @@ export default function SettingsAndCustomizationPage() {
           <li><strong>Appearance:</strong> theme, color scheme, reading width, interface scale, diffs, and motion.</li>
           <li><strong>Providers:</strong> sign-in and API keys for the providers Pi supports.</li>
           <li><strong>Agent:</strong> reasoning defaults, retries, compaction, images, and project trust.</li>
-          <li><strong>Usage:</strong> local cost and token history, plus subscription limits from an installed usage package.</li>
+          <li><strong>Usage:</strong> local cost and token history read from Pi session files.</li>
           <li><strong>Extensions:</strong> package installation, reloads, errors, and package-provided settings.</li>
           <li><strong>Workbench:</strong> terminal preferences and keyboard shortcuts.</li>
           <li><strong>Access:</strong> local and public browser links, connected devices, and token controls.</li>

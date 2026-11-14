@@ -5,10 +5,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        NativePi is a wrapper around the Pi coding agent, not an agent harness.
-        Pi owns the agent loop, providers, models, authentication, tools,
-        prompts, skills, extensions, and sessions. Requests that ask NativePi to
-        own those things are usually out of scope. See
+        NativePi uses Pi as its agent runtime and adds built-in tools and graphical
+        workflows through Pi APIs. Third-party Pi extensions remain supported. See
         [CONTRIBUTING.md](https://github.com/nonlooped/nativepi/blob/main/CONTRIBUTING.md).
 
   - type: textarea

@@ -22,13 +22,13 @@ export default function DocsHome() {
 
       <Prose>
         <p>
-          Pi owns agent behavior, providers, tools, sessions, and ordinary
+          Pi supplies the agent runtime, providers, tool execution, sessions, and ordinary
           extensions. Its documentation at{" "}
           <a href={site.pi} target="_blank" rel="noreferrer noopener">
             pi.dev
           </a>{" "}
           remains the authority for those capabilities. These pages cover the
-          NativePi desktop surface and its graphical extension API.
+          NativePi desktop surface, built-in capabilities, and graphical extension API.
         </p>
       </Prose>
 

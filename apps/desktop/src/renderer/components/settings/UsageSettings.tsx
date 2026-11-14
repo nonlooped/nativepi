@@ -15,7 +15,6 @@ import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
 import { Segmented } from "./rows.tsx";
 import { cn } from "@/lib/utils.ts";
-import SubscriptionUsageSettings from "./SubscriptionUsageSettings.tsx";
 
 const ALL_PROJECTS = "all-projects";
 const PROVIDER_DASHES = [undefined, "8 3", "2 3", "8 3 2 3", "1 3"] as const;
@@ -24,11 +23,9 @@ const dashboardReader = createUsageDashboardReader();
 
 type Range = "7" | "30" | "90" | "all";
 type ChartMetric = "cost" | "tokens";
-type UsageView = "costs" | "limits";
 
 export default function UsageSettings() {
   const projects = useAppStore((state) => state.projects);
-  const [view, setView] = useState<UsageView>("costs");
   const [projectPath, setProjectPath] = useState(ALL_PROJECTS);
   const [range, setRange] = useState<Range>("30");
   const selectedProjects = projectPath === ALL_PROJECTS ? projects : projects.filter((project) => project.path === projectPath);
@@ -45,83 +42,68 @@ export default function UsageSettings() {
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-4 border-b border-border/40 pb-5 @min-[44rem]/settings-content:flex-row @min-[44rem]/settings-content:items-end @min-[44rem]/settings-content:justify-between">
         <div className="flex flex-col gap-2">
-          <Segmented<UsageView>
-            label="Usage view"
-            value={view}
-            onChange={setView}
-            options={[{ value: "costs", label: "Local usage" }, { value: "limits", label: "Subscription limits" }]}
-            className="w-fit"
-          />
           <p className="text-sm text-body-muted-foreground">
-            {view === "costs" ? period : "Current limits reported by connected subscription providers."}
+            {period}
           </p>
         </div>
 
-        {view === "costs" ? (
-          <div className="flex flex-col gap-2 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-center">
-            <Select
-              value={projectPath}
-              onValueChange={(value) => typeof value === "string" && setProjectPath(value)}
-              items={[{ value: ALL_PROJECTS, label: "All projects" }, ...projects.map((project) => ({ value: project.path, label: project.name }))]}
-            >
-              <SelectTrigger aria-label="Project" className="h-8 w-full min-w-44 px-2.5 text-xs @min-[36rem]/settings-content:w-52">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false} align="end">
-                <SelectGroup>
-                  <SelectItem value={ALL_PROJECTS}>All projects</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.path} value={project.path}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+        <div className="flex flex-col gap-2 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-center">
+          <Select
+            value={projectPath}
+            onValueChange={(value) => typeof value === "string" && setProjectPath(value)}
+            items={[{ value: ALL_PROJECTS, label: "All projects" }, ...projects.map((project) => ({ value: project.path, label: project.name }))]}
+          >
+            <SelectTrigger aria-label="Project" className="h-8 w-full min-w-44 px-2.5 text-xs @min-[36rem]/settings-content:w-52">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent alignItemWithTrigger={false} align="end">
+              <SelectGroup>
+                <SelectItem value={ALL_PROJECTS}>All projects</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.path} value={project.path}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
 
-            <div className="flex items-center gap-1.5">
-              <Segmented<Range>
-                label="Date range"
-                value={range}
-                onChange={setRange}
-                options={[
-                  { value: "7", label: "7 days" },
-                  { value: "30", label: "30 days" },
-                  { value: "90", label: "90 days" },
-                  { value: "all", label: "All" },
-                ]}
-                className="min-w-0 flex-1 @min-[36rem]/settings-content:flex-none"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  dashboardReader.invalidate(selectedProjects);
-                  request.reload();
-                }}
-                disabled={request.loading}
-                aria-label="Refresh usage"
-                title="Refresh usage"
-              >
-                <ArrowClockwiseIcon className={request.loading ? "animate-spin" : undefined} />
-              </Button>
-            </div>
+          <div className="flex items-center gap-1.5">
+            <Segmented<Range>
+              label="Date range"
+              value={range}
+              onChange={setRange}
+              options={[
+                { value: "7", label: "7 days" },
+                { value: "30", label: "30 days" },
+                { value: "90", label: "90 days" },
+                { value: "all", label: "All" },
+              ]}
+              className="min-w-0 flex-1 @min-[36rem]/settings-content:flex-none"
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                dashboardReader.invalidate(selectedProjects);
+                request.reload();
+              }}
+              disabled={request.loading}
+              aria-label="Refresh usage"
+              title="Refresh usage"
+            >
+              <ArrowClockwiseIcon className={request.loading ? "animate-spin" : undefined} />
+            </Button>
           </div>
-        ) : null}
+        </div>
       </div>
 
-      {view === "limits" ? (
-        <SubscriptionUsageSettings />
-      ) : (
-        <>
-          {error ? (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              Unable to load usage. {error}
-            </div>
-          ) : null}
-          {request.loading ? <Loading /> : dashboard ? <Dashboard dashboard={dashboard} range={range} /> : null}
-        </>
-      )}
+      {error ? (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Unable to load usage. {error}
+        </div>
+      ) : null}
+      {request.loading ? <Loading /> : dashboard ? <Dashboard dashboard={dashboard} range={range} /> : null}
     </div>
   );
 }

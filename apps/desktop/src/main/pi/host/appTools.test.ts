@@ -1,9 +1,20 @@
 import { expect, test } from "bun:test";
 import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import appTools from "./appTools.ts";
+test("Chat loads built-in web and artifact tools and composes their instructions without packages", () => {
+  const argv = process.argv;
+  process.argv = [...argv, "--nativepi-chat"];
+  try {
+    const names: string[] = [];
+    const hooks: ((event: { systemPrompt: string }) => { systemPrompt: string } | Promise<{ systemPrompt: string }>)[] = [];
+    appTools({ registerCommand() {}, registerTool: (tool: ToolDefinition) => names.push(tool.name), on: (event: string, hook: typeof hooks[number]) => { if (event === "before_agent_start") hooks.push(hook); } } as unknown as ExtensionAPI);
+    expect(names).toEqual(expect.arrayContaining(["nativepi_web_search", "nativepi_web_read", "html_preview", "html_render", "ask_user"]));
+    expect(hooks).toHaveLength(2);
+  } finally { process.argv = argv; }
+});
 function tool() {
   let registered!: ToolDefinition;
-  appTools({ registerCommand() {}, registerTool(value: ToolDefinition) { registered = value; } } as unknown as ExtensionAPI);
+  appTools({ on() {}, registerCommand() {}, registerTool(value: ToolDefinition) { if (value.name === "ask_user") registered = value; } } as unknown as ExtensionAPI);
   return registered;
 }
 async function ask(options: string[] | undefined, select: string | undefined, input: string | undefined, signal?: AbortSignal) {

@@ -50,8 +50,10 @@ import { ExtensionEntry, ExtensionToolResult, useHasEntryRenderer, useHasToolRen
 import FileContextMenu from "./FileContextMenu.tsx";
 import Markdown from "./Markdown.tsx";
 import { TuiAutoPane, TuiPane, TuiTimelineEntry } from "./TuiSurface.tsx";
+import { artifactFromDetails } from "../../shared/htmlArtifacts.ts";
 
 const DiffView = lazy(() => import("./DiffView.tsx"));
+const HtmlArtifact = lazy(() => import("./HtmlArtifact.tsx"));
 
 export default function Transcript() {
   return (
@@ -454,6 +456,12 @@ export function AssistantResponse({
     setWorkOpen(streaming);
   }, [streaming]);
   const groupedWork = groupWork(work, graphicalToolNames);
+  const artifacts = work.flatMap(block => {
+    if (block.type !== "toolCall" || block.name !== "html_render") return [];
+    const result = results.get(block.id);
+    const artifact = result && !result.isError ? artifactFromDetails(result.details) : undefined;
+    return artifact ? [{ id: block.id, artifact }] : [];
+  });
   let error: string | undefined;
   for (const message of messages) {
     if (message.errorMessage) error = message.errorMessage;
@@ -515,6 +523,11 @@ export function AssistantResponse({
           </Collapsible.Panel>
         </Collapsible.Root>
       ) : null}
+      {artifacts.map(({ id, artifact }) => (
+        <Suspense key={id} fallback={<div style={{ height: artifact.height }} className="text-xs text-muted-foreground">Loading visual…</div>}>
+          <HtmlArtifact artifact={artifact} />
+        </Suspense>
+      ))}
       {finalText ? (
         <div data-response-text>
           <Markdown streaming={streaming}>{finalText}</Markdown>
