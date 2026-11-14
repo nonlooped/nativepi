@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Reduce repeated Chat sidebar previews and refine folder spacing.
 - Align Chat sidebar spacing and activity indicators with the Work sidebar.
 - Make Markdown code and diagram-error block backgrounds transparent.
 - Reclaim inactive Pi hosts across projects while preserving active viewers, agent runs, pending requests, and live extension UI.

@@ -26,3 +26,10 @@ test("folder chats live inside collapsible folders and new chats inherit the cho
   expect(move).toHaveBeenCalledWith("/chat", "research"); expect(newChat).toHaveBeenCalledTimes(1);
   expect(state.collapsedChatFolders).toEqual([]);
 });
+test("chat previews omit repeated titles and retain distinct prompts", async () => {
+  state.sessionsByProject["/chat"][1]!.lastPrompt = "A different question";
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container); await render();
+  expect(container.textContent?.match(/Nested conversation/g)).toHaveLength(1);
+  expect(container.textContent).toContain("A different question");
+  state.sessionsByProject["/chat"][1]!.lastPrompt = "Unfiled conversation";
+});

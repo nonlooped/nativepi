@@ -654,10 +654,16 @@ function ChatContents({ onClose, onOpenSearch, onOpenNewChat, overlay = false }:
     onOpenNewChat();
   }
   function chatRow(session: NonNullable<typeof sessions>[number]) {
+    const title = chatTitle(session);
+    const prompt = session.lastPrompt?.trim();
+    const normalize = (value: string) => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    const normalizedTitle = normalize(title);
+    const normalizedPrompt = prompt ? normalize(prompt) : "";
+    const preview = normalizedPrompt && normalizedTitle && !normalizedPrompt.includes(normalizedTitle) && !normalizedTitle.includes(normalizedPrompt) ? prompt : undefined;
     return <SessionMenu key={session.path} projectPath={root!} session={session} selected={active === session.path} running={conversations[session.path]?.running ?? false} pinned={false}>
       <DropdownMenu>
         <div className="group relative flex w-full min-w-0 items-center">
-          <Button variant={active === session.path ? "secondary" : "ghost"} title={chatTitle(session)} className={cn(SIDEBAR_CHAT_ROW, active === session.path && "bg-sidebar-accent text-sidebar-accent-foreground")} onClick={() => { void useAppStore.getState().selectChat(session.path, root!); if (overlay) onClose(); }}><span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-sm font-medium leading-5">{chatTitle(session)}</span><span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{conversations[session.path]?.running ? <span className="inline-flex items-center gap-1 text-active"><CircleNotchIcon className="size-3 animate-spin" />Working</span> : timeAgo(session.modified, now)}</span></span><span className="flex min-w-0 items-center gap-2 text-xs font-normal text-muted-foreground"><span className="min-w-0 flex-1 truncate">{session.lastPrompt || "New conversation"}</span>{session.providers[0] ? <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground/60 group-hover:opacity-0 group-focus-within:opacity-0" title={`Model provider: ${session.providers[0]}`}><BrandIcon name={providerIconName(session.providers[0])} size={14} /></span> : null}</span></Button>
+          <Button variant={active === session.path ? "secondary" : "ghost"} title={chatTitle(session)} className={cn(SIDEBAR_CHAT_ROW, active === session.path && "bg-sidebar-accent text-sidebar-accent-foreground")} onClick={() => { void useAppStore.getState().selectChat(session.path, root!); if (overlay) onClose(); }}><span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-sm font-medium leading-5">{chatTitle(session)}</span><span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{conversations[session.path]?.running ? <span className="inline-flex items-center gap-1 text-active"><CircleNotchIcon className="size-3 animate-spin" />Working</span> : timeAgo(session.modified, now)}</span></span>{preview || session.providers[0] ? <span className="flex min-w-0 items-center gap-2 text-xs font-normal text-muted-foreground"><span className="min-w-0 flex-1 truncate">{preview}</span>{session.providers[0] ? <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground/60 group-hover:opacity-0 group-focus-within:opacity-0" title={`Model provider: ${session.providers[0]}`}><BrandIcon name={providerIconName(session.providers[0])} size={14} /></span> : null}</span> : null}</Button>
           <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="absolute right-2 bottom-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Move ${chatTitle(session)}`} />}><FolderIcon /></DropdownMenuTrigger>
         </div>
         <DropdownMenuContent>
@@ -680,9 +686,9 @@ function ChatContents({ onClose, onOpenSearch, onOpenNewChat, overlay = false }:
       {folders.map(f => {
         const expanded = !collapsed.includes(f.id);
         const children = sessions?.filter(session => membership[session.path] === f.id) ?? [];
-        return <section key={f.id} className="mt-1" aria-label={f.name}>
+        return <section key={f.id} className="mb-1" aria-label={f.name}>
           <div className="group/folder flex items-center rounded-md hover:bg-sidebar-accent/50">
-            <Button variant="ghost" className="min-w-0 flex-1 justify-start gap-2" aria-expanded={expanded} onClick={() => toggleFolder(f.id)}>
+            <Button variant="ghost" className="min-w-0 flex-1 justify-start gap-2 text-muted-foreground hover:text-sidebar-foreground" aria-expanded={expanded} onClick={() => toggleFolder(f.id)}>
               <CaretDownIcon className={expanded ? "" : "-rotate-90"} />
               <FolderIcon weight="fill" style={{ color: f.color }} /><span className="truncate">{f.name}</span>
               <span className="ml-auto text-xs tabular-nums text-muted-foreground">{children.length}</span>
@@ -692,7 +698,7 @@ function ChatContents({ onClose, onOpenSearch, onOpenNewChat, overlay = false }:
               <Button variant="ghost" size="icon-sm" aria-label={`Delete ${f.name}`} disabled={deleting} onClick={() => setRemoving(f.id)}><TrashIcon /></Button>
             </div>
           </div>
-          {expanded ? <div className="ml-5 border-l pl-2" style={{ borderColor: f.color + "55" }}>
+          {expanded ? <div className="ml-5 flex flex-col gap-1.5 border-l pl-2" style={{ borderColor: f.color + "55" }}>
             {children.map(chatRow)}
             {!children.length ? <Button variant="ghost" className="w-full justify-start text-muted-foreground font-normal" onClick={() => newChat(f.id)}>Start a chat here</Button> : null}
           </div> : null}
