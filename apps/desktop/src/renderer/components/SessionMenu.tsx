@@ -141,10 +141,9 @@ export default function SessionMenu({
           description={
             <>
               <span className="font-medium text-foreground">{chatTitle(session)}</span> and its full history will be
-              removed from disk. This cannot be undone.
+              permanently deleted. This cannot be undone.
             </>
           }
-          detail={session.path}
           confirmLabel="Delete chat"
           destructive
           onConfirm={() => {

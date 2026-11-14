@@ -405,10 +405,9 @@ function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, over
         title="Remove this project?"
         description={
           <>
-            NativePi will stop tracking <span className="font-medium text-foreground">{pendingRemoval?.name}</span> and close its chats. Nothing is deleted from disk.
+            NativePi will stop tracking <span className="font-medium text-foreground" title={pendingRemoval?.path}>{pendingRemoval?.name}</span> and close its chats. Nothing is deleted from disk.
           </>
         }
-        detail={pendingRemoval?.path}
         confirmLabel="Remove project"
         destructive
         onConfirm={() => {
