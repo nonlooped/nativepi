@@ -5,7 +5,7 @@ import { artifactFrameMessageSchema, htmlArtifactDocument, MAX_ARTIFACT_HEIGHT, 
 import { THEME_CHANGE_EVENT } from "../lib/themes.ts";
 import { rpc } from "../lib/rpc.ts";
 import { Button } from "./ui/button.tsx";
-import { Dialog, DialogContent, DialogTitle } from "./ui/dialog.tsx";
+import { Dialog, DialogViewerContent } from "./ui/dialog.tsx";
 
 const VARIABLES = ["background", "foreground", "card", "card-foreground", "popover", "popover-foreground", "muted", "muted-foreground", "secondary", "secondary-foreground", "primary", "primary-foreground", "accent", "accent-foreground", "border", "input", "ring", "success", "warning", "info", "destructive", "chart-1", "chart-2", "chart-3", "chart-4", "chart-5", "radius", "font-sans", "font-mono"];
 function currentTheme(): ArtifactTheme {
@@ -61,10 +61,9 @@ export default function HtmlArtifact({ artifact }: { artifact: Artifact }) {
         <Button variant="ghost" size="icon-xs" aria-label={`Expand ${artifact.title}`} title="Expand visual" onClick={() => setExpanded(true)}><ArrowsOutIcon /></Button>
       </div>
       <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogContent className="max-w-[100rem] gap-3 p-4 sm:p-5">
-          <DialogTitle>{artifact.title}</DialogTitle>
+        <DialogViewerContent title={artifact.title} className="max-w-[100rem]">
           <ArtifactFrame artifact={artifact} expanded />
-        </DialogContent>
+        </DialogViewerContent>
       </Dialog>
     </div>
   );

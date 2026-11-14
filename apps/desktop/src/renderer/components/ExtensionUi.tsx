@@ -4,7 +4,7 @@ import { useAppStore } from "../lib/store.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field.tsx";
 
 export default function ExtensionUi() {
@@ -25,6 +25,7 @@ function ExtensionPromptDialog({ prompt }: { prompt: ExtensionPrompt }) {
   const respond = useAppStore((s) => s.respondExtension);
   const [value, setValue] = useState(prompt.method === "editor" ? (prompt.prefill ?? "") : "");
   const fieldId = useId();
+  const formId = useId();
 
   const cancel = () => respond({ cancel: true });
   // These dialogs come from third-party code: without a description, the user is asked to answer a question with
@@ -34,16 +35,16 @@ function ExtensionPromptDialog({ prompt }: { prompt: ExtensionPrompt }) {
 
   return (
     <Dialog open onOpenChange={(next) => !next && cancel()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className={prompt.method === "editor" ? "max-w-2xl" : "max-w-md"}>
         <DialogHeader>
-          <DialogTitle className="text-title">{prompt.title}</DialogTitle>
-          <DialogDescription className="text-sm text-body-muted-foreground">{description}</DialogDescription>
+          <DialogTitle>{prompt.title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         {prompt.method === "select" ? (
-          <div className="flex flex-col gap-1">
+          <div className="flex max-h-80 flex-col gap-1 overflow-y-auto">
             {prompt.options.map((option, i) => (
-              <Button key={i} variant="outline" className="justify-start" onClick={() => respond({ value: option })}>
+              <Button key={i} variant="ghost" className="h-auto min-h-10 shrink-0 justify-start whitespace-normal py-2 text-left text-foreground" onClick={() => respond({ value: option })}>
                 {option}
               </Button>
             ))}
@@ -52,7 +53,8 @@ function ExtensionPromptDialog({ prompt }: { prompt: ExtensionPrompt }) {
 
         {prompt.method === "input" ? (
           <form
-            className="flex items-center gap-2"
+            id={formId}
+            className="flex flex-col gap-4"
             onSubmit={(e) => {
               e.preventDefault();
               respond({ value });
@@ -64,7 +66,6 @@ function ExtensionPromptDialog({ prompt }: { prompt: ExtensionPrompt }) {
               <FieldLabel htmlFor={fieldId} className="sr-only">{prompt.title}</FieldLabel>
               <Input id={fieldId} autoFocus value={value} onChange={(e) => setValue(e.target.value)} placeholder={prompt.placeholder ?? ""} />
             </Field>
-            <Button type="submit">Submit</Button>
           </form>
         ) : null}
 
@@ -72,21 +73,20 @@ function ExtensionPromptDialog({ prompt }: { prompt: ExtensionPrompt }) {
           <div className="flex flex-col gap-2">
             <Field>
               <FieldLabel htmlFor={fieldId} className="sr-only">{prompt.title}</FieldLabel>
-              <Textarea id={fieldId} autoFocus value={value} onChange={(e) => setValue(e.target.value)} rows={8} className="resize-none font-mono text-sm" />
+              <Textarea id={fieldId} autoFocus value={value} onChange={(e) => setValue(e.target.value)} rows={8} className="min-h-48 max-h-96 overflow-y-auto font-mono text-sm" />
               <FieldDescription className="sr-only">Enter a response for the extension.</FieldDescription>
             </Field>
-            <div className="flex justify-end">
-              <Button onClick={() => respond({ value })}>Submit</Button>
-            </div>
           </div>
         ) : null}
 
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={cancel}>
+        <DialogFooter>
+          <Button variant="ghost" onClick={cancel}>
             Cancel
           </Button>
+          {prompt.method === "input" ? <Button type="submit" form={formId}>Submit</Button> : null}
+          {prompt.method === "editor" ? <Button onClick={() => respond({ value })}>Submit</Button> : null}
           {prompt.method === "confirm" ? <Button onClick={() => respond({ confirmed: true })}>Confirm</Button> : null}
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

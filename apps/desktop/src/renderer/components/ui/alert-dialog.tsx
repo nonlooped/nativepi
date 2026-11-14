@@ -1,18 +1,9 @@
 import * as React from "react"
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog"
 
+import { useDialogStyles } from "./dialog-styles.ts"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-
-/**
- * The confirm dialog's surface, deliberately identical to `dialog.tsx`.
- *
- * A confirm is a dialog. It carried its own radius, padding, width, elevation
- * and backdrop from the preset, so "Delete chat?" and "Rename chat" were two
- * different-looking surfaces a keystroke apart. Only the behaviour differs now:
- * an alert dialog has no close button and no dismiss on an outside click,
- * because the point of one is that it is answered.
- */
 
 function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
   return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
@@ -34,11 +25,12 @@ function AlertDialogOverlay({
   className,
   ...props
 }: AlertDialogPrimitive.Backdrop.Props) {
+  const styles = useDialogStyles(true);
   return (
     <AlertDialogPrimitive.Backdrop
       data-slot="alert-dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-overlay transition-opacity duration-200 ease-out data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
+        styles.overlay,
         className
       )}
       {...props}
@@ -50,13 +42,14 @@ function AlertDialogContent({
   className,
   ...props
 }: AlertDialogPrimitive.Popup.Props) {
+  const styles = useDialogStyles(true);
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Popup
         data-slot="alert-dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid max-h-[calc(var(--app-height,100dvh)-2rem)] w-[calc(100vw-2rem-env(safe-area-inset-left,0px)-env(safe-area-inset-right,0px))] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl border border-border/70 bg-popover p-7 text-popover-foreground shadow-xl outline-none transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] data-[ending-style]:scale-98 data-[ending-style]:opacity-0 data-[starting-style]:scale-98 data-[starting-style]:opacity-0",
+          styles.surface,
           className
         )}
         {...props}
@@ -69,10 +62,11 @@ function AlertDialogHeader({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const styles = useDialogStyles(true);
   return (
     <div
       data-slot="alert-dialog-header"
-      className={cn("flex flex-col gap-3", className)}
+      className={cn(styles.header, className)}
       {...props}
     />
   )
@@ -82,10 +76,11 @@ function AlertDialogFooter({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const styles = useDialogStyles(true);
   return (
     <div
       data-slot="alert-dialog-footer"
-      className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end sm:border-t sm:border-border/60 sm:pt-5", className)}
+      className={cn(styles.footer, className)}
       {...props}
     />
   )

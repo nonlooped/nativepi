@@ -25,7 +25,7 @@ import WorktreeDialog from "./WorktreeDialog.tsx";
 import SessionMenu from "./SessionMenu.tsx";
 import LeftSidebar from "./LeftSidebar.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog.tsx";
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader, DialogFooter } from "@/components/ui/dialog.tsx";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { Button } from "@/components/ui/button.tsx";
@@ -711,7 +711,27 @@ function ChatContents({ onClose, onOpenSearch, onOpenNewChat, overlay = false }:
       <div className="flex flex-col gap-1.5">{sessions?.filter(session => !folders.some(folder => folder.id === membership[session.path])).map(chatRow)}</div>
       {sessions?.length === 0 && folders.length === 0 ? <p className="px-2 py-4 text-sm text-muted-foreground">Start a conversation, or create a folder for related chats.</p> : null}
     </div>
-    <Dialog open={create} onOpenChange={setCreate}><DialogContent><DialogTitle>New folder</DialogTitle><DialogDescription>Organize related chats. Each folder gets its own color.</DialogDescription><form onSubmit={event => { event.preventDefault(); useAppStore.getState().addChatFolder(name); setName(""); setCreate(false); }}><Input autoFocus aria-label="Folder name" value={name} maxLength={100} onChange={event => setName(event.target.value)} /><Button className="mt-4" type="submit" disabled={!name.trim()}>Create folder</Button></form></DialogContent></Dialog>
+    <Dialog open={create} onOpenChange={setCreate}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New folder</DialogTitle>
+          <DialogDescription>Organize related chats. Each folder gets its own color.</DialogDescription>
+        </DialogHeader>
+        <form className="flex flex-col gap-4" onSubmit={event => {
+          event.preventDefault();
+          if (!name.trim()) return;
+          useAppStore.getState().addChatFolder(name);
+          setName("");
+          setCreate(false);
+        }}>
+          <Input autoFocus aria-label="Folder name" placeholder="Folder name" value={name} maxLength={100} onChange={event => setName(event.target.value)} />
+          <DialogFooter>
+            <Button variant="ghost" type="button" onClick={() => setCreate(false)}>Cancel</Button>
+            <Button type="submit" disabled={!name.trim()}>Create folder</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
     <ConfirmDialog open={!!folder && !deleting} title={`Delete ${folder?.name ?? "folder"}?`} description="This folder and all chats within it will be permanently deleted. This cannot be undone." confirmLabel="Delete folder and chats" destructive onCancel={() => setRemoving(null)} onConfirm={() => {
       if (!folder) return;
       setDeleting(true); setError("");

@@ -193,14 +193,16 @@ function TuiOverlayDialog({ surface, projectDir }: { surface: TuiSurface; projec
         if (!open && details.reason !== "escape-key") cancel();
       }}
     >
-      <DialogContent className="flex h-[min(calc(var(--app-height,100dvh)-2rem),64rem)] w-[min(96vw,112rem)] max-w-none flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-title">{surface.key}</DialogTitle>
-          <DialogDescription className="text-sm text-body-muted-foreground">
+      <DialogContent layout="viewer" className="h-[min(calc(var(--app-height,100dvh)-2rem),64rem)] max-w-[112rem]">
+        <DialogHeader className="border-b border-border/40 px-6 py-4">
+          <DialogTitle className="truncate">{surface.key}</DialogTitle>
+          <DialogDescription>
             An extension is showing this and is waiting for you to answer it. Use the keys it names.
           </DialogDescription>
         </DialogHeader>
-        <TuiOverlayTerminal surface={surface} projectDir={projectDir} />
+        <div className="flex min-h-0 flex-1 p-5">
+          <TuiOverlayTerminal surface={surface} projectDir={projectDir} />
+        </div>
       </DialogContent>
     </Dialog>
   );

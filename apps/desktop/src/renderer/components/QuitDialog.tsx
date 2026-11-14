@@ -48,12 +48,12 @@ export default function QuitDialog() {
     <Dialog open onOpenChange={(next) => !next && setWork(null)}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-title">
+          <DialogTitle>
             {runs > 0
               ? "Pi is still working"
               : rows.length > 0 ? "Terminals are still open" : "Other devices are connected"}
           </DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed text-body-muted-foreground">
+          <DialogDescription>
             {runs > 0
               ? "Quitting stops the active turn. Messages already written are saved."
               : rows.length > 0

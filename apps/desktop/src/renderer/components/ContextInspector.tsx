@@ -122,10 +122,10 @@ function ContextInspector({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md gap-5">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-title">Context</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogTitle>Context</DialogTitle>
+          <DialogDescription>
             How much of this model’s window the current chat is using. Pi measures this from the session.
           </DialogDescription>
         </DialogHeader>

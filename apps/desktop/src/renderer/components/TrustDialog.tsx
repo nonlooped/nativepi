@@ -3,7 +3,7 @@ import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { Button } from "@/components/ui/button.tsx";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 
 export default function TrustDialog() {
   const trustPrompt = useAppStore((s) => s.trustPrompt);
@@ -14,12 +14,12 @@ export default function TrustDialog() {
 
   return (
     <Dialog open onOpenChange={(next) => !next && dismissTrust()}>
-      <DialogContent className="min-w-0 gap-3">
+      <DialogContent className="min-w-0">
         <DialogHeader className="min-w-0">
-          <DialogTitle className="flex items-center gap-2 text-title">
+          <DialogTitle>
             Trust this project?
           </DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed text-body-muted-foreground">
+          <DialogDescription>
             Trust allows this folder’s Pi extensions and skills to run with your permissions, including code discovered later.
           </DialogDescription>
         </DialogHeader>
@@ -35,14 +35,14 @@ export default function TrustDialog() {
           Without trust, local extensions and skills stay disabled.
         </p>
 
-        <div className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end sm:border-t sm:border-border/60 sm:pt-5">
-          <Button variant="outline" size="lg" className="w-full max-w-full whitespace-normal sm:w-auto" onClick={dismissTrust}>
+        <DialogFooter className="min-w-0">
+          <Button variant="ghost" className="h-auto min-h-8 w-full max-w-full whitespace-normal py-1.5 sm:w-auto" onClick={dismissTrust}>
             Open without trust
           </Button>
-          <Button size="lg" className="w-full max-w-full whitespace-normal sm:w-auto" onClick={() => void trustActiveProject()}>
+          <Button className="h-auto min-h-8 w-full max-w-full whitespace-normal py-1.5 sm:w-auto" onClick={() => void trustActiveProject()}>
             Trust and load code
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

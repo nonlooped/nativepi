@@ -95,7 +95,7 @@ export default function ChatSearchDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => next ? onOpenChange(true) : close()}>
-      <DialogContent className="max-w-xl gap-0 overflow-hidden p-0" closeClassName="top-2.5 right-3">
+      <DialogContent layout="picker" className="max-w-xl" closeClassName="top-2.5 right-3">
         <DialogTitle className="sr-only">Search chats and messages</DialogTitle>
         <DialogDescription className="sr-only">
           {scopedName
@@ -110,7 +110,7 @@ export default function ChatSearchDialog({
           autoHighlight
           aria-label="Search chats and messages"
         >
-          <div className="relative border-b">
+          <div className="relative shrink-0 border-b border-border/40">
             <MagnifyingGlassIcon
               className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
@@ -119,12 +119,12 @@ export default function ChatSearchDialog({
               autoFocus
               placeholder={scopedName ? `Search chats in ${scopedName}` : "Search chats and messages"}
               aria-label={scopedName ? `Search chats in ${scopedName}` : "Search chats and messages"}
-              className="h-12 w-full rounded-none border-0 bg-transparent pl-11 pr-12 text-base font-normal text-foreground outline-none placeholder:text-placeholder-foreground"
+              className="h-12 w-full rounded-none border-0 bg-transparent pl-11 pr-12 text-sm font-normal text-foreground outline-none placeholder:text-placeholder-foreground"
             />
           </div>
 
           <p className="sr-only" role="status">{status}</p>
-          <Combobox.List className="flex min-h-48 max-h-[min(30rem,calc(var(--app-height,100dvh)-8rem))] flex-col gap-0.5 overflow-y-auto p-2">
+          <Combobox.List className="flex min-h-[min(12rem,25dvh)] max-h-[min(30rem,calc(var(--app-height,100dvh)-8rem))] flex-col gap-0.5 overflow-y-auto overscroll-contain p-3">
           {!query.trim() ? (
             <SearchState
               icon={<MagnifyingGlassIcon />}
@@ -173,7 +173,7 @@ export default function ChatSearchDialog({
                 value={result}
                 index={index}
                 onClick={() => navigate(result)}
-                className="flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
+                className="flex w-full flex-col gap-1 rounded-md px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
               >
                 <span className="flex min-w-0 items-baseline gap-2">
                   <span className="truncate text-sm font-medium">{highlight(result.title, query)}</span>
@@ -190,7 +190,7 @@ export default function ChatSearchDialog({
           </Combobox.List>
         </Combobox.Root>
 
-        <div className="flex items-center gap-3 border-t px-3 py-2 text-xs text-muted-foreground">
+        <div className="flex items-center shrink-0 gap-3 border-t border-border/40 px-6 py-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Kbd>↑↓</Kbd> navigate
           </span>

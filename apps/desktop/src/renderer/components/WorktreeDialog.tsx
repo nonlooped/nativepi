@@ -30,10 +30,9 @@ export default function WorktreeDialog({
     <Dialog open={projectPath !== null} onOpenChange={(next) => !next && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-title">Worktrees</DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed text-body-muted-foreground">
-            A worktree is a second checkout of this repository in its own folder, so a branch can be worked on
-            without disturbing the one you have open. NativePi opens each worktree as its own project.
+          <DialogTitle>Worktrees</DialogTitle>
+          <DialogDescription>
+            Work on another branch in its own folder. NativePi opens each worktree as a separate project.
           </DialogDescription>
         </DialogHeader>
         {/* Keyed on the project so switching projects cannot show the previous

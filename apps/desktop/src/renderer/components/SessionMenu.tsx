@@ -274,9 +274,9 @@ function RenameDialog({ projectDir, session, onClose }: { projectDir: string; se
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-title">Rename chat</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            The name shown in the sidebar. It replaces the first message NativePi otherwise uses as a title.
+          <DialogTitle>Rename chat</DialogTitle>
+          <DialogDescription>
+            Choose the name shown for this chat in the sidebar.
           </DialogDescription>
         </DialogHeader>
         <Input
@@ -331,8 +331,8 @@ function ForkDialog({ projectDir, session, onClose }: { projectDir: string; sess
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-title">Fork from a message</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogTitle>Fork from a message</DialogTitle>
+          <DialogDescription>
             Branch into a new chat starting at a chosen message. The original chat is left unchanged.
           </DialogDescription>
         </DialogHeader>
@@ -349,9 +349,9 @@ function ForkDialog({ projectDir, session, onClose }: { projectDir: string; sess
                   type="button"
                   disabled={forking}
                   onClick={() => void fork(point.entryId)}
-                  className="rounded-lg border px-3 py-2 text-left text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                  className="rounded-md px-3 py-2.5 text-left text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                 >
-                  <span className="line-clamp-2 whitespace-pre-wrap text-muted-foreground">{point.text}</span>
+                  <span className="line-clamp-2 whitespace-pre-wrap text-foreground">{point.text}</span>
                 </button>
               ))}
             </div>
@@ -378,8 +378,8 @@ function TreeDialog({ projectDir, session, onClose }: { projectDir: string; sess
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-title">Chat branches</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogTitle>Chat branches</DialogTitle>
+          <DialogDescription>
             Branches created by forking. The highlighted entry is the current tip.
           </DialogDescription>
         </DialogHeader>
@@ -425,8 +425,8 @@ function ExportDialog({ path, onClose }: { path: string; onClose: () => void }) 
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-title">Exported to HTML</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogTitle>Exported to HTML</DialogTitle>
+          <DialogDescription>
             A standalone copy of this chat was written to:
           </DialogDescription>
         </DialogHeader>

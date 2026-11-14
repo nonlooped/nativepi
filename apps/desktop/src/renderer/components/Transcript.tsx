@@ -41,7 +41,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog.tsx";
+import { Dialog, DialogViewerContent } from "@/components/ui/dialog.tsx";
 import { HOVER_REVEAL, cn } from "@/lib/utils.ts";
 import { copyDataImage } from "@/lib/clipboard.ts";
 import { ContextualIcon } from "@/components/ui/contextual-icon.tsx";
@@ -870,11 +870,9 @@ function TranscriptImage({ image, name }: { image: { mimeType: string; data: str
         </button>
       </TranscriptContextMenu>
       <Dialog open={preview} onOpenChange={setPreview}>
-        <DialogContent className="max-w-[90vw] p-3">
-          <DialogTitle className="sr-only">{name}</DialogTitle>
-          <DialogDescription className="sr-only">Full-size image preview</DialogDescription>
-          <img src={src} alt={name} className="max-h-[calc(var(--app-height,100dvh)-3.5rem)] w-full object-contain outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
-        </DialogContent>
+        <DialogViewerContent title={name} description="Full-size image preview" className="max-w-[min(80rem,90vw)]">
+          <img src={src} alt={name} className="max-h-[calc(var(--app-height,100dvh)-10rem)] w-full object-contain outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
+        </DialogViewerContent>
       </Dialog>
     </>
   );

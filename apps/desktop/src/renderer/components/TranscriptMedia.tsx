@@ -4,7 +4,7 @@ import { FilmStripIcon } from "@phosphor-icons/react/FilmStrip";
 import { SpeakerHighIcon } from "@phosphor-icons/react/SpeakerHigh";
 import { rpc } from "../lib/rpc.ts";
 import { useAppStore } from "../lib/store.ts";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog.tsx";
+import { Dialog, DialogViewerContent } from "./ui/dialog.tsx";
 import { referenceFor } from "../lib/markdownReferences.ts";
 
 export function mediaKind(path: string) {
@@ -38,15 +38,13 @@ export default function TranscriptMedia({ path, label, source, data }: { path?: 
     <button type="button" className="transcript-reference" title={path ?? label} data-reference-source={source ?? path ?? label}
       onClick={() => void preview()}>{icon}<span>{label}</span></button>
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-[min(64rem,90vw)] p-4">
-        <DialogTitle className="truncate text-sm">{label}</DialogTitle>
-        <DialogDescription className="sr-only">{kind} preview</DialogDescription>
-        {src ? kind === "video" ? <video src={src} controls preload="metadata" className="max-h-[75dvh] w-full" />
+      <DialogViewerContent title={label} description={`${kind} preview`} className="max-w-[min(64rem,90vw)]">
+        {src ? kind === "video" ? <video src={src} controls preload="metadata" className="max-h-[calc(var(--app-height,100dvh)-10rem)] w-full" />
           : kind === "audio" ? <audio src={src} controls preload="metadata" className="w-full" />
-          : <img src={src} alt={label} className="max-h-[75dvh] w-full object-contain" />
+          : <img src={src} alt={label} className="max-h-[calc(var(--app-height,100dvh)-10rem)] w-full object-contain" />
           : <p className="text-sm text-muted-foreground">{remote ? "Remote media is not loaded automatically." : !project ? "Open a project to preview this media." : result?.error ?? "Loading preview…"}</p>}
-        {remote && path ? <button className="text-sm font-medium hover:underline" onClick={() => void rpc.request.openExternal({ url: path })}>Open original</button> : null}
-      </DialogContent>
+        {remote && path ? <button className="mt-4 text-sm font-medium hover:underline" onClick={() => void rpc.request.openExternal({ url: path })}>Open original</button> : null}
+      </DialogViewerContent>
     </Dialog>
   </>;
 }

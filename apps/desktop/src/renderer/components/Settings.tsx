@@ -1,3 +1,4 @@
+import { SettingsDialogAppearance } from "./ui/dialog-styles.ts";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { Input } from "@/components/ui/input.tsx";
 import { PaletteIcon } from "@phosphor-icons/react/Palette";
@@ -55,6 +56,10 @@ export function settingsPage(value: string | null): Category {
 }
 
 export default function Settings() {
+  return <SettingsDialogAppearance value={true}><SettingsContent /></SettingsDialogAppearance>;
+}
+
+function SettingsContent() {
   const closeSettings = useAppStore((s) => s.closeSettings);
   const loadPiSettings = useAppStore((s) => s.loadPiSettings);
   const initialCategory = useAppStore((s) => s.settingsCategory);

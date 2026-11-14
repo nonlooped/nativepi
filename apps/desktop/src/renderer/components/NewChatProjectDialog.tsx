@@ -60,9 +60,9 @@ export default function NewChatProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[clamp(32rem,40vw,48rem)] gap-0 overflow-hidden p-0 sm:p-0">
-        <DialogHeader className="px-6 pt-5 pb-4">
-          <DialogTitle className="text-heading">New chat</DialogTitle>
+      <DialogContent layout="picker" className="max-w-xl">
+        <DialogHeader className="px-6 pt-6 pb-4">
+          <DialogTitle>New chat</DialogTitle>
           <DialogDescription>Choose a project, or start without one.</DialogDescription>
         </DialogHeader>
 
@@ -77,7 +77,7 @@ export default function NewChatProjectDialog({
           autoHighlight
           aria-label="Choose where to start the chat"
         >
-          <div className="mx-4 mb-2 flex shrink-0 items-center gap-2.5 rounded-md border border-border/60 px-3 focus-within:border-ring">
+          <div className="mx-6 mb-3 flex shrink-0 items-center gap-2.5 rounded-md border border-border/60 px-3 focus-within:border-ring">
             <MagnifyingGlassIcon
               className="size-4 shrink-0 text-muted-foreground"
               aria-hidden="true"
@@ -86,7 +86,7 @@ export default function NewChatProjectDialog({
               autoFocus
               placeholder="Search projects…"
               aria-label="Search projects"
-              className="h-11 min-w-0 flex-1 border-0 bg-transparent px-0 text-base font-normal text-foreground outline-none placeholder:text-placeholder-foreground"
+              className="h-9 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm font-normal text-foreground outline-none placeholder:text-placeholder-foreground"
             />
           </div>
 
@@ -97,18 +97,18 @@ export default function NewChatProjectDialog({
                 value={project}
                 index={index}
                 onClick={() => void startChat(project.path)}
-                className="flex min-h-18 w-full shrink-0 cursor-default items-center gap-3 rounded-lg px-3 py-3 text-left outline-none transition-colors hover:bg-muted/70 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
+                className="flex min-h-14 w-full shrink-0 cursor-default items-center gap-3 rounded-md px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
               >
                 {project.path === workRoot ? (
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground" aria-hidden="true">
-                    <DesktopIcon className="size-5" />
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground" aria-hidden="true">
+                    <DesktopIcon className="size-4" />
                   </span>
                 ) : (
-                  <ProjectIcon name={project.name} src={presentation[project.path]?.icon} className="size-9 rounded-lg text-base" />
+                  <ProjectIcon name={project.name} src={presentation[project.path]?.icon} className="size-8 rounded-lg text-base" />
                 )}
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-base font-medium">{project.name}</span>
-                  <span className="truncate text-sm leading-relaxed text-muted-foreground">{project.path === workRoot ? "General work on your device" : project.path}</span>
+                  <span className="truncate text-sm font-medium">{project.name}</span>
+                  <span className="truncate text-xs leading-relaxed text-muted-foreground">{project.path === workRoot ? "General work on your device" : project.path}</span>
                 </span>
                 {project.path === activeProjectPath ? (
                   <span className="shrink-0 text-xs text-muted-foreground">Current</span>
@@ -123,9 +123,9 @@ export default function NewChatProjectDialog({
           </Combobox.List>
         </Combobox.Root>
 
-        <div className="shrink-0 border-t border-border/50 p-3">
+        <div className="shrink-0 border-t border-border/40 p-3">
           <Button variant="ghost" className="h-10 w-full justify-start gap-3 px-3" onClick={() => void openAnotherFolder()}>
-            <FolderOpenIcon className="size-5" aria-hidden="true" />
+            <FolderOpenIcon className="size-4" aria-hidden="true" />
             Open folder…
           </Button>
         </div>
