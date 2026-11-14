@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional next-message suggestions in the empty composer after Pi finishes, with Tab to accept and Escape to dismiss.
 
 ### Changed
+- Keep NativePi’s glass material active when its window loses focus on macOS and Windows.
 - Rework the NativePi color scheme with live macOS vibrancy and Windows 11 Acrylic, translucent app surfaces, and a window-wide dither texture instead of a photo. Unsupported desktops and browser access keep a solid backdrop.
 - Match the visible sidebar and history icon heights to the macOS window controls and align their centers.
 - Replace the top-left wordmark with back/forward chat navigation and move NativePi branding into the new-chat view.

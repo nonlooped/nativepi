@@ -36,6 +36,7 @@
     "apca-w3": "^0.1.9",
     "electron-updater": "^6.8.11",
     "esbuild": "^0.28.2",
+    "koffi": "^3.3.8",
     "node-pty": "^1.1.0",
     "npm": "^12.2.2",
     "parse5": "^8.1.1",
@@ -109,7 +110,9 @@
       "**/node_modules/@earendil-works/**/*",
       "**/node_modules/esbuild/**/*",
       "**/node_modules/@esbuild/**/*",
-      "**/node_modules/node-pty/**/*"
+      "**/node_modules/node-pty/**/*",
+      "**/node_modules/koffi/**/*",
+      "**/node_modules/@koromix/koffi-*/**/*"
     ],
     "publish": [
       {

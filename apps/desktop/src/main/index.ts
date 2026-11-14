@@ -93,7 +93,8 @@ async function createMainWindow(): Promise<void> {
     trafficLightPosition: isMac ? { x: 16, y: 17 } : undefined,
     backgroundColor: "#141414",
     transparent: isMac,
-    visualEffectState: isMac ? "followWindow" : undefined,
+    // Keep vibrancy active even while another application has focus.
+    visualEffectState: isMac ? "active" : undefined,
     webPreferences: {
       preload: join(mainDir, "../preload/index.cjs"),
       additionalArguments: hasWindowMaterial ? ["--nativepi-window-material"] : [],
