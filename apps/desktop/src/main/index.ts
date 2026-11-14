@@ -12,6 +12,14 @@ let hostPromise: Promise<Host> | undefined;
 function loadHost(): Promise<Host> {
   return hostPromise ??= import("./ipc.ts").then((loaded) => (host = loaded));
 }
+// This bridge is desktop-only; Local Access cannot raise the owner's window.
+ipcMain.handle("nativepi:focus-window", (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed() || event.senderFrame !== event.sender.mainFrame) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+});
 const rendererClients = new Map<number, import("./ipc.ts").HostClient>();
 ipcMain.handle("nativepi:invoke", async (_event, name: HostRequestName, params: unknown) => {
   const loaded = await loadHost();

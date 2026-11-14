@@ -215,7 +215,7 @@ export async function searchSessions(projectDirs: string[], rawQuery: string, si
         snippet: title,
       }]
     : []);
-  const candidates = summaries.filter(({ title }) => !title.toLocaleLowerCase().includes(query));
+  const candidates = summaries;
   const concurrency = 4;
   let cursor = 0;
   async function searchNext(): Promise<void> {
@@ -238,10 +238,11 @@ export async function searchSessions(projectDirs: string[], rawQuery: string, si
           sessionFile: session.path,
           title,
           modified: session.modified,
+          entryId: entry.id,
           match: entry.message.role,
           snippet: searchSnippet(text, index, rawQuery.trim().length),
         });
-        break;
+        if (results.length >= 50) break;
       }
     }
   }

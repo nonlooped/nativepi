@@ -28,6 +28,7 @@ export type TranscriptItem =
       type: "response";
       id: string;
       messages: AssistantMessage[];
+      entryIds?: string[];
       startedAt?: string;
       finishedAt?: string;
     };
@@ -54,18 +55,20 @@ export function transcriptItems(entries: SessionEntry[]): { items: TranscriptIte
     }
 
     const messages = [entry.message];
+    const entryIds = [entry.id];
     let finishedAt = entry.timestamp;
     while (i + 1 < entries.length) {
       const next = entries[i + 1];
       if (next.type !== "message" || (!isAssistant(next.message) && !isToolResult(next.message))) break;
       i++;
       finishedAt = next.timestamp;
-      if (isAssistant(next.message)) messages.push(next.message);
+      if (isAssistant(next.message)) { messages.push(next.message); entryIds.push(next.id); }
     }
     items.push({
       type: "response",
       id: entry.id,
       messages,
+      entryIds,
       startedAt: responseStartedAt,
       finishedAt,
     });

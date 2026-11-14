@@ -20,6 +20,7 @@ export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
       return {
         promptSuggestion: undefined,
         running: true,
+        retry: null,
         aborted: false,
         error: undefined,
         errorRecovery: undefined,
