@@ -320,7 +320,7 @@ test("searchSessions finds titles and user or assistant message text", async () 
       id: "1",
       parentId: null,
       timestamp: "2026-01-01T00:00:01Z",
-      message: { role: "user", content: "Please inspect the payment flow", timestamp: 1767225601000 },
+      message: { role: "user", content: "Please inspect the webhook payment flow", timestamp: 1767225601000 },
     },
     {
       type: "message",
@@ -333,7 +333,7 @@ test("searchSessions finds titles and user or assistant message text", async () 
         timestamp: 1767225602000,
       },
     },
-    { type: "session_info", id: "3", parentId: "2", timestamp: "2026-01-01T00:00:03Z", name: "Payment investigation" },
+    { type: "session_info", id: "3", parentId: "2", timestamp: "2026-01-01T00:00:03Z", name: "Webhook payment investigation" },
   ]);
   await writeSession(projectDir, "title-match.jsonl", [
     { type: "session", version: 3, id: "title-match", timestamp: "2026-01-02T00:00:00Z", cwd: projectDir },
@@ -347,12 +347,13 @@ test("searchSessions finds titles and user or assistant message text", async () 
     { type: "session_info", id: "2", parentId: "1", timestamp: "2026-01-02T00:00:02Z", name: "Webhook investigation" },
   ]);
   const results = await searchSessions([projectDir], "webhook");
-  expect(results).toHaveLength(2);
+  expect(results).toHaveLength(4);
+  expect(results.filter(result => result.entryId).map(result => result.entryId)).toEqual(["1", "2"]);
   expect(results[0]).toMatchObject({ title: "Webhook investigation", match: "title" });
-  expect(results[1]).toMatchObject({ match: "assistant", snippet: "The regression is in the webhook handler." });
+  expect(results[3]).toMatchObject({ entryId: "2", match: "assistant", snippet: "The regression is in the webhook handler." });
   const userResults = await searchSessions([projectDir], "inspect");
   expect(userResults).toHaveLength(1);
-  expect(userResults[0]).toMatchObject({ title: "Payment investigation", match: "user" });
+  expect(userResults[0]).toMatchObject({ title: "Webhook payment investigation", match: "user" });
 });
 test("searchSessions stops before scanning when cancelled", async () => {
   const controller = new AbortController();

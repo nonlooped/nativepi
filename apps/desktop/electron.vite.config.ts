@@ -19,6 +19,7 @@ export default defineConfig({
       rolldownOptions: {
         input: {
           index: resolve("src/main/index.ts"),
+          "dictation-worker": resolve("src/main/dictationWorker.ts"),
           // Pi runs in its own process, started from this second entry rather than
           // from Pi's `rpc-entry`: it installs the extension UI context that makes
           // pi-tui components render in the window. See `main/pi/host/entry.ts`.
@@ -34,6 +35,7 @@ export default defineConfig({
           /^@earendil-works\//,
           "node-pty",
           "koffi",
+          "transcribe-cpp",
           "esbuild",
           /^@esbuild\//,
         ],

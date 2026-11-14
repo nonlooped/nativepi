@@ -43,9 +43,18 @@ export async function openReference(reference: Reference) {
   if (reference.kind === "web" || reference.kind === "pull-request") {
     await rpc.request.openExternal({ url: reference.url });
   } else if (reference.kind === "thread") {
-    const target = Object.entries(state.sessionsByProject).flatMap(([project, sessions]) =>
+    let target = Object.entries(state.sessionsByProject).flatMap(([project, sessions]) =>
       sessions.filter(session => session.path === reference.session || session.id === reference.session).map(session => ({ project, session })),
     )[0];
+    if (!target && state.activeSessionFile !== reference.session) {
+      const { threads } = await rpc.request.listMentionThreads({});
+      const thread = threads.find(thread => thread.path === reference.session || thread.id === reference.session);
+      if (thread) {
+        await state.refreshSessions(thread.cwd);
+        const session = useAppStore.getState().sessionsByProject[thread.cwd]?.find(session => session.path === thread.path);
+        if (session) target = { project: thread.cwd, session };
+      }
+    }
     // Never open arbitrary session paths authored in untrusted Markdown.
     if (!target && state.activeSessionFile !== reference.session) { toast.error("This chat is not available in NativePi."); return; }
     const session = target?.session.path ?? reference.session;
@@ -53,6 +62,8 @@ export async function openReference(reference: Reference) {
     if (useAppStore.getState().activeSessionFile === session && reference.entry) {
       useAppStore.setState({ transcriptTarget: { session, entry: reference.entry } });
     }
+  } else if (reference.kind === "model") {
+    return;
   } else {
     const path = reference.path;
     if (!path) return;
@@ -85,7 +96,7 @@ export function ReferenceChip({ value, label, source, composer = false }: { valu
   const display = ref.kind === "skill" ? ref.name : ref.kind === "thread" ? session ? chatTitle(session) : "Thread" : ref.label;
   const authoredLabel = label && typeof label === "string" && label !== value && label !== value.replace(/^@/, "") ? label : null;
   const title = ref.kind === "file" ? `${ref.path}${ref.line ? `:${ref.line}${ref.column ? `:${ref.column}` : ""}` : ""}`
-    : ref.kind === "skill" ? ref.path ?? `Skill: ${ref.name}` : ref.kind === "thread" ? session ? chatTitle(session) : ref.session : ref.url;
+    : ref.kind === "skill" ? ref.path ?? `Skill: ${ref.name}` : ref.kind === "thread" ? session ? chatTitle(session) : ref.session : ref.kind === "model" ? ref.label : ref.url;
   const icon = ref.kind === "file" ? <FileTypeIcon path={ref.path} size={composer ? 16 : 14} folder={ref.folder} />
     : ref.kind === "skill" ? composer ? <svg viewBox="0 0 16 16" aria-hidden="true" className="size-3 shrink-0"><path fill="currentColor" d="M9.6 1 3 8.6h3.6L6 15l6.6-7.6H9L9.6 1Z" /></svg> : <LightningIcon /> : ref.kind === "thread" ? <ChatCircleIcon />
     : ref.kind === "pull-request" ? <GitPullRequestIcon /> : <GlobeIcon />;
@@ -107,6 +118,7 @@ export function ReferenceChip({ value, label, source, composer = false }: { valu
       </PopoverContent>
     </Popover>;
   }
+  if (ref.kind === "model") return <Popover><PopoverTrigger className={chipClass} title={title}>{icon}<span>{authoredLabel ?? display}</span></PopoverTrigger><PopoverContent className="gap-2 p-3"><span className="font-medium">{ref.id}</span><span className="text-muted-foreground">{ref.provider}</span><span className="text-muted-foreground">Model reference</span></PopoverContent></Popover>;
   const chip = ref.kind === "skill" ? (
     <Popover>
       <PopoverTrigger className={chipClass} title={title} data-reference-source={source ?? value}>

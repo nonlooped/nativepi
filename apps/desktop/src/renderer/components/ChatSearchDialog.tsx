@@ -92,7 +92,14 @@ export default function ChatSearchDialog({
 
   function navigate(result: SessionSearchResult) {
     close();
-    void selectChat(result.sessionFile, result.projectDir).then(onNavigate).catch(() => undefined);
+    const opening = selectChat(result.sessionFile, result.projectDir);
+    const version = useAppStore.getState().selectionVersion;
+    void opening.then(() => {
+      const state = useAppStore.getState();
+      if (state.selectionVersion !== version || state.activeSessionFile !== result.sessionFile) return;
+      if (result.entryId) useAppStore.setState({ transcriptTarget: { session: result.sessionFile, entry: result.entryId } });
+      onNavigate?.();
+    }).catch(() => undefined);
   }
 
   return (
@@ -171,7 +178,7 @@ export default function ChatSearchDialog({
             const source = result.match === "title" ? "Chat title" : result.match === "user" ? "You" : "Pi";
             return (
               <Combobox.Item
-                key={result.sessionFile}
+                key={`${result.sessionFile}:${result.entryId ?? "title"}`}
                 value={result}
                 index={index}
                 onClick={() => navigate(result)}

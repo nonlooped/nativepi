@@ -90,7 +90,7 @@ export function RunStatusBar({
           <span className="truncate font-medium">
             {compacting
               ? "Summarizing earlier messages"
-              : (ui.workingMessage ?? (activeTool ? `Running ${activeTool}` : "Working"))}
+              : (ui.workingMessage ?? (activeTool === "computer_use" || activeTool === "computer_screenshot" ? "Using computer" : activeTool ? `Running ${activeTool}` : "Working"))}
           </span>
           {elapsed ? (
             <span className="shrink-0 tabular-nums text-muted-foreground" aria-hidden="true">

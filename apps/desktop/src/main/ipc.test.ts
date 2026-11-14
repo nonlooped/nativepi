@@ -31,6 +31,7 @@ mock.module("electron", () => ({
 app: { getPath: () => root }, BrowserWindow: class {},
 dialog: {}, shell: {}, powerSaveBlocker: { start: () => 1, isStarted: () => true, stop: () => {} },
 nativeTheme: new EventEmitter(),
+systemPreferences: { askForMediaAccess: async () => true },
 }));
 mock.module("electron-updater", () => ({ default: { autoUpdater: {} } }));
 mock.module("node-pty", () => ({ spawn: () => { throw new Error("Unexpected terminal"); } }));

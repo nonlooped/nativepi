@@ -24,6 +24,7 @@ test("legacy destinations still resolve to their replacement pages", () => {
   expect(settingsPage("System")).toBe("General");
   expect(settingsPage("Agent")).toBe("Behavior");
   expect(settingsPage("Providers")).toBe("Providers");
+  expect(settingsPage("Computer use")).toBe("Behavior");
   expect(settingsPage("unknown")).toBe("Appearance");
 });
 test("sidebar exposes grouped pages and switching pages does not re-read local settings", async () => {

@@ -164,6 +164,10 @@ export function listSessions(projectDir: string): Promise<SessionSummary[]> {
   return listing;
 }
 function safeSessionDate(value: Date, fallback: number): string { return Number.isFinite(value.getTime()) ? value.toISOString() : new Date(fallback).toISOString(); }
+export async function listMentionThreads() {
+  return (await SessionManager.listAll()).map(session => ({ path: session.path, id: session.id, title: session.name || session.firstMessage || "Untitled thread", cwd: session.cwd }));
+}
+
 async function listSessionsUncached(projectDir: string) {
   const sessions = await SessionManager.list(projectDir);
   const filtered = sessions.filter((session) => session.messageCount > 0 || !!session.name);
@@ -211,7 +215,7 @@ export async function searchSessions(projectDirs: string[], rawQuery: string, si
         snippet: title,
       }]
     : []);
-  const candidates = summaries.filter(({ title }) => !title.toLocaleLowerCase().includes(query));
+  const candidates = summaries;
   const concurrency = 4;
   let cursor = 0;
   async function searchNext(): Promise<void> {
@@ -234,10 +238,11 @@ export async function searchSessions(projectDirs: string[], rawQuery: string, si
           sessionFile: session.path,
           title,
           modified: session.modified,
+          entryId: entry.id,
           match: entry.message.role,
           snippet: searchSnippet(text, index, rawQuery.trim().length),
         });
-        break;
+        if (results.length >= 50) break;
       }
     }
   }

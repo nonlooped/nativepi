@@ -1,3 +1,5 @@
+import type { DictationStatus } from "./dictation.ts";
+import type { ComputerStatus } from "./computer-use.ts";
 import type { OrchestrationSnapshot, OrganizationSnapshot } from "./orchestration.ts";
 import { chatTitleSettingsSchema, DEFAULT_CHAT_TITLE_SETTINGS, type ChatTitleCatalog } from "./chat-title.ts";
 import type { ServiceTier, ServiceTierState } from "./service-tier.ts";
@@ -289,6 +291,7 @@ export type HostRequestContracts = {
       ok: boolean;
     };
   };
+  listMentionThreads: { params: Record<string, never>; response: { threads: { path: string; id: string; title: string; cwd: string }[] } };
   listSessions: {
     params: {
       projectDir: string;
@@ -435,6 +438,13 @@ export type HostRequestContracts = {
       rejected: string[];
     };
   };
+  dictationStatus: { params: Record<string, never>; response: DictationStatus };
+  dictationInstall: { params: { id: string }; response: DictationStatus };
+  dictationCancel: { params: { id: string }; response: { ok: true } };
+  dictationTranscribe: { params: { id: string; audio: string }; response: { text: string } };
+  dictationMicrophone: { params: Record<string, never>; response: { ok: true } };
+  computerStatus: { params: Record<string, never>; response: ComputerStatus };
+  computerPermissions: { params: Record<string, never>; response: ComputerStatus };
   abort: {
     params: {
       projectDir: string;
@@ -1441,6 +1451,7 @@ export type HostRequests = {
   };
 };
 export type HostEvents = {
+  dictationStatus: DictationStatus;
   orchestrationChanged: OrchestrationSnapshot;
   organizationChanged: OrganizationSnapshot;
   piStatus: {

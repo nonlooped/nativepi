@@ -20,6 +20,15 @@ export function toolResultsById(entries: SessionEntry[]): Map<string, ToolResult
 }
 
 export function toolArgSummary(name: string, args: Record<string, unknown>): string {
+  if (name === "computer_screenshot") return `Capture ${args.app || (typeof args.screen === "number" ? `display ${args.screen + 1}` : "app window")}`;
+  if (name === "computer_use") {
+    const command = typeof args.command === "string" ? args.command.replaceAll("-", " ") : "use computer";
+    const label = command.charAt(0).toUpperCase() + command.slice(1);
+    // Do not expose typed text or clipboard contents in a collapsed activity row.
+    const arguments_ = Array.isArray(args.args) ? args.args : [];
+    const app = arguments_.indexOf("--app");
+    return app >= 0 && typeof arguments_[app + 1] === "string" ? `${label} · ${arguments_[app + 1]}` : label;
+  }
   const first = (...keys: string[]): string | undefined => {
     for (const k of keys) {
       const v = args[k];
@@ -66,6 +75,7 @@ export function toolGroupLabel(calls: readonly { name: string }[], running: bool
     : only(["read"]) ? ["Reading", "Read", "file"]
     : only(["edit", "write"]) ? ["Editing", "Edited", "file"]
     : only(["grep", "find", "ls"]) ? ["Searching", "Searched", "location"]
+    : only(["computer_use", "computer_screenshot"]) ? ["Running", "Ran", "computer action"]
     : ["Using", "Used", "tool"];
   return `${action[running ? 0 : 1]} ${count} ${action[2]}${count === 1 ? "" : "s"}`;
 }

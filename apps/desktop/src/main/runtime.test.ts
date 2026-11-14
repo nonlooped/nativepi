@@ -94,7 +94,7 @@ class FakePi {
     this.exit(0, undefined, true);
   }
 }
-mock.module("electron", () => ({ nativeTheme: new EventEmitter(), app: { getPath: () => root }, BrowserWindow: class {
+mock.module("electron", () => ({ systemPreferences: { askForMediaAccess: async () => true }, nativeTheme: new EventEmitter(), app: { getPath: () => root }, BrowserWindow: class {
   }, dialog: {}, shell: {}, powerSaveBlocker: { start: () => 1, isStarted: () => true, stop: () => { } } }));
 mock.module("electron-updater", () => ({ default: { autoUpdater: {} } }));
 mock.module("./pi/client.ts", () => ({ PiProcess: FakePi }));

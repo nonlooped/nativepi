@@ -1,3 +1,6 @@
+import { isRemote } from "../lib/rpc.ts";
+import { useDictation } from "../lib/useDictation.ts";
+import { DictationButton, DictationFeedback } from "./DictationControls.tsx";
 import { ArrowBendUpRightIcon, PaperPlaneRightIcon } from "../../shared/icons.ts"
 import { PaperclipIcon } from "@phosphor-icons/react/Paperclip";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
@@ -22,6 +25,8 @@ import WorkspaceSwitcher from "./WorkspaceSwitcher.tsx";
 const TuiAutoPane = lazy(() => import("./TuiSurface.tsx").then((module) => ({ default: module.TuiAutoPane })));
 
 export default function Composer({ prominent = false }: { prominent?: boolean }) {
+  const dictation = useDictation();
+  const dictating = dictation.phase !== "idle";
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const draft = useAppStore((s) =>
@@ -62,7 +67,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
   const disabled = !activeProjectPath;
   // Images being read hold the send: they belong to this message, and Enter a
   // moment too early would send the text alone and leave them for the next one.
-  const canSend = (!!draft.trim() || attached > 0) && !disabled && !blocked && preparing === 0;
+  const canSend = (!!draft.trim() || attached > 0) && !disabled && !blocked && preparing === 0 && !dictating;
   const steering = running && behavior === "steer";
 
   /**
@@ -175,6 +180,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
             Images attach. <Kbd>Shift</Kbd> turns images into file mentions.
           </p>
         ) : null}
+        {!isRemote ? <DictationFeedback dictation={dictation} /> : null}
         <ComposerAttachments />
         <ComposerInput
           suggestion={attached === 0 && preparing === 0 ? suggestion : null}
@@ -184,7 +190,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           onSubmit={submit}
           onAttach={(files) => void attach(files)}
           projectPath={activeProjectPath}
-          disabled={disabled}
+          disabled={disabled || dictating}
           autoFocus={prominent}
           // During a turn, name the active send behavior; when idle, show the
           // prefixes that open the composer's search menus.
@@ -208,6 +214,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
             <ComposerControls />
           </div>
           <div className="flex items-center gap-1">
+            {!isRemote ? <DictationButton dictation={dictation} disabled={disabled || blocked} /> : null}
             <Button
               size="icon-lg"
               className="rounded-full shadow-sm shadow-foreground/10 hover:shadow-md hover:shadow-foreground/15 active:shadow-none disabled:bg-muted disabled:text-muted-foreground/40 disabled:opacity-100 disabled:shadow-none"

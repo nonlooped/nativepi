@@ -1,3 +1,5 @@
+import { computerController, computerFailure } from "../computerUse.ts";
+import { computerRequestSchema, computerCancelSchema } from "../../shared/computer-use.ts";
 import { orchestrationRequestSchema, orchestrationReplySchema, orchestrationCancelSchema, orchestrationOutcomeSchema, orchestrationSuppliedSchema, orchestrationRuntimeSchema, type ThreadReference } from "../../shared/orchestration.ts";
 import { fork, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { join } from "node:path";
@@ -76,6 +78,9 @@ export class PiProcess {
   private channelError?: Error;
   private closed = false;
   private stopTask?: Promise<void>;
+  private computerAllowed = false;
+  private computerFenced = false;
+  private computerRequests = new Map<string, AbortController>();
   private artifactPreviews = new Map<string, AbortController>();
   onOrchestration?: (action: string, params: Record<string, unknown>, operationId: string, signal: AbortSignal) => Promise<unknown>;
   onOrchestrationOutcome?: (outcome: import("zod").z.infer<typeof orchestrationOutcomeSchema>) => void;
@@ -133,6 +138,8 @@ export class PiProcess {
     } finally { this.orchestrationRequests.delete(request.requestId); }
   }
   resetOrchestrationBinding(): void {
+    this.cancelComputer();
+    void computerController.dispose(this);
     this.orchestrationSessionId = undefined;
     for (const controller of this.orchestrationRequests.values()) controller.abort();
     this.orchestrationRequests.clear();
@@ -140,10 +147,12 @@ export class PiProcess {
     this.orchestrationWaiters.clear();
   }
   fenceOrchestration(ref: ThreadReference): void {
+    this.cancelComputer();
     if (this.proc.connected) this.proc.send({ type: "nativepi_orchestration_fence", sessionId: ref.id }, () => {});
   }
   get hasOrchestrationWork(): boolean { return this.orchestrationRequests.size > 0 || this.orchestrationWaiters.size > 0; }
   constructor(projectDir: string, onEvent: (msg: PiMessage) => void, onExit: (code: number | null, error?: Error, expected?: boolean) => void, onFrame: (frame: TuiHostFrame) => void = () => { }, args: string[] = []) {
+    this.computerAllowed = !args.includes("--nativepi-chat") && !args.includes("--no-session");
     this.projectDir = projectDir;
     this.onEvent = onEvent;
     this.onFrame = onFrame;
@@ -159,7 +168,7 @@ export class PiProcess {
       silent: true,
       windowsHide: true,
     }) as ChildProcessWithoutNullStreams;
-    this.proc.on("message", (message: unknown) => { void this.handleArtifactPreview(message); void this.handleOrchestration(message); });
+    this.proc.on("message", (message: unknown) => { void this.handleComputer(message); void this.handleArtifactPreview(message); void this.handleOrchestration(message); });
     this.proc.stdout.setEncoding("utf8");
     this.proc.stdout.on("data", (chunk: string) => {
       if (this.terminalError)
@@ -182,6 +191,8 @@ export class PiProcess {
       finished = true;
       this.closed = true;
       this.cancelArtifactPreviews();
+      this.cancelComputer();
+      void computerController.dispose(this);
       this.isRunning = false;
       this.terminalError ??= error ?? new Error(`Pi exited (${code ?? "?"})`);
       this.rejectAll(this.terminalError);
@@ -236,6 +247,29 @@ export class PiProcess {
       if (this.proc.connected) this.proc.send({ type: "nativepi_artifact_preview_reply", requestId, error: String(error instanceof Error ? error.message : error).slice(0, 4000) }, () => {});
     } finally { this.artifactPreviews.delete(requestId); }
   }
+  private cancelComputer(): void {
+    this.computerFenced = true;
+    for (const controller of this.computerRequests.values()) controller.abort();
+    computerController.release(this);
+  }
+  private async handleComputer(raw: unknown): Promise<void> {
+    const cancel = computerCancelSchema.safeParse(raw);
+    if (cancel.success) { this.computerRequests.get(cancel.data.requestId)?.abort(); return; }
+    const parsed = computerRequestSchema.safeParse(raw);
+    if (!parsed.success || this.computerRequests.has(parsed.data.requestId)) return;
+    const { requestId, operation } = parsed.data;
+    const command = operation.kind === "screenshot" ? "screenshot" : operation.command;
+    const controller = new AbortController();
+    this.computerRequests.set(requestId, controller);
+    try {
+      const result = this.isAvailable && this.computerAllowed && this.isRunning && !this.computerFenced
+        ? await computerController.run(this, operation, controller.signal)
+        : computerFailure(command, "COMPUTER_DISABLED", "Computer use requires an active Work turn in NativePi.");
+      if (this.proc.connected) this.proc.send({ type: "nativepi_computer_reply", requestId, result }, () => {});
+    } catch {
+      if (this.proc.connected) this.proc.send({ type: "nativepi_computer_reply", requestId, result: computerFailure(command, "COMPUTER_UNAVAILABLE", "Computer command interrupted. Inspect the UI before retrying an action.", "unknown") }, () => {});
+    } finally { this.computerRequests.delete(requestId); }
+  }
   get hasPendingRequests(): boolean { return this.pending.size > 0 || this.frameWaiters.size > 0; }
   get isAvailable(): boolean { return !this.stopping && !this.terminalError; }
   private dispatch(msg: PiMessage): void {
@@ -278,10 +312,8 @@ export class PiProcess {
       this.onFrame(frame.data);
       return;
     }
-    if (msg.type === "agent_start")
-      this.isRunning = true;
-    else if (msg.type === "agent_settled")
-      this.isRunning = false;
+    if (msg.type === "agent_start") { this.isRunning = true; this.computerFenced = false; }
+    else if (msg.type === "agent_settled") { this.isRunning = false; this.cancelComputer(); }
     this.onEvent(msg);
   }
   send(command: PiCommand): void {
@@ -389,6 +421,7 @@ export class PiProcess {
     });
   }
   private write(command: PiCommand): void {
+    if (command.type === "abort") this.cancelComputer();
     this.sendRaw(command);
   }
   private rejectAll(err: Error): void {
@@ -410,6 +443,8 @@ export class PiProcess {
     if (this.closed)
       return;
     this.stopping = true;
+    this.cancelComputer();
+    void computerController.dispose(this);
     this.cancelArtifactPreviews();
     this.terminalError ??= new Error("Pi is stopping");
     this.rejectAll(this.terminalError);

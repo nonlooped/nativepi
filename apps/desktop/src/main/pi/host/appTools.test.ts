@@ -9,6 +9,8 @@ test("Chat loads built-in web and artifact tools and composes their instructions
     const hooks: ((event: { systemPrompt: string }) => { systemPrompt: string } | Promise<{ systemPrompt: string }>)[] = [];
     appTools({ registerCommand() {}, registerTool: (tool: ToolDefinition) => names.push(tool.name), on: (event: string, hook: typeof hooks[number]) => { if (event === "before_agent_start") hooks.push(hook); } } as unknown as ExtensionAPI);
     expect(names).toEqual(expect.arrayContaining(["nativepi_web_search", "nativepi_web_read", "html_preview", "html_render", "ask_user"]));
+    expect(names).not.toContain("computer_use");
+    expect(names).not.toContain("computer_screenshot");
     expect(hooks).toHaveLength(2);
   } finally { process.argv = argv; }
 });
@@ -42,4 +44,10 @@ test("dismissing choices never opens a second prompt or implies consent", async 
 });
 test("aborted requests never open a prompt", async () => {
   await expect(ask(["A", "B"], "1. A", undefined, AbortSignal.abort())).rejects.toThrow();
+});
+
+test("Work ships computer tools through Pi without external extension setup", () => {
+  const names: string[] = [];
+  appTools({ on() {}, registerCommand() {}, registerTool(value: ToolDefinition) { names.push(value.name); } } as unknown as ExtensionAPI);
+  expect(names).toEqual(expect.arrayContaining(["computer_use", "computer_screenshot", "ask_user", "delegate_spawn"]));
 });

@@ -8,11 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Dictate prompts offline with a local multilingual speech model, an explicit first-use download with live installation progress, and editable transcripts. No account, key, or paid service is required.
+- Completion notifications identify the chat, project, and success or failure; clicking opens that chat and raises the desktop window. Desktop delivery avoids duplicate notifications from Local Access tabs.
+- Mention Pi models and threads across all projects from the @ picker; agents can discover and share the same references with mention_catalog.
+- Add built-in computer use in Work with bundled agent-desktop, concurrent chats with coordinated window actions and physical input, cancellable app actions, inline screenshots, and compact permission guidance under Settings → Behavior.
 - Add Pi-native Work delegates with explicit model/reasoning/speed/tools, shared-directory or retained-worktree assignments, progress and clarification messages, follow-ups, and inspectable transcripts without user composers.
 - Add independent thread discovery, history search/read, creation, durable peer inboxes, explicit wake, group Stop, idle-only Finish, and protected deletion. Accepted records survive restart without automatically resuming interrupted execution.
 
 
 ### Changed
+- Show provider logos for model mentions in the @ picker.
+- Simplify multi-hunk review with one file-level diff toolbar and add previous/next changed-file navigation within the staged or unstaged review.
+- Open search message results at their matching Pi entry with a temporary highlight, including deferred history and grouped assistant work; title matches also retain body results. Unavailable branch targets leave history unchanged.
+- Show explicit sidebar attention for pending input, retries, failed or interrupted turns, and running work before chat age; share live Work attention with Local Access and nested delegates.
 - Balance conversation readability with slightly stronger message text and lighter image/Acrylic dither, preserving translucent surfaces and background ripples.
 - Keep delegate activity at its spawn call in the transcript, with provider logos in the transcript and sidebar, live status and transcript navigation, instead of a list above the composer. Use a compact, non-editable composer surface in delegate chats.
 - Direct audit delegates to use the current directory and return reports in chat, with files only when requested. Discourage unnecessary worktrees, temporary report folders, and unmanaged shell-launched delegates.

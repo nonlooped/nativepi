@@ -1,3 +1,6 @@
+import { Dictation, dictationMicrophone } from "./dictation.ts";
+import { computerStatus } from "./computerUse.ts";
+import { reduceTurnAttention, turnAttention, type TurnAttention } from "../shared/threadAttention.ts";
 import { isChatFinished } from "../shared/chat-organization.ts";
 import { OrchestrationCoordinator } from "./orchestration/coordinator.ts";
 import { OrchestrationService } from "./orchestration/service.ts";
@@ -23,7 +26,7 @@ import { stopPackageOperations } from "./pi/services.ts";
 import { ephemeralProjects, stopEphemeral } from "./pi/ephemeral.ts";
 import { PiProcess } from "./pi/client.ts";
 import type { PiMessage } from "./pi/protocol.ts";
-import { deleteSession, listSessions, readSession, searchSessions, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
+import { deleteSession, listMentionThreads, listSessions, readSession, searchSessions, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
 import { drainState, loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
 import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitCommitDetails, gitCommitDiff, gitDiff, gitHunks, gitLog, gitPrTarget, gitRevertFile, gitPush, gitPushAndCreatePr, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
@@ -304,8 +307,10 @@ function queueDisplayDelta(projectDir: string, pi: PiProcess, event: PiMessage):
   });
 }
 function updatePowerProtection(): void { setSleepBlocked(localServerConnection() !== undefined || [...pis.values(), ...draftPis.values(), ...startingPis.values()].some(pi => pi.isRunning) || starting.size > 0); }
+const turnAttentionByPi = new WeakMap<PiProcess, TurnAttention>();
 function forwardEvent(projectDir: string, pi: PiProcess, event: PiMessage): void {
-  if (event.type === "agent_start" || event.type === "agent_settled") { updatePowerProtection(); orchestrationRevision++; push("orchestrationChanged", orchestrationSnapshot()); }
+  if (event.type === "agent_start" || event.type === "agent_settled") { updatePowerProtection(); }
+  turnAttentionByPi.set(pi, reduceTurnAttention(turnAttentionByPi.get(pi) ?? { retrying: false }, event));
   runtimeEvents.set(pi, (runtimeEvents.get(pi) ?? 0) + 1);
   const sessionFile = pi.boundSessionFile ?? projectDir;
   idleAfter.set(sessionFile, Date.now() + SETTLE_GRACE_MS);
@@ -331,6 +336,9 @@ function forwardEvent(projectDir: string, pi: PiProcess, event: PiMessage): void
       void beginSessionWrite(pi, binding)().catch(error => console.error("Could not observe settled session", error));
     // Live message/name events already update every client's sidebar. Re-reading
     // all of this project's history after each turn scales with its lifetime.
+  }
+  if (["agent_start", "agent_settled", "auto_retry_start", "auto_retry_end", "extension_ui_request", "message_end"].includes(event.type)) {
+    orchestrationRevision++; push("orchestrationChanged", orchestrationSnapshot());
   }
   if (event["type"] === "message_update") {
     queueDisplayDelta(projectDir, pi, event);
@@ -449,6 +457,8 @@ function forwardPiFrame(projectDir: string, pi: PiProcess, frame: TuiHostFrame):
     extensionActivity.delete(pi);
   }
   if (frame.type === "nativepi_tui_session") {
+    turnAttentionByPi.delete(pi);
+    extensionActivity.delete(pi);
     if (!pi.isAvailable)
       return;
     void rememberPi(pi, frame.sessionFile).catch(error => console.error("Could not observe replacement session", error));
@@ -551,7 +561,15 @@ async function referenceForFile(file: string): Promise<ThreadReference> {
 }
 let orchestrationRevision = 0;
 function orchestrationSnapshot(): OrchestrationSnapshot {
-  return { revision: orchestrationRevision, threads: orchestration.references().map(ref => orchestration.snapshot(ref.id)) };
+  const withAttention = (thread: ReturnType<typeof orchestration.snapshot>["delegates"][number]) => {
+    const pi = pis.get(thread.ref.file);
+    const input = !!pi && [...(extensionActivity.get(pi) ?? [])].some(key => key.startsWith("prompt:"));
+    return { ...thread, attention: pi ? turnAttention(turnAttentionByPi.get(pi) ?? { retrying: false }, pi.isRunning, input) : undefined };
+  };
+  return { revision: orchestrationRevision, threads: orchestration.references().map(ref => {
+    const thread = orchestration.snapshot(ref.id);
+    return { ...thread, ...withAttention(thread), delegates: thread.delegates.map(withAttention) };
+  }) };
 }
 async function guardedOrchestration(ref: ThreadReference, action: "catalog" | "append" | "configure" | "dispatch" | "context" | "arm", payload?: unknown, signal?: AbortSignal, acquire = true): Promise<unknown> {
   signal?.throwIfAborted();
@@ -775,7 +793,7 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
         throw error;
       }
     };
-    pi.onOrchestrationRuntime = () => { updatePowerProtection(); orchestrationRevision++; push("orchestrationChanged", orchestrationSnapshot()); };
+    pi.onOrchestrationRuntime = () => { updatePowerProtection(); };
     pi.onOrchestrationSupplied = (id, messageId) => { if (orchestration.references().some(ref => ref.id === id && ref.file === pi.boundSessionFile)) orchestration.confirmSupplied(id, messageId); };
     pi.onOrchestrationOutcome = outcome => {
       const binding = runtimeBindings.get(pi);
@@ -961,6 +979,7 @@ const handlers: HandlerMap = {
     }
     return { ok: true };
   },
+  listMentionThreads: async () => ({ threads: await listMentionThreads() }),
   listSessions: async ({ projectDir }) => ({ sessions: await listSessions(projectDir) }),
   searchSessions: async (params) => {
     const { requestId, projectDirs, query } = requestParams.searchSessions.parse(params);
@@ -1146,6 +1165,13 @@ const handlers: HandlerMap = {
       return { images: [], rejected: [] };
     }
   },
+  dictationStatus: () => dictation.status(),
+  dictationInstall: () => { throw new Error("Dictation needs a client"); },
+  dictationCancel: () => { throw new Error("Dictation needs a client"); },
+  dictationTranscribe: () => { throw new Error("Dictation needs a client"); },
+  dictationMicrophone: () => dictationMicrophone(),
+  computerStatus: () => computerStatus(),
+  computerPermissions: () => computerStatus(true),
   abort: async ({ projectDir, sessionFile }) => {
     if (sessionFile && resolve(projectDir) !== resolve(join(app.getPath("userData"), "conversations"))) {
       await orchestrationService.discover();
@@ -1946,6 +1972,7 @@ const handlers: HandlerMap = {
   extensionRespond: ({ response }, pi) => {
     pi?.sendRaw(response);
     if (pi) extensionActivity.get(pi)?.delete(`prompt:${response.id}`);
+    orchestrationRevision++; push("orchestrationChanged", orchestrationSnapshot());
     return { ok: true };
   },
   tuiSend: async (params, pi) => {
@@ -2148,6 +2175,7 @@ export class HostClient extends ClientLeases {
   }
 }
 const clients = new Set<HostClient>();
+const dictation = new Dictation(status => pushDesktop("dictationStatus", status));
 let desktopClient: HostClient | undefined;
 function reconcileDirectories(project: string): void {
   setExplorerWatches(project, [...new Set([...clients].flatMap(client => client.directories.get(project) ?? []))]);
@@ -2165,6 +2193,12 @@ export async function invokeHostRequest<K extends HostRequestName>(name: K, raw:
       record[key] = resolve(record[key]);
   if (client.disposed)
     throw new Error("This client disconnected");
+  if (name === "dictationInstall") return await dictation.install(client, (params as HostRequests["dictationInstall"]["params"]).id) as HostRequests[K]["response"];
+  if (name === "dictationCancel") return dictation.cancel(client, (params as HostRequests["dictationCancel"]["params"]).id) as HostRequests[K]["response"];
+  if (name === "dictationTranscribe") {
+    const { id, audio } = params as HostRequests["dictationTranscribe"]["params"];
+    return await dictation.transcribe(client, id, audio) as HostRequests[K]["response"];
+  }
   const values = params as {
     projectDir?: string;
     sessionFile?: string | null;

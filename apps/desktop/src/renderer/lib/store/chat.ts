@@ -310,6 +310,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
         set((state) => ({
           selectionVersion: state.selectionVersion + 1,
           activeSessionFile: sessionFile,
+          transcriptTarget: null,
           confirmedNewLead: null,
           orchestrationLoaded: false,
           isNewChat: false,
@@ -924,7 +925,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
       }
       if (sessionFile && get().activeSessionFile === sessionFile && !get().orchestrationLoaded && (event.type === "agent_settled" || event.type === "message_start" || finalizedMessage?.role === "user")) void get().refreshOrchestration();
       if (event.type === "agent_settled" && sessionFile) hydration.retry(projectDir, sessionFile);
-      if (event.type === "agent_settled" && conv.runStartedAt !== null) {
+      if (event.type === "agent_settled") {
         set((state) => {
           const prompts = (state.extensionPromptsByProject[projectDir] ?? [])
             .filter((prompt) => prompt.sessionFile !== (sessionFile ?? null));
@@ -941,7 +942,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
       sessionFile ??= runtimeId ? runtime(get).bindings.get(runtimeId) : undefined;
       if (runtimeId) observeRuntime(get, projectDir, sessionFile, runtimeId);
       const submitting = coldSubmits.get(projectDir);
-      const failure: Partial<Conversation> = { error: message, errorRecovery: "restartPi", running: false, streaming: null, runStartedAt: null };
+      const failure: Partial<Conversation> = { error: message, errorRecovery: "restartPi", running: false, streaming: null, retry: null, runStartedAt: null };
       if (!sessionFile && runtimeId && submitting?.runtimeId === runtimeId && coldChatTokens.get(projectDir) !== submitting.token) {
         submitting.conversation = mergeConversation(submitting.conversation, failure);
         return;
@@ -952,6 +953,13 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
       const target = sessionFile ?? (runtimeId ? null : running?.sessionFile
         ?? (get().activeProjectPath === projectDir ? get().activeSessionFile : null));
       patchConversation(set, projectDir, target, failure);
+      set(state => {
+        const prompts = (state.extensionPromptsByProject[projectDir] ?? []).filter(prompt => prompt.sessionFile !== target);
+        return {
+          extensionPromptsByProject: { ...state.extensionPromptsByProject, [projectDir]: prompts },
+          ...(state.activeProjectPath === projectDir ? { extPrompts: prompts } : {}),
+        };
+      });
     },
 
     onSessionChangedExternally: ({ projectDir, sessionFile }) => {

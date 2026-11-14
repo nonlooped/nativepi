@@ -1,3 +1,6 @@
+import { ChatCircleIcon } from "@phosphor-icons/react/ChatCircle";
+import BrandIcon from "./BrandIcon.tsx";
+import { providerIconName } from "../lib/providerIcons.ts";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { LightningIcon } from "@phosphor-icons/react/Lightning";
 import { PuzzlePieceIcon } from "@phosphor-icons/react/PuzzlePiece";
@@ -10,6 +13,7 @@ import {
   linesAt,
   rankCommands,
   rankFiles,
+  rankReferences,
   rankSkills,
   type ExtensionCompletionOption,
   type Option,
@@ -67,6 +71,14 @@ export function useComposerAutocomplete(
   const { commands, skills, files, loading } = useCompletionData(projectPath, sessionFile, generation, open ? trigger.kind : null);
   const extension = useExtensionCompletions(projectPath, sessionFile, generation, open && trigger?.kind === "extension" ? line : null);
 
+  const models = useAppStore(s => s.models);
+  const [threads, setThreads] = useState<{ path: string; id: string; title: string; cwd: string }[]>([]);
+  useEffect(() => {
+    if (!open || trigger?.kind !== "file") return;
+    let active = true;
+    void rpc.request.listMentionThreads({}).then(result => { if (active) setThreads(result.threads); }, () => { if (active) setThreads([]); });
+    return () => { active = false; };
+  }, [open, trigger?.kind]);
   const options = !open
     ? EMPTY
     : trigger.kind === "command"
@@ -75,7 +87,7 @@ export function useComposerAutocomplete(
         ? rankSkills(skills, trigger.query)
         : trigger.kind === "extension"
           ? extension.options
-          : rankFiles(files, trigger.query);
+          : [...rankReferences(models, threads, trigger.query), ...rankFiles(files, trigger.query)].slice(0, 50);
 
   const sync = useCallback(
     (text: string, caret: number | null) => {
@@ -288,7 +300,7 @@ const EXTENSION_DEBOUNCE_MS = 120;
 const MENU_LABELS: Record<TriggerKind, { title: string; empty: string }> = {
   command: { title: "Commands", empty: "No matching command." },
   skill: { title: "Skills", empty: "No matching skill." },
-  file: { title: "Files and folders in this project", empty: "No matching file or folder." },
+  file: { title: "Files, models and threads", empty: "No matching file or folder." },
   extension: { title: "From an extension", empty: "No matching suggestion." },
 };
 
@@ -357,8 +369,9 @@ function Row({
     if (activeRow) ref.current?.scrollIntoView({ block: "nearest" });
   }, [activeRow]);
 
-  const Icon = option.kind === "command" ? TerminalIcon : option.kind === "extension" ? PuzzlePieceIcon : LightningIcon;
-  const nameOffset = option.value.length - option.label.length;
+  const referenceKind = option.value.startsWith("nativepi://model?") ? "model" : option.value.startsWith("nativepi://thread?") ? "thread" : null;
+  const Icon = referenceKind === "thread" ? ChatCircleIcon : option.kind === "command" ? TerminalIcon : option.kind === "extension" ? PuzzlePieceIcon : LightningIcon;
+  const nameOffset = referenceKind ? 0 : option.value.length - option.label.length;
   // What kind of thing runs, which is the only thing a command row can usefully
   // say about itself beyond its description: an extension command executes code,
   // a prompt or skill expands into text.
@@ -387,12 +400,15 @@ function Row({
         activeRow ? "bg-accent text-accent-foreground" : "text-foreground",
       )}
     >
-      {option.kind === "file" && option.dir ? (
+      {referenceKind === "model" ? (
+        <BrandIcon name={providerIconName(new URL(option.value).searchParams.get("provider") ?? "")} size={16}
+          className={cn("shrink-0", activeRow ? "text-foreground" : "text-muted-foreground")} />
+      ) : option.kind === "file" && option.dir ? (
         <FolderIcon
           className={cn("size-4 shrink-0", activeRow ? "text-foreground" : "text-muted-foreground")}
           weight="fill"
         />
-      ) : option.kind === "file" ? (
+      ) : option.kind === "file" && !referenceKind ? (
         <FileTypeIcon path={option.value} />
       ) : (
         <Icon className={cn("size-4 shrink-0", activeRow ? "text-foreground" : "text-muted-foreground")} weight="fill" />
@@ -402,7 +418,7 @@ function Row({
       </span>
       {option.detail ? (
         <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-          {option.kind === "file" ? (
+          {option.kind === "file" && !referenceKind ? (
             <Highlighted text={option.detail} positions={option.positions} offset={0} />
           ) : (
             option.detail

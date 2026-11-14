@@ -61,7 +61,7 @@ export const orchestrationOperations = {
   thread_stop: z.object(target), thread_finish: z.object(target), thread_delete: z.object(target),
 } as const;
 export type OrchestrationAction = keyof typeof orchestrationOperations;
-export const delegateSummarySchema = z.object({ startupError: z.string().optional(), status: assignmentStateSchema.optional(), available: z.boolean().optional(), roleUnavailable: z.boolean().optional(), ref: threadReferenceSchema, relationship: relationshipSchema.optional(), assignment: assignmentSchema.optional(), running: z.boolean() });
+export const delegateSummarySchema = z.object({ attention: z.enum(["input", "retrying", "failed", "interrupted", "running"]).optional(), startupError: z.string().optional(), status: assignmentStateSchema.optional(), available: z.boolean().optional(), roleUnavailable: z.boolean().optional(), ref: threadReferenceSchema, relationship: relationshipSchema.optional(), assignment: assignmentSchema.optional(), running: z.boolean() });
 export const threadSnapshotSchema = delegateSummarySchema.extend({ readMessageIds: z.array(z.string()), reports: z.array(orchestrationMessageSchema), inbox: z.array(orchestrationMessageSchema), pendingDelivery: z.array(orchestrationMessageSchema), delegates: z.array(delegateSummarySchema), busy: z.boolean() });
 export const orchestrationSnapshotSchema = z.object({ revision: z.number().int().nonnegative(), threads: z.array(threadSnapshotSchema) });
 export type OrchestrationSnapshot = z.infer<typeof orchestrationSnapshotSchema>;

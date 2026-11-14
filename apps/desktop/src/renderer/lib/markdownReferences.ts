@@ -4,6 +4,7 @@ import type { SkillInfo } from "../../shared/pi-types.ts";
 export type Reference =
   | { kind: "file"; path: string; label: string; folder: boolean; line?: number; column?: number }
   | { kind: "skill"; name: string; path?: string; description?: string }
+  | { kind: "model"; provider: string; id: string; label: string }
   | { kind: "web"; url: string; label: string }
   | { kind: "pull-request"; url: string; label: string }
   | { kind: "thread"; session: string; entry?: string };
@@ -16,10 +17,15 @@ export function threadHref(session: string, entry?: string): string {
 
 export function referenceFor(raw: string, skills: readonly SkillInfo[] = []): Reference | null {
   let value = raw.trim();
+  if (value.startsWith("@nativepi://")) value = value.slice(1);
   if (!value || /[\u0000-\u001f]/.test(value)) return null;
   if (/^nativepi:/i.test(value)) {
     try {
       const url = new URL(value);
+      if (url.hostname === "model" && !url.pathname.replace(/\//g, "")) {
+        const provider = url.searchParams.get("provider"), id = url.searchParams.get("id");
+        return provider && id ? { kind: "model", provider, id, label: `${provider}/${id}` } : null;
+      }
       const session = url.searchParams.get("session");
       return url.hostname === "thread" && !url.pathname.replace(/\//g, "") && session
         ? { kind: "thread", session, entry: url.searchParams.get("entry") || undefined } : null;
