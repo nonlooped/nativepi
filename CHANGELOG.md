@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Show relevant folder actions for each chat, including folder creation when none exist.
 - Reduce repeated Chat sidebar previews and refine folder spacing.
 - Align Chat sidebar spacing and activity indicators with the Work sidebar.
 - Make Markdown code and diagram-error block backgrounds transparent.

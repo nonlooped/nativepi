@@ -667,8 +667,9 @@ function ChatContents({ onClose, onOpenSearch, onOpenNewChat, overlay = false }:
           <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="absolute right-2 bottom-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Move ${chatTitle(session)}`} />}><FolderIcon /></DropdownMenuTrigger>
         </div>
         <DropdownMenuContent>
-          <DropdownMenuItem onClick={() => useAppStore.getState().moveToChatFolder(session.path, null)}>Move out of folder</DropdownMenuItem>
-          {folders.map(f => <DropdownMenuItem key={f.id} onClick={() => { useAppStore.getState().moveToChatFolder(session.path, f.id); if (collapsed.includes(f.id)) toggleFolder(f.id); }}><FolderIcon style={{ color: f.color }} />{f.name}</DropdownMenuItem>)}
+          {membership[session.path] && folders.some(f => f.id === membership[session.path]) ? <DropdownMenuItem onClick={() => useAppStore.getState().moveToChatFolder(session.path, null)}>Move out of folder</DropdownMenuItem> : null}
+          {folders.length === 0 ? <DropdownMenuItem onClick={() => setCreate(true)}><FolderPlusIcon /> Create folder</DropdownMenuItem> : null}
+          {folders.filter(f => f.id !== membership[session.path]).map(f => <DropdownMenuItem key={f.id} onClick={() => { useAppStore.getState().moveToChatFolder(session.path, f.id); if (collapsed.includes(f.id)) toggleFolder(f.id); }}><FolderIcon style={{ color: f.color }} />{f.name}</DropdownMenuItem>)}
         </DropdownMenuContent>
       </DropdownMenu>
     </SessionMenu>;
