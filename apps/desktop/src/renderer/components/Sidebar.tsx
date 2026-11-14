@@ -15,7 +15,6 @@ import { GearSixIcon } from "@phosphor-icons/react/GearSix";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
 import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
-import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import type { Project } from "../../shared/rpc-schema.ts";
 import type { SessionSummary } from "../../shared/pi-types.ts";
 import { useWorkProjects } from "../lib/workProjects.ts";
@@ -312,11 +311,10 @@ function WorkContents(props: SidebarProps) {
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3">
         {loading && pinned.length === 0 && focus.length === 0 ? (
-          <ChatHistoryState icon={<CircleNotchIcon className="animate-spin" />} title="Gathering your chats" detail="Reading Pi session history across your projects." />
+          <ChatHistoryState loading title="Gathering your chats" detail="Reading Pi session history across your projects." />
         ) : null}
         {failedProjects.length > 0 ? (
           <ChatHistoryState
-            icon={<WarningCircleIcon className="text-warning" weight="fill" />}
             title={`Could not read ${failedProjects.length === 1 ? failedProjects[0]!.name : `${failedProjects.length} projects`}`}
             detail="Retry to include their chats in this focus view."
             role="alert"
@@ -605,13 +603,13 @@ function ProjectActionsMenuItems({
 }
 
 function ChatHistoryState({
-  icon,
+  loading,
   title,
   detail,
   action,
   role,
 }: {
-  icon: ReactNode;
+  loading?: boolean;
   title: string;
   detail: string;
   action?: ReactNode;
@@ -619,9 +617,8 @@ function ChatHistoryState({
 }) {
   return (
     <div role={role ?? "status"} className="mt-1 flex flex-wrap items-start gap-2 rounded-lg border border-dashed border-sidebar-border px-2 py-2 text-xs">
-      <span className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden>{icon}</span>
       <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">
-        <span className="block font-medium text-foreground">{title}</span>
+        <span className="flex items-center gap-2 font-semibold text-foreground">{title}{loading ? <CircleNotchIcon aria-hidden className="size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:hidden" /> : null}</span>
         <span className="mt-0.5 block leading-relaxed text-muted-foreground">{detail}</span>
       </span>
       {action}

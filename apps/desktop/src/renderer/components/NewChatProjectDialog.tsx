@@ -102,7 +102,7 @@ export default function NewChatProjectDialog({
                 className="flex min-h-14 w-full shrink-0 cursor-default items-center gap-3 rounded-md px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
               >
                 {project.path === workRoot ? (
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground" aria-hidden="true">
+                  <span className="flex size-8 shrink-0 items-center justify-center text-muted-foreground" aria-hidden="true">
                     <DesktopIcon className="size-4" />
                   </span>
                 ) : (

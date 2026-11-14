@@ -1,7 +1,6 @@
 import StateNotice from "../StateNotice.tsx";
 import { useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
-import { ChartLineUpIcon } from "@phosphor-icons/react/ChartLineUp";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import type { UsageDashboard } from "../../../shared/pi-types.ts";
 import { useAppStore } from "../../lib/store.ts";
@@ -377,9 +376,6 @@ function EmptyUsage() {
   return (
     <div className="flex min-h-40 items-center justify-center px-4 py-8 text-center">
       <div className="flex max-w-sm flex-col items-center gap-3">
-        <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <ChartLineUpIcon />
-        </span>
         <h2 className="text-sm font-semibold">No billed usage yet</h2>
         <p className="text-sm leading-6 text-body-muted-foreground">
           Usage appears after Pi records a model cost in a session file. The data stays on this device.

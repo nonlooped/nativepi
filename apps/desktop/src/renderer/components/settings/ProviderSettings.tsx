@@ -157,7 +157,7 @@ function ProviderGroup({
                 }}
                 className="flex w-full items-center gap-3 rounded-md px-2 py-3 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
+                <span className="flex size-8 shrink-0 items-center justify-center text-foreground">
                   <BrandIcon
                     name={providerIconName(provider.id)}
                     size={19}

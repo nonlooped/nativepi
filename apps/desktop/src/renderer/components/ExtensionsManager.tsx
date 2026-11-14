@@ -56,7 +56,7 @@ function actionErrorMessage(error: unknown, fallback: string) {
 
 function PackageSourceIcon({ source }: { source: string }) {
   return (
-    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/40 text-muted-foreground" aria-hidden>
+    <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground" aria-hidden>
       {source.startsWith("npm:") ? (
         <span
           className="size-4 [&>svg]:size-full"
@@ -73,7 +73,7 @@ function PackageSourceIcon({ source }: { source: string }) {
 function LocalSourceIcon({ source }: { source: string }) {
   const isFile = /\.[cm]?[jt]sx?$/i.test(source);
   return (
-    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/40 text-muted-foreground" aria-hidden>
+    <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground" aria-hidden>
       {isFile ? <FileCodeIcon className="size-4" /> : <FolderIcon className="size-4" weight="fill" />}
     </span>
   );

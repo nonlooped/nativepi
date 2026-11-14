@@ -43,11 +43,8 @@ export default function ComposerAttachments() {
           as the composer being broken. */}
       {preparing > 0 && (
         <Attachment size="sm" state="processing" className="status-enter">
-          <AttachmentMedia>
-            <CircleNotchIcon className="animate-spin" />
-          </AttachmentMedia>
           <AttachmentContent>
-            <AttachmentTitle>Preparing images</AttachmentTitle>
+            <AttachmentTitle className="flex items-center gap-2">Preparing images<CircleNotchIcon aria-hidden className="size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:hidden" /></AttachmentTitle>
           </AttachmentContent>
         </Attachment>
       )}

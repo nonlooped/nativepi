@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Combobox } from "@base-ui/react/combobox";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
-import { ChatCircleDotsIcon } from "@phosphor-icons/react/ChatCircleDots";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { SpinnerGapIcon } from "@phosphor-icons/react/SpinnerGap";
 import type { SessionSearchResult } from "../../shared/pi-types.ts";
@@ -136,21 +135,19 @@ export default function ChatSearchDialog({
           <Combobox.List className="flex min-h-[min(12rem,25dvh)] max-h-[min(30rem,calc(var(--app-height,100dvh)-8rem))] flex-col gap-0.5 overflow-y-auto overscroll-contain p-3">
           {!query.trim() ? (
             <SearchState
-              icon={<MagnifyingGlassIcon />}
               title="Find a past chat"
               detail="Search by chat title or words you or Pi used."
             />
           ) : null}
           {query.trim() && loading ? (
             <SearchState
-              icon={<SpinnerGapIcon className="animate-spin" />}
+              loading
               title="Searching chats"
               detail="Looking through titles and messages."
             />
           ) : null}
           {query.trim() && !loading && failure ? (
             <SearchState
-              icon={<ChatCircleDotsIcon />}
               title="Search unavailable"
               detail="NativePi couldn't search chat history right now."
               action={
@@ -168,7 +165,6 @@ export default function ChatSearchDialog({
           ) : null}
           {query.trim() && !loading && !failure && results.length === 0 ? (
             <SearchState
-              icon={<ChatCircleDotsIcon />}
               title="No matching chats"
               detail="Try another title, phrase, or keyword."
             />
@@ -216,20 +212,19 @@ export default function ChatSearchDialog({
 }
 
 function SearchState({
-  icon,
+  loading,
   title,
   detail,
   action,
 }: {
-  icon: ReactNode;
+  loading?: boolean;
   title: string;
   detail: string;
   action?: ReactNode;
 }) {
   return (
     <div className="flex min-h-48 flex-col items-center justify-center gap-1 px-6 text-center">
-      <span className="mb-2 text-muted-foreground" aria-hidden="true">{icon}</span>
-      <p className="text-sm font-medium">{title}</p>
+      <p className="flex items-center gap-2 text-sm font-semibold">{title}{loading ? <SpinnerGapIcon aria-hidden className="size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:hidden" /> : null}</p>
       <p className="text-sm text-body-muted-foreground">{detail}</p>
       {action}
     </div>

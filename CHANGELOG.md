@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Changed
+- Make loading, error, empty, and search states title-first, removing decorative icon tiles across the app. Keep progress indicators small and inline, and show package types and provider logos without tile backgrounds.
 - Show provider logos for model mentions in the @ picker.
 - Simplify multi-hunk review with one file-level diff toolbar and add previous/next changed-file navigation within the staged or unstaged review.
 - Open search message results at their matching Pi entry with a temporary highlight, including deferred history and grouped assistant work; title matches also retain body results. Unavailable branch targets leave history unchanged.
