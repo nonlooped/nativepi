@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove the NativePi subagents, subscription usage, and throughput packages and subscription-limit settings. Third-party Pi extensions and local cost/token usage remain supported.
 
 ### Documentation
-- Trim the README to a short pitch, install and development quick start, and links to the guides; move retired-package upgrade notes to `docs/upgrade.md`. Workspace screenshots remain the isolated-demo captures.
+- Update the README for Chat and Work, built-in web access and HTML artifacts, source control, split terminals, customization, Pi compatibility, and current download options. Clarify local storage and Exa requests; keep retired-package upgrade notes in `docs/upgrade.md`. Workspace screenshots remain the isolated-demo captures.
 
 ### Fixed
 - Open saved chats at the latest user message and the start of its answer, keeping short exchanges together and preventing old jump-to-latest requests from overriding the opening position.
