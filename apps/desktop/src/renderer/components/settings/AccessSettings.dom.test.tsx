@@ -7,13 +7,22 @@ import { STOPPED_STATUS } from "./accessStatus.ts";
 
 const domTest = test.skipIf(typeof document === "undefined");
 
-domTest("Access action result stays visible when the initial status read arrives late", async () => {
+domTest("Access action result stays visible when a background status read arrives late", async () => {
   const { default: AccessSettings } = await import("./AccessSettings.tsx");
   let resolveRead!: (status: AccessStatus) => void;
   const calls: string[] = [];
+  let readCount = 0;
+  let refresh!: () => void;
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  globalThis.setInterval = ((callback: () => void) => { refresh = callback; return 1; }) as typeof setInterval;
+  globalThis.clearInterval = (() => {}) as typeof clearInterval;
   stubInvoke(async (channel) => {
     calls.push(channel);
-    if (channel === "accessStatus") return new Promise<AccessStatus>((done) => { resolveRead = done; });
+    if (channel === "accessStatus") {
+      if (++readCount === 1) return STOPPED_STATUS;
+      return new Promise<AccessStatus>((done) => { resolveRead = done; });
+    }
     if (channel === "startLocalAccess") return {
       ...STOPPED_STATUS,
       local: { running: true, link: "http://new-link", links: ["http://new-link"], clients: [] },
@@ -25,6 +34,7 @@ domTest("Access action result stays visible when the initial status read arrives
   const root = createRoot(container);
   try {
     await act(async () => { root.render(<AccessSettings />); });
+    await act(async () => { refresh(); });
     const start = [...container.querySelectorAll("button")].find((button) => button.textContent === "Start");
     expect(start).toBeDefined();
     await act(async () => { start!.click(); });
@@ -32,9 +42,11 @@ domTest("Access action result stays visible when the initial status read arrives
     await act(async () => { resolveRead(STOPPED_STATUS); });
     expect(container.textContent).toContain("Serving on your network");
     expect(container.querySelector("code")?.textContent).toBe("http://new-link");
-    expect(calls).toEqual(["accessStatus", "startLocalAccess"]);
+    expect(calls).toEqual(["accessStatus", "accessStatus", "startLocalAccess"]);
   } finally {
     await act(async () => { root.unmount(); });
     container.remove();
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
   }
 });
