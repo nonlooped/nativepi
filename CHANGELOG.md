@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Changed
+- Give active conversations a solid reading surface and keep the composer and user messages opaque, while preserving image backgrounds on new chats and Acrylic in the surrounding workspace.
 - Keep delegate activity at its spawn call in the transcript, with provider logos in the transcript and sidebar, live status and transcript navigation, instead of a list above the composer. Use a compact, non-editable composer surface in delegate chats.
 - Direct audit delegates to use the current directory and return reports in chat, with files only when requested. Discourage unnecessary worktrees, temporary report folders, and unmanaged shell-launched delegates.
 - Make Paper the default color scheme and rename the glass scheme to Acrylic, preserving saved scheme selections.

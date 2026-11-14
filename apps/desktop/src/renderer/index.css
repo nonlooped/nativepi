@@ -921,7 +921,8 @@ html[data-motion="reduced"] *::after {
 .app-viewport { isolation: isolate; }
 .chat-stage { position: relative; overflow: hidden; }
 
-.app-viewport:has(> .chat-landscape) .conversation-shell { background: transparent; }
+/* The welcome view keeps the landscape; an active thread gets a quiet page. */
+.app-viewport[data-chat-state="new"]:has(> .chat-landscape) .conversation-shell { background: transparent; }
 .app-viewport:has(> .chat-landscape) .sidebar-panel {
   background: color-mix(in srgb, var(--sidebar) 82%, transparent);
   backdrop-filter: blur(12px);
@@ -989,12 +990,6 @@ html[data-motion="reduced"] *::after {
     background: var(--sidebar);
     backdrop-filter: none;
   }
-  .app-viewport:has(> .chat-landscape) .composer-surface {
-    background: var(--card);
-  }
-  .app-viewport:has(> .chat-landscape) [data-slot="bubble"][data-variant="secondary"] > [data-slot="bubble-content"] {
-    background: var(--secondary);
-  }
 }
 
 /* Increased contrast: keep the grain, but quieter behind text. */
@@ -1025,13 +1020,13 @@ html[data-motion="reduced"] *::after {
 }
 
 .app-viewport:has(> .chat-landscape) .composer-surface {
-  background: color-mix(in srgb, var(--card) 88%, transparent);
+  background: var(--card);
   border-color: color-mix(in srgb, var(--foreground) 7%, transparent);
   box-shadow: 0 8px 40px -16px color-mix(in srgb, var(--foreground) 16%, transparent);
 }
 
 .app-viewport:has(> .chat-landscape) [data-slot="bubble"][data-variant="secondary"] > [data-slot="bubble-content"] {
-  background: color-mix(in srgb, var(--secondary) 78%, transparent);
+  background: var(--secondary);
 }
 
 .chat-background-swatch {
@@ -1245,15 +1240,21 @@ html[data-material="glass"] .app-viewport::before {
 html[data-material="glass"] :is(.conversation-shell, .chat-stage) {
   background: transparent;
 }
+/* Keep native material and dither in the chrome, outside the reading surface. */
+html[data-material="glass"] .app-viewport[data-chat-state="thread"] .conversation-shell {
+  background: var(--background);
+}
 html[data-material="glass"] :is(.sidebar-panel, .context-pane, .terminal-dock) {
   background: var(--sidebar);
   box-shadow: inset 0 1px var(--glass-edge);
 }
 html[data-material="glass"] .composer-surface {
-  background: var(--card);
+  background: var(--glass-surface);
   border-color: var(--border);
-  backdrop-filter: blur(24px) saturate(125%);
   box-shadow: inset 0 1px var(--glass-edge), 0 12px 36px -16px var(--glass-shadow);
+}
+html[data-material="glass"] [data-slot="bubble"][data-variant="secondary"] > [data-slot="bubble-content"] {
+  background: var(--glass-muted);
 }
 html[data-material="glass"] :is(
   [data-slot="dialog-content"], [data-slot="sheet-content"],
