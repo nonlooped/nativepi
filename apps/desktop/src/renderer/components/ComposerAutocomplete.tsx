@@ -171,33 +171,57 @@ interface CompletionLists {
 
 const NO_COMPLETIONS: CompletionLists = { commands: [], skills: [], files: [] };
 
+// Keep reads local to this editor/selection. Nothing survives a trust change,
+// navigation, or Pi restart; a reopened menu can reuse a read still in flight.
+const COMPLETION_TTL_MS = 30_000;
 function useCompletionData(projectPath: string | null, sessionFile: string | null, generation: number, kind: TriggerKind | null) {
-  const key = JSON.stringify([projectPath, sessionFile, generation, kind]);
-  const [state, setState] = useState<{ key: string; lists: CompletionLists; loading: boolean }>();
-  // Command discovery can start Pi, so it must wait for the trust decision.
   const awaitingTrust = useAppStore((s) => s.trust === null || s.trustPrompt !== null);
+  const trusted = useAppStore((s) => s.trust?.trusted);
+  const piStatus = useAppStore((s) => projectPath ? s.piStatus[projectPath] : undefined);
+  const key = JSON.stringify([projectPath, sessionFile, generation, awaitingTrust, trusted, piStatus]);
+  type ListKind = "commands" | "skills" | "files";
+  type Read = { promise: Promise<Partial<CompletionLists>>; expires: number };
+  const cache = useRef<{ key: string; reads: Map<ListKind, Read> }>({ key: "", reads: new Map() });
+  const [state, setState] = useState<{ key: string; lists: Partial<CompletionLists> }>();
 
   useEffect(() => {
-    if (!kind || kind === "extension" || !projectPath || (kind === "command" && awaitingTrust)) return;
+    if (!projectPath) return;
+    if (cache.current.key !== key) cache.current = { key, reads: new Map() };
+    const reads = cache.current.reads;
     let cancelled = false;
-    setState({ key, lists: NO_COMPLETIONS, loading: true });
-    const keep = (patch: Partial<CompletionLists>) => {
-      if (!cancelled) setState({ key, lists: { ...NO_COMPLETIONS, ...patch }, loading: false });
+    const load = (name: ListKind) => {
+      if (awaitingTrust && name !== "files") return;
+      let read = reads.get(name);
+      if (!read || read.expires <= Date.now()) {
+        const promise: Promise<Partial<CompletionLists>> = name === "commands"
+          ? rpc.request.listCommands({ projectDir: projectPath, sessionFile }).then(result => ({ commands: result.commands }))
+          : name === "skills"
+            ? rpc.request.listSkills({ projectDir: projectPath }).then(result => ({ skills: result.skills }))
+            : rpc.request.listProjectFiles({ projectDir: projectPath }).then(result => ({ files: result.files }));
+        read = { promise, expires: Infinity };
+        reads.set(name, read);
+        const pending = read;
+        void promise.then(() => { pending.expires = Date.now() + COMPLETION_TTL_MS; }, () => { reads.delete(name); });
+      }
+      void read.promise.then(patch => {
+        if (!cancelled) setState(current => ({ key, lists: { ...(current?.key === key ? current.lists : {}), ...patch } }));
+      }, () => {
+        if (!cancelled) setState(current => ({ key, lists: { ...(current?.key === key ? current.lists : {}), [name]: [] } }));
+      });
     };
-    const target = { projectDir: projectPath, sessionFile };
-    const request = kind === "command"
-      ? rpc.request.listCommands(target).then((result) => keep({ commands: result.commands }))
-      : kind === "skill"
-        ? rpc.request.listSkills({ projectDir: projectPath }).then((result) => keep({ skills: result.skills }))
-        : rpc.request.listProjectFiles({ projectDir: projectPath }).then((result) => keep({ files: result.files }));
-    void request.catch(() => keep({}));
-    return () => { cancelled = true; };
+    if (kind && kind !== "extension") load(kind === "command" ? "commands" : kind === "skill" ? "skills" : "files");
+    // Read-only discovery off the first keystroke's path. Never start Pi just
+    // to warm commands, and never resolve skills before the trust decision.
+    const timer = window.setTimeout(() => { load("files"); load("skills"); }, 200);
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, [awaitingTrust, key, kind, projectPath, sessionFile]);
 
-  const current = state?.key === key ? state : undefined;
+  const lists = state?.key === key ? state.lists : {};
+  const name = kind === "command" ? "commands" : kind === "skill" ? "skills" : "files";
   return {
-    ...(current?.lists ?? NO_COMPLETIONS),
-    loading: !!kind && kind !== "extension" && !!projectPath && (current?.loading ?? true),
+    ...NO_COMPLETIONS,
+    ...lists,
+    loading: !!kind && kind !== "extension" && !!projectPath && lists[name] === undefined,
   };
 }
 

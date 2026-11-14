@@ -82,3 +82,13 @@ test("skills rank by name and carry their description for the row", () => {
   expect(rankSkills(skills, "").map((s) => s.value)).toEqual(["release", "review"]);
   expect(rankSkills(skills, "rev")[0]).toMatchObject({ detail: "Review a diff", scope: "user" });
 });
+
+
+test("equal-sized file snapshots cannot share ranked results", () => {
+  const first = ["src/first.ts"];
+  const second = ["src/second.ts"];
+  expect(rankFiles(first, "").map(row => row.value)).toContain("src/first.ts");
+  expect(rankFiles(second, "").map(row => row.value)).toContain("src/second.ts");
+  expect(rankFiles(second, "").map(row => row.value)).not.toContain("src/first.ts");
+  expect(rankFiles(first, "")).toBe(rankFiles(first, ""));
+});

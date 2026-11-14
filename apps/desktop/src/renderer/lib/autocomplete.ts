@@ -293,28 +293,40 @@ function folderPaths(files: string[]): string[] {
  * makes `lib/st` find `src/lib/store.ts` — and the row then highlights across
  * the directories, so it shows why it matched.
  */
-const fileRankCache = new Map<string, FileOption[]>();
+// Arrays are immutable RPC snapshots. Identity prevents equal-sized projects
+// sharing results, and weak keys release old snapshots after navigation.
+interface FileRankIndex {
+  paths: { path: string; baseStart: number; base: string; depth: number; dir: boolean }[];
+  queries: Map<string, FileOption[]>;
+}
+const fileRankCache = new WeakMap<string[], FileRankIndex>();
 export function rankFiles(files: string[], query: string): FileOption[] {
   // A trailing slash is how people say "the folder", not a character in the name.
   const needle = query.replace(/\/+$/, "");
-  // Query cache — files array is stable per project (only refreshes on demand) and query
-  // changes per keystroke. Hit rate is high when backspacing.
-  const cacheKey = `${files.length}:${needle}`;
-  const cached = fileRankCache.get(cacheKey);
+  let index = fileRankCache.get(files);
+  if (!index) {
+    const prepare = (path: string, dir: boolean) => {
+      const baseStart = path.lastIndexOf("/") + 1;
+      return { path, baseStart, base: path.slice(baseStart), depth: path.split("/").length - 1, dir };
+    };
+    index = {
+      paths: [...files.map(path => prepare(path, false)), ...folderPaths(files).map(path => prepare(path, true))],
+      queries: new Map(),
+    };
+    fileRankCache.set(files, index);
+  }
+  const cached = index.queries.get(needle);
   if (cached) return cached;
   const scored: { option: FileOption; score: number }[] = [];
 
-  const consider = (path: string, dir: boolean) => {
-    const baseStart = path.lastIndexOf("/") + 1;
-    const base = path.slice(baseStart);
+  for (const { path, baseStart, base, depth, dir } of index.paths) {
     const byName = fuzzyMatch(base, needle);
     const match = byName
       ? { score: byName.score + 12, positions: byName.positions.map((position) => position + baseStart) }
       : fuzzyMatch(path, needle);
-    if (!match) return;
+    if (!match) continue;
     // Shallow paths win ties: the file at the top of a project is more often the
     // one meant than its namesake six directories down.
-    const depth = path.split("/").length - 1;
     scored.push({
       option: {
         kind: "file",
@@ -326,16 +338,13 @@ export function rankFiles(files: string[], query: string): FileOption[] {
       },
       score: match.score - depth,
     });
-  };
-
-  for (const file of files) consider(file, false);
-  for (const folder of folderPaths(files)) consider(folder, true);
+  }
 
   const result = scored
     .sort((a, b) => b.score - a.score || a.option.value.length - b.option.value.length || a.option.value.localeCompare(b.option.value))
     .slice(0, MAX_OPTIONS)
     .map((entry) => entry.option);
-  if (fileRankCache.size > 200) fileRankCache.clear();
-  fileRankCache.set(cacheKey, result);
+  if (index.queries.size >= 200) index.queries.clear();
+  index.queries.set(needle, result);
   return result;
 }

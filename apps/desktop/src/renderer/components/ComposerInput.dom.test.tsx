@@ -15,29 +15,101 @@ function mount() {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
-  useAppStore.setState({ activeProjectPath: "/project", activeSessionFile: "a", trust: { required: false, trusted: true }, trustPrompt: null, extTriggers: ["!"] });
+  useAppStore.setState({ activeProjectPath: "/project", activeSessionFile: "a", piStatus: {}, trust: { required: false, trusted: true }, trustPrompt: null, extTriggers: ["!"] });
 }
 afterEach(async () => { if (root) await act(async () => root!.unmount()); root = undefined; container?.remove(); });
 
 let menu!: ComposerAutocomplete;
 function MenuProbe() { menu = useComposerAutocomplete("/project", () => {}); return <p>{menu.loading ? "loading" : menu.options.map(option => option.value).join(",")}</p>; }
 
-domTest("closing and reopening a pending command menu starts a retained read for the exact session", async () => {
+domTest("closing and reopening shares the pending command read for the exact session", async () => {
   mount();
-  const replies: ((value: unknown) => void)[] = [];
+  let finish!: (value: unknown) => void;
   const targets: unknown[] = [];
-  stubInvoke(async (c, p) => c === "listCommands" ? (targets.push(p), new Promise(resolve => replies.push(resolve))) : {});
+  stubInvoke(async (c, p) => c === "listCommands" ? (targets.push(p), new Promise(resolve => { finish = resolve; })) : {});
   await act(async () => root!.render(<MenuProbe />));
   await act(async () => menu.sync("/", 1));
   await act(async () => menu.sync("", 0));
   await act(async () => menu.sync("/", 1));
-  expect(replies).toHaveLength(2);
-  await act(async () => replies[0]({ commands: [{ name: "obsolete", source: "extension" }] }));
-  expect(container.textContent).toBe("loading");
-  await act(async () => replies[1]({ commands: [{ name: "current", source: "extension" }] }));
+  expect(targets).toEqual([{ projectDir: "/project", sessionFile: "a" }]);
+  await act(async () => finish({ commands: [{ name: "current", source: "extension" }] }));
   expect(container.textContent).toContain("current");
-  expect(container.textContent).not.toContain("obsolete");
-  expect(targets).toEqual([{ projectDir: "/project", sessionFile: "a" }, { projectDir: "/project", sessionFile: "a" }]);
+  await act(async () => menu.sync("", 0));
+  await act(async () => menu.sync("/", 1));
+  expect(targets).toHaveLength(1);
+  expect(container.textContent).toContain("current");
+});
+
+domTest("idle discovery warms files and skills without starting command discovery", async () => {
+  mount();
+  const calls: string[] = [];
+  stubInvoke(async c => { calls.push(c); return c === "listProjectFiles" ? { files: ["warm.ts"] } : { skills: [{ name: "warm", description: "Warm", scope: "user" }] }; });
+  await act(async () => root!.render(<MenuProbe />));
+  await act(async () => delay(230));
+  expect(calls.sort()).toEqual(["listProjectFiles", "listSkills"]);
+  await act(async () => menu.sync("@", 1));
+  expect(menu.options[0]?.value).toBe("warm.ts");
+  await act(async () => menu.sync("$", 1));
+  expect(menu.options[0]?.value).toBe("warm");
+  expect(calls).toHaveLength(2);
+});
+
+domTest("commands remain session-scoped and late reads cannot replace the new selection", async () => {
+  mount();
+  const replies: ((value: unknown) => void)[] = [];
+  stubInvoke(async c => c === "listCommands" ? new Promise(resolve => replies.push(resolve)) : {});
+  await act(async () => root!.render(<MenuProbe />));
+  await act(async () => menu.sync("/", 1));
+  await act(async () => useAppStore.setState({ activeSessionFile: "b" }));
+  await act(async () => replies[1]({ commands: [{ name: "new", source: "extension" }] }));
+  await act(async () => replies[0]({ commands: [{ name: "old", source: "extension" }] }));
+  expect(menu.options.map(option => option.value)).toEqual(["new"]);
+});
+
+domTest("skill warming waits for trust and invalidates after the trust decision", async () => {
+  mount();
+  useAppStore.setState({ trust: null });
+  const calls: string[] = [];
+  stubInvoke(async c => { calls.push(c); return c === "listProjectFiles" ? { files: [] } : { skills: [] }; });
+  await act(async () => root!.render(<MenuProbe />));
+  await act(async () => delay(230));
+  expect(calls).toEqual(["listProjectFiles"]);
+  await act(async () => useAppStore.setState({ trust: { required: false, trusted: true } }));
+  await act(async () => delay(230));
+  expect(calls).toContain("listSkills");
+});
+
+domTest("expired lists stay visible while reopening refreshes them", async () => {
+  mount();
+  const now = Date.now;
+  let clock = now();
+  let finish!: (value: unknown) => void;
+  let calls = 0;
+  stubInvoke(async c => c === "listCommands" ? (++calls === 1 ? { commands: [{ name: "before", source: "extension" }] } : new Promise(resolve => { finish = resolve; })) : {});
+  Date.now = () => clock;
+  try {
+    await act(async () => root!.render(<MenuProbe />));
+    await act(async () => menu.sync("/", 1));
+    await act(async () => menu.sync("", 0));
+    clock += 31_000;
+    await act(async () => menu.sync("/", 1));
+    expect(calls).toBe(2);
+    expect(menu.loading).toBe(false);
+    expect(menu.options[0]?.value).toBe("before");
+    await act(async () => finish({ commands: [{ name: "after", source: "extension" }] }));
+    expect(menu.options[0]?.value).toBe("after");
+  } finally { Date.now = now; }
+});
+
+domTest("Pi restart discards cached commands", async () => {
+  mount();
+  let calls = 0;
+  stubInvoke(async c => c === "listCommands" ? { commands: [{ name: `command-${++calls}`, source: "extension" }] } : {});
+  await act(async () => root!.render(<MenuProbe />));
+  await act(async () => menu.sync("/", 1));
+  await act(async () => useAppStore.setState({ piStatus: { "/project": "exited" } }));
+  expect(calls).toBe(2);
+  expect(menu.options[0]?.value).toBe("command-2");
 });
 
 domTest("a failed command read can be retried immediately after reopening", async () => {
