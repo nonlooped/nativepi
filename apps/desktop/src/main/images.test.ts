@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, open, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { readProjectImage } from "./images.ts";
+import { readProjectImage, readProjectMedia } from "./images.ts";
 
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 
@@ -79,5 +79,26 @@ test("project icons are returned as image data URLs, including SVG and ICO", asy
       await writeFile(join(project, file), bytes);
       expect(await readProjectImage(project, file)).toBe(`data:${mime};base64,${bytes.toString("base64")}`);
     }
+  });
+});
+
+
+test("media previews accept bounded local video and audio without widening image attachment formats", async () => {
+  await withProject(async (project, dir) => {
+    for (const [name, mime] of [["clip.mp4", "video/mp4"], ["sound.mp3", "audio/mpeg"], ["clip.webm", "video/webm"]]) {
+      await writeFile(join(project, name), "preview");
+      expect(await readProjectMedia(project, name)).toBe(`data:${mime};base64,${Buffer.from("preview").toString("base64")}`);
+      await expect(readProjectImage(project, name)).rejects.toThrow("Unsupported image format");
+    }
+    await writeFile(join(dir, "outside.mp4"), "private");
+    await symlink(dir, join(project, "escape"), "junction");
+    for (const path of ["../outside.mp4", "escape/outside.mp4", "https://example.com/clip.mp4"]) {
+      await expect(readProjectMedia(project, path)).rejects.toThrow();
+    }
+    await writeFile(join(project, "active.html"), "<script/>");
+    await expect(readProjectMedia(project, "active.html")).rejects.toThrow("Unsupported");
+    const large = await open(join(project, "large.mp4"), "w");
+    try { await large.truncate(16 * 1024 * 1024 + 1); } finally { await large.close(); }
+    await expect(readProjectMedia(project, "large.mp4")).rejects.toThrow("too large");
   });
 });

@@ -37,6 +37,7 @@ export async function listSkills(projectDir: string): Promise<SkillInfo[]> {
     .filter((skill) => trusted || skill.sourceInfo.scope !== "project")
     .map((skill): SkillInfo => ({
       name: skill.name,
+      path: skill.filePath,
       description: skill.description,
       scope: skill.sourceInfo.scope === "project" ? "project" : "user",
     }))

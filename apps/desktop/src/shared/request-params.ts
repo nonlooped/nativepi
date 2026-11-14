@@ -43,7 +43,7 @@ export const requestParams = {
   openExternal: z.object({ url: z.string().url().max(32767).refine(value => /^(https?:|mailto:)/i.test(value)) }), listEditors: empty,
   openProjectIn: project.extend({ editorId: id }), openFileIn: file.extend({ editorId: id, line: z.number().int().positive().optional(), column: z.number().int().positive().optional() }),
   readProjectDiffPreview: file.extend({ mode: z.enum(["working", "staged"]) }),
-  readProjectImage: file, versions: empty, exportDiagnostics: z.object({ projectDir: path.optional() }),
+  readProjectImage: file, readProjectMedia: file, versions: empty, exportDiagnostics: z.object({ projectDir: path.optional() }),
   reportRendererError: z.object({ kind: z.enum(["error", "unhandledRejection"]), message: z.string().max(20000), stack: z.string().max(100000).optional() }),
   updateState: empty, checkForUpdate: empty, setUpdateChannel: z.object({ channel: updateChannelSchema }), installUpdate: empty,
   accessStatus: empty, startLocalAccess: empty, stopLocalAccess: empty, replaceAccessLink: empty, revokeAccess: empty, startRemoteAccess: empty, stopRemoteAccess: empty,

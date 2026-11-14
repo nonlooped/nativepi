@@ -1,3 +1,4 @@
+import { quoteMarkdown } from "../markdownReferences.ts";
 import { chipText } from "../composerText.ts";
 import { mentionPath } from "../drops.ts";
 import { createHydration } from "./hydration.ts";
@@ -235,6 +236,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
     activeSessionFile: null,
     isNewChat: false,
     selectionVersion: 0,
+    transcriptTarget: null,
     pinnedChats: [],
     finishedChats: {},
     focusedChats: [],
@@ -409,13 +411,9 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
       get().setDraft(current ? `${current}\n${text}` : text);
     },
 
-    quoteInReply: (text) => {
-      const quote = text
-        .trim()
-        .split(/\r?\n/)
-        .map((line) => `> ${line}`)
-        .join("\n");
-      if (quote) get().insertIntoComposer(`${quote}\n\n`);
+    quoteInReply: (text, source) => {
+      const quote = quoteMarkdown(text, source);
+      if (quote) get().insertIntoComposer(quote);
     },
 
     askAbout: (text) => {

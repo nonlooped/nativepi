@@ -161,6 +161,7 @@ export interface ChatSlice {
   activeSessionFile: string | null;
   isNewChat: boolean;
   selectionVersion: number;
+  transcriptTarget: { session: string; entry: string } | null;
   pinnedChats: string[];
   /** Chats the user has removed from the focus queue, keyed by completion time. */
   finishedChats: Record<string, string>;
@@ -196,7 +197,7 @@ export interface ChatSlice {
   newChatIn: (projectDir: string) => Promise<void>;
   importSession: (projectDir?: string, sourceFile?: string) => Promise<boolean>;
   setDraft: (text: string) => void;
-  quoteInReply: (text: string) => void;
+  quoteInReply: (text: string, source?: { session: string; entry: string }) => void;
   askAbout: (text: string) => void;
   insertIntoComposer: (text: string) => void;
   attach: (files: File[]) => Promise<void>;

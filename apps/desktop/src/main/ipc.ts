@@ -22,7 +22,7 @@ import { installPackage, listPackages, removePackage, updatePackage } from "./pa
 import { listSkills } from "./skills.ts";
 import { readProjectDirectory, watchProjectDirectory } from "./fileExplorer.ts";
 import { listProjectFiles } from "./files.ts";
-import { prepareImages, readProjectImage } from "./images.ts";
+import { prepareImages, readProjectImage, readProjectMedia } from "./images.ts";
 import { loadGraphicalExtensions } from "./extensions.ts";
 import { fileManagerName, listInstalledEditors, openFileIn, openProjectIn } from "./editors.ts";
 import { liveSettingsFor, piPaths, queuePiSettings, readPiSettings, writePiSettings } from "./piSettings.ts";
@@ -1229,6 +1229,15 @@ const handlers: HandlerMap = {
     try {
       const { projectDir, file } = requestParams.readProjectImage.parse(params);
       return { src: await readProjectImage(projectDir, file) };
+    }
+    catch (err) {
+      return { error: errorMessage(err) };
+    }
+  },
+  readProjectMedia: async (params) => {
+    try {
+      const { projectDir, file } = requestParams.readProjectMedia.parse(params);
+      return { src: await readProjectMedia(projectDir, file) };
     }
     catch (err) {
       return { error: errorMessage(err) };

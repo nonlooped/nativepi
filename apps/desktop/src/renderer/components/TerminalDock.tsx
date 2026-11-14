@@ -1,3 +1,4 @@
+import { terminalSelectionMarkdown } from "../lib/markdownReferences.ts";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
@@ -552,6 +553,10 @@ function TerminalSurface({
         onContextMenuCapture={() => setSelection(terminalRef.current?.getSelection() ?? "")}
       />
       <ContextMenuContent className="w-48">
+        <ContextMenuItem disabled={!selection} onClick={() => {
+          const position = terminalRef.current?.getSelectionPosition();
+          useAppStore.getState().insertIntoComposer(terminalSelectionMarkdown(selection, session.name || "Terminal", position ? position.start.y + 1 : undefined, position ? position.end.y + 1 : undefined));
+        }}>Add selection to reply</ContextMenuItem>
         <ContextMenuItem disabled={!selection} onClick={() => void navigator.clipboard.writeText(selection).then(() => terminalRef.current?.clearSelection())}>
           Copy
         </ContextMenuItem>

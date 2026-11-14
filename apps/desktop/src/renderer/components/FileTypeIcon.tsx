@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils.ts";
  * path only ever selects an entry; it is never interpolated into the markup.
  */
 export default function FileTypeIcon({ path, size = 16, className, folder = false, expanded = false }: { path: string; size?: number; className?: string; folder?: boolean; expanded?: boolean }) {
-  const catalog = useSyncExternalStore(subscribeFileIcons, fileIconCatalog);
+  const catalog = useSyncExternalStore(subscribeFileIcons, fileIconCatalog, fileIconCatalog);
   return (
     <span
       aria-hidden

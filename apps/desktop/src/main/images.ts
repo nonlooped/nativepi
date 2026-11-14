@@ -27,7 +27,16 @@ const MAX_BASE64_BYTES = 4.5 * 1024 * 1024;
 /** Past this, decoding to resize costs more than the image can possibly be worth. */
 const MAX_INPUT_BASE64_BYTES = 48 * 1024 * 1024;
 
-export async function readProjectImage(projectDir: string, file: string): Promise<string> {
+export function readProjectImage(projectDir: string, file: string): Promise<string> {
+  return readProjectAsset(projectDir, file, false);
+}
+
+/** Transcript previews use the same containment and bounded-read rules as images. */
+export function readProjectMedia(projectDir: string, file: string): Promise<string> {
+  return readProjectAsset(projectDir, file, true);
+}
+
+async function readProjectAsset(projectDir: string, file: string, media: boolean): Promise<string> {
   if (/^[a-z][a-z\d+.-]*:/i.test(file) && !/^[a-z]:[\\/]/i.test(file)) {
     const url = new URL(file);
     if (url.protocol !== "file:" || (url.hostname && url.hostname !== "localhost")) {
@@ -43,6 +52,8 @@ export async function readProjectImage(projectDir: string, file: string): Promis
     throw new Error("Image must be inside the project.");
   }
   const mimeType = ({
+    ...(media ? { ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".ogv": "video/ogg",
+      ".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg", ".m4a": "audio/mp4", ".flac": "audio/flac" } : {}),
     ".svg": "image/svg+xml", ".ico": "image/x-icon",
     ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp",
   } as Record<string, string>)[extname(target).toLowerCase()];

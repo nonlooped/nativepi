@@ -21,8 +21,9 @@ import { formatDuration, formatElapsed, pluralize } from "../lib/format.ts";
 import { useReducedMotion } from "../lib/motion.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { projectRelativePath } from "../lib/paths.ts";
-import { CHIP_CLASS } from "../lib/composerDom.ts";
-import { fileIconSvg } from "../lib/fileIcons.ts";
+import { threadHref } from "../lib/markdownReferences.ts";
+import { TranscriptReferenceProvider } from "./TranscriptReferences.tsx";
+import { ImageIcon } from "@phosphor-icons/react/Image";
 import { Button } from "@/components/ui/button.tsx";
 import {
   MessageScroller,
@@ -58,13 +59,24 @@ const DiffView = lazy(() => import("./DiffView.tsx"));
 export default function Transcript() {
   return (
     <MessageScrollerProvider autoScroll>
-      <TranscriptContent />
+      <TranscriptReferenceProvider><TranscriptContent /></TranscriptReferenceProvider>
     </MessageScrollerProvider>
   );
 }
 
 function TranscriptContent() {
   const entries = useAppStore((s) => activeConversation(s).entries);
+  const transcriptTarget = useAppStore(s => s.transcriptTarget);
+  useEffect(() => {
+    if (!transcriptTarget || useAppStore.getState().activeSessionFile !== transcriptTarget.session) return;
+    const target = document.getElementById(`entry-${transcriptTarget.entry}`);
+    if (target) {
+      target.scrollIntoView({ block: "center" });
+    } else {
+      toast.message("This response is not on the current chat branch.");
+    }
+    useAppStore.setState({ transcriptTarget: null });
+  }, [transcriptTarget, entries]);
   const streaming = useAppStore((s) => activeConversation(s).streaming);
   const pending = useAppStore((s) => activeConversation(s).pending);
   const running = useAppStore((s) => activeConversation(s).running);
@@ -159,6 +171,7 @@ function TranscriptContent() {
               // tool panels the user had opened while watching it run.
               <MessageScrollerItem key={`response:${index}`} scrollAnchor>
                 <AssistantResponse
+                  entryId={item.id}
                   messages={item.messages}
                   results={results}
                   startedAt={item.startedAt}
@@ -293,47 +306,14 @@ function CustomEntry({ entry }: { entry: SessionEntry }) {
   return <ExtensionEntry entry={entry} />;
 }
 
-function PromptSkillChip({ skill }: { skill: string }) {
-  return (
-    <span className={CHIP_CLASS.skill} title={`Skill: ${skill}`} aria-label={`Skill: ${skill}`}>
-      <svg viewBox="0 0 16 16" aria-hidden="true" className="size-3 shrink-0">
-        <path fill="currentColor" d="M9.6 1 3 8.6h3.6L6 15l6.6-7.6H9L9.6 1Z" />
-      </svg>
-      {skill}
-    </span>
-  );
-}
-
-function PromptFileChip({ file }: { file: string }) {
-  const icon = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    let current = true;
-    icon.current?.replaceChildren();
-    void fileIconSvg(file).then((svg) => {
-      if (current && icon.current) icon.current.innerHTML = svg;
-    });
-    return () => {
-      current = false;
-    };
-  }, [file]);
-
-  return (
-    <span className={CHIP_CLASS.file} title={file} aria-label={`File: ${file}`}>
-      <span ref={icon} aria-hidden="true" className="inline-flex size-4 shrink-0 select-none [&>svg]:size-full" />
-      {fileName(file)}
-    </span>
-  );
-}
-
 function UserBubble({
   entryId,
   text,
-  skills = [],
-  files = [],
-  images = [],
+  skills: providedSkills,
+  files: providedFiles,
+  images: providedImages,
   timestamp,
-  pending = false,
+  pending: isPending,
 }: {
   entryId?: string;
   text: string;
@@ -344,27 +324,29 @@ function UserBubble({
   timestamp?: string;
   pending?: boolean;
 }) {
+  const skills = providedSkills ?? [];
+  const files = providedFiles ?? [];
+  const images = providedImages ?? [];
+  const pending = isPending ?? false;
   const sessionFile = useAppStore((s) => s.activeSessionFile);
   const running = useAppStore((s) => activeConversation(s).running);
   const forkChat = useAppStore((s) => s.forkChat);
   const quoteInReply = useAppStore((s) => s.quoteInReply);
   const article = (
-    <article className="group/message flex flex-col items-end py-1" aria-busy={pending || undefined}>
+    <article id={entryId ? `entry-${entryId}` : undefined} className="group/message flex flex-col items-end py-1" aria-busy={pending || undefined}>
       <span className="sr-only">You{pending ? " (sending)" : ""}:</span>
       <Message align="end" className="justify-end">
       <Bubble variant="secondary" align="end" className={cn("max-w-[85%]", pending && "opacity-60")}>
         <BubbleContent className="rounded-2xl rounded-br-md px-4 py-3 text-reading ring-1 ring-inset ring-foreground/[0.08]">
-          {skills.length > 0 || files.length > 0 ? (
-          <div className={cn("flex flex-wrap justify-end gap-1.5", (images.length > 0 || text) && "pb-2")}>
-            {skills.map((skill) => <PromptSkillChip key={skill} skill={skill} />)}
-            {files.map((file) => <PromptFileChip key={file} file={file} />)}
-          </div>
-          ) : null}
-          {text ? <Markdown>{text}</Markdown> : null}
+          {text || skills.length || files.length ? <Markdown>{[
+            [...skills.map(skill => `/skill:${skill}`),
+              ...files.map(file => /\s/.test(file) ? `@"${file}"` : `@${file}`)].join(" "),
+            text,
+          ].filter(Boolean).join("\n\n")}</Markdown> : null}
           {images.length > 0 ? (
           // Keep attachments recognisable without letting them compete with the
           // message itself. The full image remains available from its menu.
-          <div className={cn("flex flex-wrap justify-end gap-2", text && "pt-2")}>
+          <div className={cn("flex flex-wrap gap-1.5", text && "pt-1")}>
             {images.map((image, index) => (
               <TranscriptImage
                 key={index}
@@ -399,7 +381,7 @@ function UserBubble({
           >
             Fork from this message
           </ContextMenuItem>
-          <ContextMenuItem onClick={() => quoteInReply(text)}>Quote in reply</ContextMenuItem>
+          <ContextMenuItem onClick={() => quoteInReply(text, entryId && sessionFile ? { session: sessionFile, entry: entryId } : undefined)}>Quote in reply</ContextMenuItem>
         </>
       }
     >
@@ -409,18 +391,23 @@ function UserBubble({
 }
 
 function AssistantResponse({
+  entryId,
   messages,
   results,
   startedAt,
   finishedAt,
-  streaming = false,
+  streaming: isStreaming,
 }: {
+  entryId: string;
   messages: AssistantMessage[];
   results: Map<string, ToolResultMessage>;
   startedAt?: string;
   finishedAt?: string;
   streaming?: boolean;
 }) {
+  const streaming = isStreaming ?? false;
+  const session = useAppStore(s => s.activeSessionFile);
+  const source = session && entryId !== "streaming-response" ? { session, entry: entryId } : undefined;
   const lastMessage = messages.at(-1);
   const finalMessage = lastMessage?.content.some((block) => block.type === "toolCall") ? undefined : lastMessage;
   const work = messages.flatMap((message) =>
@@ -473,7 +460,7 @@ function AssistantResponse({
   }
 
   const article = (
-    <article ref={responseRef} className="group/message flex flex-col gap-3 text-reading" aria-busy={streaming || undefined}>
+    <article id={`entry-${entryId}`} ref={responseRef} className="group/message flex flex-col gap-3 text-reading" aria-busy={streaming || undefined}>
       <span className="sr-only">Assistant:</span>
       {work.length > 0 ? (
         <Collapsible.Root
@@ -544,8 +531,11 @@ function AssistantResponse({
   );
   return (
     <TranscriptContextMenu
+      source={source}
       items={
         <>
+          <ContextMenuItem disabled={!finalText} onClick={() => useAppStore.getState().quoteInReply(finalText, source)}>Reply to response</ContextMenuItem>
+          <ContextMenuItem disabled={!source} onClick={() => source && void navigator.clipboard.writeText(threadHref(source.session, source.entry))}>Copy link to response</ContextMenuItem>
           <ContextMenuItem onClick={() => void navigator.clipboard.writeText(finalText)} disabled={!finalText}>
             Copy response as Markdown
           </ContextMenuItem>
@@ -810,7 +800,7 @@ function wrapToolMenu(
   );
 }
 
-function TranscriptContextMenu({ children, items }: { children: ReactElement; items?: ReactNode }) {
+function TranscriptContextMenu({ children, items, source }: { children: ReactElement; items?: ReactNode; source?: { session: string; entry: string } }) {
   const quoteInReply = useAppStore((s) => s.quoteInReply);
   const askAbout = useAppStore((s) => s.askAbout);
   const insertIntoComposer = useAppStore((s) => s.insertIntoComposer);
@@ -830,7 +820,7 @@ function TranscriptContextMenu({ children, items }: { children: ReactElement; it
         {selection ? (
           <>
             <ContextMenuItem onClick={() => void navigator.clipboard.writeText(selection)}>Copy</ContextMenuItem>
-            <ContextMenuItem onClick={() => quoteInReply(selection)}>Quote in reply</ContextMenuItem>
+            <ContextMenuItem onClick={() => quoteInReply(selection, source)}>Quote in reply</ContextMenuItem>
             <ContextMenuItem onClick={() => askAbout(selection)}>Ask Pi about this</ContextMenuItem>
             <ContextMenuSeparator />
           </>
@@ -868,7 +858,9 @@ function TranscriptImage({ image, name }: { image: { mimeType: string; data: str
           </>
         }
       >
-        <img src={src} alt={name} className="h-16 w-auto max-w-32 rounded-md object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
+        <button type="button" className="transcript-reference" onClick={() => setPreview(true)} title={name}>
+          <ImageIcon /><span>{name}</span>
+        </button>
       </TranscriptContextMenu>
       <Dialog open={preview} onOpenChange={setPreview}>
         <DialogContent className="max-w-[90vw] p-3">

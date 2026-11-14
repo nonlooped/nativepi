@@ -1097,3 +1097,31 @@ html[data-motion="reduced"] *::after {
 @container conversation (max-width: 480px) {
   .new-chat-scroll { padding-inline: 1rem; }
 }
+
+/* References belong to the sentence: one baseline, quiet ink, no card chrome. */
+.transcript-reference,
+.markdown a.transcript-reference {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.06em 0.3em;
+  border-radius: 0.3rem;
+  background: color-mix(in oklch, var(--foreground) 5%, transparent);
+  color: var(--body-muted-foreground);
+  font-family: var(--font-sans);
+  font-size: 0.9em;
+  font-weight: 500;
+  line-height: 1.4;
+  vertical-align: baseline;
+  text-decoration: none;
+  cursor: pointer;
+}
+.transcript-reference > svg { width: 0.95em; height: 0.95em; flex-shrink: 0; }
+.transcript-reference > span { min-width: 0; max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.transcript-reference:hover { background: color-mix(in oklch, var(--foreground) 9%, transparent); color: var(--foreground); }
+.transcript-reference:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.transcript-context { margin-block: 0.4rem; }
+.transcript-context-preview pre { max-height: 24rem; overflow: auto; white-space: pre-wrap; }
+.transcript-context-preview .markdown { font-size: var(--text-sm); }
+.transcript-context-preview .markdown p { margin-block: 0.5rem; }

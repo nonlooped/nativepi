@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Render files, folders, source locations, skills, web links, pull requests, and chat references as compact transcript chips; expand quoted responses, source-linked replies, terminal selections, and on-demand image, video, and audio previews inline.
 - Start Work chats with “No project” for general device tasks, with normal Pi tools and a dedicated working directory.
 - Separate Chat and Work destinations. Chat opens without a project, keeps conversations in persistent colored, collapsible folders, and supports creating and moving chats within folders. Deleting a folder confirms permanent deletion of its chats.
 - A conversational Pi profile with read-only exploration and diagnostic shell instructions, plus whole-extension opt-ins in Settings → General. Work retains the existing project workflow.

@@ -792,6 +792,16 @@ export type HostRequestContracts = {
       error?: string;
     };
   };
+  readProjectMedia: {
+    params: {
+      projectDir: string;
+      file: string;
+    };
+    response: {
+      src?: string;
+      error?: string;
+    };
+  };
   versions: {
     params: Record<string, never>;
     response: {
