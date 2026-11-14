@@ -101,3 +101,9 @@ test("permission granted asynchronously delivers the original task", async () =>
   finish(); await Promise.resolve();
   expect(notices[0]?.title).toBe("Fix login");
 });
+
+test("Pi assistant errors identify a failed turn without a separate UI error", () => {
+  const { finish } = fixture();
+  finish({ entries: [{ type: "message", id: "failed", parentId: null, timestamp: "2026-11-15T00:00:00Z", message: { role: "assistant", content: [], stopReason: "error" } }] });
+  expect(notices[0]?.options.body).toContain("Failed");
+});

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { isAssistant } from "../../shared/messages.ts";
 import { formatElapsed } from "./format.ts";
 import { useAppStore } from "./store.ts";
 
@@ -25,7 +26,9 @@ export function subscribeTurnCompletion(store: CompletionStore = useAppStore): (
       const project = projectDir === state.chatRoot ? "Chat" : projectDir === state.workRoot ? "No project"
         : state.projects.find(project => project.path === projectDir)?.name || projectDir.split(/[\\/]/).filter(Boolean).at(-1) || projectDir;
       const elapsed = previous.startedAt ? formatElapsed(Date.now() - previous.startedAt) : "";
-      const outcome = chat.error ? "Failed" : "Finished";
+      const lastAssistant = chat.entries.findLast(entry => entry.type === "message" && isAssistant(entry.message));
+      const failed = lastAssistant?.type === "message" && isAssistant(lastAssistant.message) && lastAssistant.message.stopReason === "error";
+      const outcome = chat.error || failed ? "Failed" : "Finished";
       const body = `${project} · ${outcome}${elapsed ? ` in ${elapsed}` : ""}`;
       const deliver = () => {
         if (disposed || !store.getState().preferences.notifyOnTurnEnd) return;
