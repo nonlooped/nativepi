@@ -1,5 +1,5 @@
 import { createReadStream, existsSync, watch, type FSWatcher } from "node:fs";
-import { open, readFile, rm, stat } from "node:fs/promises";
+import { open, readFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { z } from "zod";
@@ -42,6 +42,46 @@ const sidebarFieldsCache = new Map<string, {
   };
 }>();
 const sessionListCache = new Map<string, Promise<SessionSummary[]>>();
+const completedLists = new Map<string, { directory: string; revision: string; sessions: SessionSummary[]; bytes: number }>();
+async function listingRevision(directory: string) {
+  // Include empty and malformed files too: an append can make either visible
+  // without changing the directory mtime. Pi still discovers/parses sessions.
+  const names = await readdir(directory).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  });
+  const files = names.filter(name => name.endsWith(".jsonl")).sort();
+  const revisions: string[] = [];
+  for (let i = 0; i < files.length; i += 10) {
+    revisions.push(...await Promise.all(files.slice(i, i + 10).map(async name => {
+      const value = await stat(path.join(directory, name)).catch(() => undefined);
+      return `${name}:${value ? `${value.dev}:${value.ino}:${value.size}:${value.mtimeMs}:${value.ctimeMs}` : "missing"}`;
+    })));
+  }
+  return { value: JSON.stringify(revisions), files: files.length };
+}
+async function validatedSessionList(projectDir: string): Promise<SessionSummary[]> {
+  const cached = completedLists.get(projectDir);
+  const directory = cached?.directory ?? SessionManager.create(projectDir).getSessionDir();
+  const before = await listingRevision(directory);
+  if (cached?.revision === before.value) return cached.sessions;
+  const { sessions, parsedFiles } = await listSessionsUncached(projectDir);
+  const after = await listingRevision(directory);
+  // Never certify a scan assembled while another process was writing.
+  // Pi skips unreadable/malformed files. Do not make a partial discovery sticky
+  // if a transient read failure recovers without a change to file metadata.
+  if (before.value === after.value && parsedFiles === after.files) {
+    const bytes = sessions.reduce((size, session) => size + 512 + 2 * (session.path.length + session.id.length
+      + (session.name?.length ?? 0) + session.firstMessage.length + session.lastPrompt.length
+      + session.providers.join("").length), 0);
+    completedLists.delete(projectDir);
+    if (bytes <= 8 * 1024 * 1024) completedLists.set(projectDir, { directory, revision: after.value, sessions, bytes });
+    while (completedLists.size > 50 || [...completedLists.values()].reduce((sum, value) => sum + value.bytes, 0) > 8 * 1024 * 1024) {
+      completedLists.delete(completedLists.keys().next().value!);
+    }
+  }
+  return sessions;
+}
 async function sessionSidebarFields(sessionFile: string): Promise<{
   lastPrompt: string;
   providers: string[];
@@ -114,7 +154,7 @@ export function listSessions(projectDir: string): Promise<SessionSummary[]> {
   const cached = sessionListCache.get(projectDir);
   if (cached)
     return cached;
-  const listing = listSessionsUncached(projectDir);
+  const listing = validatedSessionList(projectDir);
   sessionListCache.set(projectDir, listing);
   const release = () => {
     if (sessionListCache.get(projectDir) === listing)
@@ -124,7 +164,7 @@ export function listSessions(projectDir: string): Promise<SessionSummary[]> {
   return listing;
 }
 function safeSessionDate(value: Date, fallback: number): string { return Number.isFinite(value.getTime()) ? value.toISOString() : new Date(fallback).toISOString(); }
-async function listSessionsUncached(projectDir: string): Promise<SessionSummary[]> {
+async function listSessionsUncached(projectDir: string) {
   const sessions = await SessionManager.list(projectDir);
   const filtered = sessions.filter((session) => session.messageCount > 0);
   // Process with limited concurrency so 200 files do not open at once (EMFILE)
@@ -150,7 +190,7 @@ async function listSessionsUncached(projectDir: string): Promise<SessionSummary[
     }));
     results.push(...mapped);
   }
-  return results;
+  return { sessions: results, parsedFiles: sessions.length };
 }
 export async function searchSessions(projectDirs: string[], rawQuery: string, signal?: AbortSignal): Promise<SessionSearchResult[]> {
   const query = rawQuery.trim().toLocaleLowerCase();
@@ -408,6 +448,7 @@ export async function deleteSession(projectDir: string, sessionFile: string): Pr
   }
   await rm(resolved, { force: true });
   sessionListCache.delete(projectDir);
+  completedLists.delete(projectDir);
   sidebarFieldsCache.delete(resolved);
   sidebarFieldsCache.delete(sessionFile);
 }
@@ -438,6 +479,7 @@ export function watchProjectSessions(projectDir: string, onChange: (sessionFile?
         if (watchingSessions || existsSync(sessionDir)) {
           const changedSession = watchingSessions && filename ? path.join(sessionDir, filename.toString()) : undefined;
           sessionListCache.delete(projectDir);
+          completedLists.delete(projectDir);
           onChange(changedSession);
         }
       });
@@ -453,6 +495,7 @@ export function watchProjectSessions(projectDir: string, onChange: (sessionFile?
     stopped = true;
     watcher?.close();
     sessionListCache.delete(projectDir);
+    completedLists.delete(projectDir);
   };
 }
 export async function sessionMtime(sessionFile: string): Promise<number> {

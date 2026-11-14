@@ -259,6 +259,8 @@ export interface GitStatus {
   files: GitChangedFile[];
   insertions: number;
   deletions: number;
+  /** Some untracked files were too large to count within the status budget. */
+  lineCountsIncomplete?: boolean;
 }
 export interface GitCommit {
   hash: string;

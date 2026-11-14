@@ -116,6 +116,8 @@ firstSettled.release.resolve();
 assert.equal((await request("readSessionSnapshot", a)).consistency, "stable");
 now += 10_000;
 await request("ensurePi", b);
+// Idle shutdown runs in the background so disposal hooks cannot delay B.
+if (!first.killed) await new Promise(resolve => first.once("close", resolve));
 assert.equal(first.killed, true, "a settled process can still be reclaimed");
 assert.equal(second.killed, false);
 
@@ -126,6 +128,7 @@ assert.equal(handled.model, "claude-sonnet");
 assert.equal(handled.thinkingLevel, "high", "submit must apply the selected thinking level before prompting");
 now += 10_000;
 await request("ensurePi", b);
+if (!handled.killed) await new Promise(resolve => handled.once("close", resolve));
 assert.equal(handled.killed, true, "handled commands must not stay busy forever");
 const secondSettled = gateStat(b.sessionFile);
 second.event("agent_settled");

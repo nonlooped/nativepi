@@ -163,6 +163,114 @@ async function session(name: string) {
   await writeFile(file, JSON.stringify({ type: "session", id: name, cwd: root }) + "\n");
   return { projectDir: root, sessionFile: file };
 }
+test("idle reclamation releases old projects while protecting viewers, extension work and prompts", async () => {
+  const originalInterval = globalThis.setInterval;
+  let sweep: (() => void) | undefined;
+  const intervals = spyOn(globalThis, "setInterval").mockImplementation(((callback: () => void, ms: number) => {
+    if (ms === 30_000) sweep = callback;
+    return originalInterval(callback, ms);
+  }) as typeof setInterval);
+  let now = Date.now();
+  const clock = spyOn(Date, "now").mockImplementation(() => now);
+  const client = new HostClient();
+  const viewer = new HostClient();
+  const created: FakePi[] = [];
+  const targets: { projectDir: string; sessionFile: string }[] = [];
+  try {
+    for (let i = 0; i < 4; i++) {
+      const target = { projectDir: join(root, `idle-project-${i}`), sessionFile: join(root, `idle-chat-${i}.jsonl`) };
+      targets.push(target);
+      await writeFile(target.sessionFile, JSON.stringify({ type: "session", id: `idle-${i}`, cwd: target.projectDir }) + "\n");
+      await request("watchSession", target, client);
+      expect(await request("ensurePi", target, client)).toEqual({ ok: true });
+      created.push(processes.at(-1)!);
+      if (i === 0) created[0]!.event({ type: "extension_ui_request", method: "setStatus", statusKey: "subagents", statusText: "1 running" });
+      if (i === 1) await request("watchSession", target, viewer);
+      if (i === 2) created[2]!.event({ type: "extension_ui_request", id: "pending", method: "confirm" });
+      now += 60_000;
+    }
+    expect(created.every(pi => !pi.stopped)).toBe(true);
+    created[0]!.event({ type: "extension_ui_request", method: "setStatus", statusKey: "subagents" });
+    created[0]!.frame({ type: "nativepi_tui_open", surface: { id: "background-widget", key: "activity", placement: "aboveEditor" } });
+    await request("extensionRespond", { ...targets[2]!, response: { type: "extension_ui_response", id: "pending", confirmed: true } }, client);
+    now += 60_000;
+    expect(sweep).toBeDefined();
+    sweep!();
+    await Promise.resolve();
+    expect(created.map(pi => pi.stopped)).toEqual([false, false, true, false]);
+    created[0]!.frame({ type: "nativepi_tui_close", surfaceId: "background-widget" });
+    viewer.dispose();
+    now += 60_000;
+    sweep!();
+    await Promise.resolve();
+    expect(created[1]!.stopped).toBe(true);
+    expect(created[0]!.stopped).toBe(true);
+    expect(created[3]!.stopped).toBe(false);
+  } finally { intervals.mockRestore(); clock.mockRestore(); client.dispose(); viewer.dispose(); }
+});
+
+test("slow idle disposal does not block a new chat and reacquiring it waits safely", async () => {
+  const client = new HostClient();
+  let now = Date.now();
+  const clock = spyOn(Date, "now").mockImplementation(() => now);
+  const oldTarget = await session("slow-idle");
+  const nextTarget = { ...await session("next-idle"), projectDir: join(root, "another-project") };
+  const finish = Promise.withResolvers<void>();
+  try {
+    await request("watchSession", oldTarget, client);
+    await request("ensurePi", oldTarget, client);
+    const old = processes.at(-1)!;
+    const stop = old.stop.bind(old);
+    old.stop = async () => { old.isAvailable = false; await finish.promise; await stop(); };
+    now += 60_000;
+    await request("watchSession", nextTarget, client);
+    expect(await request("ensurePi", nextTarget, client)).toEqual({ ok: true });
+    expect(old.isAvailable).toBe(false);
+    let recovered = false;
+    const recovery = request("ensurePi", oldTarget, client).then(value => { recovered = true; return value; });
+    await Promise.resolve();
+    expect(recovered).toBe(false);
+    finish.resolve();
+    expect(await recovery).toEqual({ ok: true });
+    expect(old.stopped).toBe(true);
+    expect(processes.at(-1)).not.toBe(old);
+  } finally { finish.resolve(); clock.mockRestore(); client.dispose(); }
+});
+
+test("owned turns do not rescan the sidebar, but outside session writes still notify it", async () => {
+  const { SessionManager } = await import("@earendil-works/pi-coding-agent");
+  const projectDir = join(root, "sidebar-project");
+  const file = join(SessionManager.create(projectDir).getSessionDir(), "sidebar.jsonl");
+  const target = { projectDir, sessionFile: file };
+  await writeFile(file, JSON.stringify({ type: "session", id: "sidebar", cwd: projectDir }) + "\n");
+  const client = new HostClient();
+  let notifications = 0;
+  const outside = Promise.withResolvers<void>();
+  const off = subscribeHostEvents((name, payload) => {
+    if (name === "sessionsChanged" && (payload as { projectDir: string }).projectDir === projectDir) {
+      notifications++;
+      outside.resolve();
+    }
+  });
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await request("watchSession", target, client);
+    await request("ensurePi", target, client);
+    await request("watchProjectSessions", { projectDir }, client);
+    const pi = processes.at(-1)!;
+    pi.emit("agent_start");
+    await writeFile(file, await readFile(file, "utf8") + JSON.stringify({ type: "future_entry", id: "own" }) + "\n");
+    pi.emit("agent_settled");
+    await new Promise(resolve => setTimeout(resolve, 250));
+    expect(notifications).toBe(0);
+    await writeFile(file, await readFile(file, "utf8") + JSON.stringify({ type: "future_entry", id: "external" }) + "\n");
+    await Promise.race([outside.promise, new Promise((_, reject) => {
+      deadline = setTimeout(() => reject(new Error("Sidebar missed outside write")), 2000);
+    })]);
+    expect(notifications).toBeGreaterThan(0);
+  } finally { clearTimeout(deadline); off(); client.dispose(); }
+});
+
 test("idle conflict blocks writes; reload retires stale Pi and next acquisition reads external entries", async () => {
   const target = await session("conflict");
   await request("ensurePi", target);

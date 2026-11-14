@@ -53,7 +53,8 @@ const retirementTasks = new Map<string, Promise<void>>();
 let restartingAll = false;
 const runtimeIds = new WeakMap<PiProcess, string>();
 const runtimeEvents = new WeakMap<PiProcess, number>();
-const interactiveSurfaces = new WeakMap<PiProcess, Set<string>>();
+const retainedSurfaces = new WeakMap<PiProcess, Set<string>>();
+const extensionActivity = new WeakMap<PiProcess, Set<string>>();
 let runtimeSequence = 0;
 let eventSequence = 0;
 const revisions = new Map<string, { value: string }>();
@@ -166,6 +167,14 @@ function status(projectDir: string, status: PiStatus, detail?: string): void {
 /** Idle reclamation grace is independent of run and session coherence. */
 const idleAfter = new Map<string, number>();
 const SETTLE_GRACE_MS = 3000;
+let idleReclaimTimer: ReturnType<typeof setInterval> | undefined;
+const idleRetirements = new Map<string, Promise<void>>();
+function startIdleReclamation(): void {
+  idleReclaimTimer ??= setInterval(() => {
+    void stopIdlePis().catch(error => console.error("Could not reclaim idle Pi", error));
+  }, 30_000);
+  idleReclaimTimer.unref();
+}
 type SessionWatch = {
   observedRevision?: string;
   stop: () => void;
@@ -284,11 +293,28 @@ function forwardEvent(projectDir: string, pi: PiProcess, event: PiMessage): void
   runtimeEvents.set(pi, (runtimeEvents.get(pi) ?? 0) + 1);
   const sessionFile = pi.boundSessionFile ?? projectDir;
   idleAfter.set(sessionFile, Date.now() + SETTLE_GRACE_MS);
+  if (event.type === "extension_ui_request") {
+    const activity = extensionActivity.get(pi) ?? new Set<string>();
+    extensionActivity.set(pi, activity);
+    // A status/widget can represent extension work beyond agent_settled (for
+    // example asynchronous subagents). Be conservative about disposing it.
+    if (event.method === "setStatus" || event.method === "setWidget") {
+      const key = `${event.method}:${event.statusKey ?? event.widgetKey}`;
+      if (event.statusText !== undefined || event.widgetLines !== undefined) activity.add(key);
+      else activity.delete(key);
+    } else if (["select", "confirm", "input", "editor"].includes(String(event.method))) {
+      activity.add(`prompt:${event.id}`);
+    }
+  }
   if (event["type"] === "agent_settled") {
+    for (const key of extensionActivity.get(pi) ?? []) {
+      if (key.startsWith("prompt:")) extensionActivity.get(pi)?.delete(key);
+    }
     const binding = runtimeBindings.get(pi);
     if (binding)
       void beginSessionWrite(pi, binding)().catch(error => console.error("Could not observe settled session", error));
-    notifySessionsChanged(projectDir);
+    // Live message/name events already update every client's sidebar. Re-reading
+    // all of this project's history after each turn scales with its lifetime.
   }
   if (event["type"] === "message_update") {
     queueDisplayDelta(projectDir, pi, event);
@@ -384,8 +410,8 @@ async function acceptChatTitle(projectDir: string, pi: PiProcess, sessionFile: s
   if (!ownsBinding(pi, binding)) return;
   const finish = beginSessionWrite(pi, binding);
   try {
-    const accepted = await pi.frameRequest<boolean>(requestId => ({ type: "nativepi_tui_accept_title", requestId, sessionFile, title }));
-    if (accepted) notifySessionsChanged(projectDir);
+    await pi.frameRequest<boolean>(requestId => ({ type: "nativepi_tui_accept_title", requestId, sessionFile, title }));
+    // Pi emits session_info_changed when the proposed name is accepted.
   } finally { await finish(); }
 }
 function forwardPiFrame(projectDir: string, pi: PiProcess, frame: TuiHostFrame): void {
@@ -393,14 +419,18 @@ function forwardPiFrame(projectDir: string, pi: PiProcess, frame: TuiHostFrame):
     void acceptChatTitle(projectDir, pi, frame.sessionFile, frame.title).catch(error => console.error("Could not name chat", error));
     return;
   }
-  const surfaces = interactiveSurfaces.get(pi) ?? new Set<string>();
-  interactiveSurfaces.set(pi, surfaces);
-  if (frame.type === "nativepi_tui_open" && ["editor", "overlay"].includes(frame.surface.placement))
+  const surfaces = retainedSurfaces.get(pi) ?? new Set<string>();
+  retainedSurfaces.set(pi, surfaces);
+  // Historical timeline entries can be replayed. Live extension components
+  // may own background work, even when the parent agent turn has settled.
+  if (frame.type === "nativepi_tui_open" && frame.surface.placement !== "timeline")
     surfaces.add(frame.surface.id);
   if (frame.type === "nativepi_tui_close")
     surfaces.delete(frame.surfaceId);
-  if (frame.type === "nativepi_tui_reset")
+  if (frame.type === "nativepi_tui_reset") {
     surfaces.clear();
+    extensionActivity.delete(pi);
+  }
   if (frame.type === "nativepi_tui_session") {
     if (!pi.isAvailable)
       return;
@@ -453,17 +483,21 @@ function rememberPi(pi: PiProcess, sessionFile: string | undefined): Promise<voi
   })();
   return binding.ready.then(() => sessionFile ? reconcileSessionWatch(pi.projectDir, sessionFile) : undefined);
 }
-async function stopIdleProjectPis(projectDir: string, keep: PiProcess): Promise<void> {
+async function stopIdlePis(keep?: PiProcess): Promise<void> {
   const now = Date.now();
   const idle = [...pis.entries()].filter(([sessionFile, pi]) => pi !== keep
-    && pi.projectDir === projectDir
-    && ![...clients].some(client => client.sessions.get(projectDir) === sessionFile)
+    && pi.isAvailable
+    && !shuttingDown
+    && ![...clients].some(client => client.activeProject === pi.projectDir
+      && (draftRuntimes.has(pi) ? !client.sessions.has(pi.projectDir) : client.sessions.get(pi.projectDir) === sessionFile))
+    && ![...startingPis.values()].includes(pi)
     && !retiringSessions.has(sessionFile)
     && !pi.isRunning
     && !pi.hasPendingRequests
-    && !interactiveSurfaces.get(pi)?.size
+    && !retainedSurfaces.get(pi)?.size
+    && !extensionActivity.get(pi)?.size
     && !sessionWriteCount(sessionFile)
-    && (outstanding.get(projectDir) ?? 0) <= 1
+    && (outstanding.get(pi.projectDir) ?? 0) <= (keep?.projectDir === pi.projectDir ? 1 : 0)
     && now >= (idleAfter.get(sessionFile) ?? 0));
   for (const [sessionFile, pi] of idle) {
     retiringSessions.add(sessionFile);
@@ -471,14 +505,17 @@ async function stopIdleProjectPis(projectDir: string, keep: PiProcess): Promise<
       pis.delete(sessionFile);
       revisions.delete(sessionFile);
     }
+    if (draftPis.get(pi.projectDir) === pi) draftPis.delete(pi.projectDir);
   }
-  try {
-    await Promise.all(idle.map(([, pi]) => pi.stop()));
-  }
-  finally {
-    for (const [file] of idle)
+  await Promise.all(idle.map(([file, pi]) => {
+    const key = draftRuntimes.has(pi) ? `new:${pi.projectDir}` : file;
+    const stopping = pi.stop().finally(() => {
       retiringSessions.delete(file);
-  }
+      idleRetirements.delete(key);
+    });
+    idleRetirements.set(key, stopping);
+    return stopping;
+  }));
 }
 function projectPi(projectDir: string, sessionFile?: string | null): PiProcess | undefined {
   if (sessionFile) {
@@ -488,8 +525,11 @@ function projectPi(projectDir: string, sessionFile?: string | null): PiProcess |
   return draftPis.get(projectDir) ?? startingPis.get(`new:${projectDir}`);
 }
 function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> {
+  const retiring = idleRetirements.get(sessionFile ?? `new:${projectDir}`);
+  if (retiring) return retiring.then(() => ensurePi(projectDir, sessionFile));
   if (shuttingDown || restartingAll || restartingProjects.has(projectDir) || (sessionFile && retiringSessions.has(sessionFile)))
     return Promise.reject(new Error("Pi is stopping. Try again after restart."));
+  startIdleReclamation();
   const generation = runtimeGeneration;
   const existing = sessionFile ? projectPi(projectDir, sessionFile) : draftPis.get(projectDir);
   if (existing)
@@ -734,7 +774,14 @@ const handlers: HandlerMap = {
       projectSessionWatches.set(projectDir, watchProjectSessions(projectDir, (sessionFile) => {
         if (sessionFile && (pis.get(sessionFile)?.isRunning || sessionWriteCount(sessionFile) || retiringSessions.has(sessionFile)))
           return;
-        notifySessionsChanged(projectDir);
+        // Filesystem events can arrive after our write acknowledgment. Only an
+        // outside revision (or a cold file) needs full sidebar reconciliation.
+        void (async () => {
+          const current = sessionFile ? await revision(sessionFile) : undefined;
+          if (sessionFile && pis.has(sessionFile) && !conflicts.has(sessionFile)
+            && revisions.get(sessionFile)?.value === current) return;
+          notifySessionsChanged(projectDir);
+        })().catch(() => notifySessionsChanged(projectDir));
       }));
     }
     return { ok: true };
@@ -748,7 +795,9 @@ const handlers: HandlerMap = {
   ensurePi: async ({ projectDir, sessionFile }) => {
     try {
       const pi = await ensurePi(projectDir, sessionFile ?? undefined);
-      await stopIdleProjectPis(projectDir, pi);
+      // Disposal hooks may take seconds. They must not delay the newly opened
+      // chat; reacquiring a retiring host already waits for its own shutdown.
+      void stopIdlePis(pi).catch(error => console.error("Could not reclaim idle Pi", error));
       return { ok: true };
     }
     catch (err) {
@@ -1650,6 +1699,7 @@ const handlers: HandlerMap = {
   },
   extensionRespond: ({ response }, pi) => {
     pi?.sendRaw(response);
+    if (pi) extensionActivity.get(pi)?.delete(`prompt:${response.id}`);
     return { ok: true };
   },
   tuiSend: async (params, pi) => {
@@ -1834,6 +1884,7 @@ function accessStatus(localError?: string): AccessStatus {
   };
 }
 export class HostClient extends ClientLeases {
+  activeProject?: string;
   sessions = new Map<string, string>();
   projects = new Set<string>();
   directories = new Map<string, string[]>();
@@ -1892,11 +1943,16 @@ export async function invokeHostRequest<K extends HostRequestName>(name: K, raw:
     client.projects.add(project);
   if (name === "unwatchProjectSessions" && project) {
     client.projects.delete(project);
+    if (client.activeProject === project) client.activeProject = undefined;
+    const previous = client.sessions.get(project);
+    client.sessions.delete(project);
+    if (previous) await reconcileSessionWatch(project, previous);
     if (![...clients].some(client => client.projects.has(project)))
       stopProjectSessionWatch(project);
     return { ok: true } as HostRequests[K]["response"];
   }
   if (name === "watchSession" && project) {
+    client.activeProject = project;
     const previous = client.sessions.get(project);
     if (file)
       client.sessions.set(project, file);
@@ -2014,6 +2070,9 @@ async function shutdown(): Promise<void> {
   await Promise.all([drainState(), auth.settleAuthWrites()]);
 }
 export async function stopAllPi(): Promise<void> {
+  clearInterval(idleReclaimTimer);
+  idleReclaimTimer = undefined;
+  await Promise.all(idleRetirements.values());
   await retireRuntimes();
   for (const pi of eventBatches.keys())
     flushEventBatch(pi);

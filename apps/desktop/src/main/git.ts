@@ -50,31 +50,46 @@ export function gitStatus(projectDir: string): Promise<GitStatus> {
   return request;
 }
 // Keep counts across the short status TTL, but only for still-untracked paths.
-type LineCount = { revision: string; count: number };
+type LineCount = { revision: string; count: number | null };
 const untrackedCounts = new Map<string, Map<string, LineCount>>();
 const MAX_CACHED_LINE_COUNTS = 2000;
-async function fileRevision(file: string): Promise<string | undefined> {
+const MAX_UNTRACKED_FILE_BYTES = 1024 * 1024;
+const MAX_UNTRACKED_SCAN_BYTES = 8 * 1024 * 1024;
+async function fileRevision(file: string) {
   const value = await stat(file).catch(() => undefined);
-  return value && `${value.dev}:${value.ino}:${value.size}:${value.mtimeMs}:${value.ctimeMs}`;
+  return value && { key: `${value.dev}:${value.ino}:${value.size}:${value.mtimeMs}:${value.ctimeMs}`, size: value.size };
 }
-async function cachedLineCount(file: string, cache: Map<string, LineCount>): Promise<number> {
+async function cachedLineCount(file: string, cache: Map<string, LineCount>, budget: { remaining: number }): Promise<number | null> {
   const revision = await fileRevision(file);
   const cached = cache.get(file);
-  if (revision !== undefined && cached?.revision === revision) return cached.count;
-  const count = await textLineCount(file);
+  if (revision !== undefined && cached?.revision === revision.key) return cached.count;
+  if (!revision) return null;
+  if (revision.size > MAX_UNTRACKED_FILE_BYTES) {
+    if (cache.has(file) || cache.size < MAX_CACHED_LINE_COUNTS) cache.set(file, { revision: revision.key, count: null });
+    return null;
+  }
+  // Reserve before opening: concurrent workers share one byte budget. A file
+  // skipped for this scan can be counted later, so do not cache budget misses.
+  if (revision.size > budget.remaining) return null;
+  budget.remaining -= revision.size;
+  const count = await textLineCount(file, revision.size);
   // Don't retain a count assembled while another process was changing the file.
-  if (revision !== undefined && revision === await fileRevision(file)) {
-    if (cache.has(file) || cache.size < MAX_CACHED_LINE_COUNTS) cache.set(file, { revision, count });
+  if (revision.key === (await fileRevision(file))?.key) {
+    if (cache.has(file) || cache.size < MAX_CACHED_LINE_COUNTS) cache.set(file, { revision: revision.key, count });
   } else cache.delete(file);
   return count;
 }
-async function textLineCount(file: string): Promise<number> {
+async function textLineCount(file: string, bytes: number): Promise<number | null> {
   let breaks = 0;
   let hasContent = false;
   let lastWasBreak = false;
   let pendingCr = false;
+  let scanned = 0;
   try {
-    for await (const chunk of createReadStream(file)) {
+    // The extra byte detects a growing file without allowing an unbounded read.
+    for await (const chunk of createReadStream(file, { end: bytes })) {
+      scanned += chunk.length;
+      if (scanned > bytes) return null;
       if (chunk.includes(0))
         return 0;
       for (const byte of chunk) {
@@ -100,8 +115,9 @@ async function textLineCount(file: string): Promise<number> {
     }
   }
   catch {
-    return 0;
+    return null;
   }
+  if (scanned !== bytes) return null;
   if (pendingCr)
     breaks += 1;
   return hasContent ? breaks + (lastWasBreak ? 0 : 1) : 0;
@@ -163,9 +179,14 @@ async function readGitStatus(projectDir: string): Promise<GitStatus> {
   for (const file of countsCache.keys()) if (!paths.has(file)) countsCache.delete(file);
   if (paths.size) untrackedCounts.set(root, countsCache);
   else untrackedCounts.delete(root);
+  const budget = { remaining: MAX_UNTRACKED_SCAN_BYTES };
+  let lineCountsIncomplete = false;
   for (let index = 0; index < untracked.length; index += 4) {
-    const counts = await Promise.all(untracked.slice(index, index + 4).map((file) => cachedLineCount(path.join(root, file.path), countsCache)));
-    insertions += counts.reduce((total, count) => total + count, 0);
+    const counts = await Promise.all(untracked.slice(index, index + 4).map((file) => cachedLineCount(path.join(root, file.path), countsCache, budget)));
+    for (const count of counts) {
+      if (count === null) lineCountsIncomplete = true;
+      else insertions += count;
+    }
   }
   const result: GitStatus = {
     isRepo: true,
@@ -178,6 +199,7 @@ async function readGitStatus(projectDir: string): Promise<GitStatus> {
     files,
     insertions,
     deletions,
+    ...(lineCountsIncomplete ? { lineCountsIncomplete: true } : {}),
   };
   return result;
 }

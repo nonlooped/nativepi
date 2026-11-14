@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Reclaim inactive Pi hosts across projects while preserving active viewers, agent runs, pending requests, and live extension UI.
+- Reuse revision-validated chat listings and update sidebar summaries from live Pi events instead of rescanning history after each turn.
+- Defer older transcript content until it approaches the viewport, keeping link targets, pending graphical tools, and Select All available immediately.
+- Bound line counting for untracked files and show when source-control line totals are partial.
 - Build Chat mode and web access directly into the app; retire their standalone NativePi packages.
 - Move Chat/Work shortcuts to Command/Ctrl+Alt+1/2 and interface-scale reset to Command/Ctrl+Alt+0 to reserve the number keys for sidebar threads.
 - Prioritize everyday settings above galleries, previews, and reference details; clarify section headings, row spacing, descriptions, and selected controls across Settings.

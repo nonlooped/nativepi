@@ -11,6 +11,23 @@ function event(type: string): PiEvent {
   return { type } as PiEvent;
 }
 
+test("live events maintain new background chats and names without a history refresh", () => {
+  const projectDir = "/background";
+  useAppStore.setState({ activeProjectPath: "/other", sessionsByProject: { [projectDir]: [] }, conversations: {} });
+  const send = (message: unknown) => useAppStore.getState().onEvent({ projectDir, sessionFile: "/new-chat",
+    event: { type: "message_end", message } as PiEvent });
+  send({ role: "user", content: "First prompt", timestamp: 1 });
+  send({ role: "user", content: "Follow up", timestamp: 2 });
+  send({ role: "assistant", content: [{ type: "text", text: "Answer" }], provider: "test", timestamp: 3 });
+  send({ role: "toolResult", content: [], timestamp: 4 });
+  useAppStore.getState().onEvent({ projectDir, sessionFile: "/new-chat",
+    event: { type: "session_info_changed", name: "Named by Pi" } as PiEvent });
+  expect(useAppStore.getState().sessionsByProject[projectDir]).toMatchObject([{
+    path: "/new-chat", name: "Named by Pi", firstMessage: "First prompt", lastPrompt: "Follow up",
+    messageCount: 4, providers: ["test"], modified: new Date(3).toISOString(),
+  }]);
+});
+
 test("events from an inactive project fold into that project's own conversation", () => {
   useAppStore.setState({ activeProjectPath: "B:\\proj-b", conversations: {} });
 

@@ -20,6 +20,7 @@ import { activeConversation, useAppStore } from "../lib/store.ts";
 import { projectRelativePath } from "../lib/paths.ts";
 import { threadHref } from "../lib/markdownReferences.ts";
 import { TranscriptReferenceProvider } from "./TranscriptReferences.tsx";
+import { DeferredTranscript, DeferredTranscriptItem } from "./DeferredTranscript.tsx";
 import { ImageIcon } from "@phosphor-icons/react/Image";
 import { Button } from "@/components/ui/button.tsx";
 import {
@@ -58,7 +59,7 @@ const HtmlArtifact = lazy(() => import("./HtmlArtifact.tsx"));
 export default function Transcript() {
   return (
     <MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor" scrollPreviousItemPeek={0}>
-      <TranscriptReferenceProvider><TranscriptContent /></TranscriptReferenceProvider>
+      <TranscriptReferenceProvider><DeferredTranscript><TranscriptContent /></DeferredTranscript></TranscriptReferenceProvider>
     </MessageScrollerProvider>
   );
 }
@@ -91,6 +92,9 @@ function TranscriptContent() {
   const committed = useMemo(() => transcriptItems(entries), [entries]);
   const items = appendStreaming(committed.items, streaming, committed.responseStartedAt);
   const turnFiles = lastTurnFileCount(items, results);
+  const selectionVersion = useAppStore(s => s.selectionVersion);
+  const extRenderers = useAppStore(s => s.extRenderers);
+  const graphicalTools = new Set(extRenderers.flatMap(extension => Object.keys(extension.renderer.tools ?? {})));
   // Measure the opening turn rather than its offscreen intrinsic-size estimate.
   // Earlier turns retain content-visibility to keep long histories inexpensive.
   const lastUserIndex = items.findLastIndex(item => item.type === "entry" && item.entry.type === "message" && isUser(item.entry.message));
@@ -175,7 +179,10 @@ function TranscriptContent() {
               // synthetic streaming one to its committed entry id mid-turn, and
               // keying on that would remount the block and discard whichever
               // tool panels the user had opened while watching it run.
-              <MessageScrollerItem key={`response:${index}`} messageId={item.id} className={index >= lastUserIndex ? "[content-visibility:visible]" : undefined}>
+              <MessageScrollerItem key={`${selectionVersion}:response:${index}`} messageId={item.id} className={index >= lastUserIndex ? "[content-visibility:visible]" : undefined}>
+                <DeferredTranscriptItem entryId={item.id} immediate={index >= items.length - 20
+                  || transcriptTarget?.entry === item.id
+                  || hasPendingGraphicalTool(item.messages.flatMap(message => message.content), results, graphicalTools)}>
                 <AssistantResponse
                   entryId={item.id}
                   messages={item.messages}
@@ -184,10 +191,14 @@ function TranscriptContent() {
                   finishedAt={item.finishedAt}
                   streaming={running && index === items.length - 1}
                 />
+                </DeferredTranscriptItem>
               </MessageScrollerItem>
             ) : (
-              <MessageScrollerItem key={item.entry.id} messageId={item.entry.id} scrollAnchor={item.entry.type === "message" && isUser(item.entry.message)} className={index >= lastUserIndex ? "[content-visibility:visible]" : undefined}>
+              <MessageScrollerItem key={`${selectionVersion}:${item.entry.id}`} messageId={item.entry.id} scrollAnchor={item.entry.type === "message" && isUser(item.entry.message)} className={index >= lastUserIndex ? "[content-visibility:visible]" : undefined}>
+                <DeferredTranscriptItem entryId={item.entry.id} immediate={index >= items.length - 20
+                  || transcriptTarget?.entry === item.entry.id || item.entry.type !== "message"}>
                 <EntryView entry={item.entry} />
+                </DeferredTranscriptItem>
               </MessageScrollerItem>
             ),
           )}

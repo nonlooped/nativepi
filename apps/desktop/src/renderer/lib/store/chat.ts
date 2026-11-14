@@ -31,7 +31,7 @@ import { MAX_IMAGE_BYTES } from "../../../shared/images.ts";
 import type { ImageAttachment } from "../../../shared/rpc-schema.ts";
 import { isChatFinished, togglePinnedPath } from "../chatOrganization.ts";
 import { dropAllSurfaces } from "../tuiSurfaces.ts";
-import { isAssistant, isUser, sessionPromptSummary } from "../../../shared/messages.ts";
+import { isAssistant, isUser, sessionPromptSummary, textOf } from "../../../shared/messages.ts";
 import { draftKeyFor } from "../../../shared/messages.ts";
 import { NO_EXTENSION_UI_STATE, type ChatSlice, type Conversation, type GetState, type PendingMessage, type SetState, type SliceCreator } from "./types.ts";
 
@@ -62,35 +62,47 @@ function patchSidebarSession(set: SetState, projectDir: string, sessionFile: str
   });
 }
 
-function addSidebarSession(set: SetState, projectDir: string, session: SessionSummary) {
+const pendingSidebarEchoes = new WeakSet<SessionSummary>();
+function addSidebarSession(set: SetState, projectDir: string, session: SessionSummary, awaitingFirstEcho = false) {
   set((state) => {
     const sessions = state.sessionsByProject[projectDir];
     if (!sessions || sessions.some((existing) => existing.path === session.path)) return {};
+    if (awaitingFirstEcho) pendingSidebarEchoes.add(session);
     return { sessionsByProject: { ...state.sessionsByProject, [projectDir]: [session, ...sessions] } };
   });
 }
 
 function recordSidebarMessage(set: SetState, projectDir: string, sessionFile: string, message: AgentMessage) {
-  if (!isUser(message) && !isAssistant(message)) return;
+  if (!isUser(message) && !isAssistant(message) && message.role !== "toolResult") return;
   set((state) => {
     const sessions = state.sessionsByProject[projectDir];
     const index = sessions?.findIndex((session) => session.path === sessionFile) ?? -1;
-    if (index < 0 || !sessions) return {};
-    const session = sessions[index]!;
+    if (!sessions) return {};
     const timestamp = typeof message.timestamp === "number" && Number.isFinite(message.timestamp)
       ? new Date(message.timestamp).toISOString()
       : new Date().toISOString();
+    if (index < 0) {
+      if (!isUser(message)) return {};
+      const text = textOf(message.content);
+      return { sessionsByProject: { ...state.sessionsByProject, [projectDir]: [{
+        path: sessionFile, id: sessionFile, firstMessage: text,
+        lastPrompt: sessionPromptSummary(message.content), providers: [], messageCount: 1,
+        created: timestamp, modified: timestamp,
+      }, ...sessions] } };
+    }
+    const session = sessions[index]!;
     const providers = isAssistant(message) && message.provider
       ? [message.provider, ...session.providers.filter((provider) => provider !== message.provider)]
       : session.providers;
-    const firstSubmittedMessage = session.id === session.path && session.messageCount === 1 && isUser(message);
+    const firstSubmittedMessage = pendingSidebarEchoes.has(session) && isUser(message);
+    pendingSidebarEchoes.delete(session);
     const next = [...sessions];
     next[index] = {
       ...session,
       lastPrompt: isUser(message) ? sessionPromptSummary(message.content) : session.lastPrompt,
       providers,
       messageCount: session.messageCount + (firstSubmittedMessage ? 0 : 1),
-      modified: timestamp,
+      modified: isUser(message) || isAssistant(message) ? timestamp : session.modified,
     };
     return { sessionsByProject: { ...state.sessionsByProject, [projectDir]: next } };
   });
@@ -563,6 +575,9 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
             if (get().chatFolders.some(folder => folder.id === folderId)) get().moveToChatFolder(res.sessionFile, folderId);
           }
           const timestamp = new Date().toISOString();
+          const draftEntries = coldChatTokens.get(projectDir) === coldChatToken
+            ? get().conversations[projectDir]?.entries : submitting.conversation.entries;
+          const firstEchoed = draftEntries?.some(entry => entry.type === "message" && isUser(entry.message));
           addSidebarSession(set, projectDir, {
             path: res.sessionFile,
             id: res.sessionFile,
@@ -572,7 +587,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
             messageCount: 1,
             created: timestamp,
             modified: timestamp,
-          });
+          }, !firstEchoed);
         }
         if (!s.activeSessionFile) {
           const sameColdChat = coldChatTokens.get(projectDir) === coldChatToken;
@@ -912,6 +927,9 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
         : undefined;
       if (sessionFile && finalizedMessage) {
         recordSidebarMessage(set, projectDir, sessionFile, finalizedMessage);
+      }
+      if (sessionFile && event.type === "session_info_changed") {
+        patchSidebarSession(set, projectDir, sessionFile, { name: (event as { name?: string }).name });
       }
       if (event.type === "agent_settled" && sessionFile) hydration.retry(projectDir, sessionFile);
       if (event.type === "agent_settled" && conv.runStartedAt !== null) {

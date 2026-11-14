@@ -289,6 +289,31 @@ test("untracked line counts survive status expiry and invalidate on rewrites, re
   } finally { reads.mockRestore(); clock.mockRestore(); await rm(dir, { recursive: true, force: true }); }
 });
 
+test("status skips large untracked files and bounds the aggregate counting work", async () => {
+  const { spyOn } = await import("bun:test");
+  const fs = await import("node:fs");
+  const dir = await repo();
+  const reads = spyOn(fs, "createReadStream");
+  let now = Date.now();
+  const clock = spyOn(Date, "now").mockImplementation(() => now);
+  try {
+    await writeFile(path.join(dir, "large.log"), "line\n".repeat(300_000));
+    await writeFile(path.join(dir, "small.txt"), "one\ntwo\n");
+    expect(await gitStatus(dir)).toMatchObject({ insertions: 2, lineCountsIncomplete: true });
+    expect(reads.mock.calls.some(args => String(args[0]).endsWith("large.log"))).toBe(false);
+    await rm(path.join(dir, "large.log"));
+    await Promise.all(Array.from({ length: 10 }, (_, i) => writeFile(path.join(dir, `part-${i}.txt`), "\n".repeat(1024 * 1024))));
+    reads.mockClear();
+    now += 2000;
+    expect((await gitStatus(dir)).lineCountsIncomplete).toBe(true);
+    expect(reads.mock.calls.length).toBeLessThanOrEqual(8);
+    // Budget misses are retried; cached counts do not consume the next budget.
+    now += 2000;
+    expect(await gitStatus(dir)).toMatchObject({ insertions: 10 * 1024 * 1024 + 2 });
+    expect((await gitStatus(dir)).lineCountsIncomplete).toBeUndefined();
+  } finally { reads.mockRestore(); clock.mockRestore(); await rm(dir, { recursive: true, force: true }); }
+});
+
 test("oversized hunks reject instead of returning truncated patches, while whole-file staging remains available", async () => {
   const { MAX_DIFF_PREVIEW_BYTES } = await import("../shared/diff-preview.ts");
   const dir = await repo();

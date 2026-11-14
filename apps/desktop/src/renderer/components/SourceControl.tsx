@@ -39,6 +39,12 @@ import RepoHostPanel from "./RepoHostPanel.tsx";
 type CommitAction = "commit" | "push" | "sync";
 import DiffPreview from "./DiffPreview.tsx";
 
+// Keep guaranteed async cleanup outside render functions: React Compiler does
+// not currently lower try/finally inside a component's event handlers.
+async function withCleanup(work: () => Promise<void>, cleanup: () => void) {
+  try { await work(); } finally { cleanup(); }
+}
+
 export default function SourceControl({
   projectDir,
   git,
@@ -59,6 +65,7 @@ export default function SourceControl({
   const operation = useRef(false);
   const alive = useRef(true);
   const messageVersion = useRef(0);
+  const commitInput = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const revision = useAppStore(s => s.gitRevision);
   const [generating, setGenerating] = useState(false);
@@ -84,12 +91,13 @@ export default function SourceControl({
     operation.current = true;
     if (kind === "generate") setGenerating(true); else setBusy(kind);
     setError(null);
-    try { await work(); }
-    catch (error) { if (alive.current) setError(error instanceof Error ? error.message : String(error)); }
-    finally {
+    await withCleanup(async () => {
+      try { await work(); }
+      catch (error) { if (alive.current) setError(error instanceof Error ? error.message : String(error)); }
+    }, () => {
       operation.current = false;
       if (alive.current) { setBusy(null); setGenerating(false); }
-    }
+    });
   }
   async function generate() {
     if (!stagedFiles.length) return;
@@ -127,14 +135,20 @@ export default function SourceControl({
   const disabled = busy !== null || generating;
   const canCommit = Boolean(message.trim()) && stagedFiles.length > 0 && !disabled;
   const commitDisabledReason = disabled ? "Working…" : stagedFiles.length === 0 ? "Stage changes first" : !message.trim() ? "Add a commit message" : undefined;
-  const handleCommitKey = createKeybindingsHandler(bindings({
-    commitChanges: event => {
-      if (!canCommit) return;
-      event.preventDefault();
-      event.stopPropagation();
-      void commit("commit");
-    },
-  }, keybindingOverrides), { ignore: event => (event as KeyboardEvent).isComposing });
+  useEffect(() => {
+    const input = commitInput.current;
+    if (!input) return;
+    const handler = createKeybindingsHandler(bindings({
+      commitChanges: event => {
+        if (!canCommit) return;
+        event.preventDefault();
+        event.stopPropagation();
+        void commit("commit");
+      },
+    }, keybindingOverrides), { ignore: event => (event as KeyboardEvent).isComposing });
+    input.addEventListener("keydown", handler);
+    return () => input.removeEventListener("keydown", handler);
+  }, [canCommit, commit, keybindingOverrides, selected]);
 
   const canGenerate = stagedFiles.length > 0 && !disabled;
 
@@ -192,6 +206,7 @@ export default function SourceControl({
           <span className="mr-auto text-xs text-muted-foreground">{git.files.length} changed {git.files.length === 1 ? "file" : "files"}</span>
           {git.insertions > 0 ? <span className="text-xs tabular-nums text-success">+{git.insertions}</span> : null}
           {git.deletions > 0 ? <span className="text-xs tabular-nums text-destructive">−{git.deletions}</span> : null}
+          {git.lineCountsIncomplete ? <span className="text-xs text-muted-foreground" title="Line totals exclude untracked files that exceeded the counting budget.">Partial line totals</span> : null}
           {git.ahead > 0 ? <Badge variant="outline">↑ {git.ahead} ahead</Badge> : null}
           {git.behind > 0 ? <Badge variant="outline">↓ {git.behind} behind</Badge> : null}
         </div>
@@ -221,7 +236,7 @@ export default function SourceControl({
             id="source-control-message"
             value={message}
             onChange={(event) => { ++messageVersion.current; setMessage(event.target.value); }}
-            onKeyDown={event => handleCommitKey(event.nativeEvent)}
+            ref={commitInput}
             placeholder="Summarize the staged changes"
             className="min-h-20 resize-none text-sm"
           />
@@ -391,10 +406,10 @@ function HunkActions({
   async function stage(patch: string, index: number) {
     setBusy(index);
     setFailure(null);
-    try {
+    await withCleanup(async () => {
       await mutate(() => rpc.request.gitStageHunk({ projectDir, file: file.path, untracked: file.state === "untracked", patch }));
       onStaged();
-    } finally { setBusy(null); }
+    }, () => setBusy(null));
 
   }
 
