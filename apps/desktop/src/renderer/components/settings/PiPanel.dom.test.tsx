@@ -42,7 +42,7 @@ domTest("PiPanel displays rejected reads and restart failures from its real sett
     expect(container.textContent).toContain("Editable settings");
     const calls: string[] = [];
     stubInvoke(async (channel) => { calls.push(channel); return { ok: false }; });
-    const restart = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Restart Pi now"));
+    const restart = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Restart Pi"));
     expect(restart).toBeDefined();
     await act(async () => { restart!.click(); });
     expect(calls).toEqual(["restartAllPi"]);
@@ -50,7 +50,7 @@ domTest("PiPanel displays rejected reads and restart failures from its real sett
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("Pi could not restart");
     expect(container.textContent).toContain("Editable settings");
     expect(container.textContent).toContain("Saved.");
-    expect([...container.querySelectorAll("button")].some(button => button.textContent?.includes("Restart Pi now"))).toBe(true);
+    expect([...container.querySelectorAll("button")].some(button => button.textContent?.includes("Restart Pi"))).toBe(true);
   } finally {
     await act(async () => { root!.unmount(); });
     root = undefined;

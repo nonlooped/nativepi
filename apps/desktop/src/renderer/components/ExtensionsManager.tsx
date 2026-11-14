@@ -55,10 +55,10 @@ function actionErrorMessage(error: unknown, fallback: string) {
 
 function PackageSourceIcon({ source }: { source: string }) {
   return (
-    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground" aria-hidden>
+    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/40 text-muted-foreground" aria-hidden>
       {source.startsWith("npm:") ? (
         <span
-          className="size-5 [&>svg]:size-full"
+          className="size-4 [&>svg]:size-full"
           // This is a compile-time asset from the pinned Material Icon Theme package.
           dangerouslySetInnerHTML={{ __html: npmLogo }}
         />
@@ -72,7 +72,7 @@ function PackageSourceIcon({ source }: { source: string }) {
 function LocalSourceIcon({ source }: { source: string }) {
   const isFile = /\.[cm]?[jt]sx?$/i.test(source);
   return (
-    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground" aria-hidden>
+    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/40 text-muted-foreground" aria-hidden>
       {isFile ? <FileCodeIcon className="size-4" /> : <FolderIcon className="size-4" weight="fill" />}
     </span>
   );
@@ -261,7 +261,7 @@ export default function ExtensionsManager() {
         </div>
 
         {installing ? (
-          <div className="flex flex-col gap-2.5 rounded-xl border bg-card/40 p-4">
+          <div className="flex flex-col gap-2.5 rounded-md bg-muted/20 p-3">
             <div className="flex flex-col gap-2 @min-[44rem]/settings-content:flex-row">
               <Input
                 autoFocus
@@ -276,7 +276,7 @@ export default function ExtensionsManager() {
                 }}
                 placeholder="npm package or Git URL"
                 aria-label="Package source"
-                className="h-10 min-w-0 flex-1"
+                className="h-8 min-w-0 flex-1"
               />
               <div className="flex items-center gap-2">
                 <Segmented
@@ -293,12 +293,12 @@ export default function ExtensionsManager() {
                     },
                   ]}
                 />
-                <Button className="h-10 min-w-24" onClick={() => void install()} disabled={!source.trim() || busy !== null}>
+                <Button size="sm" className="h-8" onClick={() => void install()} disabled={!source.trim() || busy !== null}>
                   {busy === "install" ? <CircleNotchIcon className="animate-spin" /> : "Install"}
                 </Button>
               </div>
             </div>
-            <p className="text-sm leading-5 text-muted-foreground">
+            <p className="text-xs leading-relaxed text-muted-foreground">
               Extensions are trusted code that runs inside Pi with your permissions. Only install sources you recognize.
               {projectTrusted ? "" : " Trust this project to install for it alone."}
             </p>
@@ -314,12 +314,12 @@ export default function ExtensionsManager() {
             No npm or Git packages installed.
           </p>
         ) : (
-          <div className="border-t border-border/70">
+          <div className="border-t border-border/40">
             {installedPackages.map((pkg) => (
               <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
                 <ContextMenuTrigger render={<div className="group flex min-h-12 items-center gap-3 py-2" />}>
                   <PackageSourceIcon source={pkg.source} />
-                  <div className="h-10 min-w-0 flex-1">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate text-sm font-medium">{packageLabel(pkg.source)}</span>
                       <Badge variant="outline">{scopeLabel(pkg.scope)}</Badge>
@@ -385,7 +385,7 @@ export default function ExtensionsManager() {
         ) : localPackages.length === 0 && localExtensions.length === 0 ? (
           <p className="py-4 text-sm text-muted-foreground">No local extensions found.</p>
         ) : (
-          <div className="border-t border-border/70">
+          <div className="border-t border-border/40">
             {localPackages.map((pkg) => (
               <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
                 <ContextMenuTrigger render={<div className="group flex min-h-12 items-center gap-3 py-2" />}>
@@ -429,7 +429,7 @@ export default function ExtensionsManager() {
             ))}
             {localExtensions.map((extension) => (
               <ContextMenu key={extension.path}>
-                <ContextMenuTrigger render={<div className="flex min-h-12 items-center gap-3 border-b py-2 last:border-b-0" />}>
+                <ContextMenuTrigger render={<div className="flex min-h-12 items-center gap-3 py-2" />}>
                   <LocalSourceIcon source={extension.path} />
                   <div className="flex min-w-0 flex-1 items-center gap-1.5">
                     <span title={extension.path} className="truncate text-sm font-medium">

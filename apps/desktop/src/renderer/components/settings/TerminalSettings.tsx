@@ -19,7 +19,7 @@ export default function TerminalSettings() {
     <div className="flex flex-col gap-8">
       <SettingsSection
         heading="Integrated terminal"
-        description="The terminal panel inside NativePi. Changes apply to open terminals without losing their scrollback."
+        description="Changes apply to open terminals without losing scrollback."
       >
         <TerminalPreview
           fontSize={preferences.terminalFontSize}
@@ -37,7 +37,7 @@ export default function TerminalSettings() {
         />
         <SliderRow
           label="Scrollback"
-          description="How many lines of output are kept for scrolling back through."
+          description="Lines of output kept in each terminal."
           value={preferences.terminalScrollback}
           min={500}
           max={100000}
@@ -55,19 +55,19 @@ export default function TerminalSettings() {
       <PiPanel>
         {(settings) => (
           <SettingsSection
-            heading="The agent's shell"
-            description="Where Pi runs the commands it decides to run. This is separate from the terminal above, and is stored in Pi's settings."
+            heading="Pi’s shell"
+            description="Used by Pi’s command tool, independently of the integrated terminal."
           >
             <TextRow
               label="Shell"
-              description="Leave empty to let Pi choose. On Windows this is usually a path to pwsh.exe or powershell.exe; elsewhere it is usually your default shell."
+              description="Path to the shell executable. Leave empty to let Pi choose."
               value={settings.shellPath}
               placeholder="Chosen by Pi"
               onCommit={(value) => void update("shellPath", value)}
             />
             <TextRow
               label="Command prefix"
-              description="Prepended to every command Pi runs, for wrappers such as a sandbox or a profiler."
+              description="Added before every command Pi runs."
               value={settings.shellCommandPrefix}
               placeholder="None"
               onCommit={(value) => void update("shellCommandPrefix", value)}
@@ -96,8 +96,8 @@ function TerminalPreview({
   scrollback: number;
 }) {
   return (
-    <div aria-hidden="true" className="my-2 overflow-hidden rounded-md border bg-sidebar">
-      <div className="flex items-center justify-between gap-3 border-b px-3 py-1.5">
+    <div aria-hidden="true" className="my-2 overflow-hidden rounded-md border border-border/40 bg-sidebar/40">
+      <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-1.5">
         <span className="text-xs text-muted-foreground">Preview</span>
         <span className="text-xs tabular-nums text-muted-foreground">
           {fontSize}px · {scrollback.toLocaleString()} lines

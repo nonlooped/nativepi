@@ -121,7 +121,7 @@ export default function SubscriptionUsageSettings() {
 
       {request.loading ? (
         <div
-          className="flex min-h-60 items-center justify-center gap-2 rounded-xl border border-dashed border-border px-6 py-16 text-sm text-muted-foreground"
+          className="flex min-h-40 items-center justify-center gap-2 px-4 py-8 text-sm text-muted-foreground"
           role="status"
         >
           <CircleNotchIcon className="animate-spin" />
@@ -133,7 +133,7 @@ export default function SubscriptionUsageSettings() {
           description="Connect Anthropic, OpenAI Codex, Kimi Code, or GitHub Copilot with a subscription account in Providers. Limits appear once Pi can read them."
         />
       ) : (
-        <div className="border-b border-border/70">
+        <div className="flex flex-col gap-2">
           {usages.map((usage) => (
             <ProviderCard key={usage.provider} usage={usage} />
           ))}
@@ -169,31 +169,19 @@ function ProviderCard({ usage }: { usage: SubscriptionUsage }) {
   const remaining = mostConstrained ? Math.max(0, 100 - mostConstrained.usedPercent) : undefined;
 
   return (
-    <section className="grid gap-6 border-t border-border/70 py-7 @min-[44rem]/settings-content:grid-cols-[minmax(12rem,0.55fr)_minmax(20rem,1.45fr)] @min-[44rem]/settings-content:gap-10">
-      <div className="flex items-start justify-between gap-4 @min-[44rem]/settings-content:flex-col @min-[44rem]/settings-content:justify-start">
-        <div className="flex items-center gap-3">
-          <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-foreground">
-            <BrandIcon name={providerIconName(usage.provider)} size={21} color />
+    <section className="flex min-w-0 flex-col gap-4 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <BrandIcon name={providerIconName(usage.provider)} size={16} color />
+          <h2 className="truncate text-sm font-semibold">{providerLabel(usage.provider)}</h2>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {sorted.length === 0 ? "No limits reported" : `${sorted.length} ${sorted.length === 1 ? "limit" : "limits"}`}
           </span>
-          <div>
-            <h2 className="text-sm font-semibold leading-normal">{providerLabel(usage.provider)}</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {sorted.length === 0
-                ? "No limits reported"
-                : `${sorted.length} ${sorted.length === 1 ? "limit" : "limits"}`}
-            </p>
-          </div>
         </div>
-        {remaining !== undefined ? (
-          <div className="text-right @min-[44rem]/settings-content:text-left">
-            <p
-              className="text-lg font-medium leading-tight tabular-nums"
-              style={{ color: toneColor(mostConstrained!.usedPercent) }}
-            >
-              {Math.round(remaining)}% left
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">Most constrained limit</p>
-          </div>
+        {remaining !== undefined && sorted.length > 1 ? (
+          <p className="text-xs tabular-nums" title="Most constrained limit" style={{ color: toneColor(mostConstrained!.usedPercent) }}>
+            {Math.round(remaining)}% left
+          </p>
         ) : null}
       </div>
 
@@ -202,7 +190,7 @@ function ProviderCard({ usage }: { usage: SubscriptionUsage }) {
           This provider did not report any subscription limits. It may not have any, or the account has not used a quota yet.
         </p>
       ) : (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4">
           {sorted.map((limit) => {
             const left = Math.max(0, 100 - limit.usedPercent);
             const reset = countdown(limit.resetAt);
@@ -218,7 +206,7 @@ function ProviderCard({ usage }: { usage: SubscriptionUsage }) {
                   </p>
                 </div>
 
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+                <div className="h-1 overflow-hidden rounded-full bg-muted" aria-hidden>
                   <div
                     className="h-full origin-left rounded-full transition-transform duration-300 ease-out"
                     style={{ transform: `scaleX(${Math.min(100, Math.max(0, limit.usedPercent)) / 100})`, background: toneColor(limit.usedPercent) }}
@@ -264,11 +252,11 @@ function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-60 flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 py-16 text-center">
+    <div className="flex min-h-40 flex-col items-center justify-center px-4 py-8 text-center">
       <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
         {icon ?? <ChartDonutIcon size={18} />}
       </span>
-      <h2 className="mt-3 text-title">{title}</h2>
+      <h2 className="mt-3 text-sm font-medium">{title}</h2>
       <p className="mt-1.5 max-w-md text-sm leading-6 text-body-muted-foreground">{description}</p>
       {action ? <div className="mt-3">{action}</div> : null}
     </div>

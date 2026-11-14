@@ -185,7 +185,7 @@ export default function AccessSettings() {
       ) : null}
 
       {shared || handoffs.length > 0 ? (
-        <div className="border-t border-border/70">
+        <div className="border-t border-border/40">
           <button
             type="button"
             aria-expanded={auditOpen}
@@ -202,11 +202,11 @@ export default function AccessSettings() {
           </button>
 
           {auditOpen ? (
-            <div className="flex flex-col gap-4 border-t border-border/70 py-5">
+            <div className="flex flex-col gap-4 border-t border-border/40 py-5">
               <div>
                 <p className="text-sm font-medium">Handoffs from this window</p>
                 {handoffs.length === 0 ? (
-                  <p className="mt-1 text-sm text-body-muted-foreground">No link has been copied or shown yet.</p>
+                  <p className="mt-1 text-xs leading-relaxed text-body-muted-foreground">No link has been copied or shown yet.</p>
                 ) : (
                   <ul className="mt-2 flex flex-col gap-2">
                     {handoffs.map((handoff) => (
@@ -226,7 +226,7 @@ export default function AccessSettings() {
 
               {shared ? (
                 <div className="flex flex-col gap-3 border-t pt-4 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-center @min-[36rem]/settings-content:justify-between">
-                  <p className="text-sm text-body-muted-foreground">
+                  <p className="text-xs leading-relaxed text-body-muted-foreground">
                     Both links carry the same token, and nothing knows who holds a copy.
                   </p>
                   <div className="flex shrink-0 items-center gap-2">
@@ -333,13 +333,13 @@ function LinkPanel({
             read. */}
         <code
           title={link}
-          className="min-w-0 flex-1 truncate rounded-md border bg-background/60 px-2.5 py-2 font-mono text-xs select-all"
+          className="min-w-0 flex-1 truncate rounded-md bg-muted/30 px-2.5 py-1.5 font-mono text-xs select-all"
         >
           {link}
         </code>
         <Button
           variant="outline"
-          size="icon-lg"
+          size="icon"
           title="Show a QR code"
           aria-label="Show a QR code for this link"
           onClick={() => onShowQr(scope, link)}
@@ -348,7 +348,7 @@ function LinkPanel({
         </Button>
         <Button
           variant="outline"
-          size="icon-lg"
+          size="icon"
           title="Copy the link"
           aria-label={copied ? "Link copied" : "Copy this link"}
           onClick={() => void onCopy(scope, link)}

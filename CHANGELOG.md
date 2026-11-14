@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Extend compact settings styles to subscription limits, usage filters, extension installation, access links, file paths, and Pi restart notices.
 - Soften the Settings modal backdrop, frame, selection fills, and control borders to match the workspace.
 - Simplify individual settings with quieter rows, compact layout selectors, smaller visual previews, inline status labels, and consistent keyboard and sign-in controls.
 - Quiet the transcript work area with compact grouped tool calls, optional thinking and output, subdued Markdown code/table chrome, and collapsed file-change details. Keep work expanded during a run and collapse it on completion; retain tool failures inside their output.

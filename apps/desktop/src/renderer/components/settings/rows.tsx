@@ -60,7 +60,7 @@ function Row({
   children: React.ReactNode;
 }) {
   const text = (
-    <FieldContent className="min-w-0 max-w-[60ch] gap-0.5">
+    <FieldContent className="min-w-0 max-w-[60ch] gap-0.5 [overflow-wrap:anywhere]">
       {htmlFor ? (
         <FieldLabel htmlFor={htmlFor} className="w-fit text-sm font-medium">
           {label}
@@ -96,7 +96,7 @@ export function SwitchRow({
   onChange,
   disabled,
 }: {
-  label: string;
+  label: React.ReactNode;
   description?: string;
   checked: boolean;
   onChange: (value: boolean) => void;
@@ -499,7 +499,7 @@ export function ReadonlyRow({
   return (
     <Row label={label} description={description} shrinkable>
       <div className="flex min-w-0 items-center gap-2">
-        <span className="min-w-0 break-all select-all font-mono text-xs text-muted-foreground">{value}</span>
+        <span title={value} className="min-w-0 truncate select-all font-mono text-xs text-muted-foreground">{value}</span>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
     </Row>

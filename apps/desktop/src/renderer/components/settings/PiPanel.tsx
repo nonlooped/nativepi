@@ -53,11 +53,10 @@ function PiSettingsStatus() {
   return (
     <div className="flex flex-col gap-2">
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-      {restartPending ? <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-lg border bg-muted/40 px-3 py-2.5 text-sm">
+      {restartPending ? <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-md bg-muted/20 px-3 py-2.5 text-xs">
       <InfoIcon className="shrink-0 text-muted-foreground" />
       <p className="min-w-0 flex-1 text-body-muted-foreground">
-        Saved. Pi reads its settings when it starts, so this takes effect the next time it runs
-        {activeProjectPath ? " in this project" : ""}.
+        Saved. Applies when Pi next starts.
       </p>
       {activeProjectPath ? (
         <Button
@@ -69,7 +68,7 @@ function PiSettingsStatus() {
           onClick={() => void applyRestart()}
         >
           <ArrowClockwiseIcon data-icon="inline-start" />
-          Restart Pi now
+          Restart Pi
         </Button>
       ) : null}
       </div> : null}

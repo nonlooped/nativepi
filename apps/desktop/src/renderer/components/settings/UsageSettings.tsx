@@ -13,7 +13,7 @@ import BrandIcon from "../BrandIcon.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart.tsx";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group.tsx";
+import { Segmented } from "./rows.tsx";
 import { cn } from "@/lib/utils.ts";
 import SubscriptionUsageSettings from "./SubscriptionUsageSettings.tsx";
 
@@ -43,23 +43,15 @@ export default function UsageSettings() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-4 border-b border-border/70 pb-5 @min-[44rem]/settings-content:flex-row @min-[44rem]/settings-content:items-end @min-[44rem]/settings-content:justify-between">
+      <div className="flex flex-col gap-4 border-b border-border/40 pb-5 @min-[44rem]/settings-content:flex-row @min-[44rem]/settings-content:items-end @min-[44rem]/settings-content:justify-between">
         <div className="flex flex-col gap-2">
-          <ToggleGroup
-            value={[view]}
-            onValueChange={(next) => {
-              const value = next.at(0) as UsageView | undefined;
-              if (value) setView(value);
-            }}
-            variant="outline"
-            size="sm"
-            spacing={0}
-            aria-label="Usage view"
+          <Segmented<UsageView>
+            label="Usage view"
+            value={view}
+            onChange={setView}
+            options={[{ value: "costs", label: "Local usage" }, { value: "limits", label: "Subscription limits" }]}
             className="w-fit"
-          >
-            <ToggleGroupItem value="costs">Local usage</ToggleGroupItem>
-            <ToggleGroupItem value="limits">Subscription limits</ToggleGroupItem>
-          </ToggleGroup>
+          />
           <p className="text-sm text-body-muted-foreground">
             {view === "costs" ? period : "Current limits reported by connected subscription providers."}
           </p>
@@ -88,26 +80,21 @@ export default function UsageSettings() {
             </Select>
 
             <div className="flex items-center gap-1.5">
-              <ToggleGroup
-                value={[range]}
-                onValueChange={(next) => {
-                  const value = next.at(0) as Range | undefined;
-                  if (value) setRange(value);
-                }}
-                variant="outline"
-                size="sm"
-                spacing={0}
-                aria-label="Date range"
+              <Segmented<Range>
+                label="Date range"
+                value={range}
+                onChange={setRange}
+                options={[
+                  { value: "7", label: "7 days" },
+                  { value: "30", label: "30 days" },
+                  { value: "90", label: "90 days" },
+                  { value: "all", label: "All" },
+                ]}
                 className="min-w-0 flex-1 @min-[36rem]/settings-content:flex-none"
-              >
-                <ToggleGroupItem value="7" className="flex-1 px-2 @min-[36rem]/settings-content:flex-none">7 days</ToggleGroupItem>
-                <ToggleGroupItem value="30" className="flex-1 px-2 @min-[36rem]/settings-content:flex-none">30 days</ToggleGroupItem>
-                <ToggleGroupItem value="90" className="flex-1 px-2 @min-[36rem]/settings-content:flex-none">90 days</ToggleGroupItem>
-                <ToggleGroupItem value="all" className="flex-1 px-2 @min-[36rem]/settings-content:flex-none">All</ToggleGroupItem>
-              </ToggleGroup>
+              />
               <Button
                 variant="outline"
-                size="icon-lg"
+                size="icon"
                 onClick={() => {
                   dashboardReader.invalidate(selectedProjects);
                   request.reload();
@@ -149,10 +136,10 @@ function Dashboard({ dashboard, range }: { dashboard: UsageDashboard; range: Ran
 
   return (
     <div className="flex flex-col gap-9">
-      <section className="grid gap-8 border-b border-border/70 pb-9 @min-[52rem]/settings-content:grid-cols-[minmax(16rem,0.72fr)_minmax(30rem,1.45fr)] @min-[52rem]/settings-content:gap-10">
+      <section className="grid gap-8 border-b border-border/40 pb-9 @min-[52rem]/settings-content:grid-cols-[minmax(16rem,0.72fr)_minmax(30rem,1.45fr)] @min-[52rem]/settings-content:gap-10">
         <div className="flex flex-col">
           <div className="flex items-baseline justify-between gap-4">
-            <h2 className="text-title">Cost by provider</h2>
+            <h2 className="text-sm font-semibold">Cost by provider</h2>
             <span className="text-lg font-medium tabular-nums">{cost(view.totalCost)}</span>
           </div>
           <p className="mt-1 max-w-sm text-xs leading-5 text-body-muted-foreground">Model-reported estimates from Pi session files, not provider invoices.</p>
@@ -182,7 +169,7 @@ function Dashboard({ dashboard, range }: { dashboard: UsageDashboard; range: Ran
         <UsageChart daily={view.daily} providers={providers.slice(0, 4)} />
       </section>
 
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-6 border-b border-border/70 pb-7 @min-[36rem]/settings-content:grid-cols-3 @min-[52rem]/settings-content:grid-cols-5">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-6 border-b border-border/40 pb-7 @min-[36rem]/settings-content:grid-cols-3 @min-[52rem]/settings-content:grid-cols-5">
         <Metric label="Processed tokens" value={formatTokens(view.tokens.total)} detail={activeDays ? `${formatTokens(view.tokens.total / activeDays)} per active day` : "No activity"} />
         <Metric
           label="Cached input"
@@ -229,10 +216,10 @@ function UsageChart({ daily, providers }: { daily: UsageDashboard["daily"]; prov
   const axis = axisTicks(max);
 
   return (
-    <div className="min-w-0 @min-[52rem]/settings-content:border-l @min-[52rem]/settings-content:border-border/70 @min-[52rem]/settings-content:pl-10">
+    <div className="min-w-0 @min-[52rem]/settings-content:border-l @min-[52rem]/settings-content:border-border/40 @min-[52rem]/settings-content:pl-10">
       <div className="flex flex-col gap-3 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-start @min-[36rem]/settings-content:justify-between">
         <div className="flex flex-col gap-1">
-          <h2 className="text-title">Daily usage</h2>
+          <h2 className="text-sm font-semibold">Daily usage</h2>
           <div className="flex flex-wrap gap-x-4 gap-y-1.5">
             {providers.map((provider, index) => (
               <span key={provider.provider} className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -244,20 +231,13 @@ function UsageChart({ daily, providers }: { daily: UsageDashboard["daily"]; prov
             ))}
           </div>
         </div>
-        <ToggleGroup
-          value={[metric]}
-          onValueChange={(next) => {
-            const value = next.at(0) as ChartMetric | undefined;
-            if (value) setMetric(value);
-          }}
-          variant="outline"
-          size="sm"
-          spacing={0}
-          aria-label="Chart measure"
-        >
-          <ToggleGroupItem value="cost">Cost</ToggleGroupItem>
-          <ToggleGroupItem value="tokens">Tokens</ToggleGroupItem>
-        </ToggleGroup>
+        <Segmented<ChartMetric>
+          label="Chart measure"
+          value={metric}
+          onChange={setMetric}
+          options={[{ value: "cost", label: "Cost" }, { value: "tokens", label: "Tokens" }]}
+          className="w-fit"
+        />
       </div>
 
       {data.length === 0 ? (
@@ -314,7 +294,7 @@ function UsageTooltip({
   if (!active || !payload?.length || !point) return null;
 
   return (
-    <div className="min-w-48 rounded-lg border border-border/70 bg-popover px-3 py-2.5 text-xs text-popover-foreground shadow-xl">
+    <div className="min-w-48 rounded-lg border border-border/40 bg-popover px-3 py-2.5 text-xs text-popover-foreground shadow-xl">
       <p className="font-medium">{point.label}</p>
       <div className="mt-2 flex flex-col gap-1.5">
         {payload.map((item) => (
@@ -327,7 +307,7 @@ function UsageTooltip({
           </div>
         ))}
       </div>
-      <p className="mt-2 border-t border-border/70 pt-2 text-muted-foreground">
+      <p className="mt-2 border-t border-border/40 pt-2 text-muted-foreground">
         {point.sessions?.toLocaleString()} {point.sessions === 1 ? "session" : "sessions"} · {formatTokens(point.totalTokens ?? 0)} tokens
       </p>
     </div>
@@ -348,7 +328,7 @@ function ModelBreakdown({ models, totalCost }: { models: UsageDashboard["models"
   return (
     <div className="min-w-0">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="text-title">Model breakdown</h2>
+        <h2 className="text-sm font-semibold">Model breakdown</h2>
         <span className="text-xs text-muted-foreground">{models.length} {models.length === 1 ? "model" : "models"}</span>
       </div>
       <div className="mt-3 overflow-x-auto">
@@ -366,7 +346,7 @@ function ModelBreakdown({ models, totalCost }: { models: UsageDashboard["models"
               const provider = modelProvider(model.name);
               const share = totalCost > 0 ? (model.cost / totalCost) * 100 : 0;
               return (
-                <tr key={model.name} className="border-t border-border/70 hover:bg-muted/20">
+                <tr key={model.name} className="border-t border-border/40 hover:bg-muted/20">
                   <td className="max-w-72 py-2.5 pr-3">
                     <span className="flex items-center gap-2">
                       <BrandIcon name={providerIconName(provider)} size={14} className="text-muted-foreground" />
@@ -398,10 +378,10 @@ function UsageSummary({ dashboard, view }: { dashboard: UsageDashboard; view: Re
 
   return (
     <div>
-      <h2 className="text-title">Activity</h2>
+      <h2 className="text-sm font-semibold">Activity</h2>
       <dl className="mt-3">
         {rows.map(([label, value]) => (
-          <div key={label} className="flex items-center justify-between gap-4 border-t border-border/70 py-3 text-sm">
+          <div key={label} className="flex items-center justify-between gap-4 py-2.5 text-sm">
             <dt className="text-muted-foreground">{label}</dt>
             <dd className="text-xs tabular-nums">{value}</dd>
           </div>
@@ -413,12 +393,12 @@ function UsageSummary({ dashboard, view }: { dashboard: UsageDashboard; view: Re
 
 function EmptyUsage() {
   return (
-    <div className="flex min-h-80 items-center justify-center border-y border-dashed border-border px-6 py-16 text-center">
+    <div className="flex min-h-40 items-center justify-center px-4 py-8 text-center">
       <div className="flex max-w-sm flex-col items-center gap-3">
         <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
           <ChartLineUpIcon />
         </span>
-        <h2 className="text-title">No billed usage yet</h2>
+        <h2 className="text-sm font-semibold">No billed usage yet</h2>
         <p className="text-sm leading-6 text-body-muted-foreground">
           Usage appears after Pi records a model cost in a session file. The data stays on this device.
         </p>
@@ -429,7 +409,7 @@ function EmptyUsage() {
 
 function Loading() {
   return (
-    <div className="flex min-h-80 items-center justify-center gap-2 border-y border-border/70 text-sm text-muted-foreground" role="status">
+    <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
       <CircleNotchIcon className="animate-spin" />
       Reading Pi&apos;s session files…
     </div>
