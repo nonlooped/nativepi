@@ -6,12 +6,7 @@ import { rpc, isRemote } from "../../lib/rpc.ts";
 import { Button } from "../ui/button.tsx";
 import { SettingsSection } from "./rows.tsx";
 
-const permissionNames: Record<string, string> = { accessibility: "Accessibility", screen_recording: "Screen recording", automation: "Automation" };
-const permissionDescriptions: Record<string, string> = {
-  accessibility: "Read app controls and interact with them.",
-  screen_recording: "Capture app windows and displays for visual checks.",
-  automation: "Control apps that require system automation. Requested when needed.",
-};
+const permissionNames: Record<string, string> = { accessibility: "Accessibility", screen_recording: "Screen recording" };
 
 export default function ComputerUseSettings() {
   const [status, setStatus] = useState<ComputerStatus | null>(null);
@@ -27,44 +22,28 @@ export default function ComputerUseSettings() {
     finally { setBusy(false); }
   }
   useEffect(() => { void refresh(); }, []);
-  const ready = status?.available && status.permissions.accessibility?.state === "granted";
-  const missing = status && Object.values(status.permissions).some(permission => permission.state === "denied" || permission.state === "not_determined");
+  const missing = status?.available ? Object.entries(permissionNames)
+    .filter(([key]) => !["granted", "not_required"].includes(status.permissions[key]?.state ?? "unknown"))
+    .map(([, name]) => name) : [];
+  const ready = status?.available && !missing.length;
   return (
-    <div className="flex flex-col gap-8">
-      <SettingsSection heading="Desktop access" description="Ask Pi to work in apps on this computer. Available in Work chats, including chats without a project.">
-        <div className="flex items-start gap-3 py-4">
-          <MonitorIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium">{!status ? "Checking computer use…" : status.error ? "Computer use needs attention" : ready ? "Ready to use" : "System permission needed"}</p>
-            <p className="mt-1 text-[0.8125rem] leading-5 text-body-muted-foreground">
-              {status?.error ?? "Pi can read app controls, capture screenshots, and use the mouse and keyboard. One chat controls the computer at a time."}
-            </p>
-            {status?.version ? <p className="mt-2 text-xs text-muted-foreground">agent-desktop {status.version} · Included with NativePi</p> : null}
+    <SettingsSection heading="Computer use" description="Work chats can use apps on this computer. Actions on shared windows and physical input take turns automatically.">
+      <div className="flex flex-wrap items-start justify-between gap-3 py-3">
+        <div className="flex min-w-0 flex-1 items-start gap-2.5">
+          {ready ? <CheckCircleIcon weight="fill" className="mt-0.5 size-4 shrink-0 text-success" /> : <MonitorIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
+          <div className="min-w-0">
+            <p role="status" className="text-sm font-medium">{!status ? "Checking permissions…" : status.error ? "Computer use unavailable" : ready ? "Ready to use" : "System permission needed"}</p>
+            {status?.error || missing.length ? <p className="mt-1 text-[0.8125rem] leading-5 text-body-muted-foreground">{status?.error ?? `Allow ${missing.join(" and ")} for NativePi in system settings.`}</p> : null}
           </div>
-          {ready ? <CheckCircleIcon weight="fill" className="mt-0.5 size-5 shrink-0 text-success" /> : null}
         </div>
-      </SettingsSection>
-      <SettingsSection heading="System permissions" description={status?.platform === "macos" ? "Grant permissions to NativePi in System Settings. Development builds appear as Electron. Only you can approve system permission requests." : "Computer use follows the permissions and desktop capabilities of your operating system."}>
-        {Object.entries(status?.permissions ?? {}).map(([name, permission]) => (
-          <div key={name} className="flex items-center justify-between gap-4 border-b border-border/30 py-3 last:border-0">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">{permissionNames[name] ?? name}</p>
-              <p className="mt-0.5 text-[0.8125rem] leading-5 text-body-muted-foreground">{permissionDescriptions[name]}</p>
-            </div>
-            <span className="shrink-0 text-xs text-muted-foreground">{permission.state === "granted" ? "Granted" : permission.state === "unknown" ? "When needed" : permission.state === "denied" ? "Not granted" : permission.state.replaceAll("_", " ")}</span>
-          </div>
-        ))}
-        <div className="flex flex-wrap items-center gap-2 pt-4">
-          {status?.platform === "macos" && (!ready || missing) ? <Button size="sm" disabled={busy || isRemote} onClick={() => void refresh(true)}>Open permission guide</Button> : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {status?.platform === "macos" && missing.length > 0 && !isRemote ? <Button size="sm" disabled={busy} onClick={() => void refresh(true)}>Open permission guide</Button> : null}
           <Button variant="outline" size="sm" disabled={busy} onClick={() => void refresh()}>{busy ? "Checking…" : "Check again"}</Button>
         </div>
-        {guideOpened ? <p role="status" className="pt-3 text-[0.8125rem] leading-5 text-body-muted-foreground">Complete the permission guide, then check again. You can keep NativePi open.</p> : null}
-        {isRemote ? <p className="pt-3 text-[0.8125rem] leading-5 text-body-muted-foreground">These permissions apply to the host computer. Grant them from the desktop app.</p> : null}
-      </SettingsSection>
-      <SettingsSection heading="While Pi works">
-        <p className="py-3 text-[0.8125rem] leading-5 text-body-muted-foreground">Mouse and keyboard actions can move your pointer and change the focused app. Use Stop in the active chat to interrupt computer use. Actions already delivered to an app may have taken effect.</p>
-        <p className="text-[0.8125rem] leading-5 text-body-muted-foreground">Screenshots and app content used by Pi are sent to your selected model provider and saved in the chat’s Pi session.</p>
-      </SettingsSection>
-    </div>
+      </div>
+      {guideOpened && !ready ? <p role="status" className="pb-2 text-[0.8125rem] leading-5 text-body-muted-foreground">Complete the permission guide, then check again.</p> : null}
+      {isRemote && missing.length > 0 ? <p className="pb-2 text-[0.8125rem] leading-5 text-body-muted-foreground">Grant permissions on the host computer in the desktop app.</p> : null}
+      <p className="pb-3 text-[0.8125rem] leading-5 text-body-muted-foreground">App content and screenshots go to your model provider and stay in chat history. Stop interrupts this chat’s actions.</p>
+    </SettingsSection>
   );
 }

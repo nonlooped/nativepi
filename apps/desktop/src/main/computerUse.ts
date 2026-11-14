@@ -73,33 +73,132 @@ const ownedFlags = new Set(["--session", "--agent-id", "--trace", "--trace-stric
 export function computerArgs(operation: ComputerOperation): string[] {
   if (operation.kind === "screenshot") {
     const { app, windowId, screen } = operation.target;
-    return ["screenshot", ...(app ? ["--app", app] : []), ...(windowId ? ["--window-id", windowId] : []), ...(screen !== undefined ? ["--screen", String(screen)] : [])];
+    return ["screenshot", ...(app && !windowId ? ["--app", app] : []), ...(windowId ? ["--window-id", windowId] : []), ...(screen !== undefined ? ["--screen", String(screen)] : [])];
   }
   if (operation.args.some(arg => ownedFlags.has(arg.split("=")[0]!))) throw new Error("Snapshot namespaces and debug output are managed by NativePi. Use the headed parameter for physical input.");
   return [...(operation.headed ? ["--headed"] : []), operation.command, ...operation.args];
 }
 
-/** One lease per Pi turn, shared across every project and delegate in this app. */
+type WindowScope = string | undefined;
+type Access = { window: WindowScope; mode: "read" | "write" | "none" };
+type Snapshot = { window: WindowScope; stale: boolean };
+type ComputerState = { home: Promise<string>; snapshots: Map<string, Snapshot>; jobs: Set<AbortController>; disposed: boolean };
+type WaitingAction = { owner: object; access: Access; grant(): void; cancel(): void };
+const referenceId = /^@([^:]+):e\d+$/;
+const observations = new Set(["snapshot", "find", "get", "is", "list-surfaces", "list-apps", "list-windows", "list-displays", "list-notifications", "clipboard-get"]);
+const localActions = new Set(["click", "type", "set-value", "clear", "toggle", "check", "uncheck", "expand", "collapse", "scroll", "scroll-to"]);
+function option(args: string[], name: string): string | undefined {
+  const end = args.indexOf("--");
+  const flags = end < 0 ? args : args.slice(0, end);
+  const index = flags.indexOf(name);
+  return index >= 0 ? flags[index + 1] : flags.find(arg => arg.startsWith(`${name}=`))?.slice(name.length + 1);
+}
+function overlaps(a: WindowScope, b: WindowScope): boolean { return a === undefined || b === undefined || a === b; }
+function conflicts(a: WaitingAction, b: WaitingAction): boolean {
+  if (a.owner === b.owner) return true;
+  return a.access.mode !== "none" && b.access.mode !== "none" && (a.access.mode === "write" || b.access.mode === "write") && overlaps(a.access.window, b.access.window);
+}
+
+/** Schedule individual actions, keeping each chat's snapshots private. */
 export class ComputerController {
-  private owner?: object;
-  private flight?: { owner: object; abort: AbortController };
-  private releasing = false;
-  private homes = new Map<object, Promise<string>>();
+  private states = new Map<object, ComputerState>();
+  private queue: WaitingAction[] = [];
+  private active = new Set<WaitingAction>();
   constructor(private runner: ComputerRunner = runComputer) {}
   release(owner: object): void {
-    if (this.flight?.owner === owner) {
-      if (this.owner === owner) this.releasing = true;
-      this.flight.abort.abort();
-    } else if (this.owner === owner) { this.owner = undefined; this.releasing = false; }
+    for (const job of this.states.get(owner)?.jobs ?? []) job.abort();
   }
   async dispose(owner: object): Promise<void> {
-    this.release(owner);
-    const home = this.homes.get(owner);
-    this.homes.delete(owner);
-    if (home) {
-      // The command holds its own cleanup until close if disposal interrupts it.
-      const directory = await home.catch(() => undefined);
-      if (directory && this.flight?.owner !== owner) await rm(directory, { recursive: true, force: true }).catch(() => {});
+    const state = this.states.get(owner);
+    if (!state) return;
+    this.states.delete(owner);
+    state.disposed = true;
+    for (const job of state.jobs) job.abort();
+    if (!state.jobs.size) await this.clean(state);
+  }
+  private async clean(state: ComputerState): Promise<void> {
+    const directory = await state.home.catch(() => undefined);
+    if (directory) await rm(directory, { recursive: true, force: true }).catch(() => {});
+  }
+  private pump(): void {
+    for (const job of [...this.queue]) {
+      const index = this.queue.indexOf(job);
+      // Preserve arrival order for overlapping resources, without blocking
+      // independent windows behind a busy window or starving physical input.
+      if ([...this.active, ...this.queue.slice(0, index)].some(other => conflicts(job, other))) continue;
+      this.queue.splice(index, 1);
+      this.active.add(job);
+      job.grant();
+    }
+  }
+  private acquire(owner: object, access: Access, signal: AbortSignal): Promise<() => void> {
+    return new Promise((resolve, reject) => {
+      const job: WaitingAction = {
+        owner, access,
+        grant: () => {
+          signal.removeEventListener("abort", job.cancel);
+          resolve(() => { this.active.delete(job); this.pump(); });
+        },
+        cancel: () => {
+          const index = this.queue.indexOf(job);
+          if (index >= 0) this.queue.splice(index, 1);
+          signal.removeEventListener("abort", job.cancel);
+          reject(new Error("Computer command cancelled while waiting for another action."));
+          this.pump();
+        },
+      };
+      if (signal.aborted) { reject(new Error("Computer command cancelled.")); return; }
+      this.queue.push(job);
+      signal.addEventListener("abort", job.cancel, { once: true });
+      this.pump();
+    });
+  }
+  private references(operation: ComputerOperation): string[] {
+    if (operation.kind !== "command") return [];
+    const { command, args } = operation;
+    const id = (value?: string) => value ? referenceId.exec(value)?.[1] : undefined;
+    if (command === "snapshot" || command === "find" || command === "wait") {
+      const ref = id(option(args, command === "wait" ? "--element" : "--root"));
+      return ref ? [ref] : [];
+    }
+    if (command === "drag") return args.flatMap(arg => id(arg.startsWith("--") && arg.includes("=") ? arg.slice(arg.indexOf("=") + 1) : arg) ?? []);
+    if (localActions.has(command) || ["get", "is", "focus", "select", "right-click", "double-click", "triple-click", "hover"].includes(command)) return args.flatMap(arg => id(arg) ?? []).slice(0, 1);
+    return [];
+  }
+  private access(operation: ComputerOperation, state: ComputerState): Access {
+    if (operation.kind === "screenshot") return { window: operation.target.windowId, mode: "read" };
+    const { command, args, headed } = operation;
+    const help = args.indexOf("--help") >= 0 && (args.indexOf("--") < 0 || args.indexOf("--help") < args.indexOf("--"));
+    const permissionCheck = command === "permissions" && !args.some(arg => arg.startsWith("--guide") || arg.startsWith("--request"));
+    if (!headed && (["status", "version", "skills", "help", "wait"].includes(command) || help || permissionCheck)) return { window: undefined, mode: "none" };
+    const refs = this.references(operation).map(id => state.snapshots.get(id)?.window);
+    const explicitWindow = option(args, "--window-id");
+    if (refs.length && explicitWindow) refs.push(explicitWindow);
+    let window = explicitWindow;
+    if (refs.length) window = refs.every(value => value === refs[0]) ? refs[0] : undefined;
+    // Menu selection, focus, clipboard writes and window/app management can
+    // affect other windows. Treat them like physical input, even when semantic.
+    const surface = option(args, "--surface");
+    if (headed || (!observations.has(command) && !localActions.has(command))) return { window: undefined, mode: "write" };
+    return { window: surface && surface !== "window" ? undefined : window, mode: observations.has(command) ? "read" : "write" };
+  }
+  private remember(state: ComputerState, result: ComputerEnvelope, access: Access, operation: ComputerOperation): void {
+    const data = result.data;
+    if (!data || typeof data !== "object" || Array.isArray(data) || typeof data.snapshot_id !== "string") return;
+    const surface = operation.kind === "command" ? option(operation.args, "--surface") : undefined;
+    let window = access.window;
+    if (data.window && typeof data.window === "object" && !Array.isArray(data.window) && typeof data.window.id === "string") window = data.window.id;
+    if (surface && surface !== "window") window = undefined;
+    // A subtree drill must never turn an already invalidated snapshot fresh.
+    const previous = state.snapshots.get(data.snapshot_id);
+    if (previous && previous.window !== window) window = undefined;
+    state.snapshots.set(data.snapshot_id, { window, stale: previous?.stale ?? false });
+    while (state.snapshots.size > 128) state.snapshots.delete(state.snapshots.keys().next().value!);
+  }
+  private invalidate(owner: object, window: WindowScope): void {
+    for (const [other, state] of this.states) {
+      if (other === owner) continue;
+      for (const snapshot of state.snapshots.values()) if (overlaps(window, snapshot.window)) snapshot.stale = true;
     }
   }
   async run(owner: object, raw: unknown, signal?: AbortSignal): Promise<ComputerResult> {
@@ -109,17 +208,35 @@ export class ComputerController {
     let args: string[];
     try { args = computerArgs(operation); }
     catch (error) { return computerFailure(command, "INVALID_ARGS", (error as Error).message); }
-    const passive = operation.kind === "command" && ["status", "version", "skills", "help", "permissions"].includes(command) && !operation.headed && !operation.args.includes("--guide") && !operation.args.includes("--request");
-    if (this.flight || (!passive && ((this.owner && this.owner !== owner) || this.releasing))) return computerFailure(command, "COMPUTER_BUSY", "The computer is in use by another command or Work chat. Wait for its turn to finish, or stop that chat. Do not bypass this through the shell.");
-    if (!passive) this.owner = owner;
+    let state = this.states.get(owner);
+    if (!state) {
+      state = { home: mkdtemp(join(tmpdir(), "nativepi-computer-")), snapshots: new Map(), jobs: new Set(), disposed: false };
+      // Queued actions may not await the directory immediately.
+      void state.home.catch(() => {});
+      this.states.set(owner, state);
+    }
     const abort = new AbortController();
-    this.flight = { owner, abort };
-    let home = this.homes.get(owner);
-    if (!home) { home = mkdtemp(join(tmpdir(), "nativepi-computer-")); this.homes.set(owner, home); }
-    let directory: string | undefined;
+    state.jobs.add(abort);
+    // Bound both queueing and native execution within the tool IPC deadline.
+    const timer = setTimeout(() => abort.abort(), 60_000);
+    const combined = signal ? AbortSignal.any([signal, abort.signal]) : abort.signal;
+    const access = this.access(operation, state);
+    let unlock: (() => void) | undefined;
+    let delivered = false;
     try {
-      directory = await home;
-      const result = await this.runner(args, directory, signal ? AbortSignal.any([signal, abort.signal]) : abort.signal, operation.kind === "command" ? operation.input : undefined);
+      unlock = await this.acquire(owner, access, combined);
+      combined.throwIfAborted();
+      // Recheck after queueing: another chat may have changed the window while
+      // this action waited. Refuse before delivery rather than guessing intent.
+      if (this.references(operation).some(id => !state.snapshots.has(id) || state.snapshots.get(id)!.stale)) return computerFailure(command, "STALE_REF", "Another chat may have changed this window, or the snapshot expired. Take a fresh snapshot or find before acting on its refs.");
+      const directory = await state.home;
+      combined.throwIfAborted();
+      delivered = true;
+      const result = await this.runner(args, directory, combined, operation.kind === "command" ? operation.input : undefined);
+      const disposition = (result.ok && result.data && typeof result.data === "object" && !Array.isArray(result.data) ? result.data.disposition : result.error?.disposition);
+      const notDelivered = disposition && typeof disposition === "object" && !Array.isArray(disposition) && disposition.delivery === "not_delivered";
+      if (access.mode === "write" && !notDelivered) this.invalidate(owner, access.window);
+      this.remember(state, result, access, operation);
       if (command === "screenshot" && result.ok) {
         const image = z.object({ format: z.literal("png"), data: z.string().min(1).max(LIMIT), width: z.number(), height: z.number() }).parse(result.data);
         const { data: _image, ...metadata } = z.record(z.string(), z.unknown()).parse(result.data);
@@ -127,13 +244,15 @@ export class ComputerController {
       }
       return { envelope: result };
     } catch (error) {
-      // A killed native action may have landed: never claim it is safe to repeat.
+      if (delivered && access.mode === "write") this.invalidate(owner, access.window);
       const message = (error as Error).message;
-      return computerFailure(command, signal?.aborted || abort.signal.aborted ? "CANCELLED" : "COMPUTER_UNAVAILABLE", /ENOENT/.test(message) ? "The bundled computer-use binary is missing. Reinstall NativePi." : message, directory ? "unknown" : "not_delivered");
+      return computerFailure(command, combined.aborted ? "CANCELLED" : "COMPUTER_UNAVAILABLE", /ENOENT/.test(message) ? "The bundled computer-use binary is missing. Reinstall NativePi." : message, delivered ? "unknown" : "not_delivered");
     } finally {
-      this.flight = undefined;
-      if (this.releasing && this.owner === owner) { this.owner = undefined; this.releasing = false; }
-      if (!this.homes.has(owner) && directory) await rm(directory, { recursive: true, force: true }).catch(() => {});
+      // A cancelled native command retains its slot until its process closes.
+      unlock?.();
+      clearTimeout(timer);
+      state.jobs.delete(abort);
+      if (state.disposed && !state.jobs.size) await this.clean(state);
     }
   }
 }

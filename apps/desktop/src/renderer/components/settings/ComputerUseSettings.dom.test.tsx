@@ -27,7 +27,8 @@ test("permission refusal offers the guide, then a fresh check shows the new gran
   response = ready;
   await act(async () => button("Check again").click());
   expect(container.textContent).toContain("Ready to use");
-  expect(container.textContent).toContain("When needed");
+  expect(container.textContent).not.toContain("Automation");
+  expect(container.textContent).not.toContain("Included with NativePi");
   expect(button("Open permission guide")).toBeUndefined();
 });
 
@@ -44,9 +45,23 @@ test("missing binary or host failures can be recovered with Check again", async 
 test("a failed permission guide never claims that system permissions were granted", async () => {
   response = { ...ready, permissions: { accessibility: { state: "denied" } } };
   await mount();
-  response = { available: false, permissions: {}, error: "The computer is in use by another Work chat." };
+  response = { available: false, permissions: {}, error: "The permission guide could not open." };
   await act(async () => button("Open permission guide").click());
-  expect(container.textContent).toContain("in use by another Work chat");
+  expect(container.textContent).toContain("permission guide could not open");
   expect(container.textContent).not.toContain("Complete the permission guide");
+  expect(container.textContent).not.toContain("Ready to use");
+});
+
+test("platform permissions marked not required are ready without setup controls", async () => {
+  response = { available: true, platform: "windows", permissions: { accessibility: { state: "not_required" }, screen_recording: { state: "not_required" } } };
+  await mount();
+  expect(container.textContent).toContain("Ready to use");
+  expect(button("Open permission guide")).toBeUndefined();
+});
+
+test("missing screen recording permission is visible even when accessibility is granted", async () => {
+  response = { ...ready, permissions: { ...ready.permissions, screen_recording: { state: "denied" } } };
+  await mount();
+  expect(container.textContent).toContain("Allow Screen recording");
   expect(container.textContent).not.toContain("Ready to use");
 });

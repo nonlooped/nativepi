@@ -51,11 +51,11 @@ test("host refuses computer actions from Chat and from idle or stopped Work proc
   await chat.pi.stop(); await work.pi.stop();
 });
 
-test("turn settlement releases ownership for a competing Work chat", async () => {
+test("multiple active Work chats can use the computer between each other’s actions", async () => {
   const a = fixture(), b = fixture();
   a.child.event("agent_start"); b.child.event("agent_start");
   expect((await request(a.child, "a")).envelope.ok).toBe(true);
-  expect((await request(b.child, "busy")).envelope.error.code).toBe("COMPUTER_BUSY");
+  expect((await request(b.child, "concurrent")).envelope.ok).toBe(true);
   a.child.event("agent_settled");
   expect((await request(b.child, "b")).envelope.ok).toBe(true);
   await a.pi.stop(); await b.pi.stop();
