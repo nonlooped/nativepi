@@ -52,9 +52,10 @@ extension surfaces when upgrading Pi.
 - Use focused checks for the changed behavior and meaningful failure cases.
   No coverage targets; no project-wide tests, builds, or quality suites unless
   requested. Report what was verified and any gaps.
-- Do not start the app or long-lived dev processes unless requested. Browser
-  testing uses the running app's Local Access feature and shares its real data.
-  Check for stale processes if the app appears to serve old state.
+- For UI work, check for a running app and reuse it, or start the app if none
+  is running. Inspect real UI states, capture before/after evidence, and iterate
+  on polish. Browser testing uses the app's Local Access feature and shares its
+  real data. Check for stale processes if the app appears to serve old state.
 - Do not watch or poll hosted CI unless requested.
 - Use Conventional Commit titles, with no body or attribution trailers.
 - After finishing work, commit the changes following repository conventions;

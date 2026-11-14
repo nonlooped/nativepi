@@ -397,7 +397,7 @@ Gate: two arbitrary Work leads can discover and message each other; inbox delive
 ### Phase 9 — Lifecycle hardening, design review, and documentation
 
 - Finish restart/recovery, reclamation, quit/power-save, extension surfaces, usage attribution, and diagnostics.
-- Review and refine real UI states in light/dark/custom themes and narrow layouts using the running app's Local Access only when app/browser testing is requested. Do not start the app or a dev server unasked.
+- Review and refine real UI states in light/dark/custom themes and narrow layouts using the app's Local Access. Check for a running app and reuse it, or start the app if none is running; capture before/after evidence and iterate on polish.
 - Update `apps/desktop/PRODUCT.md`, user/developer documentation as appropriate, and `CHANGELOG.md` under Unreleased when implementation actually ships. Keep this plan clearly distinguished from current capabilities.
 - Prepare a feature PR for the noticeable UI/large unified change. Use the before-and-after skill with available captures at that point, keeping personal captures/reports outside the repository as required by `AGENTS.md`. Do not bump app/package versions, tag a release, or publish an extension package as part of this feature.
 
