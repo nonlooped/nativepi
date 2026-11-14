@@ -9,7 +9,7 @@ import type { AppState } from "./types.ts";
 const stores: StoreApi<AppState>[] = [];
 function fixture() {
   const store = createStore<AppState>()(createAppState);
-  store.setState({ ready: true, activeProjectPath: "/p", activeSessionFile: "a", trust: { required: true, trusted: false } });
+  store.setState({ orchestrationLoaded: true, orchestration: { revision: 1, threads: ["a", "b", "c", "bound"].map(file => ({ ref: { id: file, file, cwd: "/p" }, running: false, busy: false, inbox: [], pendingDelivery: [], reports: [], readMessageIds: [], delegates: [] })) }, ready: true, activeProjectPath: "/p", activeSessionFile: "a", trust: { required: true, trusted: false } });
   stores.push(store);
   return store;
 }
