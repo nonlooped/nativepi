@@ -1,22 +1,19 @@
 import { createKeybindingsHandler } from "tinykeys";
 import { bindings, withHint } from "../lib/shortcuts.ts";
 import { useEffect, useRef, useState } from "react";
-import { Collapsible } from "@base-ui/react/collapsible";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
-import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
+import { XIcon } from "@phosphor-icons/react/X";
 import { GitCommitIcon } from "@phosphor-icons/react/GitCommit";
 import { GitPullRequestIcon } from "@phosphor-icons/react/GitPullRequest";
-import { MinusIcon } from "@phosphor-icons/react/Minus";
 import { SparkleIcon } from "@phosphor-icons/react/Sparkle";
-import type { GitChangedFile, GitCommit, GitStatus } from "../../shared/pi-types.ts";
-import { PlusIcon } from "../../shared/icons.ts";
+import type { GitChangedFile, GitStatus } from "../../shared/pi-types.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
-import { timeAgo } from "../lib/format.ts";
+import GitHistory from "./GitHistory.tsx";
+import ChangeTree from "./ChangeTree.tsx";
+import { Input } from "@/components/ui/input.tsx";
 import { rpc } from "../lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
-import { useRequest } from "../lib/useRequest.ts";
-import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -25,19 +22,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
-import { cn } from "@/lib/utils.ts";
 import { modelKey } from "../../shared/messages.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 import BranchSwitcher from "./BranchSwitcher.tsx";
-import FileContextMenu from "./FileContextMenu.tsx";
-import FileTypeIcon from "./FileTypeIcon.tsx";
 import RepoHostPanel from "./RepoHostPanel.tsx";
 
 type CommitAction = "commit" | "push" | "sync";
-import DiffPreview from "./DiffPreview.tsx";
 
 // Keep guaranteed async cleanup outside render functions: React Compiler does
 // not currently lower try/finally inside a component's event handlers.
@@ -49,45 +41,54 @@ export default function SourceControl({
   projectDir,
   git,
   onOpenPullRequest,
+  onClose,
+  onReview,
 }: {
   projectDir: string;
   git: GitStatus;
   onOpenPullRequest: () => void;
+  onClose?: () => void;
+  onReview?: () => void;
 }) {
   const keybindingOverrides = useAppStore(s => s.keybindingOverrides);
   const refreshGit = useAppStore((s) => s.refreshGit);
   const commitMessageModel = useAppStore((s) => s.commitMessageModel);
   const sessionFile = useAppStore((s) => activeConversation(s).sessionFile);
-  const [message, setMessage] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
+  const message = useAppStore(s => s.sourceControlDrafts[projectDir] ?? "");
+  const setDraft = useAppStore(s => s.setSourceControlDraft);
+  const setMessage = (message: string) => setDraft(projectDir, message);
+  const review = useAppStore(s => s.sourceControlReview);
+  const setReview = useAppStore(s => s.setSourceControlReview);
+  const selected = review?.projectDir === projectDir && !review.hash ? `${review.staged ? "staged" : "changed"}:${review.path}` : null;
+  function setSelected(key: string | null) {
+    if (key) { setReview({ projectDir, path: key.slice(key.indexOf(":") + 1), staged: key.startsWith("staged:") }); onReview?.(); }
+  }
   const [pendingRevert, setPendingRevert] = useState<GitChangedFile | null>(null);
   const [busy, setBusy] = useState<CommitAction | "stage" | null>(null);
   const operation = useRef(false);
+  const sharedBusy = useAppStore(s => s.sourceControlBusy);
   const alive = useRef(true);
   const messageVersion = useRef(0);
   const commitInput = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  const revision = useAppStore(s => s.gitRevision);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const showPullRequest = useAppStore((s) => s.repoHost?.host !== "gitlab");
   const stagedFiles = git.files.filter((file) => file.staged);
   const changedFiles = git.files.filter((file) => file.unstaged);
-  const [commitOpen, setCommitOpen] = useState(stagedFiles.length > 0);
+  const [tab, setTab] = useState<"changes" | "history">("changes");
+  const [filter, setFilter] = useState("");
 
   useEffect(() => {
-    setMessage("");
-    setSelected(null);
     setError(null);
     setGenerating(false);
   }, [projectDir]);
 
-  useEffect(() => {
-    if (stagedFiles.length > 0) setCommitOpen(true);
-  }, [stagedFiles.length]);
+
 
   async function run(kind: CommitAction | "stage" | "generate", work: () => Promise<void>) {
-    if (operation.current) return;
+    if (operation.current || useAppStore.getState().sourceControlBusy) return;
+    useAppStore.getState().setSourceControlBusy(true);
     operation.current = true;
     if (kind === "generate") setGenerating(true); else setBusy(kind);
     setError(null);
@@ -96,6 +97,7 @@ export default function SourceControl({
       catch (error) { if (alive.current) setError(error instanceof Error ? error.message : String(error)); }
     }, () => {
       operation.current = false;
+      useAppStore.getState().setSourceControlBusy(false);
       if (alive.current) { setBusy(null); setGenerating(false); }
     });
   }
@@ -132,7 +134,7 @@ export default function SourceControl({
       await refreshGit();
     });
   }
-  const disabled = busy !== null || generating;
+  const disabled = sharedBusy || busy !== null || generating;
   const canCommit = Boolean(message.trim()) && stagedFiles.length > 0 && !disabled;
   const commitDisabledReason = disabled ? "Working…" : stagedFiles.length === 0 ? "Stage changes first" : !message.trim() ? "Add a commit message" : undefined;
   useEffect(() => {
@@ -148,378 +150,73 @@ export default function SourceControl({
     }, keybindingOverrides), { ignore: event => (event as KeyboardEvent).isComposing });
     input.addEventListener("keydown", handler);
     return () => input.removeEventListener("keydown", handler);
-  }, [canCommit, commit, keybindingOverrides, selected]);
+  }, [canCommit, commit, keybindingOverrides, selected, tab]);
 
   const canGenerate = stagedFiles.length > 0 && !disabled;
 
-  const selectedStaged = selected?.startsWith("staged:") ?? false;
-  const selectedPath = selected?.slice(selected.indexOf(":") + 1);
-  const selectedFile = (selectedStaged ? stagedFiles : changedFiles).find(file => file.path === selectedPath);
-  if (selectedFile) return <DiffPreview key={selected} projectDir={projectDir} path={selectedFile.path}
-    mode={selectedStaged ? "staged" : "working"} revision={revision} onBack={() => setSelected(null)}
-    actions={<div className="border-t px-3 py-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-muted-foreground">{stateLabel(selectedFile.state)}</span>
-        <Button size="sm" variant="outline" disabled={disabled} onClick={() => void mutate(() => selectedStaged
-          ? rpc.request.gitUnstageFile({ projectDir, file: selectedFile.path, originalPath: selectedFile.originalPath })
-          : rpc.request.gitStageFile({ projectDir, file: selectedFile.path }))}>{selectedStaged ? "Unstage file" : "Stage file"}</Button>
-      </div>
-      {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
-      {!selectedStaged && <HunkActions projectDir={projectDir} file={selectedFile} stagedVersion={0} revision={revision} disabled={disabled} mutate={mutate} onStaged={() => {}} />}
-    </div>} />;
+  const visible = (files: GitChangedFile[]) => files.filter(file => file.path.toLowerCase().includes(filter.toLowerCase()));
+  const sync = (action: "push" | "sync") => run(action, async () => {
+    const result = await (action === "push" ? rpc.request.gitPush({ projectDir }) : rpc.request.gitSync({ projectDir }));
+    await refreshGit();
+    if (!result.ok) throw new Error(result.error ?? "Git could not sync this branch.");
+    showHint(action === "push" ? "Branch pushed" : "Branch synced");
+  });
 
-  return (
-    <div className="min-h-0 flex-1 overflow-y-auto pb-5 text-foreground">
-      <section className="flex flex-col gap-3 px-3 py-3">
-        <div className="flex min-w-0 items-start gap-2.5">
-          <div className="min-w-0 flex-1 pt-0.5">
-            <BranchSwitcher className="h-auto max-w-full px-0 font-semibold text-foreground hover:bg-transparent" />
-            <p className="truncate font-mono text-xs leading-4 text-muted-foreground" title={git.upstream}>
-              {git.upstream ?? "No upstream branch"}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => void refreshGit()}
-              title={withHint("Refresh changes", "refreshSourceControl", keybindingOverrides)}
-              aria-label="Refresh changes"
-            >
-              <ArrowClockwiseIcon />
-            </Button>
-            {showPullRequest ? (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={onOpenPullRequest}
-                title="Open a pull request"
-                aria-label="Open a pull request"
-              >
-                <GitPullRequestIcon />
-              </Button>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-auto text-xs text-muted-foreground">{git.files.length} changed {git.files.length === 1 ? "file" : "files"}</span>
-          {git.insertions > 0 ? <span className="text-xs tabular-nums text-success">+{git.insertions}</span> : null}
-          {git.deletions > 0 ? <span className="text-xs tabular-nums text-destructive">−{git.deletions}</span> : null}
-          {git.lineCountsIncomplete ? <span className="text-xs text-muted-foreground" title="Line totals exclude untracked files that exceeded the counting budget.">Partial line totals</span> : null}
-          {git.ahead > 0 ? <Badge variant="outline">↑ {git.ahead} ahead</Badge> : null}
-          {git.behind > 0 ? <Badge variant="outline">↓ {git.behind} behind</Badge> : null}
-        </div>
-      </section>
-
-      <Collapsible.Root open={commitOpen} onOpenChange={setCommitOpen}>
-      <section className="mx-3 flex flex-col gap-3 rounded-xl bg-muted/55 p-3">
-        <Collapsible.Trigger className="flex items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <GitCommitIcon className="text-foreground" />
-          <h3 className="flex-1 font-heading text-sm font-semibold text-foreground">Create a commit</h3>
-          <Badge variant="secondary">{stagedFiles.length} staged</Badge>
-          <CaretDownIcon className={cn("shrink-0 text-muted-foreground transition-transform", !commitOpen && "-rotate-90")} />
-        </Collapsible.Trigger>
-        <Collapsible.Panel className="disclosure-panel">
-        <div className="flex flex-col gap-3">
-        <Field>
-          <div className="flex flex-wrap items-center gap-2">
-            <FieldLabel htmlFor="source-control-message">Commit message</FieldLabel>
-            <span className="min-w-0 flex-1" />
-            <CommitModelSelect />
-            <Button variant="ghost" size="xs" onClick={() => void generate()} disabled={!canGenerate} title="Generate a commit message with Pi">
-              <SparkleIcon data-icon="inline-start" />
-              {generating ? "Writing…" : "Write with Pi"}
-            </Button>
-          </div>
-          <Textarea
-            id="source-control-message"
-            value={message}
-            onChange={(event) => { ++messageVersion.current; setMessage(event.target.value); }}
-            ref={commitInput}
-            placeholder="Summarize the staged changes"
-            className="min-h-20 resize-none text-sm"
-          />
-          {stagedFiles.length === 0 ? <FieldDescription>Stage at least one file to create a commit.</FieldDescription> : null}
-        </Field>
-        <div className="flex gap-1.5">
-          <Button
-            variant={canCommit ? "default" : "outline"}
-            className="min-w-0 flex-1"
-            onClick={() => void commit("commit")}
-            disabled={!canCommit}
-            title={commitDisabledReason ?? withHint("Commit staged changes", "commitChanges", keybindingOverrides)}
-            aria-label={commitDisabledReason ? `Commit unavailable: ${commitDisabledReason}` : "Commit staged changes"}
-          >
-            {busy === "commit" ? "Committing…" : "Commit staged changes"}
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="outline" size="icon" disabled={!canCommit} aria-label="More commit actions" title={commitDisabledReason ?? "More commit actions"} />}
-            >
-              <CaretDownIcon />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuGroup>
-                <DropdownMenuItem onClick={() => void commit("commit")}>Commit staged changes</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => void commit("push")}>Commit and push</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => void commit("sync")}>Commit and sync</DropdownMenuItem>
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        </div>
-        </Collapsible.Panel>
-      </section>
-      </Collapsible.Root>
-
-      {error ? <p role="alert" className="whitespace-pre-wrap px-3 text-xs leading-5 text-destructive">{error}</p> : null}
-      <RepoHostPanel />
-
-      <FileGroup
-        title="Staged"
-        files={stagedFiles}
-        staged
-        projectDir={projectDir}
-        disabled={disabled}
-        onSelect={setSelected}
-        onAll={() => void mutate(() => rpc.request.gitUnstageAll({ projectDir }))}
-        onFile={(file) => void mutate(() => rpc.request.gitUnstageFile({ projectDir, file: file.path, originalPath: file.originalPath }))}
-      />
-      <FileGroup
-        title="Changes"
-        files={changedFiles}
-        staged={false}
-        projectDir={projectDir}
-        disabled={disabled}
-        onSelect={setSelected}
-        onAll={() => void mutate(() => rpc.request.gitStageAll({ projectDir }))}
-        onFile={(file) => void mutate(() => rpc.request.gitStageFile({ projectDir, file: file.path }))}
-        onRevert={setPendingRevert}
-      />
-
-      <ConfirmDialog open={pendingRevert !== null} title="Revert file changes?"
-        description="Discard unstaged changes in this file? Staged changes will remain. This cannot be undone."
-        detail={pendingRevert?.path} confirmLabel="Revert changes" destructive
-        onConfirm={() => { const file = pendingRevert; setPendingRevert(null); if (file) void mutate(() => rpc.request.gitRevertFile({ projectDir, file: file.path })); }}
-        onCancel={() => setPendingRevert(null)} />
-      {git.files.length === 0 ? (
-        <div className="px-6 py-8 text-center">
-          <p className="text-sm font-medium text-foreground">Working tree is clean</p>
-          <p className="mt-1 text-xs leading-5 text-body-muted-foreground">New file changes will appear here.</p>
-        </div>
-      ) : null}
-      <CommitGraph projectDir={projectDir} git={git} />
+  return <div className="flex min-h-0 flex-1 flex-col text-foreground">
+    <div className="flex h-12 shrink-0 items-center gap-1 border-b px-2">
+      <BranchSwitcher handleRequests className="mr-auto min-w-0 flex-1" />
+      <Button size="sm" variant="outline" disabled={disabled || git.detached} onClick={() => void sync("push")}>{busy === "push" ? "Pushing…" : git.upstream ? `Push${git.ahead ? ` ${git.ahead}` : ""}` : "Publish"}</Button>
+      <DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" aria-label="Source control actions" />}><CaretDownIcon /></DropdownMenuTrigger>
+        <DropdownMenuContent align="end"><DropdownMenuGroup>
+          <DropdownMenuItem disabled={disabled || git.detached} onClick={() => void sync("push")}>{git.upstream ? "Push commits" : "Publish branch"}</DropdownMenuItem>
+          <DropdownMenuItem disabled={disabled || git.detached || !git.upstream} onClick={() => void sync("sync")}>Sync (fast-forward only){git.behind ? ` · ${git.behind} behind` : ""}</DropdownMenuItem>
+          {showPullRequest && <DropdownMenuItem onClick={onOpenPullRequest}><GitPullRequestIcon />Open a pull request</DropdownMenuItem>}
+        </DropdownMenuGroup></DropdownMenuContent>
+      </DropdownMenu>
+      <Button variant="ghost" size="icon-sm" onClick={() => void refreshGit()} title={withHint("Refresh changes", "refreshSourceControl", keybindingOverrides)} aria-label="Refresh changes"><ArrowClockwiseIcon /></Button>
+      {onClose && <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Hide source control"><XIcon /></Button>}
     </div>
-  );
-}
-
-function FileGroup({
-  title,
-  files,
-  staged,
-  projectDir,
-  disabled,
-  onSelect,
-  onAll,
-  onFile,
-  onRevert,
-}: {
-  title: string;
-  files: GitChangedFile[];
-  staged: boolean;
-  projectDir: string;
-  disabled: boolean;
-  onSelect: (key: string | null) => void;
-  onAll: () => void;
-  onFile: (file: GitChangedFile) => void;
-  onRevert?: (file: GitChangedFile) => void;
-}) {
-  const [open, setOpen] = useState(true);
-  if (!files.length) return null;
-  return <Collapsible.Root open={open} onOpenChange={setOpen} className="border-t px-2 py-2">
-    <div className="flex items-center gap-2 px-1">
-      <Collapsible.Trigger className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        {open ? <CaretDownIcon /> : <CaretRightIcon />}
-        {title}<span className="font-normal tabular-nums text-muted-foreground">{files.length}</span>
-      </Collapsible.Trigger>
-      <Button variant="ghost" size="xs" disabled={disabled} onClick={onAll} aria-label={staged ? "Unstage all changes" : "Stage all changes"}>{staged ? "Unstage all" : "Stage all"}</Button>
-    </div>
-    <Collapsible.Panel>
-      <ul>
-        {files.map(file => {
-          const { name, directory } = splitPath(file.path);
-          return <li key={file.path}>
-            <FileContextMenu projectDir={projectDir} file={file.path} staged={staged} untracked={file.state === "untracked"}>
-              <div className="group/file flex items-center gap-1 rounded-md px-2 hover:bg-sidebar-accent">
-                <button type="button" title={file.path} onClick={() => onSelect(`${staged ? "staged" : "changed"}:${file.path}`)}
-                  className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
-                  <FileTypeIcon path={file.path} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs text-foreground">{name}</span>
-                    {directory && <span className="block truncate text-xs text-muted-foreground">{directory}</span>}
-                  </span>
-                  <span className={cn("shrink-0 text-xs", stateColor(file.state))} title={stateLabel(file.state)} aria-label={stateLabel(file.state)}>{stateBadge(file.state)}</span>
-                </button>
-                {!staged && file.state !== "untracked" && <Button variant="ghost" size="xs" disabled={disabled} onClick={() => onRevert?.(file)} aria-label={`Revert ${file.path}`}>Revert</Button>}
-                <Button variant="ghost" size="icon-xs" disabled={disabled} onClick={() => onFile(file)} title={staged ? "Unstage file" : "Stage file"} aria-label={`${staged ? "Unstage" : "Stage"} ${file.path}`}>{staged ? <MinusIcon /> : <PlusIcon />}</Button>
-              </div>
-            </FileContextMenu>
-          </li>;
-        })}
-      </ul>
-    </Collapsible.Panel>
-  </Collapsible.Root>;
-}
-
-function HunkActions({
-  projectDir,
-  file,
-  stagedVersion,
-  revision,
-  disabled,
-  mutate,
-  onStaged,
-}: {
-  projectDir: string;
-  file: GitChangedFile;
-  stagedVersion: number;
-  revision: number;
-  disabled: boolean;
-  mutate: (work: () => Promise<{ ok: boolean; error?: string }>) => Promise<void>;
-  onStaged: () => void;
-}) {
-  const { data, loading, error } = useRequest(
-    // New files have one hunk, so only whole-file staging is useful.
-    () => file.state === "untracked" ? Promise.resolve({ hunks: [] })
-      : rpc.request.gitHunks({ projectDir, file: file.path, untracked: false }),
-    [projectDir, file.path, file.state, stagedVersion, revision],
-  );
-  const [busy, setBusy] = useState<number | null>(null);
-  const [partsOpen, setPartsOpen] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
-  if (loading) return null;
-  if (error || !data) return <p className="border-b px-3 py-2 text-xs text-muted-foreground">Unable to read this file’s changes, so partial staging is unavailable.</p>;
-
-  if (data.hunks.length < 2) return null;
-
-  async function stage(patch: string, index: number) {
-    setBusy(index);
-    setFailure(null);
-    await withCleanup(async () => {
-      await mutate(() => rpc.request.gitStageHunk({ projectDir, file: file.path, untracked: file.state === "untracked", patch }));
-      onStaged();
-    }, () => setBusy(null));
-
-  }
-
-  return (
-    <div className="border-b px-2 py-2">
-      <Collapsible.Root open={partsOpen} onOpenChange={setPartsOpen}>
-        {data.hunks.length > 1 ? (
-          <Collapsible.Trigger className="group flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
-            <CaretRightIcon className="transition-transform group-data-[panel-open]:rotate-90" />
-            Stage individual changes
-          </Collapsible.Trigger>
-        ) : null}
-        {data.hunks.length > 1 ? (
-          <Collapsible.Panel className="mt-1.5 flex flex-col gap-1 border-t pt-1.5">
-            {data.hunks.map((hunk, index) => (
-              <div key={hunk.patch} className="flex min-w-0 items-center gap-2 rounded-md px-1 py-1 hover:bg-muted/50">
-                <span className="min-w-0 flex-1 truncate text-xs">Change {index + 1} <span className="font-mono text-muted-foreground">{hunkLocation(hunk.header)}</span></span>
-                <Button size="sm" variant="outline" disabled={disabled} onClick={() => void stage(hunk.patch, index)}>
-                  {busy === index ? "Staging…" : "Stage"}
-                </Button>
-              </div>
-            ))}
-          </Collapsible.Panel>
-        ) : null}
-      </Collapsible.Root>
-      {failure ? <p role="alert" className="mt-1.5 whitespace-pre-wrap px-1 text-xs text-destructive">{failure}</p> : null}
-    </div>
-  );
-}
-
-function CommitGraph({ projectDir, git }: { projectDir: string; git: GitStatus }) {
-  const [open, setOpen] = useState(false);
-  const { data, error, reload } = useRequest(
-    () => rpc.request.gitLog({ projectDir }),
-    [projectDir, git.head, git.upstream, git.ahead, git.behind],
-  );
-  const commits = data?.commits ?? null;
-
-  return (
-    <Collapsible.Root open={open} onOpenChange={setOpen} className="flex flex-col gap-1 border-t px-3 py-2">
-      <div className="flex h-7 items-center gap-1">
-        <Collapsible.Trigger className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
-          {open ? <CaretDownIcon /> : <CaretRightIcon />}
-          History
-          {commits ? <Badge variant="secondary">{commits.length}</Badge> : null}
-        </Collapsible.Trigger>
-        {error ? (
-          <Button variant="ghost" size="icon-xs" onClick={reload} title="Reload commit graph" aria-label="Reload commit graph">
-            <ArrowClockwiseIcon />
-          </Button>
-        ) : null}
-      </div>
-      <Collapsible.Panel>
-        {error ? <p className="py-2 text-xs text-destructive">Unable to load commit history.</p> : null}
-        {!error && commits === null ? <p className="py-2 text-xs text-muted-foreground">Loading history…</p> : null}
-        {commits?.length === 0 ? <p className="py-2 text-xs text-muted-foreground">No commits yet.</p> : null}
-        {commits ? <ul className="flex flex-col gap-0.5">{commits.map((commit) => <CommitRow key={commit.hash} commit={commit} />)}</ul> : null}
-      </Collapsible.Panel>
-    </Collapsible.Root>
-  );
-}
-
-function CommitRow({ commit }: { commit: GitCommit }) {
-  const refs = commit.refs.flatMap((ref) => ref === "HEAD" ? [] : [ref.replace(/^HEAD -> /, "")]);
-  return (
-    <li className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-1 rounded-lg px-2 py-2 hover:bg-sidebar-accent/50" title={commit.hash}>
-      <span className="whitespace-pre font-mono text-xs leading-5 text-info" aria-hidden="true">{commit.graph.replaceAll("*", "●")}</span>
-      <div className="min-w-0">
-        <p className="truncate text-xs font-medium">{commit.subject}</p>
-        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground">
-          <span className="font-mono">{commit.shortHash}</span>
-          <span className="truncate">{commit.author}</span>
-          <span>·</span>
-          <span>{timeAgo(commit.timestamp, Date.now())}</span>
-          <Badge variant="outline" className={commit.pushed ? "text-success" : "text-warning"}>
-            {commit.pushed ? "Pushed" : "Local"}
-          </Badge>
-          {refs.map((ref) => <Badge key={ref} variant="secondary" className="max-w-40 truncate">{ref}</Badge>)}
+    {error && <p role="alert" className="shrink-0 whitespace-pre-wrap border-b px-4 py-2 text-xs text-destructive">{error}</p>}
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex h-11 shrink-0 items-center gap-1 border-b px-3" role="tablist" aria-label="Source control view">
+          <Button role="tab" aria-selected={tab === "changes"} variant={tab === "changes" ? "secondary" : "ghost"} size="sm" onClick={() => setTab("changes")}>Changes <span className="text-xs tabular-nums text-muted-foreground">{git.files.length}</span></Button>
+          <Button role="tab" aria-selected={tab === "history"} variant={tab === "history" ? "secondary" : "ghost"} size="sm" onClick={() => setTab("history")}>History</Button>
+          <span className="ml-auto text-xs tabular-nums"><span className="text-success">+{git.insertions}</span> <span className="text-destructive">−{git.deletions}</span></span>
         </div>
-      </div>
-    </li>
-  );
-}
-
-function splitPath(path: string) {
-  const separator = path.lastIndexOf("/");
-  return separator < 0 ? { name: path, directory: "" } : { name: path.slice(separator + 1), directory: path.slice(0, separator) };
-}
-
-function hunkLocation(header: string) {
-  const match = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(header);
-  if (!match) return "";
-  const start = Number(match[1]);
-  const count = Number(match[2] ?? "1");
-  return count > 1 ? `lines ${start}-${start + count - 1}` : `line ${start}`;
-}
-
-function stateBadge(state: GitChangedFile["state"]) {
-  return state === "added" ? "A" : state === "deleted" ? "D" : state === "renamed" ? "R" : state === "untracked" ? "U" : "M";
-}
-
-function stateLabel(state: GitChangedFile["state"]) {
-  return state === "added" ? "Added" : state === "deleted" ? "Deleted" : state === "renamed" ? "Renamed" : state === "untracked" ? "Untracked" : "Modified";
-}
-
-function stateColor(state: GitChangedFile["state"]) {
-  if (state === "added") return "text-success";
-  if (state === "deleted") return "text-destructive";
-  if (state === "untracked") return "text-info";
-  return "text-warning";
+        {tab === "changes" ? <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+          <section className="border-b p-3" aria-label="Create a commit">
+            <div className="overflow-hidden rounded-xl border bg-background/35 focus-within:border-ring">
+            <Textarea id="source-control-message" aria-label="Commit message" value={message} onChange={event => { ++messageVersion.current; setMessage(event.target.value); }} ref={commitInput} placeholder="Message" rows={2} className="min-h-14 resize-none rounded-none border-0 bg-transparent dark:bg-transparent shadow-none focus-visible:ring-0" />
+            <div className="flex min-w-0 items-center gap-1 px-2 pb-2">
+              <CommitModelSelect />
+              <Button variant="ghost" size="icon-xs" onClick={() => void generate()} disabled={!canGenerate} title="Generate a commit message with Pi"><SparkleIcon className={generating ? "animate-pulse" : undefined} /><span className="sr-only">{generating ? "Writing…" : "Write with Pi"}</span></Button>
+              <span className="flex-1" />
+              <Button size="xs" className="min-w-0" onClick={() => void commit("commit")} disabled={!canCommit} title={commitDisabledReason ?? withHint("Commit staged changes", "commitChanges", keybindingOverrides)}><GitCommitIcon />{busy === "commit" ? "Committing…" : `Commit${stagedFiles.length ? ` ${stagedFiles.length}` : ""}`}</Button>
+              <DropdownMenu><DropdownMenuTrigger render={<Button size="icon-sm" variant="outline" disabled={!canCommit} aria-label="More commit actions" />}><CaretDownIcon /></DropdownMenuTrigger>
+                <DropdownMenuContent align="end"><DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => void commit("push")}>Commit and push</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void commit("sync")}>Commit and sync</DropdownMenuItem>
+                </DropdownMenuGroup></DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            </div>
+          </section>
+          {git.files.length > 0 && <div className="p-3 pb-1"><Input aria-label="Filter changed files" placeholder="Filter files…" value={filter} onChange={event => setFilter(event.target.value)} /></div>}
+          <ChangeTree projectDir={projectDir} filtered={!!filter} title="Staged" files={visible(stagedFiles)} staged selected={selected} disabled={disabled} onSelect={setSelected}
+            onFiles={files => void mutate(async () => { for (const file of files) { const result = await rpc.request.gitUnstageFile({ projectDir, file: file.path, originalPath: file.originalPath }); if (!result.ok) return result; } return { ok: true }; })}
+            onAll={() => void mutate(() => rpc.request.gitUnstageAll({ projectDir }))} />
+          <ChangeTree projectDir={projectDir} filtered={!!filter} title="Changes" files={visible(changedFiles)} staged={false} selected={selected} disabled={disabled} onSelect={setSelected} onRevert={setPendingRevert}
+            onFiles={files => void mutate(async () => { for (const file of files) { const result = await rpc.request.gitStageFile({ projectDir, file: file.path }); if (!result.ok) return result; } return { ok: true }; })}
+            onAll={() => void mutate(() => rpc.request.gitStageAll({ projectDir }))} />
+          {git.files.length === 0 ? <p className="px-4 py-8 text-center text-sm text-muted-foreground">Working tree is clean</p> : filter && !visible(git.files).length ? <p className="p-4 text-xs text-muted-foreground">No files match this filter.</p> : null}
+          {git.lineCountsIncomplete && <p className="px-3 py-2 text-xs text-muted-foreground">Line totals exclude large untracked files.</p>}
+          <RepoHostPanel />
+        </div> : null}
+      {tab === "history" ? <GitHistory key={projectDir} projectDir={projectDir} git={git} onReview={onReview} /> : null}
+    </div>
+    <ConfirmDialog open={pendingRevert !== null} title="Revert file changes?" description="Discard unstaged changes in this file? Staged changes will remain. This cannot be undone." detail={pendingRevert?.path} confirmLabel="Revert changes" destructive
+      onConfirm={() => { const file = pendingRevert; setPendingRevert(null); if (file) void mutate(() => rpc.request.gitRevertFile({ projectDir, file: file.path })); }} onCancel={() => setPendingRevert(null)} />
+  </div>;
 }
 
 function CommitModelSelect() {
@@ -550,7 +247,7 @@ function CommitModelSelect() {
       <SelectTrigger
         aria-label="Commit message model"
         title="Model used to draft commit messages"
-        className="h-7 w-auto min-w-36 max-w-52 px-2 text-xs"
+        className="h-6 w-24 min-w-0 border-0 bg-transparent px-1 text-xs dark:bg-transparent"
       >
         <SelectValue />
       </SelectTrigger>

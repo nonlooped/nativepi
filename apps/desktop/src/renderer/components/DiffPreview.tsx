@@ -16,9 +16,9 @@ import { editorName } from "../lib/paths.ts";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 const CodeView = lazy(() => import("./DiffView.tsx"));
 
-export default function DiffPreview({ projectDir, path, mode, revision = 0, onBack, actions }: {
+export default function DiffPreview({ projectDir, path, mode, revision = 0, onBack, actions, renderPatch, backLabel = "Changes" }: {
   projectDir: string; path: string; mode: "working" | "staged"; revision?: number;
-  onBack: () => void; actions?: ReactNode;
+  backLabel?: string; onBack: () => void; actions?: ReactNode; renderPatch?: (patch: string) => ReactNode;
 }) {
   const mention = useAppStore(s => s.insertIntoComposer);
   const editorId = useAppStore(s => s.preferences.preferredEditorId);
@@ -35,7 +35,7 @@ export default function DiffPreview({ projectDir, path, mode, revision = 0, onBa
 
   return <section className="flex min-h-0 flex-1 flex-col text-foreground" aria-label="Diff viewer">
     <div className="flex shrink-0 items-center gap-1 border-b px-2 py-1.5">
-      <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeftIcon />Changes</Button>
+      <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeftIcon />{backLabel}</Button>
       <span className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground">{mode === "staged" ? "Staged" : "Working tree"}</span>
       <Button variant="ghost" size="icon-sm" onClick={reload} aria-label="Reload diff" title="Reload diff"><ArrowClockwiseIcon /></Button>
       <Button variant="ghost" size="icon-sm" onClick={() => void openEditor()} aria-label={`Open in ${editorName(editorId)}`} title={`Open in ${editorName(editorId)}`}><FileArrowUpIcon /></Button>
@@ -63,7 +63,7 @@ export default function DiffPreview({ projectDir, path, mode, revision = 0, onBa
         : data.kind === "large" ? <div className="p-4 text-xs leading-5 text-muted-foreground"><p>This diff is too large to preview.</p><p>Open it in {editorName(editorId)} to view its contents.</p></div>
         : data.kind === "diff" && !data.patch.trim() ? <p className="p-4 text-xs text-muted-foreground">No textual diff to show.</p>
         : <Suspense fallback={<p className="p-4 text-xs text-muted-foreground">Preparing code…</p>}>
-            <CodeView patch={data.patch} />
+            {renderPatch ? renderPatch(data.patch) : <CodeView patch={data.patch} />}
           </Suspense>}
     </div>
   </section>;

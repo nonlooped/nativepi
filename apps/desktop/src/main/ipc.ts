@@ -16,7 +16,7 @@ import type { PiMessage } from "./pi/protocol.ts";
 import { deleteSession, listSessions, readSession, searchSessions, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
 import { drainState, loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
-import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitLog, gitPrTarget, gitRevertFile, gitPush, gitPushAndCreatePr, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
+import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitCommitDetails, gitCommitDiff, gitDiff, gitHunks, gitLog, gitPrTarget, gitRevertFile, gitPush, gitPushAndCreatePr, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
 import { generateCommitMessage } from "./commitMessage.ts";
 import { getRepoHostContext } from "./repoHost.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
@@ -1483,7 +1483,9 @@ const handlers: HandlerMap = {
     return { ok: true };
   },
   gitStatus: async ({ projectDir }) => ({ status: await gitStatus(projectDir) }),
-  gitLog: async ({ projectDir }) => ({ commits: await gitLog(projectDir) }),
+  gitLog: async ({ projectDir, query, limit }) => ({ commits: await gitLog(projectDir, query, limit) }),
+  gitCommitDetails: ({ projectDir, hash }) => gitCommitDetails(projectDir, hash),
+  gitCommitDiff: async ({ projectDir, hash, file }) => ({ diff: await gitCommitDiff(projectDir, hash, file) }),
   gitDiff: async ({ projectDir, file, untracked, staged }) => ({ diff: await gitDiff(projectDir, file, untracked, staged) }),
   gitHunks: async ({ projectDir, file, untracked }) => ({ hunks: await gitHunks(projectDir, file, untracked) }),
   gitStageHunk: async (params) => {

@@ -21,6 +21,12 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   sidebarScope: null,
   sidebarFinishedOpen: true,
   sidebarFinishedLimit: 12,
+  sourceControlBusy: false,
+  setSourceControlBusy: (sourceControlBusy) => set({ sourceControlBusy }),
+  sourceControlDrafts: {},
+  setSourceControlDraft: (projectDir, message) => set(s => ({ sourceControlDrafts: { ...s.sourceControlDrafts, [projectDir]: message } })),
+  sourceControlReview: null,
+  setSourceControlReview: (sourceControlReview) => set({ sourceControlReview }),
   contextPaneTab: "files",
   setContextPaneTab: (contextPaneTab) => set({ contextPaneTab }),
   reopenLastProject: true,
@@ -131,6 +137,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
     if (running) return;
     set((s) => ({
       branchMenuRequested: true,
+      contextPaneTab: "changes",
       contextPaneOpen: true,
       contextPaneChosen: true,
       preferences: { ...s.preferences, contextPaneView: "source-control" },

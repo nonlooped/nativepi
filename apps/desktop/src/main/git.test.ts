@@ -326,3 +326,52 @@ test("oversized hunks reject instead of returning truncated patches, while whole
     await expect(gitHunks(dir, "../outside", true)).rejects.toThrow("outside");
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+test("history searches literal commit messages and respects the requested page size", async () => {
+  const dir = await repo();
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  git("commit", "--allow-empty", "-m", "fix: literal [state]");
+  git("commit", "--allow-empty", "-m", "fix: state");
+  expect((await gitLog(dir, "[STATE]")).map(commit => commit.subject)).toEqual(["fix: literal [state]"]);
+  expect((await gitLog(dir, "", 1)).length).toBe(1);
+  expect((await gitLog(dir, "", 3)).length).toBe(3);
+  await rm(dir, { recursive: true, force: true });
+});
+
+test("historical diffs support root commits and renames with literal unusual paths", async () => {
+  const { gitCommitDetails, gitCommitDiff } = await import("./git.ts");
+  const dir = await repo();
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  const first = git("rev-parse", "HEAD").trim();
+  expect((await gitCommitDetails(dir, first)).files).toEqual([{ path: "a.txt", state: "A" }]);
+  expect((await gitCommitDiff(dir, first, "a.txt")).patch).toContain("+a");
+  const name = "a [1]\t文件.txt";
+  git("mv", "a.txt", name);
+  git("commit", "-m", "rename", "-m", "Keep the complete message.");
+  const hash = git("rev-parse", "HEAD").trim();
+  const detail = await gitCommitDetails(dir, hash);
+  expect(detail.message).toBe("rename\n\nKeep the complete message.");
+  expect(detail.files).toEqual([{ path: name, originalPath: "a.txt", state: "R" }]);
+  expect((await gitCommitDiff(dir, hash, name)).patch).toContain("rename from a.txt");
+  await expect(gitCommitDiff(dir, hash, "../outside")).rejects.toThrow("not part");
+  await expect(gitCommitDetails(dir, "--all")).rejects.toThrow("Invalid commit");
+  await expect(gitCommitDetails(dir, "a".repeat(40))).rejects.toThrow("no longer available");
+  await rm(dir, { recursive: true, force: true });
+});
+
+test("merge history inspects files and diffs against the first parent", async () => {
+  const { gitCommitDetails, gitCommitDiff } = await import("./git.ts");
+  const dir = await repo();
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  git("checkout", "-b", "feature");
+  await writeFile(path.join(dir, "feature.txt"), "feature\n");
+  git("add", "."); git("commit", "-m", "feature");
+  git("checkout", "main");
+  await writeFile(path.join(dir, "main.txt"), "main\n");
+  git("add", "."); git("commit", "-m", "main");
+  git("merge", "--no-ff", "feature", "-m", "merge feature");
+  const hash = git("rev-parse", "HEAD").trim();
+  expect((await gitCommitDetails(dir, hash)).files).toEqual([{ path: "feature.txt", state: "A" }]);
+  expect((await gitCommitDiff(dir, hash, "feature.txt")).patch).toContain("+feature");
+  await rm(dir, { recursive: true, force: true });
+});

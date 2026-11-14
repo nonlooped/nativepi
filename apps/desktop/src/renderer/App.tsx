@@ -7,11 +7,13 @@ import { ArrowLineDownIcon } from "@phosphor-icons/react/ArrowLineDown";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
 import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
+import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
 import { XIcon } from "@phosphor-icons/react/X";
 import Sidebar from "./components/Sidebar.tsx";
+import SourceControlButton from "./components/SourceControlButton.tsx";
 import ProjectIcon from "./components/ProjectIcon.tsx";
 import { useSidebarProjects } from "./lib/sidebarProjects.ts";
 import Composer from "./components/Composer.tsx";
@@ -58,6 +60,7 @@ import { useWorkspaceLayout, type WorkspaceLayout } from "./lib/layout.ts";
 
 const ChatSearchDialog = lazy(() => import("./components/ChatSearchDialog.tsx"));
 const NewChatProjectDialog = lazy(() => import("./components/NewChatProjectDialog.tsx"));
+const SourceControlReview = lazy(() => import("./components/SourceControlReview.tsx"));
 const ContextPane = lazy(() => import("./components/ContextPane.tsx"));
 const TerminalDock = lazy(() => import("./components/TerminalDock.tsx"));
 const Transcript = lazy(() => import("./components/Transcript.tsx"));
@@ -92,6 +95,8 @@ export default function App() {
   const contextPaneWidth = useAppStore((s) => s.contextPaneWidth);
   const terminalHeight = useAppStore((s) => s.terminalHeight);
   const contextPaneOpen = useAppStore((s) => s.contextPaneOpen);
+  const sourceControlReview = useAppStore(s => s.sourceControlReview);
+  useEffect(() => { useAppStore.getState().setSourceControlReview(null); }, [activeProjectPath, activeSessionFile, isNewChat]);
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
@@ -223,9 +228,11 @@ export default function App() {
               extensionView={extensionView}
               onSelectExtensionView={setExtensionView}
               onOpenSidebar={() => (layout !== "wide" ? setSidebarSheetOpen(true) : setSidebarOpen(true))}
-              onOpenContext={() => {
-                useAppStore.getState().setContextPaneTab("files");
-                if (layout === "wide") toggleContextPane();
+              onOpenContext={(tab) => {
+                const state = useAppStore.getState();
+                const showing = state.contextPaneTab === tab;
+                state.setContextPaneTab(tab);
+                if (layout === "wide") { if (!state.contextPaneOpen || showing) toggleContextPane(); }
                 else setContextSheetOpen(true);
               }}
               onToggleTerminal={toggleTerminal}
@@ -233,7 +240,9 @@ export default function App() {
             <PiStartingNotice />
 
             {activeProjectPath ? (
-              extensionView ? (
+              !chatMode && sourceControlReview?.projectDir === activeProjectPath ? (
+                <Suspense fallback={<SurfaceLoading label="Loading diff…" />}><SourceControlReview key={`${activeProjectPath}:${sourceControlReview.path}:${sourceControlReview.staged}:${sourceControlReview.hash ?? ""}`} review={sourceControlReview} /></Suspense>
+              ) : extensionView ? (
                 <Suspense fallback={<SurfaceLoading label="Loading extension view…" />}>
                   <ExtensionConversationView active={extensionView} onClose={() => setExtensionView(null)} />
                 </Suspense>
@@ -495,7 +504,7 @@ function WorkspaceHeader({
   extensionView: string | null;
   onSelectExtensionView: (key: string | null) => void;
   onOpenSidebar: () => void;
-  onOpenContext: () => void;
+  onOpenContext: (tab: "files" | "changes") => void;
   onToggleTerminal: () => void;
 }) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -512,6 +521,7 @@ function WorkspaceHeader({
       : undefined,
   );
   const title = isNewChat ? "New chat" : activeSession ? chatTitle(activeSession) : "Untitled chat";
+  const contextPaneTab = useAppStore(s => s.contextPaneTab);
   const compact = layout === "compact";
   const sharing = useAppStore((s) => s.accessHandoffs.length > 0);
   const openSettings = useAppStore((s) => s.openSettings);
@@ -575,6 +585,7 @@ function WorkspaceHeader({
           Sharing
         </Button>
       ) : null}
+      {!chatMode && !projectFree && activeProjectPath ? <SourceControlButton onClick={() => onOpenContext("changes")} active={contextDocked} /> : null}
       {!chatMode && !projectFree && activeProjectPath ? <ProjectStatus compact={compact} className={NO_DRAG_REGION} /> : null}
       {!chatMode && activeProjectPath ? (
         <Button
@@ -599,20 +610,17 @@ function WorkspaceHeader({
           />
         </div>
       ) : null}
-      {!chatMode && activeProjectPath && !contextDocked ? (
+      {!chatMode && activeProjectPath ? (
         <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onOpenContext}
-          title={withHint("Show files", "toggleContextPane", keybindingOverrides)}
-          aria-label="Show files"
-          // Always false while rendered — the button leaves the header once the
-          // pane is docked — but the attribute still tells assistive tech this
-          // is a pane toggle, matching the terminal button beside it.
-          aria-pressed={false}
+          variant={contextDocked && contextPaneTab === "files" ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => onOpenContext("files")}
+          title={withHint(contextDocked && contextPaneTab === "files" ? "Hide files" : "Show files", "toggleContextPane", keybindingOverrides)}
+          aria-label={contextDocked && contextPaneTab === "files" ? "Hide files" : "Show files"}
+          aria-pressed={contextDocked && contextPaneTab === "files"}
           className={NO_DRAG_REGION}
         >
-          <SidebarSimpleIcon className="-scale-x-100" />
+          <FolderIcon /><span className="max-[600px]:hidden">Files</span>
         </Button>
       ) : null}
     </header>

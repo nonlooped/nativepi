@@ -203,14 +203,15 @@ async function readGitStatus(projectDir: string): Promise<GitStatus> {
   };
   return result;
 }
-export async function gitLog(projectDir: string): Promise<GitCommit[]> {
+export async function gitLog(projectDir: string, query = "", limit = 50): Promise<GitCommit[]> {
   const [log, localOnly] = await Promise.all([
     run([
       "log",
       "HEAD",
       "--all",
       "--date-order",
-      "--max-count=50",
+      `--max-count=${Math.min(1000, Math.max(1, limit))}`,
+      ...(query ? ["--fixed-strings", "--regexp-ignore-case", `--grep=${query}`] : []),
       "--graph",
       "--decorate=short",
       "--format=%x1e%H%x00%h%x00%P%x00%an%x00%at%x00%s%x00%D",
@@ -243,10 +244,55 @@ export async function gitLog(projectDir: string): Promise<GitCommit[]> {
       }];
   });
 }
+/** Resolve only immutable commit IDs; never accept revision expressions or options. */
+async function checkedCommit(projectDir: string, hash: string) {
+  if (!/^[a-f0-9]{40,64}$/.test(hash)) throw new Error("Invalid commit ID.");
+  const result = await run(["rev-parse", "--verify", `${hash}^{commit}`], projectDir);
+  if (result.code !== 0) throw new Error("This commit is no longer available.");
+  return result.stdout.trim();
+}
+export async function gitCommitDetails(projectDir: string, hash: string) {
+  const commit = await checkedCommit(projectDir, hash);
+  const ancestry = await run(["rev-list", "--parents", "-n", "1", commit], projectDir);
+  const parent = ancestry.stdout.trim().split(" ")[1];
+  const [message, changes] = await Promise.all([
+    run(["show", "-s", "--format=%B", commit], projectDir),
+    run(["diff-tree", "--root", "--no-commit-id", "--name-status", "-r", "-M", "-z", ...(parent ? [parent, commit] : [commit])], projectDir),
+  ]);
+  if (message.code !== 0 || changes.code !== 0) throw new Error("Could not read this commit.");
+  const fields = changes.stdout.split("\0");
+  const files: { path: string; state: string; originalPath?: string }[] = [];
+  for (let i = 0; i < fields.length - 1;) {
+    const state = fields[i++]!;
+    const first = fields[i++]!;
+    if (state.startsWith("R") || state.startsWith("C")) files.push({ path: fields[i++]!, originalPath: first, state: state[0]! });
+    else files.push({ path: first, state });
+  }
+  return { message: message.stdout.trimEnd(), files };
+}
+export async function gitCommitDiff(projectDir: string, hash: string, file: string): Promise<GitDiff> {
+  const repository = await run(["rev-parse", "--show-toplevel"], projectDir);
+  if (repository.code !== 0) throw new Error("Could not read this repository.");
+  projectDir = repository.stdout.trim();
+  const commit = await checkedCommit(projectDir, hash);
+  const detail = await gitCommitDetails(projectDir, commit);
+  const change = detail.files.find(change => change.path === file);
+  if (!change) throw new Error("This file is not part of the selected commit.");
+  const parents = await run(["rev-list", "--parents", "-n", "1", commit], projectDir);
+  const parent = parents.stdout.trim().split(" ")[1];
+  const result = await run([
+    ...(parent ? ["diff", parent, commit] : ["show", "--format=", commit]),
+    "--no-color", "--no-ext-diff", "--no-textconv", "--", file,
+    ...(change.originalPath ? [change.originalPath] : []),
+  ], projectDir);
+  if (result.code !== 0) throw new Error(failure(result));
+  if (Buffer.byteLength(result.stdout) > MAX_DIFF_PREVIEW_BYTES) throw new Error("This diff is too large to preview.");
+  return { path: file, patch: result.stdout };
+}
 export async function gitDiff(projectDir: string, file: string, untracked: boolean, staged = false, maxBytes = 32 * 1024 * 1024): Promise<GitDiff> {
   return readGitDiff(projectDir, file, untracked, staged, maxBytes);
 }
-async function readGitDiff(projectDir: string, file: string, untracked: boolean, staged: boolean, maxBytes: number, zeroContext = false): Promise<GitDiff> {
+async function readGitDiff(projectDir: string, file: string, untracked: boolean, staged: boolean, maxBytes: number): Promise<GitDiff> {
   const repository = await run(["rev-parse", "--show-toplevel"], projectDir);
   if (repository.code !== 0) throw new Error(repository.stderr.trim() || "Could not read this repository.");
   const root = repository.stdout.trim();
@@ -260,7 +306,8 @@ async function readGitDiff(projectDir: string, file: string, untracked: boolean,
     : isNew
       ? ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--no-index", "--", "/dev/null", selected]
       : ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--", selected];
-  if (zeroContext) args.splice(1, 0, "--unified=0");
+  // Keep review hunks stable even when the repository customizes diff.context.
+  args.splice(1, 0, "--unified=3");
   const output = await new Promise<string>((resolve, reject) => {
     execFile("git", ["--literal-pathspecs", ...args], { cwd: root, maxBuffer: maxBytes, windowsHide: true, timeout: 15000 }, (error, stdout, stderr) => {
       if (error && !(isNew && error.code === 1 && stdout.length > 0)) {
@@ -274,7 +321,7 @@ async function readGitDiff(projectDir: string, file: string, untracked: boolean,
 export async function gitHunks(projectDir: string, file: string, untracked: boolean): Promise<GitHunk[]> {
   // Share preview path validation, timeout and byte limit. Overflow rejects the
   // request rather than turning a truncated patch into a stageable hunk.
-  const { patch } = await readGitDiff(projectDir, file, untracked, false, MAX_DIFF_PREVIEW_BYTES, true);
+  const { patch } = await readGitDiff(projectDir, file, untracked, false, MAX_DIFF_PREVIEW_BYTES);
   const starts = [...patch.matchAll(/^@@/gm)].map((match) => match.index ?? 0);
   if (starts.length === 0)
     return [];
@@ -298,7 +345,7 @@ export async function gitStageHunk(projectDir: string, file: string, untracked: 
     stderr: string;
     code: number;
   }>((resolve) => {
-    const child = execFile("git", ["apply", "--cached", "--unidiff-zero", "-"], {
+    const child = execFile("git", ["apply", "--cached", "-"], {
       cwd: root,
       maxBuffer: 32 * 1024 * 1024,
       windowsHide: true,

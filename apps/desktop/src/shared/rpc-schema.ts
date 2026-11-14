@@ -1056,10 +1056,20 @@ export type HostRequestContracts = {
   gitLog: {
     params: {
       projectDir: string;
+      query?: string;
+      limit?: number;
     };
     response: {
       commits: GitCommit[];
     };
+  };
+  gitCommitDetails: {
+    params: { projectDir: string; hash: string };
+    response: { message: string; files: { path: string; state: string; originalPath?: string }[] };
+  };
+  gitCommitDiff: {
+    params: { projectDir: string; hash: string; file: string };
+    response: { diff: GitDiff };
   };
   gitDiff: {
     params: {
