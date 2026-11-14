@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Make Paper the default color scheme and rename the glass scheme to Acrylic, preserving saved scheme selections.
+- Keep NativePi’s glass material active when its window loses focus on macOS and Windows.
+- Rework the NativePi color scheme with live macOS vibrancy and Windows 11 Acrylic, translucent app surfaces, and a window-wide dither texture instead of a photo. Unsupported desktops and browser access keep a solid backdrop.
+- Match the visible sidebar and history icon heights to the macOS window controls and align their centers.
+- Replace the top-left wordmark with back/forward chat navigation and move NativePi branding into the new-chat view.
+
+### Fixed
+- Keep back and forward navigation enabled states current in both expanded and collapsed sidebar layouts.
+
 ## [1.18.0] - 2026-11-14
 
 ### Added

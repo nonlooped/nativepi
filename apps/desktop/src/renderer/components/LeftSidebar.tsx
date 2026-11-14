@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { ResizableHandle, ResizablePanel, useCollapsiblePanel } from "@/components/ui/resizable.tsx";
 import { DRAG_REGION, NO_DRAG_REGION, TRAFFIC_LIGHTS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { useAppStore } from "@/lib/store.ts";
-import NativePiWordmark from "./NativePiWordmark.tsx";
+import NavigationControls from "./NavigationControls.tsx";
 
 export default function LeftSidebar({
   children,
@@ -38,11 +38,11 @@ export default function LeftSidebar({
       {/* h-12 matches the conversation and context pane headers: three adjacent
           pane headers on two different baselines is a seam you cannot unsee. */}
       <div className={cn("flex h-12 shrink-0 items-center px-3", TRAFFIC_LIGHTS_CLEARANCE, !overlay && DRAG_REGION)}>
-        <div className={cn("native-header-content flex min-w-0 flex-1 items-center gap-2", NO_DRAG_REGION)}>
+        <div className={cn("native-header-content flex min-w-0 flex-1 items-center gap-0", NO_DRAG_REGION)}>
           <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground" onClick={onClose} title="Close sidebar" aria-label="Close sidebar">
-            <SidebarSimpleIcon className="size-5" />
+            <SidebarSimpleIcon className="size-[20px]" />
           </Button>
-          <NativePiWordmark compact />
+          <NavigationControls />
         </div>
       </div>
 
@@ -79,7 +79,7 @@ export default function LeftSidebar({
         collapsedThreshold="24px"
         defaultSize={`${sidebarWidth}px`}
         groupResizeBehavior="preserve-pixel-size"
-        minSize="192px"
+        minSize="208px"
         maxSize="480px"
         data-pane-motion="left"
         inert={!open || undefined}

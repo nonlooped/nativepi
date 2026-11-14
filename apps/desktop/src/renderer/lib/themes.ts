@@ -4,7 +4,8 @@ export { themeCssProperties, themeContrastIssues, contrastRatio } from "../../sh
 import type { Preferences } from "../../shared/rpc-schema.ts";
 import {
   builtInTheme,
-  NATIVE_THEME,
+  DEFAULT_THEME,
+  usesNativeGlass,
   type CustomTheme,
   type ThemeAppearance,
   type ThemeColors,
@@ -80,7 +81,7 @@ export function selectedCustomTheme(preferences: Preferences): CustomTheme | und
 export function selectedTheme(preferences: Preferences): ThemeFile {
   return selectedCustomTheme(preferences)
     ?? builtInTheme(preferences.themeId)?.theme
-    ?? NATIVE_THEME;
+    ?? DEFAULT_THEME;
 }
 
 export function resolvedAppearance(preferences: Preferences, systemDark: boolean): ThemeAppearance {
@@ -93,6 +94,9 @@ export function resolvedTheme(preferences: Preferences, systemDark: boolean): Th
 
 export function applyTheme(root: HTMLElement, preferences: Preferences, systemDark: boolean): void {
   const appearance = resolvedAppearance(preferences, systemDark);
+  const glass = usesNativeGlass(preferences);
+  root.dataset.material = glass ? "glass" : "solid";
+  root.dataset.windowMaterial = window.nativepi?.windowMaterial ? "native" : "fallback";
   root.classList.toggle("dark", appearance === "dark");
   for (const property of CUSTOM_PROPERTIES) root.style.removeProperty(property);
   for (const property of OBSOLETE_THEME_PROPERTIES) root.style.removeProperty(property);
@@ -100,12 +104,17 @@ export function applyTheme(root: HTMLElement, preferences: Preferences, systemDa
   const custom = selectedCustomTheme(preferences);
   const builtIn = builtInTheme(preferences.themeId);
   const activeTheme = custom ?? builtIn?.theme;
-  const properties = themeCssProperties((activeTheme ?? NATIVE_THEME).colors[appearance]);
+  const properties = themeCssProperties((activeTheme ?? DEFAULT_THEME).colors[appearance]);
+  // Glass roles live in CSS so media queries can restore opaque surfaces.
+  if (glass) {
+    for (const property of ["--card", "--popover", "--sidebar", "--secondary", "--muted", "--accent",
+      "--sidebar-accent", "--input", "--border", "--sidebar-border"]) delete properties[property];
+  }
   for (const [property, value] of Object.entries(properties)) root.style.setProperty(property, value);
 
   try {
     localStorage.setItem("nativepi-theme", preferences.theme);
-    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify({ version: 8, appearance, properties }));
+    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify({ version: 9, appearance, properties, glass }));
   } catch {}
 
   window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
@@ -120,12 +129,13 @@ export function currentTerminalColors(): {
 } {
   const styles = getComputedStyle(document.documentElement);
   const foreground = styles.getPropertyValue("--foreground").trim();
+  const glass = document.documentElement.dataset.material === "glass";
   return {
     // The dock paints its own surface. Keep the theme's RGB for xterm's text
     // contrast calculations, but let that surface show through default cells.
-    background: `${styles.getPropertyValue("--sidebar").trim()}00`,
+    background: `${styles.getPropertyValue(glass ? "--glass-sidebar" : "--sidebar").trim()}00`,
     foreground,
     cursor: foreground,
-    selectionBackground: styles.getPropertyValue("--accent").trim(),
+    selectionBackground: styles.getPropertyValue(glass ? "--glass-accent" : "--accent").trim(),
   };
 }

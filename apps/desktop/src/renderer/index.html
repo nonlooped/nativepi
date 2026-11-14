@@ -27,7 +27,9 @@
         const resolved = !t || t === "system" ? (m ? "dark" : "light") : t;
         if (resolved === "dark") document.documentElement.classList.add("dark");
         const cached = JSON.parse(localStorage.getItem("nativepi-theme-cache") || "null");
-        if (cached && cached.version === 8 && cached.appearance === resolved && cached.properties) {
+        if (cached && cached.version === 9 && cached.appearance === resolved && cached.properties) {
+          document.documentElement.dataset.material = cached.glass ? "glass" : "solid";
+          document.documentElement.dataset.windowMaterial = window.nativepi?.windowMaterial ? "native" : "fallback";
           for (const [property, value] of Object.entries(cached.properties)) {
             if (property.startsWith("--") && typeof value === "string") {
               document.documentElement.style.setProperty(property, value);

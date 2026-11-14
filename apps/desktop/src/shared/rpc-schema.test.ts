@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { DEFAULT_PREFERENCES, extensionCallParamsSchema, nativePiStateSchema } from "./rpc-schema.ts";
-import { NATIVE_THEME } from "./themes.ts";
+import { NATIVE_THEME, builtInTheme } from "./themes.ts";
 
 test("an empty object yields the full set of defaults", () => {
   const state = nativePiStateSchema.parse({});
@@ -173,4 +173,12 @@ test("saved explorer width and terminal height survive reload and malformed dime
     .toMatchObject({ contextPaneWidth: 480, terminalHeight: undefined });
   expect(nativePiStateSchema.parse({ panes: { contextPaneWidth: "bad", terminalHeight: Infinity } }).panes)
     .toMatchObject({ contextPaneWidth: 304, terminalHeight: undefined });
+});
+
+test("Paper is the default while saved glass selections retain the Acrylic theme", () => {
+  expect(DEFAULT_PREFERENCES.themeId).toBe("paper");
+  expect(nativePiStateSchema.parse({ preferences: { themeId: null } }).preferences.themeId).toBe("paper");
+  const saved = nativePiStateSchema.parse({ preferences: { themeId: "nativepi" } });
+  expect(saved.preferences.themeId).toBe("nativepi");
+  expect(builtInTheme(saved.preferences.themeId)?.theme.name).toBe("Acrylic");
 });

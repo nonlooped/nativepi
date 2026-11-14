@@ -6,7 +6,7 @@ import {
   type ArtifactPreviewInput, type ArtifactPreviewResult,
 } from "../shared/htmlArtifacts.ts";
 import { themeCssProperties } from "../shared/themeCss.ts";
-import { builtInTheme, NATIVE_THEME } from "../shared/themes.ts";
+import { builtInTheme, DEFAULT_THEME } from "../shared/themes.ts";
 import { loadState } from "./state.ts";
 
 let activePreviews = 0;
@@ -25,7 +25,7 @@ export async function previewHtmlArtifact(value: ArtifactPreviewInput, signal: A
     signal.throwIfAborted();
     const appearance = input.appearance ?? (preferences.theme === "system" ? (nativeTheme.shouldUseDarkColors ? "dark" : "light") : preferences.theme);
     const scheme = preferences.customThemes.find(theme => theme.id === preferences.themeId)
-      ?? builtInTheme(preferences.themeId)?.theme ?? NATIVE_THEME;
+      ?? builtInTheme(preferences.themeId)?.theme ?? DEFAULT_THEME;
     const colors = scheme.colors[appearance];
     const html = htmlArtifactDocument(input.html, { appearance, variables: {
       ...themeCssProperties(colors), "--radius": "0.625rem",

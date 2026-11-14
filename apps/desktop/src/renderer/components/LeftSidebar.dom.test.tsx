@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 const saveWidth = mock(() => {});
 let width = 304;
 mock.module("../lib/store.ts", () => ({ useAppStore: (select: (s: unknown) => unknown) => select({ sidebarWidth: width, setSidebarWidth: saveWidth }) }));
+mock.module("./NavigationControls.tsx", () => ({ default: () => null }));
 mock.module("./ui/resizable.tsx", () => ({
   ResizablePanel: ({children, defaultSize, groupResizeBehavior}: {children: ReactNode; defaultSize: string; groupResizeBehavior: string}) => <div data-size={defaultSize} data-resize={groupResizeBehavior}>{children}</div>,
   ResizableHandle: ({onPointerUp}: {onPointerUp: () => void}) => <button aria-label="Resize sidebar" onPointerUp={onPointerUp} />,

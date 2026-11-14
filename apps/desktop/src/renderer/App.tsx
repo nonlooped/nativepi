@@ -23,6 +23,7 @@ import { ExtensionConversationControls, ExtensionConversationView } from "./comp
 import DropZone from "./components/DropZone.tsx";
 import ExtensionUi from "./components/ExtensionUi.tsx";
 import NativePiWordmark from "./components/NativePiWordmark.tsx";
+import NavigationControls from "./components/NavigationControls.tsx";
 import ProjectStatus, { PiStartingNotice } from "./components/ProjectStatus.tsx";
 import QuitDialog from "./components/QuitDialog.tsx";
 import Settings from "./components/Settings.tsx";
@@ -540,9 +541,10 @@ function WorkspaceHeader({
             aria-label="Open sidebar"
             className={NO_DRAG_REGION}
           >
-            <SidebarSimpleIcon className="size-5" />
+            <SidebarSimpleIcon className="size-[20px]" />
           </Button>
         ) : null}
+        {!sidebarDocked ? <NavigationControls /> : null}
         <div className="flex min-w-0 flex-1 items-center">
           {activeProjectPath ? (
             <div className="flex h-full min-w-0 items-center gap-3 text-sm">
@@ -563,9 +565,7 @@ function WorkspaceHeader({
                 </span>
               )}
             </div>
-          ) : (
-            sidebarDocked ? null : <NativePiWordmark compact />
-          )}
+          ) : null}
         </div>
       </div>
       {activeProjectPath ? (
@@ -1005,12 +1005,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
   return (
     <div className="flex min-h-0 flex-1 overflow-y-auto px-6 py-10">
       <section className="stagger-enter m-auto flex w-full max-w-md flex-col items-center text-center">
-        <span
-          style={{ "--i": 0 } as React.CSSProperties}
-          className="mb-6 flex size-14 items-center justify-center rounded-2xl bg-card text-foreground shadow-sm ring-1 ring-foreground/10 ring-inset"
-        >
-          <NotePencilIcon className="size-7" weight="duotone" aria-hidden="true" />
-        </span>
+        <NativePiWordmark display className="mb-6" />
         <h1 style={{ "--i": 0 } as React.CSSProperties} className="text-balance text-headline">Start a chat</h1>
         <p style={{ "--i": 1 } as React.CSSProperties} className="mt-3 max-w-[38ch] text-balance text-sm leading-6 text-body-muted-foreground">
           Choose a project, or start without one for general work on your device.

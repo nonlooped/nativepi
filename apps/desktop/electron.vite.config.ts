@@ -33,6 +33,7 @@ export default defineConfig({
           /^electron\//,
           /^@earendil-works\//,
           "node-pty",
+          "koffi",
           "esbuild",
           /^@esbuild\//,
         ],

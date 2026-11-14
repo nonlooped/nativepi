@@ -56,7 +56,11 @@ test("a watched folder reports a file appearing in it", async () => {
   const stop = await watchProjectDirectory(dir, "src", seen.onChange);
 
   await writeFile(path.join(dir, "src", "added.ts"), "export {};\n", "utf8");
-  await seen.settle();
+  // macOS may batch filesystem events beyond the coalescing window.
+  const deadline = Date.now() + 3000;
+  while (seen.calls() === 0 && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
   stop();
 
   expect(seen.calls()).toBeGreaterThan(0);

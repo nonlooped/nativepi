@@ -65,17 +65,16 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   /* The last traffic light ends at x=66px. Account for the toggle's
      icon inset so the visible gaps on both sides of it are the same. */
   --native-chrome-gap: 32px;
-  /* 2rem button around a 1.25rem icon. */
-  --native-toggle-inset: 0.375rem;
+  /* Phosphor glyphs occupy about 70% of their 20px SVG box. */
+  --native-toggle-inset: calc((2rem - 20px) / 2);
   padding-left: calc(66px + var(--native-chrome-gap) - var(--native-toggle-inset));
 }
 
-/* Native traffic lights are fixed at y=17px with a 12px diameter (main/index.ts).
-   Keep both header states on their 23px centerline even as rem sizes scale. */
+/* Native traffic lights start at y=17px and render 14px tall on macOS.
+   Keep both header states on their 24px centerline even as rem sizes scale. */
 html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-clearance > .native-header-content {
   position: relative;
-  top: calc(23px - 1.5rem);
-  gap: calc(var(--native-chrome-gap) - var(--native-toggle-inset));
+  top: calc(24px - 1.5rem);
 }
 
 /* The project pane keeps its navigation below the title-bar row, so window
@@ -198,112 +197,112 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
 
 :root {
   color-scheme: light;
-  /* Neutral chrome, meaningful content hues; keep in sync with NATIVE_THEME. */
-  --background: #e6e6e6;
-  --foreground: #3e3e3e;
-  --card: #eaeaea;
-  --card-foreground: #3e3e3e;
-  --popover: #eaeaea;
-  --popover-foreground: #3e3e3e;
-  --primary: #484848;
-  --primary-foreground: #eeeeee;
-  --secondary: #dfdfdf;
-  --secondary-foreground: #3e3e3e;
-  --muted: #dfdfdf;
-  --muted-foreground: #5d5d5d;
+  /* Neutral chrome, meaningful content hues; keep in sync with DEFAULT_THEME. */
+  --background: #fafafa;
+  --foreground: #383838;
+  --card: #ffffff;
+  --card-foreground: #383838;
+  --popover: #ffffff;
+  --popover-foreground: #383838;
+  --primary: #454545;
+  --primary-foreground: #ffffff;
+  --secondary: #ededed;
+  --secondary-foreground: #383838;
+  --muted: #ededed;
+  --muted-foreground: #606060;
   --body-muted-foreground: color-mix(in srgb, var(--foreground) 30%, var(--muted-foreground));
-  --accent: #d6d6d6;
-  --accent-foreground: #3e3e3e;
+  --accent: #e2e2e2;
+  --accent-foreground: #383838;
   --destructive: #a03845;
-  --bright: #3e3e3e;
+  --bright: #383838;
   --favorite: #8b682b;
   --success: #2b6943;
   --warning: #79561d;
   --info: #315f91;
   --active: #315f91;
-  --border: #cccccc;
-  --input: color-mix(in srgb, #cccccc, #3e3e3e 8%);
-  --ring: #484848;
+  --border: #d3d3d3;
+  --input: color-mix(in srgb, #d3d3d3, #383838 8%);
+  --ring: #454545;
   --overlay: oklch(0 0 0 / 58%);
   --qr-background: oklch(1 0 0);
   --chart-1: #315f91;
   --chart-2: #2b6943;
   --chart-3: #8b682b;
   --chart-4: #a03845;
-  --chart-5: #484848;
-  --contrast-foreground: #222222;
-  --contrast-muted-foreground: #333333;
-  --contrast-body-muted-foreground: #222222;
-  --contrast-border: #525252;
-  --contrast-input: #525252;
-  --contrast-ring: #2f2f2f;
+  --chart-5: #454545;
+  --contrast-foreground: #1f1f1f;
+  --contrast-muted-foreground: #353535;
+  --contrast-body-muted-foreground: #1f1f1f;
+  --contrast-border: #545454;
+  --contrast-input: #545454;
+  --contrast-ring: #2d2d2d;
   --contrast-success: #1c442c;
   --contrast-warning: #4f3813;
   --contrast-info: #203e5e;
   --contrast-destructive: #68242d;
   --contrast-favorite: #5a441c;
   --radius: 0.625rem;
-  --sidebar: #e1e1e1;
-  --sidebar-foreground: #3e3e3e;
-  --sidebar-primary: #484848;
-  --sidebar-primary-foreground: #eeeeee;
-  --sidebar-accent: #d6d6d6;
-  --sidebar-accent-foreground: #3e3e3e;
-  --sidebar-border: #cccccc;
-  --sidebar-ring: #484848;
+  --sidebar: #f2f2f2;
+  --sidebar-foreground: #383838;
+  --sidebar-primary: #454545;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e2e2e2;
+  --sidebar-accent-foreground: #383838;
+  --sidebar-border: #d3d3d3;
+  --sidebar-ring: #454545;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #141414;
-  --foreground: #bababa;
-  --card: #1b1b1b;
-  --card-foreground: #bababa;
-  --popover: color-mix(in srgb, #1b1b1b, #bababa 3%);
-  --popover-foreground: #bababa;
-  --primary: #b4b4b4;
+  --background: #1b1b1b;
+  --foreground: #d0d0d0;
+  --card: #242424;
+  --card-foreground: #d0d0d0;
+  --popover: color-mix(in srgb, #242424, #d0d0d0 3%);
+  --popover-foreground: #d0d0d0;
+  --primary: #c0c0c0;
   --primary-foreground: #202020;
-  --secondary: #222222;
-  --secondary-foreground: #bababa;
-  --muted: #222222;
-  --muted-foreground: #949494;
+  --secondary: #2a2a2a;
+  --secondary-foreground: #d0d0d0;
+  --muted: #2a2a2a;
+  --muted-foreground: #a6a6a6;
   --body-muted-foreground: color-mix(in srgb, var(--foreground) 30%, var(--muted-foreground));
-  --accent: #2b2b2b;
-  --accent-foreground: #bababa;
+  --accent: #343434;
+  --accent-foreground: #d0d0d0;
   --destructive: #e08c95;
-  --bright: #bababa;
+  --bright: #d0d0d0;
   --favorite: #d6b25e;
   --success: #78b58e;
   --warning: #cfac70;
   --info: #83add8;
   --active: #83add8;
-  --border: #303030;
-  --input: color-mix(in srgb, #303030, #bababa 8%);
-  --ring: #b4b4b4;
+  --border: #424242;
+  --input: color-mix(in srgb, #424242, #d0d0d0 8%);
+  --ring: #c0c0c0;
   --chart-1: #83add8;
   --chart-2: #78b58e;
   --chart-3: #d6b25e;
   --chart-4: #e08c95;
-  --chart-5: #b4b4b4;
-  --contrast-foreground: #d9d9d9;
-  --contrast-muted-foreground: #c4c4c4;
-  --contrast-body-muted-foreground: #d9d9d9;
-  --contrast-border: #acacac;
-  --contrast-input: #acacac;
-  --contrast-ring: #cecece;
+  --chart-5: #c0c0c0;
+  --contrast-foreground: #e5e5e5;
+  --contrast-muted-foreground: #cecece;
+  --contrast-body-muted-foreground: #e5e5e5;
+  --contrast-border: #b3b3b3;
+  --contrast-input: #b3b3b3;
+  --contrast-ring: #d6d6d6;
   --contrast-success: #a7cfb6;
   --contrast-warning: #e0c9a2;
   --contrast-info: #aecae6;
   --contrast-destructive: #ebb4ba;
   --contrast-favorite: #e4cd96;
-  --sidebar: #181818;
-  --sidebar-foreground: #bababa;
-  --sidebar-primary: #b4b4b4;
+  --sidebar: #202020;
+  --sidebar-foreground: #d0d0d0;
+  --sidebar-primary: #c0c0c0;
   --sidebar-primary-foreground: #202020;
-  --sidebar-accent: #2b2b2b;
-  --sidebar-accent-foreground: #bababa;
-  --sidebar-border: #303030;
-  --sidebar-ring: #b4b4b4;
+  --sidebar-accent: #343434;
+  --sidebar-accent-foreground: #d0d0d0;
+  --sidebar-border: #424242;
+  --sidebar-ring: #c0c0c0;
 }
 
 @media (prefers-contrast: more) {
@@ -1195,3 +1194,92 @@ button.transcript-activity-row:focus-visible { outline: 2px solid var(--ring); o
 :root[data-motion="reduced"]::view-transition-group(*),
 :root[data-motion="reduced"]::view-transition-old(*),
 :root[data-motion="reduced"]::view-transition-new(*) { animation: none !important; }
+
+/* NativePi's material is supplied by the OS, not a renderer photograph.
+   Only the desktop preload can opt into a transparent window. */
+html[data-material="glass"] {
+  --glass-surface: #eaeaea;
+  --glass-sidebar: #e1e1e1;
+  --glass-muted: #dfdfdf;
+  --glass-accent: #d6d6d6;
+  --glass-edge: #ffffff80;
+  --glass-shadow: #00000018;
+  --card: color-mix(in srgb, var(--glass-surface) 76%, transparent);
+  --popover: color-mix(in srgb, var(--glass-surface) 90%, transparent);
+  --sidebar: color-mix(in srgb, var(--glass-sidebar) 42%, transparent);
+  --secondary: color-mix(in srgb, var(--glass-muted) 70%, transparent);
+  --muted: color-mix(in srgb, var(--glass-muted) 65%, transparent);
+  --accent: color-mix(in srgb, var(--glass-accent) 78%, transparent);
+  --sidebar-accent: var(--accent);
+  --input: #0000001c;
+  --border: #00000016;
+  --sidebar-border: var(--border);
+}
+html[data-material="glass"].dark {
+  --glass-surface: #1b1b1b;
+  --glass-sidebar: #181818;
+  --glass-muted: #222222;
+  --glass-accent: #2b2b2b;
+  --glass-edge: #ffffff14;
+  --glass-shadow: #00000050;
+  --input: #ffffff20;
+  --border: #ffffff16;
+}
+html[data-material="glass"][data-window-material="native"],
+html[data-material="glass"][data-window-material="native"] body {
+  background: transparent;
+}
+html[data-material="glass"][data-window-material="native"] .app-viewport {
+  background: color-mix(in srgb, var(--background) 48%, transparent);
+}
+/* A single stationary dither veil covers the live material edge to edge.
+   This is texture over native blur: desktop pixels never enter a canvas. */
+html[data-material="glass"] .app-viewport::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath fill='%23000' fill-opacity='.07' d='M0 0h1v1H0zM2 2h1v1H2z'/%3E%3Cpath fill='%23fff' fill-opacity='.09' d='M2 0h1v1H2zM0 2h1v1H0z'/%3E%3C/svg%3E");
+}
+html[data-material="glass"] :is(.conversation-shell, .chat-stage) {
+  background: transparent;
+}
+html[data-material="glass"] :is(.sidebar-panel, .context-pane, .terminal-dock) {
+  background: var(--sidebar);
+  box-shadow: inset 0 1px var(--glass-edge);
+}
+html[data-material="glass"] .composer-surface {
+  background: var(--card);
+  border-color: var(--border);
+  backdrop-filter: blur(24px) saturate(125%);
+  box-shadow: inset 0 1px var(--glass-edge), 0 12px 36px -16px var(--glass-shadow);
+}
+html[data-material="glass"] :is(
+  [data-slot="dialog-content"], [data-slot="sheet-content"],
+  [data-slot="popover-content"], [data-slot="dropdown-menu-content"],
+  [data-slot="context-menu-content"], [data-slot="dropdown-menu-sub-content"],
+  [data-slot="context-menu-sub-content"], [data-slot="select-content"],
+  [data-slot="tooltip-content"]
+) {
+  backdrop-filter: blur(28px) saturate(125%);
+  box-shadow: inset 0 1px var(--glass-edge), 0 12px 40px -12px var(--glass-shadow);
+}
+html[data-material="glass"] .settings-viewport {
+  background: color-mix(in srgb, var(--glass-surface) 86%, transparent);
+  box-shadow: inset 0 1px var(--glass-edge), 0 24px 80px -20px var(--glass-shadow);
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  html[data-material="glass"] {
+    --card: var(--glass-surface);
+    --popover: var(--glass-surface);
+    --sidebar: var(--glass-sidebar);
+    --secondary: var(--glass-muted);
+    --muted: var(--glass-muted);
+    --accent: var(--glass-accent);
+  }
+  html[data-material="glass"][data-window-material="native"] :is(body, .app-viewport),
+  html[data-material="glass"] .settings-viewport { background: var(--background); }
+  html[data-material="glass"] .app-viewport::before { display: none; }
+  html[data-material="glass"] .composer-surface { backdrop-filter: none; }
+}

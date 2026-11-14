@@ -15,7 +15,7 @@ import {
 import {
   BUILT_IN_THEMES,
   MAX_CUSTOM_THEMES,
-  NATIVE_THEME_ID,
+  DEFAULT_THEME_ID,
   builtInTheme,
   customThemeSchema,
   themeFile,
@@ -135,7 +135,7 @@ export default function ThemeSettings() {
 
   const activeCustom = selectedCustomTheme(preferences);
   const activeBuiltIn = builtInTheme(preferences.themeId);
-  const selected = activeCustom?.id ?? activeBuiltIn?.id ?? NATIVE_THEME_ID;
+  const selected = activeCustom?.id ?? activeBuiltIn?.id ?? DEFAULT_THEME_ID;
   const options = [
     ...BUILT_IN_THEMES.map(({ id, description, theme }) => ({
       value: id,
@@ -181,7 +181,7 @@ export default function ThemeSettings() {
   const remove = () => {
     if (!activeCustom) return;
     setPreference("customThemes", preferences.customThemes.filter((theme) => theme.id !== activeCustom.id));
-    setPreference("themeId", NATIVE_THEME_ID);
+    setPreference("themeId", DEFAULT_THEME_ID);
     setDeleting(false);
     showHint("Color scheme deleted");
   };

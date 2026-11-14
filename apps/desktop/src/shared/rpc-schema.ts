@@ -6,7 +6,7 @@ import type { requestParams } from "./request-params.ts";
 import { z } from "zod";
 import type { PiPaths, PiSettings, PiSettingsPatch } from "./pi-settings.ts";
 import { jsonValueSchema, type JsonValue } from "./json.ts";
-import { customThemesSchema, NATIVE_THEME_ID } from "./themes.ts";
+import { customThemesSchema, DEFAULT_THEME_ID } from "./themes.ts";
 import { chatBackgroundSchema } from "./chat-background.ts";
 import type { CommandInfo, ExtensionUiResponse, ExplorerEntry, FileEntry, ForkPoint, GitBranch, GitCommit, GitDiff, GitHunk, GitPrTarget, GitStatus, GraphicalExtension, ImageContent, ModelInfo, PackageInfo, PiEvent, PiEventBatch, ResolvedExtension, RpcSessionState, ContextInspector, SessionSearchResult, SessionSummary, SessionTreeNode, SkillInfo, ThinkingLevel, UsageDashboard, } from "./pi-types.ts";
 import type { RepoHostContext } from "./repo-host-types.ts";
@@ -192,7 +192,7 @@ export const preferencesSchema = z.object({
   notifyOnTurnEnd: z.boolean().catch(true),
   notificationSound: z.boolean().catch(true),
   theme: z.enum(["system", "light", "dark"]).catch("system"),
-  themeId: z.string().min(1).max(80).catch(NATIVE_THEME_ID),
+  themeId: z.string().min(1).max(80).catch(DEFAULT_THEME_ID),
   customThemes: customThemesSchema,
   chatBackground: chatBackgroundSchema,
   conversationWidth: z.enum(["narrow", "medium", "wide", "full"]).catch("medium"),

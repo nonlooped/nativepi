@@ -30,6 +30,7 @@ mock.module("node:fs/promises", () => ({ ...fs, stat: async (...args) => {
 mock.module("electron", () => ({
 app: { getPath: () => root }, BrowserWindow: class {},
 dialog: {}, shell: {}, powerSaveBlocker: {},
+nativeTheme: new EventEmitter(),
 }));
 mock.module("electron-updater", () => ({ default: { autoUpdater: {} } }));
 mock.module("node-pty", () => ({ spawn: () => { throw new Error("Unexpected terminal"); } }));
