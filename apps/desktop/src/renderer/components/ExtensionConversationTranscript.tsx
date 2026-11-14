@@ -218,12 +218,12 @@ export default function ExtensionConversationTranscript({
   if (turns.length === 0) return <div className={className} style={style}>{empty}</div>;
 
   return (
-    <MessageScrollerProvider autoScroll>
+    <MessageScrollerProvider>
       <MessageScroller className={className} style={style}>
         <MessageScrollerViewport aria-label="Subagent conversation" aria-live="off">
           <MessageScrollerContent className="mx-auto w-full max-w-(--conversation-width) px-4 py-6 sm:px-6">
             {turns.map((turn, index) => (
-              <MessageScrollerItem key={turn.id} scrollAnchor={index === turns.length - 1}>
+              <MessageScrollerItem key={turn.id}>
                 <div className="flex flex-col gap-6">
                   {turn.user ? <UserMessage message={turn.user} /> : null}
                   <AssistantTurn turn={turn} running={running && index === turns.length - 1} />

@@ -58,7 +58,7 @@ const HtmlArtifact = lazy(() => import("./HtmlArtifact.tsx"));
 
 export default function Transcript() {
   return (
-    <MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor" scrollPreviousItemPeek={0}>
+    <MessageScrollerProvider defaultScrollPosition="end">
       <TranscriptReferenceProvider><DeferredTranscript><TranscriptContent /></DeferredTranscript></TranscriptReferenceProvider>
     </MessageScrollerProvider>
   );
@@ -194,7 +194,7 @@ function TranscriptContent() {
                 </DeferredTranscriptItem>
               </MessageScrollerItem>
             ) : (
-              <MessageScrollerItem key={`${selectionVersion}:${item.entry.id}`} messageId={item.entry.id} scrollAnchor={item.entry.type === "message" && isUser(item.entry.message)} className={index >= lastUserIndex ? "[content-visibility:visible]" : undefined}>
+              <MessageScrollerItem key={`${selectionVersion}:${item.entry.id}`} messageId={item.entry.id} className={index >= lastUserIndex ? "[content-visibility:visible]" : undefined}>
                 <DeferredTranscriptItem entryId={item.entry.id} immediate={index >= items.length - 20
                   || transcriptTarget?.entry === item.entry.id || item.entry.type !== "message"}>
                 <EntryView entry={item.entry} />
@@ -203,7 +203,7 @@ function TranscriptContent() {
             ),
           )}
           {pending.map((p) => (
-            <MessageScrollerItem key={p.id} messageId={`pending:${p.id}`} scrollAnchor className="[content-visibility:visible]">
+            <MessageScrollerItem key={p.id} messageId={`pending:${p.id}`} className="[content-visibility:visible]">
               <UserBubble text={p.text} images={p.images} pending />
             </MessageScrollerItem>
           ))}
