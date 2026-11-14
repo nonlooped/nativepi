@@ -6,9 +6,9 @@ Implementation spans the shared contracts, main coordinator/service/history,
 private Pi bridge, host organization operations, and ordinary conversation UI.
 The phase gates and verification matrix below remain the design and regression
 reference. Focused fake-runtime, pinned-Pi, real-Git, session/state, and DOM
-checks cover the implementation. Live provider calls and running-app visual
-review are manual validation; neither is required by the automated suites nor
-performed by starting the app unasked. Launch regressions additionally check
+checks cover the implementation. Live provider calls are manual validation
+outside the automated suites. UI work includes running-app visual review;
+reuse a running app or start one when needed. Launch regressions additionally check
 Electron-main ESM output with Node without launching the application; fresh
 identity binding is exercised against pinned Pi RPC `--session-id`.
 
