@@ -32,6 +32,19 @@ the task intent retained; opening the transcript does not retry that work. It ne
 Tool selection is Pi's exposure mechanism, not a filesystem security sandbox;
 trusted extensions and codemode/MCP retain their normal behavior.
 
+Audits and reviews use the current working directory by default. They do not
+need a worktree merely because several delegates are running. Use one when the
+user requests isolation or the task requires isolated changes. Return findings
+in each delegate's final chat response and let the lead summarize them; do not
+create temporary report directories or log files just to collect results. If
+the user asks for report files, write them in the current directory unless the
+user names another location.
+
+Leads use `delegate_spawn` and the app's other delegate tools, rather than
+launching Pi processes through the shell. A successful spawn returns concrete
+references that the UI can display. If the tools are unavailable or fail, the
+lead should say so instead of claiming managed delegates were created.
+
 Fresh context contains only the task and normal Pi/project instructions,
 skills, configuration, and extensions. NativePi copies no parent transcript,
 summary, images, attachments, or draft. Follow-ups retain the delegate's own

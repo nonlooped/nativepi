@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Changed
+- Direct audit delegates to use the current directory and return reports in chat, with files only when requested. Discourage unnecessary worktrees, temporary report folders, and unmanaged shell-launched delegates.
 - Make Paper the default color scheme and rename the glass scheme to Acrylic, preserving saved scheme selections.
 - Keep NativePi’s glass material active when its window loses focus on macOS and Windows.
 - Rework the NativePi color scheme with live macOS vibrancy and Windows 11 Acrylic, translucent app surfaces, and a window-wide dither texture instead of a photo. Unsupported desktops and browser access keep a solid backdrop.
