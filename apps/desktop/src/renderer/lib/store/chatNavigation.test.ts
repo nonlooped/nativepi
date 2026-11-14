@@ -48,3 +48,12 @@ test("missing projects, empty lists, and an already selected only chat do nothin
     expect(selections).toEqual([]);
   }
 });
+
+test("Work navigation skips finished chats, including from a finished current chat", async () => {
+  for (const [current, direction, expected] of [["a", 1, "c"], ["b", -1, "a"], ["c", 1, "a"]] as const) {
+    const { store, selections } = fixture(current);
+    store.setState({ destination: "work", finishedChats: { b: "2026-02-04" } });
+    await store.getState().selectAdjacentChat(direction);
+    expect(selections).toEqual([[expected, "/p"]]);
+  }
+});

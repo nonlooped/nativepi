@@ -16,17 +16,17 @@ function fixture() {
 test("Work index follows pinned order, recency, project scope, No project, and Finished visibility", () => {
   const store = fixture();
   const paths = () => sidebarThreads(store.getState()).map(thread => thread.session);
-  expect(paths()).toEqual(["pinned", "free", "newer", "older", "done"]);
+  expect(paths()).toEqual(["pinned", "free", "newer", "older"]);
   store.setState({ sidebarScope: "/p" });
-  expect(paths()).toEqual(["pinned", "newer", "older", "done"]);
+  expect(paths()).toEqual(["pinned", "newer", "older"]);
   store.setState({ sidebarFinishedOpen: false });
   expect(paths()).toEqual(["pinned", "newer", "older"]);
   store.setState({ sidebarScope: "/free" });
   expect(sidebarThreads(store.getState())).toEqual([{ session: "free", project: "/free" }]);
 });
-test("Finished pagination matches the number of rendered rows", () => {
+test("Finished chats are excluded even when visible", () => {
   const store = fixture(); store.setState({ sidebarScope: "/p", sidebarFinishedLimit: 1, finishedChats: { done: "2026-02-04", older: "2026-02-03" } });
-  expect(sidebarThreads(store.getState()).map(thread => thread.session)).toEqual(["pinned", "newer", "done"]);
+  expect(sidebarThreads(store.getState()).map(thread => thread.session)).toEqual(["pinned", "newer"]);
 });
 test("Chat index follows expanded folder order, then unfiled chats, including deleted folder memberships", () => {
   const store = fixture();

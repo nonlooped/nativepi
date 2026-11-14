@@ -12,7 +12,7 @@ export function groupSidebarChats<T extends Chat>(chats: T[], pinnedChats: strin
   };
 }
 
-/** The rendered sidebar order, including filters, collapsed folders, and Finished pagination. */
+/** Navigable sidebar order, including filters and collapsed folders. */
 export function sidebarThreads(s: AppState): { session: string; project: string }[] {
   if (s.destination === "chat") {
     if (!s.chatRoot) return [];
@@ -28,7 +28,7 @@ export function sidebarThreads(s: AppState): { session: string; project: string 
       project: project.path, session, pinned: s.pinnedChats.includes(session.path),
       finished: isChatFinished(session.created, session.path, s.focusStartedAt, s.finishedChats[session.path], s.focusedChats),
     })));
-  const { pinned, focus, finished } = groupSidebarChats(chats, s.pinnedChats, s.finishedChats);
-  return [...pinned, ...focus, ...(s.sidebarFinishedOpen ? finished.slice(0, s.sidebarFinishedLimit) : [])]
+  const { pinned, focus } = groupSidebarChats(chats, s.pinnedChats, s.finishedChats);
+  return [...pinned.filter(chat => !chat.finished), ...focus]
     .map(chat => ({ session: chat.session.path, project: chat.project }));
 }

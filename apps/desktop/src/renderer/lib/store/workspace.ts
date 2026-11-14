@@ -1,3 +1,4 @@
+import { isChatFinished } from "../chatOrganization.ts";
 import { rpc } from "../rpc.ts";
 import { sanitizeOverrides } from "../shortcuts.ts";
 import { showHint } from "../toast.tsx";
@@ -269,7 +270,17 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       const index = current < 0
         ? direction === 1 ? 0 : sessions.length - 1
         : (current + direction + sessions.length) % sessions.length;
-      const next = sessions[index]!;
+      let next = sessions[index]!;
+      if (s.destination === "work") {
+        for (let offset = 0; offset < sessions.length; offset++) {
+          const candidate = sessions[(index + offset * direction + sessions.length) % sessions.length]!;
+          if (!isChatFinished(candidate.created, candidate.path, s.focusStartedAt, s.finishedChats[candidate.path], s.focusedChats)) {
+            next = candidate;
+            break;
+          }
+          if (offset === sessions.length - 1) return;
+        }
+      }
       if (!s.isNewChat && next.path === s.activeSessionFile) return;
       await get().selectChat(next.path, project);
     },
