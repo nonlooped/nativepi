@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Remove the desktop notification status and test row from General settings.
 - Extend compact settings styles to subscription limits, usage filters, extension installation, access links, file paths, and Pi restart notices.
 - Soften the Settings modal backdrop, frame, selection fills, and control borders to match the workspace.
 - Simplify individual settings with quieter rows, compact layout selectors, smaller visual previews, inline status labels, and consistent keyboard and sign-in controls.
