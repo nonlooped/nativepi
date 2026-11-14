@@ -1,5 +1,6 @@
 import { ChatCircleIcon } from "@phosphor-icons/react/ChatCircle";
-import { CpuIcon } from "@phosphor-icons/react/Cpu";
+import BrandIcon from "./BrandIcon.tsx";
+import { providerIconName } from "../lib/providerIcons.ts";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { LightningIcon } from "@phosphor-icons/react/Lightning";
 import { PuzzlePieceIcon } from "@phosphor-icons/react/PuzzlePiece";
@@ -369,7 +370,7 @@ function Row({
   }, [activeRow]);
 
   const referenceKind = option.value.startsWith("nativepi://model?") ? "model" : option.value.startsWith("nativepi://thread?") ? "thread" : null;
-  const Icon = referenceKind === "model" ? CpuIcon : referenceKind === "thread" ? ChatCircleIcon : option.kind === "command" ? TerminalIcon : option.kind === "extension" ? PuzzlePieceIcon : LightningIcon;
+  const Icon = referenceKind === "thread" ? ChatCircleIcon : option.kind === "command" ? TerminalIcon : option.kind === "extension" ? PuzzlePieceIcon : LightningIcon;
   const nameOffset = referenceKind ? 0 : option.value.length - option.label.length;
   // What kind of thing runs, which is the only thing a command row can usefully
   // say about itself beyond its description: an extension command executes code,
@@ -399,7 +400,10 @@ function Row({
         activeRow ? "bg-accent text-accent-foreground" : "text-foreground",
       )}
     >
-      {option.kind === "file" && option.dir ? (
+      {referenceKind === "model" ? (
+        <BrandIcon name={providerIconName(new URL(option.value).searchParams.get("provider") ?? "")} size={16}
+          className={cn("shrink-0", activeRow ? "text-foreground" : "text-muted-foreground")} />
+      ) : option.kind === "file" && option.dir ? (
         <FolderIcon
           className={cn("size-4 shrink-0", activeRow ? "text-foreground" : "text-muted-foreground")}
           weight="fill"

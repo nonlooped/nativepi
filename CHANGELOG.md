@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Changed
+- Show provider logos for model mentions in the @ picker.
 - Balance conversation readability with slightly stronger message text and lighter image/Acrylic dither, preserving translucent surfaces and background ripples.
 - Keep delegate activity at its spawn call in the transcript, with provider logos in the transcript and sidebar, live status and transcript navigation, instead of a list above the composer. Use a compact, non-editable composer surface in delegate chats.
 - Direct audit delegates to use the current directory and return reports in chat, with files only when requested. Discourage unnecessary worktrees, temporary report folders, and unmanaged shell-launched delegates.
