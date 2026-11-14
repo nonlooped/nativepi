@@ -42,3 +42,16 @@ test("only a genuinely missing workspace starts from defaults", async () => {
   await rm(join(root, "state.json"));
   expect((await loadState()).projects).toEqual([]);
 });
+
+test("queued transformations read the latest state without losing concurrent fields", async () => {
+  const { updateState } = await import("./state.ts");
+  await saveState(nativePiStateSchema.parse({ drafts: { keep: "draft" } }));
+  await Promise.all([
+    updateState(state => ({ ...state, finishedChats: { ...state.finishedChats, thread: new Date().toISOString() } })),
+    updateState(state => ({ ...state, pinnedChats: [...state.pinnedChats, "other"] })),
+  ]);
+  const state = await loadState();
+  expect(state.finishedChats.thread).toBeDefined();
+  expect(state.pinnedChats).toEqual(["other"]);
+  expect(state.drafts).toEqual({ keep: "draft" });
+});

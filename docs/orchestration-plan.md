@@ -1,6 +1,15 @@
 # Subagents and thread orchestration implementation plan
 
-Status: planned; no feature behavior is implemented by this document.
+Status: implementation incomplete; orchestration is not shipped.
+
+Internal foundations now exist in `shared/orchestration.ts` and
+`main/orchestration/`: versioned records, recovery projections, a coordinator
+adapter boundary, and exclusive Pi session allocation. `main/state.ts` also
+has a queued latest-state transformation helper. Focused tests exercise these
+modules, including pinned Pi 1.5.2 custom-only persistence behavior. These
+modules are not connected to app runtime ownership or exposed as tools/UI.
+All nine phase completion gates below remain the acceptance criteria; these
+foundations do not establish end-to-end completion.
 
 This plan implements NativePi's first complete orchestration feature: a thread's lead can assign work to delegates, communicate with them, and operate other threads through built-in Pi tools. Delegates use Pi's runtime, model catalog, authentication, extensions, tools, and session files. NativePi supplies coordination and the graphical workflow.
 

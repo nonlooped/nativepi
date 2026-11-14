@@ -23,6 +23,9 @@ export async function loadState(): Promise<NativePiState> {
   // A renderer reload may arrive immediately after the previous renderer's
   // final save. Read after that accepted write, including its atomic rename.
   await saveQueue;
+  return readState();
+}
+async function readState(): Promise<NativePiState> {
   let raw: string;
   try {
     raw = await readFile(stateFile(), "utf8");
@@ -40,6 +43,15 @@ export async function loadState(): Promise<NativePiState> {
 }
 let saveQueue = Promise.resolve();
 let saveFailure: unknown;
+export function updateState(transform: (latest: NativePiState) => NativePiState | Promise<NativePiState>): Promise<NativePiState> {
+  const next = saveQueue.then(async () => {
+    const updated = normalize(await transform(await readState()));
+    await writeState(updated);
+    return updated;
+  });
+  saveQueue = next.then(() => { saveFailure = undefined; }, error => { saveFailure = error; });
+  return next;
+}
 export function saveState(state: NativePiState): Promise<void> {
   const next = saveQueue.then(() => writeState(state));
   saveQueue = next.then(() => { saveFailure = undefined; }, error => { saveFailure = error; });
