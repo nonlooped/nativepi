@@ -75,7 +75,8 @@ domTest("long transcripts initially mount only recent messages and reveal a deep
   try {
     await act(async () => useAppStore.setState({ transcriptTarget: { session: "chat", entry: "a0" } }));
     expect(container.textContent).toContain("Answer 0");
-    expect(useAppStore.getState().transcriptTarget).toBeNull();
+    expect(useAppStore.getState().transcriptTarget?.entry).toBe("a0");
+    await act(async () => useAppStore.setState({ transcriptTarget: null }));
     await act(async () => useAppStore.setState(s => ({ selectionVersion: s.selectionVersion + 1 })));
     expect(container.textContent).not.toContain("Answer 0");
   } finally { HTMLElement.prototype.scrollIntoView = scroll; }
@@ -107,4 +108,30 @@ domTest("an offscreen pending graphical tool mounts without waiting for scrollin
   await mount(<Transcript />);
   expect(container.textContent).toContain("Pending question");
   expect(container.querySelectorAll('article[id^="entry-a"]')).toHaveLength(11);
+});
+
+domTest("a grouped assistant target reveals collapsed work by its own durable ID", async () => {
+  const entries = structuredClone(history);
+  entries.splice(2, 0, { type: "message", id: "second", parentId: "a0", timestamp: "2026-11-14T00:00:02Z",
+    message: { role: "assistant", content: [{ type: "text", text: "Final answer" }], timestamp: 2 } } as SessionEntry);
+  resetChat(entries);
+  await mount(<Transcript />);
+  const scroll = HTMLElement.prototype.scrollIntoView;
+  const scrolled: string[] = [];
+  HTMLElement.prototype.scrollIntoView = function () { scrolled.push(this.id); };
+  try {
+    await act(async () => useAppStore.setState({ transcriptTarget: { session: "chat", entry: "second" } }));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+    expect(container.querySelector("#entry-second")?.textContent).toContain("Final answer");
+    expect(scrolled).toContain("entry-second");
+    expect(container.querySelector("#entry-second")?.classList.contains("ring-ring")).toBe(true);
+  } finally { HTMLElement.prototype.scrollIntoView = scroll; }
+});
+
+domTest("missing targets are consumed without substituting another message", async () => {
+  resetChat();
+  await mount(<Transcript />);
+  await act(async () => useAppStore.setState({ transcriptTarget: { session: "chat", entry: "deleted-or-other-branch" } }));
+  expect(useAppStore.getState().transcriptTarget).toBeNull();
+  expect(container.querySelector(".ring-ring")).toBeNull();
 });

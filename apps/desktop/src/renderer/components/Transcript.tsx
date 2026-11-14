@@ -72,16 +72,6 @@ function TranscriptContent() {
   const entries = useAppStore((s) => activeConversation(s).entries);
   const hasExtensionHeader = useAppStore(s => s.extSurfaces.some(surface => surface.placement === "header"));
   const transcriptTarget = useAppStore(s => s.transcriptTarget);
-  useEffect(() => {
-    if (!transcriptTarget || useAppStore.getState().activeSessionFile !== transcriptTarget.session) return;
-    const target = document.getElementById(`entry-${transcriptTarget.entry}`);
-    if (target) {
-      target.scrollIntoView({ block: "center" });
-    } else {
-      toast.message("This response is not on the current chat branch.");
-    }
-    useAppStore.setState({ transcriptTarget: null });
-  }, [transcriptTarget, entries]);
   const streaming = useAppStore((s) => activeConversation(s).streaming);
   const pending = useAppStore((s) => activeConversation(s).pending);
   const running = useAppStore((s) => activeConversation(s).running);
@@ -95,6 +85,30 @@ function TranscriptContent() {
   const results = useMemo(() => toolResultsById(entries), [entries]);
   const committed = useMemo(() => transcriptItems(entries), [entries]);
   const items = appendStreaming(committed.items, streaming, committed.responseStartedAt);
+  const targetItem = transcriptTarget && items.find(item => item.type === "entry"
+    ? item.entry.id === transcriptTarget.entry : item.entryIds?.includes(transcriptTarget.entry) || item.id === transcriptTarget.entry);
+  useEffect(() => {
+    if (!transcriptTarget || useAppStore.getState().activeSessionFile !== transcriptTarget.session) return;
+    if (!targetItem) {
+      toast.message("This message is on another branch or is no longer available. Open Branches to inspect other chat history.");
+      useAppStore.setState({ transcriptTarget: null });
+      return;
+    }
+    // Deferred history and collapsed assistant work must commit before measuring.
+    const frame = requestAnimationFrame(() => {
+      const target = document.getElementById(`entry-${transcriptTarget.entry}`);
+      if (!target) return;
+      target.scrollIntoView({ block: "center" });
+      target.classList.add("ring-2", "ring-ring", "rounded-md");
+    });
+    const timer = window.setTimeout(() => {
+      document.getElementById(`entry-${transcriptTarget.entry}`)?.classList.remove("ring-2", "ring-ring", "rounded-md");
+      if (useAppStore.getState().transcriptTarget === transcriptTarget) useAppStore.setState({ transcriptTarget: null });
+    }, 3000);
+    return () => { cancelAnimationFrame(frame); window.clearTimeout(timer);
+      document.getElementById(`entry-${transcriptTarget.entry}`)?.classList.remove("ring-2", "ring-ring", "rounded-md");
+    };
+  }, [transcriptTarget, targetItem]);
   const turnFiles = lastTurnFileCount(items, results);
   const selectionVersion = useAppStore(s => s.selectionVersion);
   const extRenderers = useAppStore(s => s.extRenderers);
@@ -188,10 +202,12 @@ function TranscriptContent() {
               // tool panels the user had opened while watching it run.
               <MessageScrollerItem key={`${selectionVersion}:response:${index}`} messageId={item.id} className={index >= lastUserIndex ? "[content-visibility:visible]" : undefined}>
                 <DeferredTranscriptItem entryId={item.id} immediate={index >= items.length - 20
-                  || transcriptTarget?.entry === item.id
+                  || targetItem === item
                   || hasPendingGraphicalTool(item.messages.flatMap(message => message.content), results, graphicalTools)}>
                 <AssistantResponse
                   entryId={item.id}
+                  entryIds={item.entryIds}
+                  revealEntry={targetItem === item ? transcriptTarget?.entry : undefined}
                   messages={item.messages}
                   results={results}
                   startedAt={item.startedAt}
@@ -402,6 +418,8 @@ function UserBubble({
 }
 
 export function AssistantResponse({
+  entryIds,
+  revealEntry,
   entryId,
   messages,
   results,
@@ -410,6 +428,8 @@ export function AssistantResponse({
   streaming: isStreaming,
 }: {
   entryId: string;
+  entryIds?: string[];
+  revealEntry?: string;
   messages: AssistantMessage[];
   results: Map<string, ToolResultMessage>;
   startedAt?: string;
@@ -460,6 +480,7 @@ export function AssistantResponse({
   useEffect(() => {
     setWorkOpen(streaming);
   }, [streaming]);
+  useEffect(() => { if (revealEntry) setWorkOpen(true); }, [revealEntry]);
   const delegateCalls = graphicalToolNames.has("delegate_spawn") ? [] : work.filter((block): block is ToolCall => block.type === "toolCall" && block.name === "delegate_spawn");
   const detailWork = delegateCalls.length ? work.filter(block => block.type !== "toolCall" || block.name !== "delegate_spawn") : work;
   const groupedWork = groupWork(detailWork, graphicalToolNames);
@@ -493,13 +514,16 @@ export function AssistantResponse({
               if (group.type === "tools") return <ToolCallGroup key={group.calls[0].id} calls={group.calls} results={results} />;
               const block = group.block;
               if (block.type === "text") {
+                const messageIndex = messages.findIndex(message => message.content.find(part => part.type === "text") === block);
+                const textEntryId = entryIds?.[messageIndex];
                 return (
+                  <div key={i} id={textEntryId && textEntryId !== entryId ? `entry-${textEntryId}` : undefined}>
                   <Markdown
-                    key={i}
                     streaming={workIsStreaming && i === detailWork.length - 1}
                   >
                     {block.text}
                   </Markdown>
+                  </div>
                 );
               }
               if (block.type === "thinking") {
@@ -538,7 +562,7 @@ export function AssistantResponse({
         </Suspense>
       ))}
       {finalText ? (
-        <div data-response-text>
+        <div data-response-text id={entryIds?.at(-1) && entryIds.at(-1) !== entryId ? `entry-${entryIds.at(-1)}` : undefined}>
           <Markdown streaming={streaming}>{finalText}</Markdown>
         </div>
       ) : null}

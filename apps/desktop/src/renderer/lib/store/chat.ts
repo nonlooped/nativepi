@@ -310,6 +310,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
         set((state) => ({
           selectionVersion: state.selectionVersion + 1,
           activeSessionFile: sessionFile,
+          transcriptTarget: null,
           confirmedNewLead: null,
           orchestrationLoaded: false,
           isNewChat: false,

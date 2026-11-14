@@ -234,6 +234,8 @@ export interface SessionSummary {
   modified: string;
 }
 export interface SessionSearchResult {
+  /** Durable Pi entry identity; absent for title-only hits. */
+  entryId?: string;
   projectDir: string;
   sessionFile: string;
   title: string;
