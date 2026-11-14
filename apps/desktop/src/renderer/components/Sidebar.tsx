@@ -337,7 +337,10 @@ function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, over
           ))}
         </div>
 
-        <div className={cn("flex shrink-0 flex-col gap-1.5", pinned.length > 0 && focus.length > 0 && "mt-8")}>
+        {pinned.length > 0 && focus.length > 0 ? (
+          <div aria-hidden="true" className="mx-3 my-3 shrink-0 border-t border-sidebar-border" />
+        ) : null}
+        <div className="flex shrink-0 flex-col gap-1.5">
           {focus.map((chat) => (
             <FocusChatRow
               key={chat.session.path}
