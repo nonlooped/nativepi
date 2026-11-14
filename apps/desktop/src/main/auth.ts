@@ -1,5 +1,6 @@
+import { chatTitleCatalog } from "./chatTitleModels.ts";
 import { shell } from "electron";
-import { getAgentDir, hasTrustRequiringProjectResources, ModelRuntime, ProjectTrustStore, VERSION as PI_VERSION, } from "@earendil-works/pi-coding-agent";
+import { getAgentDir, hasTrustRequiringProjectResources, ModelRuntime, SettingsManager, ProjectTrustStore, VERSION as PI_VERSION, } from "@earendil-works/pi-coding-agent";
 import { isProjectTrusted } from "./pi/services.ts";
 import { hasProjectGraphicalRenderer } from "./extensions.ts";
 import type { AuthNotice, AuthProviderInfo, AuthPromptRequest } from "../shared/rpc-schema.ts";
@@ -18,6 +19,11 @@ function getRuntime(): Promise<ModelRuntime> {
   if (!runtimePromise)
     runtimePromise = ModelRuntime.create({ allowModelNetwork: true });
   return runtimePromise;
+}
+export async function listChatTitleModels() {
+  const runtime = await getRuntime();
+  await runtime.getAvailable();
+  return chatTitleCatalog(runtime, SettingsManager.create(process.cwd(), getAgentDir(), { projectTrusted: false }));
 }
 export async function listProviders(): Promise<AuthProviderInfo[]> {
   const runtime = await getRuntime();

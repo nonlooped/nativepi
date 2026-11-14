@@ -1,3 +1,4 @@
+import ChatTitleSettings from "./ChatTitleSettings.tsx";
 import { useAppStore } from "../../lib/store.ts";
 import { SettingsSection, SwitchRow } from "./rows.tsx";
 
@@ -19,6 +20,7 @@ export default function GeneralSettings() {
           onChange={(value) => setPreference("promptSuggestions", value)}
         />
       </SettingsSection>
+      <ChatTitleSettings />
       <SettingsSection heading="Notifications">
         <SwitchRow
           label="Notify when a turn finishes"

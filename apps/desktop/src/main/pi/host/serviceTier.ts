@@ -1,15 +1,11 @@
-import { type ServiceTier, serviceTierStateSchema } from "../../../shared/service-tier.ts";
+import { type ServiceTier, serviceTierStateSchema, serviceTiers } from "../../../shared/service-tier.ts";
 import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import { normalizeContext, clampThinkingLevel } from "@earendil-works/pi-ai";
 import { buildBaseOptions } from "@earendil-works/pi-ai/api/simple-options";
 
 export const SERVICE_TIER_ENTRY = "nativepi-service-tier";
-export function serviceTiers(model?: { provider: string; api: string } | null): readonly ServiceTier[] {
-  if (model?.provider === "openai" && model.api === "openai-responses") return ["default", "priority"];
-  if (model?.provider === "openai-codex" && model.api === "openai-codex-responses") return ["default", "priority"];
-  if (model?.provider === "anthropic" && model.api === "anthropic-messages") return ["default", "priority"];
-  return [];
-}
+export { serviceTiers } from "../../../shared/service-tier.ts";
+export type ServiceTierOptions = NonNullable<Parameters<AgentSession["modelRuntime"]["completeSimple"]>[2]> & { serviceTier?: ServiceTier };
 export function recordedServiceTier(entries: readonly unknown[]): ServiceTier {
   for (const value of entries.toReversed()) {
     if (!value || typeof value !== "object" || !("type" in value) || value.type !== "custom" || !("customType" in value) || (value.customType !== SERVICE_TIER_ENTRY && value.customType !== "service-tier") || !("data" in value)) continue;
@@ -28,7 +24,7 @@ export function installServiceTier(session: AgentSession): () => void {
   const previous = runtime.streamSimple;
   const original = previous.bind(runtime);
   const wrapped: typeof previous = (model, context, options) => {
-    const tier = recordedServiceTier(session.sessionManager.getEntries());
+    const tier = (options as ServiceTierOptions | undefined)?.serviceTier ?? recordedServiceTier(session.sessionManager.getEntries());
     if (!serviceTiers(model).includes(tier)) return original(model, context, options);
     if (model.api === "openai-responses" || model.api === "openai-codex-responses") {
       const effort = options?.reasoning ? clampThinkingLevel(model, options.reasoning) : undefined;

@@ -16,3 +16,10 @@ export const serviceTierDescriptions: Record<ServiceTier, string> = {
 export function serviceTierTarget(project: string | null, session: string | null, model?: { provider: string; id: string }): string {
   return JSON.stringify([project, session, model?.provider, model?.id]);
 }
+
+export function serviceTiers(model?: { provider: string; api: string } | null): readonly ServiceTier[] {
+  if (model?.provider === "openai" && model.api === "openai-responses") return ["default", "priority"];
+  if (model?.provider === "openai-codex" && model.api === "openai-codex-responses") return ["default", "priority"];
+  if (model?.provider === "anthropic" && model.api === "anthropic-messages") return ["default", "priority"];
+  return [];
+}

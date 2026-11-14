@@ -1446,3 +1446,23 @@ test("revision observation: retried preflight still rejects an external write af
     await rejectStaleMutations(target, pi);
   } finally { finish.resolve(); gate.release.resolve(); }
 });
+
+test("title preferences reach existing hosts and newly started hosts", async () => {
+  const original = await request("loadState", {});
+  const client = new HostClient();
+  try {
+    const settings = { model: "openai/gpt-6-luna", reasoning: "high", serviceTier: "default" } as const;
+    const first = await session("title-preferences-first");
+    expect(await request("ensurePi", first, client)).toEqual({ ok: true });
+    const firstPi = processes.at(-1)!;
+    expect(firstPi.commands).toContainEqual({ type: "nativepi_tui_chat_title_settings", settings: original.preferences.chatTitle });
+    await request("saveState", { state: { ...original, preferences: { ...original.preferences, chatTitle: settings } } });
+    expect(firstPi.commands).toContainEqual({ type: "nativepi_tui_chat_title_settings", settings });
+    const second = await session("title-preferences-second");
+    expect(await request("ensurePi", second, client)).toEqual({ ok: true });
+    expect(processes.at(-1)!.commands).toContainEqual({ type: "nativepi_tui_chat_title_settings", settings });
+  } finally {
+    client.dispose();
+    await request("saveState", { state: original });
+  }
+});

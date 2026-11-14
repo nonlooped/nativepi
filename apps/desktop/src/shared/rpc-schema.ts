@@ -1,3 +1,4 @@
+import { chatTitleSettingsSchema, DEFAULT_CHAT_TITLE_SETTINGS, type ChatTitleCatalog } from "./chat-title.ts";
 import type { ServiceTier, ServiceTierState } from "./service-tier.ts";
 import type { DiffPreviewResult } from "./diff-preview.ts";
 import { DEFAULT_INTERFACE_SCALE, MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE } from "./interface-scale.ts";
@@ -186,6 +187,7 @@ const clamped = (fallback: number, min: number, max: number) => z
   .catch(fallback)
   .pipe(z.transform((value) => Math.min(max, Math.max(min, value))));
 export const preferencesSchema = z.object({
+  chatTitle: chatTitleSettingsSchema.catch(DEFAULT_CHAT_TITLE_SETTINGS),
   promptSuggestions: z.boolean().catch(false),
   notifyOnTurnEnd: z.boolean().catch(true),
   notificationSound: z.boolean().catch(true),
@@ -434,6 +436,10 @@ export type HostRequestContracts = {
     response: {
       ok: boolean;
     };
+  };
+  getChatTitleModels: {
+    params: { projectDir?: string; sessionFile?: string | null };
+    response: ChatTitleCatalog & { error?: string };
   };
   getModels: {
     params: {

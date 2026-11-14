@@ -48,7 +48,7 @@ Built-in web access supplies Exa-backed web search and page reading in both dest
 ## Current Capabilities
 
 - Optional next-message suggestions after successful turns, generated through Pi’s authenticated current model without changing the transcript. Tab accepts the suggestion as an editable draft; Escape dismisses it.
-- Automatic names for new chats from the first user message, generated alongside the first turn through Pi's authenticated model runtime and saved as Pi session names without replacing manual names.
+- Automatic names for new chats from the first user message, generated alongside the first turn through Pi's authenticated model runtime and saved as Pi session names without replacing manual names. Settings → General offers a separate title model, reasoning effort, and service tier. Automatic selection prefers connected GPT-6 Luna, Haiku 5.5, Gemini 4 Hydrogen, then Grok 4.7; it falls back to the saved Pi default or the lowest-priced catalog model from the first available provider. Explicit unavailable choices retain first-message titles.
 - A shipped `ask_user` Pi tool with native choice and free-text dialogs, including explicit cancellation, plus service-tier selection beside reasoning in the composer model picker (also available through `/speed`) for supported OpenAI, Codex, and Anthropic transports.
 
 - Pinned, Focus, and Finished chat lists, project filtering, title and transcript search, and direct opening in installed editors or the system file manager.

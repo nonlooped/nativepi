@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { AgentSession } from "@earendil-works/pi-coding-agent";
-import { serviceTiers, recordedServiceTier, installServiceTier, SERVICE_TIER_ENTRY } from "./serviceTier.ts";
+import { serviceTiers, recordedServiceTier, installServiceTier, SERVICE_TIER_ENTRY, type ServiceTierOptions } from "./serviceTier.ts";
 const entry = (tier: string) => ({ type: "custom", customType: SERVICE_TIER_ENTRY, data: { tier } });
 test("limits tiers by provider and transport, without a stale model list", () => {
   expect(serviceTiers({ provider: "openai", api: "openai-responses" })).toEqual(["default", "priority"]);
@@ -60,4 +60,33 @@ test("composer updates persist in Pi and reject busy or unsupported requests", a
   expect(readServiceTier(pi)).toEqual({ tier: "default", tiers: [] });
   expect(() => setServiceTier(pi, "priority")).toThrow("not available");
   expect(entries).toHaveLength(1);
+});
+
+test("title requests override a chat's priority tier without changing the chat", async () => {
+  const streamed: unknown[][] = [];
+  const session = {
+    sessionManager: { getEntries: () => [entry("priority")] },
+    modelRuntime: { streamSimple: () => ({}), stream: (...args: unknown[]) => { streamed.push(args); return {}; } },
+  };
+  const pi = session as unknown as AgentSession;
+  installServiceTier(pi);
+  const model = { provider: "openai", api: "openai-responses", id: "title-model", reasoning: true, maxTokens: 4096, contextWindow: 100000 };
+  const options: ServiceTierOptions = { serviceTier: "default", reasoning: "low", disableContinuation: true };
+  pi.modelRuntime.streamSimple(model as never, { messages: [] }, options);
+  expect(streamed[0]?.[2]).toMatchObject({ serviceTier: "default", reasoningEffort: "low", disableContinuation: true });
+  pi.modelRuntime.streamSimple(model as never, { messages: [] }, {});
+  expect(streamed[1]?.[2]).toMatchObject({ serviceTier: "priority" });
+});
+
+test("an Anthropic title tier overrides the session tier and retains payload transforms", async () => {
+  let captured!: ServiceTierOptions;
+  const session = {
+    sessionManager: { getEntries: () => [entry("priority")] },
+    modelRuntime: { streamSimple: (_model: unknown, _context: unknown, options: ServiceTierOptions) => { captured = options; return {}; } },
+  };
+  const pi = session as unknown as AgentSession;
+  installServiceTier(pi);
+  const options: ServiceTierOptions = { serviceTier: "default", onPayload: () => ({ preserved: true }) };
+  pi.modelRuntime.streamSimple({ provider: "anthropic", api: "anthropic-messages" } as never, { messages: [] }, options);
+  expect(await captured.onPayload!({}, {} as never)).toEqual({ preserved: true, service_tier: "standard_only" });
 });

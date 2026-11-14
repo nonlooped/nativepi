@@ -1,3 +1,5 @@
+import { chatTitleCatalog } from "../../chatTitleModels.ts";
+import { DEFAULT_CHAT_TITLE_SETTINGS } from "../../../shared/chat-title.ts";
 import { excludeRetiredPackages } from "./retiredPackages.ts";
 import { readServiceTier, setServiceTier, SERVICE_TIER_ENTRY, installServiceTier } from "./serviceTier.ts";
 import { observePromptSuggestion } from "./promptSuggestion.ts";
@@ -61,6 +63,7 @@ let lastEditorFrame: TuiClientFrame | undefined;
 let currentSession: AgentSession | undefined;
 let promptSuggestionsEnabled = false;
 let promptSuggestions: ReturnType<typeof observePromptSuggestion> | undefined;
+let chatTitleSettings = DEFAULT_CHAT_TITLE_SETTINGS;
 let stopTitleObserver: (() => void) | undefined;
 let stopServiceTier: (() => void) | undefined;
 let stopTierEvents: (() => void) | undefined;
@@ -78,6 +81,16 @@ function providerRuntime(): Promise<ModelRuntime> {
   return runtimePromise;
 }
 function handleClientFrame(frame: TuiClientFrame): void {
+  if (frame.type === "nativepi_tui_chat_title_settings") {
+    chatTitleSettings = frame.settings;
+    return;
+  }
+  if (frame.type === "nativepi_tui_get_chat_title_models") {
+    void providerRuntime().then(runtime => {
+      send({ type: "nativepi_tui_reply", requestId: frame.requestId, data: jsonValueSchema.parse(chatTitleCatalog(runtime, currentSession?.settingsManager)) });
+    }).catch(error => send({ type: "nativepi_tui_reply", requestId: frame.requestId, error: String(error) }));
+    return;
+  }
   if (frame.type === "nativepi_tui_prompt_suggestions") {
     promptSuggestionsEnabled = frame.enabled;
     promptSuggestions?.setEnabled(frame.enabled);
@@ -304,7 +317,7 @@ function installUiContext(): void {
       stopTitleObserver?.();
       stopTitleObserver = process.argv.includes("--no-session") ? undefined : observeChatTitle(this, (sessionFile, title) => {
         send({ type: "nativepi_tui_propose_title", sessionFile, title });
-      });
+      }, () => chatTitleSettings);
     }
     currentSession = this;
     let installed: HostInternals | undefined;

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional next-message suggestions in the empty composer after Pi finishes, with Tab to accept and Escape to dismiss.
 
 ### Changed
+- Configure chat-title models, reasoning, and service tier independently, with automatic defaults based on connected providers.
 - Simplify chat deletion and project removal confirmations by removing unnecessary internal path boxes.
 - Unify workspace dialogs with translucent, blurred surfaces matching settings, consistent forms and actions, compact pickers, and dedicated preview headers while preserving settings.
 - Generate new chat titles from the first message while Pi works, instead of waiting for the first successful answer.

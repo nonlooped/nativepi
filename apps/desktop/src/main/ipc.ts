@@ -1,3 +1,4 @@
+import type { ChatTitleCatalog } from "../shared/chat-title.ts";
 import { serviceTierStateSchema } from "../shared/service-tier.ts";
 import { readProjectDiffPreview } from "./diffPreview.ts";
 import { app, BrowserWindow, dialog, shell } from "electron";
@@ -614,7 +615,9 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
         draftPis.set(projectDir, pi);
       if (!pi.isAvailable || shuttingDown || restartingAll || restartingProjects.has(projectDir))
         throw new Error("Pi startup was cancelled");
-      pi.sendFrame({ type: "nativepi_tui_prompt_suggestions", enabled: (await loadState()).preferences.promptSuggestions });
+      const preferences = (await loadState()).preferences;
+      pi.sendFrame({ type: "nativepi_tui_prompt_suggestions", enabled: preferences.promptSuggestions });
+      pi.sendFrame({ type: "nativepi_tui_chat_title_settings", settings: preferences.chatTitle });
       status(projectDir, "ready");
       return pi;
     }
@@ -750,7 +753,10 @@ const handlers: HandlerMap = {
   saveState: async ({ state }) => {
     await saveState(state);
     for (const pi of new Set([...pis.values(), ...draftPis.values(), ...startingPis.values()])) {
-      if (pi.isAvailable) pi.sendFrame({ type: "nativepi_tui_prompt_suggestions", enabled: state.preferences.promptSuggestions });
+      if (pi.isAvailable) {
+        pi.sendFrame({ type: "nativepi_tui_prompt_suggestions", enabled: state.preferences.promptSuggestions });
+        pi.sendFrame({ type: "nativepi_tui_chat_title_settings", settings: state.preferences.chatTitle });
+      }
     }
     return { ok: true };
   },
@@ -928,6 +934,13 @@ const handlers: HandlerMap = {
   abort: ({ projectDir, sessionFile }) => {
     projectPi(projectDir, sessionFile)?.send({ type: "abort" });
     return { ok: true };
+  },
+  getChatTitleModels: async ({ projectDir, sessionFile }) => {
+    try {
+      if (!projectDir) return await auth.listChatTitleModels();
+      const pi = await ensurePi(projectDir, sessionFile ?? undefined);
+      return await pi.frameRequest<ChatTitleCatalog>(requestId => ({ type: "nativepi_tui_get_chat_title_models", requestId }));
+    } catch (error) { return { models: [], error: errorMessage(error) }; }
   },
   getModels: async ({ projectDir, sessionFile }) => {
     try {
