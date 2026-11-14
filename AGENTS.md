@@ -47,11 +47,35 @@ extension surfaces when upgrading Pi.
 - Use Zustand for renderer UI state and Zod at IPC, Pi RPC, persisted-file,
   and untrusted extension boundaries.
 
+## Testing
+
+- Add or change tests only when needed to verify the task or explicitly requested.
+  Prioritize parsing, state transitions, error paths, concurrency, persistence,
+  IPC/Pi RPC, and untrusted extension input. No coverage targets or speculative
+  test expansion.
+- For bug fixes, add a focused regression test that fails before the fix and
+  passes after it. If the failure cannot be reproduced in an automated test,
+  verify it directly and report the gap.
+- For renderer behavior, drive an action or event and assert the resulting
+  state or user-observable behavior. Do not test React element trees, CSS/layout
+  values, or merely that rendering succeeds; use real UI inspection for visuals.
+- Skip tests of type-system guarantees, trivial getters, copies of implementation
+  logic, mock-call counts alone, and duplicate cases exercising the same behavior.
+  Do not add snapshot tests unless explicitly requested.
+- Each test must catch a plausible defect: identify a code change that would
+  make it fail. Use independent expected results and keep only cases that catch
+  distinct failures.
+- Do not delete, skip, or weaken tests to make a change pass. If an existing test
+  is wrong, explain the incorrect expectation and preserve coverage of the
+  intended behavior when correcting it.
+- Run focused checks for changed behavior and meaningful failure cases; see
+  [CONTRIBUTING.md](CONTRIBUTING.md#before-you-open-a-pull-request) for commands
+  and the required DOM test runner. No project-wide tests, builds, or quality
+  suites unless requested. Report the exact commands run, their results, and
+  any verification gaps; do not claim unrun checks passed.
+
 ## Verification and delivery
 
-- Use focused checks for the changed behavior and meaningful failure cases.
-  No coverage targets; no project-wide tests, builds, or quality suites unless
-  requested. Report what was verified and any gaps.
 - For UI work, check for a running app and reuse it, or start the app if none
   is running. Inspect real UI states, capture before/after evidence, and iterate
   on polish. Browser testing uses the app's Local Access feature and shares its
