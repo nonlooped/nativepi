@@ -8,7 +8,7 @@ if (typeof document !== "undefined") {
   globalThis.requestAnimationFrame = window.requestAnimationFrame.bind(window);
   globalThis.cancelAnimationFrame = window.cancelAnimationFrame.bind(window);
 }
-if (typeof document !== "undefined") mock.module("./DiffView.tsx", () => ({ default: ({ patch }: { patch: string }) => <pre>{patch}</pre> }));
+if (typeof document !== "undefined") mock.module("./DiffView.tsx", () => ({ default: ({ patch }: { patch: string }) => <pre>{patch}</pre>, DiffToolbar: () => null }));
 if (typeof document !== "undefined") mock.module("../lib/fileIcons.ts", () => ({ fileIconCatalog: () => undefined, subscribeFileIcons: () => () => {}, fileIconSvg: async () => "" }));
 const { default: SourceControlReview } = await import("./SourceControlReview.tsx");
 const { default: SourceControl } = await import("./SourceControl.tsx");

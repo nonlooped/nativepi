@@ -43,7 +43,7 @@ domTest("closing and reopening shares the pending command read for the exact ses
 domTest("idle discovery warms files and skills without starting command discovery", async () => {
   mount();
   const calls: string[] = [];
-  stubInvoke(async c => { calls.push(c); return c === "listProjectFiles" ? { files: ["warm.ts"] } : { skills: [{ name: "warm", description: "Warm", scope: "user" }] }; });
+  stubInvoke(async c => { calls.push(c); return c === "listMentionThreads" ? { threads: [] } : c === "listProjectFiles" ? { files: ["warm.ts"] } : { skills: [{ name: "warm", description: "Warm", scope: "user" }] }; });
   await act(async () => root!.render(<MenuProbe />));
   await act(async () => delay(230));
   expect(calls.sort()).toEqual(["listProjectFiles", "listSkills"]);
@@ -51,7 +51,7 @@ domTest("idle discovery warms files and skills without starting command discover
   expect(menu.options[0]?.value).toBe("warm.ts");
   await act(async () => menu.sync("$", 1));
   expect(menu.options[0]?.value).toBe("warm");
-  expect(calls).toHaveLength(2);
+  expect(calls).toEqual(["listProjectFiles", "listSkills", "listMentionThreads"]);
 });
 
 domTest("commands remain session-scoped and late reads cannot replace the new selection", async () => {
