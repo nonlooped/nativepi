@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { AgentSession } from "@earendil-works/pi-coding-agent";
+import { convertToLlm, type AgentSession } from "@earendil-works/pi-coding-agent";
 import { observePromptSuggestion, parsePromptSuggestion } from "./promptSuggestion.ts";
 
 function fixture() {
@@ -13,10 +13,14 @@ function fixture() {
     messages: [{ role: "user", content: "Please fix login", timestamp: 1 }, { role: "assistant", content: [{ type: "text", text: "Fixed login. Would you like regression coverage?" }], stopReason: "stop", timestamp: 2 }],
     sessionFile: "/chat.jsonl", model: { id: "model", provider: "provider" }, isStreaming: false, isCompacting: false,
     subscribe: (fn: typeof listener) => { listener = fn; return () => { unsubscribed = true; }; },
+    agent: { transformContext: async (messages: AgentSession["messages"]) => messages, convertToLlm, sessionId: "fixture" },
     modelRuntime: { completeSimple: (...args: unknown[]) => { calls.push(args); signal = (args[2] as { signal: AbortSignal }).signal; return pending.promise; } },
   };
   const observer = observePromptSuggestion(session as unknown as AgentSession, suggestion => proposals.push(suggestion));
-  const end = (aborted = false) => listener({ type: "agent_settled", aborted });
+  const end = async (aborted = false) => {
+    listener({ type: "agent_settled", aborted });
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+  };
   return { session, observer, end, calls, proposals, signal: () => signal, unsubscribed: () => unsubscribed,
     event: (type: "agent_start" | "compaction_start") => listener({ type, reason: "manual" } as never),
     resolve: async (text = "Add regression coverage", stopReason = "stop") => {
@@ -26,8 +30,8 @@ function fixture() {
 }
 
 test("opt-in generation uses the current Pi model without adding a conversation turn", async () => {
-  const f = fixture(); f.end(); expect(f.calls).toHaveLength(0);
-  f.observer.setEnabled(true); f.end(); f.end();
+  const f = fixture(); await f.end(); expect(f.calls).toHaveLength(0);
+  f.observer.setEnabled(true); await f.end(); await f.end();
   expect(f.calls).toHaveLength(1);
   expect(f.calls[0][0]).toBe(f.session.model);
   expect(f.calls[0][1]).not.toHaveProperty("tools");
@@ -38,7 +42,7 @@ test("opt-in generation uses the current Pi model without adding a conversation 
 });
 
 for (const change of ["start", "compact", "disable", "dispose", "session", "branch", "model", "error", "empty"]) test(`late suggestions are discarded after ${change}`, async () => {
-  const f = fixture(); f.observer.setEnabled(true); f.end();
+  const f = fixture(); f.observer.setEnabled(true); await f.end();
   if (change === "start") f.event("agent_start");
   if (change === "compact") f.event("compaction_start");
   if (change === "disable") f.observer.setEnabled(false);
@@ -51,25 +55,78 @@ for (const change of ["start", "compact", "disable", "dispose", "session", "bran
   expect(f.proposals.filter(Boolean)).toEqual([]); f.observer.dispose();
 });
 
-test("aborted and failed turns never request predictions", () => {
-  const f = fixture(); f.observer.setEnabled(true); f.end(true);
-  f.session.messages[1]!.stopReason = "error"; f.end();
+test("aborted and failed turns never request predictions", async () => {
+  const f = fixture(); f.observer.setEnabled(true); await f.end(true);
+  f.session.messages[1]!.stopReason = "error"; await f.end();
   expect(f.calls).toHaveLength(0); f.observer.dispose();
 });
 
-test("prediction input is bounded and excludes tool results and thinking", async () => {
+test("preserves the request, full answer, project instructions, and tool outcomes across long runs", async () => {
   const f = fixture();
-  f.session.messages.unshift(...Array.from({ length: 100 }, () => ({ role: "user", content: "x".repeat(5000), timestamp: 1 })));
-  f.session.messages.splice(-1, 0, { role: "toolResult", content: [{ type: "text", text: "TOOL_SECRET" }], timestamp: 1 } as never);
-  f.session.messages.at(-1)!.content = [{ type: "thinking", thinking: "THINKING_SECRET" }, { type: "text", text: "Fixed" }] as never;
-  f.observer.setEnabled(true); f.end();
-  const context = f.calls[0][1] as { messages: { content: string }[] };
-  expect(context.messages[0].content).not.toContain("TOOL_SECRET");
-  expect(context.messages[0].content).not.toContain("THINKING_SECRET");
-  const data = JSON.parse(context.messages[0].content);
-  expect(data).toHaveLength(6);
-  expect(data.every((message: { text: string }) => message.text.length <= 2000)).toBe(true);
+  const request = "IMPORTANT REQUEST: preserve the offline workflow. " + "request detail ".repeat(500);
+  const answer = "IMPORTANT ANSWER: offline support is complete. " + "answer detail ".repeat(500);
+  f.session.messages[0]!.content = request;
+  f.session.messages.at(-1)!.content = [{ type: "text", text: answer }];
+  f.session.messages.unshift({ role: "system", content: "PROJECT INSTRUCTIONS: prioritize offline support", timestamp: 0, toolsAdded: [{ name: "bash", description: "Shell", parameters: { type: "object" } }] } as never);
+  f.session.messages.splice(-1, 0, ...Array.from({ length: 25 }, (_, i) => [
+    { role: "assistant", content: [{ type: "toolCall", id: `call-${i}`, name: "bash", arguments: { command: "test" } }], stopReason: "toolUse", timestamp: 1 },
+    { role: "toolResult", toolCallId: `call-${i}`, toolName: "bash", content: [{ type: "text", text: `Test ${i} passed` }], isError: false, timestamp: 1 },
+  ]).flat() as never[]);
+  const before = structuredClone(f.session.messages);
+  f.observer.setEnabled(true); await f.end();
+  const context = f.calls[0][1] as { messages: typeof before };
+  expect(context.messages).toEqual(expect.arrayContaining(before));
+  const options = f.calls[0][2];
+  expect(options).toMatchObject({ toolChoice: "none", disableContinuation: true, sessionId: "fixture" });
+  await f.resolve("Thanks, that fixed it.");
+  expect(f.proposals.at(-1)?.text).toBe("Thanks, that fixed it.");
+  expect(f.session.messages).toEqual(before);
+  f.observer.dispose();
+});
+
+test("uses Pi context transforms and conversion for compaction, extensions, and excluded shell output", async () => {
+  const f = fixture();
+  f.session.messages.unshift({ role: "compactionSummary", summary: "EARLIER USER PREFERENCE", tokensBefore: 10000, timestamp: 0 } as never);
+  f.session.messages.splice(-1, 0, { role: "bashExecution", command: "private", output: "EXCLUDED OUTPUT", excludeFromContext: true, timestamp: 1 } as never);
+  f.session.agent.transformContext = async messages => {
+    const user = messages[1];
+    if (user?.role === "user") user.content = "Modified only in prediction context";
+    return [...messages, { role: "custom", customType: "context", content: "EXTENSION CONTEXT", display: false, timestamp: 2 }];
+  };
+  f.observer.setEnabled(true); await f.end();
+  const context = JSON.stringify(f.calls[0][1]);
+  expect(context).toContain("EARLIER USER PREFERENCE");
+  expect(context).toContain("EXTENSION CONTEXT");
+  expect(context).not.toContain("EXCLUDED OUTPUT");
+  expect(f.session.messages[1]!.content).toBe("Please fix login");
   await f.resolve(); f.observer.dispose();
+});
+
+for (const change of ["start", "disable", "session"]) test(`does not send a prediction when context preparation outlives ${change}`, async () => {
+  const f = fixture();
+  const preparing = Promise.withResolvers<AgentSession["messages"]>();
+  f.session.agent.transformContext = () => preparing.promise;
+  f.observer.setEnabled(true); await f.end();
+  expect(f.calls).toHaveLength(0);
+  if (change === "start") f.event("agent_start");
+  if (change === "disable") f.observer.setEnabled(false);
+  if (change === "session") f.session.sessionFile = "/other.jsonl";
+  preparing.resolve(f.session.messages as AgentSession["messages"]);
+  await preparing.promise; await Promise.resolve();
+  expect(f.calls).toHaveLength(0);
+  expect(f.proposals.filter(Boolean)).toEqual([]);
+  f.observer.dispose();
+});
+
+test("a failing extension context hook leaves the conversation and turn alone", async () => {
+  const f = fixture();
+  const before = structuredClone(f.session.messages);
+  f.session.agent.transformContext = async () => { throw new Error("Extension context failed"); };
+  f.observer.setEnabled(true); await f.end();
+  expect(f.calls).toHaveLength(0);
+  expect(f.proposals.filter(Boolean)).toEqual([]);
+  expect(f.session.messages).toEqual(before);
+  f.observer.dispose();
 });
 
 test("rejects malformed predictions but accepts multilingual text", () => {
