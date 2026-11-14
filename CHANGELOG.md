@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional next-message suggestions in the empty composer after Pi finishes, with Tab to accept and Escape to dismiss.
 
 ### Changed
-- Unify workspace dialogs with quieter surfaces, consistent forms and actions, compact pickers, and dedicated preview headers while preserving settings.
+- Unify workspace dialogs with translucent, blurred surfaces matching settings, consistent forms and actions, compact pickers, and dedicated preview headers while preserving settings.
 - Generate new chat titles from the first message while Pi works, instead of waiting for the first successful answer.
 - Clarify typography across the desktop app with distinct field values and placeholders, stronger headings and selected items, quieter navigation and metadata, and a separate supporting-text tone.
 - Curate nine color schemes with a brighter neutral Paper option, quieter dark text, distinct ink-blue and warm palettes, and previews showing text, diffs, and actions in both appearances. Retired Cobalt and Slate selections fall back to NativePi.

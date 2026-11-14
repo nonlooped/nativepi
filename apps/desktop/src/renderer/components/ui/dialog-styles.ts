@@ -14,7 +14,7 @@ export function useDialogStyles(alert = false) {
   return {
     surface: cn(surface, settings
       ? cn("border-border/70 bg-popover text-popover-foreground shadow-xl", alert ? "grid p-7" : "flex flex-col p-5 sm:p-6")
-      : "flex flex-col border-border/40 bg-background p-6 text-foreground shadow-lg"),
+      : "flex flex-col border-border/40 bg-background/95 p-6 text-foreground shadow-lg backdrop-blur-xl"),
     overlay: cn(overlay, settings ? "bg-overlay" : "bg-overlay/40 backdrop-blur-[2px]"),
     header: settings && alert ? "flex flex-col gap-3" : "flex shrink-0 flex-col gap-2",
     footer: cn(footer, settings ? "sm:border-t sm:border-border/60 sm:pt-5" : "pt-2", (!settings || !alert) && "shrink-0"),
