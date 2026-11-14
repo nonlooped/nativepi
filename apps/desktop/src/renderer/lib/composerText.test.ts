@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { chipText, hoistSkill, parseSegments } from "./composerText.ts";
+import { chipText, skillPrompt, parseSegments } from "./composerText.ts";
 
 test("a draft splits into prose and the tokens drawn as chips", () => {
   expect(parseSegments("look at @src/a.ts please")).toEqual([
@@ -34,8 +34,8 @@ test("a file chip quotes whitespace so its path remains one token", () => {
   expect(parseSegments(text)).toEqual([{ kind: "file", value: "docs/design notes.md" }]);
 });
 
-test("a skill placed mid-sentence reaches Pi at the head, where it expands", () => {
-  expect(hoistSkill("please /skill:review this diff")).toBe("/skill:review please this diff");
-  expect(hoistSkill("/skill:review this diff")).toBe("/skill:review this diff");
-  expect(hoistSkill("no skill here")).toBe("no skill here");
+test("skill invocation preserves the complete authored draft as its arguments", () => {
+  expect(skillPrompt("please /skill:review this diff")).toBe("/skill:review please /skill:review this diff");
+  expect(skillPrompt("/skill:review this diff")).toBe("/skill:review /skill:review this diff");
+  expect(skillPrompt("no skill here")).toBe("no skill here");
 });

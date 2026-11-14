@@ -1,3 +1,5 @@
+import UserPrompt from "./UserPrompt.tsx";
+import { userPromptText } from "../lib/userPrompt.ts";
 import { transcriptItems, appendStreaming, lastTurnFileCount, activeToolName } from "../lib/transcriptProjection.ts";
 import { RunStatusBar, RunDoneBar, TurnAnnouncer, useElapsed } from "./RunStatus.tsx";
 import { Collapsible } from "@base-ui/react/collapsible";
@@ -12,7 +14,7 @@ import { WrenchIcon } from "@phosphor-icons/react/Wrench";
 import { toast } from "sonner";
 import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
-import { displayPrompt, imagesOf, isUser, textOf } from "../../shared/messages.ts";
+import { imagesOf, isUser, textOf } from "../../shared/messages.ts";
 import { groupWork, toolGroupLabel, hasPendingGraphicalTool, toolArgSummary, toolResultsById } from "../lib/transcript.ts";
 import { diffPatchFor, fileDir, fileName, turnChanges, type FileChange } from "../lib/changes.ts";
 import { formatDuration, formatElapsed, pluralize } from "../lib/format.ts";
@@ -306,8 +308,7 @@ function EntryView({ entry }: { entry: SessionEntry }) {
   if (entry.type === "message") {
     const message = entry.message;
     if (isUser(message)) {
-      const prompt = displayPrompt(textOf(message.content));
-      return <UserBubble entryId={entry.id} text={prompt.text || (prompt.skills.length || prompt.files.length ? "" : prompt.fallback)} skills={prompt.skills} files={prompt.files} images={imagesOf(message.content)} timestamp={entry.timestamp} />;
+      return <UserBubble entryId={entry.id} text={userPromptText(textOf(message.content))} images={imagesOf(message.content)} timestamp={entry.timestamp} />;
     }
     return null; // toolResult messages render inline under their tool call.
   }
@@ -326,23 +327,17 @@ function CustomEntry({ entry }: { entry: SessionEntry }) {
 function UserBubble({
   entryId,
   text,
-  skills: providedSkills,
-  files: providedFiles,
   images: providedImages,
   timestamp,
   pending: isPending,
 }: {
   entryId?: string;
   text: string;
-  skills?: string[];
-  files?: string[];
   /** Anything with base64 and a mime type: a sent attachment or one still in flight. */
   images?: { mimeType: string; data: string }[];
   timestamp?: string;
   pending?: boolean;
 }) {
-  const skills = providedSkills ?? [];
-  const files = providedFiles ?? [];
   const images = providedImages ?? [];
   const pending = isPending ?? false;
   const sessionFile = useAppStore((s) => s.activeSessionFile);
@@ -355,11 +350,7 @@ function UserBubble({
       <Message align="end" className="justify-end">
       <Bubble variant="secondary" align="end" className={cn("max-w-[85%]", pending && "opacity-60")}>
         <BubbleContent className="rounded-2xl rounded-br-md px-4 py-3 text-reading ring-1 ring-inset ring-foreground/[0.08]">
-          {text || skills.length || files.length ? <Markdown>{[
-            [...skills.map(skill => `/skill:${skill}`),
-              ...files.map(file => /\s/.test(file) ? `@"${file}"` : `@${file}`)].join(" "),
-            text,
-          ].filter(Boolean).join("\n\n")}</Markdown> : null}
+          {text ? <UserPrompt text={text} /> : null}
           {images.length > 0 ? (
           // Keep attachments recognisable without letting them compete with the
           // message itself. The full image remains available from its menu.

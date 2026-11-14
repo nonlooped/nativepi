@@ -8,6 +8,7 @@ import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { toast } from "sonner";
 import type { SkillInfo } from "../../shared/pi-types.ts";
 import { chatTitle } from "../../shared/messages.ts";
+import { CHIP_CLASS } from "../lib/composerChips.ts";
 import { referenceFor, type Reference } from "../lib/markdownReferences.ts";
 import { useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
@@ -71,7 +72,7 @@ export async function openReference(reference: Reference) {
   }
 }
 
-export function ReferenceChip({ value, label, source }: { value: string; label?: ReactNode; source?: string }) {
+export function ReferenceChip({ value, label, source, composer = false }: { value: string; label?: ReactNode; source?: string; composer?: boolean }) {
   const skills = useReferenceSkills();
   const sessions = useAppStore(s => s.sessionsByProject);
   const repoHost = useAppStore(s => s.repoHost);
@@ -85,15 +86,16 @@ export function ReferenceChip({ value, label, source }: { value: string; label?:
   const authoredLabel = label && typeof label === "string" && label !== value && label !== value.replace(/^@/, "") ? label : null;
   const title = ref.kind === "file" ? `${ref.path}${ref.line ? `:${ref.line}${ref.column ? `:${ref.column}` : ""}` : ""}`
     : ref.kind === "skill" ? ref.path ?? `Skill: ${ref.name}` : ref.kind === "thread" ? session ? chatTitle(session) : ref.session : ref.url;
-  const icon = ref.kind === "file" ? <FileTypeIcon path={ref.path} size={14} folder={ref.folder} />
-    : ref.kind === "skill" ? <LightningIcon /> : ref.kind === "thread" ? <ChatCircleIcon />
+  const icon = ref.kind === "file" ? <FileTypeIcon path={ref.path} size={composer ? 16 : 14} folder={ref.folder} />
+    : ref.kind === "skill" ? composer ? <svg viewBox="0 0 16 16" aria-hidden="true" className="size-3 shrink-0"><path fill="currentColor" d="M9.6 1 3 8.6h3.6L6 15l6.6-7.6H9L9.6 1Z" /></svg> : <LightningIcon /> : ref.kind === "thread" ? <ChatCircleIcon />
     : ref.kind === "pull-request" ? <GitPullRequestIcon /> : <GlobeIcon />;
+  const chipClass = composer && (ref.kind === "skill" || ref.kind === "file") ? CHIP_CLASS[ref.kind] : "transcript-reference";
   const open = () => { void openReference(ref).catch(() => toast.error("Could not open this reference.")); };
   if (ref.kind === "pull-request") {
     const url = ref.url.split(/[?#]/, 1)[0];
     const metadata = repoHost?.kind === "pr" && (url === repoHost.url || url.startsWith(`${repoHost.url}/`)) ? repoHost : null;
     return <Popover>
-      <PopoverTrigger className="transcript-reference" title={title} data-reference-source={source ?? value}>
+      <PopoverTrigger className={chipClass} title={title} data-reference-source={source ?? value}>
         {icon}<span>{authoredLabel ?? display}</span>
       </PopoverTrigger>
       <PopoverContent className="gap-2 p-3" align="start">
@@ -107,7 +109,7 @@ export function ReferenceChip({ value, label, source }: { value: string; label?:
   }
   const chip = ref.kind === "skill" ? (
     <Popover>
-      <PopoverTrigger className="transcript-reference" title={title} data-reference-source={source ?? value}>
+      <PopoverTrigger className={chipClass} title={title} data-reference-source={source ?? value}>
         {icon}<span>{authoredLabel ?? display}</span>
       </PopoverTrigger>
       <PopoverContent className="gap-2 p-3" align="start">
@@ -117,7 +119,7 @@ export function ReferenceChip({ value, label, source }: { value: string; label?:
       </PopoverContent>
     </Popover>
   ) : (
-    <a className="transcript-reference" href={value} title={title} data-reference-source={source ?? value}
+    <a className={chipClass} href={value} title={title} data-reference-source={source ?? value}
       onClick={event => { event.preventDefault(); open(); }}>
       {icon}<span>{authoredLabel ?? display}</span>
     </a>

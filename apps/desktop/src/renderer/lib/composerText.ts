@@ -65,24 +65,10 @@ export function parseSegments(text: string): Segment[] {
   return segments;
 }
 
-/**
- * The draft as Pi needs to read it.
- *
- * Pi expands `/skill:name` only when the message opens with it, but a skill chip
- * reads naturally mid-sentence and the composer lets it go there. Moving the
- * first one to the front on the way out is what makes those two facts coexist;
- * without it the chip would look like it applied and quietly would not.
- */
-export function hoistSkill(text: string): string {
-  for (let index = 0; index < text.length; index++) {
-    const token = tokenAt(text, index);
-    if (token?.kind !== "skill") continue;
-    if (index === 0) return text;
-    // The space that separated the token goes with it, or lifting the chip out
-    // of a sentence would leave a gap where it used to sit.
-    const gap = /[ \t]/.test(text[index - 1] as string) ? 1 : 0;
-    const without = (text.slice(0, index - gap) + text.slice(index + token.length)).trim();
-    return `${chipText("skill", token.value)} ${without}`;
-  }
-  return text;
+/** Keep the complete draft as the arguments to Pi's leading skill invocation.
+ * Pi expands only that invocation; its session then retains every authored token
+ * in its original position after the expansion. */
+export function skillPrompt(text: string): string {
+  const skill = parseSegments(text).find(segment => segment.kind === "skill");
+  return skill ? `${chipText("skill", skill.value)} ${text}` : text;
 }

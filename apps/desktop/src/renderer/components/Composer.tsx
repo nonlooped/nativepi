@@ -6,7 +6,7 @@ import { classifyDrop, draggingFiles, mentionPath } from "../lib/drops.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { offeredPromptSuggestion } from "../lib/store/conversation.ts";
 import { rpc } from "../lib/rpc.ts";
-import { chipText, hoistSkill } from "../lib/composerText.ts";
+import { chipText } from "../lib/composerText.ts";
 import { showDropRejected, showHint } from "../lib/toast.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { ContextualIcon } from "@/components/ui/contextual-icon.tsx";
@@ -108,10 +108,6 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
 
   const submit = () => {
     if (!canSend) return;
-    // Pi reads a skill only at the head of the message; a chip the user placed
-    // mid-sentence is moved there on the way out rather than being ignored.
-    const outgoing = hoistSkill(draft);
-    if (outgoing !== draft) setDraft(outgoing);
     if (running) void enqueue(behavior);
     else void send();
   };

@@ -1,5 +1,5 @@
 import { quoteMarkdown } from "../markdownReferences.ts";
-import { chipText } from "../composerText.ts";
+import { chipText, skillPrompt } from "../composerText.ts";
 import { mentionPath } from "../drops.ts";
 import { createHydration } from "./hydration.ts";
 import type { AgentMessage, PiEventBatch, SessionEntry, SessionSummary, ThinkingLevel } from "../../../shared/pi-types.ts";
@@ -543,7 +543,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
         res = await rpc.request.submit({
           projectDir,
           sessionFile: s.activeSessionFile,
-          message: text,
+          message: skillPrompt(text),
           images: images.map(toImageContent),
           model: s.model ? { provider: s.model.provider, id: s.model.id } : undefined,
           thinkingLevel: s.thinkingLevelReady ? s.thinkingLevel : undefined,
@@ -684,11 +684,11 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
           ? await rpc.request.submit({
               projectDir,
               sessionFile,
-              message: text,
+              message: skillPrompt(text),
               images: images.map(toImageContent),
               streamingBehavior: behavior,
             })
-          : await rpc.request.enqueue({ projectDir, sessionFile: sessionFile!, behavior, message: text, images: images.map(toImageContent) });
+          : await rpc.request.enqueue({ projectDir, sessionFile: sessionFile!, behavior, message: skillPrompt(text), images: images.map(toImageContent) });
       } catch (error) {
         res = { ok: false, error: error instanceof Error ? error.message : String(error) };
       }

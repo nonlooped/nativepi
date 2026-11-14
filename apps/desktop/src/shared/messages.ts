@@ -23,7 +23,7 @@ import type {
  * `/skill:`, `/command`, or `@path` tokens. Sidebar titles and previews should
  * show the user's words, not that markup.
  */
-export function displayPrompt(raw: string): { text: string; skills: string[]; files: string[]; fallback: string } {
+export function displayPrompt(raw: string, options: { preserveTokens?: boolean } = {}): { text: string; skills: string[]; files: string[]; fallback: string } {
   let text = raw.trim();
   let fallback = "";
   const skills: string[] = [];
@@ -56,6 +56,8 @@ export function displayPrompt(raw: string): { text: string; skills: string[]; fi
     }
     break;
   }
+
+  if (options.preserveTokens) return { text, skills, files, fallback };
 
   const lines = text.split(/\r?\n/);
   let first = lines[0]?.trim() ?? "";
