@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard.ts";
 import StateNotice from "./StateNotice.tsx";
 import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu.tsx";
@@ -44,8 +45,8 @@ export default function DiffPreview({ projectDir, path, mode, revision = 0, onBa
         <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="File actions" />}><DotsThreeIcon /></DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => mention(chipText("file", path))}>Mention in chat</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void navigator.clipboard.writeText(path)}>Copy relative path</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void navigator.clipboard.writeText(absoluteProjectPath(projectDir, path))}>Copy absolute path</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void copyText(path)}>Copy relative path</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void copyText(absoluteProjectPath(projectDir, path))}>Copy absolute path</DropdownMenuItem>
           <DropdownMenuItem onClick={() => void rpc.request.showInFolder({ path: absoluteProjectPath(projectDir, path) })}>Reveal in {fileManagerName()}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

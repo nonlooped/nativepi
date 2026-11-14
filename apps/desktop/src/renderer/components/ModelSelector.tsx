@@ -133,7 +133,7 @@ export default function ModelSelector() {
         render={
           <Button
             variant="ghost"
-            className="min-w-0 max-w-[min(16rem,100%)] justify-start gap-1.5 px-2 font-normal"
+            className="min-w-0 max-w-[min(16rem,100%)] @max-[30rem]/conversation:flex-1 max-sm:h-auto max-sm:min-h-8 max-sm:py-1 justify-start gap-1.5 px-2 font-normal"
           />
         }
         title={models.length === 0 ? "Loading models from Pi…" : withHint("Change model, reasoning, and service tier", "selectModel", keybindingOverrides)}
@@ -144,11 +144,11 @@ export default function ModelSelector() {
         }
       >
         {model ? <ModelProviderIcon provider={model.provider} /> : null}
-        <span className="min-w-0 truncate font-medium text-foreground">{models.length === 0 ? "Loading models…" : label}</span>
+        <span className="min-w-0 truncate max-sm:whitespace-normal max-sm:wrap-anywhere font-medium text-foreground">{models.length === 0 ? "Loading models…" : label}</span>
         {models.length > 0 ? (
           <>
-            <span className="text-muted-foreground/50" aria-hidden="true">·</span>
-            <span className="shrink-0 text-muted-foreground">{thinkingLabel(thinkingLevel)}</span>
+            <span className="text-muted-foreground/50 @max-[30rem]/conversation:hidden" aria-hidden="true">·</span>
+            <span className="shrink-0 text-muted-foreground @max-[30rem]/conversation:hidden">{thinkingLabel(thinkingLevel)}</span>
           </>
         ) : null}
         {priority ? <LightningIcon weight="fill" className="size-3.5 shrink-0 text-muted-foreground" aria-hidden /> : null}
@@ -364,7 +364,7 @@ function ModelRow({
         className="flex min-w-0 flex-1 items-center gap-2 rounded-l-md px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
       >
         <ModelProviderIcon provider={model.provider} />
-        <span className={cn("min-w-0 flex-1 truncate text-[13px]", selected && "font-medium")}>{highlightMatch(display, query)}</span>
+        <span className={cn("min-w-0 flex-1 whitespace-normal wrap-anywhere text-[13px]", selected && "font-medium")}>{highlightMatch(display, query)}</span>
         {selected ? <CheckIcon className="size-3.5 shrink-0" /> : null}
       </button>
       <button

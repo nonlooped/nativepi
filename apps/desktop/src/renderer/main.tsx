@@ -53,12 +53,14 @@ const viewport = window.visualViewport;
 if (viewport) {
   const apply = () => {
     document.documentElement.style.setProperty("--app-height", `${viewport.height}px`);
+    document.documentElement.style.setProperty("--app-viewport-top", `${viewport.offsetTop}px`);
     // iOS also scrolls the document itself to reveal the focused field. The
     // shell is already the exact height of what is visible, so that scroll only
     // pushes the header off the top.
     window.scrollTo(0, 0);
   };
   viewport.addEventListener("resize", apply);
+  viewport.addEventListener("scroll", apply);
   // The window event as well as the visual one: this variable is now the app's
   // only height, so a resize that somehow does not reach the visual viewport
   // would leave the desktop window rendering at its previous size.

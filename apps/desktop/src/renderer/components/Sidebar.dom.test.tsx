@@ -32,6 +32,7 @@ mock.module('./SessionMenu.tsx',()=>({default:({children}:{children:ReactNode})=
 mock.module('./WorktreeDialog.tsx',()=>({default:()=>null}));
 mock.module('./ConfirmDialog.tsx',()=>({default:()=>null}));
 mock.module('./BrandIcon.tsx',()=>({default:()=>null}));
+mock.module("../lib/platform.ts", () => ({ isDesktopShell: false }));
 const {default:Sidebar}=await import('./Sidebar.tsx');
 let root:Root;let container:HTMLDivElement;
 afterEach(async()=>{if(root)await act(async()=>root.unmount());container?.remove();useAppStore.setState(original, true)});
@@ -98,4 +99,14 @@ test('delegate rows stay under their lead and navigate using the actual worktree
  await act(async()=>row.click());
  expect(useAppStore.getState()).toMatchObject({ activeSessionFile: '/delegate', activeProjectPath: '/worktree' });
  expect(reads).toEqual([{ projectDir: '/worktree', sessionFile: '/delegate' }]);
+});
+
+test('Local Access Add project keeps the sidebar open and explains the desktop picker requirement', async () => {
+ const addProject = mock(async () => {});
+ useAppStore.setState({ addProject });
+ await mount(true);
+ await act(async () => (container.querySelector('[aria-label="Add project"]') as HTMLButtonElement).click());
+ expect(container.querySelector('[role="status"]')?.textContent).toContain('Add project folders in the NativePi desktop app');
+ expect(addProject).not.toHaveBeenCalled();
+ expect(container.querySelector('[aria-label="Add project"]')).not.toBeNull();
 });

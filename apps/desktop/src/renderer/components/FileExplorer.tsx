@@ -1,3 +1,6 @@
+import { isDesktopShell } from "../lib/platform.ts";
+import { mediaKind } from "./TranscriptMedia.tsx";
+import { Dialog, DialogViewerContent } from "./ui/dialog.tsx";
 import StateNotice from "./StateNotice.tsx";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
@@ -18,6 +21,8 @@ export default function FileExplorer({ projectDir, renderHeader }: FileExplorerP
 }
 
 function ProjectFiles({ projectDir, renderHeader }: FileExplorerProps) {
+  const [previewFile, setPreviewFile] = useState<string | null>(null);
+  const [fileNotice, setFileNotice] = useState("");
   const [state, setState] = useState(emptyExplorerDirectories);
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState("");
@@ -55,6 +60,15 @@ function ProjectFiles({ projectDir, renderHeader }: FileExplorerProps) {
   }, [projectDir]);
 
   async function openFile(file: string) {
+    if (!isDesktopShell) {
+      if (mediaKind(file)) {
+        setFileNotice("");
+        setPreviewFile(file);
+      } else {
+        setFileNotice(`${file}: Open this file in the NativePi desktop app. Local Access previews images, audio, and video.`);
+      }
+      return;
+    }
     try {
       const result = await rpc.request.openFileIn({ projectDir, file, editorId });
       if (!result.ok) throw new Error(result.error ?? "Could not open this file.");
@@ -73,7 +87,7 @@ function ProjectFiles({ projectDir, renderHeader }: FileExplorerProps) {
         const folder = entry.kind === "dir";
         const open = state.expanded.has(entry.path);
         return <li key={entry.path}>
-          <button type="button" aria-expanded={folder ? open : undefined} title={folder ? entry.path : `Open ${entry.path} in ${editorName(editorId)}`}
+          <button type="button" aria-expanded={folder ? open : undefined} title={folder ? entry.path : isDesktopShell ? `Open ${entry.path} in ${editorName(editorId)}` : mediaKind(entry.path) ? `Preview ${entry.path}` : `${entry.path} — desktop app required`}
             className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm text-sidebar-foreground outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
             onClick={() => folder ? controller.current?.toggle(entry.path) : void openFile(entry.path)}>
             <CaretRightIcon aria-hidden className={cn("size-3 shrink-0 text-muted-foreground", !folder && "invisible", open && "rotate-90")} />
@@ -98,6 +112,8 @@ function ProjectFiles({ projectDir, renderHeader }: FileExplorerProps) {
       search: () => { setSearching(value => !value); setQuery(""); },
       searching,
     })}
+    {fileNotice ? <p role="status" className="break-words px-3 pt-2 text-xs text-muted-foreground">{fileNotice}</p> : null}
+    {previewFile ? <BrowserMediaPreview key={previewFile} projectDir={projectDir} file={previewFile} onClose={() => setPreviewFile(null)} /> : null}
     {searching ? <div className="px-3 pt-2"><Input autoFocus aria-label="Search project files" placeholder="Search files…" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Escape") { setSearching(false); setQuery(""); } }} /></div> : null}
     <div className="min-h-0 flex-1 overflow-auto px-1 pt-2 pb-3">
       {searching ? searchError ? <p role="alert" className="px-3 py-2 text-xs text-destructive">{searchError}</p>
@@ -113,4 +129,29 @@ function ProjectFiles({ projectDir, renderHeader }: FileExplorerProps) {
         </> : directory("", 0)}
     </div>
   </section>;
+}
+
+function BrowserMediaPreview({ projectDir, file, onClose }: { projectDir: string; file: string; onClose: () => void }) {
+  const [result, setResult] = useState<{ src?: string; error?: string }>();
+  const [attempt, setAttempt] = useState(0);
+  const kind = mediaKind(file);
+  useEffect(() => {
+    let current = true;
+    setResult(undefined);
+    void rpc.request.readProjectMedia({ projectDir, file }).then(
+      value => { if (current) setResult(value.src ? value : { error: value.error ?? "No preview is available for this file." }); },
+      () => { if (current) setResult({ error: "Media could not be loaded." }); },
+    );
+    return () => { current = false; };
+  }, [projectDir, file, attempt]);
+  const decodeError = () => setResult({ error: "This media format could not be displayed by your browser." });
+  return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+    <DialogViewerContent title={file} description={`${kind} preview`}>
+      {result?.error ? <StateNotice title="Could not preview this media" detail={result.error} retry={() => setAttempt(value => value + 1)} />
+        : !result?.src ? <StateNotice loading title="Loading preview…" />
+        : kind === "video" ? <video src={result.src} controls preload="metadata" onError={decodeError} className="max-h-[70dvh] w-full" />
+        : kind === "audio" ? <audio src={result.src} controls preload="metadata" onError={decodeError} className="w-full" />
+        : <img src={result.src} alt={file} onError={decodeError} className="max-h-[70dvh] w-full object-contain" />}
+    </DialogViewerContent>
+  </Dialog>;
 }

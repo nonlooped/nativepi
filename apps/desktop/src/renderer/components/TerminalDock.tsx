@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input.tsx";
 import { DropdownMenu as Menu, DropdownMenuContent as MenuPopup, DropdownMenuGroup as MenuGroup, DropdownMenuItem as MenuItem, DropdownMenuTrigger as MenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.tsx";
 import { rpc } from "@/lib/rpc.ts";
-import { cn } from "@/lib/utils.ts";
+import { copyText, readClipboardText } from "../lib/clipboard.ts";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -133,7 +133,7 @@ export default function TerminalDock({
       split.setAttribute("data-terminal-active", "true");
     }} aria-label="Integrated terminal" className="terminal-dock terminal-dock-enter relative flex h-full min-h-0 flex-col bg-sidebar">
       <ContextMenu>
-        <ContextMenuTrigger render={<div role="toolbar" aria-label="Terminal controls" className="absolute right-2 top-1.5 z-20 flex items-center gap-0.5 rounded-lg bg-sidebar/95 shadow-sm p-0.5 text-muted-foreground" />}>
+        <ContextMenuTrigger render={<div role="toolbar" aria-label="Terminal controls" className="flex min-h-9 shrink-0 items-center justify-end gap-0.5 px-2 py-0.5 text-muted-foreground" />}>
           <Button variant="ghost" size="icon-xs" disabled={closing} title={withHint("Split terminal side by side", "splitTerminal", keybindingOverrides)} aria-label="Split terminal side by side" onClick={() => {
             setOrientation("horizontal");
             void addSplit(preferredShellId || undefined);
@@ -193,7 +193,6 @@ export default function TerminalDock({
               defaultSize={`${100 / terminals.length}%`}
               showHandle={index > 0}
               showTitle={terminals.length > 1}
-              reserveToolbar={orientation === "horizontal" ? index === terminals.length - 1 : index === 0}
               onHide={onMinimize}
               closing={closing}
               restartCount={restarts[terminal.id] ?? 0}
@@ -279,7 +278,6 @@ function TerminalSplit({
   defaultSize,
   showHandle,
   showTitle,
-  reserveToolbar,
   onHide,
   closing,
   restartCount,
@@ -295,7 +293,6 @@ function TerminalSplit({
   defaultSize: string;
   showHandle: boolean;
   showTitle: boolean;
-  reserveToolbar: boolean;
   onHide: () => void;
   closing: boolean;
   restartCount: number;
@@ -314,7 +311,7 @@ function TerminalSplit({
       <ResizablePanel id={session.id} defaultSize={defaultSize}>
         <div data-terminal-id={session.id} className="flex h-full min-h-0 flex-col">
           {showTitle || editingName ? <ContextMenu>
-            <ContextMenuTrigger render={<div className={cn("flex min-h-9 shrink-0 items-center gap-1.5 px-3", reserveToolbar && "pr-32")} />}>
+            <ContextMenuTrigger render={<div className="flex min-h-9 shrink-0 items-center gap-1.5 px-3" />}>
               <StatusDot session={session} />
               {editingName ? (
                 <Input
@@ -470,8 +467,7 @@ function TerminalSurface({
       if (!event.shiftKey && !terminal.hasSelection()) return true;
       const selection = terminal.getSelection();
       if (selection) {
-        void navigator.clipboard.writeText(selection);
-        terminal.clearSelection();
+        void copyText(selection).then(copied => { if (copied) terminal.clearSelection(); });
       }
       return false;
     });
@@ -603,10 +599,10 @@ function TerminalSurface({
           const position = terminalRef.current?.getSelectionPosition();
           useAppStore.getState().insertIntoComposer(terminalSelectionMarkdown(selection, session.name || "Terminal", position ? position.start.y + 1 : undefined, position ? position.end.y + 1 : undefined));
         }}>Add selection to reply</ContextMenuItem>
-        <ContextMenuItem disabled={!selection} onClick={() => void navigator.clipboard.writeText(selection).then(() => terminalRef.current?.clearSelection())}>
+        <ContextMenuItem disabled={!selection} onClick={() => void copyText(selection).then(copied => { if (copied) terminalRef.current?.clearSelection(); })}>
           Copy
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => void navigator.clipboard.readText().then((text) => terminalRef.current?.paste(text))}>
+        <ContextMenuItem onClick={() => void readClipboardText().then((text) => { if (text !== null) terminalRef.current?.paste(text); })}>
           Paste
         </ContextMenuItem>
         <ContextMenuItem onClick={() => terminalRef.current?.selectAll()}>Select all</ContextMenuItem>

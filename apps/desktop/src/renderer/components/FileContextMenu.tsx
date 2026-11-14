@@ -1,9 +1,10 @@
+import { copyText } from "@/lib/clipboard.ts";
 import type { ReactElement } from "react";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { FileArrowUpIcon } from "@phosphor-icons/react/FileArrowUp";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { absoluteProjectPath, editorName, fileManagerName } from "@/lib/paths.ts";
-import { rpc } from "@/lib/rpc.ts";
+import { isRemote, rpc } from "@/lib/rpc.ts";
 import { useAppStore } from "@/lib/store.ts";
 import {
   ContextMenu,
@@ -33,24 +34,24 @@ export default function FileContextMenu({
 
   async function copyDiff() {
     const text = patch ?? (await rpc.request.gitDiff({ projectDir, file, untracked, staged })).diff.patch;
-    await navigator.clipboard.writeText(text);
+    await copyText(text);
   }
 
   return (
     <ContextMenu>
       <ContextMenuTrigger render={children} />
       <ContextMenuContent className="w-56">
-        <ContextMenuItem onClick={() => void rpc.request.openFileIn({ projectDir, file, editorId })}>
+        <ContextMenuItem disabled={isRemote} title={isRemote ? "Open files in an editor from the desktop app" : undefined} onClick={() => void rpc.request.openFileIn({ projectDir, file, editorId })}>
           <FileArrowUpIcon /> Open in {editorName(editorId)}
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => void rpc.request.showInFolder({ path: absolutePath })}>
+        <ContextMenuItem disabled={isRemote} title={isRemote ? "Reveal files from the desktop app" : undefined} onClick={() => void rpc.request.showInFolder({ path: absolutePath })}>
           <FolderOpenIcon /> Reveal in {fileManagerName()}
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem onClick={() => void navigator.clipboard.writeText(file)}>
+        <ContextMenuItem onClick={() => void copyText(file)}>
           <CopyIcon /> Copy relative path
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => void navigator.clipboard.writeText(absolutePath)}>
+        <ContextMenuItem onClick={() => void copyText(absolutePath)}>
           <CopyIcon /> Copy absolute path
         </ContextMenuItem>
         <ContextMenuItem onClick={() => void copyDiff()}>

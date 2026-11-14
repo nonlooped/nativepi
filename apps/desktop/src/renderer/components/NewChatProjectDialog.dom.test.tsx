@@ -12,6 +12,7 @@ beforeEach(() => {
   useAppStore.setState({ ready: false, projects: [], workRoot: "/managed/work", chatRoot: "/managed/chat",
     activeProjectPath: null, activeSessionFile: "/previous", destination: "work", trust: null, trustPrompt: null, conversations: {} });
 });
+mock.module("../lib/platform.ts", () => ({ isDesktopShell: false }));
 const { default: NewChatProjectDialog } = await import("./NewChatProjectDialog.tsx");
 const { startNewChatFlow } = await import("../lib/newChat.ts");
 let root: Root; let container: HTMLDivElement;
@@ -51,4 +52,15 @@ test("Chat keeps its direct new-chat flow", async () => {
   await act(async () => startNewChatFlow(choose));
   expect(choose).not.toHaveBeenCalled();
   expect(useAppStore.getState()).toMatchObject({ activeProjectPath: "/managed/chat", activeSessionFile: null, isNewChat: true, destination: "chat", projects: [] });
+});
+
+test("Local Access explains how to open another project without invoking a native picker", async () => {
+  const calls: string[] = [];
+  stubInvoke(async channel => { calls.push(channel); return {}; });
+  await mount();
+  const button = [...document.querySelectorAll("button")].find(button => button.textContent?.includes("Open folder"))!;
+  await act(async () => button.click());
+  expect(document.querySelector('[role="status"]')?.textContent).toContain("Open project folders in the NativePi desktop app");
+  expect(calls).not.toContain("pickProject");
+  expect(document.querySelector('[role="dialog"]')).not.toBeNull();
 });

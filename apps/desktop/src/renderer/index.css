@@ -1151,6 +1151,9 @@ html[data-motion="reduced"] *::after {
   outline: none;
 }
 button.transcript-activity-row { cursor: pointer; }
+@media (pointer: coarse) {
+  button.transcript-activity-row { min-height: 2.25rem; }
+}
 button.transcript-activity-row:hover { color: var(--foreground); }
 button.transcript-activity-row:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .transcript-work > .markdown { color: var(--body-muted-foreground); }

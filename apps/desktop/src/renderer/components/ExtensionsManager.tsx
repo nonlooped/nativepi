@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard.ts";
 import { useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
@@ -354,7 +355,7 @@ export default function ExtensionsManager() {
                   )}
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
-                  <ContextMenuItem onClick={() => void navigator.clipboard.writeText(pkg.source)}>Copy source</ContextMenuItem>
+                  <ContextMenuItem onClick={() => void copyText(pkg.source)}>Copy source</ContextMenuItem>
                   <ContextMenuItem
                     disabled={!pkg.installedPath}
                     onClick={() => pkg.installedPath && void rpc.request.showInFolder({ path: pkg.installedPath })}
@@ -418,7 +419,7 @@ export default function ExtensionsManager() {
                   )}
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
-                  <ContextMenuItem onClick={() => void navigator.clipboard.writeText(pkg.source)}>Copy path</ContextMenuItem>
+                  <ContextMenuItem onClick={() => void copyText(pkg.source)}>Copy path</ContextMenuItem>
                   <ContextMenuItem
                     disabled={!pkg.installedPath}
                     onClick={() => pkg.installedPath && void rpc.request.showInFolder({ path: pkg.installedPath })}
@@ -441,7 +442,7 @@ export default function ExtensionsManager() {
                   </div>
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
-                  <ContextMenuItem onClick={() => void navigator.clipboard.writeText(extension.path)}>Copy path</ContextMenuItem>
+                  <ContextMenuItem onClick={() => void copyText(extension.path)}>Copy path</ContextMenuItem>
                   <ContextMenuItem onClick={() => void rpc.request.showInFolder({ path: extension.path })}>
                     Reveal in folder
                   </ContextMenuItem>

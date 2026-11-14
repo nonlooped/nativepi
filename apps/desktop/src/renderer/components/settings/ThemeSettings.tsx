@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard.ts";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
@@ -172,8 +173,8 @@ export default function ThemeSettings() {
   const copyJson = () => {
     if (!activeCustom) return;
     const json = JSON.stringify(themeFile(activeCustom), null, 2);
-    void navigator.clipboard.writeText(json).then(
-      () => showHint("Color scheme JSON copied"),
+    void copyText(json).then(
+      copied => { if (copied) showHint("Color scheme JSON copied"); },
       () => toast.error("Unable to copy the color scheme. Check clipboard permission and try again."),
     );
   };

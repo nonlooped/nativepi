@@ -50,7 +50,7 @@ import {
 } from "@/components/ui/context-menu.tsx";
 import { Dialog, DialogViewerContent } from "@/components/ui/dialog.tsx";
 import { HOVER_REVEAL, cn } from "@/lib/utils.ts";
-import { copyDataImage } from "@/lib/clipboard.ts";
+import { copyDataImage, copyText } from "@/lib/clipboard.ts";
 import { ContextualIcon } from "@/components/ui/contextual-icon.tsx";
 import { rpc } from "@/lib/rpc.ts";
 import FileTypeIcon from "./FileTypeIcon.tsx";
@@ -268,7 +268,7 @@ function TranscriptContent() {
         </MessageScroller>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-48">
-          <ContextMenuItem onClick={() => void navigator.clipboard.writeText(transcriptSelection)}>Copy</ContextMenuItem>
+          <ContextMenuItem onClick={() => void copyText(transcriptSelection)}>Copy</ContextMenuItem>
           <ContextMenuItem onClick={() => useAppStore.getState().quoteInReply(transcriptSelection)}>Quote in reply</ContextMenuItem>
           <ContextMenuItem onClick={() => useAppStore.getState().askAbout(transcriptSelection)}>Ask Pi about this</ContextMenuItem>
         </ContextMenuContent>
@@ -412,7 +412,7 @@ function UserBubble({
     <TranscriptContextMenu
       items={
         <>
-          <ContextMenuItem onClick={() => void navigator.clipboard.writeText(text)}>Copy message</ContextMenuItem>
+          <ContextMenuItem onClick={() => void copyText(text)}>Copy message</ContextMenuItem>
           <ContextMenuItem
             disabled={!entryId || !sessionFile || running}
             onClick={() => entryId && sessionFile && void forkChat(sessionFile, entryId)}
@@ -587,13 +587,13 @@ export function AssistantResponse({
       items={
         <>
           <ContextMenuItem disabled={!finalText} onClick={() => useAppStore.getState().quoteInReply(finalText, source)}>Reply to response</ContextMenuItem>
-          <ContextMenuItem disabled={!source} onClick={() => source && void navigator.clipboard.writeText(threadHref(source.session, source.entry))}>Copy link to response</ContextMenuItem>
-          <ContextMenuItem onClick={() => void navigator.clipboard.writeText(finalText)} disabled={!finalText}>
+          <ContextMenuItem disabled={!source} onClick={() => source && void copyText(threadHref(source.session, source.entry))}>Copy link to response</ContextMenuItem>
+          <ContextMenuItem onClick={() => void copyText(finalText)} disabled={!finalText}>
             Copy response as Markdown
           </ContextMenuItem>
           <ContextMenuItem
             disabled={!finalText}
-            onClick={() => void navigator.clipboard.writeText(responseRef.current?.querySelector<HTMLElement>("[data-response-text]")?.innerText ?? finalText)}
+            onClick={() => void copyText(responseRef.current?.querySelector<HTMLElement>("[data-response-text]")?.innerText ?? finalText)}
           >
             Copy as plain text
           </ContextMenuItem>
@@ -713,7 +713,7 @@ function MessageActions({ text, timestamp }: { text: string; timestamp: string }
         className="text-muted-foreground"
         aria-label={copied ? "Message copied" : "Copy message"}
         title={copied ? "Copied" : "Copy message"}
-        onClick={() => void navigator.clipboard.writeText(text).then(() => setCopied(true))}
+        onClick={() => void copyText(text).then(copied => { if (copied) setCopied(true); })}
       >
         <ContextualIcon active={copied} activeIcon={<CheckIcon className="text-success" />} inactiveIcon={<CopyIcon />} />
       </Button>
@@ -839,10 +839,10 @@ function wrapToolMenu(
     <TranscriptContextMenu
       items={
         <>
-          <ContextMenuItem disabled={!output} onClick={() => void navigator.clipboard.writeText(output)}>
+          <ContextMenuItem disabled={!output} onClick={() => void copyText(output)}>
             Copy output
           </ContextMenuItem>
-          <ContextMenuItem onClick={() => void navigator.clipboard.writeText(JSON.stringify(call.arguments, null, 2))}>
+          <ContextMenuItem onClick={() => void copyText(JSON.stringify(call.arguments, null, 2))}>
             Copy arguments
           </ContextMenuItem>
           <ContextMenuItem disabled={!output} onClick={() => setOpen(!open)}>
@@ -875,7 +875,7 @@ function TranscriptContextMenu({ children, items, source }: { children: ReactEle
       <ContextMenuContent className="w-56">
         {selection ? (
           <>
-            <ContextMenuItem onClick={() => void navigator.clipboard.writeText(selection)}>Copy</ContextMenuItem>
+            <ContextMenuItem onClick={() => void copyText(selection)}>Copy</ContextMenuItem>
             <ContextMenuItem onClick={() => quoteInReply(selection, source)}>Quote in reply</ContextMenuItem>
             <ContextMenuItem onClick={() => askAbout(selection)}>Ask Pi about this</ContextMenuItem>
             <ContextMenuSeparator />
@@ -883,7 +883,7 @@ function TranscriptContextMenu({ children, items, source }: { children: ReactEle
         ) : null}
         {codeBlock ? (
           <>
-            <ContextMenuItem onClick={() => void navigator.clipboard.writeText(codeBlock)}>Copy code block</ContextMenuItem>
+            <ContextMenuItem onClick={() => void copyText(codeBlock)}>Copy code block</ContextMenuItem>
             <ContextMenuItem onClick={() => insertIntoComposer(codeBlock)}>Insert into composer</ContextMenuItem>
             {items ? <ContextMenuSeparator /> : null}
           </>

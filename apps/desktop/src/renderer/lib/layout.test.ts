@@ -17,6 +17,15 @@ describe("workspaceLayoutFor", () => {
     expect(workspaceLayoutFor(1441, 1920)).toBe("wide");
   });
 
+  test("full-screen phones stay compact and small displays cannot dock both panes", () => {
+    expect(workspaceLayoutFor(390, 390)).toBe("compact");
+    expect(workspaceLayoutFor(767, 767)).toBe("compact");
+    expect(workspaceLayoutFor(768, 768)).toBe("narrow");
+    expect(workspaceLayoutFor(1024, 1024)).toBe("narrow");
+    expect(workspaceLayoutFor(1099, 1099)).toBe("narrow");
+    expect(workspaceLayoutFor(1100, 1100)).toBe("wide");
+  });
+
   test("the same window adapts to different displays", () => {
     expect(workspaceLayoutFor(1200, 1440)).toBe("wide");
     expect(workspaceLayoutFor(1200, 1920)).toBe("narrow");

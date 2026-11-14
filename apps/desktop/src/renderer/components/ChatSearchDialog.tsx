@@ -178,13 +178,13 @@ export default function ChatSearchDialog({
                 value={result}
                 index={index}
                 onClick={() => navigate(result)}
-                className="flex w-full flex-col gap-1 rounded-md px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
+                className="flex min-w-0 w-full flex-col gap-1 rounded-md px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
               >
-                <span className="flex min-w-0 items-baseline gap-2">
-                  <span className="truncate text-sm font-medium">{highlight(result.title, query)}</span>
-                  <span className="ml-auto shrink-0 text-xs font-normal text-muted-foreground">{project?.name ?? result.projectDir}</span>
+                <span className="flex min-w-0 w-full items-baseline gap-2">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{highlight(result.title, query)}</span>
+                  <span title={project?.name ?? result.projectDir} className="ml-auto min-w-0 max-w-[45%] truncate text-xs font-normal text-muted-foreground">{project?.name ?? result.projectDir}</span>
                 </span>
-                <span className="line-clamp-2 text-sm leading-relaxed text-body-muted-foreground">
+                <span className="line-clamp-2 w-full break-words text-sm leading-relaxed text-body-muted-foreground">
                   <span className="font-medium text-foreground">{source}:</span>{" "}
                   {highlight(normalizePreview(result.snippet), query)}
                 </span>

@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard.ts";
 import type {
   ExtensionProtocol,
   RendererActions,
@@ -147,7 +148,7 @@ function actionsFor(extension: string): RendererActions {
       const result = await rpc.request.showInFolder({ path: absoluteProjectPath(projectDir, projectRelativeFile(file)) });
       if (!result.ok) throw new Error(`NativePi could not reveal ${file}.`);
     },
-    copyText: async (text) => navigator.clipboard.writeText(text),
+    copyText: async (text) => { if (!await copyText(text)) throw new Error("Could not copy text."); },
   };
   actions.set(extension, next);
   return next;

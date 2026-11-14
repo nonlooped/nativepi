@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard.ts";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { GlobeIcon } from "@phosphor-icons/react/Globe";
 import { GitPullRequestIcon } from "@phosphor-icons/react/GitPullRequest";
@@ -107,22 +108,22 @@ export function ReferenceChip({ value, label, source, composer = false }: { valu
     const metadata = repoHost?.kind === "pr" && (url === repoHost.url || url.startsWith(`${repoHost.url}/`)) ? repoHost : null;
     return <Popover>
       <PopoverTrigger className={chipClass} title={title} data-reference-source={source ?? value}>
-        {icon}<span>{authoredLabel ?? display}</span>
+        {icon}<span className={composer ? "min-w-0 truncate" : undefined}>{authoredLabel ?? display}</span>
       </PopoverTrigger>
       <PopoverContent className="gap-2 p-3" align="start">
         <span className="font-medium">{metadata?.title ?? ref.label}</span>
         {metadata ? <span className="text-muted-foreground">{metadata.draft ? "Draft" : metadata.state}{metadata.author ? ` · ${metadata.author}` : ""}</span> : null}
         <span className="break-all text-muted-foreground">{ref.url}</span>
         <button className="text-left font-medium hover:underline" onClick={open}>Open pull request</button>
-        <button className="text-left text-muted-foreground hover:underline" onClick={() => void navigator.clipboard.writeText(ref.url)}>Copy link</button>
+        <button className="text-left text-muted-foreground hover:underline" onClick={() => void copyText(ref.url)}>Copy link</button>
       </PopoverContent>
     </Popover>;
   }
-  if (ref.kind === "model") return <Popover><PopoverTrigger className={chipClass} title={title}>{icon}<span>{authoredLabel ?? display}</span></PopoverTrigger><PopoverContent className="gap-2 p-3"><span className="font-medium">{ref.id}</span><span className="text-muted-foreground">{ref.provider}</span><span className="text-muted-foreground">Model reference</span></PopoverContent></Popover>;
+  if (ref.kind === "model") return <Popover><PopoverTrigger className={chipClass} title={title}>{icon}<span className={composer ? "min-w-0 truncate" : undefined}>{authoredLabel ?? display}</span></PopoverTrigger><PopoverContent className="gap-2 p-3"><span className="font-medium">{ref.id}</span><span className="text-muted-foreground">{ref.provider}</span><span className="text-muted-foreground">Model reference</span></PopoverContent></Popover>;
   const chip = ref.kind === "skill" ? (
     <Popover>
       <PopoverTrigger className={chipClass} title={title} data-reference-source={source ?? value}>
-        {icon}<span>{authoredLabel ?? display}</span>
+        {icon}<span className={composer ? "min-w-0 truncate" : undefined}>{authoredLabel ?? display}</span>
       </PopoverTrigger>
       <PopoverContent className="gap-2 p-3" align="start">
         <span className="font-medium">{ref.name}</span>
@@ -133,12 +134,12 @@ export function ReferenceChip({ value, label, source, composer = false }: { valu
   ) : (
     <a className={chipClass} href={value} title={title} data-reference-source={source ?? value}
       onClick={event => { event.preventDefault(); open(); }}>
-      {icon}<span>{authoredLabel ?? display}</span>
+      {icon}<span className={composer ? "min-w-0 truncate" : undefined}>{authoredLabel ?? display}</span>
     </a>
   );
   if (ref.kind === "skill") return chip;
   return <ContextMenu><ContextMenuTrigger render={chip} /><ContextMenuContent>
-    <ContextMenuItem onClick={() => void navigator.clipboard.writeText(value)}>Copy reference</ContextMenuItem>
+    <ContextMenuItem onClick={() => void copyText(value)}>Copy reference</ContextMenuItem>
     <ContextMenuItem onClick={open}>Open {ref.kind === "thread" ? "chat" : ref.kind === "file" ? ref.folder ? "folder" : "file" : "link"}</ContextMenuItem>
   </ContextMenuContent></ContextMenu>;
 }

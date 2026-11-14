@@ -1,3 +1,5 @@
+import { copyText } from "../lib/clipboard.ts";
+import { isDesktopShell } from "../lib/platform.ts";
 import ChatAttention from "./ChatAttention.tsx";
 import { DelegateRows } from "./ThreadActivity.tsx";
 import { transitionView } from "../lib/viewTransition.ts";
@@ -120,6 +122,7 @@ function WorkContents(props: SidebarProps) {
   const finishedOpen = useAppStore(s => s.sidebarFinishedOpen);
   const finishedLimit = useAppStore(s => s.sidebarFinishedLimit);
   const [now, setNow] = useState(Date.now);
+  const [projectNotice, setProjectNotice] = useState("");
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
   const [worktreesFor, setWorktreesFor] = useState<string | null>(null);
   const watchedProjects = useRef(new Set<string>());
@@ -227,6 +230,10 @@ function WorkContents(props: SidebarProps) {
   }
 
   async function addProjectAndClose() {
+    if (!isDesktopShell) {
+      setProjectNotice("Add project folders in the NativePi desktop app. They will then be available here.");
+      return;
+    }
     await addProject();
     if (overlay) onClose();
   }
@@ -306,6 +313,7 @@ function WorkContents(props: SidebarProps) {
             <NotePencilIcon className="size-4" />
           </Button>
         </div>
+        {projectNotice ? <p role="status" className="px-2 text-xs text-muted-foreground">{projectNotice}</p> : null}
 
       </div>
 
@@ -593,7 +601,7 @@ function ProjectActionsMenuItems({
           <DropdownMenuItem onClick={() => void rpc.request.openProjectIn({ projectDir: project.path, editorId })}>Open in {editorName(editorId)}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => void rpc.request.showInFolder({ path: project.path })}>Reveal in {fileManagerName()}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => void onTerminal(project.path)}>Open terminal here</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void navigator.clipboard.writeText(project.path).then(() => showHint("Path copied"))}>Copy path</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void copyText(project.path).then(copied => { if (copied) showHint("Path copied"); })}>Copy path</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => onWorktrees(project.path)}>Worktrees…</DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -670,8 +678,8 @@ function ChatContents(props: SidebarProps) {
     return <SessionMenu key={session.path} projectPath={root!} session={session} selected={active === session.path} running={conversations[session.path]?.running ?? false} pinned={false}>
       <DropdownMenu>
         <div className="group relative flex w-full min-w-0 items-center">
-          <Button variant={active === session.path ? "secondary" : "ghost"} title={chatTitle(session)} className={cn(SIDEBAR_CHAT_ROW, active === session.path && "bg-sidebar-accent font-medium text-sidebar-accent-foreground")} onClick={() => { void useAppStore.getState().selectChat(session.path, root!); if (overlay) onClose(); }}><span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-sm leading-5">{chatTitle(session)}</span><ChatAttention file={session.path} fallback={timeAgo(session.modified, now)} /></span>{preview || session.providers[0] ? <span className="flex min-w-0 items-center gap-2 text-xs font-normal text-muted-foreground"><span className="min-w-0 flex-1 truncate text-body-muted-foreground">{preview}</span>{session.providers[0] ? <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground/60 group-hover:opacity-0 group-focus-within:opacity-0" title={`Model provider: ${session.providers[0]}`}><BrandIcon name={providerIconName(session.providers[0])} size={14} /></span> : null}</span> : null}</Button>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="absolute right-2 bottom-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Move ${chatTitle(session)}`} />}><FolderIcon /></DropdownMenuTrigger>
+          <Button variant={active === session.path ? "secondary" : "ghost"} title={chatTitle(session)} className={cn(SIDEBAR_CHAT_ROW, "[@media(hover:none)]:pr-12", active === session.path && "bg-sidebar-accent font-medium text-sidebar-accent-foreground")} onClick={() => { void useAppStore.getState().selectChat(session.path, root!); if (overlay) onClose(); }}><span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-sm leading-5">{chatTitle(session)}</span><ChatAttention file={session.path} fallback={timeAgo(session.modified, now)} /></span>{preview || session.providers[0] ? <span className="flex min-w-0 items-center gap-2 text-xs font-normal text-muted-foreground"><span className="min-w-0 flex-1 truncate text-body-muted-foreground">{preview}</span>{session.providers[0] ? <span className="hidden size-5 shrink-0 items-center justify-center text-muted-foreground/60 [@media(hover:hover)]:flex group-hover:opacity-0 group-focus-within:opacity-0" title={`Model provider: ${session.providers[0]}`}><BrandIcon name={providerIconName(session.providers[0])} size={14} /></span> : null}</span> : null}</Button>
+          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="absolute right-2 bottom-1 opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" aria-label={`Move ${chatTitle(session)}`} />}><FolderIcon /></DropdownMenuTrigger>
         </div>
         <DropdownMenuContent>
           {membership[session.path] && folders.some(f => f.id === membership[session.path]) ? <DropdownMenuItem onClick={() => useAppStore.getState().moveToChatFolder(session.path, null)}>Move out of folder</DropdownMenuItem> : null}
@@ -701,7 +709,7 @@ function ChatContents(props: SidebarProps) {
               <FolderIcon weight="fill" style={{ color: f.color }} /><span className="truncate">{f.name}</span>
               <span className="ml-auto text-xs tabular-nums text-muted-foreground">{children.length}</span>
             </Button>
-            <div className="flex opacity-0 group-hover/folder:opacity-100 group-focus-within/folder:opacity-100">
+            <div className="flex shrink-0 opacity-100 [@media(hover:hover)]:opacity-0 group-hover/folder:opacity-100 group-focus-within/folder:opacity-100">
               <Button variant="ghost" size="icon-sm" aria-label={`New chat in ${f.name}`} onClick={() => newChat(f.id)}><PlusIcon /></Button>
               <Button variant="ghost" size="icon-sm" aria-label={`Delete ${f.name}`} disabled={deleting} onClick={() => setRemoving(f.id)}><TrashIcon /></Button>
             </div>

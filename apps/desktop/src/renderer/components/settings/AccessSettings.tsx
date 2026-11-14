@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard.ts";
 import StateNotice from "../StateNotice.tsx";
 import { useEffect, useRef, useState } from "react";
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react/ArrowsClockwise";
@@ -70,7 +71,7 @@ export default function AccessSettings() {
   };
 
   const copy = async (scope: Scope, link: string) => {
-    await navigator.clipboard.writeText(link);
+    if (!await copyText(link)) return;
     recordHandoff("copy", scope, link);
     setCopied(scope);
     setTimeout(() => setCopied((current) => current === scope ? undefined : current), 1_500);

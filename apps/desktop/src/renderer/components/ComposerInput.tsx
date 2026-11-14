@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { imageFilesIn } from "../lib/attachments.ts";
 import { completionText, linesAt, offsetAt, type ExtensionCompletionOption } from "../lib/autocomplete.ts";
@@ -51,6 +51,36 @@ export default function ComposerInput({
   onDismissSuggestion?: () => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  const [editorHeight, setEditorHeight] = useState<number>();
+  useLayoutEffect(() => {
+    const editor = root.current;
+    const composer = editor?.closest(".workspace-composer");
+    const stage = editor?.closest(".chat-stage");
+    if (!editor || !composer || !stage) return;
+    const viewport = window.visualViewport;
+    const measure = () => {
+      const visibleHeight = viewport?.height ?? window.innerHeight;
+      if (stage.getBoundingClientRect().width >= 768 && visibleHeight >= 600 && stage.getBoundingClientRect().height >= 450) {
+        setEditorHeight(undefined);
+        return;
+      }
+      const otherControls = composer.getBoundingClientRect().height - editor.getBoundingClientRect().height;
+      // Attachments, queued replies and a terminal all share the same height.
+      // Let the text scroll before they can push Send outside the workspace.
+      setEditorHeight(Math.max(40, Math.min(visibleHeight * 0.2, stage.getBoundingClientRect().height - otherControls - 48)));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(composer);
+    observer.observe(stage);
+    window.addEventListener("resize", measure);
+    viewport?.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      viewport?.removeEventListener("resize", measure);
+    };
+  }, []);
   // What this editor last reported. A draft equal to it is our own keystroke
   // coming back, and rewriting the DOM for that would move the caret.
   const emitted = useRef<string | null>(null);
@@ -167,7 +197,7 @@ export default function ComposerInput({
   };
 
   return (
-    <div className="relative grid">
+    <div className="relative grid min-w-0">
       <AutocompleteMenu state={complete} />
       <div
         ref={root}
@@ -201,13 +231,14 @@ export default function ComposerInput({
         // `0.9375rem` rather than `15px`: Interface scale works by moving the
         // root font size, which an absolute length ignores — the composer was
         // the one piece of text in the window that did not scale with it.
+        style={{ maxHeight: editorHeight, minHeight: editorHeight === undefined ? undefined : 40 }}
         className={cn(
-          "col-start-1 row-start-1 max-h-56 min-h-16 w-full overflow-y-auto whitespace-pre-wrap break-words px-2.5 py-2 text-composer font-normal text-foreground outline-none",
+          "col-start-1 row-start-1 max-h-56 max-sm:max-h-[calc(var(--app-height,100dvh)*0.2)] [@media(max-height:600px)]:max-h-[calc(var(--app-height,100dvh)*0.2)] min-h-10 sm:min-h-16 w-full overflow-y-auto whitespace-pre-wrap break-words px-2.5 py-2 text-composer font-normal text-foreground outline-none",
           disabled && "cursor-not-allowed opacity-50",
         )}
       />
       {value.trim() === "" ? (
-        <p aria-hidden="true" className="pointer-events-none col-start-1 row-start-1 max-h-56 self-start overflow-hidden break-words px-2.5 py-2 text-composer font-normal text-placeholder-foreground">
+        <p aria-hidden="true" className={cn("pointer-events-none col-start-1 row-start-1 max-sm:absolute max-sm:inset-0 max-h-56 max-sm:max-h-[calc(var(--app-height,100dvh)*0.2)] [@media(max-height:600px)]:max-h-[calc(var(--app-height,100dvh)*0.2)] self-start overflow-hidden break-words px-2.5 py-2 text-composer font-normal text-placeholder-foreground", editorHeight !== undefined && "absolute inset-0 whitespace-nowrap text-ellipsis")}>
           {offeredSuggestion ? <>{offeredSuggestion} <Kbd className="ml-1 align-middle">Tab</Kbd></> : placeholder}
         </p>
       ) : null}

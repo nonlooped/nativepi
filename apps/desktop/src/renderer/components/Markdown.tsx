@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard.ts";
 import { CheckIcon } from "@phosphor-icons/react/Check";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import {
@@ -97,8 +98,7 @@ function CopyCodeButton({ code }: { code: string }) {
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
+      if (await copyText(code)) setCopied(true);
     } catch {}
   }
 

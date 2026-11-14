@@ -38,7 +38,7 @@ export default function ComposerAttachments() {
   if ((!images || images.length === 0) && preparing === 0) return null;
 
   return (
-    <AttachmentGroup aria-label="Images attached to this message" className="px-1 pb-1">
+    <AttachmentGroup aria-label="Images attached to this message" className="max-h-[min(8rem,calc(var(--app-height,100dvh)*0.15))] overflow-y-auto px-1 pb-1">
       {/* Sending waits for these, so say so: an unexplained dead Enter key reads
           as the composer being broken. */}
       {preparing > 0 && (

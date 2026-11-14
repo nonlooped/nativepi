@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 export const SettingsDialogAppearance = createContext(false);
 
 // Geometry and motion are shared; dismissal semantics stay with the Base UI primitives.
-const surface = "fixed top-1/2 left-1/2 z-50 max-h-[calc(var(--app-height,100dvh)-2rem)] w-[calc(100vw-2rem-env(safe-area-inset-left,0px)-env(safe-area-inset-right,0px))] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl border outline-none transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] data-[ending-style]:scale-98 data-[ending-style]:opacity-0 data-[starting-style]:scale-98 data-[starting-style]:opacity-0";
+const surface = "fixed top-[calc(var(--app-viewport-top,0px)+var(--app-height,100dvh)/2)] left-1/2 z-50 max-h-[calc(var(--app-height,100dvh)-2rem)] w-[calc(100vw-2rem-env(safe-area-inset-left,0px)-env(safe-area-inset-right,0px))] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl border outline-none transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] data-[ending-style]:scale-98 data-[ending-style]:opacity-0 data-[starting-style]:scale-98 data-[starting-style]:opacity-0";
 const overlay = "fixed inset-0 z-50 transition-opacity duration-200 ease-out data-[ending-style]:opacity-0 data-[starting-style]:opacity-0";
 const footer = "flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end";
 

@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { Toaster as SonnerToaster } from "sonner";
 
@@ -13,7 +14,7 @@ import { Toaster as SonnerToaster } from "sonner";
  * read as the same popover surface used by menus and dialogs.
  */
 export default function Toaster() {
-  return (
+  return createPortal(
     <SonnerToaster
       position="bottom-right"
       // z-[70] clears the window controls at z-[60]: a toast may overlap chrome,
@@ -51,6 +52,7 @@ export default function Toaster() {
           warning: "border-warning/60 [&_[data-icon]]:text-warning",
         },
       }}
-    />
+    />,
+    document.body,
   );
 }

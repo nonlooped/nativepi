@@ -305,17 +305,50 @@ const MENU_LABELS: Record<TriggerKind, { title: string; empty: string }> = {
 };
 
 export function AutocompleteMenu({ state }: { state: ComposerAutocomplete }) {
+  const menu = useRef<HTMLDivElement>(null);
+  const [availableHeight, setAvailableHeight] = useState<number>();
+  useLayoutEffect(() => {
+    if (!state.open) return;
+    const anchor = menu.current?.parentElement;
+    if (!anchor) return;
+    const viewport = window.visualViewport;
+    const measure = () => {
+      // The editor moves as the draft and attachment strip grow. Reserve the
+      // menu's bottom gap and a little breathing room at the visible top edge.
+      const clipTop = Math.max(viewport?.offsetTop ?? 0, anchor.closest(".chat-stage")?.getBoundingClientRect().top ?? 0);
+      setAvailableHeight(Math.max(0, anchor.getBoundingClientRect().top - clipTop - 16));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(anchor);
+    if (anchor.parentElement) observer.observe(anchor.parentElement);
+    const stage = anchor.closest(".chat-stage");
+    if (stage) observer.observe(stage);
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    viewport?.addEventListener("resize", measure);
+    viewport?.addEventListener("scroll", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+      viewport?.removeEventListener("resize", measure);
+      viewport?.removeEventListener("scroll", measure);
+    };
+  }, [state.open]);
   if (!state.open) return null;
 
   return (
     <div
+      ref={menu}
+      style={{ maxHeight: availableHeight }}
       className={cn(
-        "absolute bottom-full left-0 right-0 z-40 mb-2 overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-xl",
+        "absolute bottom-full left-0 right-0 z-40 mb-2 flex flex-col overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-xl",
       )}
     >
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-1.5">
         <p className="text-xs font-medium text-muted-foreground">{MENU_LABELS[state.kind].title}</p>
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <p className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
           <Kbd>↑</Kbd>
           <Kbd>↓</Kbd>
           <span>to move</span>
@@ -332,7 +365,7 @@ export function AutocompleteMenu({ state }: { state: ComposerAutocomplete }) {
           role="listbox"
           id="composer-autocomplete"
           aria-label={MENU_LABELS[state.kind].title}
-          className="max-h-72 overflow-y-auto p-1.5"
+          className="min-h-0 overflow-y-auto overscroll-contain p-1.5"
           style={{ maxHeight: `${MAX_VISIBLE * 2.5 + 0.75}rem` }}
         >
           {state.options.map((option, index) => (

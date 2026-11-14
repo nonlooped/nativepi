@@ -9,6 +9,7 @@ import { classifyDrop, draggingFiles, mentionPath } from "../lib/drops.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { offeredPromptSuggestion } from "../lib/store/conversation.ts";
 import { rpc } from "../lib/rpc.ts";
+import { ACCEPTED_IMAGE_TYPES } from "../lib/attachments.ts";
 import { chipText } from "../lib/composerText.ts";
 import { showDropRejected, showHint } from "../lib/toast.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -208,7 +209,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
         />
         {/* Reply controls stay inside the composer; checkout controls sit below. */}
         <div className="flex items-end gap-1 px-1">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+          <div className="flex min-w-0 flex-1 flex-wrap @max-[30rem]/conversation:flex-nowrap items-center gap-1">
             <AttachButton disabled={disabled} onPick={attach} />
             <ModelSelector />
             <ComposerControls />
@@ -266,6 +267,7 @@ function AttachButton({ disabled, onPick }: { disabled: boolean; onPick: (files:
         ref={input}
         type="file"
         multiple
+        accept={isRemote ? ACCEPTED_IMAGE_TYPES : undefined}
         className="hidden"
         onChange={(event) => {
           void onPick([...(event.target.files ?? [])]);
@@ -278,8 +280,8 @@ function AttachButton({ disabled, onPick }: { disabled: boolean; onPick: (files:
         size="icon-lg"
         disabled={disabled}
         onClick={() => input.current?.click()}
-        title="Attach files"
-        aria-label="Attach files"
+        title={isRemote ? "Attach images" : "Attach files"}
+        aria-label={isRemote ? "Attach images" : "Attach files"}
         className="rounded-lg text-muted-foreground hover:text-foreground"
       >
         <PaperclipIcon />
@@ -332,7 +334,7 @@ function QueuedMessages() {
       {/* Only the list scrolls. The note below used to sit inside the scroller
           and slide out of sight exactly when the queue was long enough for
           someone to want to know how to clear it. */}
-      <ul aria-label="Messages queued for this turn" className="flex max-h-40 flex-col gap-1 overflow-y-auto">
+      <ul aria-label="Messages queued for this turn" className="flex max-h-[min(10rem,calc(var(--app-height,100dvh)*0.12))] flex-col gap-1 overflow-y-auto">
         {steering.map((text, i) => (
           <QueueRow key={`s${i}`} label="Steer" text={text} />
         ))}

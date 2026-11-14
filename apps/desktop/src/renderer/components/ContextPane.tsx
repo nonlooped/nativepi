@@ -26,9 +26,9 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
 
   const header = (actions?: { refresh: () => void; collapse: () => void; search: () => void; searching: boolean }) => (
-    <header className={cn("flex h-12 shrink-0 items-center gap-2 px-3", DRAG_REGION, WINDOW_CONTROLS_CLEARANCE)}>
-      <h2 className="min-w-0 flex-1 text-sm font-semibold text-foreground">{tab === "changes" ? "Source control" : "Files"}</h2>
-      <div className={cn("flex items-center gap-0.5", NO_DRAG_REGION)}>
+    <header className={cn("grid min-h-12 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-3 @max-[18rem]/context-pane:grid-cols-1 @max-[26rem]/context-pane:[[data-window-controls=custom]_&]:grid-cols-1", DRAG_REGION, WINDOW_CONTROLS_CLEARANCE)}>
+      <h2 className="flex h-12 min-w-0 items-center text-sm font-semibold text-foreground"><span className="truncate">{tab === "changes" ? "Source control" : "Files"}</span></h2>
+      <div className={cn("flex items-center gap-0.5 @max-[18rem]/context-pane:pb-2 @max-[26rem]/context-pane:[[data-window-controls=custom]_&]:pb-2 @max-[26rem]/context-pane:[[data-window-controls=custom]_&]:-mr-[132px]", NO_DRAG_REGION)}>
         {tab === "files" && <><Button variant="ghost" size="icon" onClick={actions?.search} disabled={!actions} aria-pressed={actions?.searching ?? false} title="Search files" aria-label="Search files"><MagnifyingGlassIcon /></Button>
         <Button variant="ghost" size="icon" onClick={actions?.collapse} disabled={!actions} title="Collapse folders" aria-label="Collapse folders"><ArrowsInLineVerticalIcon /></Button>
         <Button variant="ghost" size="icon" onClick={actions?.refresh} disabled={!actions} title="Refresh files" aria-label="Refresh files">
@@ -48,7 +48,7 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
   );
 
   return (
-    <aside className="context-pane flex h-full min-w-0 flex-col bg-sidebar text-muted-foreground">
+    <aside className="context-pane @container/context-pane flex h-full min-w-0 flex-col bg-sidebar text-muted-foreground">
       <div data-context-content className="flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain">
         {tab === "changes" ? projectDir && git?.isRepo ? <Suspense fallback={<PaneMessage>Loading source control…</PaneMessage>}>
           <SourceControl key={projectDir} projectDir={projectDir} git={git} onOpenPullRequest={() => setPullRequestOpen(true)} onClose={onClose ?? toggleContextPane} onReview={onClose} />

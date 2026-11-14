@@ -15,7 +15,7 @@ mock.module("./components/ChatSearchDialog.tsx", () => ({ default: ({ open }: { 
 mock.module("./components/ContextPane.tsx", () => ({ default: () => <div>Files</div> }));
 mock.module("./components/TerminalDock.tsx", () => ({ default: () => null }));
 mock.module("./components/ProjectStatus.tsx", () => ({ default: () => null, PiStartingNotice: () => null }));
-mock.module("./components/ExtensionSlots.tsx", () => ({ ExtensionConversationControls: () => null, ExtensionConversationView: () => null }));
+mock.module("./components/ExtensionSlots.tsx", () => ({ ExtensionConversationControls: () => null, ExtensionConversationView: ({ active }: { active: string }) => <div>Extension view: {active}</div> }));
 mock.module("./components/Composer.tsx", () => ({ default: () => <textarea aria-label="Message" /> }));
 mock.module("./components/NewThread.tsx", () => ({ default: () => <h2>What should we work on?</h2> }));
 mock.module("./components/ChatBackdrop.tsx", () => ({ default: () => <div data-testid="chat-backdrop" /> }));
@@ -30,7 +30,7 @@ mock.module("./lib/sidebarProjects.ts", () => ({ useSidebarProjects: () => ({
 mock.module("./lib/appearance.ts", () => ({ useAppearance: () => {} }));
 mock.module("./lib/completion.ts", () => ({ useTurnCompletionSignal: () => {} }));
 let workspaceLayout = "wide";
-mock.module("./lib/layout.ts", () => ({ useWorkspaceLayout: () => workspaceLayout }));
+mock.module("./lib/layout.ts", () => ({ useWorkspaceLayout: () => workspaceLayout, useWorkspaceHeight: () => 800 }));
 type Changed = (layout: Record<string, number>, meta: { isUserInteraction: boolean }) => void;
 const changed: Record<string, Changed> = {};
 const panelResizes: Record<string, (size: { inPixels: number }, id: string, previous?: { inPixels: number }) => void> = {};
@@ -220,4 +220,28 @@ test("sidebar search hands focus to its destination after the sheet exits", asyn
   expect(input).not.toBeNull();
   expect(document.activeElement).toBe(input);
   expect(document.querySelector('[data-slot="sheet-content"]')).toBeNull();
+});
+
+
+test("Chat can select and close extension views from workspace overflow without terminal actions", async () => {
+  Reflect.set(globalThis, "requestAnimationFrame", window.requestAnimationFrame.bind(window));
+  Reflect.set(globalThis, "cancelAnimationFrame", window.cancelAnimationFrame.bind(window));
+  workspaceLayout = "compact";
+  await mount();
+  await act(async () => useAppStore.setState({
+    destination: "chat",
+    extRenderers: [{ id: "audit", renderer: { conversationViews: [{ id: "details", label: "Audit details" }] } }] as never,
+  }));
+  const openMenu = async () => {
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="More workspace actions"]')!.click());
+  };
+  await openMenu();
+  expect(document.body.textContent).not.toContain("Show terminal");
+  const select = () => [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(node => node.textContent?.includes("Audit details"))!;
+  await act(async () => select().click());
+  expect(container.textContent).toContain("Extension view: audit:details");
+  await openMenu();
+  await act(async () => select().click());
+  expect(container.textContent).not.toContain("Extension view:");
+  await act(async () => useAppStore.setState({ extRenderers: [] }));
 });

@@ -61,7 +61,10 @@ export function createChip(document: Document, kind: ChipKind, value: string): H
   chip.appendChild(chipGlyph(document, kind, value));
   const reference = referenceFor(value);
 
-  chip.appendChild(document.createTextNode(reference?.kind === "model" ? reference.label : reference?.kind === "thread" ? new URL(value).searchParams.get("title") || "Thread" : kind === "file" ? basename(value) : value));
+  const label = document.createElement("span");
+  label.className = "min-w-0 truncate";
+  label.textContent = reference?.kind === "model" ? reference.label : reference?.kind === "thread" ? new URL(value).searchParams.get("title") || "Thread" : kind === "file" ? basename(value) : value;
+  chip.appendChild(label);
   chip.title = kind === "skill" ? `Skill: ${value}` : value;
   return chip;
 }

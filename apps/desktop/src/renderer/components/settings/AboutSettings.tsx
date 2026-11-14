@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard.ts";
 import StateNotice from "../StateNotice.tsx";
 import { useState } from "react";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
@@ -128,7 +129,7 @@ export default function AboutSettings() {
     try {
       const result = await rpc.request.exportDiagnostics({ projectDir: activeProjectPath ?? undefined });
       if (!result.ok || !result.text) throw new Error(result.error ?? "The diagnostic report was empty.");
-      await navigator.clipboard.writeText(result.text);
+      if (!await copyText(result.text)) return;
       showDiagnosticsCopied();
     } catch (error) {
       showDiagnosticsExportFailed(error instanceof Error ? error.message : String(error));

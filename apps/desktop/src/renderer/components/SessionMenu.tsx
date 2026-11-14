@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard.ts";
 import { ArrowSquareOutIcon } from "@phosphor-icons/react/ArrowSquareOut";
 import { ArrowsInSimpleIcon } from "@phosphor-icons/react/ArrowsInSimple";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
@@ -104,9 +105,9 @@ export default function SessionMenu({
     compact: () => void useAppStore.getState().compactActive(),
     tree: () => setDialog("tree"),
     export: () => void doExport().catch(error => toast.error(String(error))),
-    copyTitle: () => void navigator.clipboard.writeText(chatTitle(session)).then(() => showHint("Title copied")),
+    copyTitle: () => void copyText(chatTitle(session)).then(copied => { if (copied) showHint("Title copied"); }),
     reveal: () => void rpc.request.showInFolder({ path: session.path }),
-    copyPath: () => void navigator.clipboard.writeText(session.path).then(() => showHint("Path copied")),
+    copyPath: () => void copyText(session.path).then(copied => { if (copied) showHint("Path copied"); }),
     delete: () => setDialog("delete" as const),
   };
 

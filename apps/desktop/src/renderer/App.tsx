@@ -60,7 +60,7 @@ import { DRAG_REGION, NO_DRAG_REGION, SCROLLBAR_GUTTER_OFFSET, TRAFFIC_LIGHTS_CL
 import { useTurnCompletionSignal } from "./lib/completion.ts";
 import { useAppearance } from "./lib/appearance.ts";
 import { DEFAULT_INTERFACE_SCALE, stepInterfaceScale } from "../shared/interface-scale.ts";
-import { useWorkspaceLayout, type WorkspaceLayout } from "./lib/layout.ts";
+import { useWorkspaceLayout, useWorkspaceHeight, type WorkspaceLayout } from "./lib/layout.ts";
 
 const ChatSearchDialog = lazy(() => import("./components/ChatSearchDialog.tsx"));
 const NewChatProjectDialog = lazy(() => import("./components/NewChatProjectDialog.tsx"));
@@ -114,6 +114,7 @@ export default function App() {
   const [newChatProjectOpen, setNewChatProjectOpen] = useState(false);
   const [extensionView, setExtensionView] = useState<string | null>(null);
   const layout = useWorkspaceLayout();
+  const shortWorkspace = useWorkspaceHeight() < 600;
   const [startupError, setStartupError] = useState<string>();
   const terminalProjects = useAppStore((s) => s.terminalProjects);
   const hasTuiOverlay = useAppStore((s) => s.extSurfaces.some((surface) => surface.placement === "overlay"));
@@ -220,7 +221,7 @@ export default function App() {
               const panel = verticalGroup.current?.querySelector<HTMLElement>(":scope > [data-terminal-pane]");
               if (panel && panel.clientHeight > 0) useAppStore.getState().setTerminalHeight(panel.clientHeight);
             }}>
-          <ResizablePanel id="workspace" minSize="35%">
+          <ResizablePanel id="workspace" minSize={shortWorkspace ? "65%" : "35%"}>
           {/* `relative` anchors `PiStartingNotice`, which floats under the
               header rather than taking a row and shifting the conversation. */}
           <main className="conversation-shell @container/conversation relative flex h-full min-h-0 min-w-0 flex-col">
@@ -279,7 +280,7 @@ export default function App() {
           {activeProjectPath && terminalOpen ? (
             <>
               <ResizableHandle className="hover:bg-ring focus-visible:bg-ring" />
-              <ResizablePanel id={`terminal-${activeProjectPath}`} data-terminal-pane defaultSize={terminalHeight ? `${terminalHeight}px` : "34%"} groupResizeBehavior="preserve-pixel-size" minSize="120px" maxSize="65%"
+              <ResizablePanel id={`terminal-${activeProjectPath}`} data-terminal-pane defaultSize={terminalHeight ? `${terminalHeight}px` : "34%"} groupResizeBehavior="preserve-pixel-size" minSize={shortWorkspace ? "20%" : "120px"} maxSize={shortWorkspace ? "35%" : "65%"}
                 collapsible collapsedSize="0%" collapsedThreshold="24px"
                 onResize={(size, _id, previousSize) => {
                   if (size.inPixels === 0 && previousSize && previousSize.inPixels > 0 && terminalOpen) {
@@ -421,7 +422,7 @@ export default function App() {
       }}>
         <SettingsDialog.Portal>
           <SettingsDialog.Backdrop className="settings-backdrop fixed inset-0 z-40 bg-overlay/40 backdrop-blur-[2px]" />
-          <SettingsDialog.Popup aria-label="Settings" className="settings-viewport fixed inset-0 z-40 m-auto h-full w-full overflow-hidden bg-background/95 outline-none backdrop-blur-xl sm:h-[88%] sm:max-h-[54rem] sm:w-[94%] sm:max-w-[70rem] sm:rounded-xl sm:border sm:border-border/40 sm:shadow-lg">
+          <SettingsDialog.Popup aria-label="Settings" className="settings-viewport fixed inset-x-0 top-[var(--app-viewport-top,0px)] z-40 mx-auto h-[var(--app-height,100dvh)] w-full overflow-hidden bg-background/95 outline-none backdrop-blur-xl sm:top-[calc(var(--app-viewport-top,0px)+var(--app-height,100dvh)*0.5)] sm:-translate-y-1/2 sm:h-[calc(var(--app-height,100dvh)*0.88)] sm:max-h-[54rem] sm:w-[94%] sm:max-w-[70rem] sm:rounded-xl sm:border sm:border-border/40 sm:shadow-lg">
             <Settings />
           </SettingsDialog.Popup>
         </SettingsDialog.Portal>
@@ -550,7 +551,7 @@ function WorkspaceHeader({
             <SidebarSimpleIcon className="size-[20px]" />
           </Button>
         ) : null}
-        {!sidebarDocked ? <NavigationControls /> : null}
+        {!sidebarDocked ? <div className="hidden @min-[30rem]/conversation:block"><NavigationControls /></div> : null}
         <div className="flex min-w-0 flex-1 items-center">
           {activeProjectPath ? (
             <div className="flex h-full min-w-0 items-center gap-3 text-sm">
@@ -606,9 +607,10 @@ function WorkspaceHeader({
           <SidebarSimpleIcon className="-rotate-90" />
         </Button>
       ) : null}
-      {!chatMode && activeProjectPath ? (
+      {activeProjectPath ? (
         <div className={cn(NO_DRAG_REGION, "@min-[30rem]/conversation:hidden")}>
           <HeaderCompactOverflow
+            showTerminal={!chatMode}
             terminalOpen={terminalOpen}
             onToggleTerminal={onToggleTerminal}
             extensionView={extensionView}
@@ -666,7 +668,7 @@ function ChatTitle({ sessionPath, title }: { sessionPath: string; title: string 
         onClick={() => setEditing(true)}
         className={cn(
           NO_DRAG_REGION,
-          "min-w-0 max-w-lg truncate rounded-md px-1 py-0.5 text-left outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
+          "min-w-0 max-w-lg truncate @max-[30rem]/conversation:whitespace-normal @max-[30rem]/conversation:line-clamp-2 @max-[30rem]/conversation:leading-tight rounded-md px-1 py-0.5 text-left outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
         )}
       >
         {title}
@@ -699,11 +701,13 @@ function ChatTitle({ sessionPath, title }: { sessionPath: string; title: string 
 }
 
 function HeaderCompactOverflow({
+  showTerminal,
   terminalOpen,
   onToggleTerminal,
   extensionView,
   onSelectExtensionView,
 }: {
+  showTerminal: boolean;
   terminalOpen: boolean;
   onToggleTerminal: () => void;
   extensionView: string | null;
@@ -718,6 +722,7 @@ function HeaderCompactOverflow({
       key: `${ext.id}:${view.id}`,
     })),
   );
+  if (!showTerminal && extensionViews.length === 0) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -738,12 +743,12 @@ function HeaderCompactOverflow({
               </DropdownMenuItem>
             ))
           : null}
-        {extensionViews.length > 0 ? <div className="my-1 h-px bg-border/50" aria-hidden /> : null}
-        <DropdownMenuItem onClick={onToggleTerminal} className="gap-2">
+        {showTerminal && extensionViews.length > 0 ? <div className="my-1 h-px bg-border/50" aria-hidden /> : null}
+        {showTerminal ? <DropdownMenuItem onClick={onToggleTerminal} className="gap-2">
           <SidebarSimpleIcon className="-rotate-90" />
           {terminalOpen ? "Hide terminal" : "Show terminal"}
           <span className="ml-auto text-xs text-muted-foreground">{hintFor("toggleTerminal", keybindingOverrides)}</span>
-        </DropdownMenuItem>
+        </DropdownMenuItem> : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

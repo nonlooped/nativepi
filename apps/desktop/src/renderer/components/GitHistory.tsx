@@ -1,3 +1,4 @@
+import { copyText } from "@/lib/clipboard.ts";
 import StateNotice from "./StateNotice.tsx";
 import { useEffect, useState } from "react";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
@@ -105,7 +106,7 @@ function CommitDetails({ projectDir, commit, onBack, onReview }: {
   const setReview = useAppStore(s => s.setSourceControlReview);
   const body = data?.message.startsWith(commit.subject) ? data.message.slice(commit.subject.length).trimStart() : data?.message;
   async function copyHash() {
-    try { await navigator.clipboard.writeText(hash); showHint("Commit ID copied"); }
+    try { if (await copyText(hash)) showHint("Commit ID copied"); }
     catch { toast.error("Could not copy the commit ID."); }
   }
 

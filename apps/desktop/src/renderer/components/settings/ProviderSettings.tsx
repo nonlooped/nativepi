@@ -246,6 +246,7 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
             key={method}
             variant={method === "oauth" ? "default" : "outline"}
             size="sm"
+            className="h-auto max-w-full whitespace-normal break-words py-1.5"
             disabled={flow?.busy}
             onClick={() => void startLogin(provider.id, method)}
           >
@@ -398,10 +399,10 @@ function AuthPromptForm({
               key={option.id}
               type="button"
               variant="outline"
-              size="sm" className="h-auto min-h-8 justify-start py-1.5 text-left"
+              size="sm" className="h-auto min-h-8 min-w-0 max-w-full justify-start whitespace-normal py-1.5 text-left"
               onClick={() => onSubmit(option.id)}
             >
-              <span className="flex flex-col items-start gap-0.5">
+              <span className="flex min-w-0 flex-col items-start gap-0.5 [overflow-wrap:anywhere]">
                 <span>{option.label}</span>
                 {option.description ? (
                   <span className="text-xs font-normal text-muted-foreground">{option.description}</span>
@@ -433,7 +434,7 @@ function AuthPromptForm({
     >
       <Field>
         <FieldLabel htmlFor={`provider-input-${provider.id}`}>{prompt.request.message}</FieldLabel>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col items-stretch gap-3 @min-[24rem]/settings-content:flex-row @min-[24rem]/settings-content:items-center">
           <Input
             id={`provider-input-${provider.id}`}
             autoFocus
@@ -442,9 +443,9 @@ function AuthPromptForm({
             onChange={(event) => setValue(event.target.value)}
             placeholder={"placeholder" in prompt.request ? prompt.request.placeholder : undefined}
             autoComplete="off"
-            className="min-w-0 flex-1"
+            className="min-w-0 @min-[24rem]/settings-content:flex-1"
           />
-          <Button type="submit" size="sm" className="min-w-32" disabled={!value.trim()}>
+          <Button type="submit" size="sm" className="shrink-0 @min-[24rem]/settings-content:min-w-32" disabled={!value.trim()}>
             {isSecret ? (provider.configured ? "Update" : "Connect") : "Continue"}
           </Button>
         </div>

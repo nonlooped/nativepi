@@ -1,3 +1,4 @@
+import { isDesktopShell } from "../lib/platform.ts";
 import type { Project } from "../../shared/rpc-schema.ts";
 import { useState } from "react";
 import { Combobox } from "@base-ui/react/combobox";
@@ -35,6 +36,7 @@ export default function NewChatProjectDialog({
   const workRoot = useAppStore(s => s.workRoot);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const newChatIn = useAppStore((s) => s.newChatIn);
+  const [folderNotice, setFolderNotice] = useState("");
   const [query, setQuery] = useState("");
   const search = query.trim().toLocaleLowerCase();
   const ordered = [...projects].sort((left, right) => {
@@ -53,6 +55,10 @@ export default function NewChatProjectDialog({
   }
 
   async function openAnotherFolder() {
+    if (!isDesktopShell) {
+      setFolderNotice("Open project folders in the NativePi desktop app. They will then be available here.");
+      return;
+    }
     const { path } = await rpc.request.pickProject({});
     if (!path) return;
     onOpenChange(false);
@@ -130,6 +136,7 @@ export default function NewChatProjectDialog({
             <FolderOpenIcon className="size-4" aria-hidden="true" />
             Open folder…
           </Button>
+          {folderNotice ? <p role="status" className="px-3 pt-2 text-xs text-muted-foreground">{folderNotice}</p> : null}
         </div>
       </DialogContent>
     </Dialog>

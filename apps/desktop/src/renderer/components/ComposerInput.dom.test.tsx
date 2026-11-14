@@ -1,11 +1,14 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, mock, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { stubInvoke } from "../lib/store/testBridge.ts";
 import { useAppStore } from "../lib/store.ts";
 import ComposerInput from "./ComposerInput.tsx";
 import { useComposerAutocomplete, type ComposerAutocomplete } from "./ComposerAutocomplete.tsx";
-import { caretToEnd } from "../lib/composerDom.ts";
+import { chipText } from "../lib/composerText.ts";
+import { caretOffset, caretTo, serialize, caretToEnd } from "../lib/composerDom.ts";
+
+mock.module("../lib/fileIcons.ts", () => ({ fileIconCatalog: () => undefined, subscribeFileIcons: () => () => {}, fileIconSvg: async () => "" }));
 
 const domTest = test.skipIf(typeof document === "undefined");
 let root: Root | undefined;
@@ -194,4 +197,31 @@ domTest("extension autocomplete takes precedence over a prompt suggestion", asyn
   expect(container.querySelector('[role="listbox"]')).not.toBeNull();
   await act(async () => { editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })); await delay(); });
   expect(changes).toEqual(["extension"]);
+});
+
+
+domTest("long chip labels and drafts retain raw references and caret offsets after editing", async () => {
+  mount();
+  stubInvoke(async () => ({}));
+  const path = `src/${"nested/".repeat(20)}${"long-file-name-".repeat(25)}.ts`;
+  const model = `nativepi://model?provider=custom&id=${"model-".repeat(50)}`;
+  const thread = `nativepi://thread?file=${encodeURIComponent("/sessions/child.jsonl")}&title=${encodeURIComponent("Delegate task ".repeat(50))}`;
+  const draft = `${"Draft line\n".repeat(80)}${chipText("file", path)} ${chipText("file", model)} ${chipText("file", thread)} tail`;
+  const changes: string[] = [];
+  await act(async () => root!.render(<ComposerInput value={draft} onChange={text => changes.push(text)}
+    onSubmit={() => {}} onAttach={() => {}} projectPath="/project" placeholder="Message" disabled={false} />));
+  const editor = container.querySelector<HTMLElement>("[data-composer-input]")!;
+  expect(serialize(editor)).toBe(draft);
+  const chips = [...editor.querySelectorAll("[data-chip]")];
+  expect(chips.map(chip => chip.getAttribute("data-value"))).toEqual([path, model, thread]);
+  const afterFile = draft.indexOf(chipText("file", model));
+  caretTo(editor, afterFile);
+  expect(caretOffset(editor)).toBe(afterFile);
+  await act(async () => {
+    editor.append(document.createTextNode(" edited"));
+    caretToEnd(editor);
+    editor.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  expect(changes).toEqual([`${draft} edited`]);
+  expect(caretOffset(editor)).toBe(draft.length + 7);
 });
