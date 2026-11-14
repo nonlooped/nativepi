@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { completionText, findTrigger, fuzzyMatch, rankFiles, rankSkills } from "./autocomplete.ts";
+import { completionText, findTrigger, fuzzyMatch, rankCommands, rankFiles, rankSkills } from "./autocomplete.ts";
 
 test("@ opens wherever a word can start, and closes on a space", () => {
   expect(findTrigger("@src", 4)).toEqual({ kind: "file", query: "src", start: 0, end: 4 });
@@ -81,6 +81,18 @@ test("skills rank by name and carry their description for the row", () => {
   expect(rankSkills(skills, "rev").map((s) => s.value)).toEqual(["review"]);
   expect(rankSkills(skills, "").map((s) => s.value)).toEqual(["release", "review"]);
   expect(rankSkills(skills, "rev")[0]).toMatchObject({ detail: "Review a diff", scope: "user" });
+});
+
+test("slash suggestions exclude skills while retaining extension commands and prompts", () => {
+  const commands = [
+    { name: "review", source: "extension" as const },
+    { name: "review-prompt", source: "prompt" as const },
+    { name: "skill:review", source: "skill" as const },
+  ];
+  for (const query of ["", "review"]) {
+    expect(rankCommands(commands, query).map(option => option.value)).toEqual(["review", "review-prompt"]);
+  }
+  expect(rankCommands(commands, "skill:")).toEqual([]);
 });
 
 

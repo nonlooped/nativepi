@@ -219,6 +219,8 @@ const MAX_OPTIONS = 50;
 export function rankCommands(commands: CommandInfo[], query: string): CommandOption[] {
   return commands
     .flatMap((command) => {
+      // Pi includes skills in get_commands; the composer offers those via `$`.
+      if (command.source === "skill") return [];
       const match = fuzzyMatch(command.name, query);
       if (!match) return [];
       return [
