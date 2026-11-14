@@ -379,7 +379,8 @@ test("newChatIn another folder does not open that folder's last chat", async () 
 });
 
 test("sending a finished chat returns it to focus", async () => {
-  stubInvoke(async (channel) => {
+  stubInvoke(async (channel, params: any) => {
+    if (channel === "organizeThread") return { revision: 100, pinnedChats: [], focusedChats: [params.sessionFile], finishedChats: {} };
     if (channel === "submit") return { ok: true, sessionFile: "C:\\focus-send\\chat.jsonl" };
     return {};
   });
@@ -420,7 +421,7 @@ test("sending a finished chat returns it to focus", async () => {
 });
 
 test("pinning a finished chat returns it to focus and pins it", async () => {
-  stubInvoke(async () => ({}));
+  stubInvoke(async (channel, params: any) => channel === "organizeThread" ? { revision: 101, pinnedChats: [params.sessionFile], focusedChats: [params.sessionFile], finishedChats: {} } : {});
   const { useAppStore } = await import("./store.ts");
   const sessionFile = "C:\\pin-finished\\chat.jsonl";
   useAppStore.setState({
@@ -430,6 +431,7 @@ test("pinning a finished chat returns it to focus and pins it", async () => {
   });
 
   useAppStore.getState().togglePinnedChat(sessionFile);
+  await new Promise(resolve => setTimeout(resolve, 0));
 
   expect(useAppStore.getState().pinnedChats).toEqual([sessionFile]);
   expect(useAppStore.getState().finishedChats[sessionFile]).toBeUndefined();

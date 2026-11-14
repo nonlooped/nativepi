@@ -29,7 +29,7 @@ mock.module("node:fs/promises", () => ({ ...fs, stat: async (...args) => {
 
 mock.module("electron", () => ({
 app: { getPath: () => root }, BrowserWindow: class {},
-dialog: {}, shell: {}, powerSaveBlocker: {},
+dialog: {}, shell: {}, powerSaveBlocker: { start: () => 1, isStarted: () => true, stop: () => {} },
 nativeTheme: new EventEmitter(),
 }));
 mock.module("electron-updater", () => ({ default: { autoUpdater: {} } }));

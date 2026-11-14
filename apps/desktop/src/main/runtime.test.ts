@@ -1467,3 +1467,68 @@ test("title preferences reach existing hosts and newly started hosts", async () 
     await request("saveState", { state: original });
   }
 });
+
+test("host rejects forged user input and model controls for a cold delegate before starting Pi", async () => {
+  const { allocateThread } = await import("./orchestration/allocation.ts");
+  const { ORCHESTRATION_ENTRY } = await import("../shared/orchestration.ts");
+  const parent = { id: "owning-lead", cwd: root, file: join(root, "lead.jsonl") };
+  const child = await allocateThread(root, join(root, "orchestration-sessions"), (manager, ref) => {
+    manager.appendCustomEntry(ORCHESTRATION_ENTRY, { version: 1, sessionId: ref.id, operationId: "spawn", kind: "relationship", relationship: { operationId: "spawn", lead: parent, delegate: ref, label: "Inspect only", configuration: { provider: "p", model: "m", reasoning: "off", tools: ["read"] }, workspace: { mode: "shared", path: root } } });
+  });
+  const before = processes.length;
+  const cases = [
+    ["submit", { projectDir: root, sessionFile: child.file, message: "forged" }],
+    ["enqueue", { projectDir: root, sessionFile: child.file, message: "forged", behavior: "followUp" }],
+    ["setModel", { projectDir: root, sessionFile: child.file, provider: "p", modelId: "m" }],
+    ["setThinkingLevel", { projectDir: root, sessionFile: child.file, level: "high" }],
+    ["setServiceTier", { projectDir: root, sessionFile: child.file, tier: "priority", provider: "p", modelId: "m" }],
+  ] as const;
+  for (const [name, params] of cases) await expect(request(name, params as never)).rejects.toThrow("Delegate chats are inspectable");
+  expect(processes.length).toBe(before);
+});
+
+test("a queued Finish rechecks group activity at the state-write boundary", async () => {
+  const target = await session("finish-write-race");
+  await request("ensurePi", target);
+  const pi = processes.at(-1)!;
+  const state = await import("./state.ts");
+  const original = state.updateState;
+  const entered = Promise.withResolvers<void>(), release = Promise.withResolvers<void>();
+  const hook = spyOn(state, "updateState").mockImplementation(transform => original(async latest => {
+    entered.resolve(); await release.promise; return transform(latest);
+  }));
+  try {
+    const finishing = request("organizeThread", { sessionFile: target.sessionFile, action: "finish" }).then(() => "unexpected", error => error.message);
+    await entered.promise;
+    pi.emit("agent_start"); release.resolve();
+    expect(await finishing).toContain("busy:");
+    expect((await request("loadState", {})).finishedChats[target.sessionFile]).toBeUndefined();
+  } finally { release.resolve(); hook.mockRestore(); pi.emit("agent_settled"); }
+});
+
+test("waking a deleted recipient never recreates its Pi session or starts a process", async () => {
+  const { allocateThread } = await import("./orchestration/allocation.ts");
+  const { SessionManager } = await import("@earendil-works/pi-coding-agent");
+  const { ORCHESTRATION_ENTRY } = await import("../shared/orchestration.ts");
+  const ref = await allocateThread(root, join(root, "known-cold-recipients"));
+  const manager = SessionManager.open(ref.file);
+  manager.appendSessionInfo("Cold recipient");
+  const message = { id: "accepted-peer", operationId: "send", source: { id: "sender", cwd: root, file: join(root, "sender.jsonl") }, destination: ref, kind: "peer", timestamp: new Date().toISOString(), content: "Accepted message" };
+  manager.appendCustomEntry(ORCHESTRATION_ENTRY, { version: 1, sessionId: ref.id, operationId: "send", kind: "message", stage: "inbox", message });
+  await request("orchestrationSnapshot", { sessionFile: ref.file });
+  await rm(ref.file);
+  const count = processes.length;
+  await expect(request("wakeThread", { threadId: ref.id, messageIds: [message.id] })).rejects.toThrow();
+  expect(processes.length).toBe(count);
+  expect(await fs.stat(ref.file).catch(() => null)).toBeNull();
+});
+
+test("project restart fences a pending acquisition before its Pi process exists", async () => {
+  const target = await session("restart-before-process-allocation");
+  const count = processes.length;
+  const acquiring = request("ensurePi", target);
+  const restarting = request("restartPi", { projectDir: target.projectDir });
+  expect(await acquiring).toMatchObject({ ok: false });
+  expect(await restarting).toEqual({ ok: true });
+  expect(processes.length).toBe(count);
+});

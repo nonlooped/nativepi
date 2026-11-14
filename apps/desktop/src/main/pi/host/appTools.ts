@@ -1,3 +1,4 @@
+import { registerOrchestration } from "./orchestration.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { serviceTiers, SERVICE_TIER_ENTRY, recordedServiceTier } from "./serviceTier.ts";
 import { Type } from "typebox";
@@ -10,6 +11,7 @@ export default function appTools(pi: ExtensionAPI): void {
   webAccess(pi);
   registerArtifacts(pi);
   if (process.argv.includes("--nativepi-chat")) chatMode(pi);
+  else registerOrchestration(pi);
   pi.registerCommand("speed", {
     description: "Choose this chat's provider service tier",
     handler: async (args, context) => {

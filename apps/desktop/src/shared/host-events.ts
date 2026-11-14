@@ -1,9 +1,11 @@
+import { orchestrationSnapshotSchema, organizationSnapshotSchema } from "./orchestration.ts";
 import { z } from "zod";
 import { authNoticeSchema, authPromptSchema, tuiHostFrameSchema } from "./tui-frames.ts";
 import type { HostEventName } from "./rpc-schema.ts";
 const target = z.looseObject({ projectDir: z.string(), sessionFile: z.string().optional(), runtimeId: z.string().optional() });
 const terminal = target.extend({ terminalId: z.string() });
 export const hostEventSchemas = {
+  orchestrationChanged: orchestrationSnapshotSchema, organizationChanged: organizationSnapshotSchema,
   piStatus: target.extend({ status: z.enum(["idle", "starting", "ready", "error", "exited"]), detail: z.string().optional() }),
   piEvent: target.extend({ sequence: z.number().int().nonnegative().optional(), runtimeId: z.string().optional(), event: z.looseObject({ type: z.string() }) }),
   piError: target.extend({ message: z.string() }),

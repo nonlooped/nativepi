@@ -34,12 +34,15 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     const run = (async () => {
       // Invalidate pending reads before stopping; retire every observed old runtime.
       const owner = runtime(get);
+      const relatedSessions = new Set(get().orchestration.threads.filter(thread => !path || thread.ref.cwd === path || thread.relationship?.lead.cwd === path).map(thread => thread.ref.file));
+      const affectedTarget = (project: string | null, file?: string | null) => !path || project === path || !!file && relatedSessions.has(file);
       if (path) owner.projectEpochs.set(path, (owner.projectEpochs.get(path) ?? 0) + 1);
       else ++owner.epoch;
       const selectedProject = get().activeProjectPath;
       const sessionFile = selectedProject === path ? get().activeSessionFile : null;
       const epoch = runtimeEpoch(get, path ?? selectedProject);
-      const affectedSelection = selectedProject && (!path || selectedProject === path);
+      const affectedSelection = selectedProject && affectedTarget(selectedProject, get().activeSessionFile);
+      if (affectedSelection && path && selectedProject !== path) owner.projectEpochs.set(selectedProject, (owner.projectEpochs.get(selectedProject) ?? 0) + 1);
       const ownsRecovery = affectedSelection ? modelProjectionGuard(get) : () => false;
       if (affectedSelection) owner.modelStateRecovery = selectionGuard(get);
       try {
@@ -60,18 +63,18 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       if (path) owner.projectEpochs.set(path, (owner.projectEpochs.get(path) ?? 0) + 1);
       else ++owner.epoch;
       for (const [id, project] of owner.runtimeProjects) {
-        if (!path || project === path) owner.retired.add(id);
+        if (affectedTarget(project, owner.bindings.get(id))) owner.retired.add(id);
       }
       set(state => ({
         conversations: Object.fromEntries(Object.entries(state.conversations).map(([key, conversation]) => {
-          if (path && conversation.projectDir !== path) return [key, conversation];
+          if (!affectedTarget(conversation.projectDir, conversation.sessionFile)) return [key, conversation];
           return [key, { ...emptyConversation(), projectDir: conversation.projectDir, sessionFile: conversation.sessionFile,
             entries: conversation.entries, sessionName: conversation.sessionName, externalChange: conversation.externalChange }];
         })),
-        extensionPromptsByProject: Object.fromEntries(Object.entries(state.extensionPromptsByProject).filter(([project]) => path && project !== path)),
+        extensionPromptsByProject: Object.fromEntries(Object.entries(state.extensionPromptsByProject).map(([project, prompts]) => [project, prompts.filter(prompt => !affectedTarget(project, prompt.sessionFile))] as const).filter(([, prompts]) => prompts.length)),
       }));
       const active = get().activeProjectPath;
-      if (active && (!path || active === path)) {
+      if (active && affectedTarget(active, get().activeSessionFile)) {
         dropAllSurfaces();
         set(state => ({ extPrompts: [], extStatuses: {}, extWidgets: {}, extSurfaces: [], extTriggers: [], extUiState: NO_EXTENSION_UI_STATE,
           extRenderers: [], extLoadErrors: [], selectionVersion: state.selectionVersion + 1,
@@ -80,13 +83,13 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
           thinkingLevelVersion: state.thinkingLevelVersion + 1 }));
       }
       const affected = new Map(Object.values(get().conversations)
-        .filter(conversation => conversation.projectDir && conversation.sessionFile && (!path || conversation.projectDir === path))
+        .filter(conversation => conversation.projectDir && conversation.sessionFile && affectedTarget(conversation.projectDir, conversation.sessionFile))
         .map(conversation => [conversation.sessionFile!, conversation.projectDir!]));
-      if (active && get().activeSessionFile && (!path || active === path)) affected.set(get().activeSessionFile!, active);
+      if (active && get().activeSessionFile && affectedTarget(active, get().activeSessionFile)) affected.set(get().activeSessionFile!, active);
       await Promise.all([...affected].map(([session, project]) => get().refreshSession(project, session)));
       const current = get().activeProjectPath;
       const trust = get().trust;
-      if (current && (!path || current === path) && trust && (!trust.required || trust.trusted)) await warmProject(set, get, current);
+      if (current && affectedTarget(current, get().activeSessionFile) && trust && (!trust.required || trust.trusted)) await warmProject(set, get, current);
     })();
     restarts.set(key, run);
     void run.finally(() => { if (restarts.get(key) === run) restarts.delete(key); }).catch(() => {});
@@ -96,6 +99,26 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     destinationDrafts: {},
     collapsedChatFolders: [],
     toggleChatFolder: (id) => { set(s => ({ collapsedChatFolders: s.collapsedChatFolders.includes(id) ? s.collapsedChatFolders.filter(value => value !== id) : [...s.collapsedChatFolders, id] })); persist(get); },
+    organizationRevision: 0,
+    orchestration: { revision: 0, threads: [] },
+    orchestrationLoaded: false,
+    orchestrationError: null,
+    refreshOrchestration: async () => {
+      const file = get().activeSessionFile;
+      set({ orchestrationError: null });
+      try {
+        const snapshot = await rpc.request.orchestrationSnapshot({ sessionFile: file ?? undefined });
+        get().applyOrchestration(snapshot);
+        if (get().activeSessionFile === file) set({ orchestrationLoaded: true });
+      } catch (error) {
+        if (get().activeSessionFile === file) set({ orchestrationLoaded: false, orchestrationError: error instanceof Error ? error.message : "Thread metadata unavailable" });
+      }
+    },
+    applyOrchestration: snapshot => { if (snapshot.revision >= get().orchestration.revision) set({ orchestration: snapshot }); },
+    applyOrganization: snapshot => {
+      if (snapshot.revision < get().organizationRevision) return;
+      set({ organizationRevision: snapshot.revision, pinnedChats: snapshot.pinnedChats, finishedChats: snapshot.finishedChats, focusedChats: snapshot.focusedChats, ...(snapshot.focusStartedAt ? { focusStartedAt: snapshot.focusStartedAt } : {}) });
+    },
     destination: "work", chatRoot: null, workRoot: null, chatFolders: [], chatFolderBySession: {}, chatExtensions: [],
     setDestination: async (destination) => {
       const s = get();
@@ -151,9 +174,11 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       replaceLastChats(get, loaded.lastChatByProject ?? {});
       const reopenLastProject = loaded.reopenLastProject ?? true;
       const restoreProject = loaded.destination === "chat" ? chatRoot : reopenLastProject ? (loaded.lastWorkProject ?? loaded.lastProjectPath ?? null) : null;
-      const focusStartedAt = loaded.focusStartedAt ?? new Date().toISOString();
+      const organization = loaded.organizationRevision >= get().organizationRevision ? loaded : get();
+      const focusStartedAt = organization.focusStartedAt ?? new Date().toISOString();
       set({
         ready: true,
+        organizationRevision: organization.organizationRevision,
         destinationDrafts: loaded.destinationDrafts,
         collapsedChatFolders: loaded.collapsedChatFolders,
         destination: loaded.destination, chatRoot, workRoot, chatFolders: loaded.chatFolders,
@@ -162,9 +187,9 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
         drafts: loaded.drafts ?? {},
         favoriteModels: loaded.favoriteModels ?? [],
         commitMessageModel: loaded.commitMessageModel,
-        pinnedChats: loaded.pinnedChats ?? [],
-        finishedChats: loaded.finishedChats ?? {},
-        focusedChats: loaded.focusedChats ?? [],
+        pinnedChats: organization.pinnedChats ?? [],
+        finishedChats: organization.finishedChats ?? {},
+        focusedChats: organization.focusedChats ?? [],
         focusStartedAt,
         activeProjectPath: restoreProject,
         reopenLastProject,
@@ -178,6 +203,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
         contextPaneChosen: loaded.panes !== undefined,
       });
       if (!loaded.focusStartedAt) persist(get);
+      void get().refreshOrchestration().catch(() => {});
       if (!restoreProject) void get().loadProviders().catch(() => {});
       // Read once as well as subscribing: the first check runs while the window
       // is still loading, so its result may already have been pushed and missed.

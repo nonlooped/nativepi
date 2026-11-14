@@ -375,3 +375,27 @@ test("merge history inspects files and diffs against the first parent", async ()
   expect((await gitCommitDiff(dir, hash, "feature.txt")).patch).toContain("+feature");
   await rm(dir, { recursive: true, force: true });
 });
+
+test("delegate worktrees use the captured explicit commit without carrying dirty parent files", async () => {
+  const { gitResolveWorktreeBase } = await import("./git.ts");
+  const dir = await repo();
+  const base = await gitResolveWorktreeBase(dir);
+  await writeFile(path.join(dir, "a.txt"), "dirty parent\n");
+  await writeFile(path.join(dir, "untracked.txt"), "not copied");
+  const child = await gitAddWorktree(dir, "delegate-explicit-base", true, base);
+  expect(child.ok).toBe(true);
+  expect(await readFile(path.join(child.path!, "a.txt"), "utf8")).toBe("a\n");
+  expect(existsSync(path.join(child.path!, "untracked.txt"))).toBe(false);
+  expect(await gitResolveWorktreeBase(child.path!)).toBe(base);
+  await expect(gitResolveWorktreeBase(dir, "missing-ref")).rejects.toThrow();
+  expect((await gitAddWorktree(dir, "delegate-explicit-base", true, base)).ok).toBe(false);
+  expect(await readFile(path.join(dir, "a.txt"), "utf8")).toBe("dirty parent\n");
+});
+
+test("refusing the durable worktree intent creates no checkout or branch", async () => {
+  const dir = await repo();
+  let target = "";
+  await expect(gitAddWorktree(dir, "cancelled-before-create", true, undefined, async prepared => { target = prepared.path; throw new Error("stopped"); })).rejects.toThrow("stopped");
+  expect(existsSync(target)).toBe(false);
+  expect((await gitBranches(dir)).some(branch => branch.name === "cancelled-before-create")).toBe(false);
+});

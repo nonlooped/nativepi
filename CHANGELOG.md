@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add Pi-native Work delegates with explicit model/reasoning/speed/tools, shared-directory or retained-worktree assignments, progress and clarification messages, follow-ups, and inspectable transcripts without user composers.
+- Add independent thread discovery, history search/read, creation, durable peer inboxes, explicit wake, group Stop, idle-only Finish, and protected deletion. Accepted records survive restart without automatically resuming interrupted execution.
+
+
 ### Changed
+- Keep delegate activity at its spawn call in the transcript, with provider logos in the transcript and sidebar, live status and transcript navigation, instead of a list above the composer. Use a compact, non-editable composer surface in delegate chats.
+- Direct audit delegates to use the current directory and return reports in chat, with files only when requested. Discourage unnecessary worktrees, temporary report folders, and unmanaged shell-launched delegates.
 - Make Paper the default color scheme and rename the glass scheme to Acrylic, preserving saved scheme selections.
 - Keep NativePi’s glass material active when its window loses focus on macOS and Windows.
 - Rework the NativePi color scheme with live macOS vibrancy and Windows 11 Acrylic, translucent app surfaces, and a window-wide dither texture instead of a photo. Unsupported desktops and browser access keep a solid backdrop.
@@ -15,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace the top-left wordmark with back/forward chat navigation and move NativePi branding into the new-chat view.
 
 ### Fixed
+- Hydrate ordinary chat controls after the first send, and make metadata failures retryable without exposing a delegate composer or warming a missing session.
+- Fix catalog requests dropped by IPC serialization and cancel stale host operations during reload/rebinding. Match delegate outcomes to the assignment task’s actual branch.
+- Preserve failed delegate startup state and source task intents; resolve cold delegate ownership before Stop and keep completed delegates available for later follow-ups.
+- Fence stale private IPC callbacks across session changes, reset owned worktree views on project restart, and prevent stale references from recreating missing sessions.
+- Recheck idle-only Finish inside the state queue without treating a busy refusal as a failed disk save. Keep Chat aliases out of Work discovery and omit images from custom history messages.
+- Fix a main-process launch failure caused by a native-addon loader colliding with Electron’s generated ESM `require` shim.
 - Keep back and forward navigation enabled states current in both expanded and collapsed sidebar layouts.
 
 ## [1.18.0] - 2026-11-14

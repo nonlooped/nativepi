@@ -1,3 +1,4 @@
+import { DelegateRows } from "./ThreadActivity.tsx";
 import { transitionView } from "../lib/viewTransition.ts";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -81,7 +82,9 @@ export default function Sidebar(props: SidebarProps) {
   </LeftSidebar>;
 }
 
-function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, overlay = false }: SidebarProps) {
+function WorkContents(props: SidebarProps) {
+  const { presentation, onClose, onOpenSearch, onOpenNewChat } = props;
+  const overlay = props.overlay ?? false;
   const projects = useWorkProjects();
   const workRoot = useAppStore(s => s.workRoot);
   const git = useAppStore((s) => s.git);
@@ -149,12 +152,14 @@ function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, over
     if (scope && !projects.some((project) => project.path === scope)) setScope(null);
   }, [projects, scope]);
 
+  const orchestration = useAppStore(s => s.orchestration);
   const allChats = useMemo(() => {
     const pinned = new Set(pinnedChats);
     const chats: SidebarChat[] = [];
     for (const project of projects) {
       if (scope && project.path !== scope) continue;
       for (const session of sessionsByProject[project.path] ?? []) {
+        if (orchestration.threads.some(thread => thread.ref.file === session.path && thread.relationship)) continue;
         const selected = project.path === activeProjectPath && session.path === activeSessionFile && !isNewChat;
         const running = runningBySession[session.path] ?? false;
         const isPinned = pinned.has(session.path);
@@ -192,7 +197,7 @@ function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, over
     projects,
     runningBySession,
     scope,
-    sessionsByProject,
+    sessionsByProject, orchestration,
   ]);
 
   const { pinned, focus, finished } = useMemo(
@@ -236,14 +241,14 @@ function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, over
     if (overlay) onClose();
   }
 
-  function markFinished(chat: SidebarChat) {
+  async function markFinished(chat: SidebarChat) {
     const focusQueue = [...pinned, ...focus];
     const currentIndex = focusQueue.findIndex((item) => item.session.path === chat.session.path);
     const next = [...focusQueue.slice(currentIndex + 1), ...focusQueue.slice(0, currentIndex)].find(
       (item) => item.session.path !== chat.session.path,
     );
+    if (!await finishChat(chat.session.path)) return;
     transitionView("chats", () => {
-      finishChat(chat.session.path);
       if (!chat.selected) return;
       if (next) void selectChatAndClose(next);
       else void startNewChat(chat.project.path);
@@ -438,7 +443,7 @@ function FocusChatRow({
   const provider = chat.session.providers[0];
 
   return (
-    <SessionMenu projectPath={chat.project.path} session={chat.session} selected={chat.selected} running={chat.running} pinned={chat.pinned}>
+    <div><SessionMenu projectPath={chat.project.path} session={chat.session} selected={chat.selected} running={chat.running} pinned={chat.pinned}>
       <HoverCard>
         <div data-chat-row className="group/focus relative w-full">
           <HoverCardTrigger
@@ -488,7 +493,7 @@ function FocusChatRow({
         </div>
         <ChatHoverCardContent chat={chat} now={now} />
       </HoverCard>
-    </SessionMenu>
+    </SessionMenu><DelegateRows leadFile={chat.session.path} /></div>
   );
 }
 
@@ -606,7 +611,7 @@ function ChatHistoryState({
   title,
   detail,
   action,
-  role = "status",
+  role,
 }: {
   icon: ReactNode;
   title: string;
@@ -615,7 +620,7 @@ function ChatHistoryState({
   role?: "status" | "alert";
 }) {
   return (
-    <div role={role} className="mt-1 flex flex-wrap items-start gap-2 rounded-lg border border-dashed border-sidebar-border px-2 py-2 text-xs">
+    <div role={role ?? "status"} className="mt-1 flex flex-wrap items-start gap-2 rounded-lg border border-dashed border-sidebar-border px-2 py-2 text-xs">
       <span className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden>{icon}</span>
       <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">
         <span className="block font-medium text-foreground">{title}</span>
@@ -626,7 +631,9 @@ function ChatHistoryState({
   );
 }
 
-function ChatContents({ onClose, onOpenSearch, onOpenNewChat, overlay = false }: SidebarProps) {
+function ChatContents(props: SidebarProps) {
+  const { onClose, onOpenSearch, onOpenNewChat } = props;
+  const overlay = props.overlay ?? false;
   const root = useAppStore(s => s.chatRoot);
   const sessions = useAppStore(s => root ? s.sessionsByProject[root] : undefined);
   const folders = useAppStore(s => s.chatFolders);

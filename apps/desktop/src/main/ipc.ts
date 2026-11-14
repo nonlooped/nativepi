@@ -1,10 +1,19 @@
+import { isChatFinished } from "../shared/chat-organization.ts";
+import { OrchestrationCoordinator } from "./orchestration/coordinator.ts";
+import { OrchestrationService } from "./orchestration/service.ts";
+import { allocateThread } from "./orchestration/allocation.ts";
+import { discoverThreads, sameDirectory } from "./orchestration/history.ts";
+import { assignmentBusy, projectOrchestration } from "./orchestration/records.ts";
+import { ORCHESTRATION_ENTRY, OrchestrationError, threadReferenceSchema, type ThreadReference, type OrchestrationSnapshot, type OrganizationSnapshot } from "../shared/orchestration.ts";
+import { updateState as transformState, noteDeletedSession } from "./state.ts";
+import { gitResolveWorktreeBase } from "./git.ts";
 import { updateWindowMaterial } from "./windowMaterial.ts";
 import type { ChatTitleCatalog } from "../shared/chat-title.ts";
 import { serviceTierStateSchema } from "../shared/service-tier.ts";
 import { readProjectDiffPreview } from "./diffPreview.ts";
 import { app, BrowserWindow, dialog, shell } from "electron";
 import { mkdir, stat, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 import { thinkingLevelSchema } from "../shared/pi-values.ts";
@@ -44,8 +53,11 @@ const pis = new Map<string, PiProcess>();
 // keeps it invisible until its first prompt. Keep that process distinct from
 // the project's opened chats so pre-send controls configure the right chat.
 const draftRuntimes = new WeakSet<PiProcess>();
+const userRunRuntimes = new WeakSet<PiProcess>();
 const draftPis = new Map<string, PiProcess>();
+const allocatedSessionIds = new Map<string, string>();
 const starting = new Map<string, Promise<PiProcess>>();
+const startingProjects = new Map<string, string>();
 const startingPis = new Map<string, PiProcess>();
 let shuttingDown = false;
 let runtimeGeneration = 0;
@@ -291,7 +303,9 @@ function queueDisplayDelta(projectDir: string, pi: PiProcess, event: PiMessage):
     timer: setTimeout(() => flushEventBatch(pi), 32),
   });
 }
+function updatePowerProtection(): void { setSleepBlocked(localServerConnection() !== undefined || [...pis.values(), ...draftPis.values(), ...startingPis.values()].some(pi => pi.isRunning) || starting.size > 0); }
 function forwardEvent(projectDir: string, pi: PiProcess, event: PiMessage): void {
+  if (event.type === "agent_start" || event.type === "agent_settled") { updatePowerProtection(); orchestrationRevision++; push("orchestrationChanged", orchestrationSnapshot()); }
   runtimeEvents.set(pi, (runtimeEvents.get(pi) ?? 0) + 1);
   const sessionFile = pi.boundSessionFile ?? projectDir;
   idleAfter.set(sessionFile, Date.now() + SETTLE_GRACE_MS);
@@ -332,7 +346,7 @@ export function quitBlocked(): boolean {
     return false;
   const livePis = [...new Set([...pis.values(), ...draftPis.values(), ...startingPis.values()])];
   const runs = livePis
-    .filter((pi) => pi.isRunning || Boolean(pi.boundSessionFile && sessionWriteCount(pi.boundSessionFile)) || (outstanding.get(pi.projectDir) ?? 0) > 0)
+    .filter((pi) => (pi.isRunning && !orchestration.references().some(ref => ref.file === pi.boundSessionFile && orchestration.waiting(ref.id))) || Boolean(pi.boundSessionFile && sessionWriteCount(pi.boundSessionFile)) || (outstanding.get(pi.projectDir) ?? 0) > 0)
     .map((pi) => pi.projectDir).concat(ephemeralProjects());
   const terminals = liveTerminalProjects();
   const viewers = localServerStatus().clients.length;
@@ -464,6 +478,7 @@ function rememberPi(pi: PiProcess, sessionFile: string | undefined): Promise<voi
   if (current && current.file === sessionFile)
     return current.ready;
   const previous = current ? current.file : pi.boundSessionFile;
+  if (current && previous !== sessionFile) pi.resetOrchestrationBinding?.();
   const ownedPrevious = previous && pis.get(previous) === pi;
   if (ownedPrevious)
     pis.delete(previous);
@@ -496,6 +511,8 @@ async function stopIdlePis(keep?: PiProcess): Promise<void> {
     && ![...startingPis.values()].includes(pi)
     && !retiringSessions.has(sessionFile)
     && !pi.isRunning
+    && !orchestration.references().some(ref => ref.file === sessionFile && orchestration.busy(ref.id))
+    && !pi.hasOrchestrationWork
     && !pi.hasPendingRequests
     && !retainedSurfaces.get(pi)?.size
     && !extensionActivity.get(pi)?.size
@@ -527,6 +544,146 @@ function projectPi(projectDir: string, sessionFile?: string | null): PiProcess |
   }
   return draftPis.get(projectDir) ?? startingPis.get(`new:${projectDir}`);
 }
+async function referenceForFile(file: string): Promise<ThreadReference> {
+  const header = (await readSession(file)).find(entry => entry.type === "session");
+  if (!header || typeof header.id !== "string" || !("cwd" in header) || typeof header.cwd !== "string") throw new Error("not_found: Pi session header unavailable");
+  return threadReferenceSchema.parse({ id: header.id, cwd: resolve(header.cwd), file: resolve(file) });
+}
+let orchestrationRevision = 0;
+function orchestrationSnapshot(): OrchestrationSnapshot {
+  return { revision: orchestrationRevision, threads: orchestration.references().map(ref => orchestration.snapshot(ref.id)) };
+}
+async function guardedOrchestration(ref: ThreadReference, action: "catalog" | "append" | "configure" | "dispatch" | "context" | "arm", payload?: unknown, signal?: AbortSignal, acquire = true): Promise<unknown> {
+  signal?.throwIfAborted();
+  if (shuttingDown || restartingAll || restartingProjects.has(ref.cwd)) throw new Error("stopped: Host is stopping");
+  const actual = await referenceForFile(ref.file);
+  if (actual.id !== ref.id || actual.cwd !== ref.cwd) throw new Error("external_session_change: Thread identity changed");
+  await assertCoherent(ref.file);
+  const pi = acquire ? await ensurePi(ref.cwd, ref.file) : pis.get(ref.file);
+  signal?.throwIfAborted();
+  if (!pi) throw new Error("interrupted: No owning Pi writer");
+  const binding = runtimeBindings.get(pi);
+  if (!binding || !ownsBinding(pi, binding) || binding.file !== ref.file) throw new Error("external_session_change: Pi binding changed");
+  await assertCoherent(ref.file);
+  const finish = beginSessionWrite(pi, binding);
+  try {
+    signal?.throwIfAborted();
+    const result = await pi.orchestration(ref, action, payload, signal);
+    if (!ownsBinding(pi, binding)) throw new Error("external_session_change: Pi binding changed during operation");
+    return result;
+  } finally { await finish(); }
+}
+const orchestration = new OrchestrationCoordinator({
+  read: ref => readSession(ref.file),
+  append: async (ref, record) => {
+    if (record.kind === "stop" && !pis.get(ref.file)?.isAvailable) {
+      const assignment = orchestration.snapshot(ref.id).assignment;
+      if (assignment?.state === "completed" || assignment?.state === "stopped" || (!assignment && !orchestration.busy(ref.id))) return;
+    }
+    await guardedOrchestration(ref, "append", record, undefined, record.kind === "stop" || (record.kind === "assignment" && record.assignment.state === "preparing") || (record.kind === "message" && record.stage === "inbox") || (record.kind === "relationship" && record.relationship.delegate.id === ref.id)); },
+  configure: async (ref, relationship, signal) => { await guardedOrchestration(ref, "configure", relationship.configuration, signal); },
+  dispatch: async (ref, message, signal) => {
+    signal.throwIfAborted();
+    const assignment = orchestration.snapshot(ref.id).assignment;
+    if (assignment) await guardedOrchestration(ref, "arm", assignment, signal);
+    signal.throwIfAborted();
+    const result = await guardedOrchestration(ref, "dispatch", message, signal);
+    return z.object({ supplied: z.boolean() }).parse(result);
+  },
+  fence: ref => { (pis.get(ref.file) ?? startingPis.get(ref.file))?.fenceOrchestration?.(ref); },
+  stop: async ref => {
+    const pi = pis.get(ref.file) ?? startingPis.get(ref.file);
+    if (pi) await pi.stop();
+    const startup = starting.get(ref.file);
+    if (startup) await startup.then(pi => pi.stop(), () => {});
+  },
+  running: ref => !!pis.get(ref.file)?.isRunning || starting.has(ref.file) || !!extensionActivity.get(pis.get(ref.file)!)?.size,
+  trace: (operationId, sessionId, kind, state) => console.info("[orchestration]", { operationId, sessionId, kind, state }),
+  publish: () => { orchestrationRevision++; push("orchestrationChanged", orchestrationSnapshot()); },
+});
+async function organizationSnapshot(): Promise<OrganizationSnapshot> {
+  const state = await loadState();
+  return { revision: state.organizationRevision, pinnedChats: state.pinnedChats, focusedChats: state.focusedChats, finishedChats: state.finishedChats, focusStartedAt: state.focusStartedAt };
+}
+async function organize(file: string, action: "finish" | "focus" | "pin"): Promise<OrganizationSnapshot> {
+  if (action === "finish") {
+    const ref = await referenceForFile(file);
+    await orchestration.hydrate(ref);
+    if (orchestration.busy(ref.id)) throw new Error("busy: Stop or settle all group work before finishing");
+  }
+  await transformState(state => {
+    if (action === "finish") { const ref = orchestration.references().find(ref => ref.file === file); if (ref && orchestration.busy(ref.id)) throw new Error("busy: Group started working before Finish was committed"); }
+    const finishedChats = { ...state.finishedChats };
+    let pinnedChats = state.pinnedChats, focusedChats = state.focusedChats;
+    if (action === "finish") { finishedChats[file] = new Date().toISOString(); pinnedChats = pinnedChats.filter(f => f !== file); focusedChats = focusedChats.filter(f => f !== file); }
+    else if (action === "focus") { delete finishedChats[file]; focusedChats = [...new Set([...focusedChats, file])]; }
+    else if (pinnedChats.includes(file)) pinnedChats = pinnedChats.filter(f => f !== file);
+    else { pinnedChats = [...pinnedChats, file]; delete finishedChats[file]; focusedChats = [...new Set([...focusedChats, file])]; }
+    return { ...state, organizationRevision: state.organizationRevision + 1, pinnedChats, focusedChats, finishedChats };
+  });
+  const snapshot = await organizationSnapshot(); push("organizationChanged", snapshot); return snapshot;
+}
+async function cleanupDeletedSession(file: string): Promise<void> {
+  noteDeletedSession(file);
+  await transformState(state => ({ ...state, organizationRevision: state.organizationRevision + 1,
+    pinnedChats: state.pinnedChats.filter(f => f !== file), focusedChats: state.focusedChats.filter(f => f !== file),
+    finishedChats: Object.fromEntries(Object.entries(state.finishedChats).filter(([f]) => f !== file)),
+    drafts: Object.fromEntries(Object.entries(state.drafts).filter(([f]) => f !== file)),
+    chatFolderBySession: Object.fromEntries(Object.entries(state.chatFolderBySession).filter(([f]) => f !== file)),
+    lastChatByProject: Object.fromEntries(Object.entries(state.lastChatByProject).filter(([, f]) => f !== file)),
+  }));
+  push("organizationChanged", await organizationSnapshot());
+}
+const orchestrationService = new OrchestrationService(orchestration, {
+  discover: async () => {
+    const saved = await loadState();
+    const known = [...orchestration.references().map(ref => ref.file), ...Object.values(saved.lastChatByProject), ...saved.pinnedChats, ...Object.keys(saved.finishedChats)];
+    return discoverThreads(join(app.getPath("userData"), "conversations"), [...new Set(known.map(file => dirname(file)))]);
+  },
+  allocate: async (cwd, title, initial) => {
+    cwd = resolve(cwd);
+    if (await sameDirectory(cwd, join(app.getPath("userData"), "conversations"))) throw new Error("wrong_role: Chat has no orchestration tools");
+    const ref = await allocateThread(cwd, undefined, (manager, ref) => {
+      manager.appendSessionInfo(title);
+      if (initial) manager.appendCustomEntry(ORCHESTRATION_ENTRY, { version: 1, sessionId: ref.id, operationId: initial.operationId, kind: "relationship", relationship: { ...initial, delegate: ref } });
+    });
+    allocatedSessionIds.set(ref.file, ref.id);
+    notifySessionsChanged(cwd);
+    return ref;
+  },
+  catalog: async (cwd, signal) => {
+    const pi = await ensurePi(resolve(cwd));
+    const state = await pi.request<RpcSessionState>({ type: "get_state" });
+    if (!state.sessionId) throw new Error("Pi session identity unavailable");
+    return pi.orchestration({ id: state.sessionId, cwd, file: state.sessionFile ?? "" }, "catalog", undefined, signal);
+  },
+  configuration: async (ref, config, signal) => { await guardedOrchestration(ref, "configure", config, signal); },
+  workRoot: async () => { const cwd = join(app.getPath("userData"), "work"); await mkdir(cwd, { recursive: true }); return cwd; },
+  workspace: async (ref, branch, base, beforeCreate) => {
+    const resolvedBase = await gitResolveWorktreeBase(ref.cwd, base);
+    let repository = ref.cwd;
+    const result = await gitAddWorktree(ref.cwd, branch, true, resolvedBase, async prepared => {
+      repository = prepared.repository;
+      await beforeCreate?.({ mode: "worktree", path: prepared.path, branch, base: resolvedBase, repository });
+    });
+    if (!result.ok || !result.path) throw new Error(result.error ?? "Worktree allocation failed");
+    return { mode: "worktree", path: result.path, branch, base: resolvedBase, repository };
+  },
+  finish: async ref => { await organize(ref.file, "finish"); },
+  focus: async ref => { await organize(ref.file, "focus"); },
+  finished: async file => {
+    const saved = await loadState();
+    const header = (await readSession(file)).find(entry => entry.type === "session");
+    return isChatFinished(header?.timestamp ?? "", file, saved.focusStartedAt ?? "", saved.finishedChats[file], saved.focusedChats);
+  },
+  remove: async ref => {
+    await assertCoherent(ref.file);
+    stopSessionWatch(ref.file);
+    await deleteSession(ref.cwd, ref.file, dirname(ref.file));
+    await cleanupDeletedSession(ref.file);
+    notifySessionsChanged(ref.cwd);
+  },
+});
 function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> {
   const retiring = idleRetirements.get(sessionFile ?? `new:${projectDir}`);
   if (retiring) return retiring.then(() => ensurePi(projectDir, sessionFile));
@@ -541,11 +698,13 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
   const inflight = starting.get(key);
   if (inflight)
     return inflight;
+  startingProjects.set(key, projectDir);
   const startup = (async () => {
     status(projectDir, "starting", projectDir);
     let pi!: PiProcess;
     let startupFailureReported = false;
-    const chatMode = resolve(projectDir) === resolve(join(app.getPath("userData"), "conversations"));
+    const chatMode = await sameDirectory(projectDir, join(app.getPath("userData"), "conversations"));
+    if (shuttingDown || restartingAll || restartingProjects.has(projectDir) || generation !== runtimeGeneration) throw new Error("Pi startup was cancelled");
     const chatArgs = chatMode ? ["--nativepi-chat", "--no-extensions", "--no-context-files", "--no-skills", "--no-prompt-templates", ...(await loadState()).chatExtensions.flatMap(path => ["-e", path])] : [];
     pi = new PiProcess(projectDir, (msg) => forwardEvent(projectDir, pi, msg), (code, processError, expected) => {
       // Panes belong to the process that drew them: a Pi that dies takes its
@@ -556,6 +715,11 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
         if (route.pi === pi)
           authRoutes.delete(id);
       push("tuiFrame", { projectDir, runtimeId: runtimeIds.get(pi), sessionFile: clientSessionFile(projectDir, pi), frame: { type: "nativepi_tui_reset" } });
+      if (pi.boundSessionFile) {
+        const ref = orchestration.references().find(ref => ref.file === pi.boundSessionFile);
+        if (ref) console.info("[orchestration:exit]", { sessionId: ref.id, code, expected: !!expected });
+        if (ref && assignmentBusy(orchestration.snapshot(ref.id).assignment)) void orchestration.interrupted(ref.id, "Pi process exited");
+      }
       const ownedSession = pi.boundSessionFile && pis.get(pi.boundSessionFile) === pi;
       if (ownedSession)
         pis.delete(pi.boundSessionFile!);
@@ -582,15 +746,42 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
           message: processError?.message ?? `Pi exited (${code ?? "?"})`,
         });
       }
+      updatePowerProtection();
+      orchestrationRevision++; push("orchestrationChanged", orchestrationSnapshot());
       if (![...pis.values(), ...draftPis.values(), ...startingPis.values()].some((other) => other.projectDir === projectDir)) {
         status(projectDir, "exited", `exit ${code ?? "?"}`);
       }
     }, (frame) => forwardPiFrame(projectDir, pi, frame), [
       ...chatArgs,
-      ...(sessionFile ? ["--session", sessionFile] : []),
+      ...(sessionFile ? allocatedSessionIds.has(sessionFile) ? ["--session-id", allocatedSessionIds.get(sessionFile)!, "--session-dir", dirname(sessionFile)] : ["--session", sessionFile] : []),
     ]);
+    if (sessionFile) allocatedSessionIds.delete(sessionFile);
     if (!sessionFile)
       draftRuntimes.add(pi);
+    pi.onOrchestration = async (action, params, operationId, signal) => {
+      if (chatMode) throw new Error("wrong_role: Chat does not support orchestration");
+      const binding = runtimeBindings.get(pi);
+      if (!binding || !ownsBinding(pi, binding) || !binding.file) throw new Error("external_session_change: Pi binding changed");
+      const ref = await referenceForFile(binding.file);
+      const state = await pi.request<RpcSessionState>({ type: "get_state" });
+      if (state.sessionId !== ref.id || state.sessionFile !== binding.file || ref.cwd !== resolve(pi.projectDir)) throw new Error("external_session_change: Runtime identity no longer matches the session file");
+      if (!ownsBinding(pi, binding)) throw new Error("external_session_change: Pi binding changed");
+      await orchestration.hydrate(ref);
+      if (userRunRuntimes.has(pi) && !orchestration.signal(ref.id).aborted) orchestration.resumeLead(ref.id);
+      try { return await orchestrationService.invoke(ref, action, params, operationId, signal); }
+      catch (error) {
+        if (error instanceof OrchestrationError) throw new Error(`${error.code}: ${error.message}`);
+        if (error instanceof z.ZodError) throw new Error(`unsupported_configuration: ${error.message}`);
+        throw error;
+      }
+    };
+    pi.onOrchestrationRuntime = () => { updatePowerProtection(); orchestrationRevision++; push("orchestrationChanged", orchestrationSnapshot()); };
+    pi.onOrchestrationSupplied = (id, messageId) => { if (orchestration.references().some(ref => ref.id === id && ref.file === pi.boundSessionFile)) orchestration.confirmSupplied(id, messageId); };
+    pi.onOrchestrationOutcome = outcome => {
+      const binding = runtimeBindings.get(pi);
+      if (!binding?.file || !ownsBinding(pi, binding) || !orchestration.references().some(ref => ref.id === outcome.sessionId && ref.file === binding.file)) return;
+      void orchestration.settled(outcome.sessionId, outcome).catch(error => console.error("Orchestration outcome persistence failed", error instanceof Error ? error.name : "Error"));
+    };
     runtimeIds.set(pi, String(++runtimeSequence));
     startingPis.set(key, pi);
     try {
@@ -641,9 +832,13 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
   void startup.then(() => {
     if (starting.get(key) === startup)
       starting.delete(key);
+    startingProjects.delete(key);
+    updatePowerProtection();
   }, () => {
     if (starting.get(key) === startup)
       starting.delete(key);
+    startingProjects.delete(key);
+    updatePowerProtection();
   });
   return startup;
 }
@@ -738,6 +933,10 @@ type HandlerMap = {
   [K in HostRequestName]: (params: HostRequests[K]["params"], pi?: PiProcess) => Promise<HostRequests[K]["response"]> | HostRequests[K]["response"];
 };
 const handlers: HandlerMap = {
+  orchestrationSnapshot: async ({ sessionFile }) => { await orchestrationService.discover(); if (sessionFile) await orchestration.hydrate(await referenceForFile(sessionFile)); return orchestrationSnapshot(); },
+  stopThread: async ({ sessionFile }) => { await orchestrationService.discover(); const ref = orchestration.references().find(ref => ref.file === resolve(sessionFile)); if (!ref) throw new Error("not_found: Thread unavailable"); await orchestration.stop(ref.id); return { ok: true }; },
+  wakeThread: async ({ threadId, messageIds }) => { await orchestrationService.discover(); await orchestration.wake(threadId, messageIds, new AbortController().signal); const ref = orchestration.references().find(ref => ref.id === threadId); if (ref) await organize(ref.file, "focus"); return { ok: true }; },
+  organizeThread: async ({ sessionFile, action }) => { await orchestrationService.discover(); return organize(resolve(sessionFile), action); },
   pickProject: async () => {
     const options = {
       properties: ["openDirectory" as const],
@@ -828,7 +1027,7 @@ const handlers: HandlerMap = {
       if (retiringSessions.has(sessionFile))
         throw new Error("This chat is already stopping.");
       const pi = projectPi(projectDir, sessionFile);
-      if (pi?.isRunning || sessionWriteCount(sessionFile) || starting.has(sessionFile))
+      if (pi?.isRunning || sessionWriteCount(sessionFile) || starting.has(sessionFile) || orchestration.references().some(ref => ref.file === sessionFile && orchestration.busy(ref.id)))
         throw new Error("Stop this chat before reloading it.");
       retiringSessions.add(sessionFile);
       claimed = true;
@@ -839,6 +1038,8 @@ const handlers: HandlerMap = {
       await reconcileSessionWatch(projectDir, sessionFile);
       conflicts.delete(sessionFile);
       revisions.delete(sessionFile);
+      const old = orchestration.references().find(ref => ref.file === sessionFile);
+      if (old) { orchestration.forget(old.id); await orchestration.hydrate(await referenceForFile(sessionFile)); orchestrationRevision++; push("orchestrationChanged", orchestrationSnapshot()); }
       return { ok: true };
     }
     catch (error) {
@@ -884,6 +1085,15 @@ const handlers: HandlerMap = {
   },
   submit: async ({ projectDir, sessionFile, message, images, model, thinkingLevel, streamingBehavior }, runtime) => {
     try {
+      if (sessionFile) {
+        const ref = await referenceForFile(sessionFile); await orchestration.hydrate(ref);
+        orchestration.releaseWaits(ref.id); orchestration.resumeLead(ref.id);
+        const snapshot = orchestration.snapshot(ref.id);
+        const inbox = snapshot.inbox.filter(message => !snapshot.readMessageIds.includes(message.id));
+        // User-started work consumes pending inbox through explicit Pi follow-up
+        // delivery alongside the user turn; it never creates a surprise turn.
+        for (const message of inbox) await guardedOrchestration(ref, "context", message);
+      }
       const pi = runtime!;
       if (!sessionFile) {
         // `ensurePi` created this draft session for its pre-send controls.
@@ -902,6 +1112,7 @@ const handlers: HandlerMap = {
         await pi.request({ type: "set_model", provider: model.provider, modelId: model.id });
       if (thinkingLevel)
         await pi.request({ type: "set_thinking_level", level: thinkingLevel });
+      userRunRuntimes.add(pi);
       await pi.request({ type: "prompt", message, images, streamingBehavior });
       if (sessionFile)
         idleAfter.delete(projectDir);
@@ -914,6 +1125,8 @@ const handlers: HandlerMap = {
     }
   },
   enqueue: async ({ behavior, message, images }, pi) => {
+    const ref = orchestration.references().find(ref => ref.file === pi?.boundSessionFile);
+    if (ref) orchestration.releaseWaits(ref.id);
     if (!pi)
       return { ok: false, error: "Pi is not running" };
     try {
@@ -933,7 +1146,12 @@ const handlers: HandlerMap = {
       return { images: [], rejected: [] };
     }
   },
-  abort: ({ projectDir, sessionFile }) => {
+  abort: async ({ projectDir, sessionFile }) => {
+    if (sessionFile && resolve(projectDir) !== resolve(join(app.getPath("userData"), "conversations"))) {
+      await orchestrationService.discover();
+      const ref = orchestration.references().find(ref => ref.file === resolve(sessionFile));
+      if (ref) { await orchestration.stop(ref.id); return { ok: true }; }
+    }
     projectPi(projectDir, sessionFile)?.send({ type: "abort" });
     return { ok: true };
   },
@@ -1062,6 +1280,9 @@ const handlers: HandlerMap = {
       }
       stopSessionWatch(sessionFile);
       await deleteSession(projectDir, sessionFile);
+      await cleanupDeletedSession(sessionFile);
+      const deletedRef = orchestration.references().find(ref => ref.file === sessionFile);
+      if (deletedRef) orchestration.forget(deletedRef.id);
       notifySessionsChanged(projectDir);
       return { ok: true };
     }
@@ -1121,7 +1342,10 @@ const handlers: HandlerMap = {
   getUsageDashboard: async (params) => {
     try {
       const { projects } = requestParams.getUsageDashboard.parse(params);
-      return { dashboard: await usageDashboard(projects) };
+      const refs = await orchestrationService.discover();
+      const paths = new Map(projects.map(project => [project.path, project]));
+      for (const ref of refs) if (orchestration.snapshot(ref.id).relationship && !paths.has(ref.cwd)) paths.set(ref.cwd, { path: ref.cwd, name: ref.cwd });
+      return { dashboard: await usageDashboard([...paths.values()]) };
     }
     catch (err) {
       return { error: errorMessage(err) };
@@ -1809,7 +2033,7 @@ async function startRemoteAccessForCurrentServer(): Promise<void> {
     desiredRemote = false;
     if (!localServerStatus().running)
       await stopLocalServer();
-    setSleepBlocked(localServerConnection() !== undefined);
+    updatePowerProtection();
   });
 }
 let accessToken: string | undefined;
@@ -1861,7 +2085,7 @@ function transitionAccess(action: "startLocal" | "stopLocal" | "startRemote" | "
       }
       if (epoch !== accessGeneration)
         return accessStatus();
-      setSleepBlocked(localServerConnection() !== undefined);
+      updatePowerProtection();
       if (remote)
         await startRemoteAccessForCurrentServer();
       if (epoch !== accessGeneration)
@@ -1883,7 +2107,7 @@ function transitionAccess(action: "startLocal" | "stopLocal" | "startRemote" | "
     }
     finally {
       if (epoch === accessGeneration)
-        setSleepBlocked(localServerConnection() !== undefined);
+        updatePowerProtection();
     }
   })();
   accessTask = task;
@@ -1994,6 +2218,18 @@ export async function invokeHostRequest<K extends HostRequestName>(name: K, raw:
     detachTerminal(project!, values.terminalId!);
     return snapshot as HostRequests[K]["response"];
   }
+  if (file && (["submit", "enqueue", "setModel", "setThinkingLevel", "setServiceTier"].includes(name) || (name === "tuiSend" && (params as HostRequests["tuiSend"]["params"]).frame.type === "nativepi_tui_input"))) {
+    const ref = await referenceForFile(file);
+    const entries = await readSession(file);
+    if (projectOrchestration(ref.id, entries).relationship || projectOrchestration(ref.id, entries).unavailableRole) throw new Error("wrong_role: Delegate chats are inspectable; only their owning lead can dispatch work.");
+  }
+  if (name === "deleteChat" && file && project && resolve(project) !== resolve(join(app.getPath("userData"), "conversations"))) {
+    if (sessionWriteCount(file) || starting.has(file) || retiringSessions.has(file)) return { ok: false, error: "Wait for the current chat operation before deleting it." } as HostRequests[K]["response"];
+    try { await assertCoherent(file); } catch (error) { return { ok: false, error: errorMessage(error) } as HostRequests[K]["response"]; }
+    await orchestrationService.discover();
+    const ref = orchestration.references().find(ref => ref.file === file);
+    if (ref) await orchestration.stop(ref.id);
+  }
   const mayWriteSession = sessionWrites.has(name) || (name === "tuiSend" && (params as HostRequests["tuiSend"]["params"]).frame.type === "nativepi_tui_input");
   let pi: PiProcess | undefined;
   let finishSessionWrite: (() => Promise<void>) | undefined;
@@ -2011,6 +2247,15 @@ export async function invokeHostRequest<K extends HostRequestName>(name: K, raw:
           await assertCoherent(binding.file);
         if (projectPi(project, file) !== pi || (pi && (!binding || !ownsBinding(pi, binding) || (file && binding.file !== file))))
           throw new Error("Pi session changed. Try again.");
+        if (pi && binding?.file && (["submit", "enqueue", "setModel", "setThinkingLevel", "setServiceTier"].includes(name))) {
+          const entries = await readSession(binding.file).catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return []; throw error; });
+          const header = entries.find(entry => entry.type === "session");
+          if (header?.id) {
+            const role = projectOrchestration(header.id, entries);
+            if (role.relationship || role.unavailableRole) throw new Error("wrong_role: Only the owning lead can dispatch delegate work");
+          }
+        }
+        if (pi && binding && (!ownsBinding(pi, binding) || pi.boundSessionFile !== binding.file)) throw new Error("Pi session changed. Try again.");
         if (pi && binding)
           finishSessionWrite = beginSessionWrite(pi, binding);
       }
@@ -2056,8 +2301,10 @@ function retireRuntimes(projectDir?: string): Promise<void> {
     restartingProjects.add(projectDir);
   else
     restartingAll = true;
-  const acquisitions = [...starting.entries()].filter(([key]) => !projectDir || startingPis.get(key)?.projectDir === projectDir).map(([, task]) => task);
-  const all = [...new Set([...pis.values(), ...draftPis.values(), ...startingPis.values()])].filter(pi => !projectDir || pi.projectDir === projectDir);
+  const related = new Set(orchestration.references().filter(ref => !projectDir || ref.cwd === projectDir || orchestration.snapshot(ref.id).relationship?.lead.cwd === projectDir).map(ref => ref.file));
+  for (const ref of orchestration.references()) if (related.has(ref.file)) { orchestration.fence(ref.id); void orchestration.interrupted(ref.id, "Pi restarted; explicit resumption required"); }
+  const acquisitions = [...starting.entries()].filter(([key]) => !projectDir || (startingProjects.get(key) === projectDir || related.has(key))).map(([, task]) => task);
+  const all = [...new Set([...pis.values(), ...draftPis.values(), ...startingPis.values()])].filter(pi => !projectDir || pi.projectDir === projectDir || (pi.boundSessionFile && related.has(pi.boundSessionFile)));
   const previous = [...retirementTasks.values()];
   const task = (async () => {
     try {

@@ -61,6 +61,7 @@ async function mount() {
   useAppStore.setState({
     ready: true, init: async () => {}, destination: "work", settingsOpen: false,
     projects: [{ path: "/project", name: "Project" }], activeProjectPath: "/project",
+    orchestrationLoaded: true, orchestrationError: null, confirmedNewLead: null, orchestration: { revision: 1, threads: ["a", "b", "c"].map(file => ({ ref: { id: file, file, cwd: "/project" }, busy: false, running: false, inbox: [], pendingDelivery: [], reports: [], readMessageIds: [], delegates: [] })) },
     activeSessionFile: "a", isNewChat: false, contextPaneOpen: false,
     conversations: { a: { ...emptyConversation(), entries: [{ id: "history-a" } as never] } },
   });
@@ -180,7 +181,7 @@ test("the first send carries the same focused composer into the conversation", a
   input.focus();
   input.value = "A draft still being edited";
   await act(async () => useAppStore.setState({
-    activeSessionFile: "new-session", isNewChat: false,
+    activeSessionFile: "new-session", confirmedNewLead: "new-session", isNewChat: false,
     conversations: { "new-session": { ...emptyConversation(), running: true } },
   }));
   expect(container.querySelector("textarea")).toBe(input);

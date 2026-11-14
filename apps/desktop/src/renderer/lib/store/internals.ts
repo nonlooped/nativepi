@@ -195,13 +195,14 @@ export async function applyFolderTrust(
   get: GetState,
   path: string,
   folder: FolderEntry,
+  warm = true,
 ): Promise<void> {
   const trust = await folder.trustCheck;
   if (!folder.stillSelected()) return;
   set({ trust });
   if (trust.required && !trust.trusted) {
     set({ trustPrompt: { projectPath: path } });
-  } else {
+  } else if (warm) {
     await warmProject(set, get, path);
   }
 }
@@ -219,6 +220,7 @@ function persistedState(get: GetState): NativePiState {
   if (s.activeProjectPath && s.activeSessionFile) map[s.activeProjectPath] = s.activeSessionFile;
   return {
     version: 1,
+    organizationRevision: s.organizationRevision,
     destinationDrafts: { ...s.destinationDrafts, [s.destination]: s.isNewChat },
     collapsedChatFolders: s.collapsedChatFolders,
     destination: s.destination, chatFolders: s.chatFolders, chatFolderBySession: s.chatFolderBySession,

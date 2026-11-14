@@ -1,3 +1,4 @@
+import ThreadActivity, { ThreadInputBoundary } from "./components/ThreadActivity.tsx";
 import { Dialog as SettingsDialog } from "@base-ui/react/dialog";
 import { useLayoutMotion } from "./lib/layoutMotion.ts";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
@@ -262,6 +263,7 @@ export default function App() {
                   </div>
                   {externalChange ? <ExternalChangeNotice /> : null}
                   {error ? <ErrorBanner /> : null}
+                  <ThreadActivity />
                   <WorkspaceComposer prominent={!hasConversation} visible={hasConversation || (isNewChat && composerReady)} />
                 </div>
               )
@@ -440,7 +442,7 @@ export default function App() {
 function WorkspaceComposer({ prominent, visible }: { prominent: boolean; visible: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutMotion(ref, prominent);
-  return <div ref={ref} className="workspace-composer shrink-0">{visible ? <Composer prominent={prominent} /> : null}</div>;
+  return <ThreadInputBoundary><div ref={ref} className="workspace-composer shrink-0">{visible ? <Composer prominent={prominent} /> : null}</div></ThreadInputBoundary>;
 }
 
 function SurfaceLoading({ label }: { label: string }) {
@@ -645,13 +647,10 @@ function ChatTitle({ sessionPath, title }: { sessionPath: string; title: string 
       return;
     }
     setSaving(true);
-    try {
-      const res = await renameChat(sessionPath, trimmed);
+    await renameChat(sessionPath, trimmed).then(res => {
       if (res.ok) setEditing(false);
       else setName(title);
-    } finally {
-      setSaving(false);
-    }
+    }).finally(() => setSaving(false));
   }
 
   if (!editing) {

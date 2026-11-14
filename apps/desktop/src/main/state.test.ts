@@ -42,3 +42,38 @@ test("only a genuinely missing workspace starts from defaults", async () => {
   await rm(join(root, "state.json"));
   expect((await loadState()).projects).toEqual([]);
 });
+
+test("queued transformations read the latest state without losing concurrent fields", async () => {
+  const { updateState } = await import("./state.ts");
+  await saveState(nativePiStateSchema.parse({ drafts: { keep: "draft" } }));
+  await Promise.all([
+    updateState(state => ({ ...state, finishedChats: { ...state.finishedChats, thread: new Date().toISOString() } })),
+    updateState(state => ({ ...state, pinnedChats: [...state.pinnedChats, "other"] })),
+  ]);
+  const state = await loadState();
+  expect(state.finishedChats.thread).toBeDefined();
+  expect(state.pinnedChats).toEqual(["other"]);
+  expect(state.drafts).toEqual({ keep: "draft" });
+});
+
+test("a stale renderer save cannot reverse host organization and deleted metadata stays removed", async () => {
+  const { updateState, noteDeletedSession } = await import("./state.ts");
+  const old = await loadState();
+  await updateState(state => ({ ...state, organizationRevision: state.organizationRevision + 1, finishedChats: { ...state.finishedChats, target: new Date().toISOString() }, pinnedChats: [] }));
+  noteDeletedSession("deleted");
+  await saveState({ ...old, drafts: { deleted: "stale draft", keep: "draft" }, lastChatByProject: { project: "deleted" }, chatFolderBySession: { deleted: "folder" } });
+  const fresh = await loadState();
+  expect(fresh.finishedChats.target).toBeDefined();
+  expect(fresh.pinnedChats).toEqual([]);
+  expect(fresh.organizationRevision).toBeGreaterThan(old.organizationRevision);
+  expect(fresh.drafts).toEqual({ keep: "draft" });
+  expect(fresh.lastChatByProject).toEqual({});
+  expect(fresh.chatFolderBySession).toEqual({});
+});
+
+test("a refused state transform rejects its caller without poisoning the persistence drain", async () => {
+  const { updateState } = await import("./state.ts");
+  await expect(updateState(() => { throw new Error("busy: group started"); })).rejects.toThrow("busy:");
+  await drainState();
+  expect((await loadState()).finishedChats.target).toBeDefined();
+});
