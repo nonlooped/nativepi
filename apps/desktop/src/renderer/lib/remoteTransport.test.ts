@@ -89,3 +89,32 @@ test("one event listener cannot prevent other listeners", () => {
     api.dispose();
   }
 });
+
+test("connection health reports disconnect and expired access without replaying work", async () => {
+  const states: string[] = [], socket = new Socket();
+  const api = createRemoteApi({ url: "ws://fixture", token: "token", createSocket: () => socket as unknown as WebSocket, reload: () => {}, onConnectionState: state => states.push(state.phase) });
+  try {
+    api.events.on("piError", () => {}); socket.open(); socket.message({ type: "ready" });
+    expect(states).toEqual(["connecting", "connected"]);
+    socket.dispatchEvent(new CloseEvent("close", { code: 1008 }));
+    expect(states.at(-1)).toBe("unavailable");
+    await Bun.sleep(550);
+    expect(states).toEqual(["connecting", "connected", "unavailable"]);
+  } finally { api.dispose(); }
+});
+
+test("ordinary disconnect reports reconnecting and reloads only after reauthentication", async () => {
+  const first = new Socket(), second = new Socket(), states: string[] = [];
+  let attempts = 0, reloads = 0, resumed!: () => void;
+  const reconnect = new Promise<void>(resolve => { resumed = resolve; });
+  const api = createRemoteApi({ url: "ws://fixture", token: "token", createSocket: () => {
+    if (++attempts === 1) return first as unknown as WebSocket;
+    resumed(); return second as unknown as WebSocket;
+  }, reload: () => { reloads++; }, onConnectionState: state => states.push(state.phase) });
+  try {
+    api.events.on("piError", () => {}); first.open(); first.message({ type: "ready" }); first.close();
+    expect(states.at(-1)).toBe("reconnecting"); expect(reloads).toBe(0);
+    await reconnect; second.open(); second.message({ type: "ready" });
+    expect(states.at(-1)).toBe("connected"); expect(reloads).toBe(1);
+  } finally { api.dispose(); }
+});

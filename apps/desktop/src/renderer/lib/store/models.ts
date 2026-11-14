@@ -23,6 +23,7 @@ export function thinkingLabel(level: ThinkingLevel): string {
 export const createModelSlice: SliceCreator<ModelSlice> = (set, get) => {
   const modelWrites = new Map<string, { epoch: string }>();
   let levelWrite = 0;
+  let catalogRead = 0;
   let tierRead = 0;
   let tierWrite = 0;
   return {
@@ -64,6 +65,23 @@ export const createModelSlice: SliceCreator<ModelSlice> = (set, get) => {
       } finally { if (current()) set({ serviceTierSaving: false }); }
     },
     models: [],
+    modelsLoading: false,
+    refreshModels: async () => {
+      const { activeProjectPath: projectDir, activeSessionFile: sessionFile } = get();
+      if (!projectDir) return;
+      const current = selectionGuard(get);
+      const version = ++catalogRead;
+      set({ modelsLoading: true, modelsError: undefined });
+      try {
+        const result = await rpc.request.getModels({ projectDir, sessionFile });
+        if (result.error) throw new Error(result.error);
+        if (current() && version === catalogRead) set({ models: result.models });
+      } catch (error) {
+        if (current() && version === catalogRead) set({ modelsError: error instanceof Error ? error.message : String(error) });
+      } finally {
+        if (current() && version === catalogRead) set({ modelsLoading: false });
+      }
+    },
     favoriteModels: [],
     thinkingLevel: "off",
     thinkingLevelReady: false,

@@ -1,3 +1,4 @@
+import StateNotice from "./StateNotice.tsx";
 import { useEffect, useState } from "react";
 import { ArrowRightIcon } from "@phosphor-icons/react/ArrowRight";
 import type { GitPrTarget } from "../../shared/pi-types.ts";
@@ -64,7 +65,7 @@ export default function PullRequestDialog({ projectDir, onClose }: { projectDir:
             <DialogDescription>Push this branch and open a pull request on GitHub.</DialogDescription>
           </DialogHeader>
           <FieldGroup className="flex flex-col gap-3">
-            <PrTarget target={target} error={targetRequest.error} />
+            {targetRequest.error ? <StateNotice title="Could not read the repository" detail={targetRequest.error} retry={targetRequest.reload} /> : <PrTarget target={target} error={null} />}
             <Field>
               <FieldLabel htmlFor="pull-request-title">Title</FieldLabel>
               <Input
@@ -123,7 +124,7 @@ export default function PullRequestDialog({ projectDir, onClose }: { projectDir:
 
 function PrTarget({ target, error }: { target: GitPrTarget | null; error: string | null }) {
   if (error) return <p className="text-xs leading-relaxed text-destructive">Unable to read the repository: {error}</p>;
-  if (!target) return <p className="text-xs text-muted-foreground">Reading the repository…</p>;
+  if (!target) return <StateNotice loading title="Reading the repository…" />;
   if (target.blocker) return <p className="text-xs leading-relaxed text-muted-foreground">{target.blocker}</p>;
 
   return (

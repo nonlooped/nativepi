@@ -1,3 +1,4 @@
+import StateNotice from "./StateNotice.tsx";
 import { createKeybindingsHandler } from "tinykeys";
 import { bindings, withHint } from "../lib/shortcuts.ts";
 import { useEffect, useRef, useState } from "react";
@@ -51,6 +52,8 @@ export default function SourceControl({
   onReview?: () => void;
 }) {
   const keybindingOverrides = useAppStore(s => s.keybindingOverrides);
+  const gitLoading = useAppStore(s => s.gitLoading);
+  const gitError = useAppStore(s => s.gitError);
   const refreshGit = useAppStore((s) => s.refreshGit);
   const commitMessageModel = useAppStore((s) => s.commitMessageModel);
   const sessionFile = useAppStore((s) => activeConversation(s).sessionFile);
@@ -134,7 +137,7 @@ export default function SourceControl({
       await refreshGit();
     });
   }
-  const disabled = sharedBusy || busy !== null || generating;
+  const disabled = sharedBusy || busy !== null || generating || !!gitError;
   const canCommit = Boolean(message.trim()) && stagedFiles.length > 0 && !disabled;
   const commitDisabledReason = disabled ? "Working…" : stagedFiles.length === 0 ? "Stage changes first" : !message.trim() ? "Add a commit message" : undefined;
   useEffect(() => {
@@ -173,9 +176,10 @@ export default function SourceControl({
           {showPullRequest && <DropdownMenuItem onClick={onOpenPullRequest}><GitPullRequestIcon />Open a pull request</DropdownMenuItem>}
         </DropdownMenuGroup></DropdownMenuContent>
       </DropdownMenu>
-      <Button variant="ghost" size="icon-sm" onClick={() => void refreshGit()} title={withHint("Refresh changes", "refreshSourceControl", keybindingOverrides)} aria-label="Refresh changes"><ArrowClockwiseIcon /></Button>
+      <Button variant="ghost" size="icon-sm" onClick={() => void refreshGit()} title={withHint("Refresh changes", "refreshSourceControl", keybindingOverrides)} aria-label="Refresh changes" disabled={gitLoading}><ArrowClockwiseIcon className={gitLoading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
       {onClose && <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Hide source control"><XIcon /></Button>}
     </div>
+    {gitError && <div className="border-b px-4"><StateNotice title="Showing last known Git status" detail={gitError} retry={() => void refreshGit()} /></div>}
     {error && <p role="alert" className="shrink-0 whitespace-pre-wrap border-b px-4 py-2 text-xs text-destructive">{error}</p>}
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex h-11 shrink-0 items-center gap-1 border-b px-3" role="tablist" aria-label="Source control view">

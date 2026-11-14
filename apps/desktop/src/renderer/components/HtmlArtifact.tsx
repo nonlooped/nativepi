@@ -1,3 +1,4 @@
+import StateNotice from "./StateNotice.tsx";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowsOutIcon } from "@phosphor-icons/react/ArrowsOut";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
@@ -17,6 +18,16 @@ function currentTheme(): ArtifactTheme {
 }
 
 function ArtifactFrame({ artifact, expanded }: { artifact: Artifact; expanded?: boolean }) {
+  const [attempt, setAttempt] = useState(0);
+  return <ArtifactFrameContent key={attempt} artifact={artifact} expanded={expanded} retry={() => setAttempt(value => value + 1)} />;
+}
+function ArtifactFrameContent({ artifact, expanded, retry }: { artifact: Artifact; expanded?: boolean; retry: () => void }) {
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    const timer = setTimeout(() => { if (!ready) setError("This visual is taking longer than expected to load."); }, 10_000);
+    return () => clearTimeout(timer);
+  }, [ready]);
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(artifact.height);
   const [doc] = useState(() => htmlArtifactDocument(artifact.html, currentTheme()));
@@ -31,7 +42,12 @@ function ArtifactFrame({ artifact, expanded }: { artifact: Artifact; expanded?: 
       if (!element || event.source !== element.contentWindow) return;
       const message = artifactFrameMessageSchema.safeParse(event.data);
       if (!message.success) return;
-      if (message.data.type === "nativepi.artifact.size") {
+      if (message.data.type === "nativepi.artifact.ready") {
+        setReady(true);
+        if (message.data.empty) setError("This visual did not display any content.");
+      } else if (message.data.type === "nativepi.artifact.console" && message.data.level === "error") {
+        setError(message.data.text || "Some parts of this visual could not run.");
+      } else if (message.data.type === "nativepi.artifact.size") {
         setHeight(Math.min(MAX_ARTIFACT_HEIGHT, Math.max(80, Math.ceil(message.data.height))));
       } else if (message.data.type === "nativepi.artifact.link" && document.activeElement === element && navigator.userActivation?.isActive) {
         void rpc.request.openExternal({ url: message.data.url });
@@ -40,7 +56,9 @@ function ArtifactFrame({ artifact, expanded }: { artifact: Artifact; expanded?: 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, []);
-  return <iframe ref={frame} title={artifact.title} srcDoc={doc} sandbox="allow-scripts" referrerPolicy="no-referrer" onLoad={postTheme} className="block w-full border-0 bg-transparent" style={{ height: expanded ? "min(80dvh, 8000px)" : height, colorScheme: currentTheme().appearance }} />;
+  return <div className="relative min-w-0">
+    {error ? <StateNotice title="Visual could not finish rendering" detail={error} retry={retry} /> : !ready ? <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"><StateNotice loading title="Loading visual…" /></div> : null}
+    <iframe ref={frame} title={artifact.title} srcDoc={doc} sandbox="allow-scripts" referrerPolicy="no-referrer" onLoad={postTheme} className="block w-full border-0 bg-transparent" style={{ height: expanded ? "min(80dvh, 8000px)" : height, colorScheme: currentTheme().appearance }} /></div>;
 }
 
 export default function HtmlArtifact({ artifact }: { artifact: Artifact }) {

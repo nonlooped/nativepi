@@ -1,3 +1,5 @@
+import StateNotice from "./components/StateNotice.tsx";
+import ConnectionNotice from "./components/ConnectionNotice.tsx";
 import ThreadActivity, { ThreadInputBoundary } from "./components/ThreadActivity.tsx";
 import { Dialog as SettingsDialog } from "@base-ui/react/dialog";
 import { useLayoutMotion } from "./lib/layoutMotion.ts";
@@ -166,6 +168,7 @@ export default function App() {
       <div className="relative flex h-full items-center justify-center overflow-hidden bg-background text-foreground">
         <div className="flex max-w-md flex-col items-center gap-3 px-6 text-center" role={startupError ? "alert" : "status"}>
           <NativePiWordmark display />
+          {isRemote ? <ConnectionNotice /> : null}
           <p className="text-sm text-body-muted-foreground">
             {startupError ?? "Starting NativePi…"}
           </p>
@@ -239,6 +242,7 @@ export default function App() {
               }}
               onToggleTerminal={toggleTerminal}
             />
+            <ConnectionNotice />
             <PiStartingNotice />
 
             {activeProjectPath ? (
@@ -447,8 +451,8 @@ function WorkspaceComposer({ prominent, visible }: { prominent: boolean; visible
 
 function SurfaceLoading({ label }: { label: string }) {
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-body-muted-foreground" role="status">
-      {label}
+    <div className="flex min-h-0 flex-1 items-center justify-center px-6">
+      <StateNotice loading title={label} />
     </div>
   );
 }
@@ -588,7 +592,7 @@ function WorkspaceHeader({
         </Button>
       ) : null}
       {!chatMode && !projectFree && activeProjectPath ? <SourceControlButton onClick={() => onOpenContext("changes")} active={contextDocked} /> : null}
-      {!chatMode && !projectFree && activeProjectPath ? <ProjectStatus compact={compact} className={NO_DRAG_REGION} /> : null}
+      {activeProjectPath ? <ProjectStatus compact={compact} className={NO_DRAG_REGION} /> : null}
       {!chatMode && activeProjectPath ? (
         <Button
           variant="ghost"

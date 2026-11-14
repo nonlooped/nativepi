@@ -1,3 +1,4 @@
+import StateNotice from "./StateNotice.tsx";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
 import { Input } from "@/components/ui/input.tsx";
@@ -64,7 +65,7 @@ function ProjectFiles({ projectDir, renderHeader }: FileExplorerProps) {
 
   function directory(path: string, depth: number): React.ReactNode {
     const value = state.dirs.get(path);
-    if (!value || value.status === "loading") return <p className="px-3 py-2 text-xs text-muted-foreground">Loading…</p>;
+    if (!value || value.status === "loading") return <div className="px-3"><StateNotice loading title="Reading folder…" /></div>;
     if (value.status === "error") return <div className="px-3 py-2 text-xs" role="alert"><p className="break-words text-destructive">{value.message}</p><Button size="sm" variant="ghost" onClick={() => void controller.current?.refresh(path)}>Try again</Button></div>;
     if (!value.entries.length) return <p className="px-3 py-2 text-xs text-muted-foreground">Empty folder</p>;
     return <ul className={cn(depth > 0 && "ml-3 border-l border-sidebar-border pl-1")}>
@@ -100,7 +101,7 @@ function ProjectFiles({ projectDir, renderHeader }: FileExplorerProps) {
     {searching ? <div className="px-3 pt-2"><Input autoFocus aria-label="Search project files" placeholder="Search files…" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Escape") { setSearching(false); setQuery(""); } }} /></div> : null}
     <div className="min-h-0 flex-1 overflow-auto px-1 pt-2 pb-3">
       {searching ? searchError ? <p role="alert" className="px-3 py-2 text-xs text-destructive">{searchError}</p>
-        : files === null ? <p className="px-3 py-2 text-xs">Searching files…</p>
+        : files === null ? <div className="px-3"><StateNotice loading title="Searching files…" /></div>
         : <>
           {matches.slice(0, 200).map(file => (
             <button key={file} type="button" title={file} onClick={() => void openFile(file)} className="flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm text-sidebar-foreground outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset">

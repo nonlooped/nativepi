@@ -1,3 +1,4 @@
+import StateNotice from "./StateNotice.tsx";
 import { useEffect, useState } from "react";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
 import { ArrowUpIcon } from "@phosphor-icons/react/ArrowUp";
@@ -32,10 +33,12 @@ export default function GitHistory({ projectDir, git, onReview }: {
     const timer = setTimeout(() => { setSearch(query); setLimit(50); }, 250);
     return () => clearTimeout(timer);
   }, [query]);
-  const { data, error, reload } = useRequest(
-    () => rpc.request.gitLog({ projectDir, query: search, limit }),
+  const { data: result, error, loading, reload } = useRequest(
+    async () => ({ ...(await rpc.request.gitLog({ projectDir, query: search, limit })), scope: JSON.stringify([projectDir, search, git.head]) }),
     [projectDir, search, limit, git.head, revision],
+    { keepPreviousData: true },
   );
+  const data = result?.scope === JSON.stringify([projectDir, search, git.head]) ? result : null;
 
   return <div className="flex min-h-0 flex-1 flex-col">
     {/* Keep search, loaded commits and scroll position when returning from a commit. */}
@@ -48,12 +51,13 @@ export default function GitHistory({ projectDir, git, onReview }: {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-1.5 py-1.5">
         {error ? <div className="px-2 py-3 text-xs"><p role="alert" className="text-destructive">{error}</p><Button size="sm" variant="ghost" onClick={reload}>Try again</Button></div>
-          : !data ? <p className="px-2 py-3 text-xs text-muted-foreground">Loading history…</p>
-          : data.commits.length === 0 ? <p className="px-2 py-6 text-center text-xs text-muted-foreground">{search ? "No commits match this search." : "No commits yet."}</p>
-          : <ul>{data.commits.map(commit => <li key={commit.hash}>
+          : null}
+        {!data && !error ? <div className="px-2"><StateNotice loading title="Loading history…" /></div>
+          : data && data.commits.length === 0 ? <p className="px-2 py-6 text-center text-xs text-muted-foreground">{search ? "No commits match this search." : "No commits yet."}</p>
+          : data ? <ul>{data.commits.map(commit => <li key={commit.hash}>
             <CommitRow commit={commit} onOpen={() => setSelected(commit)} />
-          </li>)}</ul>}
-        {data && data.commits.length === limit && limit < 1000 && <Button variant="ghost" size="sm" className="mt-2 w-full" onClick={() => setLimit(limit + 50)}>Load more commits</Button>}
+          </li>)}</ul> : null}
+        {data && ((data.commits.length === limit && limit < 1000) || loading) && <Button variant="ghost" size="sm" className="mt-2 w-full" disabled={loading} onClick={() => setLimit(limit + 50)}>{loading ? "Loading more commits…" : "Load more commits"}</Button>}
       </div>
     </div>
     {selected && <CommitDetails projectDir={projectDir} commit={selected} onReview={onReview} onBack={() => setSelected(undefined)} />}
@@ -125,8 +129,9 @@ function CommitDetails({ projectDir, commit, onBack, onReview }: {
         {body && <p className="whitespace-pre-wrap break-words pt-1 text-xs leading-5 text-body-muted-foreground">{body}</p>}
       </div>
       {error ? <div className="px-3 text-xs"><p role="alert" className="text-destructive">{error}</p><Button size="sm" variant="ghost" onClick={reload}>Try again</Button></div>
-        : !data ? <p className="px-3 text-xs text-muted-foreground">Loading changed files…</p>
-        : <section aria-label="Files changed" className="border-t px-1.5 pt-1.5">
+        : null}
+        {!data && !error ? <div className="px-3"><StateNotice loading title="Loading changed files…" /></div>
+        : data ? <section aria-label="Files changed" className="border-t px-1.5 pt-1.5">
           <h4 className="px-1.5 py-2 text-xs font-medium text-muted-foreground">{data.files.length === 0 ? "No files changed" : `${data.files.length} changed ${data.files.length === 1 ? "file" : "files"}`}</h4>
           <ul>{data.files.map(file => {
             const slash = file.path.lastIndexOf("/");
@@ -143,7 +148,7 @@ function CommitDetails({ projectDir, commit, onBack, onReview }: {
               <span className={cn("shrink-0 text-xs", file.state === "D" ? "text-destructive" : file.state === "A" ? "text-success" : "text-muted-foreground")}>{file.state}</span>
             </button></li>;
           })}</ul>
-        </section>}
+        </section> : null}
     </div>
   </div>;
 }

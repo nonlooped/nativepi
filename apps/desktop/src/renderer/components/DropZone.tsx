@@ -28,7 +28,17 @@ export default function DropZone() {
   useEffect(() => {
     // A browser reaching NativePi over a link has no path behind a dropped file,
     // so nothing here can work and the window keeps its default handling.
-    if (isRemote) return;
+    if (isRemote) {
+      const prevent = (event: DragEvent) => { if (draggingFiles(event.dataTransfer)) event.preventDefault(); };
+      const reject = (event: DragEvent) => {
+        if (!draggingFiles(event.dataTransfer)) return;
+        event.preventDefault();
+        showDropRejected("Drop images on the message box to attach them. Open folders and import chats from the desktop app.");
+      };
+      window.addEventListener("dragover", prevent);
+      window.addEventListener("drop", reject);
+      return () => { window.removeEventListener("dragover", prevent); window.removeEventListener("drop", reject); };
+    }
 
     let idle = 0;
     const dragOver = (event: DragEvent) => {

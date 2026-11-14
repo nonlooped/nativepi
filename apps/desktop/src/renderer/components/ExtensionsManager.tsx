@@ -13,6 +13,7 @@ import type { PackageInfo } from "../../shared/pi-types.ts";
 import { showHint } from "../lib/toast.tsx";
 import { useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
+import StateNotice from "./StateNotice.tsx";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -307,8 +308,8 @@ export default function ExtensionsManager() {
 
         {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
 
-        {installedPackages === null ? (
-          <p className="py-4 text-sm text-muted-foreground">Loading…</p>
+        {listing.error ? <StateNotice title="Could not load packages" detail={listing.error} retry={refresh} /> : installedPackages === null ? (
+          <StateNotice loading title="Loading installed packages…" />
         ) : installedPackages.length === 0 ? (
           <p className="py-4 text-sm text-muted-foreground">
             No npm or Git packages installed.
@@ -367,7 +368,7 @@ export default function ExtensionsManager() {
         )}
       </section>
 
-      <section aria-labelledby="local-heading" className="flex flex-col gap-3">
+      {!listing.error ? <section aria-labelledby="local-heading" className="flex flex-col gap-3">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2">
             <h2 id="local-heading" className="font-heading text-sm font-semibold">
@@ -380,8 +381,8 @@ export default function ExtensionsManager() {
           <p className="text-xs text-muted-foreground">Extensions loaded directly from files and folders on this computer.</p>
         </div>
 
-        {localPackages === null || localExtensions === null ? (
-          <p className="py-4 text-sm text-muted-foreground">Loading…</p>
+        {listing.error ? null : localPackages === null || localExtensions === null ? (
+          <StateNotice loading title="Loading local extensions…" />
         ) : localPackages.length === 0 && localExtensions.length === 0 ? (
           <p className="py-4 text-sm text-muted-foreground">No local extensions found.</p>
         ) : (
@@ -449,7 +450,7 @@ export default function ExtensionsManager() {
             ))}
           </div>
         )}
-      </section>
+      </section> : null}
 
       {graphicalErrors.length > 0 || errors.length > 0 ? (
         <section aria-labelledby="ext-errors-heading" className="flex flex-col gap-2">

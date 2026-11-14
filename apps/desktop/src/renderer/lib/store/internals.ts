@@ -155,7 +155,7 @@ export function enterProjectFolder(set: SetState, get: GetState, path: string): 
     activeProjectPath: path,
     activeSessionFile: null,
     isNewChat: false,
-    models: [],
+    models: [], modelsLoading: true, modelsError: undefined,
     model: undefined,
     thinkingLevelReady: false,
     thinkingLevelVersion: state.thinkingLevelVersion + 1,
@@ -164,7 +164,7 @@ export function enterProjectFolder(set: SetState, get: GetState, path: string): 
     thinkingLevelsError: undefined,
     trustPrompt: null,
     trust: null,
-    git: null,
+    git: null, gitLoading: false, gitError: undefined,
     repoHost: undefined,
     extPrompts,
     extStatuses: {},
@@ -175,7 +175,7 @@ export function enterProjectFolder(set: SetState, get: GetState, path: string): 
     extTriggers: [],
     extUiState: NO_EXTENSION_UI_STATE,
     providers: [],
-    providersLoaded: false,
+    providersLoaded: false, providersLoading: false, providersError: undefined,
     authFlow: null,
   }));
   dropAllSurfaces();
@@ -390,7 +390,7 @@ export async function warmProject(set: SetState, get: GetState, path: string): P
     await Promise.all([
       ensured,
       get().refreshGit(),
-      rpc.request.getModels({ projectDir: path, sessionFile }).then(r => { if (selected()) set({ models: r.models }); }),
+      get().refreshModels(),
       get().loadProviders?.(),
       readModelState(set, get, path),
       import("../extensionHost.ts").then(({ loadGraphicalExtensions }) => loadGraphicalExtensions(path)).then(res => {

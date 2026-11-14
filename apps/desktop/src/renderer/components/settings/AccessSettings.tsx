@@ -1,3 +1,4 @@
+import StateNotice from "../StateNotice.tsx";
 import { useEffect, useRef, useState } from "react";
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react/ArrowsClockwise";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
@@ -35,6 +36,7 @@ type Scope = "local" | "remote";
  * about it is a decision.
  */
 export default function AccessSettings() {
+  const [checked, setChecked] = useState(false);
   const [status, setStatus] = useState<AccessStatus>(STOPPED_STATUS);
   const [busy, setBusy] = useState<AccessAction>();
   const [copied, setCopied] = useState<Scope>();
@@ -49,7 +51,7 @@ export default function AccessSettings() {
   useEffect(() => {
     const current = createAccessStatusController(
       () => rpc.request.accessStatus({}),
-      (next, action) => { setStatus(next); setBusy(action); },
+      (next, action) => { setStatus(next); setBusy(action); setChecked(current => current || !next.local.error); },
     );
     controller.current = current;
     void current.read();
@@ -78,6 +80,9 @@ export default function AccessSettings() {
     recordHandoff("qr", scope, link);
     setShowing({ scope, link });
   };
+
+  if (!checked && status.local.error && !isRemote) return <StateNotice title="Could not check access" detail={status.local.error} retry={() => void controller.current?.read()} />;
+  if (!checked && !isRemote) return <StateNotice loading title="Checking access…" detail="Reading active links and connected devices." />;
 
   const localLink = status.local.links.includes(preferredLocalLink ?? "")
     ? preferredLocalLink

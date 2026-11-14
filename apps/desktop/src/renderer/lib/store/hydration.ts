@@ -15,10 +15,14 @@ export function createHydration(set: SetState, get: GetState) {
     if (reads.get(sessionFile)?.pending && reads.get(sessionFile)?.epoch === runtimeEpoch(get, projectDir)) return;
     const owner = { epoch: runtimeEpoch(get, projectDir), events: [] as Payload[], pending: true, retry: false };
     reads.set(sessionFile, owner);
+    patchConversation(set, projectDir, sessionFile, { historyLoading: true, historyError: undefined });
     try {
       const snapshot = await rpc.request.readSessionSnapshot({ projectDir, sessionFile });
       if (reads.get(sessionFile) !== owner || runtimeEpoch(get, projectDir) !== owner.epoch) return;
-      if (snapshot.consistency !== "stable") return;
+      if (snapshot.consistency !== "stable") {
+        patchConversation(set, projectDir, sessionFile, { historyError: "This chat changed while it was being read. Try loading it again." });
+        return;
+      }
       let conversation: Conversation = { ...emptyConversation(), ...get().conversations[sessionFile], projectDir, sessionFile,
         entries: snapshot.entries.filter((entry): entry is Exclude<FileEntry, { type: "session" }> => entry.type !== "session"),
         streaming: null, running: false, compacting: false, retry: null, runStartedAt: null, sessionName: sessionInfoName(snapshot.entries) };
@@ -37,11 +41,12 @@ export function createHydration(set: SetState, get: GetState) {
       reads.delete(sessionFile);
     } catch (error) {
       if (reads.get(sessionFile) === owner && runtimeEpoch(get, projectDir) === owner.epoch) {
-        patchConversation(set, projectDir, sessionFile, { error: error instanceof Error ? error.message : String(error) });
+        patchConversation(set, projectDir, sessionFile, { historyError: error instanceof Error ? error.message : String(error) });
         throw error;
       }
     } finally {
       owner.pending = false;
+      if (runtimeEpoch(get, projectDir) === owner.epoch && (reads.get(sessionFile) === owner || !reads.has(sessionFile))) patchConversation(set, projectDir, sessionFile, { historyLoading: false });
       if (owner.retry && reads.get(sessionFile) === owner && runtimeEpoch(get, projectDir) === owner.epoch) void read(projectDir, sessionFile).catch(() => {});
     }
   }

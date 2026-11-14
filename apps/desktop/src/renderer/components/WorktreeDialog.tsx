@@ -1,3 +1,4 @@
+import StateNotice from "./StateNotice.tsx";
 import { useState } from "react";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { GitBranchIcon } from "@phosphor-icons/react/GitBranch";
@@ -49,12 +50,13 @@ function Branches({ projectPath, onClose }: { projectPath: string; onClose: () =
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  const { data, error, loading } = useRequest(
+  const { data, error, loading, reload } = useRequest(
     () => rpc.request.gitBranches({ projectDir: projectPath }),
     [projectPath],
   );
   const branches = data?.branches ?? [];
-  const { name, matches, canCreate } = filterBranches(branches, query);
+  const { name, matches, canCreate: nameAvailable } = filterBranches(branches, query);
+  const canCreate = !!data && !loading && nameAvailable;
 
   async function open(path: string) {
     onClose();
@@ -69,6 +71,8 @@ function Branches({ projectPath, onClose }: { projectPath: string; onClose: () =
       const res = await rpc.request.gitAddWorktree({ projectDir: projectPath, branch, create: isNew });
       if (res.ok && res.path) await open(res.path);
       else setFailure(res.error ?? "Git could not add the worktree.");
+    } catch (error) {
+      setFailure(error instanceof Error ? error.message : "Could not create the worktree. Try again.");
     } finally {
       setBusy(false);
     }
@@ -84,7 +88,7 @@ function Branches({ projectPath, onClose }: { projectPath: string; onClose: () =
       />
 
       <div className="-mx-1 flex max-h-64 min-h-24 flex-col gap-0.5 overflow-y-auto px-1">
-        {loading ? <p className="px-2.5 py-6 text-center text-sm text-body-muted-foreground">Loading branches…</p> : null}
+        {loading ? <StateNotice loading title="Loading branches…" /> : null}
 
         {matches.map((item) => (
           <Row
@@ -109,7 +113,7 @@ function Branches({ projectPath, onClose }: { projectPath: string; onClose: () =
         {/* An unanswered request is not an empty repository. Reporting one as
             the other sent the user looking for missing branches. */}
         {error ? (
-          <p className="px-2.5 py-6 text-center text-sm text-destructive">Could not read this repository's branches.</p>
+          <StateNotice title="Could not read branches" detail={error} retry={reload} />
         ) : !loading && matches.length === 0 && !canCreate ? (
           <p className="px-2.5 py-6 text-center text-sm text-body-muted-foreground">
             No branches here. This folder may not be a Git repository yet.
@@ -117,6 +121,7 @@ function Branches({ projectPath, onClose }: { projectPath: string; onClose: () =
         ) : null}
       </div>
 
+      {busy ? <StateNotice loading title="Creating worktree…" detail="Git is preparing a separate working folder." /> : null}
       {failure ? <p className="text-xs whitespace-pre-wrap text-destructive">{failure}</p> : null}
 
       <DialogFooter>

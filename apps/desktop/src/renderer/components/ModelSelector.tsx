@@ -32,6 +32,9 @@ import ServiceTierSelector from "./ServiceTierSelector.tsx";
 export default function ModelSelector() {
   const keybindingOverrides = useAppStore(s => s.keybindingOverrides);
   const models = useAppStore((s) => s.models);
+  const catalogLoading = useAppStore(s => s.modelsLoading);
+  const catalogError = useAppStore(s => s.modelsError);
+  const refreshModels = useAppStore(s => s.refreshModels);
   const model = useAppStore((s) => s.model);
   const setModel = useAppStore((s) => s.setModel);
   const favoriteModels = useAppStore((s) => s.favoriteModels ?? []);
@@ -99,7 +102,8 @@ export default function ModelSelector() {
     return queryTerms.every((term) => searchable.includes(term));
   });
 
-  if (models.length === 0 && providersLoaded) {
+  if (models.length === 0 && catalogError && !catalogLoading) return <Button variant="ghost" title={catalogError} onClick={() => void refreshModels()}><WarningCircleIcon />Retry models</Button>;
+  if (models.length === 0 && providersLoaded && (!catalogLoading || !providers.some(provider => provider.ready))) {
     const ready = providers.some((item) => item.ready);
     return (
       <Button

@@ -26,6 +26,7 @@ test("does not apply a former chat's warm state after selecting another chat", a
     thinkingLevels: ["off"],
     conversations: { A: { ...emptyConversation(), projectDir: "C:\\project", sessionFile: "A" } },
     refreshGit: async () => {},
+    refreshModels: async () => {},
   } as unknown as AppState;
   const get = (() => state) as GetState;
   const set = ((update: Partial<AppState> | ((current: AppState) => Partial<AppState>)) => {

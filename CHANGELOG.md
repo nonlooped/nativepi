@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace the top-left wordmark with back/forward chat navigation and move NativePi branding into the new-chat view.
 
 ### Fixed
+- Make loading, empty, and failed reads distinct across conversations, providers, extensions, Git, media, and settings, with inline recovery and consistent loading indicators. Preserve history while loading more commits, retain extension answers until acknowledged, and show browser reconnection and expired-link states.
 - Hydrate ordinary chat controls after the first send, and make metadata failures retryable without exposing a delegate composer or warming a missing session.
 - Fix catalog requests dropped by IPC serialization and cancel stale host operations during reload/rebinding. Match delegate outcomes to the assignment task’s actual branch.
 - Preserve failed delegate startup state and source task intents; resolve cold delegate ownership before Stop and keep completed delegates available for later follow-ups.

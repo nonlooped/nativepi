@@ -1,3 +1,4 @@
+import StateNotice from "./StateNotice.tsx";
 import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu.tsx";
 import { absoluteProjectPath, fileManagerName } from "../lib/paths.ts";
@@ -59,10 +60,10 @@ export default function DiffPreview({ projectDir, path, mode, revision = 0, onBa
     {actions}
     <div className="min-h-0 flex-1 overflow-hidden border-t bg-background">
       {error ? <div role="alert" className="space-y-2 p-4 text-xs"><p className="break-words text-destructive">{error}</p><Button variant="outline" size="sm" onClick={reload}>Try again</Button></div>
-        : !data ? <p role="status" className="p-4 text-xs text-muted-foreground">Loading…</p>
+        : !data ? <div className="px-4"><StateNotice loading title="Loading diff…" /></div>
         : data.kind === "large" ? <div className="p-4 text-xs leading-5 text-muted-foreground"><p>This diff is too large to preview.</p><p>Open it in {editorName(editorId)} to view its contents.</p></div>
         : data.kind === "diff" && !data.patch.trim() ? <p className="p-4 text-xs text-muted-foreground">No textual diff to show.</p>
-        : <Suspense fallback={<p className="p-4 text-xs text-muted-foreground">Preparing code…</p>}>
+        : <Suspense fallback={<div className="px-4"><StateNotice loading title="Preparing code…" /></div>}>
             {renderPatch ? renderPatch(data.patch) : <CodeView patch={data.patch} />}
           </Suspense>}
     </div>

@@ -1,3 +1,4 @@
+import StateNotice from "./StateNotice.tsx";
 import { useRef, useState } from "react";
 import type { GitChangedFile } from "../../shared/pi-types.ts";
 import type { UiSlice } from "../lib/store/types.ts";
@@ -16,7 +17,7 @@ export default function SourceControlReview({ review }: { review: NonNullable<Ui
   const setReview = useAppStore(s => s.setSourceControlReview);
   const refresh = useAppStore(s => s.refreshGit);
   const [busy, setBusy] = useState(false);
-  const sharedBusy = useAppStore(s => s.sourceControlBusy);
+  const sharedBusy = useAppStore(s => s.sourceControlBusy || !!s.gitError);
   const operation = useRef(false);
   const [error, setError] = useState<string>();
   const [confirming, setConfirming] = useState(false);
@@ -68,7 +69,7 @@ function HistoricalDiff({ projectDir, hash, path, onClose }: { projectDir: strin
   const { data, error, reload } = useRequest(() => rpc.request.gitCommitDiff({ projectDir, hash, file: path }), [projectDir, hash, path]);
   return <section className="flex min-h-0 flex-1 flex-col bg-background" aria-label="Commit diff">
     <header className="flex shrink-0 items-center gap-2 border-b p-2"><Button variant="ghost" size="sm" onClick={onClose}>Back to chat</Button><span className="min-w-0 flex-1 truncate text-sm" title={path}>{path}</span><span className="font-mono text-xs text-muted-foreground">{hash.slice(0, 8)}</span></header>
-    <div className="min-h-0 flex-1">{error ? <div className="p-4 text-xs"><p role="alert" className="text-destructive">{error}</p><Button size="sm" variant="ghost" onClick={reload}>Try again</Button></div> : data ? <DiffView patch={data.diff.patch} /> : <p className="p-4 text-xs text-muted-foreground">Loading diff…</p>}</div>
+    <div className="min-h-0 flex-1">{error ? <div className="p-4 text-xs"><p role="alert" className="text-destructive">{error}</p><Button size="sm" variant="ghost" onClick={reload}>Try again</Button></div> : data ? <DiffView patch={data.diff.patch} /> : <div className="px-4"><StateNotice loading title="Loading diff…" /></div>}</div>
   </section>;
 }
 function HunkReview({ projectDir, file, revision, disabled, mutate, patch }: {

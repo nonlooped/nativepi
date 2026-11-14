@@ -10,24 +10,25 @@ export const createAuthSlice: SliceCreator<AuthSlice> = (set, get) => {
   return {
     providers: [],
     providersLoaded: false,
+    providersLoading: false,
     authFlow: null,
     trustPrompt: null,
     trust: null,
 
     loadProviders: async () => {
       const version = ++providersRead;
+      set({ providersLoading: true, providersError: undefined });
       const projectDir = get().activeProjectPath;
       const sessionFile = get().activeSessionFile;
       const selected = selectionGuard(get);
       try {
         const result = projectDir ? await rpc.request.getSessionProviders({ projectDir, sessionFile }) : await rpc.request.listProviders({});
         if ("error" in result && result.error) throw new Error(result.error);
-        if (selected() && version === providersRead) set({ providers: result.providers, providersLoaded: true });
+        if (selected() && version === providersRead) set({ providers: result.providers, providersLoaded: true, providersLoading: false, providersError: undefined });
       } catch (error) {
         if (selected() && version === providersRead) {
-          set({ providersLoaded: true });
-          if (projectDir) patchConversation(set, projectDir, sessionFile, { error: message(error) });
-          throw error;
+          set({ providersLoaded: true, providersLoading: false, providersError: message(error) });
+          // Discovery failures belong to provider controls, never to an agent turn.
         }
       }
     },

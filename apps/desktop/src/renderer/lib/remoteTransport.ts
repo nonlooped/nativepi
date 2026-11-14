@@ -1,3 +1,4 @@
+import type { ConnectionState } from "./connection.ts";
 import type { NativePiApi } from "../../preload/index.ts";
 import { validHostEvent } from "../../shared/host-events.ts";
 import { hostEventKeys, type HostEventName } from "../../shared/rpc-schema.ts";
@@ -14,6 +15,7 @@ export function createRemoteApi(options: {
   reload: () => void;
   reportError?: (error: unknown) => void;
   handshakeMs?: number;
+  onConnectionState?: (state: ConnectionState) => void;
 }): NativePiApi & {
   dispose(): void;
 } {
@@ -34,17 +36,20 @@ export function createRemoteApi(options: {
   function connect(): Promise<WebSocket> {
     if (disposed)
       return Promise.reject(new Error("Transport disposed"));
-    if (!options.token)
+    if (!options.token) {
+      options.onConnectionState?.({ phase: "unavailable", error: "This NativePi link is missing its access token." });
       return Promise.reject(new Error("This NativePi link is missing its access token."));
+    }
     if (authenticated && authenticated.readyState === 1)
       return Promise.resolve(authenticated);
     if (connecting)
       return connecting;
+    options.onConnectionState?.({ phase: connectedOnce ? "reconnecting" : "connecting" });
     const task = new Promise<WebSocket>((resolve, reject) => {
       const next = options.createSocket(options.url);
       socket = next;
       let finished = false;
-      const fail = (error: Error) => {
+      const fail = (error: Error, revoked = false) => {
         if (finished)
           return;
         finished = true;
@@ -59,7 +64,8 @@ export function createRemoteApi(options: {
           item.reject(error);
         pending.clear();
         clearTimeout(retry);
-        if (!disposed)
+        if (!disposed) options.onConnectionState?.({ phase: revoked ? "unavailable" : "reconnecting", error: error.message });
+        if (!disposed && !revoked)
           retry = setTimeout(() => { void connect().catch(() => { }); }, delay);
         delay = Math.min(delay * 2, 10000);
         next.close();
@@ -75,7 +81,7 @@ export function createRemoteApi(options: {
         }
       });
       next.addEventListener("error", () => fail(new Error("NativePi could not connect to the desktop server.")));
-      next.addEventListener("close", () => fail(new Error("The NativePi desktop server disconnected.")));
+      next.addEventListener("close", event => fail(new Error("The NativePi desktop server disconnected."), event.code === 1008 || event.code === 4001 || event.code === 4003));
       next.addEventListener("message", event => {
         if (socket !== next || finished)
           return;
@@ -96,6 +102,7 @@ export function createRemoteApi(options: {
           clearTimeout(handshake);
           authenticated = next;
           delay = 500;
+          options.onConnectionState?.({ phase: "connected" });
           resolve(next);
           if (connectedOnce)
             options.reload();

@@ -1,3 +1,4 @@
+import StateNotice from "../StateNotice.tsx";
 import { useState } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
@@ -49,14 +50,11 @@ export default function ProviderSettings() {
   const [selected, setSelected] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
-  if (!providersLoaded) {
-    return (
-      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <CircleNotchIcon className="animate-spin" />
-        Loading providers…
-      </p>
-    );
-  }
+  const loading = useAppStore(s => s.providersLoading);
+  const error = useAppStore(s => s.providersError);
+  const reload = useAppStore(s => s.loadProviders);
+  if (error && !loading) return <StateNotice title="Could not load providers" detail={error} retry={() => void reload().catch(() => {})} />;
+  if (!providersLoaded || loading) return <StateNotice loading title="Loading providers…" />;
 
   const normalized = query.trim().toLocaleLowerCase();
   const matching = normalized
@@ -80,7 +78,7 @@ export default function ProviderSettings() {
       </div>
 
       {connected.length === 0 && available.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No providers match “{query.trim()}”.</p>
+        <p className="text-sm text-muted-foreground">{query.trim() ? `No providers match “${query.trim()}”.` : "No providers available. Check your Pi provider configuration."}</p>
       ) : null}
 
       {connected.length > 0 ? (
@@ -204,7 +202,7 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
   const methods = loginMethods(provider);
 
   if (flow?.prompt) {
-    return <AuthPromptForm key={flow.prompt.id} provider={provider} onSubmit={submitAuthPrompt} />;
+    return <div>{flow.error ? <p role="alert" className="px-4 pb-3 text-sm text-destructive">{flow.error}</p> : null}<AuthPromptForm key={flow.prompt.id} provider={provider} onSubmit={submitAuthPrompt} /></div>;
   }
 
   if (flow && !flow.error && (flow.notices.length > 0 || (flow.busy && flow.type === "oauth"))) {
@@ -456,6 +454,7 @@ function AuthPromptForm({
             : "This value is sent directly to Pi to complete sign-in."}
         </FieldDescription>
       </Field>
+      <Button variant="ghost" size="sm" className="mt-3" onClick={cancelLogin}>Cancel</Button>
     </form>
   );
 }

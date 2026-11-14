@@ -1,4 +1,5 @@
 import type { NativePiApi } from "../../preload/index.ts";
+import { remoteConnection } from "./connection.ts";
 import { createRemoteApi } from "./remoteTransport.ts";
 import { z } from "zod";
 import type { HostRequestName, HostRequests, } from "../../shared/rpc-schema.ts";
@@ -58,5 +59,5 @@ function browserApi(): NativePiApi {
   const port = params.get("rpcPort");
   if (port)
     url.port = port;
-  return createRemoteApi({ url: String(url), token: params.get("token"), createSocket: url => new WebSocket(url), reload: () => window.location.reload(), reportError: console.error });
+  return createRemoteApi({ onConnectionState: state => remoteConnection.setState(state, true), url: String(url), token: params.get("token"), createSocket: url => new WebSocket(url), reload: () => window.location.reload(), reportError: console.error });
 }

@@ -1,3 +1,4 @@
+import StateNotice from "../StateNotice.tsx";
 import { useState } from "react";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
@@ -141,16 +142,18 @@ export default function AboutSettings() {
       <Updates />
 
       <SettingsSection heading="Version">
+        {versions.error ? <StateNotice title="Could not read versions" detail={versions.error} retry={versions.reload} /> : versions.loading ? <StateNotice loading title="Reading versions…" /> : <>
         <ReadonlyRow
           label="NativePi"
-          value={versions.data?.app ?? "…"}
+          value={versions.data?.app ?? "Unavailable"}
           action={
             <Button variant="ghost" size="sm" onClick={() => void rpc.request.openExternal({ url: REPOSITORY_URL })}>
               View source
             </Button>
           }
         />
-        <ReadonlyRow label="Pi" value={versions.data?.pi ?? "…"} />
+        <ReadonlyRow label="Pi" value={versions.data?.pi ?? "Unavailable"} />
+        </>}
       </SettingsSection>
 
       {!isRemote ? (
@@ -171,6 +174,7 @@ export default function AboutSettings() {
         heading="Where Pi keeps things"
         description="NativePi exposes the settings most people need. Pi supports more, and its files are here."
       >
+        {paths.error ? <StateNotice title="Could not read Pi locations" detail={paths.error} retry={paths.reload} /> : paths.loading ? <StateNotice loading title="Reading Pi locations…" /> : <>
         <ReadonlyRow
           label="Configuration"
           value={paths.data?.paths.agentDir ?? "…"}
@@ -209,8 +213,9 @@ export default function AboutSettings() {
         <ReadonlyRow
           label="Credentials"
           description="Written by Pi. NativePi stores none of its own."
-          value={paths.data?.paths.authFile ?? "…"}
+          value={paths.data?.paths.authFile ?? "Unavailable"}
         />
+        </>}
       </SettingsSection>
     </div>
   );

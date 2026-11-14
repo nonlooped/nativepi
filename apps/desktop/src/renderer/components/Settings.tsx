@@ -1,3 +1,4 @@
+import ConnectionNotice from "./ConnectionNotice.tsx";
 import { transitionView } from "../lib/viewTransition.ts";
 import { SettingsDialogAppearance } from "./ui/dialog-styles.ts";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
@@ -118,6 +119,7 @@ function SettingsContent() {
           </Button>
         </header>
 
+        <ConnectionNotice />
         <main data-settings-category key={category} className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[52rem] px-5 pb-12 pt-2 @min-[48rem]/settings-shell:px-8">
             <div className="mb-6 pb-1">

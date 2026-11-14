@@ -76,3 +76,19 @@ domTest("unmount ignores the read's later settlement", async () => {
   await act(() => pending.resolve("late"));
   expect(container?.textContent).toBe("");
 });
+
+domTest("pagination retains loaded data while pending and after a failure", async () => {
+  let pending = deferred(); let request: RequestState<string>;
+  function Pagination({ page }: { page: number }) {
+    request = useRequest(() => page === 1 ? Promise.resolve("First page") : pending.promise, [page], { keepPreviousData: true });
+    return <><p>{request.data}</p><button onClick={request.reload}>Retry</button><span>{request.loading ? "Loading more" : request.error}</span></>;
+  }
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  await act(async () => root!.render(<Pagination page={1} />));
+  await act(async () => root!.render(<Pagination page={2} />));
+  expect(container.textContent).toContain("First page"); expect(container.textContent).toContain("Loading more");
+  await act(async () => pending.reject(new Error("Page failed")));
+  expect(container.textContent).toContain("First page"); expect(container.textContent).toContain("Page failed");
+  pending = deferred(); await act(async () => container!.querySelector("button")!.click());
+  await act(async () => pending.resolve("Both pages")); expect(container.textContent).toContain("Both pages"); expect(container.textContent).not.toContain("Page failed");
+});

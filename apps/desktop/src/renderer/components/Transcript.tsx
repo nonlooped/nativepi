@@ -1,3 +1,4 @@
+import StateNotice from "./StateNotice.tsx";
 import { computerEnvelopeSchema } from "../../shared/computer-use.ts";
 import { MonitorIcon } from "@phosphor-icons/react/Monitor";
 import DelegateInvocation from "./DelegateInvocation.tsx";
@@ -71,6 +72,12 @@ export default function Transcript() {
 }
 
 function TranscriptContent() {
+  const historyLoading = useAppStore(s => activeConversation(s).historyLoading);
+  const historyError = useAppStore(s => activeConversation(s).historyError);
+  const reloadHistory = () => {
+    const s = useAppStore.getState();
+    if (s.activeProjectPath && s.activeSessionFile) void s.refreshSession(s.activeProjectPath, s.activeSessionFile).catch(() => {});
+  };
   const entries = useAppStore((s) => activeConversation(s).entries);
   const hasExtensionHeader = useAppStore(s => s.extSurfaces.some(surface => surface.placement === "header"));
   const transcriptTarget = useAppStore(s => s.transcriptTarget);
@@ -90,7 +97,7 @@ function TranscriptContent() {
   const targetItem = transcriptTarget && items.find(item => item.type === "entry"
     ? item.entry.id === transcriptTarget.entry : item.entryIds?.includes(transcriptTarget.entry) || item.id === transcriptTarget.entry);
   useEffect(() => {
-    if (!transcriptTarget || useAppStore.getState().activeSessionFile !== transcriptTarget.session) return;
+    if (!transcriptTarget || historyLoading || historyError || useAppStore.getState().activeSessionFile !== transcriptTarget.session) return;
     if (!targetItem) {
       toast.message("This message is on another branch or is no longer available. Open Branches to inspect other chat history.");
       useAppStore.setState({ transcriptTarget: null });
@@ -110,7 +117,7 @@ function TranscriptContent() {
     return () => { cancelAnimationFrame(frame); window.clearTimeout(timer);
       document.getElementById(`entry-${transcriptTarget.entry}`)?.classList.remove("ring-2", "ring-ring", "rounded-md");
     };
-  }, [transcriptTarget, targetItem]);
+  }, [transcriptTarget, targetItem, historyLoading, historyError]);
   const turnFiles = lastTurnFileCount(items, results);
   const selectionVersion = useAppStore(s => s.selectionVersion);
   const extRenderers = useAppStore(s => s.extRenderers);
@@ -193,6 +200,8 @@ function TranscriptContent() {
         <MessageScroller className="min-h-0 flex-1">
           <MessageScrollerViewport aria-label="Conversation transcript" aria-live="off">
             <MessageScrollerContent className={cn("mx-auto w-full max-w-(--conversation-width) gap-3 px-5 py-6", (running || runDone) && "pb-16")}>
+          {historyError ? <MessageScrollerItem messageId="history-error"><StateNotice title="Could not load this conversation" detail={historyError} retry={reloadHistory} /></MessageScrollerItem>
+            : historyLoading ? <MessageScrollerItem messageId="history-loading"><StateNotice loading title="Loading conversation…" detail="Your draft stays editable while messages load." /></MessageScrollerItem> : null}
           {hasExtensionHeader ? <MessageScrollerItem messageId="extension-header">
             <ExtensionHeader />
           </MessageScrollerItem> : null}

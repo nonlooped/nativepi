@@ -314,7 +314,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
           confirmedNewLead: null,
           orchestrationLoaded: false,
           isNewChat: false,
-          models: [],
+          models: [], modelsLoading: true, modelsError: undefined,
           model: undefined,
           thinkingLevel: "off",
           thinkingLevelReady: false,

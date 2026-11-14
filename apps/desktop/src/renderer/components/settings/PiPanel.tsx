@@ -1,5 +1,5 @@
+import StateNotice from "../StateNotice.tsx";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
-import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { InfoIcon } from "@phosphor-icons/react/Info";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import type { PiSettings } from "../../../shared/pi-settings.ts";
@@ -25,10 +25,7 @@ export default function PiPanel({ children }: { children: (settings: PiSettings)
         <span className="min-w-0 break-words">Pi's settings could not be read. {error}</span>
       </p>
     ) : (
-      <p className="flex items-center gap-2 text-sm text-body-muted-foreground">
-        <CircleNotchIcon className="animate-spin" />
-        Loading Pi's settings…
-      </p>
+      <StateNotice loading title="Loading Pi's settings…" />
     );
   }
 

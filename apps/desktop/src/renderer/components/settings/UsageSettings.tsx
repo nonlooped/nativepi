@@ -1,7 +1,7 @@
+import StateNotice from "../StateNotice.tsx";
 import { useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { ChartLineUpIcon } from "@phosphor-icons/react/ChartLineUp";
-import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import type { UsageDashboard } from "../../../shared/pi-types.ts";
 import { useAppStore } from "../../lib/store.ts";
@@ -390,12 +390,7 @@ function EmptyUsage() {
 }
 
 function Loading() {
-  return (
-    <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
-      <CircleNotchIcon className="animate-spin" />
-      Reading Pi&apos;s session files…
-    </div>
-  );
+  return <div className="flex min-h-40 items-center justify-center"><StateNotice loading title="Reading usage…" detail="Gathering totals from Pi’s local session files." /></div>;
 }
 
 function filterDashboard(dashboard: UsageDashboard, range: Range) {

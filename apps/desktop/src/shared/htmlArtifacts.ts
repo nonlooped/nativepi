@@ -47,6 +47,7 @@ export const artifactProcessReplySchema = z.object({
   error: z.string().max(4000).optional(),
 });
 export const artifactFrameMessageSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("nativepi.artifact.ready"), empty: z.boolean() }),
   z.object({ type: z.literal("nativepi.artifact.size"), height: z.number().finite().positive().max(1_000_000) }),
   z.object({ type: z.literal("nativepi.artifact.console"), level: z.enum(["log", "info", "warn", "error"]), text: z.string().max(2000) }),
   z.object({ type: z.literal("nativepi.artifact.link"), url: z.url().max(4096).refine(url => /^https?:\/\//i.test(url)) }),
@@ -84,7 +85,14 @@ const BOOTSTRAP = `(() => {
     if (height !== lastHeight) { lastHeight = height; post({type:'nativepi.artifact.size',height}); }
   };
   addEventListener('DOMContentLoaded', () => { new ResizeObserver(measure).observe(document.body); measure(); });
-  addEventListener('load', measure);
+  addEventListener('load', () => {
+    measure();
+    post({type:'nativepi.artifact.ready',empty:false});
+    setTimeout(() => {
+      const body = document.body;
+      if (body && !body.innerText.trim() && !body.querySelector(':not(script):not(style)')) post({type:'nativepi.artifact.ready',empty:true});
+    }, 5000);
+  });
   document.addEventListener('click', event => {
     const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
     if (!link) return;

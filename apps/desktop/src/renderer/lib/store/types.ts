@@ -149,6 +149,8 @@ export interface Conversation {
   sessionFile: string | null;
   sessionName?: string;
   entries: SessionEntry[];
+  historyLoading?: boolean;
+  historyError?: string;
   streaming: AssistantMessage | null;
   running: boolean;
   promptSuggestion?: { text: string; timestamp: number };
@@ -244,6 +246,9 @@ export interface ModelSlice {
   refreshServiceTier: () => Promise<void>;
   setServiceTier: (tier: ServiceTier) => Promise<void>;
   models: ModelInfo[];
+  modelsLoading: boolean;
+  modelsError?: string;
+  refreshModels: () => Promise<void>;
   model?: ModelInfo;
   favoriteModels: string[];
   thinkingLevel: ThinkingLevel;
@@ -264,6 +269,8 @@ export interface ModelSlice {
 export interface AuthSlice {
   providers: AuthProviderInfo[];
   providersLoaded: boolean;
+  providersLoading: boolean;
+  providersError?: string;
   authFlow: AuthFlow | null;
   trustPrompt: { projectPath: string } | null;
   trust: { required: boolean; trusted: boolean } | null;
@@ -285,9 +292,13 @@ export interface AuthSlice {
 export interface ProjectContextSlice {
   git: GitStatus | null;
   gitRevision: number;
+  gitLoading: boolean;
+  gitError?: string;
   /** The PR/MR (or, failing that, issue) for the current branch. `undefined` while loading. */
   repoHost: RepoHostContext | null | undefined;
   extPrompts: ExtensionPrompt[];
+  extResponsePending?: Record<string, boolean>;
+  extResponseErrors?: Record<string, string>;
   /** Pending Pi extension requests, retained only until their project is opened or the run settles. */
   extensionPromptsByProject: Record<string, ExtensionPrompt[]>;
   extStatuses: Record<string, string>;

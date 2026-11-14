@@ -1,6 +1,5 @@
 import { ArrowSquareOutIcon } from "@phosphor-icons/react/ArrowSquareOut";
 import { ArrowsInSimpleIcon } from "@phosphor-icons/react/ArrowsInSimple";
-import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react/ArrowCounterClockwise";
 import { CheckCircleIcon } from "@phosphor-icons/react/CheckCircle";
@@ -21,6 +20,7 @@ import ConfirmDialog from "./ConfirmDialog.tsx";
 import { useAppStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
+import StateNotice from "./StateNotice.tsx";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -312,7 +312,6 @@ function ForkDialog({ projectDir, session, onClose }: { projectDir: string; sess
     [projectDir, session.path],
   );
   const points: ForkPoint[] | null = request.data ? request.data.points : null;
-  const error = forkError ?? request.data?.error ?? request.error ?? undefined;
 
   async function fork(entryId: string) {
     if (forking) return;
@@ -336,7 +335,7 @@ function ForkDialog({ projectDir, session, onClose }: { projectDir: string; sess
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-80 overflow-y-auto">
-          {points === null ? (
+          {request.error || request.data?.error ? <StateNotice title="Could not read fork points" detail={request.error ?? request.data?.error} retry={request.reload} /> : points === null ? (
             <Loading />
           ) : points.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Send a message before creating a fork.</p>
@@ -356,7 +355,7 @@ function ForkDialog({ projectDir, session, onClose }: { projectDir: string; sess
             </div>
           )}
         </div>
-        {error ? <p className="text-xs text-destructive">{error}</p> : null}
+        {forkError ? <p role="alert" className="text-xs text-destructive">{forkError}</p> : null}
       </DialogContent>
     </Dialog>
   );
@@ -383,7 +382,7 @@ function TreeDialog({ projectDir, session, onClose }: { projectDir: string; sess
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-96 overflow-auto">
-          {tree === null ? (
+          {error ? <StateNotice title="Could not read chat branches" detail={error} retry={request.reload} /> : tree === null ? (
             <Loading />
           ) : tree.tree.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">This chat has no entries yet.</p>
@@ -395,7 +394,6 @@ function TreeDialog({ projectDir, session, onClose }: { projectDir: string; sess
             </div>
           )}
         </div>
-        {error ? <p className="text-xs text-destructive">{error}</p> : null}
       </DialogContent>
     </Dialog>
   );
@@ -451,12 +449,7 @@ function ExportDialog({ path, onClose }: { path: string; onClose: () => void }) 
 
 /** Freeze the animation and a bare spinner says nothing at all, so it says it. */
 function Loading() {
-  return (
-    <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground" role="status">
-      <CircleNotchIcon className="animate-spin" />
-      Reading this chat…
-    </div>
-  );
+  return <div className="flex min-h-32 items-center justify-center"><StateNotice loading title="Reading this chat…" /></div>;
 }
 
 /**

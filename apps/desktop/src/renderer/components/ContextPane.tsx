@@ -1,3 +1,4 @@
+import StateNotice from "./StateNotice.tsx";
 import { lazy, Suspense, useState } from "react";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { ArrowsInLineVerticalIcon } from "@phosphor-icons/react/ArrowsInLineVertical";
@@ -17,6 +18,9 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const tab = useAppStore(s => s.contextPaneTab);
+  const gitLoading = useAppStore(s => s.gitLoading);
+  const gitError = useAppStore(s => s.gitError);
+  const refreshGit = useAppStore(s => s.refreshGit);
   const git = useAppStore(s => s.git);
   const [pullRequestOpen, setPullRequestOpen] = useState(false);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
@@ -48,7 +52,7 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
       <div data-context-content className="flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain">
         {tab === "changes" ? projectDir && git?.isRepo ? <Suspense fallback={<PaneMessage>Loading source control…</PaneMessage>}>
           <SourceControl key={projectDir} projectDir={projectDir} git={git} onOpenPullRequest={() => setPullRequestOpen(true)} onClose={onClose ?? toggleContextPane} onReview={onClose} />
-        </Suspense> : <>{header()}<PaneMessage>{git ? "This folder is not a Git repository." : "Git status is not available."}</PaneMessage></> : projectDir ? (
+        </Suspense> : <>{header()}<div className="px-4">{gitLoading ? <StateNotice loading title="Reading Git status…" /> : gitError || !git ? <StateNotice title="Git status is unavailable" detail={gitError} retry={() => void refreshGit()} /> : <PaneMessage>This folder is not a Git repository.</PaneMessage>}</div></> : projectDir ? (
           <Suspense fallback={<>{header()}<PaneMessage>Loading project files…</PaneMessage></>}>
             <FileExplorer projectDir={projectDir} renderHeader={header} />
           </Suspense>

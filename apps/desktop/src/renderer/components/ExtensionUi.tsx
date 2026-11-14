@@ -22,6 +22,8 @@ const PROMPT_DESCRIPTIONS: Record<ExtensionPrompt["method"], string> = {
 };
 
 function ExtensionPromptDialog({ prompt }: { prompt: ExtensionPrompt }) {
+  const pending = useAppStore(s => !!s.extResponsePending?.[prompt.id]);
+  const error = useAppStore(s => s.extResponseErrors?.[prompt.id]);
   const respond = useAppStore((s) => s.respondExtension);
   const [value, setValue] = useState(prompt.method === "editor" ? (prompt.prefill ?? "") : "");
   const fieldId = useId();
@@ -34,13 +36,16 @@ function ExtensionPromptDialog({ prompt }: { prompt: ExtensionPrompt }) {
     (prompt.method === "confirm" ? prompt.message : undefined) ?? PROMPT_DESCRIPTIONS[prompt.method];
 
   return (
-    <Dialog open onOpenChange={(next) => !next && cancel()}>
+    <Dialog open onOpenChange={(next) => !next && !pending && cancel()}>
       <DialogContent className={prompt.method === "editor" ? "max-w-2xl" : "max-w-md"}>
         <DialogHeader>
           <DialogTitle>{prompt.title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
+        <fieldset disabled={pending} className="contents">
+        {error ? <p role="alert" className="text-sm text-destructive">Answer not sent. {error}</p> : null}
+        {pending ? <p role="status" className="text-xs text-muted-foreground">Sending answer…</p> : null}
         {prompt.method === "select" ? (
           <div className="flex max-h-80 flex-col gap-1 overflow-y-auto">
             {prompt.options.map((option, i) => (
@@ -87,6 +92,7 @@ function ExtensionPromptDialog({ prompt }: { prompt: ExtensionPrompt }) {
           {prompt.method === "editor" ? <Button onClick={() => respond({ value })}>Submit</Button> : null}
           {prompt.method === "confirm" ? <Button onClick={() => respond({ confirmed: true })}>Confirm</Button> : null}
         </DialogFooter>
+        </fieldset>
       </DialogContent>
     </Dialog>
   );

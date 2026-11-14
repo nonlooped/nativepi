@@ -13,6 +13,7 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
   return {
     git: null,
     gitRevision: 0,
+    gitLoading: false,
     repoHost: undefined,
     extPrompts: [],
     extensionPromptsByProject: {},
@@ -29,11 +30,16 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
       if (!path || path === get().chatRoot || path === get().workRoot) return;
       const version = ++gitRead;
       markGitRefreshed(get);
-      let status;
-      try { ({ status } = await rpc.request.gitStatus({ projectDir: path })); } catch { return; }
-      if (get().activeProjectPath !== path || version !== gitRead) return;
-      if (!status) return;
-      set(s => ({ git: status, gitRevision: s.gitRevision + 1 }));
+      set({ gitLoading: true, gitError: undefined });
+      try {
+        const { status } = await rpc.request.gitStatus({ projectDir: path });
+        if (!status) throw new Error("Git returned no status. Check that the folder is available.");
+        if (get().activeProjectPath === path && version === gitRead) set(s => ({ git: status, gitRevision: s.gitRevision + 1 }));
+      } catch (error) {
+        if (get().activeProjectPath === path && version === gitRead) set({ gitError: error instanceof Error ? error.message : String(error) });
+      } finally {
+        if (get().activeProjectPath === path && version === gitRead) set({ gitLoading: false });
+      }
 
     },
 
@@ -68,19 +74,33 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
     respondExtension: ({ value, confirmed, cancel }) => {
       const s = get();
       const current = s.extPrompts[0];
-      if (!current) return;
+      if (!current || s.extResponsePending?.[current.id]) return;
       const { projectDir, sessionFile } = current;
       const response = cancel
         ? ({ type: "extension_ui_response", id: current.id, cancelled: true } as const)
         : current.method === "confirm"
           ? ({ type: "extension_ui_response", id: current.id, confirmed: confirmed ?? false } as const)
           : ({ type: "extension_ui_response", id: current.id, value: value ?? "" } as const);
-      const prompts = s.extPrompts.slice(1);
-      set({
-        extPrompts: prompts,
-        extensionPromptsByProject: { ...s.extensionPromptsByProject, [projectDir]: prompts },
+      set(state => ({ extResponsePending: { ...state.extResponsePending, [current.id]: true },
+        extResponseErrors: { ...state.extResponseErrors, [current.id]: "" } }));
+      void rpc.request.extensionRespond({ projectDir, sessionFile, response }).then(result => {
+        if (!result.ok) throw new Error("Pi could not accept this answer. Try again.");
+        set(state => {
+          const { [current.id]: _delivered, ...errors } = state.extResponseErrors ?? {};
+          return { extResponseErrors: errors,
+            extPrompts: state.extPrompts.filter(prompt => prompt.id !== current.id),
+            extensionPromptsByProject: { ...state.extensionPromptsByProject,
+              [projectDir]: (state.extensionPromptsByProject[projectDir] ?? []).filter(prompt => prompt.id !== current.id) },
+          };
+        });
+      }).catch(error => {
+        set(state => ({ extResponseErrors: { ...state.extResponseErrors, [current.id]: error instanceof Error ? error.message : String(error) } }));
+      }).finally(() => {
+        set(state => {
+          const { [current.id]: _done, ...pending } = state.extResponsePending ?? {};
+          return { extResponsePending: pending };
+        });
       });
-      void rpc.request.extensionRespond({ projectDir, sessionFile, response });
     },
 
     /**

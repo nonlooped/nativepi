@@ -1,5 +1,5 @@
+import StateNotice from "./StateNotice.tsx";
 import { useEffect, useState } from "react";
-import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { CaretDownIcon, CheckIcon, GitBranchIcon, PlusIcon } from "../../shared/icons.ts";
 import { filterBranches } from "../lib/branches.ts";
 import { rpc } from "../lib/rpc.ts";
@@ -66,12 +66,13 @@ function BranchList({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data, error: unread, loading } = useRequest(
+  const { data, error: unread, loading, reload } = useRequest(
     () => rpc.request.gitBranches({ projectDir: projectDir ?? "" }),
     [projectDir],
   );
   const branches = data?.branches ?? [];
-  const { name, matches, canCreate } = filterBranches(branches, query);
+  const { name, matches, canCreate: nameAvailable } = filterBranches(branches, query);
+  const canCreate = !!data && !loading && nameAvailable;
 
   async function go(branch: string, create: boolean) {
     if (busy) return;
@@ -109,10 +110,7 @@ function BranchList({ onDone }: { onDone: () => void }) {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
         {loading ? (
-          <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">
-            <CircleNotchIcon className="mr-1.5 inline animate-spin align-[-2px]" />
-            Loading branches…
-          </p>
+          <div className="px-2"><StateNotice loading title="Loading branches…" /></div>
         ) : null}
         <MenuGroup>
         {matches.map((item) => {
@@ -147,11 +145,12 @@ function BranchList({ onDone }: { onDone: () => void }) {
         ) : null}
         </MenuGroup>
         {unread ? (
-          <p className="px-2.5 py-6 text-center text-sm text-destructive">Unable to read this repository's branches. Close and reopen the branch menu to try again.</p>
+          <StateNotice title="Could not read branches" detail={unread} retry={reload} />
         ) : !loading && matches.length === 0 && !canCreate ? (
           <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">No branches yet.</p>
         ) : null}
       </div>
+      {busy ? <div className="px-3"><StateNotice loading title="Switching branch…" /></div> : null}
       {error ? (
         <p className="border-t px-3 py-2 text-xs whitespace-pre-wrap text-destructive">{error}</p>
       ) : null}
