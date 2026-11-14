@@ -1,3 +1,4 @@
+import { usesNativeGlass } from "../../../shared/themes.ts";
 import { MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE, INTERFACE_SCALE_STEP } from "../../../shared/interface-scale.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { osName } from "../../lib/platform.ts";
@@ -76,7 +77,9 @@ export default function AppearanceSettings() {
         <ThemeSettings />
       </SettingsSection>
 
-      <ChatBackgroundSettings />
+      {usesNativeGlass(preferences) ? (
+        <SettingsSection heading="Glass background" description="NativePi uses live macOS vibrancy or Windows 11 Acrylic, with a dither texture across the window. Linux, older Windows, and browser access use a solid backdrop. Your image background is kept for other color schemes.">{null}</SettingsSection>
+      ) : <ChatBackgroundSettings />}
     </div>
   );
 }

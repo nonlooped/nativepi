@@ -1194,3 +1194,92 @@ button.transcript-activity-row:focus-visible { outline: 2px solid var(--ring); o
 :root[data-motion="reduced"]::view-transition-group(*),
 :root[data-motion="reduced"]::view-transition-old(*),
 :root[data-motion="reduced"]::view-transition-new(*) { animation: none !important; }
+
+/* NativePi's material is supplied by the OS, not a renderer photograph.
+   Only the desktop preload can opt into a transparent window. */
+html[data-material="glass"] {
+  --glass-surface: #eaeaea;
+  --glass-sidebar: #e1e1e1;
+  --glass-muted: #dfdfdf;
+  --glass-accent: #d6d6d6;
+  --glass-edge: #ffffff80;
+  --glass-shadow: #00000018;
+  --card: color-mix(in srgb, var(--glass-surface) 76%, transparent);
+  --popover: color-mix(in srgb, var(--glass-surface) 90%, transparent);
+  --sidebar: color-mix(in srgb, var(--glass-sidebar) 42%, transparent);
+  --secondary: color-mix(in srgb, var(--glass-muted) 70%, transparent);
+  --muted: color-mix(in srgb, var(--glass-muted) 65%, transparent);
+  --accent: color-mix(in srgb, var(--glass-accent) 78%, transparent);
+  --sidebar-accent: var(--accent);
+  --input: #0000001c;
+  --border: #00000016;
+  --sidebar-border: var(--border);
+}
+html[data-material="glass"].dark {
+  --glass-surface: #1b1b1b;
+  --glass-sidebar: #181818;
+  --glass-muted: #222222;
+  --glass-accent: #2b2b2b;
+  --glass-edge: #ffffff14;
+  --glass-shadow: #00000050;
+  --input: #ffffff20;
+  --border: #ffffff16;
+}
+html[data-material="glass"][data-window-material="native"],
+html[data-material="glass"][data-window-material="native"] body {
+  background: transparent;
+}
+html[data-material="glass"][data-window-material="native"] .app-viewport {
+  background: color-mix(in srgb, var(--background) 48%, transparent);
+}
+/* A single stationary dither veil covers the live material edge to edge.
+   This is texture over native blur: desktop pixels never enter a canvas. */
+html[data-material="glass"] .app-viewport::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath fill='%23000' fill-opacity='.07' d='M0 0h1v1H0zM2 2h1v1H2z'/%3E%3Cpath fill='%23fff' fill-opacity='.09' d='M2 0h1v1H2zM0 2h1v1H0z'/%3E%3C/svg%3E");
+}
+html[data-material="glass"] :is(.conversation-shell, .chat-stage) {
+  background: transparent;
+}
+html[data-material="glass"] :is(.sidebar-panel, .context-pane, .terminal-dock) {
+  background: var(--sidebar);
+  box-shadow: inset 0 1px var(--glass-edge);
+}
+html[data-material="glass"] .composer-surface {
+  background: var(--card);
+  border-color: var(--border);
+  backdrop-filter: blur(24px) saturate(125%);
+  box-shadow: inset 0 1px var(--glass-edge), 0 12px 36px -16px var(--glass-shadow);
+}
+html[data-material="glass"] :is(
+  [data-slot="dialog-content"], [data-slot="sheet-content"],
+  [data-slot="popover-content"], [data-slot="dropdown-menu-content"],
+  [data-slot="context-menu-content"], [data-slot="dropdown-menu-sub-content"],
+  [data-slot="context-menu-sub-content"], [data-slot="select-content"],
+  [data-slot="tooltip-content"]
+) {
+  backdrop-filter: blur(28px) saturate(125%);
+  box-shadow: inset 0 1px var(--glass-edge), 0 12px 40px -12px var(--glass-shadow);
+}
+html[data-material="glass"] .settings-viewport {
+  background: color-mix(in srgb, var(--glass-surface) 86%, transparent);
+  box-shadow: inset 0 1px var(--glass-edge), 0 24px 80px -20px var(--glass-shadow);
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  html[data-material="glass"] {
+    --card: var(--glass-surface);
+    --popover: var(--glass-surface);
+    --sidebar: var(--glass-sidebar);
+    --secondary: var(--glass-muted);
+    --muted: var(--glass-muted);
+    --accent: var(--glass-accent);
+  }
+  html[data-material="glass"][data-window-material="native"] :is(body, .app-viewport),
+  html[data-material="glass"] .settings-viewport { background: var(--background); }
+  html[data-material="glass"] .app-viewport::before { display: none; }
+  html[data-material="glass"] .composer-surface { backdrop-filter: none; }
+}

@@ -5,6 +5,7 @@ import type { HostEventName, HostEvents, HostRequestName, HostRequests } from ".
 // contextBridge clones exposed objects and strips Proxy traps, so the renderer
 // builds per-channel request functions over this single invoke boundary.
 export type NativePiApi = {
+  windowMaterial?: boolean;
   invoke: <K extends HostRequestName>(channel: K, params: HostRequests[K]["params"]) => Promise<HostRequests[K]["response"]>;
   /**
   * Where a dropped or picked `File` came from on disk.
@@ -20,6 +21,7 @@ export type NativePiApi = {
   };
 };
 const api: NativePiApi = {
+  windowMaterial: process.argv.includes("--nativepi-window-material"),
   invoke: (channel, params) => ipcRenderer.invoke("nativepi:invoke", channel, params),
   filePath: (file) => webUtils.getPathForFile(file),
   events: {

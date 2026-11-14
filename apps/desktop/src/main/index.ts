@@ -1,8 +1,11 @@
 import { app, BrowserWindow, ipcMain, Menu, shell, type MenuItemConstructorOptions } from "electron";
 import { leaseRendererDocument } from "./clientLeases.ts";
 import { join } from "node:path";
+import { DEFAULT_PREFERENCES } from "../shared/rpc-schema.ts";
 import type { HostRequestName, HostRequests } from "../shared/rpc-schema.ts";
 import { installDiagnostics, recordRendererCrash, recordRendererLog } from "./diagnostics.ts";
+import { bindWindowMaterial, hasWindowMaterial } from "./windowMaterial.ts";
+import { loadState } from "./state.ts";
 type Host = typeof import("./ipc.ts");
 let host: Host | undefined;
 let hostPromise: Promise<Host> | undefined;
@@ -66,7 +69,14 @@ app.on("second-instance", () => {
   win.show();
   win.focus();
 });
-function createWindow(): void {
+let creatingWindow: Promise<void> | undefined;
+function createWindow(): Promise<void> {
+  // A second launch can arrive while the saved appearance is being read.
+  return creatingWindow ??= createMainWindow().finally(() => { creatingWindow = undefined; });
+}
+async function createMainWindow(): Promise<void> {
+  // Still open the renderer if state is unreadable so its recovery UI can explain it.
+  const { preferences } = await loadState().catch(() => ({ preferences: DEFAULT_PREFERENCES }));
   const isMac = process.platform === "darwin";
   const win = new BrowserWindow({
     title: "NativePi",
@@ -82,13 +92,17 @@ function createWindow(): void {
     titleBarStyle: isMac ? "hiddenInset" : "hidden",
     trafficLightPosition: isMac ? { x: 16, y: 17 } : undefined,
     backgroundColor: "#141414",
+    transparent: isMac,
+    visualEffectState: isMac ? "followWindow" : undefined,
     webPreferences: {
       preload: join(mainDir, "../preload/index.cjs"),
+      additionalArguments: hasWindowMaterial ? ["--nativepi-window-material"] : [],
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
     },
   });
+  bindWindowMaterial(win, preferences);
   // Let the renderer's saved interface scale handle these keys. Electron's
   // default View menu otherwise consumes them and applies a second page zoom.
   win.webContents.on("before-input-event", (_event, input) => {
@@ -181,8 +195,8 @@ function createWindow(): void {
     void win.loadFile(join(mainDir, "../renderer/index.html"));
   }
 }
-app.whenReady().then(() => {
-  createWindow();
+app.whenReady().then(async () => {
+  await createWindow();
   void loadHost().then((loaded) => {
     loaded.setMainWindow(BrowserWindow.getAllWindows()[0] ?? null);
     loaded.initializeHost();

@@ -1,3 +1,4 @@
+import { updateWindowMaterial } from "./windowMaterial.ts";
 import type { ChatTitleCatalog } from "../shared/chat-title.ts";
 import { serviceTierStateSchema } from "../shared/service-tier.ts";
 import { readProjectDiffPreview } from "./diffPreview.ts";
@@ -752,6 +753,7 @@ const handlers: HandlerMap = {
   loadState: () => loadState(),
   saveState: async ({ state }) => {
     await saveState(state);
+    updateWindowMaterial(state.preferences);
     for (const pi of new Set([...pis.values(), ...draftPis.values(), ...startingPis.values()])) {
       if (pi.isAvailable) {
         pi.sendFrame({ type: "nativepi_tui_prompt_suggestions", enabled: state.preferences.promptSuggestions });

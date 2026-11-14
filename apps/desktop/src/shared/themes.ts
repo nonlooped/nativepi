@@ -79,7 +79,7 @@ export interface BuiltInTheme {
 export const BUILT_IN_THEMES: BuiltInTheme[] = [
   {
     id: NATIVE_THEME_ID,
-    description: "Soft neutral",
+    description: "Frosted glass",
     theme: {
       version: 1,
       name: "NativePi",
@@ -484,4 +484,10 @@ export function builtInTheme(id: string): BuiltInTheme | undefined {
 export function themeFile(theme: CustomTheme): ThemeFile {
   const { id: _id, ...portable } = theme;
   return portable;
+}
+
+/** Unknown and removed schemes use NativePi's material as well as its colors. */
+export function usesNativeGlass(preferences: { themeId: string; customThemes: readonly CustomTheme[] }): boolean {
+  return !preferences.customThemes.some(theme => theme.id === preferences.themeId)
+    && (!builtInTheme(preferences.themeId) || preferences.themeId === NATIVE_THEME_ID);
 }

@@ -15,6 +15,8 @@ test("compact layout choices save their values and cannot be deselected", async 
   document.body.append(container);
   root = createRoot(container);
   await act(async () => { root.render(<AppearanceSettings />); });
+  expect(container.textContent).toContain("Glass background");
+  expect(container.querySelector('[aria-label="Backgrounds"]')).toBeNull();
   const choice = (name: string) => [...container.querySelectorAll("button")].find(button => button.textContent === name)!;
   await act(async () => { choice("Full").click(); });
   expect(useAppStore.getState().preferences.conversationWidth).toBe("full");
@@ -24,4 +26,6 @@ test("compact layout choices save their values and cannot be deselected", async 
   expect(useAppStore.getState().preferences.diffStyle).toBe("split");
   await act(async () => { choice("Unified").click(); });
   expect(useAppStore.getState().preferences.diffStyle).toBe("unified");
+  await act(() => useAppStore.setState({ preferences: { ...DEFAULT_PREFERENCES, themeId: "paper" } }));
+  expect(container.querySelector('[aria-label="Backgrounds"]')).not.toBeNull();
 });
