@@ -4,21 +4,18 @@ import { Collapsible } from "@base-ui/react/collapsible";
 import { ArrowDownIcon } from "@phosphor-icons/react/ArrowDown";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
 import { CheckIcon } from "@phosphor-icons/react/Check";
-import { CircleIcon } from "@phosphor-icons/react/Circle";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
-import { WarningIcon } from "@phosphor-icons/react/Warning";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { WrenchIcon } from "@phosphor-icons/react/Wrench";
 import { toast } from "sonner";
 import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
 import { displayPrompt, imagesOf, isUser, textOf } from "../../shared/messages.ts";
-import { hasPendingGraphicalTool, toolArgSummary, toolResultsById } from "../lib/transcript.ts";
+import { groupWork, toolGroupLabel, hasPendingGraphicalTool, toolArgSummary, toolResultsById } from "../lib/transcript.ts";
 import { diffPatchFor, fileDir, fileName, turnChanges, type FileChange } from "../lib/changes.ts";
 import { formatDuration, formatElapsed, pluralize } from "../lib/format.ts";
-import { useReducedMotion } from "../lib/motion.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { projectRelativePath } from "../lib/paths.ts";
 import { threadHref } from "../lib/markdownReferences.ts";
@@ -390,7 +387,7 @@ function UserBubble({
   );
 }
 
-function AssistantResponse({
+export function AssistantResponse({
   entryId,
   messages,
   results,
@@ -428,11 +425,7 @@ function AssistantResponse({
   const keepWorkMounted = hasPendingGraphicalTool(work, results, graphicalToolNames);
   const startedAtMs = startedAt ? Date.parse(startedAt) : Number.NaN;
   const elapsed = useElapsed(streaming && Number.isFinite(startedAtMs) ? startedAtMs : null);
-  const [workOpen, setWorkOpen] = useState(false);
-  // A panel the reader opened for themselves is theirs to close. Without this,
-  // the end of the turn shut the work section under anyone who had expanded it
-  // to watch a tool run — which is the moment they most wanted it open.
-  const openedByReader = useRef(false);
+  const [workOpen, setWorkOpen] = useState(streaming);
   const responseRef = useRef<HTMLElement>(null);
   const changes = useMemo(() => turnChanges(messages, results), [messages, results]);
   // `ctx.ui.setToolsExpanded()` is Pi's control over whether tool output shows
@@ -448,12 +441,12 @@ function AssistantResponse({
   useEffect(() => {
     if (lastToolsExpanded.current === toolsExpanded) return;
     lastToolsExpanded.current = toolsExpanded;
-    openedByReader.current = false;
     setWorkOpen(toolsExpanded);
   }, [toolsExpanded]);
   useEffect(() => {
-    if (!streaming && !openedByReader.current) setWorkOpen(false);
+    setWorkOpen(streaming);
   }, [streaming]);
+  const groupedWork = groupWork(work, graphicalToolNames);
   let error: string | undefined;
   for (const message of messages) {
     if (message.errorMessage) error = message.errorMessage;
@@ -462,21 +455,20 @@ function AssistantResponse({
   const article = (
     <article id={`entry-${entryId}`} ref={responseRef} className="group/message flex flex-col gap-3 text-reading" aria-busy={streaming || undefined}>
       <span className="sr-only">Assistant:</span>
-      {work.length > 0 ? (
+      {work.length > 0 || error ? (
         <Collapsible.Root
           open={workOpen}
-          onOpenChange={(open) => {
-            openedByReader.current = open;
-            setWorkOpen(open);
-          }}
+          onOpenChange={setWorkOpen}
         >
-          <Collapsible.Trigger className="group flex w-full items-center gap-2 rounded-sm py-1 text-xs text-muted-foreground tabular-nums outline-none transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+          <Collapsible.Trigger className="group flex w-fit items-center gap-1.5 rounded-sm py-1 text-xs text-muted-foreground tabular-nums outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
             <span>{streaming ? (elapsed ? `Working · ${elapsed}` : "Working") : `Worked for ${formatDuration(startedAt, finishedAt)}`}</span>
             <CaretRightIcon className="transition-transform group-data-[panel-open]:rotate-90" />
-            <span aria-hidden="true" className="h-px flex-1 bg-border/60 transition-colors group-hover:bg-border" />
           </Collapsible.Trigger>
-          <Collapsible.Panel keepMounted={keepWorkMounted} className="mt-2.5 flex flex-col gap-2 pb-2">
-            {work.map((block, i) => {
+          <Collapsible.Panel keepMounted={keepWorkMounted} className="transcript-work mt-2 flex flex-col gap-2 pb-1">
+            {groupedWork.map(group => {
+              const i = group.index;
+              if (group.type === "tools") return <ToolCallGroup key={group.calls[0].id} calls={group.calls} results={results} />;
+              const block = group.block;
               if (block.type === "text") {
                 return (
                   <Markdown
@@ -499,18 +491,20 @@ function AssistantResponse({
                   );
                 }
                 return (
-                  <Markdown
-                    key={i}
-                    className="text-xs text-muted-foreground"
-                    streaming={workIsStreaming && i === work.length - 1}
-                  >
-                    {block.thinking}
-                  </Markdown>
+                  <Collapsible.Root key={i}>
+                    <Collapsible.Trigger className="transcript-activity-row group">
+                      <span>Thinking</span><CaretRightIcon className="size-3 group-data-[panel-open]:rotate-90" />
+                    </Collapsible.Trigger>
+                    <Collapsible.Panel className="pl-5 pt-1">
+                      <Markdown className="text-xs text-muted-foreground" streaming={workIsStreaming && i === work.length - 1}>{block.thinking}</Markdown>
+                    </Collapsible.Panel>
+                  </Collapsible.Root>
                 );
               }
               const result = results.get(block.id);
               return <ToolCallView key={i} call={block} result={result} />;
             })}
+            {error ? <p className="whitespace-pre-wrap text-xs text-muted-foreground">{error}</p> : null}
           </Collapsible.Panel>
         </Collapsible.Root>
       ) : null}
@@ -520,12 +514,6 @@ function AssistantResponse({
         </div>
       ) : null}
       {changes.files.length > 0 ? <ChangeStrip changes={changes} /> : null}
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          <WarningIcon />
-          {error}
-        </div>
-      )}
       {!streaming && finishedAt && finalText ? <MessageActions text={finalText} timestamp={finishedAt} /> : null}
     </article>
   );
@@ -548,7 +536,6 @@ function AssistantResponse({
           {work.length > 0 ? (
             <ContextMenuItem
               onClick={() => {
-                openedByReader.current = !workOpen;
                 setWorkOpen(!workOpen);
               }}
             >
@@ -568,14 +555,13 @@ function ChangeStrip({ changes }: { changes: ReturnType<typeof turnChanges> }) {
   const hasDelta = changes.added > 0 || changes.removed > 0;
 
   return (
-    <section
-      aria-label="Files changed in this turn"
-      className="overflow-hidden rounded-lg bg-card/40 p-1"
-    >
-      <h3 className="flex items-center gap-2 px-2 py-1.5 text-xs font-medium">
+    <Collapsible.Root aria-label="Files changed in this turn" className="min-w-0">
+      <Collapsible.Trigger className="transcript-activity-row group">
         {pluralize(changes.files.length, "file")} changed
         {hasDelta ? <LineDelta added={changes.added} removed={changes.removed} /> : null}
-      </h3>
+        <CaretRightIcon className="size-3 group-data-[panel-open]:rotate-90" />
+      </Collapsible.Trigger>
+      <Collapsible.Panel>
       <ul className="flex flex-col gap-0.5">
         {changes.files.map((file) => (
           <li key={file.path} className={cn("overflow-hidden rounded-md", open === file.path && "bg-background/45")}>
@@ -583,7 +569,8 @@ function ChangeStrip({ changes }: { changes: ReturnType<typeof turnChanges> }) {
           </li>
         ))}
       </ul>
-    </section>
+      </Collapsible.Panel>
+    </Collapsible.Root>
   );
 }
 
@@ -612,14 +599,14 @@ function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; 
         aria-expanded={open}
         disabled={!file.patch}
         title={file.path}
-        className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:cursor-default disabled:hover:bg-transparent"
+        className="transcript-activity-row w-full disabled:cursor-default"
       >
         <CaretRightIcon className={cn("shrink-0 text-muted-foreground transition-transform", open && "rotate-90", !file.patch && "invisible")} />
         <FileTypeIcon path={relativePath} className={cn(file.failed && "opacity-50 grayscale")} />
         <span className="min-w-0 truncate font-medium">{fileName(relativePath)}</span>
         {directory ? <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{directory}</span> : <span className="flex-1" />}
         {file.failed ? (
-          <span className="shrink-0 rounded-sm bg-destructive/15 px-1.5 py-0.5 font-medium text-destructive">Failed</span>
+          <span className="shrink-0 text-muted-foreground">No change</span>
         ) : hasDelta ? (
           <LineDelta added={file.added} removed={file.removed} className="shrink-0" />
         ) : null}
@@ -671,19 +658,36 @@ function MessageActions({ text, timestamp }: { text: string; timestamp: string }
   );
 }
 
+function useToolDisclosure() {
+  const expanded = useAppStore(s => s.extUiState.toolsExpanded);
+  const [open, setOpen] = useState(expanded);
+  useEffect(() => { setOpen(expanded); }, [expanded]);
+  return [open, setOpen] as const;
+}
+
+function ToolCallGroup({ calls, results }: { calls: ToolCall[]; results: Map<string, ToolResultMessage> }) {
+  const [open, setOpen] = useToolDisclosure();
+  if (calls.length === 1) return <ToolCallView call={calls[0]} result={results.get(calls[0].id)} />;
+  const running = calls.some(call => !results.has(call.id));
+  return <Collapsible.Root className="min-w-0" open={open} onOpenChange={setOpen}>
+    <Collapsible.Trigger className="transcript-activity-row group">
+      {calls.every(call => call.name === "bash") ? <TerminalWindowIcon className="size-3.5" /> : <WrenchIcon className="size-3.5" />}
+      <span>{toolGroupLabel(calls, running)}</span>
+      <CaretRightIcon className="size-3 group-data-[panel-open]:rotate-90" />
+    </Collapsible.Trigger>
+    <Collapsible.Panel className="flex min-w-0 flex-col pl-5 pt-1">
+      {calls.map(call => <ToolCallView key={call.id} call={call} result={results.get(call.id)} />)}
+    </Collapsible.Panel>
+  </Collapsible.Root>;
+}
+
 function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMessage }) {
   const hasExtRenderer = useHasToolRenderer(call.name);
-  const reduced = useReducedMotion();
   const summary = toolArgSummary(call.name, call.arguments);
   const output = result ? textOf(result.content) : "";
-  const running = !result;
   const failed = !!result?.isError;
   const diffPatch = diffPatchFor(call, result);
-  const [open, setOpen] = useState(!!diffPatch);
-
-  useEffect(() => {
-    if (result && diffPatch) setOpen(true);
-  }, [result, diffPatch]);
+  const [open, setOpen] = useToolDisclosure();
 
   if (hasExtRenderer) return <ExtensionToolResult call={call} result={result} />;
 
@@ -698,55 +702,26 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
 
   const errorOutput = output || "The tool reported an error with no output.";
   const panel = failed ? (
-    <pre className="max-h-72 overflow-auto border-t border-border/50 bg-background/30 px-3 py-2.5 font-mono text-xs leading-5 whitespace-pre-wrap text-body-muted-foreground">
+    <pre className="max-h-72 overflow-auto pl-5 py-2 font-mono text-xs leading-5 whitespace-pre-wrap text-body-muted-foreground">
       {errorOutput}
     </pre>
   ) : diffPatch ? (
-    <div className="border-t border-border/50 bg-background/30">
+    <div className="min-w-0 pl-5 py-1">
       <Suspense fallback={null}>
         <DiffView embedded patch={diffPatch} className="py-1.5" />
       </Suspense>
     </div>
   ) : output ? (
-    <pre className="max-h-72 overflow-auto border-t border-border/50 bg-background/30 px-3 py-2.5 font-mono text-xs leading-5 whitespace-pre-wrap text-body-muted-foreground">
+    <pre className="max-h-72 overflow-auto pl-5 py-2 font-mono text-xs leading-5 whitespace-pre-wrap text-body-muted-foreground">
       {output}
     </pre>
   ) : null;
 
   const header = (
     <>
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/70 text-muted-foreground">
-        {path ? (
-          <FileTypeIcon path={path} size={16} className={cn(failed && "opacity-60 grayscale")} />
-        ) : call.name === "bash" ? (
-          <TerminalWindowIcon className="size-4" />
-        ) : (
-          <WrenchIcon className="size-4" />
-        )}
-      </span>
-      <span className="shrink-0 font-mono font-medium text-foreground">{call.name}</span>
-      {summary ? (
-        <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{summary}</span>
-      ) : (
-        <span className="flex-1" />
-      )}
-      {running ? (
-        <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
-          {/* The word carries the state; the motion only reinforces it, so
-              removing the motion loses nothing. */}
-          {reduced ? <CircleIcon weight="fill" /> : <CircleNotchIcon className="animate-spin" />}
-          Running
-        </span>
-      ) : failed ? (
-        <span className="shrink-0 font-medium text-destructive">Failed</span>
-      ) : (
-        <span className="shrink-0 text-success" aria-label="Completed" title="Completed">
-          <CheckIcon />
-        </span>
-      )}
-      {panel ? (
-        <CaretRightIcon className="shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-90" />
-      ) : null}
+      {path ? <FileTypeIcon path={path} size={14} /> : call.name === "bash" ? <TerminalWindowIcon className="size-3.5 shrink-0" /> : <WrenchIcon className="size-3.5 shrink-0" />}
+      <span className="min-w-0 flex-1 truncate">{summary || call.name}</span>
+      {panel ? <CaretRightIcon className="size-3 shrink-0 group-data-[panel-open]:rotate-90" /> : null}
     </>
   );
 
@@ -754,18 +729,18 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
     <Collapsible.Root
       open={open}
       onOpenChange={setOpen}
-      className="overflow-hidden rounded-lg bg-card/40 transition-colors data-[panel-open]:bg-card/70"
+      className="min-w-0"
     >
       <Collapsible.Trigger
-        className="group flex min-h-10 w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-xs outline-none transition-colors hover:bg-muted/35 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        className="transcript-activity-row group w-full"
       >
         {header}
       </Collapsible.Trigger>
       <Collapsible.Panel className="disclosure-panel">{panel}</Collapsible.Panel>
     </Collapsible.Root>
   ) : (
-    <div className="rounded-lg bg-card/50">
-      <div className="flex min-h-10 items-center gap-2.5 px-2.5 py-1.5 text-xs">{header}</div>
+    <div>
+      <div className="transcript-activity-row">{header}</div>
     </div>
   );
 

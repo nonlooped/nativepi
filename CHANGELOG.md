@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Quiet the transcript work area with compact grouped tool calls, optional thinking and output, subdued Markdown code/table chrome, and collapsed file-change details. Keep work expanded during a run and collapse it on completion; retain tool failures inside their output.
 - Use compact headings above full-width provider lists in Settings, with tighter provider rows.
 - Redesign Settings with compact navigation, unboxed sections, aligned controls, and combined appearance and layout preferences. Move Chat extension controls to Extensions and load settings pages eagerly, preparing local Pi configuration at startup.
 

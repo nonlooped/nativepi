@@ -123,3 +123,19 @@ test("pending graphical tools stay mounted while the work panel is collapsed", (
   expect(hasPendingGraphicalTool(work, new Map([["ask-1", {}]]), new Set(["ask_user"]))).toBe(false);
   expect(hasPendingGraphicalTool(work, new Map(), new Set(["other_tool"]))).toBe(false);
 });
+
+test("work groups consecutive tools without crossing commentary, thinking or extension UI", async () => {
+  const { groupWork, toolGroupLabel } = await import("./transcript.ts");
+  const call = (id: string, name = "bash") => ({ type: "toolCall" as const, id, name, arguments: {} });
+  const work = [call("1"), call("2"), { type: "text" as const, text: "Next step" }, call("3", "read"),
+    call("ask", "ask_user"), call("4"), { type: "thinking" as const, thinking: "Think" }, call("5")];
+  const groups = groupWork(work, new Set(["ask_user"]));
+  expect(groups.map(group => group.type === "tools" ? group.calls.map(call => call.id) : group.block.type)).toEqual([
+    ["1", "2"], "text", ["3"], "toolCall", ["4"], "thinking", ["5"],
+  ]);
+  expect(groups.map(group => group.index)).toEqual([0, 2, 3, 4, 5, 6, 7]);
+  expect(toolGroupLabel([call("1"), call("2")], false)).toBe("Ran 2 commands");
+  expect(toolGroupLabel([call("1"), call("2")], true)).toBe("Running 2 commands");
+  expect(toolGroupLabel([call("1", "read"), call("2", "read")], false)).toBe("Read 2 files");
+  expect(toolGroupLabel([call("1"), call("2", "read")], false)).toBe("Used 2 tools");
+});
