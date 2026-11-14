@@ -150,3 +150,48 @@ for (const navigation of ["a-b-a", "new-draft", "unmount", "typing", "same"]) do
   await act(async () => { finish({ edit: { lines: ["accepted"], cursorLine: 0, cursorCol: 8 } }); await delay(); });
   expect(changes.includes("accepted")).toBe(navigation === "same");
 });
+
+for (const key of ["Tab", "Escape", "Enter", "Shift+Tab", "IME+Tab", "Ctrl+Tab"]) domTest(`prompt suggestion handles ${key} without sending it`, async () => {
+  mount(); stubInvoke(async () => ({}));
+  const changes: string[] = [];
+  let submits = 0;
+  let dismisses = 0;
+  await act(async () => root!.render(<ComposerInput value="" suggestion="Add regression coverage" onDismissSuggestion={() => dismisses++}
+    onChange={value => changes.push(value)} onSubmit={() => submits++} onAttach={() => {}} projectPath="/project" placeholder="Message" disabled={false} />));
+  const editor = container.querySelector<HTMLElement>('[data-composer-input]')!;
+  expect(editor.textContent).toBe("");
+  expect(container.textContent).toContain("Add regression coverage");
+  const event = new KeyboardEvent("keydown", { key: key.split("+").at(-1), shiftKey: key.startsWith("Shift"), ctrlKey: key.startsWith("Ctrl"), isComposing: key.startsWith("IME"), bubbles: true, cancelable: true });
+  await act(async () => { editor.focus(); editor.dispatchEvent(event); });
+  expect(changes).toEqual(key === "Tab" ? ["Add regression coverage"] : []);
+  expect(dismisses).toBe(key === "Tab" || key === "Escape" ? 1 : 0);
+  expect(submits).toBe(key === "Enter" ? 1 : 0);
+  expect(event.defaultPrevented).toBe(["Tab", "Escape", "Enter"].includes(key));
+});
+
+for (const value of ["My draft", " ", "/"]) domTest(`suggestions never replace an existing draft: ${JSON.stringify(value)}`, async () => {
+  mount(); stubInvoke(async () => ({}));
+  const changes: string[] = [];
+  await act(async () => root!.render(<ComposerInput value={value} suggestion="Predicted reply" onChange={text => changes.push(text)}
+    onSubmit={() => {}} onAttach={() => {}} projectPath="/project" placeholder="Message" disabled={false} />));
+  const editor = container.querySelector<HTMLElement>('[data-composer-input]')!;
+  await act(async () => { editor.focus(); editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })); });
+  expect(changes).toEqual([]);
+  expect(editor.textContent).toBe(value);
+  expect(container.textContent).not.toContain("Predicted reply");
+});
+
+domTest("extension autocomplete takes precedence over a prompt suggestion", async () => {
+  mount();
+  const changes: string[] = [];
+  stubInvoke(async c => c === "tuiComplete" ? { completions: { prefix: "!", items: [{ value: "extension", label: "Extension" }] } }
+    : c === "tuiApply" ? { edit: { lines: ["extension"], cursorLine: 0, cursorCol: 9 } } : {});
+  await act(async () => root!.render(<ComposerInput value="!" suggestion="Predicted reply" onChange={value => changes.push(value)}
+    onSubmit={() => {}} onAttach={() => {}} projectPath="/project" placeholder="Message" disabled={false} />));
+  const editor = container.querySelector<HTMLElement>('[data-composer-input]')!;
+  await act(async () => { editor.focus(); caretToEnd(editor); document.dispatchEvent(new Event("selectionchange")); });
+  await act(async () => delay(150));
+  expect(container.querySelector('[role="listbox"]')).not.toBeNull();
+  await act(async () => { editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })); await delay(); });
+  expect(changes).toEqual(["extension"]);
+});

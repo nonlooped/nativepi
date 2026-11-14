@@ -1,5 +1,6 @@
 import { excludeRetiredPackages } from "./retiredPackages.ts";
 import { readServiceTier, setServiceTier, SERVICE_TIER_ENTRY, installServiceTier } from "./serviceTier.ts";
+import { observePromptSuggestion } from "./promptSuggestion.ts";
 import { observeChatTitle } from "./chatTitle.ts";
 import { createFrameWriter } from "./frameWriter.ts";
 import { fileURLToPath } from "node:url";
@@ -58,6 +59,8 @@ let lastEditorFrame: TuiClientFrame | undefined;
 * whose `modelRuntime` is the only runtime that has run extension `activate()`.
 */
 let currentSession: AgentSession | undefined;
+let promptSuggestionsEnabled = false;
+let promptSuggestions: ReturnType<typeof observePromptSuggestion> | undefined;
 let stopTitleObserver: (() => void) | undefined;
 let stopServiceTier: (() => void) | undefined;
 let stopTierEvents: (() => void) | undefined;
@@ -75,6 +78,11 @@ function providerRuntime(): Promise<ModelRuntime> {
   return runtimePromise;
 }
 function handleClientFrame(frame: TuiClientFrame): void {
+  if (frame.type === "nativepi_tui_prompt_suggestions") {
+    promptSuggestionsEnabled = frame.enabled;
+    promptSuggestions?.setEnabled(frame.enabled);
+    return;
+  }
   if (frame.type === "nativepi_tui_get_service_tier" || frame.type === "nativepi_tui_set_service_tier") {
     try {
       if (!currentSession) throw new Error("No active Pi session");
@@ -260,6 +268,8 @@ function installUiContext(): void {
   const dispose = AgentSession.prototype.dispose;
   AgentSession.prototype.dispose = function () {
     if (currentSession === this) {
+      promptSuggestions?.dispose();
+      promptSuggestions = undefined;
       stopTitleObserver?.();
       stopTitleObserver = undefined;
       stopTierEvents?.();
@@ -276,6 +286,11 @@ function installUiContext(): void {
   }) {
     // A rebind replaces the context, so the panes the old one opened have to be
     // closed: their components belong to a session that no longer exists.
+    promptSuggestions?.dispose();
+    promptSuggestions = process.argv.includes("--no-session") ? undefined : observePromptSuggestion(this, suggestion => {
+      send({ type: "nativepi_tui_prompt_suggestion", suggestion });
+    });
+    promptSuggestions?.setEnabled(promptSuggestionsEnabled);
     internals?.dispose();
     internals = undefined;
     if (currentSession !== this) {

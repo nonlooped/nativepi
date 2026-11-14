@@ -4,6 +4,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { draftKeyFor } from "../../shared/messages.ts";
 import { classifyDrop, draggingFiles, mentionPath } from "../lib/drops.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
+import { offeredPromptSuggestion } from "../lib/store/conversation.ts";
 import { rpc } from "../lib/rpc.ts";
 import { chipText, hoistSkill } from "../lib/composerText.ts";
 import { showDropRejected, showHint } from "../lib/toast.tsx";
@@ -27,6 +28,9 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
     activeProjectPath ? (s.drafts[draftKeyFor(activeProjectPath, activeSessionFile)] ?? "") : "",
   );
   const running = useAppStore((s) => activeConversation(s).running);
+  const suggestion = useAppStore((s) => s.preferences.promptSuggestions && s.extPrompts.length === 0
+    ? offeredPromptSuggestion(activeConversation(s)) : null);
+  const dismissSuggestion = useAppStore((s) => s.dismissPromptSuggestion);
   const blocked = useAppStore((s) => activeConversation(s).externalChange !== null);
   const setDraft = useAppStore((s) => s.setDraft);
   const send = useAppStore((s) => s.send);
@@ -177,6 +181,8 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
         ) : null}
         <ComposerAttachments />
         <ComposerInput
+          suggestion={attached === 0 && preparing === 0 ? suggestion : null}
+          onDismissSuggestion={dismissSuggestion}
           value={draft}
           onChange={setDraft}
           onSubmit={submit}

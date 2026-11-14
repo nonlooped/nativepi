@@ -415,6 +415,7 @@ async function acceptChatTitle(projectDir: string, pi: PiProcess, sessionFile: s
   } finally { await finish(); }
 }
 function forwardPiFrame(projectDir: string, pi: PiProcess, frame: TuiHostFrame): void {
+  if (frame.type === "nativepi_tui_prompt_suggestion") flushEventBatch(pi);
   if (frame.type === "nativepi_tui_propose_title") {
     void acceptChatTitle(projectDir, pi, frame.sessionFile, frame.title).catch(error => console.error("Could not name chat", error));
     return;
@@ -613,6 +614,7 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
         draftPis.set(projectDir, pi);
       if (!pi.isAvailable || shuttingDown || restartingAll || restartingProjects.has(projectDir))
         throw new Error("Pi startup was cancelled");
+      pi.sendFrame({ type: "nativepi_tui_prompt_suggestions", enabled: (await loadState()).preferences.promptSuggestions });
       status(projectDir, "ready");
       return pi;
     }
@@ -747,6 +749,9 @@ const handlers: HandlerMap = {
   loadState: () => loadState(),
   saveState: async ({ state }) => {
     await saveState(state);
+    for (const pi of new Set([...pis.values(), ...draftPis.values(), ...startingPis.values()])) {
+      if (pi.isAvailable) pi.sendFrame({ type: "nativepi_tui_prompt_suggestions", enabled: state.preferences.promptSuggestions });
+    }
     return { ok: true };
   },
   listSessions: async ({ projectDir }) => ({ sessions: await listSessions(projectDir) }),

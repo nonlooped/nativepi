@@ -18,6 +18,7 @@ export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
   switch (event.type) {
     case "agent_start":
       return {
+        promptSuggestion: undefined,
         running: true,
         aborted: false,
         error: undefined,
@@ -74,7 +75,7 @@ export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
     case "session_info_changed":
       return { sessionName: (event as { name?: string }).name };
     case "compaction_start":
-      return { compacting: true };
+      return { compacting: true, promptSuggestion: undefined };
     case "compaction_end":
       return { compacting: false };
     case "auto_retry_start": {

@@ -13,6 +13,7 @@ import {
 } from "../lib/composerDom.ts";
 import { registerComposerInserter } from "../lib/composerInsert.ts";
 import { AutocompleteMenu, useComposerAutocomplete } from "./ComposerAutocomplete.tsx";
+import { Kbd } from "./ui/kbd.tsx";
 import { cn } from "@/lib/utils.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { useAppStore } from "../lib/store.ts";
@@ -35,6 +36,8 @@ export default function ComposerInput({
   placeholder,
   disabled,
   autoFocus,
+  suggestion = null,
+  onDismissSuggestion,
 }: {
   value: string;
   onChange: (text: string) => void;
@@ -44,6 +47,8 @@ export default function ComposerInput({
   placeholder: string;
   disabled: boolean;
   autoFocus?: boolean;
+  suggestion?: string | null;
+  onDismissSuggestion?: () => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
   // What this editor last reported. A draft equal to it is our own keystroke
@@ -127,10 +132,28 @@ export default function ComposerInput({
     return () => document.removeEventListener("selectionchange", onSelectionChange);
   }, [sync]);
 
+  const offeredSuggestion = value.length === 0 && !disabled && !complete.open ? suggestion : null;
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     // The open menu owns Enter and the arrows; sending is what Enter means only
     // once there is nothing to insert.
     if (complete.onKeyDown(event)) return;
+    if (offeredSuggestion && !event.nativeEvent.isComposing && event.keyCode !== 229
+      && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onDismissSuggestion?.();
+        return;
+      }
+      if (event.key === "Tab" && serialize(event.currentTarget).length === 0) {
+        event.preventDefault();
+        render(event.currentTarget, offeredSuggestion);
+        emit();
+        caretToEnd(event.currentTarget);
+        onDismissSuggestion?.();
+        return;
+      }
+    }
     if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
     event.preventDefault();
     if (event.shiftKey) {
@@ -144,7 +167,7 @@ export default function ComposerInput({
   };
 
   return (
-    <div className="relative">
+    <div className="relative grid">
       <AutocompleteMenu state={complete} />
       <div
         ref={root}
@@ -179,13 +202,13 @@ export default function ComposerInput({
         // root font size, which an absolute length ignores — the composer was
         // the one piece of text in the window that did not scale with it.
         className={cn(
-          "max-h-56 min-h-16 w-full overflow-y-auto whitespace-pre-wrap break-words px-2.5 py-2 text-composer outline-none",
+          "col-start-1 row-start-1 max-h-56 min-h-16 w-full overflow-y-auto whitespace-pre-wrap break-words px-2.5 py-2 text-composer outline-none",
           disabled && "cursor-not-allowed opacity-50",
         )}
       />
       {value.trim() === "" ? (
-        <p aria-hidden="true" className="pointer-events-none absolute left-2.5 top-2 text-composer text-muted-foreground">
-          {placeholder}
+        <p aria-hidden="true" className="pointer-events-none col-start-1 row-start-1 max-h-56 self-start overflow-hidden break-words px-2.5 py-2 text-composer text-muted-foreground">
+          {offeredSuggestion ? <>{offeredSuggestion} <Kbd className="ml-1 align-middle">Tab</Kbd></> : placeholder}
         </p>
       ) : null}
     </div>

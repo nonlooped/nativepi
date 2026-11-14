@@ -186,6 +186,7 @@ const clamped = (fallback: number, min: number, max: number) => z
   .catch(fallback)
   .pipe(z.transform((value) => Math.min(max, Math.max(min, value))));
 export const preferencesSchema = z.object({
+  promptSuggestions: z.boolean().catch(false),
   notifyOnTurnEnd: z.boolean().catch(true),
   notificationSound: z.boolean().catch(true),
   theme: z.enum(["system", "light", "dark"]).catch("system"),

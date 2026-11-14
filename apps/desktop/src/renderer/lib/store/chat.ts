@@ -412,6 +412,10 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
       return true;
     },
 
+    dismissPromptSuggestion: () => {
+      const { activeProjectPath, activeSessionFile } = get();
+      if (activeProjectPath) patchConversation(set, activeProjectPath, activeSessionFile, { promptSuggestion: undefined });
+    },
     setSendBehavior: (sendBehavior) => set({ sendBehavior }),
 
     setDraft: (text) => {

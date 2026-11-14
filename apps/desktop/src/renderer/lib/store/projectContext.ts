@@ -99,6 +99,13 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
       if (runtimeId && runtime(get).retired.has(runtimeId)) return;
       if (runtimeId) observeRuntime(get, projectDir, sessionFile, runtimeId);
       if (!sessionFile && runtime(get).blockedDrafts.has(projectDir)) return;
+      if (frame.type === "nativepi_tui_prompt_suggestion") {
+        patchConversation(set, projectDir, sessionFile ?? null, { promptSuggestion: frame.suggestion ?? undefined });
+        return;
+      }
+      if (frame.type === "nativepi_tui_reset") {
+        patchConversation(set, projectDir, sessionFile ?? null, { promptSuggestion: undefined });
+      }
       if (projectDir !== get().activeProjectPath || (sessionFile ?? null) !== (get().activeSessionFile ?? null)) return;
       switch (frame.type) {
         case "nativepi_tui_service_tier_changed":

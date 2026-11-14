@@ -209,3 +209,29 @@ test("null in a state patch is a value, not an absence", () => {
   expect(ui.workingMessage).toBeNull();
   expect(ui.workingIndicator).toBeNull();
 });
+
+test("prompt suggestions belong to their session, including background chats", () => {
+  useAppStore.setState({ activeProjectPath: "/b", activeSessionFile: "b", conversations: {} });
+  const store = useAppStore.getState();
+  const suggestion = { text: "Add regression coverage", timestamp: 2 };
+  store.onTuiFrame({ projectDir: "/a", sessionFile: "a", frame: { type: "nativepi_tui_prompt_suggestion", suggestion } });
+  expect(useAppStore.getState().conversations.a?.promptSuggestion).toEqual(suggestion);
+  expect(useAppStore.getState().conversations.b).toBeUndefined();
+  store.onEvent({ projectDir: "/a", sessionFile: "a", event: { type: "agent_start" } });
+  expect(useAppStore.getState().conversations.a?.promptSuggestion).toBeUndefined();
+  store.onTuiFrame({ projectDir: "/a", sessionFile: "a", frame: { type: "nativepi_tui_prompt_suggestion", suggestion } });
+  store.onTuiFrame({ projectDir: "/a", sessionFile: "a", frame: { type: "nativepi_tui_reset" } });
+  expect(useAppStore.getState().conversations.a?.promptSuggestion).toBeUndefined();
+});
+
+test("dismissing a suggestion preserves the draft and other chats", () => {
+  const suggestion = { text: "Add regression coverage", timestamp: 2 };
+  const current = useAppStore.getState().conversations.a!;
+  useAppStore.setState({ activeProjectPath: "/a", activeSessionFile: "a", drafts: { a: "My draft" }, conversations: {
+    a: { ...current, promptSuggestion: suggestion }, b: { ...current, sessionFile: "b", promptSuggestion: suggestion },
+  } });
+  useAppStore.getState().dismissPromptSuggestion();
+  expect(useAppStore.getState().conversations.a?.promptSuggestion).toBeUndefined();
+  expect(useAppStore.getState().conversations.b?.promptSuggestion).toEqual(suggestion);
+  expect(useAppStore.getState().drafts.a).toBe("My draft");
+});

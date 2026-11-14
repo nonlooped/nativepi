@@ -1,3 +1,4 @@
+import { isAssistant } from "../../../shared/messages.ts";
 import type { AppState, Conversation, SetState } from "./types.ts";
 
 /**
@@ -61,4 +62,15 @@ export function patchConversation(
     const resolved = typeof patch === "function" ? patch(current) : patch;
     return { conversations: { ...s.conversations, [key]: mergeConversation(current, resolved) } };
   });
+}
+
+/** A prediction belongs only to the completed answer it was generated from. */
+export function offeredPromptSuggestion(conversation: Conversation): string | null {
+  const predicted = conversation.promptSuggestion;
+  if (!predicted || conversation.running || conversation.compacting || conversation.externalChange
+    || conversation.aborted || conversation.error || conversation.pending.length > 0
+    || conversation.queue.steering.length > 0 || conversation.queue.followUp.length > 0) return null;
+  const last = conversation.entries.findLast(entry => entry.type === "message");
+  return last?.type === "message" && isAssistant(last.message) && last.message.timestamp === predicted.timestamp
+    ? predicted.text : null;
 }

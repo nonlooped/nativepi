@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Optional next-message suggestions in the empty composer after Pi finishes, with Tab to accept and Escape to dismiss.
+
 ### Changed
 - Curate nine color schemes with a brighter neutral Paper option, quieter dark text, distinct ink-blue and warm palettes, and previews showing text, diffs, and actions in both appearances. Retired Cobalt and Slate selections fall back to NativePi.
 - Keep the transcript position steady when sending a prompt.

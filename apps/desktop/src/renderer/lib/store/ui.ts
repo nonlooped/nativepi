@@ -66,7 +66,12 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   },
 
   setPreference: (key, value) => {
-    set((s) => ({ preferences: { ...s.preferences, [key]: value } }));
+    set((s) => ({
+      preferences: { ...s.preferences, [key]: value },
+      ...(key === "promptSuggestions" && !value ? {
+        conversations: Object.fromEntries(Object.entries(s.conversations).map(([file, conversation]) => [file, { ...conversation, promptSuggestion: undefined }])),
+      } : {}),
+    }));
     persist(get);
   },
 

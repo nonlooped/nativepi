@@ -28,7 +28,7 @@ mock.module("node:fs/promises", () => ({ ...fs, stat: async (...args) => {
 } }));
 
 mock.module("electron", () => ({
-app: { getPath: () => tmpdir() }, BrowserWindow: class {},
+app: { getPath: () => root }, BrowserWindow: class {},
 dialog: {}, shell: {}, powerSaveBlocker: {},
 }));
 mock.module("electron-updater", () => ({ default: { autoUpdater: {} } }));
@@ -53,6 +53,7 @@ proc.stdin = new Writable({ write(chunk, _encoding, done) {
  proc.sessionFile = command.sessionPath;
  data = { cancelled: false };
  }
+ if (command.type === "nativepi_tui_prompt_suggestions") proc.promptSuggestions = command.enabled;
  if (command.type === "get_state") data = { sessionFile: proc.sessionFile };
  if (command.type === "set_thinking_level") proc.thinkingLevel = command.level;
  if (command.type === "set_model") {
@@ -88,6 +89,15 @@ assert.equal((await request("setModel", { ...b, provider: "provider-b", modelId:
 assert.equal((await request("submit", { ...b, message: "work in B" })).ok, true);
 const second = processes.find((proc) => proc.sessionFile === b.sessionFile);
 assert.notEqual(first.model, second.model);
+assert.equal(first.promptSuggestions, false);
+const { nativePiStateSchema } = await import(${JSON.stringify(new URL("../shared/rpc-schema.ts", import.meta.url).href)});
+await request("saveState", { state: nativePiStateSchema.parse({ preferences: { promptSuggestions: true } }) });
+assert.equal(first.promptSuggestions, true);
+assert.equal(second.promptSuggestions, true);
+await request("saveState", { state: nativePiStateSchema.parse({ preferences: { promptSuggestions: false } }) });
+assert.equal(first.promptSuggestions, false);
+assert.equal(second.promptSuggestions, false);
+
 now += 10_000;
 await request("ensurePi", a);
 assert.equal(second.killed, false, "switching back must keep B alive too");

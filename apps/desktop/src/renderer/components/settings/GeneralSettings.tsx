@@ -5,11 +5,20 @@ export default function GeneralSettings() {
   const reopenLastProject = useAppStore((s) => s.reopenLastProject);
   const setReopenLastProject = useAppStore((s) => s.setReopenLastProject);
   const notifyOnTurnEnd = useAppStore((s) => s.preferences.notifyOnTurnEnd);
+  const promptSuggestions = useAppStore((s) => s.preferences.promptSuggestions);
   const notificationSound = useAppStore((s) => s.preferences.notificationSound);
   const setPreference = useAppStore((s) => s.setPreference);
 
   return (
     <div className="flex flex-col gap-8">
+      <SettingsSection heading="Composer">
+        <SwitchRow
+          label="Suggest next message"
+          description="Offer a short reply after Pi finishes. Uses an extra request to your current model. Press Tab to accept or Escape to dismiss."
+          checked={promptSuggestions}
+          onChange={(value) => setPreference("promptSuggestions", value)}
+        />
+      </SettingsSection>
       <SettingsSection heading="Notifications">
         <SwitchRow
           label="Notify when a turn finishes"

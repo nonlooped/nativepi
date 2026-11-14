@@ -142,6 +142,7 @@ export interface Conversation {
   entries: SessionEntry[];
   streaming: AssistantMessage | null;
   running: boolean;
+  promptSuggestion?: { text: string; timestamp: number };
   aborted: boolean;
   runStartedAt: number | null;
   compacting: boolean;
@@ -203,6 +204,7 @@ export interface ChatSlice {
   insertIntoComposer: (text: string) => void;
   attach: (files: File[]) => Promise<void>;
   detach: (id: string) => void;
+  dismissPromptSuggestion: () => void;
   setSendBehavior: (behavior: "steer" | "followUp") => void;
   send: () => Promise<void>;
   enqueue: (behavior: "steer" | "followUp") => Promise<void>;
