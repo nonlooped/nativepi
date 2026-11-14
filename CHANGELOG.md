@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace the top-left wordmark with back/forward chat navigation and move NativePi branding into the new-chat view.
 
 ### Fixed
+- Fix an Electron startup crash caused by a duplicate `require` declaration in the main bundle.
 - Keep back and forward navigation enabled states current in both expanded and collapsed sidebar layouts.
 
 ## [1.18.0] - 2026-11-14
