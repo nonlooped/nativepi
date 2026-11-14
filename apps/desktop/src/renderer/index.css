@@ -731,7 +731,7 @@ html:not(.dark) .composer-surface:focus-within {
   margin: 0;
   overflow: auto;
   padding: 0.875rem 1rem;
-  background: color-mix(in oklch, var(--background) 45%, transparent);
+  background: transparent;
   font-family: var(--font-mono);
   font-size: 0.75rem;
   line-height: 1.6666666667;

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Make Markdown code and diagram-error block backgrounds transparent.
 - Reclaim inactive Pi hosts across projects while preserving active viewers, agent runs, pending requests, and live extension UI.
 - Reuse revision-validated chat listings and update sidebar summaries from live Pi events instead of rescanning history after each turn.
 - Defer older transcript content until it approaches the viewport, keeping link targets, pending graphical tools, and Select All available immediately.
