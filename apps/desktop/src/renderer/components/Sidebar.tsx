@@ -1,3 +1,4 @@
+import ChatAttention from "./ChatAttention.tsx";
 import { DelegateRows } from "./ThreadActivity.tsx";
 import { transitionView } from "../lib/viewTransition.ts";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -459,10 +460,7 @@ function FocusChatRow({
           >
             <span className="flex min-w-0 items-center gap-2">
               <span className="min-w-0 flex-1 truncate text-sm leading-5" title={chatTitle(chat.session)}>{chatTitle(chat.session)}</span>
-              <span className={cn("inline-flex shrink-0 items-center gap-1 text-xs font-normal tabular-nums", chat.running ? "text-active" : "text-muted-foreground")} role={chat.running ? "status" : undefined}>
-                {chat.running ? <><CircleNotchIcon className="size-3 animate-spin" />Working </> : null}
-                {timeAgo(chat.session.modified, now)}
-              </span>
+              <ChatAttention file={chat.session.path} fallback={timeAgo(chat.session.modified, now)} />
             </span>
             <span className="flex min-w-0 items-center gap-2 text-xs font-normal text-muted-foreground">
               <ProjectIcon name={chat.project.name} src={chat.presentation?.icon} />
@@ -675,7 +673,7 @@ function ChatContents(props: SidebarProps) {
     return <SessionMenu key={session.path} projectPath={root!} session={session} selected={active === session.path} running={conversations[session.path]?.running ?? false} pinned={false}>
       <DropdownMenu>
         <div className="group relative flex w-full min-w-0 items-center">
-          <Button variant={active === session.path ? "secondary" : "ghost"} title={chatTitle(session)} className={cn(SIDEBAR_CHAT_ROW, active === session.path && "bg-sidebar-accent font-medium text-sidebar-accent-foreground")} onClick={() => { void useAppStore.getState().selectChat(session.path, root!); if (overlay) onClose(); }}><span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-sm leading-5">{chatTitle(session)}</span><span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{conversations[session.path]?.running ? <span className="inline-flex items-center gap-1 text-active"><CircleNotchIcon className="size-3 animate-spin" />Working</span> : timeAgo(session.modified, now)}</span></span>{preview || session.providers[0] ? <span className="flex min-w-0 items-center gap-2 text-xs font-normal text-muted-foreground"><span className="min-w-0 flex-1 truncate text-body-muted-foreground">{preview}</span>{session.providers[0] ? <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground/60 group-hover:opacity-0 group-focus-within:opacity-0" title={`Model provider: ${session.providers[0]}`}><BrandIcon name={providerIconName(session.providers[0])} size={14} /></span> : null}</span> : null}</Button>
+          <Button variant={active === session.path ? "secondary" : "ghost"} title={chatTitle(session)} className={cn(SIDEBAR_CHAT_ROW, active === session.path && "bg-sidebar-accent font-medium text-sidebar-accent-foreground")} onClick={() => { void useAppStore.getState().selectChat(session.path, root!); if (overlay) onClose(); }}><span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-sm leading-5">{chatTitle(session)}</span><ChatAttention file={session.path} fallback={timeAgo(session.modified, now)} /></span>{preview || session.providers[0] ? <span className="flex min-w-0 items-center gap-2 text-xs font-normal text-muted-foreground"><span className="min-w-0 flex-1 truncate text-body-muted-foreground">{preview}</span>{session.providers[0] ? <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground/60 group-hover:opacity-0 group-focus-within:opacity-0" title={`Model provider: ${session.providers[0]}`}><BrandIcon name={providerIconName(session.providers[0])} size={14} /></span> : null}</span> : null}</Button>
           <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="absolute right-2 bottom-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Move ${chatTitle(session)}`} />}><FolderIcon /></DropdownMenuTrigger>
         </div>
         <DropdownMenuContent>
