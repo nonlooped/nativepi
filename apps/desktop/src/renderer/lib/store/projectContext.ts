@@ -26,7 +26,7 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
 
     refreshGit: async () => {
       const path = get().activeProjectPath;
-      if (!path || path === get().chatRoot) return;
+      if (!path || path === get().chatRoot || path === get().workRoot) return;
       const version = ++gitRead;
       markGitRefreshed(get);
       let status;

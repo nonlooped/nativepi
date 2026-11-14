@@ -98,6 +98,7 @@ export interface AuthFlow {
 export interface WorkspaceSlice {
   destination: "chat" | "work";
   chatRoot: string | null;
+  workRoot: string | null;
   lastWorkProject?: string;
   chatFolders: { id: string; name: string; color: string }[];
   chatFolderBySession: Record<string, string>;

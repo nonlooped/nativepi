@@ -15,6 +15,7 @@ import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import type { Project } from "../../shared/rpc-schema.ts";
 import type { SessionSummary } from "../../shared/pi-types.ts";
+import { useWorkProjects } from "../lib/workProjects.ts";
 import { useAppStore } from "../lib/store.ts";
 import { timeAgo } from "../lib/format.ts";
 import { chatTitle } from "../lib/transcript.ts";
@@ -79,7 +80,8 @@ export default function Sidebar(props: SidebarProps) {
 }
 
 function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, overlay = false }: SidebarProps) {
-  const projects = useAppStore((s) => s.projects);
+  const projects = useWorkProjects();
+  const workRoot = useAppStore(s => s.workRoot);
   const git = useAppStore((s) => s.git);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
@@ -211,9 +213,10 @@ function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, over
     return { pinned, focus, finished };
   }, [allChats, finishedChats, pinnedChats]);
 
-  const currentProject = projects.find((project) => project.path === activeProjectPath) ?? null;
+  const currentProject = projects.find((project) => project.path === activeProjectPath && project.path !== workRoot) ?? null;
 
   const scopedProject = scope ? projects.find((project) => project.path === scope) ?? null : null;
+  const actionProject = scope && scope === workRoot ? null : scopedProject ?? currentProject;
   const loading = projects.some((project) => {
     const state = sessionLoadStates[project.path] ?? "unloaded";
     return state === "unloaded" || state === "loading";
@@ -290,8 +293,8 @@ function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, over
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuGroup>
-              {scopedProject || currentProject ? <><DropdownMenuSeparator /><ProjectActionsMenuItems
-                project={scopedProject ?? currentProject} editorId={editorId} onNewChat={startNewChat} onImport={importChat}
+              {actionProject ? <><DropdownMenuSeparator /><ProjectActionsMenuItems
+                project={actionProject} editorId={editorId} onNewChat={startNewChat} onImport={importChat}
                 onTerminal={showTerminal} onWorktrees={setWorktreesFor} onRemove={setPendingRemoval}
               /></> : null}
             </DropdownMenuContent>

@@ -3,7 +3,7 @@ import { tinykeys } from "tinykeys";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { ArrowLineDownIcon } from "@phosphor-icons/react/ArrowLineDown";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
-import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
+import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
 import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
@@ -66,7 +66,7 @@ export default function App() {
   const ready = useAppStore((s) => s.ready);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeProjectName = useAppStore(
-    (s) => s.projects.find((project) => project.path === s.activeProjectPath)?.name,
+    (s) => s.workRoot && s.activeProjectPath === s.workRoot ? "No project" : s.projects.find((project) => project.path === s.activeProjectPath)?.name,
   );
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const isNewChat = useAppStore((s) => s.isNewChat);
@@ -231,7 +231,7 @@ export default function App() {
                 </div>
               )
             ) : (
-              <WelcomeScreen />
+              <WelcomeScreen onStart={() => startNewChatFlow(() => setNewChatProjectOpen(true))} />
             )}
           </main>
           </ResizablePanel>
@@ -459,10 +459,11 @@ function WorkspaceHeader({
 }) {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const chatMode = useAppStore(s => s.destination === "chat");
+  const projectFree = useAppStore(s => !!s.workRoot && s.activeProjectPath === s.workRoot);
   const isNewChat = useAppStore((s) => s.isNewChat);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const activeProjectName = useAppStore(
-    (s) => s.projects.find((project) => project.path === s.activeProjectPath)?.name,
+    (s) => s.workRoot && s.activeProjectPath === s.workRoot ? "No project" : s.projects.find((project) => project.path === s.activeProjectPath)?.name,
   );
   const activeSession = useAppStore((s) =>
     s.activeProjectPath
@@ -497,7 +498,7 @@ function WorkspaceHeader({
               <span className="hidden shrink-0 @min-[36rem]/conversation:block">
                 {!chatMode ? <ProjectIcon name={activeProjectName ?? activeProjectPath} src={projectIcon} /> : null}
               </span>
-              <span className="hidden min-w-0 max-w-40 shrink truncate text-muted-foreground @min-[36rem]/conversation:block" title={chatMode ? "Chat" : activeProjectPath}>
+              <span className="hidden min-w-0 max-w-40 shrink truncate text-muted-foreground @min-[36rem]/conversation:block" title={chatMode ? "Chat" : projectFree ? "No project" : activeProjectPath}>
                 {chatMode ? "Chat" : activeProjectName ?? activeProjectPath}
               </span>
               <span aria-hidden="true" className="hidden shrink-0 text-muted-foreground/50 @min-[36rem]/conversation:block">/</span>
@@ -533,7 +534,7 @@ function WorkspaceHeader({
           Sharing
         </Button>
       ) : null}
-      {!chatMode && activeProjectPath ? <ProjectStatus compact={compact} className={NO_DRAG_REGION} /> : null}
+      {!chatMode && !projectFree && activeProjectPath ? <ProjectStatus compact={compact} className={NO_DRAG_REGION} /> : null}
       {!chatMode && activeProjectPath ? (
         <Button
           variant="ghost"
@@ -889,8 +890,7 @@ function ErrorBanner() {
   );
 }
 
-function WelcomeScreen() {
-  const addProject = useAppStore((s) => s.addProject);
+function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
   return (
     <div className="flex min-h-0 flex-1 overflow-y-auto px-6 py-10">
@@ -899,15 +899,15 @@ function WelcomeScreen() {
           style={{ "--i": 0 } as React.CSSProperties}
           className="mb-6 flex size-14 items-center justify-center rounded-2xl bg-card text-foreground shadow-sm ring-1 ring-foreground/10 ring-inset"
         >
-          <FolderOpenIcon className="size-7" weight="duotone" aria-hidden="true" />
+          <NotePencilIcon className="size-7" weight="duotone" aria-hidden="true" />
         </span>
-        <h1 style={{ "--i": 0 } as React.CSSProperties} className="text-balance text-headline">Open a project</h1>
+        <h1 style={{ "--i": 0 } as React.CSSProperties} className="text-balance text-headline">Start a chat</h1>
         <p style={{ "--i": 1 } as React.CSSProperties} className="mt-3 max-w-[38ch] text-balance text-sm leading-6 text-body-muted-foreground">
-          Pi works inside the folder you pick. Chats stay in Pi's own session files, so the CLI sees them too.
+          Choose a project, or start without one for general work on your device.
         </p>
-        <Button style={{ "--i": 2 } as React.CSSProperties} size="xl" className="mt-7" onClick={() => void addProject()}>
-          <FolderOpenIcon data-icon="inline-start" weight="fill" />
-          Open folder
+        <Button style={{ "--i": 2 } as React.CSSProperties} size="xl" className="mt-7" onClick={onStart}>
+          <NotePencilIcon data-icon="inline-start" weight="fill" />
+          New chat
         </Button>
         {isRemote ? null : (
           <p style={{ "--i": 3 } as React.CSSProperties} className="mt-8 flex items-center gap-2 rounded-xl border border-dashed border-border/80 px-4 py-2.5 text-xs text-muted-foreground">

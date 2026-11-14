@@ -95,12 +95,12 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     destinationDrafts: {},
     collapsedChatFolders: [],
     toggleChatFolder: (id) => { set(s => ({ collapsedChatFolders: s.collapsedChatFolders.includes(id) ? s.collapsedChatFolders.filter(value => value !== id) : [...s.collapsedChatFolders, id] })); persist(get); },
-    destination: "work", chatRoot: null, chatFolders: [], chatFolderBySession: {}, chatExtensions: [],
+    destination: "work", chatRoot: null, workRoot: null, chatFolders: [], chatFolderBySession: {}, chatExtensions: [],
     setDestination: async (destination) => {
       const s = get();
       if (destination === s.destination) return;
       set({ destination, destinationDrafts: { ...s.destinationDrafts, [s.destination]: s.isNewChat }, ...(s.destination === "work" ? { lastWorkProject: s.activeProjectPath ?? undefined } : {}) });
-      const target = destination === "chat" ? s.chatRoot : s.lastWorkProject ?? s.projects[0]?.path;
+      const target = destination === "chat" ? s.chatRoot : s.lastWorkProject ?? s.projects[0]?.path ?? s.workRoot;
       if (target) {
         const remembered = getLastChat(get, target);
         if (remembered && !s.destinationDrafts[destination]) await get().selectChat(remembered, target);
@@ -145,7 +145,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
 
     init: async () => {
       const loaded = await rpc.request.loadState({});
-      const { path: chatRoot } = await rpc.request.chatWorkspace({});
+      const [{ path: chatRoot }, { path: workRoot }] = await Promise.all([rpc.request.chatWorkspace({}), rpc.request.workWorkspace({})]);
       replaceLastChats(get, loaded.lastChatByProject ?? {});
       const reopenLastProject = loaded.reopenLastProject ?? true;
       const restoreProject = loaded.destination === "chat" ? chatRoot : reopenLastProject ? (loaded.lastWorkProject ?? loaded.lastProjectPath ?? null) : null;
@@ -154,7 +154,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
         ready: true,
         destinationDrafts: loaded.destinationDrafts,
         collapsedChatFolders: loaded.collapsedChatFolders,
-        destination: loaded.destination, chatRoot, chatFolders: loaded.chatFolders,
+        destination: loaded.destination, chatRoot, workRoot, chatFolders: loaded.chatFolders,
         chatFolderBySession: loaded.chatFolderBySession, chatExtensions: loaded.chatExtensions, lastWorkProject: loaded.lastWorkProject,
         projects: loaded.projects,
         drafts: loaded.drafts ?? {},

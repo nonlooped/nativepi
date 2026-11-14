@@ -259,6 +259,7 @@ export const nativePiStateSchema = z.object({
 });
 export type NativePiState = z.infer<typeof nativePiStateSchema>;
 export type HostRequestContracts = {
+  workWorkspace: { params: Record<string, never>; response: { path: string }; };
   chatWorkspace: { params: Record<string, never>; response: { path: string }; };
   pickProject: {
     params: Record<string, never>;

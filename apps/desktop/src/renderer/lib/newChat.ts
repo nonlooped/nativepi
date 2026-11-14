@@ -1,19 +1,8 @@
 import { useAppStore } from "./store.ts";
 
-/**
- * Start a new chat in the only pinned folder, or ask which folder when several
- * are pinned. With none, open the folder picker instead of an empty dialog.
- */
+/** Work always offers both projects and project-free chats. */
 export function startNewChatFlow(pickProject: () => void): void {
-  const { projects, addProject, newChatIn, destination, chatRoot } = useAppStore.getState();
+  const { newChatIn, destination, chatRoot } = useAppStore.getState();
   if (destination === "chat") { if (chatRoot) void newChatIn(chatRoot); return; }
-  if (projects.length === 0) {
-    void addProject();
-    return;
-  }
-  if (projects.length === 1) {
-    void newChatIn(projects[0]!.path);
-    return;
-  }
   pickProject();
 }

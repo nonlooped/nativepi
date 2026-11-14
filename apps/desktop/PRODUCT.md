@@ -11,7 +11,7 @@ NativePi serves two primary groups equally:
 - Existing Pi users who want a polished desktop workflow without losing Pi's capabilities, sessions, configuration, or extensions.
 - Developers who prefer a graphical coding-agent experience and do not want terminal knowledge to be a prerequisite.
 
-Both groups use NativePi while working in local project folders. Basic workflows must remain approachable, while advanced Pi capabilities are available through progressive disclosure.
+Both groups use NativePi for local project work and general work on their devices. Basic workflows must remain approachable, while advanced Pi capabilities are available through progressive disclosure.
 
 NativePi is optimized for its primary desktop workflow and expert users. Accessibility is not a product goal, differentiator, or release criterion, and it does not justify adding redundant controls or alternate interaction paths that compromise the intended interface.
 
@@ -27,7 +27,7 @@ NativePi is a Pi-only desktop wrapper, not a separate agent harness. Pi remains 
 
 ## Chat and Work
 
-NativePi offers two independent destinations. Work is the project-based workflow described below. Chat starts without a project picker, using an internal working directory only because Pi requires one. Its transcripts remain ordinary Pi session files. Existing project conversations stay in Work; conversations cannot be transferred between destinations.
+NativePi offers two independent destinations. Work supports project folders and general work without a project. Project-free Work chats use a dedicated NativePi-managed working directory with normal Pi tools, configuration, and extensions. The managed directory is not a pinned project; its ordinary Pi sessions appear alongside project chats and can be filtered with “No project”. Chat starts without a project picker, using an internal working directory only because Pi requires one. Its transcripts remain ordinary Pi session files. Existing project conversations stay in Work; conversations cannot be transferred between destinations.
 
 Chat folders are NativePi-owned organization metadata, with unique colors and persistent collapsed state. Chats appear inside their folders, and unfiled chats appear outside them. Moving a chat changes only its folder membership. Deleting a folder permanently deletes its chats after explicit confirmation; failed deletions retain the folder and remaining memberships.
 
@@ -41,7 +41,7 @@ The shipped `@nativepi/web-access` Pi extension supplies Exa-backed web search a
 - Users pin project folders; create, discover, import, and manage Pi sessions; inspect streamed messages and tool activity; and review Git state and diffs.
 - Existing Pi credentials, configuration, sessions, packages, skills, prompts, and extensions remain in Pi's normal storage and remain usable by the Pi CLI.
 - NativePi keeps one Pi process per active chat, so chats in the same project and different projects may run concurrently. Git, terminals, trust, and Pi follow the folder of the open chat; the sidebar project filter only changes which chats are listed.
-- Starting a new chat asks which project only when more than one folder is pinned. One folder starts a chat there; none opens the folder picker.
+- Starting a new Work chat always offers a project chooser with “No project”, pinned folders, and an option to open another folder.
 - Conversations open directly from Pi session files without waiting for a Pi process to start. Drafts remain editable and are restored if a cold send fails.
 - Narrow windows move the context pane into a sheet. On a phone, project navigation moves there too so the conversation and composer remain usable.
 

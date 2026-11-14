@@ -6,6 +6,7 @@ import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { SpinnerGapIcon } from "@phosphor-icons/react/SpinnerGap";
 import type { SessionSearchResult } from "../../shared/pi-types.ts";
 import { useAppStore } from "../lib/store.ts";
+import { useWorkProjects } from "../lib/workProjects.ts";
 import { rpc } from "../lib/rpc.ts";
 import {
   Dialog,
@@ -27,11 +28,9 @@ export default function ChatSearchDialog({
 }) {
   const destination = useAppStore(s => s.destination);
   const chatRoot = useAppStore(s => s.chatRoot);
-  const projects = useAppStore((s) => s.projects);
+  const projects = useWorkProjects();
   const sidebarScope = useAppStore((s) => s.sidebarScope);
-  const scopedName = useAppStore(
-    (s) => s.projects.find((project) => project.path === s.sidebarScope)?.name,
-  );
+  const scopedName = projects.find(project => project.path === sidebarScope)?.name;
   const selectChat = useAppStore((s) => s.selectChat);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SessionSearchResult[]>([]);

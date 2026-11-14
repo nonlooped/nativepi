@@ -1,9 +1,11 @@
+import type { Project } from "../../shared/rpc-schema.ts";
 import { useState } from "react";
 import { Combobox } from "@base-ui/react/combobox";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { useAppStore } from "../lib/store.ts";
+import { useWorkProjects } from "../lib/workProjects.ts";
 import { rpc } from "../lib/rpc.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
@@ -23,7 +25,8 @@ export default function NewChatProjectDialog({
   onOpenChange: (open: boolean) => void;
   onNavigate?: () => void;
 }) {
-  const projects = useAppStore((s) => s.projects);
+  const projects = useWorkProjects();
+  const workRoot = useAppStore(s => s.workRoot);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const newChatIn = useAppStore((s) => s.newChatIn);
   const [query, setQuery] = useState("");
@@ -56,11 +59,15 @@ export default function NewChatProjectDialog({
       <DialogContent className="max-w-xl gap-0 overflow-hidden p-0" closeClassName="top-2.5 right-3">
         <DialogTitle className="sr-only">Choose a project</DialogTitle>
         <DialogDescription className="sr-only">
-          Choose the project folder where you want to start the new chat.
+          Choose a project folder, or start without a project.
         </DialogDescription>
 
-        <Combobox.Root
+        <Combobox.Root<Project>
           items={matches}
+          inline
+          open={open}
+          itemToStringLabel={(project) => project.name}
+          filter={null}
           inputValue={query}
           onInputValueChange={setQuery}
           autoHighlight
@@ -97,7 +104,7 @@ export default function NewChatProjectDialog({
                 />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-sm font-medium">{project.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">{project.path}</span>
+                  <span className="truncate text-xs text-muted-foreground">{project.path === workRoot ? "General work on your device" : project.path}</span>
                 </span>
                 {project.path === activeProjectPath ? (
                   <span className="shrink-0 text-xs text-muted-foreground">Current</span>

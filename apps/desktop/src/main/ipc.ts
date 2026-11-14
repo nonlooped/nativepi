@@ -702,6 +702,7 @@ const handlers: HandlerMap = {
       : await dialog.showOpenDialog(options);
     return { path: result.canceled || !result.filePaths[0] ? null : result.filePaths[0] };
   },
+  workWorkspace: async () => { const path = join(app.getPath("userData"), "work"); await mkdir(path, { recursive: true }); return { path }; },
   chatWorkspace: async () => { const path = join(app.getPath("userData"), "conversations"); await mkdir(path, { recursive: true }); return { path }; },
   loadState: () => loadState(),
   saveState: async ({ state }) => {

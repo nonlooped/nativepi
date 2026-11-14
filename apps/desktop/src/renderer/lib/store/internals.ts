@@ -121,7 +121,7 @@ export function gitRefreshedWithin(get: GetState, ms: number): boolean {
 }
 
 export function rememberProject(set: SetState, get: GetState, path: string): void {
-  if (path === get().chatRoot || get().projects.some((project) => project.path === path)) return;
+  if (path === get().chatRoot || path === get().workRoot || get().projects.some((project) => project.path === path)) return;
   const name = path.split(/[/\\]/).filter(Boolean).pop() ?? path;
   set((s) => ({ projects: [...s.projects, { path, name }] }));
   persist(get);
