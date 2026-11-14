@@ -86,7 +86,6 @@ export default function ProviderSettings() {
       {connected.length > 0 ? (
         <ProviderGroup
           heading="Connected"
-          description="These providers are ready to use in the model picker."
           providers={connected}
           selected={selected}
           setSelected={setSelected}
@@ -98,7 +97,6 @@ export default function ProviderSettings() {
       {available.length > 0 ? (
         <ProviderGroup
           heading="Available"
-          description="Connect one of these to add its models."
           providers={available}
           selected={selected}
           setSelected={setSelected}
@@ -112,7 +110,6 @@ export default function ProviderSettings() {
 
 function ProviderGroup({
   heading,
-  description,
   providers,
   selected,
   setSelected,
@@ -120,7 +117,6 @@ function ProviderGroup({
   cancelLogin,
 }: {
   heading: string;
-  description: string;
   providers: AuthProviderInfo[];
   selected: string | null;
   setSelected: (id: string | null) => void;
@@ -132,67 +128,66 @@ function ProviderGroup({
   return (
     <section
       aria-labelledby={headingId}
-      className="grid gap-3 border-t border-border/70 pt-6 @min-[44rem]/settings-content:grid-cols-[minmax(11rem,0.48fr)_minmax(0,1.52fr)] @min-[44rem]/settings-content:gap-10"
+      className="flex min-w-0 flex-col"
     >
-      <div className="flex max-w-sm flex-col gap-1">
+      <div className="border-b border-border/70 pb-2">
         <h2 id={headingId} className="text-sm font-semibold">
           {heading}
           <span className="ml-2 font-sans text-xs font-normal text-muted-foreground tabular-nums">
             {providers.length}
           </span>
         </h2>
-        <p className="text-sm text-body-muted-foreground">{description}</p>
       </div>
       <div>
         {providers.map((provider) => {
-        const expanded = selected === provider.id;
-        const activeFlow = authFlow?.providerId === provider.id ? authFlow : null;
+          const expanded = selected === provider.id;
+          const activeFlow = authFlow?.providerId === provider.id ? authFlow : null;
 
-        return (
-          <div key={provider.id} className="border-t first:border-t-0">
-            <button
-              type="button"
-              aria-expanded={expanded}
-              onClick={() => {
-                if (expanded) {
-                  if (activeFlow) cancelLogin();
-                  setSelected(null);
-                  return;
-                }
-                if (authFlow) cancelLogin();
-                setSelected(provider.id);
-              }}
-              className="flex w-full items-center gap-4 rounded-lg px-2 py-5 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
-                <BrandIcon
-                  name={providerIconName(provider.id)}
-                  size={21}
-                  color
-                />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">{provider.name}</span>
-                <span
-                  className={cn(
-                    "mt-1 block truncate text-sm",
-                    provider.ready ? "text-success" : provider.configured ? "text-warning" : "text-muted-foreground",
-                  )}
-                >
-                  {providerStatusLabel(provider)}
+          return (
+            <div key={provider.id} className="border-t border-border/40 first:border-t-0">
+              <button
+                type="button"
+                aria-expanded={expanded}
+                onClick={() => {
+                  if (expanded) {
+                    if (activeFlow) cancelLogin();
+                    setSelected(null);
+                    return;
+                  }
+                  if (authFlow) cancelLogin();
+                  setSelected(provider.id);
+                }}
+                className="flex w-full items-center gap-3 rounded-md px-2 py-3 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
+                  <BrandIcon
+                    name={providerIconName(provider.id)}
+                    size={19}
+                    color
+                  />
                 </span>
-              </span>
-              {activeFlow?.busy ? (
-                <CircleNotchIcon className="shrink-0 animate-spin text-muted-foreground" />
-              ) : (
-                <CaretDownIcon
-                  className={cn("shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")}
-                />
-              )}
-            </button>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{provider.name}</span>
+                  <span
+                    className={cn(
+                      "mt-0.5 block truncate text-xs",
+                      provider.ready ? "text-success" : provider.configured ? "text-warning" : "text-muted-foreground",
+                    )}
+                  >
+                    {providerStatusLabel(provider)}
+                  </span>
+                </span>
+                {activeFlow?.busy ? (
+                  <CircleNotchIcon className="shrink-0 animate-spin text-muted-foreground" />
+                ) : (
+                  <CaretDownIcon
+                    className={cn("shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")}
+                  />
+                )}
+              </button>
 
-            {expanded ? <ProviderDetails provider={provider} /> : null}
-          </div>
+              {expanded ? <ProviderDetails provider={provider} /> : null}
+            </div>
           );
         })}
       </div>

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Use compact headings above full-width provider lists in Settings, with tighter provider rows.
 - Redesign Settings with compact navigation, unboxed sections, aligned controls, and combined appearance and layout preferences. Move Chat extension controls to Extensions and load settings pages eagerly, preparing local Pi configuration at startup.
 
 ### Added
