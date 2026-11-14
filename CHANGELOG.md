@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Curate nine color schemes with a brighter neutral Paper option, quieter dark text, distinct ink-blue and warm palettes, and previews showing text, diffs, and actions in both appearances. Retired Cobalt and Slate selections fall back to NativePi.
 - Keep the transcript position steady when sending a prompt.
 - Make active transcript work more distinct from individual tool calls.
 - Show a lightning indicator in the model picker when priority speed is active.

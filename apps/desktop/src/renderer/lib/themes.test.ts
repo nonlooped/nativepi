@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { DEFAULT_PREFERENCES } from "../../shared/rpc-schema.ts";
-import { BUILT_IN_THEMES, NATIVE_THEME, themeFileSchema } from "../../shared/themes.ts";
+import { BUILT_IN_THEMES, NATIVE_THEME, builtInTheme, themeFileSchema } from "../../shared/themes.ts";
 import { contrastRatio, resolvedTheme, themeContrastIssues, themeCssProperties } from "./themes.ts";
 
 test("every built-in color scheme has readable light and dark variants", () => {
-  expect(BUILT_IN_THEMES).toHaveLength(10);
-  expect(new Set(BUILT_IN_THEMES.map(({ id }) => id)).size).toBe(10);
+  expect(BUILT_IN_THEMES).toHaveLength(9);
+  expect(new Set(BUILT_IN_THEMES.map(({ id }) => id)).size).toBe(BUILT_IN_THEMES.length);
   for (const { theme } of BUILT_IN_THEMES) {
     expect(themeFileSchema.safeParse(theme).success).toBeTrue();
     for (const appearance of ["light", "dark"] as const) {
@@ -76,7 +76,7 @@ test("custom themes resolve the requested variant and map only color roles", () 
 
 test("a selected built-in theme follows the appearance preference", () => {
   const preferences = { ...DEFAULT_PREFERENCES, theme: "dark" as const, themeId: "midnight" };
-  expect(resolvedTheme(preferences, false)).toBe(BUILT_IN_THEMES[1]!.theme.colors.dark);
+  expect(resolvedTheme(preferences, false)).toBe(builtInTheme("midnight")!.theme.colors.dark);
 });
 
 
@@ -134,6 +134,14 @@ test("startup CSS matches the resolved NativePi palette before preferences load"
     const block = css.slice(css.indexOf(`${selector} {`)).split("\n}")[0]!;
     for (const [property, value] of Object.entries(themeCssProperties(NATIVE_THEME.colors[appearance]))) {
       expect(block).toContain(`  ${property}: ${value};`);
+    }
+  }
+});
+
+test("retired and unknown scheme selections fall back to NativePi in both appearances", () => {
+  for (const themeId of ["cobalt", "slate", "missing", "custom:missing"]) {
+    for (const theme of ["light", "dark"] as const) {
+      expect(resolvedTheme({ ...DEFAULT_PREFERENCES, theme, themeId }, false)).toBe(NATIVE_THEME.colors[theme]);
     }
   }
 });

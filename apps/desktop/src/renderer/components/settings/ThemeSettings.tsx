@@ -99,19 +99,18 @@ function editableCopy(source: ThemeFile): CustomTheme {
 function MiniThemeVariant({ colors }: { colors: ThemeColors }) {
   return (
     <span style={themePreviewStyle(colors)} className="flex size-full overflow-hidden bg-background text-foreground">
-      <span className="w-1/3 border-e border-border bg-sidebar p-1">
-        <span className="block h-1 w-3/4 rounded-full bg-muted-foreground/60" />
-        <span className="mt-1 block h-1 w-full rounded-full bg-accent" />
-        <span className="mt-1 block h-1 w-2/3 rounded-full bg-muted-foreground/40" />
+      <span className="flex w-4 shrink-0 flex-col gap-1.5 border-e border-border bg-sidebar px-1 py-2">
+        <span className="size-1.5 rounded-sm bg-primary" />
+        <span className="h-1.5 rounded-sm bg-accent" />
+        <span className="h-1.5 rounded-sm bg-muted-foreground/40" />
       </span>
-      <span className="flex flex-1 flex-col justify-between p-1.5">
-        <span>
-          <span className="block h-1 w-3/4 rounded-full bg-foreground/70" />
-          <span className="mt-1 block h-1 w-full rounded-full bg-muted-foreground/45" />
-        </span>
-        <span className="flex h-3 items-center rounded-sm border border-border bg-card px-1">
-          <span className="h-1 flex-1 rounded-full bg-muted-foreground/40" />
-          <span className="ms-1 size-1.5 rounded-full bg-primary" />
+      <span className="flex min-w-0 flex-1 flex-col gap-1 p-1.5 text-[0.5625rem] leading-3">
+        <span className="truncate font-medium">Updated</span>
+        <span className="truncate text-muted-foreground">Ready to review.</span>
+        <span className="truncate font-mono text-success">+ ready()</span>
+        <span className="truncate font-mono text-destructive">− wait()</span>
+        <span className="mt-auto flex justify-end rounded-sm border border-border bg-card p-0.5">
+          <span className="rounded-xs bg-primary px-1 text-primary-foreground">Send</span>
         </span>
       </span>
     </span>
@@ -138,9 +137,10 @@ export default function ThemeSettings() {
   const activeBuiltIn = builtInTheme(preferences.themeId);
   const selected = activeCustom?.id ?? activeBuiltIn?.id ?? NATIVE_THEME_ID;
   const options = [
-    ...BUILT_IN_THEMES.map(({ id, theme }) => ({
+    ...BUILT_IN_THEMES.map(({ id, description, theme }) => ({
       value: id,
       label: theme.name,
+      description,
       preview: <MiniThemePreview theme={theme} />,
     })),
     ...preferences.customThemes.map((theme) => ({
@@ -190,7 +190,7 @@ export default function ThemeSettings() {
     <>
       <ChoiceCards
         label="Color scheme"
-        description="Choose the colors NativePi uses in both appearances."
+        description="Each preview shows light on the left and dark on the right."
         value={selected}
         options={options}
         onChange={select}

@@ -232,7 +232,7 @@ export function ChoiceCards<T extends string>({
   label: string;
   description?: string;
   value: T;
-  options: { value: T; label: string; preview: React.ReactNode }[];
+  options: { value: T; label: string; description?: string; preview: React.ReactNode }[];
   onChange: (value: T) => void;
 }) {
   const move = (index: number, step: number) => {
@@ -243,7 +243,7 @@ export function ChoiceCards<T extends string>({
 
   return (
     <Row label={label} description={description} wide>
-      <div role="radiogroup" aria-label={label} className={cn("grid grid-cols-2 gap-2", options.length > 2 && "@min-[32rem]/settings-content:grid-cols-4", options.length > 4 && "@min-[44rem]/settings-content:grid-cols-5")}>
+      <div role="radiogroup" aria-label={label} className="grid grid-cols-1 gap-2 @min-[24rem]/settings-content:grid-cols-2 @min-[40rem]/settings-content:grid-cols-3">
         {options.map((option, index) => {
           const selected = option.value === value;
           return (
@@ -272,11 +272,12 @@ export function ChoiceCards<T extends string>({
             >
               <span
                 aria-hidden="true"
-                className="pointer-events-none flex h-10 items-stretch overflow-hidden rounded-sm p-1 *:min-w-0"
+                className="pointer-events-none flex h-24 items-stretch overflow-hidden rounded-sm *:min-w-0"
               >
                 {option.preview}
               </span>
               <span className="px-0.5 text-xs font-medium">{option.label}</span>
+              {option.description ? <span className="-mt-1 px-0.5 text-xs text-muted-foreground">{option.description}</span> : null}
               {selected ? (
                 <span className="absolute right-2 top-2 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground" aria-hidden="true">
                   <CheckIcon />
