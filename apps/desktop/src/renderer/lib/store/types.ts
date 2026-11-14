@@ -170,6 +170,7 @@ export interface ChatSlice {
   sessionsByProject: Record<string, SessionSummary[]>;
   sessionLoadStates: Record<string, SessionLoadStatus>;
   activeSessionFile: string | null;
+  confirmedNewLead: string | null;
   isNewChat: boolean;
   selectionVersion: number;
   transcriptTarget: { session: string; entry: string } | null;

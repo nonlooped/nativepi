@@ -76,12 +76,13 @@ export function ThreadInputBoundary({ children }: { children: ReactNode }) {
   const file = useAppStore(s => s.activeSessionFile);
   const destination = useAppStore(s => s.destination);
   const loaded = useAppStore(s => s.orchestrationLoaded);
+  const confirmedNewLead = useAppStore(s => s.confirmedNewLead);
   const error = useAppStore(s => s.orchestrationError);
   const threads = useAppStore(s => s.orchestration.threads);
   const thread = threads.find(thread => thread.ref.file === file);
-  if (destination === "work" && file && error) return <div className="flex items-center gap-3 px-4 py-4 text-xs text-muted-foreground"><span className="min-w-0 flex-1 break-words">Thread controls unavailable: {error}</span><Button variant="ghost" size="sm" onClick={() => void useAppStore.getState().selectChat(file)}>Retry</Button></div>;
-  if (destination === "work" && file && !loaded) return <div className="px-4 py-4 text-xs text-muted-foreground">Loading thread controls…</div>;
-  if (destination === "work" && file && (!thread || thread.available === false)) return <div className="px-4 py-4 text-sm text-muted-foreground">Thread unavailable. Reload its session before sending a message.</div>;
+  if (destination === "work" && file && error && confirmedNewLead !== file) return <div className="flex items-center gap-3 px-4 py-4 text-xs text-muted-foreground"><span className="min-w-0 flex-1 break-words">Thread controls unavailable: {error}</span><Button variant="ghost" size="sm" onClick={() => void useAppStore.getState().selectChat(file)}>Retry</Button></div>;
+  if (destination === "work" && file && !loaded && confirmedNewLead !== file) return <div className="px-4 py-4 text-xs text-muted-foreground">Loading thread controls…</div>;
+  if (destination === "work" && file && ((!thread && confirmedNewLead !== file) || thread?.available === false)) return <div className="px-4 py-4 text-sm text-muted-foreground">Thread unavailable. Reload its session before sending a message.</div>;
   if (destination === "work" && thread?.roleUnavailable) return <div className="px-4 py-4 text-sm text-muted-foreground">Delegate role unavailable. Transcript remains viewable; input is disabled.</div>;
   if (destination === "work" && thread?.relationship) return <DelegateFooter thread={thread} />;
   return children;

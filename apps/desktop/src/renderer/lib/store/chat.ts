@@ -247,6 +247,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
     sessionsByProject: {},
     sessionLoadStates: {},
     activeSessionFile: null,
+    confirmedNewLead: null,
     isNewChat: false,
     selectionVersion: 0,
     transcriptTarget: null,
@@ -309,6 +310,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
         set((state) => ({
           selectionVersion: state.selectionVersion + 1,
           activeSessionFile: sessionFile,
+          confirmedNewLead: null,
           orchestrationLoaded: false,
           isNewChat: false,
           models: [],
@@ -362,7 +364,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
         void rpc.request.watchSession({ projectDir, sessionFile: null }).catch(() => {});
         patchConversation(set, projectDir, null, () => ({ ...emptyConversation(), projectDir }));
       }
-      set((state) => ({ selectionVersion: state.selectionVersion + 1, activeSessionFile: null, orchestrationError: null, isNewChat: true, thinkingLevelReady: false, thinkingLevelVersion: state.thinkingLevelVersion + 1 }));
+      set((state) => ({ selectionVersion: state.selectionVersion + 1, activeSessionFile: null, confirmedNewLead: null, orchestrationError: null, isNewChat: true, thinkingLevelReady: false, thinkingLevelVersion: state.thinkingLevelVersion + 1 }));
       set({ models: [], model: undefined, providers: [], providersLoaded: false, thinkingLevels: [], thinkingLevelsLoading: true, thinkingLevelsError: undefined });
       reportActiveDraft(get);
       const trust = get().trust;
@@ -399,7 +401,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
     setSendBehavior: (sendBehavior) => set({ sendBehavior }),
 
     setDraft: (text) => {
-      if (get().destination === "work" && get().activeSessionFile && ((get().ready && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.available === false || thread.relationship || thread.roleUnavailable)))) return;
+      if (get().destination === "work" && get().activeSessionFile && ((get().ready && get().confirmedNewLead !== get().activeSessionFile && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.available === false || thread.relationship || thread.roleUnavailable)))) return;
       writeDraft(set, get, get().activeProjectPath, get().activeSessionFile, text);
     },
 
@@ -436,7 +438,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
      * and more, all to have the main process turn it down afterwards.
      */
     attach: async (files) => {
-      if (get().destination === "work" && get().activeSessionFile && ((get().ready && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.available === false || thread.relationship || thread.roleUnavailable)))) return;
+      if (get().destination === "work" && get().activeSessionFile && ((get().ready && get().confirmedNewLead !== get().activeSessionFile && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.available === false || thread.relationship || thread.roleUnavailable)))) return;
       if (files.length === 0) return;
       const target = attachmentTarget(draftKey(get));
       const key = target.key;
@@ -481,7 +483,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
     },
 
     send: async () => {
-      if (get().destination === "work" && get().activeSessionFile && ((get().ready && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.available === false || thread.relationship || thread.roleUnavailable)))) return;
+      if (get().destination === "work" && get().activeSessionFile && ((get().ready && get().confirmedNewLead !== get().activeSessionFile && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.available === false || thread.relationship || thread.roleUnavailable)))) return;
       // Section 16: while another writer owns this chat we send nothing, and the
       // draft stays exactly where the user left it.
       const draft = currentDraft(get);
@@ -630,7 +632,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
           // Cold replies stay stale; recovery belongs to the newly bound target.
           const owner = runtime(get);
           const needsRecovery = get().thinkingLevelsLoading || owner.modelStateRecovery?.() || owner.modelStateRead?.();
-          set({ activeSessionFile: res.sessionFile, orchestrationLoaded: false, orchestrationError: null, isNewChat: false });
+          set({ activeSessionFile: res.sessionFile, confirmedNewLead: res.sessionFile, orchestrationLoaded: false, orchestrationError: null, isNewChat: false });
           void get().refreshOrchestration();
           if (needsRecovery) requireModelStateRecovery(set, get,
             get().thinkingLevelsError ?? "Pi’s session changed. Retry to read the current model.");
@@ -640,7 +642,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
     },
 
     enqueue: async (behavior) => {
-      if (get().destination === "work" && get().activeSessionFile && ((get().ready && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.available === false || thread.relationship || thread.roleUnavailable)))) return;
+      if (get().destination === "work" && get().activeSessionFile && ((get().ready && get().confirmedNewLead !== get().activeSessionFile && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.available === false || thread.relationship || thread.roleUnavailable)))) return;
       const draft = currentDraft(get);
       if (!draft) return;
       if (!draft.state.activeSessionFile && coldSubmits.has(draft.projectDir)) return;
