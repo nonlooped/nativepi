@@ -79,3 +79,17 @@ domTest("embedded diffs retain wrapping, split/unified controls and theme update
   expect(container.querySelector("diffs-container")!.shadowRoot!.textContent).toContain("row9");
   await act(async () => document.documentElement.classList.remove("dark"));
 });
+domTest("file-owned wrapping suppresses per-hunk controls and updates every hunk", async () => {
+  await mount(patchFor(2), true);
+  await act(async () => root!.render(<div>
+    <DiffView patch="first hunk" embedded controls={{ wrap: true }} />
+    <DiffView patch="second hunk" embedded controls={{ wrap: true }} />
+  </div>));
+  expect(container.querySelectorAll("button").length).toBe(0);
+  expect([...container.querySelectorAll("pre")].every(pre => pre.className.includes("whitespace-pre-wrap"))).toBe(true);
+  await act(async () => root!.render(<div>
+    <DiffView patch="first hunk" embedded controls={{ wrap: false }} />
+    <DiffView patch="second hunk" embedded controls={{ wrap: false }} />
+  </div>));
+  expect([...container.querySelectorAll("pre")].every(pre => !pre.className.includes("whitespace-pre-wrap"))).toBe(true);
+});
