@@ -195,8 +195,8 @@ function CategoryNav({
                   aria-current={category === name ? "page" : undefined}
                   onClick={() => onSelect(name)}
                   className={cn(
-                    "flex min-h-8 shrink-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[0.8125rem] font-medium text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-                    category === name && "bg-sidebar-accent text-sidebar-accent-foreground [&>svg]:text-foreground",
+                    "flex min-h-8 shrink-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[0.8125rem] font-normal text-body-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                    category === name && "bg-sidebar-accent font-medium text-sidebar-accent-foreground [&>svg]:text-foreground",
                   )}
                 >
                   <Icon aria-hidden="true" className="size-4 shrink-0" />

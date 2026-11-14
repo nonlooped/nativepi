@@ -202,12 +202,12 @@ export default function ComposerInput({
         // root font size, which an absolute length ignores — the composer was
         // the one piece of text in the window that did not scale with it.
         className={cn(
-          "col-start-1 row-start-1 max-h-56 min-h-16 w-full overflow-y-auto whitespace-pre-wrap break-words px-2.5 py-2 text-composer outline-none",
+          "col-start-1 row-start-1 max-h-56 min-h-16 w-full overflow-y-auto whitespace-pre-wrap break-words px-2.5 py-2 text-composer font-normal text-foreground outline-none",
           disabled && "cursor-not-allowed opacity-50",
         )}
       />
       {value.trim() === "" ? (
-        <p aria-hidden="true" className="pointer-events-none col-start-1 row-start-1 max-h-56 self-start overflow-hidden break-words px-2.5 py-2 text-composer text-muted-foreground">
+        <p aria-hidden="true" className="pointer-events-none col-start-1 row-start-1 max-h-56 self-start overflow-hidden break-words px-2.5 py-2 text-composer font-normal text-placeholder-foreground">
           {offeredSuggestion ? <>{offeredSuggestion} <Kbd className="ml-1 align-middle">Tab</Kbd></> : placeholder}
         </p>
       ) : null}

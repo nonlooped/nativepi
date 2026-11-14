@@ -635,7 +635,7 @@ function ChangeRow({ file, open, onToggle }: { file: FileChange; open: boolean; 
       >
         <CaretRightIcon className={cn("shrink-0 text-muted-foreground transition-transform", open && "rotate-90", !file.patch && "invisible")} />
         <FileTypeIcon path={relativePath} className={cn(file.failed && "opacity-50 grayscale")} />
-        <span className="min-w-0 truncate font-medium">{fileName(relativePath)}</span>
+        <span className="min-w-0 truncate font-medium text-foreground">{fileName(relativePath)}</span>
         {directory ? <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{directory}</span> : <span className="flex-1" />}
         {file.failed ? (
           <span className="shrink-0 text-muted-foreground">No change</span>

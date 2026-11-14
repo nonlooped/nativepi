@@ -73,7 +73,7 @@ function ProjectFiles({ projectDir, renderHeader }: FileExplorerProps) {
         const open = state.expanded.has(entry.path);
         return <li key={entry.path}>
           <button type="button" aria-expanded={folder ? open : undefined} title={folder ? entry.path : `Open ${entry.path} in ${editorName(editorId)}`}
-            className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm text-sidebar-foreground/85 outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
+            className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm text-sidebar-foreground outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
             onClick={() => folder ? controller.current?.toggle(entry.path) : void openFile(entry.path)}>
             <CaretRightIcon aria-hidden className={cn("size-3 shrink-0 text-muted-foreground", !folder && "invisible", open && "rotate-90")} />
             <FileTypeIcon path={entry.path} size={18} folder={folder} expanded={open} />
@@ -103,7 +103,7 @@ function ProjectFiles({ projectDir, renderHeader }: FileExplorerProps) {
         : files === null ? <p className="px-3 py-2 text-xs">Searching files…</p>
         : <>
           {matches.slice(0, 200).map(file => (
-            <button key={file} type="button" title={file} onClick={() => void openFile(file)} className="flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm text-sidebar-foreground/85 outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset">
+            <button key={file} type="button" title={file} onClick={() => void openFile(file)} className="flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm text-sidebar-foreground outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset">
               <FileTypeIcon path={file} size={18} /><span className="min-w-0 truncate">{file}</span>
             </button>
           ))}

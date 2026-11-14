@@ -140,7 +140,7 @@ export default function ModelSelector() {
         }
       >
         {model ? <ModelProviderIcon provider={model.provider} /> : null}
-        <span className="min-w-0 truncate text-foreground">{models.length === 0 ? "Loading models…" : label}</span>
+        <span className="min-w-0 truncate font-medium text-foreground">{models.length === 0 ? "Loading models…" : label}</span>
         {models.length > 0 ? (
           <>
             <span className="text-muted-foreground/50" aria-hidden="true">·</span>

@@ -28,7 +28,7 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
   const header = (actions?: { refresh: () => void; collapse: () => void; search: () => void; searching: boolean }) => (
     <header className={cn("flex h-12 shrink-0 items-center gap-2 px-3", DRAG_REGION, WINDOW_CONTROLS_CLEARANCE)}>
       <h2 className="min-w-0 flex-1 text-sm font-medium text-foreground"><DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className={cn("mr-auto text-foreground", NO_DRAG_REGION)} />} aria-label="Choose context pane">
+        <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className={cn("mr-auto font-semibold text-foreground", NO_DRAG_REGION)} />} aria-label="Choose context pane">
           {changes ? "Source control" : "Files"}<CaretDownIcon />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">

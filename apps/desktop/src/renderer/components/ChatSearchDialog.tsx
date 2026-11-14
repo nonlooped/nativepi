@@ -119,7 +119,7 @@ export default function ChatSearchDialog({
               autoFocus
               placeholder={scopedName ? `Search chats in ${scopedName}` : "Search chats and messages"}
               aria-label={scopedName ? `Search chats in ${scopedName}` : "Search chats and messages"}
-              className="h-12 w-full rounded-none border-0 bg-transparent pl-11 pr-12 text-base outline-none placeholder:text-muted-foreground/80"
+              className="h-12 w-full rounded-none border-0 bg-transparent pl-11 pr-12 text-base font-normal text-foreground outline-none placeholder:text-placeholder-foreground"
             />
           </div>
 
@@ -176,8 +176,8 @@ export default function ChatSearchDialog({
                 className="flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
               >
                 <span className="flex min-w-0 items-baseline gap-2">
-                  <span className="truncate text-sm font-semibold">{highlight(result.title, query)}</span>
-                  <span className="ml-auto shrink-0 text-xs font-medium text-muted-foreground">{project?.name ?? result.projectDir}</span>
+                  <span className="truncate text-sm font-medium">{highlight(result.title, query)}</span>
+                  <span className="ml-auto shrink-0 text-xs font-normal text-muted-foreground">{project?.name ?? result.projectDir}</span>
                 </span>
                 <span className="line-clamp-2 text-sm leading-relaxed text-body-muted-foreground">
                   <span className="font-medium text-foreground">{source}:</span>{" "}

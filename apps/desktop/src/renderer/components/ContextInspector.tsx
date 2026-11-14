@@ -195,7 +195,7 @@ function UsageRow({ label, value, hint }: { label: string; value: number; hint: 
   return (
     <div className="flex items-baseline justify-between gap-4 py-0.5" title={hint}>
       <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-xs tabular-nums">{value.toLocaleString()}</span>
+      <span className="text-xs font-medium tabular-nums text-foreground">{value.toLocaleString()}</span>
     </div>
   );
 }

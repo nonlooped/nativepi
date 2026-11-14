@@ -60,7 +60,7 @@ interface SidebarChat {
   presentation?: SidebarProject;
 }
 
-const SIDEBAR_CHAT_ROW = "relative flex h-auto min-h-16 w-full flex-col items-stretch justify-center gap-1 overflow-hidden rounded-lg px-3 py-2.5 text-left text-sidebar-foreground outline-none transition-[background-color,color,scale] hover:bg-sidebar-accent/40 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset active:scale-[0.985]";
+const SIDEBAR_CHAT_ROW = "relative flex h-auto min-h-16 w-full flex-col items-stretch justify-center gap-1 overflow-hidden rounded-lg px-3 py-2.5 text-left font-normal text-sidebar-foreground outline-none transition-[background-color,color,scale] hover:bg-sidebar-accent/40 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset active:scale-[0.985]";
 
 interface SidebarProps {
   presentation: Record<string, SidebarProject>;
@@ -447,11 +447,11 @@ function FocusChatRow({
             aria-current={chat.selected ? "page" : undefined}
             className={cn(
               SIDEBAR_CHAT_ROW,
-              chat.selected && "bg-sidebar-accent text-sidebar-accent-foreground",
+              chat.selected && "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
             )}
           >
             <span className="flex min-w-0 items-center gap-2">
-              <span className="min-w-0 flex-1 truncate text-sm font-medium leading-5" title={chatTitle(chat.session)}>{chatTitle(chat.session)}</span>
+              <span className="min-w-0 flex-1 truncate text-sm leading-5" title={chatTitle(chat.session)}>{chatTitle(chat.session)}</span>
               <span className={cn("inline-flex shrink-0 items-center gap-1 text-xs font-normal tabular-nums", chat.running ? "text-active" : "text-muted-foreground")} role={chat.running ? "status" : undefined}>
                 {chat.running ? <><CircleNotchIcon className="size-3 animate-spin" />Working </> : null}
                 {timeAgo(chat.session.modified, now)}
@@ -666,7 +666,7 @@ function ChatContents({ onClose, onOpenSearch, onOpenNewChat, overlay = false }:
     return <SessionMenu key={session.path} projectPath={root!} session={session} selected={active === session.path} running={conversations[session.path]?.running ?? false} pinned={false}>
       <DropdownMenu>
         <div className="group relative flex w-full min-w-0 items-center">
-          <Button variant={active === session.path ? "secondary" : "ghost"} title={chatTitle(session)} className={cn(SIDEBAR_CHAT_ROW, active === session.path && "bg-sidebar-accent text-sidebar-accent-foreground")} onClick={() => { void useAppStore.getState().selectChat(session.path, root!); if (overlay) onClose(); }}><span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-sm font-medium leading-5">{chatTitle(session)}</span><span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{conversations[session.path]?.running ? <span className="inline-flex items-center gap-1 text-active"><CircleNotchIcon className="size-3 animate-spin" />Working</span> : timeAgo(session.modified, now)}</span></span>{preview || session.providers[0] ? <span className="flex min-w-0 items-center gap-2 text-xs font-normal text-muted-foreground"><span className="min-w-0 flex-1 truncate">{preview}</span>{session.providers[0] ? <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground/60 group-hover:opacity-0 group-focus-within:opacity-0" title={`Model provider: ${session.providers[0]}`}><BrandIcon name={providerIconName(session.providers[0])} size={14} /></span> : null}</span> : null}</Button>
+          <Button variant={active === session.path ? "secondary" : "ghost"} title={chatTitle(session)} className={cn(SIDEBAR_CHAT_ROW, active === session.path && "bg-sidebar-accent font-medium text-sidebar-accent-foreground")} onClick={() => { void useAppStore.getState().selectChat(session.path, root!); if (overlay) onClose(); }}><span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-sm leading-5">{chatTitle(session)}</span><span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{conversations[session.path]?.running ? <span className="inline-flex items-center gap-1 text-active"><CircleNotchIcon className="size-3 animate-spin" />Working</span> : timeAgo(session.modified, now)}</span></span>{preview || session.providers[0] ? <span className="flex min-w-0 items-center gap-2 text-xs font-normal text-muted-foreground"><span className="min-w-0 flex-1 truncate text-body-muted-foreground">{preview}</span>{session.providers[0] ? <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground/60 group-hover:opacity-0 group-focus-within:opacity-0" title={`Model provider: ${session.providers[0]}`}><BrandIcon name={providerIconName(session.providers[0])} size={14} /></span> : null}</span> : null}</Button>
           <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="absolute right-2 bottom-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Move ${chatTitle(session)}`} />}><FolderIcon /></DropdownMenuTrigger>
         </div>
         <DropdownMenuContent>

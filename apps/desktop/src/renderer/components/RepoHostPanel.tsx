@@ -217,7 +217,7 @@ function CompareFileRow({ file }: { file: RepoHostCompareFile }) {
   return (
     <li className="flex items-center gap-2 px-1 py-0.5 text-xs">
       <span className={cn("w-4 shrink-0 text-center font-mono font-semibold", color)}>{badge}</span>
-      <span className="min-w-0 flex-1 truncate text-muted-foreground">{file.path}</span>
+      <span className="min-w-0 flex-1 truncate text-foreground">{file.path}</span>
     </li>
   );
 }

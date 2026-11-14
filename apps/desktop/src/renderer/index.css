@@ -211,7 +211,7 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   --secondary-foreground: #3e3e3e;
   --muted: #dfdfdf;
   --muted-foreground: #5d5d5d;
-  --body-muted-foreground: #5d5d5d;
+  --body-muted-foreground: color-mix(in srgb, var(--foreground) 30%, var(--muted-foreground));
   --accent: #d6d6d6;
   --accent-foreground: #3e3e3e;
   --destructive: #a03845;
@@ -267,7 +267,7 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   --secondary-foreground: #bababa;
   --muted: #222222;
   --muted-foreground: #949494;
-  --body-muted-foreground: #949494;
+  --body-muted-foreground: color-mix(in srgb, var(--foreground) 30%, var(--muted-foreground));
   --accent: #2b2b2b;
   --accent-foreground: #bababa;
   --destructive: #e08c95;
@@ -383,6 +383,9 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   --color-active: var(--active);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
+  /* Text hierarchy: foreground for content, body-muted for supporting prose,
+     muted for metadata, placeholder for prompts that have not been entered. */
+  --color-placeholder-foreground: color-mix(in srgb, var(--muted-foreground) 80%, var(--background));
   --color-muted-foreground: var(--muted-foreground);
   --color-body-muted-foreground: var(--body-muted-foreground);
   --color-muted: var(--muted);
@@ -886,7 +889,7 @@ html[data-motion="reduced"] *::after {
 /* Settings share the workspace’s quiet surfaces; focus and error colors stay intact. */
 .settings-viewport {
   --input: color-mix(in oklch, var(--border) 55%, transparent);
-  color: color-mix(in oklch, var(--foreground) 85%, var(--background));
+  color: var(--foreground);
 }
 
 /* Settings rows follow the width of their own pane, including in small windows. */

@@ -19,7 +19,7 @@ export function themeCssProperties(colors: ThemeColors): Record<string, string> 
     "--secondary-foreground": colors.foreground,
     "--muted": colors.muted,
     "--muted-foreground": colors.mutedForeground,
-    "--body-muted-foreground": colors.mutedForeground,
+    "--body-muted-foreground": "color-mix(in srgb, var(--foreground) 30%, var(--muted-foreground))",
     "--accent": colors.accent,
     "--accent-foreground": colors.foreground,
     "--destructive": colors.destructive,

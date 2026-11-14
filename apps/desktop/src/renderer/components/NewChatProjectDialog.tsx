@@ -86,7 +86,7 @@ export default function NewChatProjectDialog({
               autoFocus
               placeholder="Search projects…"
               aria-label="Search projects"
-              className="h-11 min-w-0 flex-1 border-0 bg-transparent px-0 text-base outline-none placeholder:text-muted-foreground"
+              className="h-11 min-w-0 flex-1 border-0 bg-transparent px-0 text-base font-normal text-foreground outline-none placeholder:text-placeholder-foreground"
             />
           </div>
 
