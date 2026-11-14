@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Add more space between pinned and other Work sidebar chats.
 - Skip finished Work chats when navigating with sidebar and project chat shortcuts.
 - Show relevant folder actions for each chat, including folder creation when none exist.
 - Reduce repeated Chat sidebar previews and refine folder spacing.
