@@ -16,12 +16,14 @@ afterEach(async () => {
 });
 
 domTest("reducing motion mid-run shows the first extension frame and stops its timer; full motion can resume", async () => {
-  let tick = () => {};
+  let serial = 0;
+  const timers = new Map<number, () => void>();
+  const tick = () => { for (const callback of [...timers.values()]) callback(); };
   const interval = spyOn(window, "setInterval").mockImplementation(((callback: () => void) => {
-    tick = callback;
-    return 7;
+    timers.set(++serial, callback);
+    return serial;
   }) as typeof window.setInterval);
-  const clear = spyOn(window, "clearInterval").mockImplementation(() => {});
+  const clear = spyOn(window, "clearInterval").mockImplementation(id => { if (typeof id === "number") timers.delete(id); });
   try {
     document.documentElement.dataset["motion"] = "full";
     useAppStore.setState((state) => ({
@@ -42,13 +44,18 @@ domTest("reducing motion mid-run shows the first extension frame and stops its t
     expect(container.textContent).toContain("SECOND");
     await act(async () => { document.documentElement.dataset["motion"] = "reduced"; });
     expect(container.textContent).toContain("FIRST");
-    expect(clear).toHaveBeenCalledWith(7);
-    expect(interval).toHaveBeenCalledTimes(1);
+    expect(timers.size).toBe(0);
+    await act(async () => tick());
+    expect(container.textContent).toContain("FIRST");
     await act(async () => { document.documentElement.dataset["motion"] = "full"; });
-    expect(interval).toHaveBeenCalledTimes(2);
+    expect(timers.size).toBe(1);
+    await act(async () => tick());
+    expect(container.textContent).toContain("FIRST");
+    await act(async () => tick());
+    expect(container.textContent).toContain("SECOND");
     await act(async () => root!.unmount());
     root = undefined;
-    expect(clear).toHaveBeenCalledTimes(2);
+    expect(timers.size).toBe(0);
   } finally {
     interval.mockRestore();
     clear.mockRestore();

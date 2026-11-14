@@ -36,7 +36,10 @@ for (const lan of [false, true]) domTest(`a StrictMode surface owns its lease ev
   await act(async () => root!.unmount()); root = undefined;
   const ids = requests.filter(([c]) => c === "terminalAttach").map(([, p]) => p.attachmentId);
   expect(new Set(ids).size).toBe(2);
-  expect(requests.filter(([c]) => c === "terminalDetach").every(([, p]) => ids.includes(p.attachmentId))).toBe(true);
-  expect(new Set(requests.filter(([c]) => c === "terminalDetach").map(([, p]) => p.attachmentId)).size).toBe(2);
+  const detached = requests.filter(([c]) => c === "terminalDetach").map(([, params]) => params);
+  expect(new Set(detached.map(params => params.attachmentId))).toEqual(new Set(ids));
+  expect(detached.map(({ projectDir, terminalId }) => ({ projectDir, terminalId })))
+    .toEqual(detached.map(() => ({ projectDir: "/project", terminalId: "terminal" })));
+  expect(listeners.size).toBe(0);
   expect(requests.some(([c]) => c === "terminalCreate" || c === "terminalClose")).toBe(false);
 });

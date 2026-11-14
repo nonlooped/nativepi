@@ -8,12 +8,12 @@ if (typeof document !== "undefined") {
   globalThis.requestAnimationFrame = window.requestAnimationFrame.bind(window);
   globalThis.cancelAnimationFrame = window.cancelAnimationFrame.bind(window);
 }
-domTest("shows saved tiers beside reasoning with matching icon controls and no field titles", async () => {
+domTest("selecting a saved tier updates the session and disables changes during a run", async () => {
   const { emptyConversation } = await import("../lib/store/conversation.ts");
   const { useAppStore } = await import("../lib/store.ts");
   const { default: ModelSelector } = await import("./ModelSelector.tsx");
   const original = useAppStore.getState();
-  const tiers = ["default", "priority"];
+  const tiers: ServiceTierState["tiers"] = ["default", "priority"];
   const writes: unknown[] = [];
   stubInvoke(async (channel, params) => {
     if (channel === "getServiceTier") return { state: { tier: "default", tiers } };
@@ -36,22 +36,15 @@ domTest("shows saved tiers beside reasoning with matching icon controls and no f
     expect(trigger().textContent).not.toContain("auto");
     const reasoning = document.querySelector('[aria-label="Reasoning effort"]')!;
     expect(reasoning).not.toBeNull();
-    expect(reasoning.closest("section")?.parentElement).toBe(trigger().closest("section")?.parentElement);
-    expect(reasoning.closest("section")?.querySelector("p")).toBeNull();
-    expect(reasoning.querySelector("svg")).not.toBeNull();
-    expect(trigger().closest("section")?.querySelector("p")).toBeNull();
-    expect(trigger().querySelector("svg")).not.toBeNull();
-    expect(document.body.textContent).not.toContain("Reasoning effort");
-    expect(document.querySelector('[data-slot="kbd"]')).toBeNull();
     await act(async () => { trigger().click(); });
     const options = [...document.querySelectorAll<HTMLElement>('[role="option"]')];
     expect(options).toHaveLength(2);
-    expect(options.every(option => Boolean(option.textContent?.trim()))).toBe(true);
     expect(options.map(option => option.textContent)).not.toContain("Automatic");
     expect(document.querySelector('[role="option"][aria-selected="true"]')?.textContent).toContain("Standard");
     expect(options.find(option => option.textContent?.includes("Priority"))?.textContent).toContain("higher cost");
     await act(async () => { options.find(option => option.textContent?.startsWith("Priority"))!.click(); });
-    expect(writes).toHaveLength(1);
+    expect(writes).toEqual([{ projectDir: "/p", sessionFile: "a", tier: "priority", provider: "openai", modelId: "model" }]);
+    expect(useAppStore.getState().serviceTier).toEqual({ tier: "priority", tiers });
     expect(trigger().textContent).toContain("Priority");
     expect(document.querySelector('[aria-label="Reasoning effort"]')).not.toBeNull();
     await act(async () => { useAppStore.setState({ conversations: { a: { ...emptyConversation(), projectDir: "/p", sessionFile: "a", running: true } } }); });

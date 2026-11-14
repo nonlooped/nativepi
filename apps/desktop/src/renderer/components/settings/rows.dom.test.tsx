@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
-// Run with a DOM preload; the repository intentionally has no DOM-test dependency.
+// Run through test:dom so native input events reach React in happy-dom.
 const domTest = test.skipIf(typeof document === "undefined");
 let root: Root | undefined;
 let container: HTMLDivElement | undefined;

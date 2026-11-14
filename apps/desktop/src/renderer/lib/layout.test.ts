@@ -3,12 +3,11 @@ import { workspaceLayoutFor } from "./layout.ts";
 
 describe("workspaceLayoutFor", () => {
   test("scales the layout with the display's available width", () => {
-    for (const displayWidth of [1280, 1440, 1920, 2560, 3840]) {
-      expect(workspaceLayoutFor(displayWidth * 0.4, displayWidth)).toBe("compact");
-      expect(workspaceLayoutFor(displayWidth * 0.6, displayWidth)).toBe("narrow");
-      expect(workspaceLayoutFor(displayWidth * 0.9, displayWidth)).toBe("wide");
-      expect(workspaceLayoutFor(displayWidth, displayWidth)).toBe("wide");
-    }
+    // One display is enough to check each range; the separate cases below
+    // exercise exact boundaries and adaptation to a different display.
+    expect(workspaceLayoutFor(768, 1920)).toBe("compact");
+    expect(workspaceLayoutFor(1152, 1920)).toBe("narrow");
+    expect(workspaceLayoutFor(1728, 1920)).toBe("wide");
   });
 
   test("uses relative boundaries for both sidebars", () => {

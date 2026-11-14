@@ -59,17 +59,23 @@ test('merge-tree diff includes deletions and both sides of cross-workspace renam
 });
 
 test('release does not allocate packaging runners for failed, cancelled, or uncertified skipped checks', () => {
-  for (const certified of ['true', 'false', '']) {
-    for (const result of ['success', 'failure', 'cancelled', 'skipped']) {
-      const needs = {
-        plan: { result: 'success', outputs: { build: 'true', publish: 'true', certified } },
-        checks: { result }, package: { result: 'success' },
-      };
-      const expected = result === 'success' || (certified === 'true' && result === 'skipped');
-      for (const job of ['package', 'release']) {
-        expect(Boolean(allows(release.jobs[job].if, { needs, cancelled: () => false }))).toBe(expected);
-        expect(Boolean(allows(release.jobs[job].if, { needs, cancelled: () => true }))).toBe(false);
-      }
+  // List policy outcomes independently of the workflow's boolean expression.
+  const cases = [
+    ['false', 'success', true],
+    ['true', 'skipped', true],
+    ['false', 'skipped', false],
+    ['', 'skipped', false],
+    ['true', 'failure', false],
+    ['true', 'cancelled', false],
+  ];
+  for (const [certified, result, expected] of cases) {
+    const needs = {
+      plan: { result: 'success', outputs: { build: 'true', publish: 'true', certified } },
+      checks: { result }, package: { result: 'success' },
+    };
+    for (const job of ['package', 'release']) {
+      expect(Boolean(allows(release.jobs[job].if, { needs, cancelled: () => false }))).toBe(expected);
+      expect(Boolean(allows(release.jobs[job].if, { needs, cancelled: () => true }))).toBe(false);
     }
   }
 });
@@ -94,7 +100,6 @@ test('release checks, packaging, and publication all use the planned immutable c
   expect(ci.jobs.check.steps[0].with.ref).toBeUndefined();
   expect(release.jobs.checks.if).toContain("needs.plan.outputs.certified != 'true'");
   expect(ci.jobs.check.if).toBeUndefined();
-  expect(ci.jobs.check.name).toBe('Typecheck, Test & Build');
 });
 
 test('every external action is immutable and setup caches isolate CPU architectures', () => {

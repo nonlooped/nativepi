@@ -1,7 +1,8 @@
 import { resolve } from "node:path";
 
 const cwd = resolve(import.meta.dir, "..");
-const files = [...new Bun.Glob("**/*.test.{ts,tsx,mjs}").scanSync({ cwd, onlyFiles: true })]
+const selected = process.argv.slice(2);
+const files = selected.length ? selected : [...new Bun.Glob("**/*.test.{ts,tsx,mjs}").scanSync({ cwd, onlyFiles: true })]
   .filter((file) => !file.includes("node_modules/") && !file.endsWith(".dom.test.tsx"))
   .sort();
 if (!files.length) throw new Error("No unit tests found.");

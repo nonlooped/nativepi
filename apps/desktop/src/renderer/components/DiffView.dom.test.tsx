@@ -1,6 +1,8 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { useAppStore } from "../lib/store.ts";
+import { stubInvoke } from "../lib/store/testBridge.ts";
 
 const domTest = test.skipIf(typeof document === "undefined");
 // happy-dom has no layout/intersection engine. Supply a fixed 360px viewport
@@ -64,32 +66,22 @@ domTest("large diffs mount a bounded range and scrolling reaches the final line"
   expect(shadow.textContent).toContain("row49999");
   expect(shadow.querySelectorAll("[data-line]").length).toBeLessThan(500);
 });
-domTest("embedded diffs retain wrapping, split/unified controls and theme updates", async () => {
+domTest("diff controls toggle wrapping and save the selected view", async () => {
+  stubInvoke(async () => ({}));
+  useAppStore.setState({ ready: false, preferences: { ...useAppStore.getState().preferences, diffStyle: "unified" } });
   await mount(patchFor(10), true);
-  expect(container.firstElementChild!.className).toContain("max-h-96");
   const wrap = [...container.querySelectorAll("button")].find(button => button.textContent === "Wrap lines")!;
   await act(async () => wrap.click());
   expect(wrap.getAttribute("aria-pressed")).toBe("true");
   const mode = [...container.querySelectorAll("button")].find(button => /^(Unified|Split) view$/.test(button.textContent ?? ""))!;
-  const previous = mode.textContent;
   await act(async () => mode.click());
-  expect(mode.textContent).not.toBe(previous);
-  await act(async () => document.documentElement.classList.add("dark"));
-  await settle();
-  expect(container.querySelector("diffs-container")!.shadowRoot!.textContent).toContain("row9");
-  await act(async () => document.documentElement.classList.remove("dark"));
+  expect(useAppStore.getState().preferences.diffStyle).toBe("split");
+  expect(mode.textContent).toBe("Unified view");
+
 });
-domTest("file-owned wrapping suppresses per-hunk controls and updates every hunk", async () => {
-  await mount(patchFor(2), true);
-  await act(async () => root!.render(<div>
-    <DiffView patch="first hunk" embedded controls={{ wrap: true }} />
-    <DiffView patch="second hunk" embedded controls={{ wrap: true }} />
-  </div>));
-  expect(container.querySelectorAll("button").length).toBe(0);
-  expect([...container.querySelectorAll("pre")].every(pre => pre.className.includes("whitespace-pre-wrap"))).toBe(true);
-  await act(async () => root!.render(<div>
-    <DiffView patch="first hunk" embedded controls={{ wrap: false }} />
-    <DiffView patch="second hunk" embedded controls={{ wrap: false }} />
-  </div>));
-  expect([...container.querySelectorAll("pre")].every(pre => !pre.className.includes("whitespace-pre-wrap"))).toBe(true);
+domTest("unparseable patches remain literal text instead of being interpreted as markup", async () => {
+  const patch = '<script>untrusted()</script>\n--- broken patch';
+  await mount(patch);
+  expect(container.textContent).toContain(patch);
+  expect(container.querySelector("script")).toBeNull();
 });

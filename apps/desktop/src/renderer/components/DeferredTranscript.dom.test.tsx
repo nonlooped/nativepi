@@ -68,7 +68,7 @@ function resetChat(entries = history) {
 domTest("long transcripts initially mount only recent messages and reveal a deep link immediately", async () => {
   resetChat();
   await mount(<Transcript />);
-  expect(container.querySelectorAll('article[id^="entry-a"]')).toHaveLength(10);
+  expect(container.textContent).toContain("Answer 99");
   expect(container.textContent).not.toContain("Answer 0");
   const scroll = HTMLElement.prototype.scrollIntoView;
   HTMLElement.prototype.scrollIntoView = () => {};
@@ -107,7 +107,8 @@ domTest("an offscreen pending graphical tool mounts without waiting for scrollin
   } }] });
   await mount(<Transcript />);
   expect(container.textContent).toContain("Pending question");
-  expect(container.querySelectorAll('article[id^="entry-a"]')).toHaveLength(11);
+  expect(container.textContent).toContain("Answer 99");
+  expect(container.textContent).not.toContain("Answer 1");
 });
 
 domTest("a grouped assistant target reveals collapsed work by its own durable ID", async () => {
@@ -124,7 +125,6 @@ domTest("a grouped assistant target reveals collapsed work by its own durable ID
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
     expect(container.querySelector("#entry-second")?.textContent).toContain("Final answer");
     expect(scrolled).toContain("entry-second");
-    expect(container.querySelector("#entry-second")?.classList.contains("ring-ring")).toBe(true);
   } finally { HTMLElement.prototype.scrollIntoView = scroll; }
 });
 
@@ -133,5 +133,5 @@ domTest("missing targets are consumed without substituting another message", asy
   await mount(<Transcript />);
   await act(async () => useAppStore.setState({ transcriptTarget: { session: "chat", entry: "deleted-or-other-branch" } }));
   expect(useAppStore.getState().transcriptTarget).toBeNull();
-  expect(container.querySelector(".ring-ring")).toBeNull();
+  expect(container.textContent).not.toContain("Answer 0");
 });

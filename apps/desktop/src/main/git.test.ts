@@ -141,12 +141,18 @@ test("source-control staging moves individual files or the whole working tree", 
   await writeFile(path.join(dir, "a.txt"), "changed\n", "utf8");
   await writeFile(path.join(dir, "new.txt"), "new\n", "utf8");
   expect(await gitStageAll(dir)).toEqual({ ok: true });
-  expect((await gitStatus(dir)).files.every((file) => file.staged)).toBe(true);
+  expect((await gitStatus(dir)).files.map(({ path, staged, unstaged }) => ({ path, staged, unstaged }))).toEqual([
+    { path: "a.txt", staged: true, unstaged: false },
+    { path: "new.txt", staged: true, unstaged: false },
+  ]);
   expect(await gitUnstageFile(dir, "a.txt")).toEqual({ ok: true });
   expect((await gitStatus(dir)).files.find((file) => file.path === "a.txt")).toMatchObject({ staged: false, unstaged: true });
   expect((await gitStatus(dir)).files.find((file) => file.path === "new.txt")?.staged).toBe(true);
   expect(await gitUnstageAll(dir)).toEqual({ ok: true });
-  expect((await gitStatus(dir)).files.every((file) => !file.staged && file.unstaged)).toBe(true);
+  expect((await gitStatus(dir)).files.map(({ path, staged, unstaged }) => ({ path, staged, unstaged }))).toEqual([
+    { path: "a.txt", staged: false, unstaged: true },
+    { path: "new.txt", staged: false, unstaged: true },
+  ]);
 });
 test("unstaging also works before a repository has its first commit", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "nativepi-unborn-git-"));

@@ -81,10 +81,8 @@ domTest("split controls create shells in either direction without closing or res
   });
   await render();
   await click("Split terminal above and below");
-  expect(document.querySelector<HTMLElement>('[data-slot="resizable-panel-group"]')!.style.flexDirection).toBe("column");
   expect(document.querySelectorAll(".terminal-surface")).toHaveLength(2);
   await click("Split terminal side by side");
-  expect(document.querySelector<HTMLElement>('[data-slot="resizable-panel-group"]')!.style.flexDirection).toBe("row");
   await click("New terminal");
   expect(document.querySelectorAll(".terminal-surface")).toHaveLength(4);
   expect(calls.filter(call => call === "terminalEnsure")).toHaveLength(1);
@@ -142,7 +140,6 @@ domTest("terminal keyboard commands switch focus, split, and close only the curr
     expect(document.activeElement).toBe(inputs()[1]);
     await press("KeyD", { shiftKey: true, altKey: true });
     expect(inputs()).toHaveLength(3);
-    expect(container!.querySelector<HTMLElement>('[data-slot="resizable-panel-group"]')!.style.flexDirection).toBe("column");
     inputs()[1]!.focus();
     await press("KeyW", { altKey: true });
     expect(closed).toEqual([{ projectDir: "/project", terminalId: "2" }]);

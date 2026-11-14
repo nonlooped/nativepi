@@ -1,5 +1,7 @@
-import { afterAll, expect, test } from "bun:test";
+import { afterAll, beforeEach, expect, test } from "bun:test";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ProjectTrustStore } from "@earendil-works/pi-coding-agent";
@@ -18,11 +20,17 @@ afterAll(async () => {
     process.env.PI_CODING_AGENT_DIR = previous;
   await rm(root, { recursive: true, force: true });
 });
+beforeEach(async () => {
+  await rm(join(agent, "trust.json"), { force: true });
+  await writeFile(join(agent, "settings.json"), JSON.stringify({ defaultProjectTrust: "always" }));
+});
 test("read services apply fallback in memory without persisting npmCommand", async () => {
   const file = join(agent, "settings.json");
   await writeFile(file, JSON.stringify({ defaultProjectTrust: "always" }));
   const services = piServices(project);
-  expect(services.settings.getNpmCommand()).toBeDefined();
+  const command = services.settings.getNpmCommand()!;
+  const npm = createRequire(import.meta.url)("npm/package.json") as { version: string };
+  expect(execFileSync(command[0]!, [...command.slice(1), "--version"], { encoding: "utf8" }).trim()).toBe(npm.version);
   await services.settings.flush();
   expect(JSON.parse(await readFile(file, "utf8"))).toEqual({ defaultProjectTrust: "always" });
 });
@@ -31,7 +39,7 @@ test("package discovery leaves the host environment untouched and uses an isolat
   const services = piServices(project);
   const result = services.pm.resolve();
   expect(process.env.ELECTRON_RUN_AS_NODE).toBe(original);
-  expect((await result).extensions).toBeArray();
+  expect((await result).extensions).toEqual([]);
   expect(process.env.ELECTRON_RUN_AS_NODE).toBe(original);
 });
 test("explicit npm argv and Pi default/recorded trust decisions survive", async () => {

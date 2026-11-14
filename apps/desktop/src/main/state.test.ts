@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+const finishedAt = "2026-11-14T12:00:00.000Z";
 const root = await mkdtemp(join(tmpdir(), "nativepi-state-"));
 const rename = fs.rename;
 const gate = Promise.withResolvers<void>();
@@ -47,23 +48,24 @@ test("queued transformations read the latest state without losing concurrent fie
   const { updateState } = await import("./state.ts");
   await saveState(nativePiStateSchema.parse({ drafts: { keep: "draft" } }));
   await Promise.all([
-    updateState(state => ({ ...state, finishedChats: { ...state.finishedChats, thread: new Date().toISOString() } })),
+    updateState(state => ({ ...state, finishedChats: { ...state.finishedChats, thread: finishedAt } })),
     updateState(state => ({ ...state, pinnedChats: [...state.pinnedChats, "other"] })),
   ]);
   const state = await loadState();
-  expect(state.finishedChats.thread).toBeDefined();
+  expect(state.finishedChats).toEqual({ thread: finishedAt });
   expect(state.pinnedChats).toEqual(["other"]);
   expect(state.drafts).toEqual({ keep: "draft" });
 });
 
 test("a stale renderer save cannot reverse host organization and deleted metadata stays removed", async () => {
   const { updateState, noteDeletedSession } = await import("./state.ts");
+  await updateState(() => nativePiStateSchema.parse({ pinnedChats: ["target"] }));
   const old = await loadState();
-  await updateState(state => ({ ...state, organizationRevision: state.organizationRevision + 1, finishedChats: { ...state.finishedChats, target: new Date().toISOString() }, pinnedChats: [] }));
+  await updateState(state => ({ ...state, organizationRevision: state.organizationRevision + 1, finishedChats: { ...state.finishedChats, target: finishedAt }, pinnedChats: [] }));
   noteDeletedSession("deleted");
   await saveState({ ...old, drafts: { deleted: "stale draft", keep: "draft" }, lastChatByProject: { project: "deleted" }, chatFolderBySession: { deleted: "folder" } });
   const fresh = await loadState();
-  expect(fresh.finishedChats.target).toBeDefined();
+  expect(fresh.finishedChats).toEqual({ target: finishedAt });
   expect(fresh.pinnedChats).toEqual([]);
   expect(fresh.organizationRevision).toBeGreaterThan(old.organizationRevision);
   expect(fresh.drafts).toEqual({ keep: "draft" });
@@ -73,7 +75,11 @@ test("a stale renderer save cannot reverse host organization and deleted metadat
 
 test("a refused state transform rejects its caller without poisoning the persistence drain", async () => {
   const { updateState } = await import("./state.ts");
+  await saveState(nativePiStateSchema.parse({ drafts: { keep: "original" } }));
+  const before = await readFile(join(root, "state.json"), "utf8");
   await expect(updateState(() => { throw new Error("busy: group started"); })).rejects.toThrow("busy:");
   await drainState();
-  expect((await loadState()).finishedChats.target).toBeDefined();
+  expect(await readFile(join(root, "state.json"), "utf8")).toBe(before);
+  await updateState(state => ({ ...state, drafts: { ...state.drafts, next: "accepted" } }));
+  expect((await loadState()).drafts).toEqual({ keep: "original", next: "accepted" });
 });

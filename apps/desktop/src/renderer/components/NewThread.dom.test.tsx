@@ -1,29 +1,34 @@
-import { afterEach, expect, mock, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-let loaded = true;
-let ready = false;
-const openSettings = mock(() => {});
-mock.module("../lib/store.ts", () => ({ useAppStore: (select: (s: unknown) => unknown) => select({ providersLoaded: loaded, providers: [{ ready }], openSettings }) }));
-const { default: NewThread } = await import("./NewThread.tsx");
-let root: Root;
+import { useAppStore } from "../lib/store.ts";
+import NewThread from "./NewThread.tsx";
+
+let root: Root | undefined;
 let container: HTMLDivElement;
-afterEach(async () => { if (root) await act(async () => root.unmount()); container?.remove(); openSettings.mockClear(); });
-async function mount() { container = document.createElement("div"); document.body.append(container); root = createRoot(container); await act(async () => root.render(<NewThread />)); }
-test("unconnected users get a provider action and no composer", async () => {
-  loaded = true; ready = false; await mount();
-  expect(container.querySelector("textarea")).toBeNull();
-  await act(async () => container.querySelector("button")!.click());
-  expect(openSettings).toHaveBeenCalledWith("Providers");
+const original = useAppStore.getState();
+afterEach(async () => {
+  if (root) await act(async () => root!.unmount());
+  root = undefined;
+  container?.remove();
+  useAppStore.setState(original, true);
 });
-test("ready providers show the work heading without a duplicate composer", async () => {
-  loaded = true; ready = true; await mount();
-  expect(container.querySelector("h1")?.textContent).toBe("What should we work on?");
-  expect(container.querySelector("textarea")).toBeNull();
+
+test("provider loading resolves to onboarding, its action opens provider settings, and a ready provider clears onboarding", async () => {
+  useAppStore.setState({ destination: "work", providersLoaded: false, providers: [], settingsOpen: false, settingsCategory: null });
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  await act(async () => root!.render(<NewThread />));
+  expect(container.querySelector('[role="status"]')?.textContent).toBe("Checking providers…");
   expect(container.querySelector("button")).toBeNull();
-});
-test("loading providers does not flash an unconnected state", async () => {
-  loaded = false; ready = false; await mount();
-  expect(container.querySelector('[role="status"]')).not.toBeNull();
-  expect(container.querySelector("button, textarea")).toBeNull();
+
+  await act(async () => useAppStore.setState({ providersLoaded: true }));
+  const connect = [...container.querySelectorAll("button")].find(button => button.textContent === "Connect a provider")!;
+  await act(async () => connect.click());
+  expect(useAppStore.getState()).toMatchObject({ settingsOpen: true, settingsCategory: "Providers" });
+
+  await act(async () => useAppStore.setState({ providers: [
+    { id: "test", name: "Test", supportsApiKey: true, supportsOAuth: false, configured: true, ready: true },
+  ] }));
+  expect(container.textContent).toContain("What should we work on?");
+  expect(container.textContent).not.toContain("Connect a provider");
 });

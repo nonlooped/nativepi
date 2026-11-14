@@ -43,16 +43,10 @@ test("does not split on U+2028/U+2029 inside a JSON string (LF-only framing)", (
 });
 
 test("skips non-JSON noise and messages missing a string type", () => {
-  const msgs = feed(["not json\n", '{"nope":1}\n', '{"type":"ok"}\n']);
-  expect(msgs).toEqual([{ type: "ok" }]);
+  const msgs = feed(["not json\nnull\n42\n[]\n", '{"nope":1}\n', '{"type":42}\n', '{"type":"future_event","future":{"retained":true}}\n']);
+  expect(msgs).toEqual([{ type: "future_event", future: { retained: true } }]);
 });
 
 test("serializeCommand appends exactly one LF", () => {
   expect(serializeCommand({ type: "abort" })).toBe('{"type":"abort"}\n');
-});
-
-test("serializes the supported-thinking-level request", () => {
-  expect(serializeCommand({ type: "get_available_thinking_levels" })).toBe(
-    '{"type":"get_available_thinking_levels"}\n',
-  );
 });

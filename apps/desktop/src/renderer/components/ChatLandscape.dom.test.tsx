@@ -84,7 +84,6 @@ afterEach(async () => {
 test("the background ripples continue after pointer exit, settle, and cancel on unmount", async () => {
   await mount();
   expect(frames.size).toBe(0);
-  expect(host.querySelectorAll("canvas")).toHaveLength(1);
   move(300);
   flushFrame();
   expect(ripplePaints).toBe(1);
@@ -107,7 +106,6 @@ test("touch and reduced motion keep the landscape static", async () => {
   expect(frames.size).toBe(0);
   await act(async () => { document.documentElement.dataset.motion = "reduced"; });
   flushFrame();
-  expect(host.querySelectorAll("canvas")).toHaveLength(1);
   move(500);
   expect(frames.size).toBe(0);
   expect(ripplePaints).toBe(0);

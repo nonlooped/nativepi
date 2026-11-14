@@ -1,23 +1,31 @@
-import { afterEach, expect, mock, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { ExtensionPrompt } from "../lib/store.ts";
+import { useAppStore } from "../lib/store.ts";
+import { stubInvoke } from "../lib/store/testBridge.ts";
 
 Object.defineProperty(globalThis, "requestAnimationFrame", { value: window.requestAnimationFrame.bind(window), configurable: true });
 Object.defineProperty(globalThis, "cancelAnimationFrame", { value: window.cancelAnimationFrame.bind(window), configurable: true });
-const respond = mock((_response: unknown) => {});
-const state = { extPrompts: [] as ExtensionPrompt[], respondExtension: respond };
-mock.module("../lib/store.ts", () => ({ useAppStore: (select: (s: typeof state) => unknown) => select(state) }));
+const responses: unknown[] = [];
+const original = useAppStore.getState();
 const { default: ExtensionUi } = await import("./ExtensionUi.tsx");
 let root: Root;
 let container: HTMLDivElement;
 afterEach(async () => {
   if (root) await act(async () => root.unmount());
   container?.remove();
-  respond.mockClear();
+  responses.length = 0;
+  useAppStore.setState(original, true);
 });
 async function mount(prompt: ExtensionPrompt) {
-  state.extPrompts = [prompt];
+  stubInvoke(async (channel, params) => {
+    if (channel !== "extensionRespond") throw new Error(`Unexpected request: ${channel}`);
+    responses.push(params);
+    return { ok: true };
+  });
+  // The prompt belongs to another chat: replies must use its original target.
+  useAppStore.setState({ activeProjectPath: "/elsewhere", activeSessionFile: "/other", extPrompts: [prompt], extensionPromptsByProject: { [prompt.projectDir]: [prompt] } });
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -35,16 +43,14 @@ test("footer Submit sends the current input through its associated form", async 
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!.call(input, "My answer");
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
-  const submit = button("Submit");
-  expect(submit.form).toBe(document.querySelector("form"));
-  await act(async () => submit.click());
-  expect(respond.mock.calls).toEqual([[{ value: "My answer" }]]);
+  await act(async () => button("Submit").click());
+  expectReply({ value: "My answer" });
 });
 
 test("Cancel never submits the input form", async () => {
   await mount({ ...common, method: "input" });
   await act(async () => button("Cancel").click());
-  expect(respond.mock.calls).toEqual([[{ cancel: true }]]);
+  expectReply({ cancelled: true });
 });
 
 test("editor footer submits the latest multiline text", async () => {
@@ -56,21 +62,28 @@ test("editor footer submits the latest multiline text", async () => {
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
   await act(async () => button("Submit").click());
-  expect(respond.mock.calls).toEqual([[{ value: "Edited\nanswer" }]]);
+  expectReply({ value: "Edited\nanswer" });
 });
 
 test("select rows preserve the full option as the response", async () => {
   const option = "A long option with enough detail to wrap across several lines in a narrow dialog";
   await mount({ ...common, method: "select", options: [option, "Second"] });
   await act(async () => button(option).click());
-  expect(respond.mock.calls).toEqual([[{ value: option }]]);
+  expectReply({ value: option });
 });
 
 test("confirm and close keep their distinct extension responses", async () => {
   await mount({ ...common, method: "confirm", message: "Continue?" });
   await act(async () => button("Confirm").click());
-  expect(respond.mock.calls).toEqual([[{ confirmed: true }]]);
-  respond.mockClear();
+  expectReply({ confirmed: true });
+  responses.length = 0;
+  await act(async () => useAppStore.setState({ extPrompts: [{ ...common, method: "confirm", message: "Continue?" }] }));
   await act(async () => button("Close dialog").click());
-  expect(respond.mock.calls).toEqual([[{ cancel: true }]]);
+  expectReply({ cancelled: true });
 });
+
+function expectReply(reply: { value?: string; confirmed?: boolean; cancelled?: boolean }) {
+  expect(responses).toEqual([{ projectDir: "/repo", sessionFile: null, response: { type: "extension_ui_response", id: "prompt", ...reply } }]);
+  expect(useAppStore.getState().extPrompts).toEqual([]);
+  expect(useAppStore.getState().extensionPromptsByProject["/repo"]).toEqual([]);
+}

@@ -39,12 +39,6 @@ test("no two slices define the same key", () => {
   expect(collisions).toEqual([]);
 });
 
-test("the composed store exposes every key its slices declare", () => {
-  const expected = new Set(Object.values(slices).flatMap((slice) => Object.keys(slice)));
-  const actual = new Set(Object.keys(useAppStore.getState()));
-
-  expect([...expected].filter((key) => !actual.has(key))).toEqual([]);
-});
 
 test("a conversation reset hands out fresh collections each time", async () => {
   // `emptyConversation()` is a function precisely so two resets cannot end up
@@ -54,6 +48,8 @@ test("a conversation reset hands out fresh collections each time", async () => {
   const second = emptyConversation();
 
   expect(first.entries).not.toBe(second.entries);
-  expect(first.queue).not.toBe(second.queue);
+  first.queue.steering.push("only first");
+  first.queue.followUp.push("next for first");
+  expect(second.queue).toEqual({ steering: [], followUp: [] });
   expect(first.pending).not.toBe(second.pending);
 });

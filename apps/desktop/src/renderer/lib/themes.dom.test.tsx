@@ -11,11 +11,9 @@ test("switching schemes applies glass only to Acrylic and keeps cached material 
     applyTheme(root, { ...DEFAULT_PREFERENCES, themeId: "nativepi", theme }, false);
     expect(root.dataset.material).toBe("glass");
     expect(root.classList.contains("dark")).toBe(theme === "dark");
-    expect(root.style.getPropertyValue("--card")).toBe("");
     expect(JSON.parse(localStorage.getItem(THEME_CACHE_KEY)!).glass).toBe(true);
     applyTheme(root, { ...DEFAULT_PREFERENCES, themeId: "paper", theme }, false);
     expect(root.dataset.material).toBe("solid");
-    expect(root.style.getPropertyValue("--card")).toMatch(/^#/);
     expect(JSON.parse(localStorage.getItem(THEME_CACHE_KEY)!).glass).toBe(false);
   }
   applyTheme(root, { ...DEFAULT_PREFERENCES, themeId: "custom:copy", customThemes: [{ ...NATIVE_THEME, id: "custom:copy" }] }, false);

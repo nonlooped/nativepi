@@ -28,5 +28,10 @@ test("old preferences default to off; disabling drops all ephemeral suggestions"
   useAppStore.setState({ preferences: { ...useAppStore.getState().preferences, promptSuggestions: true }, conversations: { a: conversation(), b: conversation() } });
   useAppStore.getState().setPreference("promptSuggestions", false);
   expect(useAppStore.getState().preferences.promptSuggestions).toBe(false);
-  expect(Object.values(useAppStore.getState().conversations).every(c => c.promptSuggestion === undefined)).toBe(true);
+  const conversations = useAppStore.getState().conversations;
+  expect(Object.keys(conversations).sort()).toEqual(["a", "b"]);
+  expect(conversations.a.promptSuggestion).toBeUndefined();
+  expect(conversations.b.promptSuggestion).toBeUndefined();
+  expect(conversations.a.entries).toEqual(conversation().entries);
+  expect(conversations.b.entries).toEqual(conversation().entries);
 });

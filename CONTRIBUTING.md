@@ -104,10 +104,18 @@ and the platform archive checksums in `scripts/lint-workflows.ts`.
 Release and CI regression tests live in `tests/`; run `bun test ./tests` when
 changing those workflows.
 
+Desktop unit tests run in isolated processes with `bun run --cwd apps/desktop test:unit`.
+Pass test paths relative to `apps/desktop` to run selected suites with the same
+store preload and isolation as the full run. For example:
+
+```sh
+bun run --cwd apps/desktop test:unit src/main/state.test.ts src/renderer/lib/store/promptSuggestion.test.ts
+```
+
 DOM regressions run in isolated happy-dom processes with `bun run --cwd apps/desktop test:dom`.
-Pass a `.dom.test.tsx` path relative to `apps/desktop` to run one suite. The root
-`bun run test` command also runs these tests; plain `bun test` skips them without
-the DOM preload.
+Pass `.dom.test.tsx` paths relative to `apps/desktop` to run selected suites. The
+root `bun run test` command runs both runners plus package and integration tests;
+plain `bun test` skips DOM suites without the DOM preload.
 
 Personal maintenance reports and review captures belong outside the repository.
 

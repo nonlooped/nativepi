@@ -17,22 +17,22 @@ test("a registered method answers its renderer half", async () => {
   channel.register("@acme/ext", { stats: (params) => ({ echoed: params ?? null }) });
   expect(await callExtensionMethod("@acme/ext", "stats", { since: 1 })).toEqual({ echoed: { since: 1 } });
 });
-test("a call for a method nobody registered fails rather than hanging", () => {
+test("a call for a method nobody registered fails rather than hanging", async () => {
   host();
-  expect(callExtensionMethod("@acme/ext", "missing", undefined)).rejects.toThrow('has no method "missing"');
+  await expect(callExtensionMethod("@acme/ext", "missing", undefined)).rejects.toThrow('has no method "missing"');
 });
-test("methods are scoped to the extension that registered them", () => {
+test("methods are scoped to the extension that registered them", async () => {
   const { channel } = host();
   channel.register("@acme/one", { stats: () => 1 });
-  expect(callExtensionMethod("@acme/two", "stats", undefined)).rejects.toThrow("has no method");
+  await expect(callExtensionMethod("@acme/two", "stats", undefined)).rejects.toThrow("has no method");
 });
-test("an unserializable result is reported instead of breaking the frame stream", () => {
+test("an unserializable result is reported instead of breaking the frame stream", async () => {
   const { channel } = host();
   const circular: Record<string, unknown> = {};
   circular["self"] = circular;
   // @ts-expect-error Runtime validation rejects a broken extension's result.
   channel.register("@acme/ext", { loop: () => circular });
-  expect(callExtensionMethod("@acme/ext", "loop", undefined)).rejects.toThrow("non-JSON");
+  await expect(callExtensionMethod("@acme/ext", "loop", undefined)).rejects.toThrow("non-JSON");
 });
 test("factory methods survive binding and are cleared when their session is replaced or reloaded", async () => {
   const { channel } = host();
@@ -52,9 +52,9 @@ test("factory methods survive binding and are cleared when their session is repl
   expect(await callExtensionMethod("@acme/ext", "stats", undefined)).toBe(1);
   await session.reload();
   expect(await callExtensionMethod("@acme/ext", "stats", undefined)).toBe(2);
-  expect(callExtensionMethod("@acme/ext", "stale", undefined)).rejects.toThrow("has no method");
+  await expect(callExtensionMethod("@acme/ext", "stale", undefined)).rejects.toThrow("has no method");
   session.dispose();
-  expect(callExtensionMethod("@acme/ext", "stats", undefined)).rejects.toThrow("has no method");
+  await expect(callExtensionMethod("@acme/ext", "stats", undefined)).rejects.toThrow("has no method");
 });
 test("an unserializable event payload is dropped rather than written", () => {
   const { frames, channel } = host();
@@ -83,7 +83,7 @@ test("connect validates the shared protocol before values cross the host channel
   const ui = connect("@acme/typed", protocol, { double: (value) => value * 2 });
   expect(ui.connected).toBe(true);
   expect(await callExtensionMethod("@acme/typed", "double", 2)).toBe(4);
-  expect(callExtensionMethod("@acme/typed", "double", 1.5)).rejects.toThrow("Expected an integer");
+  await expect(callExtensionMethod("@acme/typed", "double", 1.5)).rejects.toThrow("Expected an integer");
   expect(() => ui.emit("changed", 1.5)).toThrow("Expected an integer");
   ui.emit("changed", 3);
   expect(frames.at(-1)).toEqual({

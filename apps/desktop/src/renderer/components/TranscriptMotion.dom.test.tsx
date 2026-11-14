@@ -22,31 +22,33 @@ async function mount() {
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   await act(async () => root!.render(<Transcript />));
 }
+function stop() { return [...host.querySelectorAll("button")].find(button => button.textContent?.trim() === "Stop")!; }
 async function running(value: boolean) {
   await act(async () => useAppStore.setState(state => ({ conversations: {
     ...state.conversations, chat: { ...state.conversations.chat, running: value },
   } })));
 }
-test("completion keeps the pill shell, makes Stop inert, and a restarted run cancels the previous exit", async () => {
+test("completion disables Stop and a restarted run survives the previous completion timeout", async () => {
   await mount();
-  const shell = host.querySelector(".run-feedback")!;
+
+  expect(stop().closest("[inert]")).toBeNull();
   await running(false);
-  expect(host.querySelector(".run-feedback") === shell).toBe(true);
-  expect(host.querySelector(".run-feedback-done")?.textContent).toContain("Done in");
-  expect(host.querySelector(".run-feedback-active")?.hasAttribute("inert")).toBe(true);
+  expect(host.textContent).toContain("Done in");
+  expect(stop().closest("[inert]")).not.toBeNull();
   await running(true);
-  expect(host.querySelector(".run-feedback-done")).toBeNull();
-  expect(host.querySelector(".run-feedback-active")?.hasAttribute("inert")).toBe(false);
+  expect(host.textContent).not.toContain("Done in");
+  expect(stop().closest("[inert]")).toBeNull();
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 2550)); });
-  expect(host.querySelector(".run-feedback") === shell).toBe(true);
-  expect(shell.hasAttribute("data-exiting")).toBe(false);
+  expect(host.textContent).not.toContain("Done in");
+  expect(stop().closest('[aria-hidden="true"], [inert]')).toBeNull();
 });
 test("switching conversations never carries completion feedback into the destination", async () => {
   await mount();
   await running(false);
-  expect(host.querySelector(".run-feedback-done")).not.toBeNull();
+  expect(host.textContent).toContain("Done in");
   await act(async () => useAppStore.setState(state => ({ activeSessionFile: "other", conversations: {
     ...state.conversations, other: emptyConversation(),
   } })));
-  expect((host.querySelector(".run-feedback") as HTMLElement).style.display).toBe("none");
+  expect(host.textContent).not.toContain("Done in");
+  expect(stop()).toBeUndefined();
 });

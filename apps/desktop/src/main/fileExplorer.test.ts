@@ -1,11 +1,14 @@
-import { expect, test } from "bun:test";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { afterEach, expect, test } from "bun:test";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { readProjectDirectory, watchProjectDirectory } from "./fileExplorer.ts";
 
+const directories: string[] = [];
+afterEach(async () => { await Promise.all(directories.splice(0).map(dir => rm(dir, { recursive: true, force: true }))); });
 async function project(): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), "nativepi-explorer-"));
+  directories.push(dir);
   await writeFile(path.join(dir, ".gitignore"), "ignored/\n", "utf8");
   await writeFile(path.join(dir, "file10.ts"), "export {};\n", "utf8");
   await writeFile(path.join(dir, "file2.ts"), "export {};\n", "utf8");
@@ -35,7 +38,7 @@ test("a subfolder reads on its own, with paths relative to the project root", as
 });
 
 test("a path outside the project is refused", async () => {
-  expect(readProjectDirectory(await project(), "..")).rejects.toThrow();
+  await expect(readProjectDirectory(await project(), "..")).rejects.toThrow();
 });
 
 /** One `onChange`, however many events the platform decided that write was. */
@@ -80,7 +83,11 @@ test("a folder that was let go stops reporting", async () => {
 
 test("watching a path outside the project is inert rather than fatal", async () => {
   const seen = changes();
-  const stop = await watchProjectDirectory(await project(), "..", seen.onChange);
-  stop();
-  expect(seen.calls()).toBe(0);
+  const dir = await project();
+  const stop = await watchProjectDirectory(path.join(dir, "src"), "..", seen.onChange);
+  try {
+    await writeFile(path.join(dir, "outside.ts"), "export {};\n", "utf8");
+    await seen.settle();
+    expect(seen.calls()).toBe(0);
+  } finally { stop(); }
 });

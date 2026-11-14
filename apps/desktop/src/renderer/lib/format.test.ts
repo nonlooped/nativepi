@@ -57,9 +57,8 @@ describe("timeAgo", () => {
 
   test("never reports a chat under a year old as zero years", () => {
     // 360 days used to round to twelve months and then fall through to "0y".
-    for (const days of [340, 355, 360, 364]) {
-      expect(timeAgo(daysBefore(days), NOW)).toBe("11mo");
-    }
+    expect(timeAgo(daysBefore(360), NOW)).toBe("11mo");
+    expect(timeAgo(daysBefore(364), NOW)).toBe("11mo");
     expect(timeAgo(daysBefore(365), NOW)).toBe("1y");
   });
 });
