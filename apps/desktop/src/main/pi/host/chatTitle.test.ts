@@ -7,37 +7,72 @@ function fixture(resumed = false) {
   let name: string | undefined;
   const pending = Promise.withResolvers<{ content: { type: "text"; text: string }[]; stopReason: string }>();
   const proposals: string[] = [];
-  let calls = 0;
+  const calls: Parameters<AgentSession["modelRuntime"]["completeSimple"]>[] = [];
   const session = {
     messages: resumed ? [{ role: "user", content: "old request" }] : [],
     sessionFile: "/chat.jsonl",
     model: { id: "model", provider: "provider" },
     sessionManager: { getSessionName: () => name },
     subscribe: (fn: typeof listener) => { listener = fn; return () => {}; },
-    modelRuntime: { completeSimple: () => { calls++; return pending.promise; } },
+    modelRuntime: { completeSimple: (...args: typeof calls[number]) => { calls.push(args); return pending.promise; } },
   };
   const stop = observeChatTitle(session as unknown as AgentSession, (_file, title) => proposals.push(title));
-  const end = (stopReason = "stop") => {
-    session.messages = [{ role: "user", content: "Repair login" }, { role: "assistant", content: "Fixed" , stopReason } as never];
-    listener({ type: "agent_end", messages: [], willRetry: false });
+  const user = (content: unknown = "Repair login") => {
+    // Pi emits message_end before persistence; use its payload, not session history.
+    listener({ type: "message_end", message: { role: "user", content, timestamp: 1 } } as never);
   };
-  return { end, stop, proposals, calls: () => calls, rename: () => { name = "My name"; }, resolve: async () => {
+  return { user, session, stop, proposals, calls, rename: () => {
+    name = "My name";
+    listener({ type: "session_info_changed", name });
+  }, end: () => listener({ type: "agent_end", messages: [], willRetry: false }), resolve: async () => {
     pending.resolve({ content: [{ type: "text", text: "Repair login flow" }], stopReason: "stop" });
     await Promise.resolve(); await Promise.resolve();
+  }, reject: async () => {
+    pending.reject(new Error("Provider unavailable"));
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
   } };
 }
-test("names once using a successful first answer", async () => {
-  const f = fixture(); f.end(); f.end(); await f.resolve();
-  expect(f.calls()).toBe(1); expect(f.proposals).toEqual(["Repair login flow"]); f.stop();
+test("starts naming from the first user message before an assistant answer, only once", async () => {
+  const f = fixture();
+  expect(f.calls).toHaveLength(0);
+  f.user(); f.user("Another request");
+  expect(f.calls).toHaveLength(1);
+  expect(f.calls[0]![1].messages).toEqual([{ role: "user", content: JSON.stringify({ request: "Repair login" }), timestamp: expect.any(Number) }]);
+  expect(f.calls[0]![2]).toMatchObject({ reasoning: "low", toolChoice: "none", disableContinuation: true });
+  await f.resolve();
+  expect(f.proposals).toEqual(["Repair login flow"]);
+  f.end();
+  expect(f.calls).toHaveLength(1);
+  f.stop();
 });
-test("preserves resumed chats, manual names, disposed sessions, and failed turns", async () => {
-  for (const action of ["resume", "rename", "dispose", "error", "aborted"]) {
+test("preserves resumed chats, manual names, disposed sessions, and switched sessions", async () => {
+  for (const action of ["resume", "named", "rename", "dispose", "switch"]) {
     const f = fixture(action === "resume");
-    f.end(action === "error" || action === "aborted" ? action : "stop");
+    if (action === "named") f.rename();
+    f.user();
     if (action === "rename") f.rename();
     if (action === "dispose") f.stop();
-    await f.resolve(); expect(f.proposals).toEqual([]); f.stop();
+    if (action === "switch") f.session.sessionFile = "/other.jsonl";
+    await f.resolve();
+    expect(f.proposals).toEqual([]);
+    if (action === "named" || action === "resume") expect(f.calls).toHaveLength(0);
+    if (action === "rename" || action === "dispose") expect(f.calls[0]![2]?.signal?.aborted).toBe(true);
+    f.stop();
   }
+});
+test("uses text from multipart prompts and ignores prompts without text", async () => {
+  for (const content of ["  ", [{ type: "image", data: "image" }]]) {
+    const f = fixture(); f.user(content);
+    expect(f.calls).toHaveLength(0); f.stop();
+  }
+  const f = fixture();
+  f.user([{ type: "image", data: "image" }, { type: "text", text: "Repair login" }]);
+  expect(f.calls).toHaveLength(1);
+  await f.resolve(); expect(f.proposals).toEqual(["Repair login flow"]); f.stop();
+});
+test("a provider failure leaves the title alone without retrying on turn end", async () => {
+  const f = fixture(); f.user(); await f.reject(); f.end();
+  expect(f.calls).toHaveLength(1); expect(f.proposals).toEqual([]); f.stop();
 });
 test("rejects empty, multiline, and oversized output", () => {
   for (const raw of ["", "title\ncommentary", "x".repeat(81), "bad\u0000title"]) expect(parseChatTitle(raw)).toBeUndefined();
