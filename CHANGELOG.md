@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-11-14
+
 ### Added
 - Optional next-message suggestions in the empty composer after Pi finishes, with Tab to accept and Escape to dismiss.
 
@@ -706,7 +708,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial NativePi desktop wrapper for the Pi coding agent (Electron + electron-vite + Bun + React 19.2 + Vite 8 + Tailwind CSS 4 + shadcn/ui + Zustand + Zod).
 - Project bootstrap, README and logo assets, build and release automation.
 
-[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.17.0...HEAD
+[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.18.0...HEAD
+[1.18.0]: https://github.com/nonlooped/nativepi/compare/v1.17.0...v1.18.0
 [1.17.0]: https://github.com/nonlooped/nativepi/compare/v1.16.0...v1.17.0
 [1.16.0]: https://github.com/nonlooped/nativepi/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/nonlooped/nativepi/compare/v1.14.0...v1.15.0
