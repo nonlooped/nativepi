@@ -39,7 +39,6 @@ export default function GeneralSettings() {
         />
         <SwitchRow
           label="Play a sound"
-          description="Use the system notification sound."
           checked={notificationSound}
           onChange={(value) => setPreference("notificationSound", value)}
           disabled={!notifyOnTurnEnd}
@@ -101,7 +100,7 @@ function NotificationCard({ enabled, silent }: { enabled: boolean; silent: boole
       description={
         blocked
           ? "Allow NativePi in your system's notification settings. Until then, nothing below can put one on screen."
-          : "Send one now to check that it arrives, and that it sounds the way you want."
+          : "Test delivery and the system notification sound."
       }
       action={
         <Button variant="outline" size="sm" disabled={blocked} onClick={() => void send()}>

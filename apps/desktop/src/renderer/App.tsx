@@ -362,14 +362,14 @@ export default function App() {
 
       {settingsOpen ? (
         <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-overlay p-0 backdrop-blur-sm sm:p-6"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-overlay/40 p-0 backdrop-blur-[2px] sm:p-6"
           onClick={closeSettings}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-label="Settings"
-            className="settings-viewport h-full w-full overflow-hidden bg-background sm:h-[88%] sm:max-h-[54rem] sm:w-[94%] sm:max-w-[70rem] sm:rounded-xl sm:border sm:shadow-xl"
+            className="settings-viewport h-full w-full overflow-hidden bg-background/95 backdrop-blur-xl sm:h-[88%] sm:max-h-[54rem] sm:w-[94%] sm:max-w-[70rem] sm:rounded-xl sm:border sm:border-border/40 sm:shadow-lg"
             onClick={(event) => event.stopPropagation()}
           >
             <Settings />

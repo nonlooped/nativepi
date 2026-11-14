@@ -23,9 +23,9 @@ export function SettingsSection({
   return (
     <section
       aria-labelledby={id}
-      className="flex min-w-0 flex-col gap-3"
+      className="flex min-w-0 flex-col gap-1"
     >
-      <div className="border-b border-border/70 pb-2">
+      <div className="border-b border-border/40 pb-2">
         <h2 id={id} className="text-sm font-semibold">
           {heading}
         </h2>
@@ -44,6 +44,7 @@ function Row({
   wide,
   shrinkable,
   inline,
+  disabled,
   children,
 }: {
   label: React.ReactNode;
@@ -55,10 +56,11 @@ function Row({
   shrinkable?: boolean;
   /** Keep small controls beside their label even in narrow panes. */
   inline?: boolean;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   const text = (
-    <FieldContent className="min-w-0 max-w-[60ch] gap-1">
+    <FieldContent className="min-w-0 max-w-[60ch] gap-0.5">
       {htmlFor ? (
         <FieldLabel htmlFor={htmlFor} className="w-fit text-sm font-medium">
           {label}
@@ -72,7 +74,7 @@ function Row({
 
   if (wide) {
     return (
-      <Field orientation="vertical" className="settings-row-wide flex flex-col gap-3 border-b border-border/40 py-3 last:border-b-0">
+      <Field orientation="vertical" className="settings-row-wide flex flex-col gap-3 py-2.5">
         {text}
         {children}
       </Field>
@@ -80,7 +82,7 @@ function Row({
   }
 
   return (
-    <Field orientation="horizontal" className={cn("settings-row border-b border-border/40 py-3 last:border-b-0", inline && "settings-row-inline")}>
+    <Field orientation="horizontal" data-disabled={disabled || undefined} className={cn("settings-row py-2.5", inline && "settings-row-inline")}>
       {text}
       <div className={cn("settings-row-control", shrinkable && "min-w-0")}>{children}</div>
     </Field>
@@ -102,7 +104,7 @@ export function SwitchRow({
 }) {
   const id = useId();
   return (
-    <Row label={label} description={description} htmlFor={id} inline>
+    <Row label={label} description={description} htmlFor={id} inline disabled={disabled}>
       <Switch id={id} checked={checked} onCheckedChange={onChange} disabled={disabled} />
     </Row>
   );
@@ -127,7 +129,7 @@ export function SelectRow<T extends string>({
     // Base UI's Select trigger is a button, not a labelable form control, so the
     // row labels the group instead of pointing `for` at something that would
     // reject it.
-    <Row label={label} description={description}>
+    <Row label={label} description={description} disabled={disabled}>
       <Select
         value={value}
         onValueChange={(next) => {
@@ -169,7 +171,7 @@ export function ChoiceRow<T extends string>({
   disabled?: boolean;
 }) {
   return (
-    <Row label={label} description={description}>
+    <Row label={label} description={description} disabled={disabled}>
       <Segmented label={label} value={value} options={options} onChange={onChange} disabled={disabled} />
     </Row>
   );
@@ -203,7 +205,7 @@ export function Segmented<T extends string>({
       }}
       spacing={0}
       aria-label={label}
-      className={cn("h-auto min-h-9 w-full flex-wrap rounded-md bg-muted/60 p-1 @min-[36rem]/settings-content:w-auto", className)}
+      className={cn("h-auto min-h-8 w-full flex-wrap rounded-md bg-muted/40 p-0.5 @min-[36rem]/settings-content:w-auto", className)}
     >
       {options.map((option) => (
         <ToggleGroupItem
@@ -211,7 +213,7 @@ export function Segmented<T extends string>({
           value={option.value}
           disabled={disabled || option.disabled}
           title={option.title}
-          className="h-7 flex-1 px-3 text-sm text-muted-foreground data-pressed:bg-accent data-pressed:text-accent-foreground data-pressed:font-medium data-pressed:shadow-[inset_0_0_0_1px_var(--input)] @min-[36rem]/settings-content:flex-none"
+          className="h-7 flex-1 px-2.5 text-xs text-muted-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:font-medium data-pressed:shadow-sm @min-[36rem]/settings-content:flex-none"
         >
           {option.label}
         </ToggleGroupItem>
@@ -241,7 +243,7 @@ export function ChoiceCards<T extends string>({
 
   return (
     <Row label={label} description={description} wide>
-      <div role="radiogroup" aria-label={label} className={cn("grid grid-cols-2 gap-2 @min-[32rem]/settings-content:grid-cols-4", options.length > 4 && "@min-[44rem]/settings-content:grid-cols-5")}>
+      <div role="radiogroup" aria-label={label} className={cn("grid grid-cols-2 gap-2", options.length > 2 && "@min-[32rem]/settings-content:grid-cols-4", options.length > 4 && "@min-[44rem]/settings-content:grid-cols-5")}>
         {options.map((option, index) => {
           const selected = option.value === value;
           return (
@@ -264,19 +266,19 @@ export function ChoiceCards<T extends string>({
               }}
               onClick={() => onChange(option.value)}
               className={cn(
-                "relative flex flex-col gap-2 rounded-lg border p-2 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:border-foreground focus-visible:ring-2 focus-visible:ring-ring",
-                selected && "border-ring bg-muted/60",
+                "relative flex flex-col gap-2 rounded-md border border-transparent p-2 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:border-foreground focus-visible:ring-2 focus-visible:ring-ring",
+                selected && "border-input bg-muted/40",
               )}
             >
               <span
                 aria-hidden="true"
-                className="pointer-events-none flex h-12 items-stretch overflow-hidden rounded-sm bg-background/70 p-1.5 *:min-w-0"
+                className="pointer-events-none flex h-10 items-stretch overflow-hidden rounded-sm p-1 *:min-w-0"
               >
                 {option.preview}
               </span>
               <span className="px-0.5 text-xs font-medium">{option.label}</span>
               {selected ? (
-                <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-foreground text-background" aria-hidden="true">
+                <span className="absolute right-2 top-2 flex size-4 items-center justify-center rounded-full bg-muted text-foreground" aria-hidden="true">
                   <CheckIcon />
                 </span>
               ) : null}
@@ -327,21 +329,21 @@ export function SettingsCard({
   children?: React.ReactNode;
 }) {
   return (
-    <section className="border-b border-border/40 py-3 last:border-b-0">
+    <section className="py-2.5">
       <div className="flex flex-col gap-3 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-start @min-[36rem]/settings-content:gap-4">
-        {icon ? (
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground [&_svg]:size-[1.125rem]">
-            {icon}
-          </span>
-        ) : null}
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-medium">{title}</h3>
-          {status ? (
-            <p className={cn("mt-1 flex items-center gap-1.5 text-sm", TONE_TEXT[tone])}>
-              <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", TONE_DOT[tone])} />
-              {status}
-            </p>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <h3 className="flex items-center gap-2 text-sm font-medium">
+              {icon ? <span aria-hidden="true" className="shrink-0 text-muted-foreground [&_svg]:size-4">{icon}</span> : null}
+              {title}
+            </h3>
+            {status ? (
+              <p className={cn("flex items-center gap-1.5 text-xs", TONE_TEXT[tone])}>
+                <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", TONE_DOT[tone])} />
+                {status}
+              </p>
+            ) : null}
+          </div>
           {description ? <p className="mt-1 max-w-[60ch] text-xs leading-relaxed text-body-muted-foreground">{description}</p> : null}
           {error ? (
             <p role="alert" className="mt-2 text-sm text-destructive">
@@ -351,7 +353,7 @@ export function SettingsCard({
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      {children ? <div className="mt-3 border-t border-border/40 pt-1">{children}</div> : null}
+      {children ? <div className="mt-3">{children}</div> : null}
     </section>
   );
 }

@@ -317,7 +317,7 @@ export default function ExtensionsManager() {
           <div className="border-t border-border/70">
             {installedPackages.map((pkg) => (
               <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
-                <ContextMenuTrigger render={<div className="group flex min-h-14 items-center gap-3 border-b py-2.5 last:border-b-0" />}>
+                <ContextMenuTrigger render={<div className="group flex min-h-12 items-center gap-3 py-2" />}>
                   <PackageSourceIcon source={pkg.source} />
                   <div className="h-10 min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
@@ -388,7 +388,7 @@ export default function ExtensionsManager() {
           <div className="border-t border-border/70">
             {localPackages.map((pkg) => (
               <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
-                <ContextMenuTrigger render={<div className="group flex min-h-12 items-center gap-3 border-b py-2 last:border-b-0" />}>
+                <ContextMenuTrigger render={<div className="group flex min-h-12 items-center gap-3 py-2" />}>
                   <LocalSourceIcon source={pkg.source} />
                   <div className="flex min-w-0 flex-1 items-center gap-1.5">
                     <span title={pkg.source} className="truncate text-sm font-medium">

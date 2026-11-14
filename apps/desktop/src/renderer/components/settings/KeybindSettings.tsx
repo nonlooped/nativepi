@@ -56,9 +56,8 @@ export default function KeybindSettings() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-3 border-b border-border/70 pb-5 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-end @min-[36rem]/settings-content:justify-between">
+      <div className="flex flex-col gap-3 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-end @min-[36rem]/settings-content:justify-between">
         <div className="flex max-w-2xl flex-col gap-1">
-          <h2 className="font-heading text-sm font-semibold">Keyboard shortcuts</h2>
           <p className="text-xs leading-relaxed text-body-muted-foreground">
             Select a shortcut, then press its new keys. Press Escape to cancel.
           </p>
@@ -73,10 +72,10 @@ export default function KeybindSettings() {
 
       {groups.map(({ group, shortcuts }) => (
         <section key={group} aria-labelledby={`shortcuts-${group}`} className="flex flex-col">
-          <h2 id={`shortcuts-${group}`} className="font-heading text-sm font-semibold">
+          <h2 id={`shortcuts-${group}`} className="border-b border-border/40 pb-2 text-sm font-semibold">
             {group}
           </h2>
-          <div className="mt-3 flex flex-col">
+          <div className="mt-1 flex flex-col">
             {shortcuts.map((shortcut) => {
               const recording = recordingId === shortcut.id;
               const hint = hintFor(shortcut.id, overrides);
@@ -91,7 +90,7 @@ export default function KeybindSettings() {
                 <div
                   key={shortcut.id}
                   className={cn(
-                    "group flex flex-col gap-2 border-t border-border/40 py-3 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-center @min-[36rem]/settings-content:justify-between @min-[36rem]/settings-content:gap-8",
+                    "group flex flex-col gap-2 py-2.5 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-center @min-[36rem]/settings-content:justify-between @min-[36rem]/settings-content:gap-8",
                     unbound && "rounded-lg bg-warning/10 px-2",
                   )}
                 >
@@ -120,7 +119,7 @@ export default function KeybindSettings() {
                       onClick={() => setRecordingId(recording ? null : shortcut.id)}
                       aria-label={`Change shortcut for ${shortcut.label}. ${bindingDescription}.`}
                       className={cn(
-                        "flex h-9 min-w-28 items-center justify-end gap-1 rounded-md border border-border bg-input/20 px-2 outline-none transition-colors hover:bg-input/50 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30",
+                        "flex h-8 min-w-24 items-center justify-end gap-1 rounded-md border border-input bg-input/20 px-2 outline-none transition-colors hover:bg-input/50 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30",
                         recording && "border-ring bg-input/50 ring-2 ring-ring/30",
                       )}
                     >

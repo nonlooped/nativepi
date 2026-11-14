@@ -190,11 +190,11 @@ export default function AccessSettings() {
             type="button"
             aria-expanded={auditOpen}
             onClick={() => setAuditOpen((open) => !open)}
-            className="flex w-full items-center gap-3 py-6 text-left outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex w-full items-center gap-3 py-3 text-left outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold">The access token</span>
-              <span className="mt-1 block text-sm text-body-muted-foreground">
+              <span className="block text-sm font-medium">The access token</span>
+              <span className="mt-1 block text-xs leading-relaxed text-body-muted-foreground">
                 Where your links have been, and how to make every one of them stop working.
               </span>
             </span>

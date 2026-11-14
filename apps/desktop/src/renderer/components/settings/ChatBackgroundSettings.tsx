@@ -34,16 +34,16 @@ export default function ChatBackgroundSettings() {
   };
 
   return (
-    <section className="border-b border-border/50 py-4" aria-labelledby={headingId}>
-      <h2 id={headingId} className="text-sm font-semibold">Background</h2>
-      <p className="mt-1 text-sm text-body-muted-foreground">Dithered landscapes across your chats. Most visible on a new chat, quieter behind a conversation.</p>
+    <section className="py-2.5" aria-labelledby={headingId}>
+      <h2 id={headingId} className="text-sm font-medium">Background</h2>
+      <p className="mt-1 text-xs leading-relaxed text-body-muted-foreground">Most visible in new chats; quieter behind messages.</p>
       <input ref={input} type="file" accept={BACKGROUND_IMAGE_ACCEPT} className="hidden" aria-label="Choose a background image"
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
           event.currentTarget.value = "";
           if (file) void upload(file);
         }} />
-      <div className="mt-3 grid grid-cols-2 gap-3 @min-[36rem]/settings-content:grid-cols-4" role="group" aria-label="Backgrounds">
+      <div className="mt-2 grid grid-cols-2 gap-2 @min-[36rem]/settings-content:grid-cols-4" role="group" aria-label="Backgrounds">
         {CHAT_BACKGROUNDS.map((entry) => <button key={entry.id} type="button" className="chat-background-swatch"
           aria-label={entry.name} aria-pressed={background.preset === entry.id} disabled={busy} onClick={() => select(entry.id)}>
           <img src={entry.src} alt="" className="chat-background-thumbnail" />

@@ -883,6 +883,12 @@ html[data-motion="reduced"] *::after {
   scroll-behavior: auto !important;
 }
 
+/* Settings share the workspace’s quiet surfaces; focus and error colors stay intact. */
+.settings-viewport {
+  --input: color-mix(in oklch, var(--border) 55%, transparent);
+  color: color-mix(in oklch, var(--foreground) 85%, var(--background));
+}
+
 /* Settings rows follow the width of their own pane, including in small windows. */
 .settings-list {
   display: flex;
@@ -1033,9 +1039,9 @@ html[data-motion="reduced"] *::after {
 
 .chat-background-swatch {
   position: relative;
-  height: 7.5rem;
+  height: 5.5rem;
   overflow: hidden;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: var(--muted);
   color: var(--foreground);
@@ -1049,7 +1055,7 @@ html[data-motion="reduced"] *::after {
 }
 
 .chat-background-swatch[aria-pressed="true"] {
-  border-color: var(--foreground);
+  border-color: color-mix(in oklch, var(--foreground) 50%, transparent);
 }
 
 .chat-background-thumbnail {

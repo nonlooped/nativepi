@@ -189,8 +189,7 @@ export default function ThemeSettings() {
   return (
     <>
       <ChoiceRow
-        label="Appearance"
-        description="Follow your device or choose a light or dark appearance."
+        label="Light & dark"
         value={preferences.theme}
         options={[
           { value: "system", label: "System" },
@@ -207,10 +206,10 @@ export default function ThemeSettings() {
         onChange={select}
       />
       <ActionRow
-        label="Color schemes"
+        label="Custom schemes"
         description="Customize a copy of this scheme or import a shared one."
       >
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-1.5">
           <Button variant="outline" size="sm" onClick={create} disabled={preferences.customThemes.length >= MAX_CUSTOM_THEMES}>
             <PlusIcon data-icon="inline-start" />
             Create scheme

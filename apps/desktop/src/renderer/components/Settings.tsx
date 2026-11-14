@@ -96,8 +96,8 @@ export default function Settings() {
   );
 
   return (
-    <div className="@container/settings-shell flex h-full min-w-0 bg-background text-foreground">
-      <aside className="hidden w-52 shrink-0 flex-col @min-[48rem]/settings-shell:flex border-r border-border/70 bg-sidebar/60">
+    <div className="@container/settings-shell flex h-full min-w-0">
+      <aside className="hidden w-52 shrink-0 flex-col @min-[48rem]/settings-shell:flex border-r border-border/30 bg-sidebar/40">
         {rail}
       </aside>
 
@@ -127,7 +127,7 @@ export default function Settings() {
 
         <main key={category} className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[52rem] px-5 pb-12 pt-2 @min-[48rem]/settings-shell:px-8">
-            <div className="mb-7 border-b border-border/70 pb-5">
+            <div className="mb-7 border-b border-border/40 pb-5">
               <h1 className="text-xl font-semibold tracking-tight">{category}</h1>
               <p className="mt-1 text-sm text-muted-foreground">{CATEGORIES.find(page => page.name === category)?.blurb}</p>
             </div>
@@ -196,7 +196,7 @@ function CategoryNav({
                   onClick={() => onSelect(name)}
                   className={cn(
                     "flex min-h-8 shrink-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[0.8125rem] font-medium text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-                    category === name && "bg-sidebar-accent text-sidebar-accent-foreground [&>svg]:text-foreground",
+                    category === name && "bg-sidebar-accent/50 text-sidebar-accent-foreground [&>svg]:text-foreground",
                   )}
                 >
                   <Icon aria-hidden="true" className="size-4 shrink-0" />

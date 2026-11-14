@@ -130,7 +130,7 @@ function ProviderGroup({
       aria-labelledby={headingId}
       className="flex min-w-0 flex-col"
     >
-      <div className="border-b border-border/70 pb-2">
+      <div className="border-b border-border/40 pb-2">
         <h2 id={headingId} className="text-sm font-semibold">
           {heading}
           <span className="ml-2 font-sans text-xs font-normal text-muted-foreground tabular-nums">
@@ -213,7 +213,7 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
 
   if (flow?.busy && !flow.error) {
     return (
-      <p className="flex items-center gap-2 px-4 pb-6 pt-1 @min-[36rem]/settings-content:px-14 text-sm text-body-muted-foreground">
+      <p className="flex items-center gap-2 px-4 pb-4 pt-1 @min-[36rem]/settings-content:px-14 text-sm text-body-muted-foreground">
         <CircleNotchIcon className="animate-spin" />
         Preparing secure sign-in…
       </p>
@@ -221,7 +221,7 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-4 pb-6 pt-1 @min-[36rem]/settings-content:px-14">
+    <div className="flex flex-col gap-3 px-4 pb-4 pt-1 @min-[36rem]/settings-content:px-14">
       {/* The failure accompanies the orientation copy rather than replacing it:
           "Choose how you'd like to sign in" is exactly what you still need when
           a sign-in has just failed. */}
@@ -247,8 +247,7 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
           <Button
             key={method}
             variant={method === "oauth" ? "default" : "outline"}
-            size="xl"
-            className="min-w-40"
+            size="sm"
             disabled={flow?.busy}
             onClick={() => void startLogin(provider.id, method)}
           >
@@ -259,8 +258,8 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
           <>
             <Button
               variant="ghost"
-              size="xl"
-              className="min-w-32 text-muted-foreground hover:text-destructive"
+              size="sm"
+              className="text-muted-foreground hover:text-destructive"
               onClick={() => setConfirmingDisconnect(true)}
             >
               Disconnect
@@ -323,7 +322,7 @@ function AuthProgress({ provider, flow }: { provider: AuthProviderInfo; flow: Au
   const messages = flow.notices.filter((n) => n.kind === "progress" || n.kind === "info");
 
   return (
-    <div className="flex flex-col gap-4 px-4 pb-6 pt-1 @min-[36rem]/settings-content:px-14">
+    <div className="flex flex-col gap-3 px-4 pb-4 pt-1 @min-[36rem]/settings-content:px-14">
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <CircleNotchIcon className="animate-spin" />
         Waiting for you to finish signing in to {provider.name} in your browser…
@@ -335,7 +334,7 @@ function AuthProgress({ provider, flow }: { provider: AuthProviderInfo; flow: Au
           <p className="select-all font-mono text-2xl font-semibold tracking-[0.2em]">{deviceCode.userCode}</p>
           <Button
             variant="outline"
-            size="xl" className="mt-1 w-fit"
+            size="sm" className="mt-1 w-fit"
             onClick={() => openExternal(deviceCode.verificationUri)}
           >
             Open {hostOf(deviceCode.verificationUri)}
@@ -346,7 +345,7 @@ function AuthProgress({ provider, flow }: { provider: AuthProviderInfo; flow: Au
       {authUrl ? (
         <div className="flex flex-col gap-2">
           {authUrl.instructions ? <p className="text-sm text-muted-foreground">{authUrl.instructions}</p> : null}
-          <Button variant="outline" size="xl" className="w-fit" onClick={() => openExternal(authUrl.url)}>
+          <Button variant="outline" size="sm" className="w-fit" onClick={() => openExternal(authUrl.url)}>
             Open sign-in page
           </Button>
         </div>
@@ -370,7 +369,7 @@ function AuthProgress({ provider, flow }: { provider: AuthProviderInfo; flow: Au
         </p>
       ))}
 
-      <Button variant="ghost" size="xl" className="w-fit text-muted-foreground" onClick={cancelLogin}>
+      <Button variant="ghost" size="sm" className="w-fit text-muted-foreground" onClick={cancelLogin}>
         Cancel
       </Button>
     </div>
@@ -393,7 +392,7 @@ function AuthPromptForm({
 
   if (prompt.request.kind === "select") {
     return (
-      <div className="flex flex-col gap-3 px-4 pb-6 pt-1 @min-[36rem]/settings-content:px-14">
+      <div className="flex flex-col gap-3 px-4 pb-4 pt-1 @min-[36rem]/settings-content:px-14">
         <p className="text-sm font-medium">{prompt.request.message}</p>
         <div className="flex flex-wrap gap-2">
           {prompt.request.options.map((option) => (
@@ -401,7 +400,7 @@ function AuthPromptForm({
               key={option.id}
               type="button"
               variant="outline"
-              size="xl" className="h-auto min-h-10 min-w-40 justify-start py-2 text-left"
+              size="sm" className="h-auto min-h-8 justify-start py-1.5 text-left"
               onClick={() => onSubmit(option.id)}
             >
               <span className="flex flex-col items-start gap-0.5">
@@ -428,7 +427,7 @@ function AuthPromptForm({
 
   return (
     <form
-      className="px-4 pb-6 pt-1 @min-[36rem]/settings-content:px-14"
+      className="px-4 pb-4 pt-1 @min-[36rem]/settings-content:px-14"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit(value.trim());
@@ -447,7 +446,7 @@ function AuthPromptForm({
             autoComplete="off"
             className="min-w-0 flex-1"
           />
-          <Button type="submit" size="xl" className="min-w-32" disabled={!value.trim()}>
+          <Button type="submit" size="sm" className="min-w-32" disabled={!value.trim()}>
             {isSecret ? (provider.configured ? "Update" : "Connect") : "Continue"}
           </Button>
         </div>

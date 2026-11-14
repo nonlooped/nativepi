@@ -16,7 +16,7 @@ export default function TerminalSettings() {
   const update = useAppStore((s) => s.updatePiSetting);
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-8">
       <SettingsSection
         heading="Integrated terminal"
         description="The terminal panel inside NativePi. Changes apply to open terminals without losing their scrollback."
@@ -96,7 +96,7 @@ function TerminalPreview({
   scrollback: number;
 }) {
   return (
-    <div aria-hidden="true" className="overflow-hidden rounded-xl border bg-sidebar">
+    <div aria-hidden="true" className="my-2 overflow-hidden rounded-md border bg-sidebar">
       <div className="flex items-center justify-between gap-3 border-b px-3 py-1.5">
         <span className="text-xs text-muted-foreground">Preview</span>
         <span className="text-xs tabular-nums text-muted-foreground">
