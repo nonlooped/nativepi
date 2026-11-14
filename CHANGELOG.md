@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Load providers for new chats after opening a project without trust, and restore service tiers saved by the retired extension.
 
 ### Changed
+- Bring the new Work chat chooser in line with the compact picker design, with tighter spacing and a distinct option for general device work.
 - Preload composer file and skill suggestions, reuse recent and in-flight prefix lookups, and cache prepared file paths for faster searching. Keep refreshed file results isolated between projects.
 - Shorten the idle composer placeholder and include the file (`@`), skill (`$`), and command (`/`) search prefixes.
 - Redesign the model picker with a narrow provider icon rail, favorites first, compact model rows, context details on hover, and arrow-key navigation from search. Limit its size on small viewports, reveal the selected model on opening, and present reasoning and speed as matching icon controls. Categories are favorites and individual providers, opening on the current provider.

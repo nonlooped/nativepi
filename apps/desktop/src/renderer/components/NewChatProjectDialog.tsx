@@ -1,6 +1,7 @@
 import type { Project } from "../../shared/rpc-schema.ts";
 import { useState } from "react";
 import { Combobox } from "@base-ui/react/combobox";
+import { DesktopIcon } from "@phosphor-icons/react/Desktop";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
@@ -8,7 +9,6 @@ import { useAppStore } from "../lib/store.ts";
 import { useWorkProjects } from "../lib/workProjects.ts";
 import { rpc } from "../lib/rpc.ts";
 import { Button } from "@/components/ui/button.tsx";
-import { Kbd } from "@/components/ui/kbd.tsx";
 import {
   Dialog,
   DialogContent,
@@ -56,8 +56,8 @@ export default function NewChatProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl gap-0 overflow-hidden p-0" closeClassName="top-2.5 right-3">
-        <DialogTitle className="sr-only">Choose a project</DialogTitle>
+      <DialogContent className="max-w-sm gap-0 overflow-hidden rounded-lg border-0 p-0 text-xs shadow-md ring-1 ring-foreground/10 sm:p-0" closeClassName="top-1.5 right-1.5">
+        <DialogTitle className="sr-only">New Work chat</DialogTitle>
         <DialogDescription className="sr-only">
           Choose a project folder, or start without a project.
         </DialogDescription>
@@ -71,65 +71,57 @@ export default function NewChatProjectDialog({
           inputValue={query}
           onInputValueChange={setQuery}
           autoHighlight
-          aria-label="Choose a project for the new chat"
+          aria-label="Choose where to start the chat"
         >
-          <div className="relative border-b">
+          <div className="mx-2 flex shrink-0 items-center gap-2 border-b border-border/50 pr-8 focus-within:border-ring">
             <MagnifyingGlassIcon
-              className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-muted-foreground"
+              className="ml-1 size-3.5 shrink-0 text-muted-foreground"
               aria-hidden="true"
             />
             <Combobox.Input
               autoFocus
-              placeholder="Choose a project"
+              placeholder="Search projects…"
               aria-label="Search projects"
-              className="h-12 w-full rounded-none border-0 bg-transparent pr-12 pl-11 text-base outline-none placeholder:text-muted-foreground/80"
+              className="h-10 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
 
-          <Combobox.List className="flex max-h-[min(24rem,calc(var(--app-height,100dvh)-9rem))] min-h-32 flex-col gap-0.5 overflow-y-auto p-2">
-            {matches.length > 0 ? (
-              <div className="px-2 pb-1 pt-0.5 text-xs font-medium text-muted-foreground">Projects</div>
-            ) : null}
+          <Combobox.List className="flex min-h-0 max-h-[min(24rem,calc(var(--app-height,100dvh)-8rem))] flex-col gap-0.5 overflow-y-auto overscroll-contain p-1.5">
             {matches.map((project, index) => (
               <Combobox.Item
                 key={project.path}
                 value={project}
                 index={index}
                 onClick={() => void startChat(project.path)}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
+                className="flex w-full shrink-0 cursor-default items-center gap-2.5 rounded-md px-2 py-2 text-left outline-none transition-colors hover:bg-muted/70 data-highlighted:bg-accent/80 data-highlighted:text-accent-foreground"
               >
-                <FolderIcon
-                  className="shrink-0 text-muted-foreground"
-                  weight={project.path === activeProjectPath ? "fill" : "regular"}
-                />
+                {project.path === workRoot ? (
+                  <DesktopIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                ) : (
+                  <FolderIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                )}
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-medium">{project.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">{project.path === workRoot ? "General work on your device" : project.path}</span>
+                  <span className="truncate text-[13px] font-medium">{project.name}</span>
+                  <span className="truncate text-[11px] leading-4 text-muted-foreground">{project.path === workRoot ? "General work on your device" : project.path}</span>
                 </span>
                 {project.path === activeProjectPath ? (
-                  <span className="shrink-0 text-xs text-muted-foreground">Current</span>
+                  <span className="shrink-0 text-[11px] text-muted-foreground">Current</span>
                 ) : null}
               </Combobox.Item>
             ))}
             {matches.length === 0 ? (
-              <p className="flex min-h-28 items-center justify-center px-6 text-center text-sm text-muted-foreground">
+              <p className="px-3 py-8 text-center text-xs text-muted-foreground">
                 {projects.length === 0 ? "No projects yet." : `No projects match “${query.trim()}”.`}
               </p>
             ) : null}
           </Combobox.List>
         </Combobox.Root>
 
-        <div className="flex items-center gap-3 border-t px-3 py-2 text-xs text-muted-foreground">
-          <Button variant="ghost" size="sm" className="mr-auto" onClick={() => void openAnotherFolder()}>
-            <FolderOpenIcon data-icon="inline-start" />
-            Open folder
+        <div className="shrink-0 border-t border-border/50 p-1.5">
+          <Button variant="ghost" size="sm" className="h-8 w-full justify-start gap-2.5 px-2" onClick={() => void openAnotherFolder()}>
+            <FolderOpenIcon className="size-4" aria-hidden="true" />
+            Open folder…
           </Button>
-          <span className="hidden items-center gap-1.5 sm:flex">
-            <Kbd>↑↓</Kbd> navigate
-          </span>
-          <span className="hidden items-center gap-1.5 sm:flex">
-            <Kbd>Enter</Kbd> select
-          </span>
         </div>
       </DialogContent>
     </Dialog>
