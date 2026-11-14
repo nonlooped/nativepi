@@ -72,13 +72,3 @@ test("sidebar search filters descriptions, hides empty groups, and recovers from
   await search("");
   expect(container.querySelectorAll("nav button").length).toBe(CATEGORIES.length);
 });
-
- test("Escape closes settings unless a child control handled it", async () => {
-  initial=null; await mount();
-  await act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", cancelable: true })));
-  expect(closeSettings).toHaveBeenCalledTimes(1);
-  const handled = new KeyboardEvent("keydown", { key: "Escape", cancelable: true });
-  handled.preventDefault();
-  await act(() => window.dispatchEvent(handled));
-  expect(closeSettings).toHaveBeenCalledTimes(1);
-});

@@ -1,3 +1,4 @@
+import { transitionView } from "../lib/viewTransition.ts";
 import { SettingsDialogAppearance } from "./ui/dialog-styles.ts";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { Input } from "@/components/ui/input.tsx";
@@ -76,25 +77,11 @@ function SettingsContent() {
     void loadPiSettings();
   }, [loadPiSettings]);
 
-  // Escape belongs to this screen, not to the "stop the turn" shortcut it used
-  // to be answered by — rebinding that one silently took the keyboard way out of
-  // Settings with it. A dialog or menu on top gets Escape first and marks it
-  // handled, so this only ever closes the last layer.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      event.preventDefault();
-      closeSettings();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeSettings]);
-
   const rail = (
     <CategoryNav
       category={category}
       onSelect={(next) => {
-        setCategory(next);
+        transitionView("category", () => setCategory(next));
         setRailSheetOpen(false);
       }}
     />
@@ -130,7 +117,7 @@ function SettingsContent() {
           </Button>
         </header>
 
-        <main key={category} className="min-h-0 flex-1 overflow-y-auto">
+        <main data-settings-category key={category} className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[52rem] px-5 pb-12 pt-2 @min-[48rem]/settings-shell:px-8">
             <div className="mb-6 pb-1">
               <h1 className="text-xl font-semibold tracking-tight">{category}</h1>

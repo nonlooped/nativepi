@@ -120,7 +120,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
       <div
         className={cn(
           "flex shrink-0 flex-col gap-2 px-5 pb-[max(1rem,env(safe-area-inset-bottom))]",
-          prominent ? "w-full px-0 pt-0" : cn(SCROLLBAR_GUTTER_OFFSET, "pt-2"),
+          prominent ? "w-full pt-0" : cn(SCROLLBAR_GUTTER_OFFSET, "pt-2"),
         )}
       >
         <ExtensionStatuses />
@@ -142,7 +142,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
     <div
       className={cn(
         "flex shrink-0 flex-col gap-2 px-5 pb-[max(1rem,env(safe-area-inset-bottom))]",
-        prominent ? "w-full px-0 pt-0" : cn(SCROLLBAR_GUTTER_OFFSET, "pt-2"),
+        prominent ? "w-full pt-0" : cn(SCROLLBAR_GUTTER_OFFSET, "pt-2"),
       )}
     >
       <ExtensionStatuses />

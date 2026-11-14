@@ -70,7 +70,7 @@ export function RunStatusBar({
   return (
     <div
       className={cn(
-        "status-enter pointer-events-auto flex max-w-[calc(100%-2rem)] min-w-0 items-center rounded-full border bg-popover py-1 pr-1 text-xs text-popover-foreground shadow-lg",
+        "flex min-w-0 items-center py-1 pr-1 text-xs",
         progress ? "gap-2 pl-3" : "pl-1",
       )}
     >
@@ -131,7 +131,7 @@ export function RunStatusBar({
  */
 export function RunDoneBar({ elapsed, files, stopped }: { elapsed: string; files: number; stopped: boolean }) {
   return (
-    <div className="status-enter pointer-events-auto flex max-w-[calc(100%-2rem)] min-w-0 items-center gap-2 rounded-full border bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-lg">
+    <div className="flex min-w-0 items-center gap-2 px-3 py-1.5 text-xs">
       {stopped ? (
         <StopIcon weight="fill" className="shrink-0 text-muted-foreground" />
       ) : (

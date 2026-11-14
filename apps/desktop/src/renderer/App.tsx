@@ -1,3 +1,5 @@
+import { Dialog as SettingsDialog } from "@base-ui/react/dialog";
+import { useLayoutMotion } from "./lib/layoutMotion.ts";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createKeybindingsHandler, tinykeys } from "tinykeys";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
@@ -82,6 +84,7 @@ export default function App() {
     // (or empty). Never render new-thread onboarding during that gap.
     return !!s.activeSessionFile || c.entries.length > 0 || !!c.streaming || c.pending.length > 0 || c.running;
   });
+  const composerReady = useAppStore(s => s.providersLoaded && s.providers.some(provider => provider.ready));
   const settingsOpen = useAppStore((s) => s.settingsOpen);
   const closeSettings = useAppStore((s) => s.closeSettings);
   const horizontalGroup = useRef<HTMLDivElement>(null);
@@ -94,6 +97,10 @@ export default function App() {
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
   const [sidebarSheetOpen, setSidebarSheetOpen] = useState(false);
   const [contextSheetOpen, setContextSheetOpen] = useState(false);
+  const sidebarRestoreFocus = useRef(true);
+  const sidebarHandoff = useRef<"search" | "newChat" | null>(null);
+  const [searchMounted, setSearchMounted] = useState(false);
+  const [projectPickerMounted, setProjectPickerMounted] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [newChatProjectOpen, setNewChatProjectOpen] = useState(false);
   const [extensionView, setExtensionView] = useState<string | null>(null);
@@ -122,9 +129,15 @@ export default function App() {
   useAppearance();
 
   useEffect(() => {
+    sidebarHandoff.current = null;
     setSidebarSheetOpen(false);
     setContextSheetOpen(false);
   }, [layout]);
+
+  useEffect(() => {
+    if (sidebarSheetOpen || searchOpen || newChatProjectOpen) sidebarHandoff.current = null;
+    if (sidebarSheetOpen) sidebarRestoreFocus.current = true;
+  }, [sidebarSheetOpen, searchOpen, newChatProjectOpen]);
 
   useEffect(() => setExtensionView(null), [activeProjectPath, activeSessionFile, selectionVersion]);
 
@@ -137,6 +150,9 @@ export default function App() {
     setNewChatProjectOpen,
     toggleTerminal,
   );
+
+  if (searchOpen && !searchMounted) setSearchMounted(true);
+  if (newChatProjectOpen && !projectPickerMounted) setProjectPickerMounted(true);
 
   if (startupError || !ready) {
     return (
@@ -222,19 +238,21 @@ export default function App() {
                   <ExtensionConversationView active={extensionView} onClose={() => setExtensionView(null)} />
                 </Suspense>
               ) : (
-                <div className="chat-stage flex min-h-0 flex-1 flex-col">
-                  {hasConversation ? (
-                    <Suspense fallback={<SurfaceLoading label="Loading conversation…" />}>
-                      <Transcript key={activeSessionFile ?? "new"} />
-                    </Suspense>
-                  ) : isNewChat ? (
-                    <NewThread />
-                  ) : (
-                    <SurfaceLoading label="Loading conversation…" />
-                  )}
+                <div className="chat-stage flex min-h-0 flex-1 flex-col" data-new={!hasConversation && isNewChat}>
+                  <div className="conversation-content flex min-h-0 flex-1 flex-col">
+                    {hasConversation ? (
+                      <Suspense fallback={<SurfaceLoading label="Loading conversation…" />}>
+                        <Transcript key={activeSessionFile ?? "new"} />
+                      </Suspense>
+                    ) : isNewChat ? (
+                      <NewThread />
+                    ) : (
+                      <SurfaceLoading label="Loading conversation…" />
+                    )}
+                  </div>
                   {externalChange ? <ExternalChangeNotice /> : null}
                   {error ? <ErrorBanner /> : null}
-                  {hasConversation ? <Composer /> : null}
+                  <WorkspaceComposer prominent={!hasConversation} visible={hasConversation || (isNewChat && composerReady)} />
                 </div>
               )
             ) : (
@@ -303,9 +321,19 @@ export default function App() {
       </div>
 
       {layout !== "wide" ? (
-        <Sheet open={sidebarSheetOpen} onOpenChange={setSidebarSheetOpen}>
+        <Sheet open={sidebarSheetOpen} onOpenChange={(open) => {
+          if (open) { sidebarHandoff.current = null; sidebarRestoreFocus.current = true; }
+          setSidebarSheetOpen(open);
+        }} onOpenChangeComplete={(open) => {
+          if (open) return;
+          const target = sidebarHandoff.current;
+          sidebarHandoff.current = null;
+          if (target === "search") setSearchOpen(true);
+          if (target === "newChat") startNewChatFlow(() => setNewChatProjectOpen(true));
+        }}>
           <SheetContent
             side="left"
+            finalFocus={() => sidebarRestoreFocus.current ? undefined : false}
             showCloseButton={false}
             className="w-[min(22rem,88vw)] border-sidebar-border bg-sidebar p-0"
           >
@@ -316,12 +344,14 @@ export default function App() {
               overlay
               onClose={() => setSidebarSheetOpen(false)}
               onOpenSearch={() => {
+                sidebarRestoreFocus.current = false;
+                sidebarHandoff.current = "search";
                 setSidebarSheetOpen(false);
-                setSearchOpen(true);
               }}
               onOpenNewChat={() => {
+                sidebarRestoreFocus.current = false;
+                sidebarHandoff.current = "newChat";
                 setSidebarSheetOpen(false);
-                startNewChatFlow(() => setNewChatProjectOpen(true));
               }}
             />
           </SheetContent>
@@ -346,43 +376,40 @@ export default function App() {
         </Sheet>
       ) : null}
 
-      {searchOpen ? (
+      {searchMounted ? (
         <Suspense fallback={null}>
           <ChatSearchDialog
-            open
+            open={searchOpen}
             onOpenChange={setSearchOpen}
+            onOpenChangeComplete={(open) => { if (!open) setSearchMounted(false); }}
             onNavigate={() => setSidebarSheetOpen(false)}
           />
         </Suspense>
       ) : null}
 
-      {newChatProjectOpen ? (
+      {projectPickerMounted ? (
         <Suspense fallback={null}>
           <NewChatProjectDialog
             presentation={projectPresentation}
-            open
+            open={newChatProjectOpen}
             onOpenChange={setNewChatProjectOpen}
+            onOpenChangeComplete={(open) => { if (!open) setProjectPickerMounted(false); }}
             onNavigate={() => setSidebarSheetOpen(false)}
           />
         </Suspense>
       ) : null}
 
-      {settingsOpen ? (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-overlay/40 p-0 backdrop-blur-[2px] sm:p-6"
-          onClick={closeSettings}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Settings"
-            className="settings-viewport h-full w-full overflow-hidden bg-background/95 backdrop-blur-xl sm:h-[88%] sm:max-h-[54rem] sm:w-[94%] sm:max-w-[70rem] sm:rounded-xl sm:border sm:border-border/40 sm:shadow-lg"
-            onClick={(event) => event.stopPropagation()}
-          >
+      <SettingsDialog.Root open={settingsOpen} onOpenChange={(open, details) => {
+        if (details.reason === "escape-key" && details.event.defaultPrevented) { details.cancel(); return; }
+        if (!open) closeSettings();
+      }}>
+        <SettingsDialog.Portal>
+          <SettingsDialog.Backdrop className="settings-backdrop fixed inset-0 z-40 bg-overlay/40 backdrop-blur-[2px]" />
+          <SettingsDialog.Popup aria-label="Settings" className="settings-viewport fixed inset-0 z-40 m-auto h-full w-full overflow-hidden bg-background/95 outline-none backdrop-blur-xl sm:h-[88%] sm:max-h-[54rem] sm:w-[94%] sm:max-w-[70rem] sm:rounded-xl sm:border sm:border-border/40 sm:shadow-lg">
             <Settings />
-          </div>
-        </div>
-      ) : null}
+          </SettingsDialog.Popup>
+        </SettingsDialog.Portal>
+      </SettingsDialog.Root>
 
       <DropZone />
       <Toaster />
@@ -398,6 +425,12 @@ export default function App() {
       ) : null}
     </div>
   );
+}
+
+function WorkspaceComposer({ prominent, visible }: { prominent: boolean; visible: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutMotion(ref, prominent);
+  return <div ref={ref} className="workspace-composer shrink-0">{visible ? <Composer prominent={prominent} /> : null}</div>;
 }
 
 function SurfaceLoading({ label }: { label: string }) {

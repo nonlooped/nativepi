@@ -21,10 +21,12 @@ export default function ChatSearchDialog({
   open,
   onOpenChange,
   onNavigate,
+  onOpenChangeComplete,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onNavigate?: () => void;
+  onOpenChangeComplete?: (open: boolean) => void;
 }) {
   const destination = useAppStore(s => s.destination);
   const chatRoot = useAppStore(s => s.chatRoot);
@@ -94,7 +96,7 @@ export default function ChatSearchDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => next ? onOpenChange(true) : close()}>
+    <Dialog open={open} onOpenChange={(next) => next ? onOpenChange(true) : close()} onOpenChangeComplete={onOpenChangeComplete}>
       <DialogContent layout="picker" className="max-w-xl" closeClassName="top-2.5 right-3">
         <DialogTitle className="sr-only">Search chats and messages</DialogTitle>
         <DialogDescription className="sr-only">

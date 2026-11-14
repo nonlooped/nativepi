@@ -8,7 +8,10 @@ import { emptyConversation } from "./lib/store/conversation.ts";
 // and transcript rendering are outside this navigation regression.
 for (const name of ["DropZone", "ExtensionUi", "NativePiWordmark", "QuitDialog", "Settings", "Toaster", "TrustDialog", "WindowControls"])
   mock.module(`./components/${name}.tsx`, () => ({ default: () => null }));
-mock.module("./components/Sidebar.tsx", () => ({ default: () => <div id="projects" data-slot="resizable-panel" /> }));
+mock.module("./components/Sidebar.tsx", () => ({ default: (props: { overlay?: boolean; onOpenSearch: () => void }) => props.overlay
+  ? <button onClick={props.onOpenSearch}>Search from sidebar</button>
+  : <div id="projects" data-slot="resizable-panel" /> }));
+mock.module("./components/ChatSearchDialog.tsx", () => ({ default: ({ open }: { open: boolean }) => open ? <input aria-label="Search destination" autoFocus /> : null }));
 mock.module("./components/ContextPane.tsx", () => ({ default: () => <div>Files</div> }));
 mock.module("./components/TerminalDock.tsx", () => ({ default: () => null }));
 mock.module("./components/ProjectStatus.tsx", () => ({ default: () => null, PiStartingNotice: () => null }));
@@ -56,7 +59,7 @@ afterEach(async () => {
 });
 async function mount() {
   useAppStore.setState({
-    ready: true, init: async () => {}, destination: "work",
+    ready: true, init: async () => {}, destination: "work", settingsOpen: false,
     projects: [{ path: "/project", name: "Project" }], activeProjectPath: "/project",
     activeSessionFile: "a", isNewChat: false, contextPaneOpen: false,
     conversations: { a: { ...emptyConversation(), entries: [{ id: "history-a" } as never] } },
@@ -165,4 +168,55 @@ test("narrow windows collapse both docked sidebars while preserving open prefere
   workspaceLayout = "wide";
   await act(async () => root!.render(<App />));
   expect(container.querySelector("#projects")).not.toBeNull();
+});
+
+test("the first send carries the same focused composer into the conversation", async () => {
+  await mount();
+  await act(async () => useAppStore.setState({
+    activeSessionFile: null, isNewChat: true, conversations: {}, providersLoaded: true,
+    providers: [{ id: "test", ready: true }] as never,
+  }));
+  const input = container.querySelector("textarea")!;
+  input.focus();
+  input.value = "A draft still being edited";
+  await act(async () => useAppStore.setState({
+    activeSessionFile: "new-session", isNewChat: false,
+    conversations: { "new-session": { ...emptyConversation(), running: true } },
+  }));
+  expect(container.querySelector("textarea")).toBe(input);
+  expect(document.activeElement).toBe(input);
+  expect(input.value).toBe("A draft still being edited");
+  expectConversation();
+});
+
+test("settings owns Escape while preserving an Escape handled by a child", async () => {
+  Reflect.set(globalThis, "requestAnimationFrame", window.requestAnimationFrame.bind(window));
+  Reflect.set(globalThis, "cancelAnimationFrame", window.cancelAnimationFrame.bind(window));
+  await mount();
+  await act(async () => useAppStore.setState({ settingsOpen: true }));
+  const popup = document.querySelector('[role="dialog"][aria-label="Settings"]')!;
+  const handled = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+  handled.preventDefault();
+  await act(async () => popup.dispatchEvent(handled));
+  expect(useAppStore.getState().settingsOpen).toBe(true);
+  await act(async () => popup.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+  expect(useAppStore.getState().settingsOpen).toBe(false);
+});
+
+test("sidebar search hands focus to its destination after the sheet exits", async () => {
+  Reflect.set(globalThis, "requestAnimationFrame", window.requestAnimationFrame.bind(window));
+  Reflect.set(globalThis, "cancelAnimationFrame", window.cancelAnimationFrame.bind(window));
+  workspaceLayout = "compact";
+  await mount();
+  await act(async () => (container.querySelector('[aria-label="Open sidebar"]') as HTMLButtonElement).click());
+  const search = [...document.querySelectorAll("button")].find(button => button.textContent === "Search from sidebar")!;
+  expect(search).toBeDefined();
+  await act(async () => search.click());
+  // Base UI checks for completion on the next frame, including reduced motion.
+  await act(async () => { await new Promise(resolve => window.requestAnimationFrame(resolve)); });
+  await act(async () => { await new Promise(resolve => window.requestAnimationFrame(resolve)); });
+  const input = document.querySelector('[aria-label="Search destination"]');
+  expect(input).not.toBeNull();
+  expect(document.activeElement).toBe(input);
+  expect(document.querySelector('[data-slot="sheet-content"]')).toBeNull();
 });

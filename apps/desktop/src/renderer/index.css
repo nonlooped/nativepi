@@ -958,7 +958,7 @@ html[data-motion="reduced"] *::after {
   mask-image: linear-gradient(to bottom, transparent 5%, #000 65%, #0008 100%),
     radial-gradient(ellipse 45% 30% at 50% 46%, #0005 15%, #000 100%);
   mask-composite: intersect;
-  transition: opacity 400ms ease-out;
+  transition: opacity 200ms ease-out;
 }
 
 .app-viewport[data-chat-state="thread"] > .chat-landscape {
@@ -1145,3 +1145,51 @@ button.transcript-activity-row { cursor: pointer; }
 button.transcript-activity-row:hover { color: var(--foreground); }
 button.transcript-activity-row:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .transcript-work > .markdown { color: var(--body-muted-foreground); }
+
+/* One stable composer carries its input from the welcome state to the thread.
+   WAAPI handles that travel; only the heading/content fades independently. */
+.chat-stage[data-new="true"] { justify-content: center; overflow-y: auto; }
+.chat-stage[data-new="true"] > .conversation-content { flex: 0 0 auto; }
+.chat-stage[data-new="true"] .new-chat-scroll { padding-block: 1rem 0; }
+.chat-stage[data-new="true"] .new-chat-content { padding-block: 0; }
+.chat-stage[data-new="true"] .workspace-composer { padding-bottom: 2rem; }
+.chat-stage[data-new="false"] > .conversation-content { animation: status-enter 150ms ease-out; }
+
+.settings-backdrop { transition: opacity 200ms ease-out; }
+.settings-viewport { transition: opacity 200ms ease-out, scale 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+.settings-backdrop[data-starting-style], .settings-backdrop[data-ending-style] { opacity: 0; }
+.settings-viewport[data-starting-style], .settings-viewport[data-ending-style] { opacity: 0; scale: 0.98; }
+
+/* Keep the pill's outline and position through Working → Done. The outgoing
+   Stop control becomes inert immediately while the two contents crossfade. */
+.run-feedback { transition: opacity 150ms ease-out, translate 150ms ease-out; }
+.run-feedback-active { transition: opacity 150ms ease-out; }
+.run-feedback-active[data-active="false"] { opacity: 0; pointer-events: none; }
+.run-feedback-done { transition: opacity 150ms ease-out; }
+@starting-style { .run-feedback, .run-feedback-done { opacity: 0; } }
+.run-feedback[data-exiting="true"] { opacity: 0; translate: 0 0.25rem; pointer-events: none; }
+
+/* Explicit, local navigation snapshots. Root content stays live: only the named
+   surface participates, with no document-wide fade or input-blocking overlay. */
+:root { view-transition-name: none; }
+:root[data-view-change="category"] [data-settings-category] { view-transition-name: settings-category; }
+:root[data-view-change="context"] [data-context-content] { view-transition-name: context-content; }
+:root[data-view-change="chats"] [data-chat-row],
+:root[data-view-change="chats"] [data-finished-count] { view-transition-name: match-element; }
+::view-transition { pointer-events: none; }
+::view-transition-group(*) { animation-duration: 180ms; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+::view-transition-old(*), ::view-transition-new(*) { animation-duration: 150ms; }
+/* Dense pane contents leave before their replacements become legible. */
+::view-transition-old(context-content) { animation: view-leave 70ms ease-out both; }
+::view-transition-new(context-content) { animation: view-enter 110ms 70ms ease-out both; }
+@keyframes view-leave { to { opacity: 0; } }
+@keyframes view-enter { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"])::view-transition-group(*),
+  :root:not([data-motion="full"])::view-transition-old(*),
+  :root:not([data-motion="full"])::view-transition-new(*) { animation: none !important; }
+}
+:root[data-motion="reduced"]::view-transition-group(*),
+:root[data-motion="reduced"]::view-transition-old(*),
+:root[data-motion="reduced"]::view-transition-new(*) { animation: none !important; }

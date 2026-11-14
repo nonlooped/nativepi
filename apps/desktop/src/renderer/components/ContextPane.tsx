@@ -1,3 +1,4 @@
+import { transitionView } from "../lib/viewTransition.ts";
 import { lazy, Suspense, useState } from "react";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { ArrowsInLineVerticalIcon } from "@phosphor-icons/react/ArrowsInLineVertical";
@@ -32,8 +33,8 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
           {changes ? "Source control" : "Files"}<CaretDownIcon />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          <DropdownMenuItem onClick={() => setTab("files")}>Files</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setTab("changes")} title={withHint("Source control", "openSourceControl", keybindingOverrides)}>Source control</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => transitionView("context", () => setTab("files"))}>Files</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => transitionView("context", () => setTab("changes"))} title={withHint("Source control", "openSourceControl", keybindingOverrides)}>Source control</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu></h2>
       <div className={cn("flex items-center gap-0.5", NO_DRAG_REGION)}>
@@ -57,7 +58,7 @@ export default function ContextPane({ onClose }: { onClose?: () => void }) {
 
   return (
     <aside className="context-pane flex h-full min-w-0 flex-col bg-sidebar text-muted-foreground">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain">
+      <div data-context-content className="flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain">
         {changes ? <>
           {header()}
           {projectDir && git?.isRepo ? <Suspense fallback={<PaneMessage>Loading source control…</PaneMessage>}>

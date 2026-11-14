@@ -1,3 +1,4 @@
+import { transitionView } from "../lib/viewTransition.ts";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
@@ -241,10 +242,12 @@ function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, over
     const next = [...focusQueue.slice(currentIndex + 1), ...focusQueue.slice(0, currentIndex)].find(
       (item) => item.session.path !== chat.session.path,
     );
-    finishChat(chat.session.path);
-    if (!chat.selected) return;
-    if (next) void selectChatAndClose(next);
-    else void startNewChat(chat.project.path);
+    transitionView("chats", () => {
+      finishChat(chat.session.path);
+      if (!chat.selected) return;
+      if (next) void selectChatAndClose(next);
+      else void startNewChat(chat.project.path);
+    });
   }
 
   return (
@@ -369,7 +372,7 @@ function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, over
           <section className="mt-auto shrink-0 pt-8" aria-label="Finished chats">
             <button type="button" onClick={() => useAppStore.setState({ sidebarFinishedOpen: !finishedOpen })} aria-expanded={finishedOpen} className="flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[0.6875rem] tracking-[0.06em] uppercase text-muted-foreground transition-colors hover:text-sidebar-foreground">
               <span className="font-medium">Finished</span>
-              <span className="ml-auto tabular-nums text-muted-foreground">{finished.length}</span>
+              <span data-finished-count className="ml-auto tabular-nums text-muted-foreground">{finished.length}</span>
               <CaretDownIcon className={cn("transition-transform", !finishedOpen && "-rotate-90")} weight="bold" />
             </button>
             {finishedOpen ? (
@@ -380,7 +383,7 @@ function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, over
                     chat={chat}
                     now={now}
                     onSelect={() => void selectChatAndClose(chat)}
-                    onReturn={() => returnChatToFocus(chat.session.path)}
+                    onReturn={() => transitionView("chats", () => returnChatToFocus(chat.session.path))}
                   />
                 ))}
                 {finished.length > finishedLimit ? (
@@ -437,7 +440,7 @@ function FocusChatRow({
   return (
     <SessionMenu projectPath={chat.project.path} session={chat.session} selected={chat.selected} running={chat.running} pinned={chat.pinned}>
       <HoverCard>
-        <div className="group/focus relative w-full">
+        <div data-chat-row className="group/focus relative w-full">
           <HoverCardTrigger
             delay={450}
             closeDelay={100}
@@ -503,7 +506,7 @@ function FinishedChatRow({
   return (
     <SessionMenu projectPath={chat.project.path} session={chat.session} selected={chat.selected} running={false} pinned={chat.pinned} finished>
       <HoverCard>
-        <div className="group/finished relative w-full">
+        <div data-chat-row className="group/finished relative w-full">
           <HoverCardTrigger
             delay={450}
             closeDelay={100}

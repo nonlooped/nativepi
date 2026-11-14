@@ -22,12 +22,14 @@ export default function NewChatProjectDialog({
   open,
   onOpenChange,
   onNavigate,
+  onOpenChangeComplete,
   presentation,
 }: {
   presentation: Record<string, SidebarProject>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onNavigate?: () => void;
+  onOpenChangeComplete?: (open: boolean) => void;
 }) {
   const projects = useWorkProjects();
   const workRoot = useAppStore(s => s.workRoot);
@@ -59,7 +61,7 @@ export default function NewChatProjectDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} onOpenChangeComplete={onOpenChangeComplete}>
       <DialogContent layout="picker" className="max-w-xl">
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle>New chat</DialogTitle>

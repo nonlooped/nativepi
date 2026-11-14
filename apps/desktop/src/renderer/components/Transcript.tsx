@@ -1,3 +1,4 @@
+import { useLayoutMotion } from "../lib/layoutMotion.ts";
 import UserPrompt from "./UserPrompt.tsx";
 import { userPromptText } from "../lib/userPrompt.ts";
 import { transcriptItems, appendStreaming, lastTurnFileCount, activeToolName } from "../lib/transcriptProjection.ts";
@@ -12,7 +13,7 @@ import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { WrenchIcon } from "@phosphor-icons/react/Wrench";
 import { toast } from "sonner";
-import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState, useLayoutEffect, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
 import { imagesOf, isUser, textOf } from "../../shared/messages.ts";
 import { groupWork, toolGroupLabel, hasPendingGraphicalTool, toolArgSummary, toolResultsById } from "../lib/transcript.ts";
@@ -109,20 +110,22 @@ function TranscriptContent() {
   // finishes. Failed endings are excluded: the error banner owns those.
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
-  const [runDone, setRunDone] = useState<{ elapsed: string; files: number; stopped: boolean } | null>(null);
+  const [runDone, setRunDone] = useState<{ elapsed: string; files: number; stopped: boolean; exiting?: boolean } | null>(null);
+  const jumpButton = useRef<HTMLButtonElement>(null);
+  useLayoutMotion(jumpButton, running || !!runDone);
   const runStart = useRef<number | null>(null);
   const finishRun = useEffectEvent((started: number) => {
     setRunDone({ elapsed: formatElapsed(Date.now() - started), files: turnFiles, stopped: aborted });
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     // A chat switch flips `running` without a run ending here; never carry a
     // beat (or a pending start) across conversations.
     runStart.current = null;
     setRunDone(null);
   }, [activeProjectPath, activeSessionFile]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (running) {
       runStart.current = activeConversation(useAppStore.getState()).runStartedAt ?? Date.now();
       setRunDone(null);
@@ -134,8 +137,9 @@ function TranscriptContent() {
     const state = useAppStore.getState();
     if (activeConversation(state).error) return;
     finishRun(started);
+    const fade = window.setTimeout(() => setRunDone(done => done ? { ...done, exiting: true } : null), 2350);
     const timer = window.setTimeout(() => setRunDone(null), 2500);
-    return () => window.clearTimeout(timer);
+    return () => { window.clearTimeout(fade); window.clearTimeout(timer); };
   }, [running]);
 
   useEffect(() => {
@@ -260,21 +264,19 @@ function TranscriptContent() {
         {/* `static` undoes the primitive's own absolute placement, which is
             written for a viewport it is no longer a child of. */}
         <MessageScrollerButton
+          ref={jumpButton}
           direction="end"
           className="pointer-events-auto static h-8 w-auto translate-x-0 gap-1.5 bg-popover/90 px-3 text-xs backdrop-blur-md ring-1 ring-foreground/10"
         >
           <ArrowDownIcon data-icon="inline-start" weight="bold" className="size-3" />
           Jump to latest
         </MessageScrollerButton>
-        {running ? (
-          <RunStatusBar
-            activeTool={activeToolName(items, results)}
-            compacting={compacting}
-            filesChanged={turnFiles}
-          />
-        ) : runDone ? (
-          <RunDoneBar {...runDone} />
-        ) : null}
+        <div style={{ display: running || runDone ? undefined : "none" }} className="run-feedback pointer-events-auto grid max-w-[calc(100%-2rem)] rounded-full border bg-popover text-popover-foreground shadow-lg" data-exiting={!running && runDone?.exiting || undefined}>
+          <div className="run-feedback-active min-w-0 [grid-area:1/1]" data-active={running} inert={!running || undefined} aria-hidden={!running || undefined}>
+            {running || runDone ? <RunStatusBar activeTool={activeToolName(items, results)} compacting={compacting} filesChanged={turnFiles} /> : null}
+          </div>
+          {runDone ? <div className="run-feedback-done min-w-0 [grid-area:1/1]"><RunDoneBar {...runDone} /></div> : null}
+        </div>
       </div>
     </div>
   );
