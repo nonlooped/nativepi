@@ -1,3 +1,5 @@
+import { LightningIcon } from "@phosphor-icons/react/Lightning";
+import { serviceTierTarget } from "../../shared/service-tier.ts";
 import { BrainIcon } from "@phosphor-icons/react/Brain";
 import { CaretDownIcon, CheckIcon, MagnifyingGlassIcon, StarIcon, WarningCircleIcon } from "../../shared/icons.ts";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
@@ -35,6 +37,11 @@ export default function ModelSelector() {
   const favoriteModels = useAppStore((s) => s.favoriteModels ?? []);
   const providers = useAppStore((s) => s.providers);
   const providersLoaded = useAppStore((s) => s.providersLoaded);
+  const tier = useAppStore(s => s.serviceTier);
+  const tierTarget = useAppStore(s => s.serviceTierTarget);
+  const project = useAppStore(s => s.activeProjectPath);
+  const session = useAppStore(s => s.activeSessionFile);
+  const priority = !!project && !!model && tierTarget === serviceTierTarget(project, session, model) && tier?.tier === "priority";
   const thinkingLevel = useAppStore((s) => s.thinkingLevel);
   const openSettings = useAppStore((s) => s.openSettings);
   const [open, setOpen] = useState(false);
@@ -129,7 +136,7 @@ export default function ModelSelector() {
         aria-label={
           models.length === 0
             ? "Loading models"
-            : `Model ${label}, reasoning ${thinkingLabel(thinkingLevel)}. Change model, reasoning, and service tier`
+            : `Model ${label}, reasoning ${thinkingLabel(thinkingLevel)}${priority ? ", priority speed" : ""}. Change model, reasoning, and service tier`
         }
       >
         {model ? <ModelProviderIcon provider={model.provider} /> : null}
@@ -140,6 +147,7 @@ export default function ModelSelector() {
             <span className="shrink-0 text-muted-foreground">{thinkingLabel(thinkingLevel)}</span>
           </>
         ) : null}
+        {priority ? <LightningIcon weight="fill" className="size-3.5 shrink-0 text-muted-foreground" aria-hidden /> : null}
         <CaretDownIcon className="shrink-0 text-muted-foreground" />
       </PopoverTrigger>
 
@@ -217,6 +225,11 @@ export default function ModelSelector() {
 }
 
 function ReasoningControl() {
+  const tier = useAppStore(s => s.serviceTier);
+  const tierTarget = useAppStore(s => s.serviceTierTarget);
+  const project = useAppStore(s => s.activeProjectPath);
+  const session = useAppStore(s => s.activeSessionFile);
+  const priority = !!project && !!model && tierTarget === serviceTierTarget(project, session, model) && tier?.tier === "priority";
   const thinkingLevel = useAppStore((s) => s.thinkingLevel);
   const thinkingLevels = useAppStore((s) => s.thinkingLevels);
   const loading = useAppStore((s) => s.thinkingLevelsLoading);
