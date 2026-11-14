@@ -21,7 +21,7 @@ Pi is included. NativePi uses your existing Pi models, credentials,
 configuration, sessions, and third-party extensions; no separate Pi installation
 or NativePi account is required.
 
-![NativePi workspace with project threads, a conversation, the file explorer, and checkout and branch menus](./docs/assets/nativepi-home.png)
+![NativePi Work showing a conversation about the project's tech stack, model controls, and a dithered landscape background](./docs/assets/nativepi-home.png)
 
 ## Install
 
@@ -55,6 +55,13 @@ threads as you go.
 Both use ordinary Pi session files. NativePi adds the interface, built-in tools,
 and instructions through Pi's APIs.
 
+<details>
+<summary>See Chat with an interactive artifact</summary>
+
+![NativePi Chat showing an interactive compound-growth artifact, model controls, and a landscape background](./docs/assets/nativepi-chat.png)
+
+</details>
+
 ## In the workspace
 
 - **Web search and page reading.** Built into Chat and Work through Exa, with no
@@ -78,6 +85,13 @@ and instructions through Pi's APIs.
   terminals, and source control. Inspect local cost and token usage in Settings.
 - **Open it on another device.** Enable token-protected browser access over your
   local network or a temporary public link while the desktop app stays open.
+
+<details>
+<summary>See appearance settings</summary>
+
+![NativePi appearance settings with interface controls, grouped navigation, and built-in color schemes](./docs/assets/nativepi-settings.png)
+
+</details>
 
 ## Pi underneath
 

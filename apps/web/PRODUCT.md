@@ -154,10 +154,12 @@ Boundaries the site must not blur:
 
 ## Evidence on Hand
 
-- `docs/assets/nativepi-home.png`: one screenshot of the app at an empty-state
-  home view.
+- `docs/assets/nativepi-home.png`: a Work conversation about the project's tech
+  stack, also used in `public/app/window.png`.
+- `docs/assets/nativepi-chat.png`: a Chat conversation with an interactive HTML
+  artifact.
+- `docs/assets/nativepi-settings.png`: the current appearance settings.
 - `docs/assets/nativepi-wordmark.svg`: the wordmark.
-- `docs/assets/nativepi-social-preview.png`: social preview image.
 - `apps/desktop/src/`: the source of truth for implemented behavior.
 - `packages/extension-api/src/index.ts`, `protocol.ts`, `host.ts`, and `ui.ts`:
   the graphical extension contract, channel, host methods, and shared controls.
