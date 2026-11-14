@@ -1,4 +1,5 @@
 import { afterAll, expect, mock, spyOn, test } from "bun:test";
+import { EventEmitter } from "node:events";
 import { mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { appendFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -93,7 +94,7 @@ class FakePi {
     this.exit(0, undefined, true);
   }
 }
-mock.module("electron", () => ({ app: { getPath: () => root }, BrowserWindow: class {
+mock.module("electron", () => ({ nativeTheme: new EventEmitter(), app: { getPath: () => root }, BrowserWindow: class {
   }, dialog: {}, shell: {}, powerSaveBlocker: { start: () => 1, isStarted: () => true, stop: () => { } } }));
 mock.module("electron-updater", () => ({ default: { autoUpdater: {} } }));
 mock.module("./pi/client.ts", () => ({ PiProcess: FakePi }));
