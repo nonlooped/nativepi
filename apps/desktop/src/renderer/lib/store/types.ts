@@ -342,6 +342,10 @@ export interface UiSlice {
   sidebarOpen: boolean;
   /** Sidebar project filter. View-only; not persisted. */
   sidebarScope: string | null;
+  sidebarFinishedOpen: boolean;
+  sidebarFinishedLimit: number;
+  contextPaneTab: "files" | "changes";
+  setContextPaneTab: (tab: "files" | "changes") => void;
   reopenLastProject: boolean;
   commitMessageModel: string;
   contextPaneOpen: boolean;

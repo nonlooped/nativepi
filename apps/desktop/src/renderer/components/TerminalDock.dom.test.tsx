@@ -2,6 +2,7 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { stubInvoke } from "../lib/store/testBridge.ts";
+import { useAppStore } from "../lib/store.ts";
 import { THEME_CHANGE_EVENT } from "../lib/themes.ts";
 
 const terminalOptions: Record<string, unknown>[] = [];
@@ -13,11 +14,12 @@ mock.module("@xterm/xterm", () => ({ Terminal: class {
   constructor(options: Record<string, unknown>) { this.options = options; terminalOptions.push(options); }
   attachCustomKeyEventHandler() {}
   loadAddon() {}
-  open() {}
+  element?: HTMLTextAreaElement;
+  open(container: HTMLElement) { this.element = document.createElement("textarea"); this.element.className = "xterm-helper-textarea"; container.append(this.element); }
   registerLinkProvider() { return { dispose() {} }; }
   onData() { return { dispose() {} }; }
   write() {}
-  focus() {}
+  focus() { this.element?.focus(); }
   dispose() {}
 } }));
 
@@ -107,4 +109,50 @@ domTest("a failed shell startup can be retried from the dock", async () => {
   expect(attempts).toBe(2);
   expect(document.querySelector('[role="alert"]')).toBeNull();
   expect(document.querySelector(".terminal-surface")).not.toBeNull();
+});
+
+domTest("terminal keyboard commands switch focus, split, and close only the current project's dock", async () => {
+  const original = useAppStore.getState();
+  let count = 2;
+  const closed: unknown[] = [];
+  stubInvoke(async (channel, params) => {
+    if (channel === "terminalEnsure") return { terminals: [session("1"), session("2")] };
+    if (channel === "terminalCreate") return { terminal: session(String(++count)) };
+    if (channel === "terminalClose") { closed.push(params); return { ok: true }; }
+    if (channel === "terminalListShells") return { shells: [] };
+    if (channel === "terminalAttach") return { output: "", sequence: 0 };
+    return { ok: true };
+  });
+  useAppStore.setState({ activeProjectPath: "/project", destination: "work", settingsOpen: false, extSurfaces: [], keybindingOverrides: {} });
+  const mac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+  const press = async (code: string, extra: KeyboardEventInit = {}) => {
+    const target = document.activeElement ?? window;
+    await act(async () => target.dispatchEvent(new KeyboardEvent("keydown", { code, key: code, bubbles: true, cancelable: true,
+      ...(mac ? { metaKey: true } : { ctrlKey: true }), ...extra })));
+  };
+  try {
+    await render();
+    const inputs = () => [...container!.querySelectorAll<HTMLTextAreaElement>("textarea")];
+    inputs()[0]!.focus();
+    await press("ArrowRight", { altKey: true });
+    expect(document.activeElement).toBe(inputs()[1]);
+    await press("ArrowRight", { altKey: true });
+    expect(document.activeElement).toBe(inputs()[0]);
+    await press("ArrowLeft", { altKey: true });
+    expect(document.activeElement).toBe(inputs()[1]);
+    await press("KeyD", { shiftKey: true, altKey: true });
+    expect(inputs()).toHaveLength(3);
+    expect(container!.querySelector<HTMLElement>('[data-slot="resizable-panel-group"]')!.style.flexDirection).toBe("column");
+    inputs()[1]!.focus();
+    await press("KeyW", { altKey: true });
+    expect(closed).toEqual([{ projectDir: "/project", terminalId: "2" }]);
+    await press("KeyT", { shiftKey: true });
+    expect(inputs()).toHaveLength(3);
+    await act(async () => useAppStore.setState({ settingsOpen: true }));
+    await press("KeyT", { shiftKey: true });
+    expect(inputs()).toHaveLength(3);
+    await act(async () => useAppStore.setState({ settingsOpen: false, activeProjectPath: "/other" }));
+    await press("KeyT", { shiftKey: true });
+    expect(inputs()).toHaveLength(3);
+  } finally { await act(async () => useAppStore.setState(original, true)); }
 });

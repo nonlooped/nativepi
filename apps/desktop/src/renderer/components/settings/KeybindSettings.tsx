@@ -71,8 +71,8 @@ export default function KeybindSettings() {
       </div>
 
       {groups.map(({ group, shortcuts }) => (
-        <section key={group} aria-labelledby={`shortcuts-${group}`} className="flex flex-col">
-          <h2 id={`shortcuts-${group}`} className="border-b border-border/40 pb-2 text-sm font-semibold">
+        <section key={group} aria-labelledby={`shortcuts-${group.replaceAll(" ", "-")}`} className="flex flex-col">
+          <h2 id={`shortcuts-${group.replaceAll(" ", "-")}`} className="border-b border-border/40 pb-2 text-sm font-semibold">
             {group}
           </h2>
           <div className="mt-1 flex flex-col">

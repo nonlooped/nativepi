@@ -1,3 +1,5 @@
+import { createKeybindingsHandler } from "tinykeys";
+import { bindings, withHint } from "../lib/shortcuts.ts";
 import { useEffect, useRef, useState } from "react";
 import { Collapsible } from "@base-ui/react/collapsible";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
@@ -46,6 +48,7 @@ export default function SourceControl({
   git: GitStatus;
   onOpenPullRequest: () => void;
 }) {
+  const keybindingOverrides = useAppStore(s => s.keybindingOverrides);
   const refreshGit = useAppStore((s) => s.refreshGit);
   const commitMessageModel = useAppStore((s) => s.commitMessageModel);
   const sessionFile = useAppStore((s) => activeConversation(s).sessionFile);
@@ -124,6 +127,15 @@ export default function SourceControl({
   const disabled = busy !== null || generating;
   const canCommit = Boolean(message.trim()) && stagedFiles.length > 0 && !disabled;
   const commitDisabledReason = disabled ? "Working…" : stagedFiles.length === 0 ? "Stage changes first" : !message.trim() ? "Add a commit message" : undefined;
+  const handleCommitKey = createKeybindingsHandler(bindings({
+    commitChanges: event => {
+      if (!canCommit) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void commit("commit");
+    },
+  }, keybindingOverrides), { ignore: event => (event as KeyboardEvent).isComposing });
+
   const canGenerate = stagedFiles.length > 0 && !disabled;
 
   const selectedStaged = selected?.startsWith("staged:") ?? false;
@@ -157,7 +169,7 @@ export default function SourceControl({
               variant="ghost"
               size="icon-sm"
               onClick={() => void refreshGit()}
-              title="Refresh changes"
+              title={withHint("Refresh changes", "refreshSourceControl", keybindingOverrides)}
               aria-label="Refresh changes"
             >
               <ArrowClockwiseIcon />
@@ -209,9 +221,7 @@ export default function SourceControl({
             id="source-control-message"
             value={message}
             onChange={(event) => { ++messageVersion.current; setMessage(event.target.value); }}
-            onKeyDown={(event) => {
-              if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && canCommit) void commit("commit");
-            }}
+            onKeyDown={event => handleCommitKey(event.nativeEvent)}
             placeholder="Summarize the staged changes"
             className="min-h-20 resize-none text-sm"
           />
@@ -223,7 +233,7 @@ export default function SourceControl({
             className="min-w-0 flex-1"
             onClick={() => void commit("commit")}
             disabled={!canCommit}
-            title={commitDisabledReason}
+            title={commitDisabledReason ?? withHint("Commit staged changes", "commitChanges", keybindingOverrides)}
             aria-label={commitDisabledReason ? `Commit unavailable: ${commitDisabledReason}` : "Commit staged changes"}
           >
             {busy === "commit" ? "Committing…" : "Commit staged changes"}

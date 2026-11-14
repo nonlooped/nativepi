@@ -1,0 +1,26 @@
+import { afterEach, expect, mock, test } from "bun:test";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import "../lib/store/testBridge.ts";
+import { useAppStore } from "../lib/store.ts";
+import type { GitStatus } from "../../shared/pi-types.ts";
+mock.module("./FileExplorer.tsx", () => ({ default: ({ renderHeader }: any) => <>{renderHeader()}<p>Project files</p></> }));
+mock.module("./SourceControl.tsx", () => ({ default: ({ projectDir }: { projectDir: string }) => <p>Changes in {projectDir}</p> }));
+mock.module("./ExtensionSlots.tsx", () => ({ ExtensionPanels: () => null }));
+const { default: ContextPane } = await import("./ContextPane.tsx");
+const original = useAppStore.getState();
+let root: Root | undefined;
+let container: HTMLDivElement;
+afterEach(async () => { if (root) await act(async () => root!.unmount()); container?.remove(); useAppStore.setState(original, true); });
+test("the context pane switches between files and the active project's source control", async () => {
+  useAppStore.setState({ activeProjectPath: "/p", contextPaneTab: "files", git: { isRepo: true, files: [] } as unknown as GitStatus });
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  await act(async () => root!.render(<ContextPane />));
+  expect(container.textContent).toContain("Project files");
+  await act(async () => useAppStore.getState().setContextPaneTab("changes"));
+  expect(container.textContent).toContain("Changes in /p");
+  expect(container.textContent).not.toContain("Project files");
+  await act(async () => useAppStore.setState({ activeProjectPath: "/other", git: { isRepo: false } as GitStatus }));
+  expect(container.textContent).toContain("This folder is not a Git repository.");
+  expect(container.textContent).not.toContain("Changes in /p");
+});

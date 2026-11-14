@@ -1,7 +1,8 @@
+import type { AppState } from "./store/types.ts";
 import { afterEach, expect, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import "./store/testBridge.ts";
+import { stubInvoke } from "./store/testBridge.ts";
 import { useAppStore } from "./store.ts";
 import { useWorkspaceShortcuts } from "../App.tsx";
 
@@ -76,17 +77,67 @@ test("navigation calls existing actions and respects settings, dialogs, extensio
   });
   await press("BracketRight", { shiftKey: true });
   await press("BracketLeft", { shiftKey: true });
-  await press("Digit1"); await press("Digit2"); await press("KeyO");
+  await press("Digit1", { altKey: true }); await press("Digit2", { altKey: true }); await press("KeyO");
   expect(calls).toEqual([1, -1, "chat", "work", "project"]);
   calls.length = 0;
   await act(async () => { useAppStore.setState({ settingsOpen: true }); });
-  await press("Digit1");
+  await press("Digit1", { altKey: true });
   await act(async () => { useAppStore.setState({ settingsOpen: false }); });
   const dialog = document.createElement("div"); dialog.setAttribute("role", "dialog"); document.body.append(dialog);
   try { await press("KeyO"); } finally { dialog.remove(); }
   useAppStore.setState({ extSurfaces: [{ placement: "editor" }] as typeof original.extSurfaces });
   await press("BracketRight", { shiftKey: true });
   useAppStore.setState({ extSurfaces: [] });
-  await press("Digit2", { isComposing: true });
+  await press("Digit2", { altKey: true, isComposing: true });
   expect(calls).toEqual([]);
+});
+
+test("each numbered shortcut selects its exact current sidebar index, with 0 selecting the tenth", async () => {
+  await mount();
+  const calls: unknown[] = [];
+  const { createAppState } = await import("./store.ts");
+  const { createStore } = await import("zustand/vanilla");
+  const state = createStore<AppState>()(createAppState).getState();
+  await act(async () => useAppStore.setState({ ...state, activeProjectPath: "/p", destination: "chat", chatRoot: "/chat",
+    sessionsByProject: { "/chat": Array.from({ length: 10 }, (_, n) => ({ path: `s${n + 1}` })) as typeof state.sessionsByProject[string] },
+    selectChat: async (...args) => { calls.push(args); } }));
+  for (let n = 1; n <= 10; n++) await press(`Digit${n % 10}`);
+  expect(calls).toEqual(Array.from({ length: 10 }, (_, n) => [`s${n + 1}`, "/chat"]));
+  calls.length = 0;
+  await act(async () => useAppStore.setState({ keybindingOverrides: { thread1: "", thread10: "$mod+KeyU" } }));
+  await press("Digit1"); await press("Digit0"); await press("KeyU");
+  expect(calls).toEqual([["s10", "/chat"]]);
+  await act(async () => useAppStore.setState({ sessionsByProject: {} }));
+  await press("Digit5");
+  expect(calls).toHaveLength(1);
+});
+
+test("source control opens the pane for Work projects and refresh uses the existing action", async () => {
+  await mount();
+  let reads = 0;
+  await act(async () => useAppStore.setState({ destination: "work", workRoot: "/free", contextPaneOpen: false, contextPaneTab: "files", refreshGit: async () => { reads++; } }));
+  await press("KeyG", { shiftKey: true });
+  expect(useAppStore.getState().contextPaneTab).toBe("changes");
+  expect(useAppStore.getState().contextPaneOpen).toBe(true);
+  expect(reads).toBe(1);
+  await press("KeyR", { shiftKey: true });
+  expect(reads).toBe(2);
+  await act(async () => useAppStore.setState({ destination: "chat", contextPaneTab: "files" }));
+  await press("KeyG", { shiftKey: true });
+  expect(useAppStore.getState().contextPaneTab).toBe("files");
+  expect(reads).toBe(2);
+});
+
+
+test("new terminal creates a shell before opening a hidden dock", async () => {
+  await mount();
+  const calls: unknown[] = [];
+  stubInvoke(async (channel, params) => { if (channel === "terminalCreate") calls.push(params); return { terminal: { id: "new" } }; });
+  await act(async () => useAppStore.setState({ destination: "work", terminalProjects: new Set() }));
+  await press("KeyT", { shiftKey: true });
+  expect(calls).toHaveLength(1);
+  expect(calls[0]).toMatchObject({ projectDir: "/p" });
+  expect(useAppStore.getState().terminalProjects.has("/p")).toBe(true);
+  await press("KeyT", { shiftKey: true });
+  expect(calls).toHaveLength(1); // An open dock owns subsequent creations.
 });

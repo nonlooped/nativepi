@@ -1,4 +1,17 @@
+export type ThreadShortcutId = `thread${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10}`;
+
 export type ShortcutId =
+  | ThreadShortcutId
+  | "focusTerminal"
+  | "newTerminal"
+  | "splitTerminal"
+  | "splitTerminalVertical"
+  | "nextTerminal"
+  | "previousTerminal"
+  | "closeTerminal"
+  | "openSourceControl"
+  | "refreshSourceControl"
+  | "commitChanges"
   | "increaseScale"
   | "decreaseScale"
   | "resetScale"
@@ -32,10 +45,87 @@ export interface ShortcutDef {
   binding: string;
   label: string;
   description: string;
-  group: "Chat" | "Navigation" | "Application";
+  group: "Chat" | "Navigation" | "Terminal" | "Source control" | "Application";
 }
 
+export const THREAD_SHORTCUTS: { id: ThreadShortcutId; index: number }[] = Array.from({ length: 10 }, (_, index) => ({ id: `thread${index + 1}` as ThreadShortcutId, index }));
+
 export const SHORTCUTS: ShortcutDef[] = [
+  ...THREAD_SHORTCUTS.map(({ id, index }): ShortcutDef => ({
+    id, binding: `$mod+Digit${(index + 1) % 10}`, label: `Open sidebar thread ${index + 1}`,
+    description: `Open thread ${index + 1} in the current sidebar order, respecting filters and collapsed sections.`, group: "Navigation",
+  })),
+  {
+    id: "focusTerminal",
+    binding: "$mod+Shift+Backquote",
+    label: "Focus terminal",
+    description: "Open the terminal and focus a shell.",
+    group: "Terminal",
+  },
+  {
+    id: "newTerminal",
+    binding: "$mod+Shift+KeyT",
+    label: "New terminal",
+    description: "Create a terminal and open the terminal dock.",
+    group: "Terminal",
+  },
+  {
+    id: "splitTerminal",
+    binding: "$mod+Shift+KeyD",
+    label: "Split terminal side by side",
+    description: "Add a shell beside the existing terminals in the open dock.",
+    group: "Terminal",
+  },
+  {
+    id: "splitTerminalVertical",
+    binding: "$mod+Alt+Shift+KeyD",
+    label: "Split terminal above and below",
+    description: "Add a shell below the existing terminals in the open dock.",
+    group: "Terminal",
+  },
+  {
+    id: "nextTerminal",
+    binding: "$mod+Alt+ArrowRight",
+    label: "Next terminal",
+    description: "Focus the next split in the open terminal dock.",
+    group: "Terminal",
+  },
+  {
+    id: "previousTerminal",
+    binding: "$mod+Alt+ArrowLeft",
+    label: "Previous terminal",
+    description: "Focus the previous split in the open terminal dock.",
+    group: "Terminal",
+  },
+  {
+    id: "closeTerminal",
+    binding: "$mod+Alt+KeyW",
+    label: "Close current terminal",
+    description: "End the last focused shell in the open terminal dock.",
+    group: "Terminal",
+  },
+  {
+    id: "openSourceControl",
+    binding: "$mod+Shift+KeyG",
+    label: "Open source control",
+    description: "Show changes for the active Work project.",
+    group: "Source control",
+  },
+  {
+    id: "refreshSourceControl",
+    binding: "$mod+Shift+KeyR",
+    label: "Refresh source control",
+    description: "Refresh Git status for the active Work project.",
+    group: "Source control",
+  },
+  {
+    id: "commitChanges",
+    binding: "$mod+Enter",
+    label: "Commit staged changes",
+    description: "Commit while the source-control message field is focused.",
+    group: "Source control",
+  },
+
   {
     id: "focusComposer",
     binding: "$mod+KeyL",
@@ -66,14 +156,14 @@ export const SHORTCUTS: ShortcutDef[] = [
   },
   {
     id: "showChat",
-    binding: "$mod+Digit1",
+    binding: "$mod+Alt+Digit1",
     label: "Go to Chat",
     description: "Open Chat and restore its last conversation or draft.",
     group: "Navigation",
   },
   {
     id: "showWork",
-    binding: "$mod+Digit2",
+    binding: "$mod+Alt+Digit2",
     label: "Go to Work",
     description: "Open Work and restore its last project and conversation or draft.",
     group: "Navigation",
@@ -101,7 +191,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   },
   {
     id: "resetScale",
-    binding: "$mod+Digit0",
+    binding: "$mod+Alt+Digit0",
     label: "Reset interface scale",
     description: "Return to the default 110% scale.",
     group: "Application",
@@ -315,7 +405,7 @@ export function withHint(text: string, id: ShortcutId, overrides: KeybindingOver
 }
 
 export function shortcutsByGroup(): { group: ShortcutDef["group"]; shortcuts: ShortcutDef[] }[] {
-  const groups: ShortcutDef["group"][] = ["Chat", "Navigation", "Application"];
+  const groups: ShortcutDef["group"][] = ["Chat", "Navigation", "Terminal", "Source control", "Application"];
   return groups.map((group) => ({
     group,
     shortcuts: SHORTCUTS.filter((shortcut) => shortcut.group === group),

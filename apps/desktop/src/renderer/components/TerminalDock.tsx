@@ -1,3 +1,6 @@
+import { createKeybindingsHandler } from "tinykeys";
+import { bindings, withHint } from "../lib/shortcuts.ts";
+import { workspaceShortcutsBlocked } from "../lib/shortcutContext.ts";
 import { terminalSelectionMarkdown } from "../lib/markdownReferences.ts";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { FitAddon } from "@xterm/addon-fit";
@@ -63,6 +66,9 @@ export default function TerminalDock({
 }) {
   const [state, setState] = useState<DockState>({ terminals: [], shells: [], error: null, closing: false, restarts: {} });
   const { terminals, shells, error, closing, restarts } = state;
+  const dockRef = useRef<HTMLElement>(null);
+  const lastFocused = useRef<string | null>(null);
+  const keybindingOverrides = useAppStore(s => s.keybindingOverrides);
   const [confirmingKillAll, setConfirmingKillAll] = useState(false);
   const [orientation, setOrientation] = useState<"horizontal" | "vertical">("horizontal");
   const preferredShellId = useAppStore((s) => s.preferences.preferredShellId);
@@ -85,15 +91,54 @@ export default function TerminalDock({
   const closeSplit = (id: string) => controller.current?.close(id);
   const closeAll = () => controller.current?.close();
 
+  const runShortcut = useEffectEvent((action: "new" | "horizontal" | "vertical" | "next" | "previous" | "close", event: KeyboardEvent) => {
+    const s = useAppStore.getState();
+    if (closing || s.activeProjectPath !== projectDir || s.destination === "chat" || workspaceShortcutsBlocked()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const current = Math.max(0, terminals.findIndex(terminal => terminal.id === lastFocused.current));
+    if (action === "next" || action === "previous") {
+      if (!terminals.length) return;
+      const index = (current + (action === "next" ? 1 : -1) + terminals.length) % terminals.length;
+      const node = [...(dockRef.current?.querySelectorAll<HTMLElement>("[data-terminal-id]") ?? [])].find(node => node.dataset.terminalId === terminals[index]!.id);
+      node?.querySelector<HTMLElement>(".xterm-helper-textarea")?.focus();
+    } else if (action === "close") {
+      const terminal = terminals[current];
+      if (terminal) void closeSplit(terminal.id);
+    } else {
+      if (action !== "new") setOrientation(action);
+      void addSplit(preferredShellId || undefined);
+    }
+  });
+  useEffect(() => {
+    const handler = createKeybindingsHandler(bindings({
+      newTerminal: event => runShortcut("new", event),
+      splitTerminal: event => runShortcut("horizontal", event),
+      splitTerminalVertical: event => runShortcut("vertical", event),
+      nextTerminal: event => runShortcut("next", event),
+      previousTerminal: event => runShortcut("previous", event),
+      closeTerminal: event => runShortcut("close", event),
+    }, keybindingOverrides), { ignore: event => (event as KeyboardEvent).isComposing });
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [keybindingOverrides]);
+
+
   return (
-    <section aria-label="Integrated terminal" className="terminal-dock terminal-dock-enter relative flex h-full min-h-0 flex-col bg-sidebar">
+    <section ref={dockRef} onFocusCapture={event => {
+      const split = (event.target as HTMLElement).closest<HTMLElement>("[data-terminal-id]");
+      if (!split) return;
+      lastFocused.current = split.dataset.terminalId ?? null;
+      dockRef.current?.querySelectorAll("[data-terminal-active]").forEach(node => node.removeAttribute("data-terminal-active"));
+      split.setAttribute("data-terminal-active", "true");
+    }} aria-label="Integrated terminal" className="terminal-dock terminal-dock-enter relative flex h-full min-h-0 flex-col bg-sidebar">
       <ContextMenu>
         <ContextMenuTrigger render={<div role="toolbar" aria-label="Terminal controls" className="absolute right-2 top-1.5 z-20 flex items-center gap-0.5 rounded-lg bg-sidebar/95 shadow-sm p-0.5 text-muted-foreground" />}>
-          <Button variant="ghost" size="icon-xs" disabled={closing} title="Split terminal side by side" aria-label="Split terminal side by side" onClick={() => {
+          <Button variant="ghost" size="icon-xs" disabled={closing} title={withHint("Split terminal side by side", "splitTerminal", keybindingOverrides)} aria-label="Split terminal side by side" onClick={() => {
             setOrientation("horizontal");
             void addSplit(preferredShellId || undefined);
           }}><ColumnsIcon /></Button>
-          <Button variant="ghost" size="icon-xs" disabled={closing} title="Split terminal above and below" aria-label="Split terminal above and below" onClick={() => {
+          <Button variant="ghost" size="icon-xs" disabled={closing} title={withHint("Split terminal above and below", "splitTerminalVertical", keybindingOverrides)} aria-label="Split terminal above and below" onClick={() => {
             setOrientation("vertical");
             void addSplit(preferredShellId || undefined);
           }}><RowsIcon /></Button>
@@ -179,9 +224,10 @@ function NewTerminalButton({
   onCreate: (shellId?: string) => void;
   disabled: boolean;
 }) {
+  const keybindingOverrides = useAppStore(s => s.keybindingOverrides);
   if (shells.length <= 1) {
     return (
-      <Button variant="ghost" size="icon-xs" disabled={disabled} onClick={() => onCreate(preferredShellId || undefined)} title="New terminal" aria-label="New terminal">
+      <Button variant="ghost" size="icon-xs" disabled={disabled} onClick={() => onCreate(preferredShellId || undefined)} title={withHint("New terminal", "newTerminal", keybindingOverrides)} aria-label="New terminal">
         <PlusIcon />
       </Button>
     );
@@ -194,7 +240,7 @@ function NewTerminalButton({
         size="icon-xs"
         disabled={disabled}
         onClick={() => onCreate(preferredShellId || undefined)}
-        title={selected ? `New terminal (${selected.name})` : "New terminal"}
+        title={withHint(selected ? `New terminal (${selected.name})` : "New terminal", "newTerminal", keybindingOverrides)}
         aria-label="New terminal"
       >
         <PlusIcon />
@@ -266,7 +312,7 @@ function TerminalSplit({
     <>
       {showHandle ? <ResizableHandle className="hover:bg-ring focus-visible:bg-ring" /> : null}
       <ResizablePanel id={session.id} defaultSize={defaultSize}>
-        <div className="flex h-full min-h-0 flex-col">
+        <div data-terminal-id={session.id} className="flex h-full min-h-0 flex-col">
           {showTitle || editingName ? <ContextMenu>
             <ContextMenuTrigger render={<div className={cn("flex min-h-9 shrink-0 items-center gap-1.5 px-3", reserveToolbar && "pr-32")} />}>
               <StatusDot session={session} />

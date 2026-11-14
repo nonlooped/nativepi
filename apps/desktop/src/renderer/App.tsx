@@ -27,9 +27,12 @@ import TrustDialog from "./components/TrustDialog.tsx";
 import WindowControls from "./components/WindowControls.tsx";
 import { activeConversation, useAppStore } from "./lib/store.ts";
 import { startNewChatFlow } from "./lib/newChat.ts";
-import { isRemote } from "./lib/rpc.ts";
+import { isRemote, rpc } from "./lib/rpc.ts";
+import { toast } from "sonner";
 import { chatTitle } from "./lib/transcript.ts";
-import { bindingFor, bindings, hintFor, withHint } from "./lib/shortcuts.ts";
+import { sidebarThreads } from "./lib/sidebarThreads.ts";
+import { workspaceShortcutsBlocked } from "./lib/shortcutContext.ts";
+import { bindingFor, bindings, hintFor, withHint, THREAD_SHORTCUTS } from "./lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import {
@@ -204,7 +207,11 @@ export default function App() {
               extensionView={extensionView}
               onSelectExtensionView={setExtensionView}
               onOpenSidebar={() => (layout !== "wide" ? setSidebarSheetOpen(true) : setSidebarOpen(true))}
-              onOpenContext={() => (layout === "wide" ? toggleContextPane() : setContextSheetOpen(true))}
+              onOpenContext={() => {
+                useAppStore.getState().setContextPaneTab("files");
+                if (layout === "wide") toggleContextPane();
+                else setContextSheetOpen(true);
+              }}
               onToggleTerminal={toggleTerminal}
             />
             <PiStartingNotice />
@@ -329,7 +336,7 @@ export default function App() {
             className="w-[min(28rem,92vw)] border-sidebar-border bg-sidebar p-0 sm:max-w-none"
           >
             <SheetTitle className="sr-only">Project context</SheetTitle>
-            <SheetDescription className="sr-only">Browse files, and review extension panels.</SheetDescription>
+            <SheetDescription className="sr-only">Browse files, source control, and extension panels.</SheetDescription>
             {contextSheetOpen ? (
               <Suspense fallback={<SurfaceLoading label="Loading project context…" />}>
                 <ContextPane onClose={() => setContextSheetOpen(false)} />
@@ -736,10 +743,8 @@ export function useWorkspaceShortcuts(
 
     // New navigation commands must not move focus or change conversations
     // underneath a dialog, Settings, or an extension's custom editor.
-    const workspace = (run: () => void) => (event: KeyboardEvent) => {
-      const s = useAppStore.getState();
-      if (s.settingsOpen || document.querySelector('[role="dialog"], [role="alertdialog"]')
-        || s.extSurfaces.some(surface => surface.placement === "editor" || surface.placement === "overlay")) return;
+    const workspace = (run: () => void, allowedSheet?: "sidebar" | "context") => (event: KeyboardEvent) => {
+      if (workspaceShortcutsBlocked(allowedSheet)) return;
       event.preventDefault();
       event.stopPropagation();
       run();
@@ -747,6 +752,42 @@ export function useWorkspaceShortcuts(
 
     // Capture these commands before xterm sends their control keys to the shell.
     const navigation = createKeybindingsHandler(bindings({
+      ...Object.fromEntries(THREAD_SHORTCUTS.map(({ id, index }) => [id, workspace(() => {
+        const s = useAppStore.getState();
+        const thread = sidebarThreads(s)[index];
+        if (!thread) return;
+        if (!s.isNewChat && s.activeSessionFile === thread.session && s.activeProjectPath === thread.project) return;
+        setSidebarSheetOpen(false);
+        void s.selectChat(thread.session, thread.project);
+      }, "sidebar")])),
+      toggleTerminal: workspace(toggleTerminal),
+      newTerminal: workspace(() => {
+        const s = useAppStore.getState();
+        const projectDir = s.activeProjectPath;
+        // A mounted dock owns its membership. When hidden, create the shell
+        // first; mounting the dock then discovers it through terminalEnsure.
+        if (!projectDir || s.destination === "chat" || s.terminalProjects.has(projectDir)) return;
+        void rpc.request.terminalCreate({ projectDir, shellId: s.preferences.preferredShellId || undefined }).then(() => {
+          const current = useAppStore.getState();
+          if (current.activeProjectPath === projectDir && current.destination === "work") current.openTerminal(projectDir);
+        }).catch(error => toast.error(error instanceof Error ? error.message : "Could not create a terminal."));
+      }),
+      focusTerminal: workspace(() => {
+        const s = useAppStore.getState();
+        if (!s.activeProjectPath || s.destination === "chat") return;
+        s.openTerminal(s.activeProjectPath);
+        (document.querySelector<HTMLElement>('.terminal-dock [data-terminal-active] .xterm-helper-textarea')
+          ?? document.querySelector<HTMLElement>(".terminal-dock .xterm-helper-textarea"))?.focus();
+      }),
+      openSourceControl: workspace(() => {
+        const s = useAppStore.getState();
+        if (!s.activeProjectPath || s.destination === "chat" || s.activeProjectPath === s.workRoot) return;
+        s.setContextPaneTab("changes");
+        if (layout === "wide") { if (!s.contextPaneOpen) s.toggleContextPane(); }
+        else setContextSheetOpen(true);
+        void s.refreshGit();
+      }, "context"),
+      refreshSourceControl: workspace(() => void useAppStore.getState().refreshGit(), "context"),
       focusComposer: workspace(() => document.querySelector<HTMLElement>('[data-composer-input][contenteditable="true"]')?.focus()),
       selectModel: workspace(() => document.querySelector<HTMLButtonElement>('[data-model-picker-trigger]:not(:disabled)')?.click()),
       nextChat: workspace(() => void useAppStore.getState().selectAdjacentChat(1)),
@@ -797,11 +838,12 @@ export function useWorkspaceShortcuts(
 
         toggleContextPane: withProject(() => {
           if (useAppStore.getState().destination === "chat") return;
-          if (layout === "wide") toggleContextPane();
-          else setContextSheetOpen((open) => !open);
+          const s = useAppStore.getState();
+          const showingFiles = s.contextPaneTab === "files";
+          s.setContextPaneTab("files");
+          if (layout === "wide") { if (!s.contextPaneOpen || showingFiles) toggleContextPane(); }
+          else setContextSheetOpen(open => showingFiles ? !open : true);
         }),
-
-        toggleTerminal: withProject(toggleTerminal),
 
         newChat: always(() => {
           closeSettings();

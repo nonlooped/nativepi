@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Move Chat/Work shortcuts to Command/Ctrl+Alt+1/2 and interface-scale reset to Command/Ctrl+Alt+0 to reserve the number keys for sidebar threads.
 - Prioritize everyday settings above galleries, previews, and reference details; clarify section headings, row spacing, descriptions, and selected controls across Settings.
 - Remove the desktop notification status and test row from General settings.
 - Extend compact settings styles to subscription limits, usage filters, extension installation, access links, file paths, and Pi restart notices.
@@ -18,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Redesign Settings with compact navigation, unboxed sections, aligned controls, and combined appearance and layout preferences. Move Chat extension controls to Extensions and load settings pages eagerly, preparing local Pi configuration at startup.
 
 ### Added
+- Add individually rebindable sidebar thread shortcuts (Command/Ctrl+1–9 and 0 for thread 10), terminal focus, creation, splitting, navigation, and closing shortcuts, plus source-control opening, refresh, and commit shortcuts. Restore source control beside Files in the context pane.
 - Add rebindable shortcuts for focusing the composer, choosing a model, cycling chats in the current project, switching between Chat and Work, and opening a project folder.
 - Render files, folders, source locations, skills, web links, pull requests, and chat references as compact transcript chips; expand quoted responses, source-linked replies, terminal selections, and on-demand image, video, and audio previews inline.
 - Start Work chats with “No project” for general device tasks, with normal Pi tools and a dedicated working directory.

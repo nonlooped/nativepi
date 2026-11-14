@@ -78,3 +78,31 @@ domTest("untracked previews skip useless hunk downloads and retain whole-file st
   await act(async () => [...container.querySelectorAll("button")].find(button => button.textContent === "Stage file")!.click());
   expect(stages).toBe(1);
 });
+
+domTest("commit shortcut is scoped to the message field, rebindable, and disabled while composing", async () => {
+  const original = useAppStore.getState();
+  const commits: unknown[] = [];
+  stubInvoke(async (channel, params) => {
+    if (channel === "gitCommit") { commits.push(params); return { ok: true }; }
+    if (channel === "gitStatus") return { status: git };
+    if (channel === "gitLog") return { commits: [] };
+    return { ok: true };
+  });
+  try {
+    await mount({ ...git, files: [{ ...git.files[0], staged: true }] });
+    await act(async () => useAppStore.setState({ keybindingOverrides: { commitChanges: "$mod+Shift+Enter" } }));
+    const input = container.querySelector("textarea")!;
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(input, "feat: keyboard commit"); input.dispatchEvent(new Event("input", { bubbles: true })); });
+    const mac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+    const press = async (extra: KeyboardEventInit = {}, target: EventTarget = input) => {
+      await act(async () => target.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true, cancelable: true,
+        ...(mac ? { metaKey: true } : { ctrlKey: true }), ...extra })));
+    };
+    await press();
+    await press({ shiftKey: true, isComposing: true });
+    await press({ shiftKey: true }, window);
+    expect(commits).toEqual([]);
+    await press({ shiftKey: true });
+    expect(commits).toEqual([{ projectDir: "/project", message: "feat: keyboard commit" }]);
+  } finally { await act(async () => useAppStore.setState(original, true)); }
+});

@@ -43,6 +43,7 @@ import { HOVER_REVEAL, NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import { editorName, fileManagerName } from "@/lib/paths.ts";
 import { rpc } from "@/lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
+import { groupSidebarChats } from "../lib/sidebarThreads.ts";
 import { isChatFinished } from "../lib/chatOrganization.ts";
 import { providerIconName } from "../lib/providerIcons.ts";
 import BrandIcon from "./BrandIcon.tsx";
@@ -112,8 +113,8 @@ function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, over
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const scope = useAppStore((s) => s.sidebarScope);
   const setScope = useAppStore((s) => s.setSidebarScope);
-  const [finishedOpen, setFinishedOpen] = useState(true);
-  const [finishedLimit, setFinishedLimit] = useState(12);
+  const finishedOpen = useAppStore(s => s.sidebarFinishedOpen);
+  const finishedLimit = useAppStore(s => s.sidebarFinishedLimit);
   const [now, setNow] = useState(Date.now);
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
   const [worktreesFor, setWorktreesFor] = useState<string | null>(null);
@@ -193,25 +194,10 @@ function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, over
     sessionsByProject,
   ]);
 
-  const { pinned, focus, finished } = useMemo(() => {
-    const pinnedOrder = new Map(pinnedChats.map((path, index) => [path, index]));
-    const pinned = allChats
-      .filter((chat) => chat.pinned)
-      .toSorted(
-        (left, right) => (pinnedOrder.get(left.session.path) ?? 0) - (pinnedOrder.get(right.session.path) ?? 0),
-      );
-    const focus = allChats
-      .filter((chat) => !chat.finished && !chat.pinned)
-      .toSorted((left, right) => Date.parse(right.session.modified) - Date.parse(left.session.modified));
-    const finished = allChats
-      .filter((chat) => chat.finished)
-      .toSorted(
-        (left, right) =>
-          Date.parse(finishedChats[right.session.path] ?? right.session.modified) -
-          Date.parse(finishedChats[left.session.path] ?? left.session.modified),
-      );
-    return { pinned, focus, finished };
-  }, [allChats, finishedChats, pinnedChats]);
+  const { pinned, focus, finished } = useMemo(
+    () => groupSidebarChats(allChats, pinnedChats, finishedChats),
+    [allChats, finishedChats, pinnedChats],
+  );
 
   const currentProject = projects.find((project) => project.path === activeProjectPath && project.path !== workRoot) ?? null;
 
@@ -378,7 +364,7 @@ function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, over
 
         {finished.length > 0 ? (
           <section className="mt-auto shrink-0 pt-8" aria-label="Finished chats">
-            <button type="button" onClick={() => setFinishedOpen((value) => !value)} aria-expanded={finishedOpen} className="flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[0.6875rem] tracking-[0.06em] uppercase text-muted-foreground transition-colors hover:text-sidebar-foreground">
+            <button type="button" onClick={() => useAppStore.setState({ sidebarFinishedOpen: !finishedOpen })} aria-expanded={finishedOpen} className="flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[0.6875rem] tracking-[0.06em] uppercase text-muted-foreground transition-colors hover:text-sidebar-foreground">
               <span className="font-medium">Finished</span>
               <span className="ml-auto tabular-nums text-muted-foreground">{finished.length}</span>
               <CaretDownIcon className={cn("transition-transform", !finishedOpen && "-rotate-90")} weight="bold" />
@@ -398,7 +384,7 @@ function WorkContents({ presentation, onClose, onOpenSearch, onOpenNewChat, over
                   <button
                     type="button"
                     className="flex h-8 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
-                    onClick={() => setFinishedLimit((limit) => limit + 25)}
+                    onClick={() => useAppStore.setState({ sidebarFinishedLimit: finishedLimit + 25 })}
                   >
                     <span className="text-base leading-none">+</span>
                     Show {Math.min(25, finished.length - finishedLimit)} more
