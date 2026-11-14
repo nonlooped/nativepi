@@ -91,7 +91,7 @@ async function createMainWindow(): Promise<void> {
     frame: !isMac,
     titleBarStyle: isMac ? "hiddenInset" : "hidden",
     trafficLightPosition: isMac ? { x: 16, y: 17 } : undefined,
-    backgroundColor: "#141414",
+    backgroundColor: "#1b1b1b",
     transparent: isMac,
     // Keep vibrancy active even while another application has focus.
     visualEffectState: isMac ? "active" : undefined,

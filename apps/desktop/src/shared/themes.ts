@@ -1,6 +1,8 @@
 import { z } from "zod";
 
+// Keep the persisted ID so existing glass selections survive the rename.
 export const NATIVE_THEME_ID = "nativepi";
+export const DEFAULT_THEME_ID = "paper";
 export const MAX_CUSTOM_THEMES = 100;
 
 const hexColorSchema = z.string().regex(/^#[0-9a-f]{6}$/i, "Use a six-digit hex color.");
@@ -82,7 +84,7 @@ export const BUILT_IN_THEMES: BuiltInTheme[] = [
     description: "Frosted glass",
     theme: {
       version: 1,
-      name: "NativePi",
+      name: "Acrylic",
       colors: {
         light: {
           background: "#e6e6e6",
@@ -476,6 +478,7 @@ export const BUILT_IN_THEMES: BuiltInTheme[] = [
 ];
 
 export const NATIVE_THEME = BUILT_IN_THEMES[0]!.theme;
+export const DEFAULT_THEME = BUILT_IN_THEMES.find(theme => theme.id === DEFAULT_THEME_ID)!.theme;
 
 export function builtInTheme(id: string): BuiltInTheme | undefined {
   return BUILT_IN_THEMES.find((candidate) => candidate.id === id);
@@ -486,8 +489,8 @@ export function themeFile(theme: CustomTheme): ThemeFile {
   return portable;
 }
 
-/** Unknown and removed schemes use NativePi's material as well as its colors. */
+/** Only Acrylic uses a native window material; unknown schemes fall back to Paper. */
 export function usesNativeGlass(preferences: { themeId: string; customThemes: readonly CustomTheme[] }): boolean {
   return !preferences.customThemes.some(theme => theme.id === preferences.themeId)
-    && (!builtInTheme(preferences.themeId) || preferences.themeId === NATIVE_THEME_ID);
+    && preferences.themeId === NATIVE_THEME_ID;
 }

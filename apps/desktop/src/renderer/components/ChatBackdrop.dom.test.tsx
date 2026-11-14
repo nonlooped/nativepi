@@ -9,12 +9,12 @@ const container = document.createElement("div");
 const root = createRoot(container);
 afterEach(async () => { await act(() => root.unmount()); });
 
-test("NativePi skips image loading and restores the saved image on another scheme", async () => {
-  useAppStore.setState({ preferences: { ...DEFAULT_PREFERENCES } });
+test("Acrylic skips image loading and restores the saved image on another scheme", async () => {
+  useAppStore.setState({ preferences: { ...DEFAULT_PREFERENCES, themeId: "nativepi" } });
   await act(() => root.render(<ChatBackdrop />));
   expect(container.querySelector("img")).toBeNull();
   await act(() => useAppStore.setState({ preferences: { ...DEFAULT_PREFERENCES, themeId: "paper" } }));
   expect(container.querySelector("img")).not.toBeNull();
-  await act(() => useAppStore.setState({ preferences: { ...DEFAULT_PREFERENCES } }));
+  await act(() => useAppStore.setState({ preferences: { ...DEFAULT_PREFERENCES, themeId: "nativepi" } }));
   expect(container.querySelector("img")).toBeNull();
 });

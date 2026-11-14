@@ -2,7 +2,7 @@ import { nativeTheme, type BrowserWindow } from "electron";
 import { setWindowsMaterialActive } from "./windowsMaterial.ts";
 import { release } from "node:os";
 import type { Preferences } from "../shared/rpc-schema.ts";
-import { usesNativeGlass } from "../shared/themes.ts";
+import { builtInTheme, DEFAULT_THEME, usesNativeGlass } from "../shared/themes.ts";
 
 /** Acrylic is available from Windows 11 22H2; other desktops stay opaque. */
 export function supportsWindowMaterial(platform: string, osRelease: string): boolean {
@@ -23,7 +23,10 @@ export function updateWindowMaterial(next: Preferences): void {
     window.setBackgroundMaterial(glass ? "acrylic" : "none");
     setWindowsMaterialActive(window.getNativeWindowHandle(), glass);
   }
-  window.setBackgroundColor(glass ? "#00000000" : nativeTheme.shouldUseDarkColors ? "#141414" : "#e6e6e6");
+  const scheme = next.customThemes.find(theme => theme.id === next.themeId)
+    ?? builtInTheme(next.themeId)?.theme ?? DEFAULT_THEME;
+  const appearance = nativeTheme.shouldUseDarkColors ? "dark" : "light";
+  window.setBackgroundColor(glass ? "#00000000" : scheme.colors[appearance].background);
 }
 
 export function bindWindowMaterial(win: BrowserWindow, next: Preferences): void {

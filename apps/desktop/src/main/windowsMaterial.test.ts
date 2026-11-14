@@ -11,6 +11,9 @@ const { setWindowsMaterialActive } = await import("./windowsMaterial.ts");
 test("Windows composition receives the HWND and a four-byte active appearance flag", () => {
   const handle = Buffer.alloc(8);
   handle.writeBigUInt64LE(0x1234n);
+  // Paper is the default: do not load a native addon just to disable glass.
+  setWindowsMaterialActive(handle, false);
+  expect(load).not.toHaveBeenCalled();
   setWindowsMaterialActive(handle, true);
   expect(load).toHaveBeenCalledWith("user32.dll");
   expect(func).toHaveBeenCalledWith(expect.stringContaining("__stdcall SetWindowCompositionAttribute"));

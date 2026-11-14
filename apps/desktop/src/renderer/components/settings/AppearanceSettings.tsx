@@ -78,7 +78,7 @@ export default function AppearanceSettings() {
       </SettingsSection>
 
       {usesNativeGlass(preferences) ? (
-        <SettingsSection heading="Glass background" description="NativePi uses live macOS vibrancy or Windows 11 Acrylic, with a dither texture across the window. Linux, older Windows, and browser access use a solid backdrop. Your image background is kept for other color schemes.">{null}</SettingsSection>
+        <SettingsSection heading="Glass background" description="Acrylic uses live macOS vibrancy or Windows 11 Acrylic, with a dither texture across the window. Linux, older Windows, and browser access use a solid backdrop. Your image background is kept for other color schemes.">{null}</SettingsSection>
       ) : <ChatBackgroundSettings />}
     </div>
   );

@@ -4,7 +4,7 @@ export { themeCssProperties, themeContrastIssues, contrastRatio } from "../../sh
 import type { Preferences } from "../../shared/rpc-schema.ts";
 import {
   builtInTheme,
-  NATIVE_THEME,
+  DEFAULT_THEME,
   usesNativeGlass,
   type CustomTheme,
   type ThemeAppearance,
@@ -81,7 +81,7 @@ export function selectedCustomTheme(preferences: Preferences): CustomTheme | und
 export function selectedTheme(preferences: Preferences): ThemeFile {
   return selectedCustomTheme(preferences)
     ?? builtInTheme(preferences.themeId)?.theme
-    ?? NATIVE_THEME;
+    ?? DEFAULT_THEME;
 }
 
 export function resolvedAppearance(preferences: Preferences, systemDark: boolean): ThemeAppearance {
@@ -104,7 +104,7 @@ export function applyTheme(root: HTMLElement, preferences: Preferences, systemDa
   const custom = selectedCustomTheme(preferences);
   const builtIn = builtInTheme(preferences.themeId);
   const activeTheme = custom ?? builtIn?.theme;
-  const properties = themeCssProperties((activeTheme ?? NATIVE_THEME).colors[appearance]);
+  const properties = themeCssProperties((activeTheme ?? DEFAULT_THEME).colors[appearance]);
   // Glass roles live in CSS so media queries can restore opaque surfaces.
   if (glass) {
     for (const property of ["--card", "--popover", "--sidebar", "--secondary", "--muted", "--accent",

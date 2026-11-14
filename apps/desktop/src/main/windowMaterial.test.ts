@@ -6,6 +6,7 @@ const theme = { themeSource: "system", shouldUseDarkColors: true, prefersReduced
 mock.module("electron", () => ({ nativeTheme: theme }));
 const setWindowsMaterialActive = mock();
 mock.module("./windowsMaterial.ts", () => ({ setWindowsMaterialActive }));
+const acrylicPreferences = { ...DEFAULT_PREFERENCES, themeId: "nativepi" };
 const { bindWindowMaterial, updateWindowMaterial, supportsWindowMaterial, hasWindowMaterial } = await import("./windowMaterial.ts");
 
 test("native backdrop support gates Windows Acrylic at 11 22H2", () => {
@@ -18,7 +19,7 @@ test("native backdrop support gates Windows Acrylic at 11 22H2", () => {
 
 test("theme changes and reduced transparency restore a solid window", () => {
   const win = { isDestroyed: () => false, setVibrancy: mock(), setBackgroundMaterial: mock(), setBackgroundColor: mock(), getNativeWindowHandle: () => Buffer.alloc(8) };
-  bindWindowMaterial(win as unknown as BrowserWindow, DEFAULT_PREFERENCES);
+  bindWindowMaterial(win as unknown as BrowserWindow, acrylicPreferences);
   expect(win.setBackgroundColor).toHaveBeenLastCalledWith(hasWindowMaterial ? "#00000000" : "#141414");
   if (process.platform === "darwin") expect(win.setVibrancy).toHaveBeenLastCalledWith("under-window");
   if (process.platform === "win32" && hasWindowMaterial) {
@@ -28,14 +29,21 @@ test("theme changes and reduced transparency restore a solid window", () => {
   theme.shouldUseDarkColors = false;
   updateWindowMaterial({ ...DEFAULT_PREFERENCES, themeId: "paper", theme: "light" });
   expect(theme.themeSource).toBe("light");
-  expect(win.setBackgroundColor).toHaveBeenLastCalledWith("#e6e6e6");
+  expect(win.setBackgroundColor).toHaveBeenLastCalledWith("#fafafa");
   if (process.platform === "win32" && hasWindowMaterial) expect(setWindowsMaterialActive).toHaveBeenLastCalledWith(Buffer.alloc(8), false);
   theme.shouldUseDarkColors = true;
   if (process.platform === "darwin") expect(win.setVibrancy).toHaveBeenLastCalledWith(null);
   theme.prefersReducedTransparency = true;
-  updateWindowMaterial(DEFAULT_PREFERENCES);
+  updateWindowMaterial(acrylicPreferences);
   expect(win.setBackgroundColor).toHaveBeenLastCalledWith("#141414");
   theme.prefersReducedTransparency = false;
-  updateWindowMaterial(DEFAULT_PREFERENCES);
+  updateWindowMaterial(acrylicPreferences);
   expect(win.setBackgroundColor).toHaveBeenLastCalledWith(hasWindowMaterial ? "#00000000" : "#141414");
+});
+
+test("the default Paper window stays solid", () => {
+  const win = { isDestroyed: () => false, setVibrancy: mock(), setBackgroundMaterial: mock(), setBackgroundColor: mock(), getNativeWindowHandle: () => Buffer.alloc(8) };
+  bindWindowMaterial(win as unknown as BrowserWindow, DEFAULT_PREFERENCES);
+  expect(win.setBackgroundColor).toHaveBeenLastCalledWith("#1b1b1b");
+  if (process.platform === "darwin") expect(win.setVibrancy).toHaveBeenLastCalledWith(null);
 });

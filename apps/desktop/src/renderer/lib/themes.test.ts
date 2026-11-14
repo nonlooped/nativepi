@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { DEFAULT_PREFERENCES } from "../../shared/rpc-schema.ts";
-import { BUILT_IN_THEMES, NATIVE_THEME, builtInTheme, themeFileSchema } from "../../shared/themes.ts";
+import { BUILT_IN_THEMES, DEFAULT_THEME, NATIVE_THEME, builtInTheme, themeFileSchema } from "../../shared/themes.ts";
 import { contrastRatio, resolvedTheme, themeContrastIssues, themeCssProperties } from "./themes.ts";
 
 test("every built-in color scheme has readable light and dark variants", () => {
@@ -128,20 +128,20 @@ test("focus validation checks the rendered ring on selected surfaces", () => {
   expect(themeContrastIssues(colors).some((issue) => issue.startsWith("Focus indicators on selected surfaces is 1.0:1"))).toBeTrue();
 });
 
-test("startup CSS matches the resolved NativePi palette before preferences load", async () => {
+test("startup CSS matches the default Paper palette before preferences load", async () => {
   const css = await Bun.file(new URL("../index.css", import.meta.url)).text();
   for (const [selector, appearance] of [[":root", "light"], [".dark", "dark"]] as const) {
     const block = css.slice(css.indexOf(`${selector} {`)).split("\n}")[0]!;
-    for (const [property, value] of Object.entries(themeCssProperties(NATIVE_THEME.colors[appearance]))) {
+    for (const [property, value] of Object.entries(themeCssProperties(DEFAULT_THEME.colors[appearance]))) {
       expect(block).toContain(`  ${property}: ${value};`);
     }
   }
 });
 
-test("retired and unknown scheme selections fall back to NativePi in both appearances", () => {
+test("retired and unknown scheme selections fall back to Paper in both appearances", () => {
   for (const themeId of ["cobalt", "slate", "missing", "custom:missing"]) {
     for (const theme of ["light", "dark"] as const) {
-      expect(resolvedTheme({ ...DEFAULT_PREFERENCES, theme, themeId }, false)).toBe(NATIVE_THEME.colors[theme]);
+      expect(resolvedTheme({ ...DEFAULT_PREFERENCES, theme, themeId }, false)).toBe(DEFAULT_THEME.colors[theme]);
     }
   }
 });

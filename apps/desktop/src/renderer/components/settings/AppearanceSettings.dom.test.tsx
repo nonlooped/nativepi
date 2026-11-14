@@ -10,7 +10,7 @@ let container: HTMLDivElement;
 afterEach(async () => { if (root) await act(async () => { root.unmount(); }); container?.remove(); });
 
 test("compact layout choices save their values and cannot be deselected", async () => {
-  useAppStore.setState({ ready: false, preferences: { ...DEFAULT_PREFERENCES } });
+  useAppStore.setState({ ready: false, preferences: { ...DEFAULT_PREFERENCES, themeId: "nativepi" } });
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -28,4 +28,12 @@ test("compact layout choices save their values and cannot be deselected", async 
   expect(useAppStore.getState().preferences.diffStyle).toBe("unified");
   await act(() => useAppStore.setState({ preferences: { ...DEFAULT_PREFERENCES, themeId: "paper" } }));
   expect(container.querySelector('[aria-label="Backgrounds"]')).not.toBeNull();
+  const selected = container.querySelector('[role="radio"][aria-checked="true"]');
+  expect(selected?.textContent).toContain("Paper");
+  const acrylic = [...container.querySelectorAll<HTMLButtonElement>('[role="radio"]')]
+    .find(button => button.textContent?.includes("Acrylic"))!;
+  expect(acrylic).toBeDefined();
+  await act(() => acrylic.click());
+  expect(useAppStore.getState().preferences.themeId).toBe("nativepi");
+  expect(container.textContent).toContain("Glass background");
 });

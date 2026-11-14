@@ -7,7 +7,7 @@ let setActiveAppearance: ((handle: Buffer, active: boolean) => void) | null | un
  * Keep this compatibility attribute isolated: it changes appearance, never focus.
  * If Windows rejects it, retain Electron's ordinary system-managed Acrylic. */
 export function setWindowsMaterialActive(handle: Buffer, active: boolean): void {
-  if (setActiveAppearance === null) return;
+  if (setActiveAppearance === null || (!active && setActiveAppearance === undefined)) return;
   try {
     if (!setActiveAppearance) {
       // Load native code only on Windows, when the main window needs Acrylic.
