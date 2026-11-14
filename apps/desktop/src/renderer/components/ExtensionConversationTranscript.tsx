@@ -181,7 +181,8 @@ function AssistantTurn({ turn, running }: { turn: Turn; running: boolean }) {
             setWorkOpen(next);
           }}
         >
-          <Collapsible.Trigger className="group flex items-center gap-1.5 rounded-sm py-1 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+          <Collapsible.Trigger className={`group flex w-fit items-center gap-1.5 rounded-sm py-1 text-xs tabular-nums outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring ${running ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+            {running ? <CircleNotchIcon className="size-3.5 animate-spin text-active motion-reduce:animate-none" aria-hidden /> : null}
             <span>{running ? (liveElapsed ? `Working · ${liveElapsed}` : "Working") : timing ? `Worked for ${timing}` : tools > 0 ? `Used ${tools} ${tools === 1 ? "tool" : "tools"}` : "Work"}</span>
             <CaretRightIcon className="transition-transform group-data-[panel-open]:rotate-90" />
           </Collapsible.Trigger>

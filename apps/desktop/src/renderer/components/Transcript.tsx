@@ -486,7 +486,8 @@ export function AssistantResponse({
           open={workOpen}
           onOpenChange={setWorkOpen}
         >
-          <Collapsible.Trigger className="group flex w-fit items-center gap-1.5 rounded-sm py-1 text-xs text-muted-foreground tabular-nums outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+          <Collapsible.Trigger className={`group flex w-fit items-center gap-1.5 rounded-sm py-1 text-xs tabular-nums outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring ${streaming ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+            {streaming ? <CircleNotchIcon className="size-3.5 animate-spin text-active motion-reduce:animate-none" aria-hidden /> : null}
             <span>{streaming ? (elapsed ? `Working · ${elapsed}` : "Working") : `Worked for ${formatDuration(startedAt, finishedAt)}`}</span>
             <CaretRightIcon className="transition-transform group-data-[panel-open]:rotate-90" />
           </Collapsible.Trigger>

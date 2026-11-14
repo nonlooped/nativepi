@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Make active transcript work more distinct from individual tool calls.
 - Show a lightning indicator in the model picker when priority speed is active.
 - Add more space between pinned and other Work sidebar chats.
 - Skip finished Work chats when navigating with sidebar and project chat shortcuts.
