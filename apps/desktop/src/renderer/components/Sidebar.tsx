@@ -631,6 +631,11 @@ function ChatContents({ onClose, onOpenSearch, onOpenNewChat, overlay = false }:
   const refresh = useAppStore(s => s.refreshSessions);
   const collapsed = useAppStore(s => s.collapsedChatFolders);
   const toggleFolder = useAppStore(s => s.toggleChatFolder);
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const [create, setCreate] = useState(false);
   const [name, setName] = useState("");
   const [removing, setRemoving] = useState<string | null>(null);
@@ -652,7 +657,7 @@ function ChatContents({ onClose, onOpenSearch, onOpenNewChat, overlay = false }:
     return <SessionMenu key={session.path} projectPath={root!} session={session} selected={active === session.path} running={conversations[session.path]?.running ?? false} pinned={false}>
       <DropdownMenu>
         <div className="group relative flex w-full min-w-0 items-center">
-          <Button variant={active === session.path ? "secondary" : "ghost"} title={chatTitle(session)} className={cn(SIDEBAR_CHAT_ROW, active === session.path && "bg-sidebar-accent text-sidebar-accent-foreground")} onClick={() => { void useAppStore.getState().selectChat(session.path, root!); if (overlay) onClose(); }}><span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-sm font-medium leading-5">{chatTitle(session)}</span><span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{conversations[session.path]?.running ? "Working" : timeAgo(session.modified, Date.now())}</span></span><span className="truncate text-xs font-normal text-muted-foreground">{session.lastPrompt || "New conversation"}</span></Button>
+          <Button variant={active === session.path ? "secondary" : "ghost"} title={chatTitle(session)} className={cn(SIDEBAR_CHAT_ROW, active === session.path && "bg-sidebar-accent text-sidebar-accent-foreground")} onClick={() => { void useAppStore.getState().selectChat(session.path, root!); if (overlay) onClose(); }}><span className="flex min-w-0 items-center gap-2"><span className="min-w-0 flex-1 truncate text-sm font-medium leading-5">{chatTitle(session)}</span><span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{conversations[session.path]?.running ? <span className="inline-flex items-center gap-1 text-active"><CircleNotchIcon className="size-3 animate-spin" />Working</span> : timeAgo(session.modified, now)}</span></span><span className="flex min-w-0 items-center gap-2 text-xs font-normal text-muted-foreground"><span className="min-w-0 flex-1 truncate">{session.lastPrompt || "New conversation"}</span>{session.providers[0] ? <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground/60 group-hover:opacity-0 group-focus-within:opacity-0" title={`Model provider: ${session.providers[0]}`}><BrandIcon name={providerIconName(session.providers[0])} size={14} /></span> : null}</span></Button>
           <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="absolute right-2 bottom-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Move ${chatTitle(session)}`} />}><FolderIcon /></DropdownMenuTrigger>
         </div>
         <DropdownMenuContent>
@@ -693,7 +698,7 @@ function ChatContents({ onClose, onOpenSearch, onOpenNewChat, overlay = false }:
           </div> : null}
         </section>;
       })}
-      <div className="mt-4 space-y-0.5">{sessions?.filter(session => !folders.some(folder => folder.id === membership[session.path])).map(chatRow)}</div>
+      <div className="flex flex-col gap-1.5">{sessions?.filter(session => !folders.some(folder => folder.id === membership[session.path])).map(chatRow)}</div>
       {sessions?.length === 0 && folders.length === 0 ? <p className="px-2 py-4 text-sm text-muted-foreground">Start a conversation, or create a folder for related chats.</p> : null}
     </div>
     <Dialog open={create} onOpenChange={setCreate}><DialogContent><DialogTitle>New folder</DialogTitle><DialogDescription>Organize related chats. Each folder gets its own color.</DialogDescription><form onSubmit={event => { event.preventDefault(); useAppStore.getState().addChatFolder(name); setName(""); setCreate(false); }}><Input autoFocus aria-label="Folder name" value={name} maxLength={100} onChange={event => setName(event.target.value)} /><Button className="mt-4" type="submit" disabled={!name.trim()}>Create folder</Button></form></DialogContent></Dialog>
