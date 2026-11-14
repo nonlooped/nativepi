@@ -6,11 +6,13 @@ import { createNavigationHistory } from "@/lib/navigationHistory.ts";
 import { toast } from "sonner";
 
 const navigation = createNavigationHistory(useAppStore);
+// The hook name keeps React Compiler from caching the subscription result.
+const useNavigationHistory = navigation.history;
 if (import.meta.hot) import.meta.hot.dispose(navigation.dispose);
 
 export default function NavigationControls() {
-  const canGoBack = navigation.history(s => !s.busy && s.index > 0);
-  const canGoForward = navigation.history(s => !s.busy && s.index < s.entries.length - 1);
+  const canGoBack = useNavigationHistory(s => !s.busy && s.index > 0);
+  const canGoForward = useNavigationHistory(s => !s.busy && s.index < s.entries.length - 1);
   function go(direction: -1 | 1) {
     void navigation.navigate(direction).catch(() => toast.error("Could not open this chat."));
   }

@@ -66,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace outdated workspace, settings, and website images with current app captures, including an interactive HTML artifact. Remove the old social preview image.
 
 ### Fixed
+- Keep back and forward navigation enabled states current in both expanded and collapsed sidebar layouts.
 - Preserve typed text, line breaks, and inline skill/file chips when sending a message, with chips styled like the composer.
 - Let message text use the selected conversation width and tighten spacing between prompts and responses.
 - Improve next-message suggestions by using Pi’s full prepared conversation context instead of truncated excerpts.
