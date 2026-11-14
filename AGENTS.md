@@ -56,6 +56,13 @@ extension surfaces when upgrading Pi.
   is running. Inspect real UI states, capture before/after evidence, and iterate
   on polish. Browser testing uses the app's Local Access feature and shares its
   real data. Check for stale processes if the app appears to serve old state.
+- Prefer [agent-desktop](https://github.com/vercel-labs/agent-desktop) for native
+  app inspection, interaction, and screenshots instead of Codex computer use.
+  Before first use, run `agent-desktop status`, `agent-desktop skills get desktop`,
+  and `agent-desktop skills get platform`; follow the version-matched guides.
+  Use `list-windows` to select NativePi's window (the development app is named
+  Electron). Observe after actions and keep matching before/after captures
+  outside the repository. Use Local Access when browser inspection is needed.
 - Do not watch or poll hosted CI unless requested.
 - Use Conventional Commit titles, with no body or attribution trailers.
 - After finishing work, commit the changes following repository conventions;
