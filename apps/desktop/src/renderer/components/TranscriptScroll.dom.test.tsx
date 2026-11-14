@@ -65,10 +65,10 @@ afterEach(async () => {
 });
 const viewport = () => container.querySelector<HTMLElement>('[data-slot="message-scroller-viewport"]')!;
 
-domTest("opening a long saved chat positions the latest prompt above the answer", async () => {
+domTest("opening a long saved chat positions the transcript at the end", async () => {
   await mount(history);
-  expect(viewport().scrollTop).toBe(1200);
-  expect(container.querySelector('[data-message-id="user-latest"]')?.getAttribute("data-scroll-anchor")).toBe("true");
+  expect(viewport().scrollTop).toBe(1600);
+  expect(container.querySelector('[data-message-id="user-latest"]')?.getAttribute("data-scroll-anchor")).toBe("false");
   expect(container.querySelector('[data-message-id="answer-latest"]')?.getAttribute("data-scroll-anchor")).toBe("false");
 });
 
@@ -78,18 +78,19 @@ domTest("short exchanges stay at the top without introducing a scroll gap", asyn
   expect(container.querySelector('[data-message-scroller-spacer]')?.hasAttribute("hidden")).toBe(true);
 });
 
-domTest("opening waits for fetched messages instead of anchoring an empty header", async () => {
+domTest("opening waits for fetched messages before scrolling to the end", async () => {
   await mount([]);
   expect(container.querySelector('[data-slot="message-scroller-item"]')).toBeNull();
   await act(async () => useAppStore.setState(s => ({ conversations: { ...s.conversations, chat: { ...s.conversations.chat, entries: history } } })));
   await act(async () => new Promise(resolve => setTimeout(resolve, 0)));
-  expect(viewport().scrollTop).toBe(1200);
+  expect(viewport().scrollTop).toBe(1600);
 });
 
 
-domTest("an old jump request cannot override chat opening, while a fresh request still jumps to the end", async () => {
+domTest("a fresh jump request returns to the end after scrolling up", async () => {
   await mount(history, false, 5);
-  expect(viewport().scrollTop).toBe(1200);
+  expect(viewport().scrollTop).toBe(1600);
+  viewport().scrollTop = 400;
   await act(async () => useAppStore.getState().requestJumpToLatest());
   expect(viewport().scrollTop).toBe(1600);
 });

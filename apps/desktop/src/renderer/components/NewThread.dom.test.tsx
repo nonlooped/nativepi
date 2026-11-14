@@ -5,7 +5,6 @@ let loaded = true;
 let ready = false;
 const openSettings = mock(() => {});
 mock.module("../lib/store.ts", () => ({ useAppStore: (select: (s: unknown) => unknown) => select({ providersLoaded: loaded, providers: [{ ready }], openSettings }) }));
-mock.module("./Composer.tsx", () => ({ default: () => <textarea aria-label="Message" /> }));
 const { default: NewThread } = await import("./NewThread.tsx");
 let root: Root;
 let container: HTMLDivElement;
@@ -17,10 +16,10 @@ test("unconnected users get a provider action and no composer", async () => {
   await act(async () => container.querySelector("button")!.click());
   expect(openSettings).toHaveBeenCalledWith("Providers");
 });
-test("ready providers show only the work heading and composer", async () => {
+test("ready providers show the work heading without a duplicate composer", async () => {
   loaded = true; ready = true; await mount();
   expect(container.querySelector("h1")?.textContent).toBe("What should we work on?");
-  expect(container.querySelector("textarea")).not.toBeNull();
+  expect(container.querySelector("textarea")).toBeNull();
   expect(container.querySelector("button")).toBeNull();
 });
 test("loading providers does not flash an unconnected state", async () => {
