@@ -12,7 +12,7 @@ let root: Root; let container: HTMLDivElement;
 afterEach(async () => { if (root) await act(async () => root.unmount()); container?.remove(); newChatIn.mockClear(); state.destination = "work"; });
 async function mount() {
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
-  await act(async () => root.render(<NewChatProjectDialog open onOpenChange={() => {}} />));
+  await act(async () => root.render(<NewChatProjectDialog presentation={{ "/repo": { icon: "data:image/png;base64,project-icon" } }} open onOpenChange={() => {}} />));
 }
 for (const count of [0, 1, 3]) test(`Work chooser offers No project with ${count} pinned projects`, async () => {
   state.projects = Array.from({ length: count }, (_, i) => ({ path: `/project-${i}`, name: `Project ${i}` }));
@@ -40,4 +40,15 @@ test("No project can be found by typing and chosen with Enter", async () => {
 test("Chat keeps its direct new-chat flow", () => {
   state.destination = "chat"; const choose = mock(() => {}); startNewChatFlow(choose);
   expect(choose).not.toHaveBeenCalled(); expect(newChatIn).toHaveBeenCalledWith("/managed/chat");
+});
+
+test("reuses the extracted project icon and its shared decoding fallback", async () => {
+  state.projects = [{ path: "/repo", name: "NativePi" }];
+  await mount();
+  const option = [...document.querySelectorAll('[role="option"]')].find(el => el.textContent?.includes("NativePi"))!;
+  const icon = option.querySelector("img")!;
+  expect(icon.getAttribute("src")).toBe("data:image/png;base64,project-icon");
+  await act(async () => icon.dispatchEvent(new Event("error")));
+  expect(option.querySelector("img")).toBeNull();
+  expect(option.textContent).toContain("N");
 });

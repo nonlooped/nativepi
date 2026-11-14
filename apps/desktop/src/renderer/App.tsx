@@ -352,6 +352,7 @@ export default function App() {
       {newChatProjectOpen ? (
         <Suspense fallback={null}>
           <NewChatProjectDialog
+            presentation={projectPresentation}
             open
             onOpenChange={setNewChatProjectOpen}
             onNavigate={() => setSidebarSheetOpen(false)}

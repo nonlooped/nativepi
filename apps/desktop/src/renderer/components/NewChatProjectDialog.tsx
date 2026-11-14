@@ -2,17 +2,19 @@ import type { Project } from "../../shared/rpc-schema.ts";
 import { useState } from "react";
 import { Combobox } from "@base-ui/react/combobox";
 import { DesktopIcon } from "@phosphor-icons/react/Desktop";
-import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { useAppStore } from "../lib/store.ts";
 import { useWorkProjects } from "../lib/workProjects.ts";
 import { rpc } from "../lib/rpc.ts";
+import type { SidebarProject } from "../lib/sidebarProjects.ts";
+import ProjectIcon from "./ProjectIcon.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
 
@@ -20,7 +22,9 @@ export default function NewChatProjectDialog({
   open,
   onOpenChange,
   onNavigate,
+  presentation,
 }: {
+  presentation: Record<string, SidebarProject>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onNavigate?: () => void;
@@ -56,11 +60,11 @@ export default function NewChatProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm gap-0 overflow-hidden rounded-lg border-0 p-0 text-xs shadow-md ring-1 ring-foreground/10 sm:p-0" closeClassName="top-1.5 right-1.5">
-        <DialogTitle className="sr-only">New Work chat</DialogTitle>
-        <DialogDescription className="sr-only">
-          Choose a project folder, or start without a project.
-        </DialogDescription>
+      <DialogContent className="max-w-[clamp(32rem,40vw,48rem)] gap-0 overflow-hidden p-0 sm:p-0">
+        <DialogHeader className="px-6 pt-5 pb-4">
+          <DialogTitle className="text-heading">New chat</DialogTitle>
+          <DialogDescription>Choose a project, or start without one.</DialogDescription>
+        </DialogHeader>
 
         <Combobox.Root<Project>
           items={matches}
@@ -73,53 +77,55 @@ export default function NewChatProjectDialog({
           autoHighlight
           aria-label="Choose where to start the chat"
         >
-          <div className="mx-2 flex shrink-0 items-center gap-2 border-b border-border/50 pr-8 focus-within:border-ring">
+          <div className="mx-4 mb-2 flex shrink-0 items-center gap-2.5 rounded-md border border-border/60 px-3 focus-within:border-ring">
             <MagnifyingGlassIcon
-              className="ml-1 size-3.5 shrink-0 text-muted-foreground"
+              className="size-4 shrink-0 text-muted-foreground"
               aria-hidden="true"
             />
             <Combobox.Input
               autoFocus
               placeholder="Search projects…"
               aria-label="Search projects"
-              className="h-10 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm outline-none placeholder:text-muted-foreground"
+              className="h-11 min-w-0 flex-1 border-0 bg-transparent px-0 text-base outline-none placeholder:text-muted-foreground"
             />
           </div>
 
-          <Combobox.List className="flex min-h-0 max-h-[min(24rem,calc(var(--app-height,100dvh)-8rem))] flex-col gap-0.5 overflow-y-auto overscroll-contain p-1.5">
+          <Combobox.List className="flex min-h-0 max-h-[min(28rem,45dvh)] flex-col gap-1 overflow-y-auto overscroll-contain px-3 pb-3">
             {matches.map((project, index) => (
               <Combobox.Item
                 key={project.path}
                 value={project}
                 index={index}
                 onClick={() => void startChat(project.path)}
-                className="flex w-full shrink-0 cursor-default items-center gap-2.5 rounded-md px-2 py-2 text-left outline-none transition-colors hover:bg-muted/70 data-highlighted:bg-accent/80 data-highlighted:text-accent-foreground"
+                className="flex min-h-18 w-full shrink-0 cursor-default items-center gap-3 rounded-lg px-3 py-3 text-left outline-none transition-colors hover:bg-muted/70 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
               >
                 {project.path === workRoot ? (
-                  <DesktopIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground" aria-hidden="true">
+                    <DesktopIcon className="size-5" />
+                  </span>
                 ) : (
-                  <FolderIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <ProjectIcon name={project.name} src={presentation[project.path]?.icon} className="size-9 rounded-lg text-base" />
                 )}
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-[13px] font-medium">{project.name}</span>
-                  <span className="truncate text-[11px] leading-4 text-muted-foreground">{project.path === workRoot ? "General work on your device" : project.path}</span>
+                  <span className="truncate text-base font-medium">{project.name}</span>
+                  <span className="truncate text-sm leading-relaxed text-muted-foreground">{project.path === workRoot ? "General work on your device" : project.path}</span>
                 </span>
                 {project.path === activeProjectPath ? (
-                  <span className="shrink-0 text-[11px] text-muted-foreground">Current</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">Current</span>
                 ) : null}
               </Combobox.Item>
             ))}
             {matches.length === 0 ? (
-              <p className="px-3 py-8 text-center text-xs text-muted-foreground">
+              <p className="px-3 py-8 text-center text-sm text-muted-foreground">
                 {projects.length === 0 ? "No projects yet." : `No projects match “${query.trim()}”.`}
               </p>
             ) : null}
           </Combobox.List>
         </Combobox.Root>
 
-        <div className="shrink-0 border-t border-border/50 p-1.5">
-          <Button variant="ghost" size="sm" className="h-8 w-full justify-start gap-2.5 px-2" onClick={() => void openAnotherFolder()}>
-            <FolderOpenIcon className="size-4" aria-hidden="true" />
+        <div className="shrink-0 border-t border-border/50 p-3">
+          <Button variant="ghost" className="h-10 w-full justify-start gap-3 px-3" onClick={() => void openAnotherFolder()}>
+            <FolderOpenIcon className="size-5" aria-hidden="true" />
             Open folder…
           </Button>
         </div>
