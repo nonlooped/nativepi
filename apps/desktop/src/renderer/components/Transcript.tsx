@@ -55,7 +55,7 @@ const DiffView = lazy(() => import("./DiffView.tsx"));
 
 export default function Transcript() {
   return (
-    <MessageScrollerProvider autoScroll>
+    <MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor" scrollPreviousItemPeek={0}>
       <TranscriptReferenceProvider><TranscriptContent /></TranscriptReferenceProvider>
     </MessageScrollerProvider>
   );
@@ -63,6 +63,7 @@ export default function Transcript() {
 
 function TranscriptContent() {
   const entries = useAppStore((s) => activeConversation(s).entries);
+  const hasExtensionHeader = useAppStore(s => s.extSurfaces.some(surface => surface.placement === "header"));
   const transcriptTarget = useAppStore(s => s.transcriptTarget);
   useEffect(() => {
     if (!transcriptTarget || useAppStore.getState().activeSessionFile !== transcriptTarget.session) return;
@@ -82,11 +83,15 @@ function TranscriptContent() {
   const retry = useAppStore((s) => activeConversation(s).retry);
   const abortRetry = useAppStore((s) => s.abortRetry);
   const jumpRequest = useAppStore((s) => s.jumpRequest);
+  const lastJumpRequest = useRef(jumpRequest);
 
   const results = useMemo(() => toolResultsById(entries), [entries]);
   const committed = useMemo(() => transcriptItems(entries), [entries]);
   const items = appendStreaming(committed.items, streaming, committed.responseStartedAt);
   const turnFiles = lastTurnFileCount(items, results);
+  // Measure the opening turn rather than its offscreen intrinsic-size estimate.
+  // Earlier turns retain content-visibility to keep long histories inexpensive.
+  const lastUserIndex = items.findLastIndex(item => item.type === "entry" && item.entry.type === "message" && isUser(item.entry.message));
 
   const { scrollToEnd } = useMessageScroller();
   const [transcriptSelection, setTranscriptSelection] = useState("");
@@ -139,7 +144,9 @@ function TranscriptContent() {
   }
 
   useEffect(() => {
-    if (jumpRequest > 0) scrollToLatest();
+    if (lastJumpRequest.current === jumpRequest) return;
+    lastJumpRequest.current = jumpRequest;
+    scrollToLatest();
   }, [jumpRequest]);
 
   return (
@@ -157,16 +164,16 @@ function TranscriptContent() {
         <MessageScroller className="min-h-0 flex-1">
           <MessageScrollerViewport aria-label="Conversation transcript" aria-live="off">
             <MessageScrollerContent className={cn("mx-auto w-full max-w-(--conversation-width) gap-8 px-5 py-6", (running || runDone) && "pb-16")}>
-          <MessageScrollerItem scrollAnchor>
+          {hasExtensionHeader ? <MessageScrollerItem messageId="extension-header">
             <ExtensionHeader />
-          </MessageScrollerItem>
+          </MessageScrollerItem> : null}
           {items.map((item, index) =>
             item.type === "response" ? (
               // Keyed by position, not id: a response's id changes from the
               // synthetic streaming one to its committed entry id mid-turn, and
               // keying on that would remount the block and discard whichever
               // tool panels the user had opened while watching it run.
-              <MessageScrollerItem key={`response:${index}`} scrollAnchor>
+              <MessageScrollerItem key={`response:${index}`} messageId={item.id} className={index >= lastUserIndex ? "[content-visibility:visible]" : undefined}>
                 <AssistantResponse
                   entryId={item.id}
                   messages={item.messages}
@@ -177,13 +184,13 @@ function TranscriptContent() {
                 />
               </MessageScrollerItem>
             ) : (
-              <MessageScrollerItem key={item.entry.id}>
+              <MessageScrollerItem key={item.entry.id} messageId={item.entry.id} scrollAnchor={item.entry.type === "message" && isUser(item.entry.message)} className={index >= lastUserIndex ? "[content-visibility:visible]" : undefined}>
                 <EntryView entry={item.entry} />
               </MessageScrollerItem>
             ),
           )}
           {pending.map((p) => (
-            <MessageScrollerItem key={p.id} scrollAnchor>
+            <MessageScrollerItem key={p.id} messageId={`pending:${p.id}`} scrollAnchor className="[content-visibility:visible]">
               <UserBubble text={p.text} images={p.images} pending />
             </MessageScrollerItem>
           ))}

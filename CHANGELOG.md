@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trim the README to a short pitch, install and development quick start, and links to the guides; move retired-package upgrade notes to `docs/upgrade.md`. Workspace screenshots remain the isolated-demo captures.
 
 ### Fixed
+- Open saved chats at the latest user message and the start of its answer, keeping short exchanges together and preventing old jump-to-latest requests from overriding the opening position.
 - Exclude skills from `/` composer suggestions; find them through the dedicated `$` prefix.
 - Scale sidebar collapse thresholds with the current display’s available width, with navigation and project context available in sheets when the window is narrow.
 - Collapse sidebars and the terminal dock when dragged past their minimum size to free workspace space.
