@@ -11,7 +11,7 @@ const selectChat=mock(async()=>{}),setScope=mock(()=>{});
 const onClose=mock(()=>{});
 const noop=()=>{};
 const state={orchestration: { revision: 0, threads: [] } as OrchestrationSnapshot,workRoot:null as string | null,projects:[project],activeProjectPath:'/project',activeSessionFile:'/session',isNewChat:false,sessionsByProject:{'/project':[session]},sessionLoadStates:{'/project':'loaded'},pinnedChats:[],finishedChats:{},focusedChats:[],focusStartedAt:'2026-01-01',conversations:{},preferences:{preferredEditorId:'explorer'},keybindingOverrides:{},sidebarScope:null as string | null,git:{isRepo:true,branch:'feature/current'},selectChat,setSidebarScope:setScope,addProject:noop,openSettings:noop,newChatIn:noop,removeProject:noop,importSession:noop,refreshSessions:noop,openTerminal:noop,finishChat:noop,returnChatToFocus:noop};
-mock.module('../lib/store.ts',()=>({useAppStore:Object.assign((select:(s:unknown)=>unknown)=>select(state),{getState:()=>state})}));
+mock.module('../lib/store.ts',()=>({thinkingLabel:(level:string)=>level,useAppStore:Object.assign((select:(s:unknown)=>unknown)=>select(state),{getState:()=>state})}));
 mock.module('../lib/sidebarProjects.ts',()=>({useSidebarProjects:()=>({'/project':{branch:'stale-branch'}}),projectBranch:(git:{branch:string})=>git.branch}));
 mock.module('../lib/rpc.ts',()=>({rpc:{request:{watchProjectSessions:async()=>({ok:true})}}}));
 mock.module('./LeftSidebar.tsx',()=>({default:({children}:{children:ReactNode})=><aside>{children}</aside>}));

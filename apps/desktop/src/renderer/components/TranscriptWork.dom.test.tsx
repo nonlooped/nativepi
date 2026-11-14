@@ -1,3 +1,5 @@
+import ThreadActivity from "./ThreadActivity.tsx";
+import type { ThreadSnapshot } from "../../shared/orchestration.ts";
 import { afterEach, expect, mock, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -106,4 +108,54 @@ domTest("new file diffs and the final changes list stay closed until requested",
   await click("Worked for");
   expect(container.textContent).toContain("new.ts");
   expect(container.textContent).not.toContain("new file contents");
+});
+
+domTest("delegate cards remain at their spawn response, update in place, and never pin to the composer", async () => {
+  await mount();
+  const lead = { id: "lead", cwd: "/project", file: "session" };
+  const ref = { id: "child", cwd: "/worktree", file: "delegate-session" };
+  const spawned: ToolCall = { type: "toolCall", id: "spawn-call", name: "delegate_spawn", arguments: { label: "Audit copy", task: "Review the public copy" } };
+  const child: ThreadSnapshot = { ref, running: true, busy: true, relationship: { operationId: "spawn", sourceToolCallId: spawned.id, lead, delegate: ref, label: "Audit copy", configuration: { provider: "p", model: "m", reasoning: "off", tools: ["read"] }, workspace: { mode: "worktree", path: ref.cwd, base: "commit", branch: "audit", repository: lead.cwd } }, assignment: { id: "assignment", delegate: ref, attempt: 1, taskMessageId: "task", state: "running", questions: [] }, inbox: [], pendingDelivery: [], readMessageIds: [], reports: [], delegates: [] };
+  const parent: ThreadSnapshot = { ref: lead, running: false, busy: true, inbox: [], pendingDelivery: [], readMessageIds: [], reports: [], delegates: [child] };
+  useAppStore.setState({ destination: "work", orchestration: { revision: 1, threads: [parent, child] } });
+  // The durable source call ID connects an allocated child even before the
+  // transport's result arrives, rather than matching a potentially repeated label.
+  await act(async () => root!.render(<><AssistantResponse entryId="spawn-response" messages={[message([spawned]), message([{ type: "text", text: "Audit assigned." }])]} results={new Map()} streaming={false} /><AssistantResponse entryId="later-response" messages={[message([{ type: "text", text: "An unrelated later turn." }])]} results={new Map()} streaming={false} /><div data-composer-activity><ThreadActivity /></div></>));
+  const card = container.querySelector('[data-delegate-invocation="spawn-call"]')!;
+  expect(card).not.toBeNull();
+  expect(container.querySelector("#entry-spawn-response")?.contains(card)).toBe(true);
+  expect(container.querySelector("#entry-later-response")?.contains(card)).toBe(false);
+  expect(card.textContent).toContain("Running");
+  expect(container.querySelector("[data-composer-activity]")?.textContent).not.toContain("Audit copy");
+  const previousSelect = useAppStore.getState().selectChat;
+  const selections: string[][] = [];
+  useAppStore.setState({ selectChat: async (file, cwd) => { selections.push([file, cwd!]); } });
+  try {
+    await act(async () => card.querySelector<HTMLButtonElement>('[aria-label="Open delegate: Audit copy"]')!.click());
+    expect(selections).toEqual([[ref.file, ref.cwd]]);
+    const finished = { ...child, running: false, busy: false, assignment: { ...child.assignment!, state: "completed" as const } };
+    await act(async () => useAppStore.setState({ orchestration: { revision: 2, threads: [{ ...parent, busy: false, delegates: [finished] }, finished] } }));
+    expect(container.querySelector('[data-delegate-invocation="spawn-call"]')).toBe(card);
+    expect(card.textContent).toContain("Completed");
+    expect(container.querySelector('[data-composer-activity]')?.textContent).toBe("");
+    expect(card.querySelector('[aria-label="Stop delegate: Audit copy"]')).toBeNull();
+  } finally { useAppStore.setState({ selectChat: previousSelect }); }
+});
+
+domTest("cold historical spawn results retain navigation without adopting the original child", async () => {
+  await mount();
+  useAppStore.setState({ activeSessionFile: "cloned-session", orchestration: { revision: 1, threads: [] } });
+  const spawned: ToolCall = { type: "toolCall", id: "old-call", name: "delegate_spawn", arguments: { label: "Original audit" } };
+  const output: ToolResultMessage = { role: "toolResult", toolName: "delegate_spawn", toolCallId: spawned.id, content: [], isError: false, details: { ref: { id: "old-child", cwd: "/original", file: "/original-child" }, accepted: true }, timestamp: 1 };
+  await act(async () => root!.render(<AssistantResponse entryId="historical" messages={[message([spawned])]} results={new Map([[spawned.id, output]])} streaming={false} />));
+  expect(container.querySelector('[aria-label="Open delegate: Original audit"]')).not.toBeNull();
+  expect(container.textContent).toContain("Status unavailable");
+  expect(container.querySelector('[aria-label="Stop delegate: Original audit"]')).toBeNull();
+  const ref = { id: "old-child", cwd: "/original", file: "/original-child" };
+  const oldLead = { id: "original-id", cwd: "/project", file: "cloned-session" };
+  const original: ThreadSnapshot = { ref, running: true, busy: true, status: "running", inbox: [], pendingDelivery: [], readMessageIds: [], reports: [], delegates: [], relationship: { operationId: "original-spawn", lead: oldLead, delegate: ref, label: "Original audit", configuration: { provider: "p", model: "m", reasoning: "off", tools: ["read"] }, workspace: { mode: "shared", path: ref.cwd } } };
+  const clone: ThreadSnapshot = { ...original, ref: { ...oldLead, id: "new-id" }, relationship: undefined, running: false, busy: false };
+  await act(async () => useAppStore.setState({ orchestration: { revision: 2, threads: [clone, original] } }));
+  expect(container.textContent).toContain("Running");
+  expect(container.querySelector('[aria-label="Stop delegate: Original audit"]')).toBeNull();
 });

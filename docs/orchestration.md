@@ -68,9 +68,16 @@ and a new explicit instruction; old tool calls are never replayed.
 
 ## Inspecting and stopping
 
-Delegate rows appear beneath their lead and in its activity area. Selecting a
-row opens its real Pi transcript. The footer shows actual assignment status,
-model/effort/tier, worktree branch where applicable, and a way back to its lead.
+Delegate rows appear beneath their lead in the sidebar and at the original
+spawn call in the transcript. They remain visible when ordinary tool work is
+collapsed; later turns and follow-ups do not move or duplicate them above the
+composer. Each row opens the real Pi transcript and updates with its actual
+assignment state. Questions and failures stay with that invocation. Configuration
+and workspace information are available on inspection.
+
+The delegate view uses a compact composer surface with static model, effort and
+status, a way back to its lead, and Stop while active. It has no editable input,
+model picker, speed controls, attachment target, or workspace/branch selectors.
 An unavailable/deleted lead does not turn a delegate into an ordinary chat.
 Unavailable session files disable input; one unreadable history file does not
 block healthy threads.

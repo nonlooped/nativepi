@@ -47,3 +47,14 @@ domTest("metadata failures keep input disabled and offer recovery instead of an 
   expect(container.textContent).toContain("Thread controls unavailable: Session missing");
   expect(container.querySelector("button")?.textContent).toBe("Retry");
 });
+
+domTest("the delegate composer has static model/status with only navigation and Stop actions", async () => {
+  const parent: ThreadSnapshot = { ref: lead, busy: true, running: false, inbox: [], pendingDelivery: [], readMessageIds: [], reports: [], delegates: [] };
+  useAppStore.setState({ destination: "work", activeSessionFile: ref.file, activeProjectPath: ref.cwd, orchestrationLoaded: true, orchestrationError: null, orchestration: { revision: 1, threads: [parent, { ...child, busy: true, running: true, assignment: { ...child.assignment!, state: "running", reason: undefined } }] } });
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  await act(async () => root!.render(<ThreadInputBoundary><textarea /><button>Send</button></ThreadInputBoundary>));
+  expect(container.querySelector('[data-delegate-footer] .composer-surface')).not.toBeNull();
+  expect(container.querySelector('input, textarea, [contenteditable="true"], [data-model-picker-trigger], [aria-haspopup]')).toBeNull();
+  expect([...container.querySelectorAll("button")].map(button => button.getAttribute("aria-label"))).toEqual(["Back to lead", "Stop delegate"]);
+  expect(container.textContent).toContain("Running");
+});

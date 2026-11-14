@@ -13,7 +13,7 @@ export const workspaceSchema = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("worktree"), path: z.string(), branch: id, base: id, repository: z.string() }),
 ]);
 export const assignmentStateSchema = z.enum(["preparing", "running", "waiting", "completed", "stopped", "failed", "interrupted"]);
-export const relationshipSchema = z.object({ operationId: id, lead: threadReferenceSchema, delegate: threadReferenceSchema, label: id, configuration: delegateConfigurationSchema, workspace: workspaceSchema });
+export const relationshipSchema = z.object({ operationId: id, sourceToolCallId: id.optional(), lead: threadReferenceSchema, delegate: threadReferenceSchema, label: id, configuration: delegateConfigurationSchema, workspace: workspaceSchema });
 export const assignmentSchema = z.object({ id, delegate: threadReferenceSchema, taskMessageId: id, attempt: z.number().int().positive(), state: assignmentStateSchema, questions: z.array(id), resultEntry: id.optional(), reason: z.string().max(4000).optional() });
 export const orchestrationMessageSchema = z.object({ id, operationId: id, source: threadReferenceSchema, destination: threadReferenceSchema, kind: z.enum(["task", "follow-up", "progress", "question", "reply", "result", "peer"]), assignmentId: id.optional(), replyTo: id.optional(), timestamp: z.string().datetime(), content: z.string().min(1).max(32000) });
 const base = { version: z.literal(1), sessionId: id, operationId: id };

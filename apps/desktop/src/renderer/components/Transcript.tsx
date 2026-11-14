@@ -1,3 +1,4 @@
+import DelegateInvocation from "./DelegateInvocation.tsx";
 import { useLayoutMotion } from "../lib/layoutMotion.ts";
 import UserPrompt from "./UserPrompt.tsx";
 import { userPromptText } from "../lib/userPrompt.ts";
@@ -459,7 +460,9 @@ export function AssistantResponse({
   useEffect(() => {
     setWorkOpen(streaming);
   }, [streaming]);
-  const groupedWork = groupWork(work, graphicalToolNames);
+  const delegateCalls = graphicalToolNames.has("delegate_spawn") ? [] : work.filter((block): block is ToolCall => block.type === "toolCall" && block.name === "delegate_spawn");
+  const detailWork = delegateCalls.length ? work.filter(block => block.type !== "toolCall" || block.name !== "delegate_spawn") : work;
+  const groupedWork = groupWork(detailWork, graphicalToolNames);
   const artifacts = work.flatMap(block => {
     if (block.type !== "toolCall" || block.name !== "html_render") return [];
     const result = results.get(block.id);
@@ -474,7 +477,7 @@ export function AssistantResponse({
   const article = (
     <article id={`entry-${entryId}`} ref={responseRef} className="group/message flex flex-col gap-3 text-reading" aria-busy={streaming || undefined}>
       <span className="sr-only">Assistant:</span>
-      {work.length > 0 || error ? (
+      {detailWork.length > 0 || error ? (
         <Collapsible.Root
           open={workOpen}
           onOpenChange={setWorkOpen}
@@ -493,7 +496,7 @@ export function AssistantResponse({
                 return (
                   <Markdown
                     key={i}
-                    streaming={workIsStreaming && i === work.length - 1}
+                    streaming={workIsStreaming && i === detailWork.length - 1}
                   >
                     {block.text}
                   </Markdown>
@@ -516,7 +519,7 @@ export function AssistantResponse({
                       <span>Thinking</span><CaretRightIcon className="size-3 group-data-[panel-open]:rotate-90" />
                     </Collapsible.Trigger>
                     <Collapsible.Panel className="pl-5 pt-1">
-                      <Markdown className="text-xs text-muted-foreground" streaming={workIsStreaming && i === work.length - 1}>{block.thinking}</Markdown>
+                      <Markdown className="text-xs text-muted-foreground" streaming={workIsStreaming && i === detailWork.length - 1}>{block.thinking}</Markdown>
                     </Collapsible.Panel>
                   </Collapsible.Root>
                 );
@@ -528,6 +531,7 @@ export function AssistantResponse({
           </Collapsible.Panel>
         </Collapsible.Root>
       ) : null}
+      {delegateCalls.map(call => <DelegateInvocation key={call.id} call={call} result={results.get(call.id)} />)}
       {artifacts.map(({ id, artifact }) => (
         <Suspense key={id} fallback={<div style={{ height: artifact.height }} className="text-xs text-muted-foreground">Loading visual…</div>}>
           <HtmlArtifact artifact={artifact} />
@@ -558,7 +562,7 @@ export function AssistantResponse({
           >
             Copy as plain text
           </ContextMenuItem>
-          {work.length > 0 ? (
+          {detailWork.length > 0 ? (
             <ContextMenuItem
               onClick={() => {
                 setWorkOpen(!workOpen);

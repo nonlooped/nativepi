@@ -36,6 +36,7 @@ test("spawn duplicate transport allocates once, preserves exact task and support
   const p = { label: "Review", task: "Only this task", configuration };
   const [a, b] = await Promise.all([f.invoke("delegate_spawn", p, "same-tool"), f.invoke("delegate_spawn", p, "same-tool")]) as { ref: ThreadReference }[];
   expect(a!.ref).toEqual(b!.ref); expect(f.refs).toHaveLength(3);
+  expect(f.coordinator.snapshot(a!.ref.id).relationship?.sourceToolCallId).toBe("same-tool");
   expect(f.dispatched.map(message => message.content)).toEqual(["Only this task"]);
   const child = a!.ref;
   await f.service.invoke(child, "lead_message", { content: "Which test?", needsReply: true }, "question", new AbortController().signal);

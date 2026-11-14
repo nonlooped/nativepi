@@ -68,6 +68,7 @@ export class OrchestrationService {
         try {
           if (action === "delegate_spawn") {
             const p = orchestrationOperations.delegate_spawn.parse(params);
+            const sourceToolCallId = toolId.startsWith("delegate_spawn:") ? toolId.slice("delegate_spawn:".length) : toolId;
             workspace = p.workspace?.mode === "worktree" ? await this.adapter.workspace(actor, p.workspace.branch ?? `nativepi-${key.slice(0, 12)}`, p.workspace.base, async prepared => {
               active.throwIfAborted(); workspace = prepared;
               await record({ action, status: "allocated", workspace: prepared });
@@ -75,9 +76,9 @@ export class OrchestrationService {
             }) : { mode: "shared", path: actor.cwd };
             await record({ action, status: "allocated", workspace });
             active.throwIfAborted();
-            ref = await this.adapter.allocate(workspace.path, p.label, { operationId: key, lead: actor, label: p.label, configuration: p.configuration, workspace });
+            ref = await this.adapter.allocate(workspace.path, p.label, { operationId: key, sourceToolCallId, lead: actor, label: p.label, configuration: p.configuration, workspace });
             await record({ action, status: "allocated", workspace, ref });
-            const relationship: Relationship = { operationId: key, lead: actor, delegate: ref, label: p.label, configuration: p.configuration, workspace };
+            const relationship: Relationship = { operationId: key, sourceToolCallId, lead: actor, delegate: ref, label: p.label, configuration: p.configuration, workspace };
             // Persist role even if Stop arrived during allocation. The orphaned
             // transcript must never acquire a user composer.
             await this.coordinator.hydrate(ref);

@@ -291,7 +291,7 @@ Use the existing chat viewer rather than introducing a separate orchestration da
 
 ### Leads
 
-- Show compact delegate activity beneath the parent thread in the sidebar and/or in the relevant tool-result summary. The normal thread remains the navigation anchor.
+- Show compact delegate activity beneath the parent thread in the sidebar and at the original spawn call in its transcript. Keep these rows visible outside collapsed tool logs; later turns and follow-ups update the original row without moving it above the composer. The normal thread remains the navigation anchor.
 - Each delegate item shows label, actual status, model/effort/tier on inspection, and workspace distinction when useful. Selecting it opens its real transcript.
 - Lead-side messages/results identify the delegate and assignment. Questions must be distinguishable from progress and completed results. Full tool output/thinking stays in the delegate chat unless explicitly read.
 - Surface pending peer messages in a small inbox view with sender, time, delivery state, and an explicit action to resume with selected messages. Reading a message alone does not start work.
@@ -300,7 +300,7 @@ Use the existing chat viewer rather than introducing a separate orchestration da
 ### Delegates
 
 - Reuse transcript streaming, tool rendering, Markdown, artifacts, branch/history reading, context inspection, file views, and Source Control for the delegate's actual working directory.
-- Replace the composer area with a quiet status line identifying its lead and a way back. Keep an individual Stop control while work is active. There is no editable composer, send action, attachment target, suggestion acceptance, slash-command input, or user model/speed mutation control for the delegate.
+- Use a compact, non-editable version of the composer surface for static model/status and a way back to the lead. Keep an individual Stop control while work is active. There is no editable composer, send action, attachment target, suggestion acceptance, slash-command input, or user model/speed mutation control for the delegate.
 - Apply the restriction to shortcuts, drag/drop, store submission actions, and host submission requests, not just a hidden component. A forged browser request must not send a user prompt to a delegate. Legitimate owning-lead dispatch is a separate operation.
 - A cold or newly selected delegate must resolve its role before rendering input controls. During metadata hydration, do not briefly expose a lead composer.
 - Preserve third-party transcript/tool rendering and normal extension UI. Do not promise that trusted extensions cannot open their own input dialogs; the no-composer requirement does not create an extension sandbox or an app policy overriding the lead's tool choices.
