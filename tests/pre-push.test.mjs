@@ -9,7 +9,7 @@ test('pre-push allows deletions but rejects dirty and non-checked-out trees befo
   const cwd = mkdtempSync(join(tmpdir(), 'nativepi-pre-push-'));
   const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
   const push = sha => spawnSync(process.execPath, [script], {
-    cwd, encoding: 'utf8', input: `refs/heads/main ${sha} refs/heads/main ${'0'.repeat(40)}\n`,
+    cwd, env: { ...process.env, GIT_DIR: join(cwd, ".git") }, encoding: 'utf8', input: `refs/heads/main ${sha} refs/heads/main ${'0'.repeat(40)}\n`,
   });
   try {
     git('init', '-q'); git('config', 'user.email', 'test@example.com'); git('config', 'user.name', 'Test');
@@ -25,7 +25,7 @@ test('pre-push allows deletions but rejects dirty and non-checked-out trees befo
     writeFileSync(join(cwd, 'untracked'), 'new');
     expect(push(git('rev-parse', 'HEAD')).status).toBe(1);
     for (const exit of [39, 0]) {
-      writeFileSync(join(cwd, 'package.json'), JSON.stringify({ scripts: { ci: `exit ${exit}` } }));
+      writeFileSync(join(cwd, 'package.json'), JSON.stringify({ scripts: { ci: `test -z "$GIT_DIR" || exit 99; exit ${exit}` } }));
       git('add', '.'); git('commit', '-qm', `ci exit ${exit}`);
       expect(push(git('rev-parse', 'HEAD')).status).toBe(exit);
     }

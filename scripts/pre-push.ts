@@ -13,6 +13,8 @@ if (commits.length) {
     console.error("Pre-push: commit or stash your changes so the checks test the commit being pushed.");
     process.exit(1);
   }
-  const result = Bun.spawnSync(["bun", "run", "ci"], { stdin: "inherit", stdout: "inherit", stderr: "inherit" });
+  const env = { ...process.env };
+  for (const name of git("rev-parse", "--local-env-vars").split("\n")) delete env[name];
+  const result = Bun.spawnSync(["bun", "run", "ci"], { env, stdin: "inherit", stdout: "inherit", stderr: "inherit" });
   process.exit(result.exitCode);
 }

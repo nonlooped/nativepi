@@ -32,7 +32,8 @@ export type Assignment = z.infer<typeof assignmentSchema>;
 export type OrchestrationMessage = z.infer<typeof orchestrationMessageSchema>;
 export const orchestrationErrorCodes = ["not_found", "wrong_role", "not_owner", "unsupported_configuration", "unavailable_tool", "busy", "stopped", "external_session_change", "delivery_pending", "startup_failed", "interrupted"] as const;
 export class OrchestrationError extends Error {
-  constructor(readonly code: typeof orchestrationErrorCodes[number], message: string) { super(message); }
+  readonly code: typeof orchestrationErrorCodes[number];
+  constructor(code: typeof orchestrationErrorCodes[number], message: string) { super(message); this.code = code; }
 }
 export const orchestrationRequestSchema = z.object({ type: z.literal("nativepi_orchestration_request"), requestId: id, operationId: id, action: id, params: z.record(z.string(), z.unknown()) });
 export const orchestrationReplySchema = z.object({ type: z.literal("nativepi_orchestration_reply"), requestId: id, result: z.unknown().optional(), error: z.string().optional() });
