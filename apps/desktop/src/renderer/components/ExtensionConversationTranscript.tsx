@@ -50,7 +50,7 @@ function UserMessage({ message }: { message: ConversationMessage }) {
   return (
     <article className="flex flex-col items-end py-1">
       <span className="sr-only">You:</span>
-      <Message align="end" className="justify-end">
+      <Message align="end" className="justify-start">
         <Bubble variant="secondary" align="end" className="max-w-[85%]">
           <BubbleContent className="rounded-2xl rounded-br-md px-4 py-3 text-reading">
             <Markdown>{messageText(message)}</Markdown>

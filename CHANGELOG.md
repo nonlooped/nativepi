@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional next-message suggestions in the empty composer after Pi finishes, with Tab to accept and Escape to dismiss.
 
 ### Changed
+- Right-align user prompts in transcripts.
 - Coordinate the first-message composer move, run completion feedback, sidebar dialog handoffs, settings transitions, finished-chat moves, and context-pane navigation, with interruptible motion and reduced-motion support.
 - Configure chat-title models, reasoning, and service tier independently, with automatic defaults based on connected providers.
 - Simplify chat deletion and project removal confirmations by removing unnecessary internal path boxes.

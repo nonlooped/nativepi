@@ -349,7 +349,7 @@ function UserBubble({
   const article = (
     <article id={entryId ? `entry-${entryId}` : undefined} className="group/message flex flex-col items-end" aria-busy={pending || undefined}>
       <span className="sr-only">You{pending ? " (sending)" : ""}:</span>
-      <Message align="end" className="justify-end">
+      <Message align="end" className="justify-start">
       <Bubble variant="secondary" align="end" className={cn("max-w-[85%]", pending && "opacity-60")}>
         <BubbleContent className="rounded-2xl rounded-br-md px-4 py-3 text-reading ring-1 ring-inset ring-foreground/[0.08]">
           {text ? <UserPrompt text={text} /> : null}
