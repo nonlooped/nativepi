@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional next-message suggestions in the empty composer after Pi finishes, with Tab to accept and Escape to dismiss.
 
 ### Changed
+- Refine source-control history with compact commit rows, bounded branch markers, clearer commit details, and readable changed-file paths.
 - Give Files and Source Control separate right-sidebar buttons, with compact commits, folder-based staging, independent push/sync, searchable commit history, and diffs in the main workspace.
 - Right-align user prompts in transcripts.
 - Coordinate the first-message composer move, run completion feedback, sidebar dialog handoffs, settings transitions, finished-chat moves, and context-pane navigation, with interruptible motion and reduced-motion support.

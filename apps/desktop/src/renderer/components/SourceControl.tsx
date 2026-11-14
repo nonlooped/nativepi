@@ -181,7 +181,7 @@ export default function SourceControl({
         <div className="flex h-11 shrink-0 items-center gap-1 border-b px-3" role="tablist" aria-label="Source control view">
           <Button role="tab" aria-selected={tab === "changes"} variant={tab === "changes" ? "secondary" : "ghost"} size="sm" onClick={() => setTab("changes")}>Changes <span className="text-xs tabular-nums text-muted-foreground">{git.files.length}</span></Button>
           <Button role="tab" aria-selected={tab === "history"} variant={tab === "history" ? "secondary" : "ghost"} size="sm" onClick={() => setTab("history")}>History</Button>
-          <span className="ml-auto text-xs tabular-nums"><span className="text-success">+{git.insertions}</span> <span className="text-destructive">−{git.deletions}</span></span>
+          {tab === "changes" && <span className="ml-auto text-xs tabular-nums"><span className="text-success">+{git.insertions}</span> <span className="text-destructive">−{git.deletions}</span></span>}
         </div>
         {tab === "changes" ? <div className="min-h-0 flex-1 overflow-y-auto pb-4">
           <section className="border-b p-3" aria-label="Create a commit">
