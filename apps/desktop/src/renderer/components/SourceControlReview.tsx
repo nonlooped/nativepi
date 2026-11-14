@@ -49,16 +49,17 @@ export default function SourceControlReview({ review }: { review: NonNullable<Ui
   return <div className="flex min-h-0 flex-1 flex-col bg-background">
     {error && <p role="alert" className="px-3 py-2 text-xs text-destructive">{error}</p>}
     <DiffPreview key={`${projectDir}:${path}:${staged}`} backLabel="Back to chat" projectDir={projectDir} path={path} mode={staged ? "staged" : "working"} revision={revision} onBack={() => setReview(null)}
-      actions={<><nav aria-label="Changed files" className="flex shrink-0 items-center justify-between gap-2 border-t px-3 py-1">
+      actions={<div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-2">
+        <span className="mr-auto text-xs text-muted-foreground">{available ? staged ? "Staged changes" : "Unstaged changes" : "This file has no changes on this side."}</span>
+        <nav aria-label="Changed files" className="flex items-center gap-2">
         <Button size="sm" variant="ghost" disabled={busy || sharedBusy || !files.length || position === 0} onClick={() => navigate(-1)}>Previous file</Button>
         <span className="text-xs tabular-nums text-muted-foreground">{position < 0 ? `— / ${files.length}` : `${position + 1} / ${files.length}`}</span>
         <Button size="sm" variant="ghost" disabled={busy || sharedBusy || !files.length || position === files.length - 1} onClick={() => navigate(1)}>Next file</Button>
-      </nav><div className="flex flex-wrap items-center gap-2 border-t px-3 py-2">
-        <span className="mr-auto text-xs text-muted-foreground">{available ? staged ? "Staged changes" : "Unstaged changes" : "This file has no changes on this side."}</span>
+      </nav>
         {file && (staged ? file.unstaged : file.staged) && <Button size="sm" variant="ghost" onClick={() => setReview({ ...review, staged: !staged })}>{staged ? "View unstaged" : "View staged"}</Button>}
         {available && !staged && file.state !== "untracked" && <Button size="sm" variant="ghost" disabled={busy || sharedBusy} onClick={() => setConfirming(true)}>Revert file</Button>}
         {available && <Button size="sm" variant="outline" disabled={busy || sharedBusy} onClick={() => void mutate(() => staged ? rpc.request.gitUnstageFile({ projectDir, file: path, originalPath: file.originalPath }) : rpc.request.gitStageFile({ projectDir, file: path }))}>{staged ? "Unstage file" : "Stage file"}</Button>}
-      </div></>}
+      </div>}
       renderPatch={available && !staged && file.state !== "untracked" ? patch => <HunkReview projectDir={projectDir} file={file} revision={revision} disabled={busy || sharedBusy} mutate={mutate} patch={patch} /> : undefined} />
     <ConfirmDialog open={confirming} title="Revert file changes?" description="Discard unstaged changes in this file? Staged changes will remain. This cannot be undone." detail={path} confirmLabel="Revert changes" destructive onConfirm={() => { setConfirming(false); void mutate(() => rpc.request.gitRevertFile({ projectDir, file: path })); }} onCancel={() => setConfirming(false)} />
   </div>;
