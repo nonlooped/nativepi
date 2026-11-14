@@ -225,11 +225,6 @@ export default function ModelSelector() {
 }
 
 function ReasoningControl() {
-  const tier = useAppStore(s => s.serviceTier);
-  const tierTarget = useAppStore(s => s.serviceTierTarget);
-  const project = useAppStore(s => s.activeProjectPath);
-  const session = useAppStore(s => s.activeSessionFile);
-  const priority = !!project && !!model && tierTarget === serviceTierTarget(project, session, model) && tier?.tier === "priority";
   const thinkingLevel = useAppStore((s) => s.thinkingLevel);
   const thinkingLevels = useAppStore((s) => s.thinkingLevels);
   const loading = useAppStore((s) => s.thinkingLevelsLoading);
