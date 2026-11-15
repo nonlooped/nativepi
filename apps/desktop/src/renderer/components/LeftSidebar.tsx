@@ -5,6 +5,7 @@ import { ResizableHandle, ResizablePanel, useCollapsiblePanel } from "@/componen
 import { DRAG_REGION, NO_DRAG_REGION, TRAFFIC_LIGHTS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { useAppStore } from "@/lib/store.ts";
 import NavigationControls from "./NavigationControls.tsx";
+import NativePiWordmark from "./NativePiWordmark.tsx";
 
 export default function LeftSidebar({
   children,
@@ -39,7 +40,10 @@ export default function LeftSidebar({
           pane headers on two different baselines is a seam you cannot unsee. */}
       <div className={cn("flex h-12 shrink-0 items-center px-3", TRAFFIC_LIGHTS_CLEARANCE, !overlay && DRAG_REGION)}>
         <div className={cn("native-header-content flex min-w-0 flex-1 items-center gap-0", NO_DRAG_REGION)}>
-          <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground" onClick={onClose} title="Close sidebar" aria-label="Close sidebar">
+          <span className="hidden min-w-0 flex-1 [[data-window-controls=custom]_&]:inline-flex">
+            <NativePiWordmark compact />
+          </span>
+          <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground [[data-window-controls=custom]_&]:order-last [[data-window-controls=custom]_&]:ml-1" onClick={onClose} title="Close sidebar" aria-label="Close sidebar">
             <SidebarSimpleIcon className="size-[20px]" />
           </Button>
           <NavigationControls />
