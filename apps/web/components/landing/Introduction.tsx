@@ -35,8 +35,6 @@ export function Introduction() {
           <div className="site-notes">
             <a href={site.pi} target="_blank" rel="noreferrer noopener"><PiMark />Built on Pi</a>
             <a href={site.license} target="_blank" rel="noreferrer noopener">MIT license</a>
-            <a className="landscape-credit" href="https://unsplash.com/photos/Pk1MrGNquo8" target="_blank" rel="noreferrer noopener" title="Landscape by Nik Iurev, via Unsplash">Landscape</a>
-            <a href="https://vercel.com/docs/analytics" target="_blank" rel="noreferrer noopener" title="This website uses Vercel Web Analytics">Vercel Analytics</a>
           </div>
         </footer>
       </div>

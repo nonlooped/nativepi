@@ -142,7 +142,6 @@
 @media (max-width: 360px) {
   .landing-button { flex: 1; padding-inline: 8px; font-size: 11px; white-space: nowrap; }
   .landing-button-primary > svg { display: none; }
-  .site-notes .landscape-credit { display: none; }
 }
 @media (min-width: 700px) and (max-width: 959px) and (max-height: 600px) {
   .intro-main { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 24px; }

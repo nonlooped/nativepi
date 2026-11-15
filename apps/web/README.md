@@ -31,8 +31,8 @@ so the Bun workspace resolves. `vercel.json` supplies the install and build
 commands; nothing else needs configuring.
 
 `lib/site.ts` holds the canonical origin, metadata, and public release links.
-`robots.txt` and `sitemap.xml` use that origin. Vercel Web Analytics is enabled
-and disclosed in the site footer.
+`robots.txt` and `sitemap.xml` use that origin. Vercel Web Analytics is enabled.
+Asset sources and attribution are recorded in the credits files under `public/`.
 
 ## How it is put together
 
