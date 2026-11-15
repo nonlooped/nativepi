@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-11-15
+
 ### Added
 - Dictate prompts offline with a local multilingual speech model, an explicit first-use download with live installation progress, and editable transcripts. No account, key, or paid service is required.
 - Completion notifications identify the chat, project, and success or failure; clicking opens that chat and raises the desktop window. Desktop delivery avoids duplicate notifications from Local Access tabs.
@@ -742,7 +744,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial NativePi desktop wrapper for the Pi coding agent (Electron + electron-vite + Bun + React 19.2 + Vite 8 + Tailwind CSS 4 + shadcn/ui + Zustand + Zod).
 - Project bootstrap, README and logo assets, build and release automation.
 
-[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.18.0...HEAD
+[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.19.0...HEAD
+[1.19.0]: https://github.com/nonlooped/nativepi/compare/v1.18.0...v1.19.0
 [1.18.0]: https://github.com/nonlooped/nativepi/compare/v1.17.0...v1.18.0
 [1.17.0]: https://github.com/nonlooped/nativepi/compare/v1.16.0...v1.17.0
 [1.16.0]: https://github.com/nonlooped/nativepi/compare/v1.15.0...v1.16.0
