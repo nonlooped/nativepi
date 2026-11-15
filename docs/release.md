@@ -15,8 +15,8 @@ reusable CI run to pass. Failed or canceled checks cannot start packaging.
 | Nightly | Successful main-push CI, hourly at :47, or manual | Next-minor `X.Y.0-nightly.YYYYMMDDHHMM` prerelease; no version commit |
 | Build-only | Manual, from any ref | Installer artifacts retained for seven days; no publication or tag |
 
-Automatic nightlies require application changes since the nearest release tag
-and a 30-minute cooldown. Markdown, `docs/`, `.github/`, and website-only (`apps/web/`) changes do not
+Automatic nightlies require application changes since the nearest release tag;
+there is no cooldown between releases. Markdown, `docs/`, `.github/`, and website-only (`apps/web/`) changes do not
 qualify. Shared dependency changes still qualify. Scheduled runs do not retry a failed release for the same commit;
 retry manually or push a fix.
 

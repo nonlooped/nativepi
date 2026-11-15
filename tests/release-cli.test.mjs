@@ -115,22 +115,23 @@ test("a manual nightly can be forced without app changes", (t) => {
   assert.match(run("plan", "stable", "--force").stderr, /Only nightly plans accept --force/)
 })
 
-test("automatic nightlies wait 30 minutes after the previous release", (t) => {
-  const { cwd, git, plan, commit } = fixture(t)
-  commit("main.ts", "feat: first update")
-  assert.equal(plan("nightly", "--automatic").release, "false")
-  assert.match(plan("nightly", "--automatic").reason, /less than 30 minutes ago/)
-  assert.equal(plan("nightly").release, "true")
-
-  git("tag", "-d", "v0.1.0")
-  execFileSync("git", ["tag", "-a", "-m", "Older release", "v0.1.0", "HEAD~1"], {
-    cwd,
-    env: {
-      ...process.env,
-      GIT_COMMITTER_DATE: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-    },
+test("the automatic workflow releases app changes immediately after a recent release", (t) => {
+  const { cwd, git, commit } = fixture(t)
+  commit("main.ts", "feat: next update")
+  const workflow = Bun.YAML.parse(readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8"))
+  const decide = workflow.jobs.plan.steps.find(step => step.id === "plan").run
+  const selection = "plan_args=()" + decide.split("plan_args=()")[1].split("bun scripts/release.mjs plan")[0]
+  const command = selection + '\n"$BUN_EXECUTABLE" --preload "$CLOCK_SCRIPT" "$RELEASE_SCRIPT" plan "$CHANNEL" "${plan_args[@]}"'
+  const run = () => execFileSync("bash", ["-e", "-c", command], {
+    cwd, encoding: "utf8", env: { ...process.env, BUN_EXECUTABLE: process.execPath, RELEASE_SCRIPT: script, CLOCK_SCRIPT: join(cwd, ".git/clock.mjs"),
+      CHANNEL: "nightly", FORCE_NIGHTLY: "false", GITHUB_EVENT_NAME: "workflow_run" },
   })
-  assert.equal(plan("nightly", "--automatic").release, "true")
+  const result = Object.fromEntries(run().trim().split("\n").map(line => line.split(/=(.*)/)))
+  assert.equal(result.release, "true")
+  // Removing the cooldown must retain immutable release tags.
+  git("tag", result.tag)
+  assert.match(run(), /^release=false$/m)
+  assert.match(run(), /already exists|no app changes/)
 })
 
 test("set-version writes every version field without committing", (t) => {

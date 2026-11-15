@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Changed
+- Publish eligible nightly releases immediately after CI passes, without a 30-minute cooldown.
 - Speed up installer releases by reusing certified desktop builds, limiting packaging dependencies, and packaging Intel macOS installers on Apple Silicon with native dependency smoke checks.
 - Make loading, error, empty, and search states title-first, removing decorative icon tiles across the app. Keep progress indicators small and inline, and show package types and provider logos without tile backgrounds.
 - Show provider logos for model mentions in the @ picker.

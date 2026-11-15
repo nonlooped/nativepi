@@ -126,8 +126,6 @@ jobs:
           plan_args=()
           if [ "$FORCE_NIGHTLY" = true ]; then
             plan_args=(--force)
-          elif [ "$CHANNEL" = nightly ] && [ "$GITHUB_EVENT_NAME" != workflow_dispatch ]; then
-            plan_args=(--automatic)
           fi
           bun scripts/release.mjs plan "$CHANNEL" "${plan_args[@]}" > "$RUNNER_TEMP/plan"
           cat "$RUNNER_TEMP/plan"

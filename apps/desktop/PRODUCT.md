@@ -96,7 +96,7 @@ Built-in web access supplies Exa-backed web search and page reading in both dest
 - Usage totals are local estimates recorded in Pi session files, not provider invoices.
 - Project management is in the project actions menu beside the sidebar project filter. Chat management uses row context menus opened by right-click; marking a chat finished or returning it to Focus also has a direct row action.
 - NativePi is MIT licensed. GitHub publishes a Windows NSIS installer, macOS x64 and arm64 DMG/ZIP builds, and Linux x64 and arm64 AppImages. Builds are currently unsigned and macOS builds are not notarized, so Windows SmartScreen and macOS Gatekeeper warnings are expected.
-- Release automation checks the Unreleased changelog daily for stable releases and publishes eligible main changes as Nightly prereleases. The schedule, cooldown, version format, and maintainer configuration are documented in [`docs/release.md`](../../docs/release.md).
+- Release automation checks the Unreleased changelog daily for stable releases and publishes eligible main changes as Nightly prereleases. The schedule, version format, and maintainer configuration are documented in [`docs/release.md`](../../docs/release.md).
 
 ## Brand Commitments
 
