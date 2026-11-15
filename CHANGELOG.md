@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace the top-left wordmark with back/forward chat navigation and move NativePi branding into the new-chat view.
 
 ### Fixed
+- Fix QR-code Local Access and public links failing to load the app when the server code is bundled into a subfolder, and keep remote startup progress visible while preparing the link.
 - Keep the update download spinner in its icon slot instead of overlapping the toast text and progress bar.
 - Give packaged native smoke checks time to initialize on fresh macOS runners and report each check before it runs.
 - Fix title-model settings failing to load after connecting a provider on a fresh install without a saved default model.

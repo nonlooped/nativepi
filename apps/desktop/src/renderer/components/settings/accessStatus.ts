@@ -8,7 +8,8 @@ export const STOPPED_STATUS: AccessStatus = {
 };
 
 // Reads share a generation with actions: an earlier status read must never
-// resurrect a stopped server or a replaced token. Polls pause during actions.
+// resurrect a stopped server or a replaced token. Remote startup keeps polling
+// so download and reachability progress remain visible.
 export function createAccessStatusController(
   readStatus: () => Promise<AccessStatus>,
   publish: (status: AccessStatus, busy?: AccessAction) => void,
@@ -27,7 +28,7 @@ export function createAccessStatusController(
 
   return {
     read: async () => {
-      if (disposed || busy) return;
+      if (disposed || (busy && busy !== "remote")) return;
       const version = ++generation;
       try {
         const next = await readStatus();
@@ -49,6 +50,8 @@ export function createAccessStatusController(
       } catch (error) {
         fail(error, action === "remote");
       } finally {
+        // A progress read started during this action must not overwrite its result.
+        ++generation;
         busy = undefined;
         emit();
       }

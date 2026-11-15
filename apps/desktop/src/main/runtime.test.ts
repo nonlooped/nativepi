@@ -1,6 +1,6 @@
 import { afterAll, expect, mock, spyOn, test } from "bun:test";
 import { EventEmitter } from "node:events";
-import { mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { appendFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -94,7 +94,7 @@ class FakePi {
     this.exit(0, undefined, true);
   }
 }
-mock.module("electron", () => ({ systemPreferences: { askForMediaAccess: async () => true }, nativeTheme: new EventEmitter(), app: { getPath: () => root }, BrowserWindow: class {
+mock.module("electron", () => ({ systemPreferences: { askForMediaAccess: async () => true }, nativeTheme: new EventEmitter(), app: { getPath: () => root, getAppPath: () => join(root, "app.asar") }, BrowserWindow: class {
   }, dialog: {}, shell: {}, powerSaveBlocker: { start: () => 1, isStarted: () => true, stop: () => { } } }));
 mock.module("electron-updater", () => ({ default: { autoUpdater: {} } }));
 mock.module("./pi/client.ts", () => ({ PiProcess: FakePi }));
@@ -129,13 +129,15 @@ let tunnelState: {
 } = { state: "idle" };
 let remoteGate: ReturnType<typeof Promise.withResolvers<void>> | undefined;
 let originStarts = 0;
+let accessRendererDir: string | undefined;
 let tunnelGeneration = 0;
 mock.module("./localServer.ts", () => ({
   localServerConnection: () => origin,
   localServerStatus: () => ({ running: localMode, links: [], clients: [] }),
   startLocalServer: async (options: {
     token?: string;
-  }, local: boolean) => { originStarts++; origin = { port: 1, token: options.token ?? `token-${originStarts}` }; localMode = local; return { running: local, links: [], clients: [] }; },
+    rendererDir: string;
+  }, local: boolean) => { accessRendererDir = options.rendererDir; originStarts++; origin = { port: 1, token: options.token ?? `token-${originStarts}` }; localMode = local; return { running: local, links: [], clients: [] }; },
   stopLocalServer: async () => { origin = undefined; localMode = false; },
 }));
 mock.module("./remoteAccess.ts", () => ({
@@ -366,6 +368,18 @@ test("invalid payloads are rejected at the common boundary before allocation", a
     await expect(request(name as never, params as never)).rejects.toThrow();
   }
   expect(processes).toHaveLength(count);
+});
+test("local access finds the packaged renderer independently of the IPC module location", async () => {
+  const rendererDir = join(root, "app.asar", "out", "renderer");
+  await mkdir(rendererDir, { recursive: true });
+  await writeFile(join(rendererDir, "index.html"), "<h1>Packaged NativePi</h1>");
+  try {
+    await request("startLocalAccess", {});
+    expect(await readFile(join(accessRendererDir!, "index.html"), "utf8")).toBe("<h1>Packaged NativePi</h1>");
+  }
+  finally {
+    await request("revokeAccess", {});
+  }
 });
 test("access mode transitions preserve LAN token and revoke dominates pending public startup", async () => {
   await request("startLocalAccess", {});

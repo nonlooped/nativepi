@@ -90,3 +90,22 @@ test("unmount prevents pending reads and actions from publishing", async () => {
   expect(snapshots).toHaveLength(count);
   expect(reads).toHaveLength(1);
 });
+
+test("remote startup publishes preparation progress and ignores a poll arriving after completion", async () => {
+  const { controller, reads, snapshots } = fixture();
+  const action = deferred<AccessStatus>();
+  const active = controller.run("remote", () => action.promise);
+  const poll = controller.read();
+  expect(reads).toHaveLength(1);
+  const preparing: AccessStatus = { ...STOPPED_STATUS, remote: { state: "starting", preparing: "Downloading the tunnel client… 50%" } };
+  reads[0]!.resolve(preparing);
+  await poll;
+  expect(snapshots.at(-1)).toEqual({ status: preparing, busy: "remote" });
+  const late = controller.read();
+  const online: AccessStatus = { ...STOPPED_STATUS, remote: { state: "running", link: "https://online.trycloudflare.com/#token=new" } };
+  action.resolve(online);
+  await active;
+  reads[1]!.resolve(preparing);
+  await late;
+  expect(snapshots.at(-1)).toEqual({ status: online, busy: undefined });
+});

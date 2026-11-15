@@ -2042,7 +2042,8 @@ async function ensureLocalAccess(localNetwork: boolean): Promise<void> {
     : undefined;
   await startLocalServer({
     token: accessToken,
-    rendererDir: resolve(import.meta.dirname, "../renderer"),
+    // IPC is emitted into out/main/chunks; assets belong to the app root.
+    rendererDir: join(app.getAppPath(), "out", "renderer"),
     createClient: () => new HostClient(),
     invoke: invokeHostRequest,
     subscribe: subscribeHostEvents,
