@@ -8,7 +8,7 @@ export function chatTitleCatalog(runtime: ModelRuntime, defaults?: { getDefaultP
   const provider = defaults?.getDefaultProvider();
   const id = defaults?.getDefaultModel();
   return {
-    defaultModel: provider && id ? `${provider}/${id}` : undefined,
+    ...(provider && id ? { defaultModel: `${provider}/${id}` } : {}),
     models: runtime.getAvailableSnapshot().map(model => ({
       provider: model.provider, id: model.id, name: model.name,
       thinkingLevels: getSupportedThinkingLevels(model).flatMap(level => {

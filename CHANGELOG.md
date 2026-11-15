@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace the top-left wordmark with back/forward chat navigation and move NativePi branding into the new-chat view.
 
 ### Fixed
+- Fix title-model settings failing to load after connecting a provider on a fresh install without a saved default model.
 - Keep phone and tablet layouts in drawers, fit composers and autocomplete to short viewports, and keep dialogs within the visible keyboard area. Improve touch actions, narrow labels and authentication forms, terminal toolbars, and browser file guidance and media previews.
 - Support text copying over HTTP Local Access with a browser fallback and explain unavailable clipboard operations.
 - Make loading, empty, and failed reads distinct across conversations, providers, extensions, Git, media, and settings, with inline recovery and consistent loading indicators. Preserve history while loading more commits, retain extension answers until acknowledged, and show browser reconnection and expired-link states.
