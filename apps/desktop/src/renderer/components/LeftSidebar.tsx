@@ -79,7 +79,7 @@ export default function LeftSidebar({
         collapsedThreshold="24px"
         defaultSize={`${sidebarWidth}px`}
         groupResizeBehavior="preserve-pixel-size"
-        minSize="208px"
+        minSize="280px"
         maxSize="480px"
         data-pane-motion="left"
         inert={!open || undefined}

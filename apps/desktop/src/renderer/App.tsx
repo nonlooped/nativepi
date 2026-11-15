@@ -314,7 +314,7 @@ export default function App() {
               collapsedThreshold="24px"
               defaultSize={`${contextPaneWidth}px`}
               groupResizeBehavior="preserve-pixel-size"
-              minSize="192px"
+              minSize="280px"
               maxSize="480px"
               data-pane-motion="right"
               inert={!contextPaneOpen || undefined}

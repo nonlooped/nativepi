@@ -1,4 +1,5 @@
 import StateNotice from "./StateNotice.tsx";
+import { DRAG_REGION, NO_DRAG_REGION, WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { createKeybindingsHandler } from "tinykeys";
 import { bindings, withHint } from "../lib/shortcuts.ts";
 import { useEffect, useRef, useState } from "react";
@@ -166,19 +167,24 @@ export default function SourceControl({
   });
 
   return <div className="flex min-h-0 flex-1 flex-col text-foreground">
-    <div className="flex h-12 shrink-0 items-center gap-1 border-b px-2">
-      <BranchSwitcher handleRequests className="mr-auto min-w-0 flex-1" />
-      <Button size="sm" variant="outline" disabled={disabled || git.detached} onClick={() => void sync("push")}>{busy === "push" ? "Pushing…" : git.upstream ? `Push${git.ahead ? ` ${git.ahead}` : ""}` : "Publish"}</Button>
-      <DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" aria-label="Source control actions" />}><CaretDownIcon /></DropdownMenuTrigger>
-        <DropdownMenuContent align="end"><DropdownMenuGroup>
-          <DropdownMenuItem disabled={disabled || git.detached} onClick={() => void sync("push")}>{git.upstream ? "Push commits" : "Publish branch"}</DropdownMenuItem>
-          <DropdownMenuItem disabled={disabled || git.detached || !git.upstream} onClick={() => void sync("sync")}>Sync (fast-forward only){git.behind ? ` · ${git.behind} behind` : ""}</DropdownMenuItem>
-          {showPullRequest && <DropdownMenuItem onClick={onOpenPullRequest}><GitPullRequestIcon />Open a pull request</DropdownMenuItem>}
-        </DropdownMenuGroup></DropdownMenuContent>
-      </DropdownMenu>
-      <Button variant="ghost" size="icon-sm" onClick={() => void refreshGit()} title={withHint("Refresh changes", "refreshSourceControl", keybindingOverrides)} aria-label="Refresh changes" disabled={gitLoading}><ArrowClockwiseIcon className={gitLoading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
-      {onClose && <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Hide source control"><XIcon /></Button>}
-    </div>
+    {/* Custom window controls occupy the top-right 132px; keep actions on a second row. */}
+    <header className={cn("grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1 border-b px-2 [[data-window-controls=custom]_&]:grid-cols-1", DRAG_REGION)}>
+      <div className={cn("flex h-12 min-w-0 items-center", WINDOW_CONTROLS_CLEARANCE)}>
+        <BranchSwitcher handleRequests className={cn("min-w-0 flex-1", NO_DRAG_REGION)} />
+      </div>
+      <div className={cn("flex items-center justify-end gap-1 [[data-window-controls=custom]_&]:pb-2", NO_DRAG_REGION)}>
+        <Button size="sm" variant="outline" disabled={disabled || git.detached} onClick={() => void sync("push")}>{busy === "push" ? "Pushing…" : git.upstream ? `Push${git.ahead ? ` ${git.ahead}` : ""}` : "Publish"}</Button>
+        <DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" aria-label="Source control actions" />}><CaretDownIcon /></DropdownMenuTrigger>
+          <DropdownMenuContent align="end"><DropdownMenuGroup>
+            <DropdownMenuItem disabled={disabled || git.detached} onClick={() => void sync("push")}>{git.upstream ? "Push commits" : "Publish branch"}</DropdownMenuItem>
+            <DropdownMenuItem disabled={disabled || git.detached || !git.upstream} onClick={() => void sync("sync")}>Sync (fast-forward only){git.behind ? ` · ${git.behind} behind` : ""}</DropdownMenuItem>
+            {showPullRequest && <DropdownMenuItem onClick={onOpenPullRequest}><GitPullRequestIcon />Open a pull request</DropdownMenuItem>}
+          </DropdownMenuGroup></DropdownMenuContent>
+        </DropdownMenu>
+        <Button variant="ghost" size="icon-sm" onClick={() => void refreshGit()} title={withHint("Refresh changes", "refreshSourceControl", keybindingOverrides)} aria-label="Refresh changes" disabled={gitLoading}><ArrowClockwiseIcon className={gitLoading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
+        {onClose && <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Hide source control"><XIcon /></Button>}
+      </div>
+    </header>
     {gitError && <div className="border-b px-4"><StateNotice title="Showing last known Git status" detail={gitError} retry={() => void refreshGit()} /></div>}
     {error && <p role="alert" className="shrink-0 whitespace-pre-wrap border-b px-4 py-2 text-xs text-destructive">{error}</p>}
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
