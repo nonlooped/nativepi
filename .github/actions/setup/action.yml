@@ -15,6 +15,11 @@ inputs:
     required: false
     default: ""
 
+  install-cpu:
+    description: Target CPU for optional native dependencies (host CPU by default)
+    required: false
+    default: ""
+
 runs:
   using: composite
   steps:
@@ -38,6 +43,22 @@ runs:
         key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ steps.bun.outputs.bun-version }}-${{ hashFiles('bun.lock') }}
         restore-keys: ${{ runner.os }}-${{ runner.arch }}-bun-${{ steps.bun.outputs.bun-version }}-
 
+    - name: Resolve packaging tool versions
+      if: inputs.electron-cache == 'true'
+      id: packaging-tools
+      shell: bash
+      run: |
+        node --input-type=module -e '
+          import { readFileSync, appendFileSync } from "node:fs";
+          const lock = readFileSync("bun.lock", "utf8");
+          const versions = ["electron", "electron-builder", "builder-util", "dmg-builder"].map(name => {
+            const match = lock.match(new RegExp(String.raw`"${name}": \["${name}@([^"]+)"`));
+            if (!match) throw new Error(`Missing locked ${name}`);
+            return `${name}-${match[1]}`;
+          });
+          appendFileSync(process.env.GITHUB_OUTPUT, `key=${versions.join("-")}\n`);
+        '
+
     - name: Cache Electron downloads
       if: inputs.electron-cache == 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -52,16 +73,16 @@ runs:
           ~/Library/Caches/electron-builder
           ~/.cache/electron
           ~/.cache/electron-builder
-        key: ${{ runner.os }}-${{ runner.arch }}-electron-${{ hashFiles('bun.lock') }}
-        restore-keys: ${{ runner.os }}-${{ runner.arch }}-electron-
+        key: ${{ runner.os }}-${{ runner.arch }}-${{ inputs.install-cpu }}-packaging-v2-${{ steps.packaging-tools.outputs.key }}
+        restore-keys: ${{ runner.os }}-${{ runner.arch }}-${{ inputs.install-cpu }}-packaging-v2-
 
     - name: Install dependencies
       shell: bash
       env:
         INSTALL_FILTER: ${{ inputs.install-filter }}
+        INSTALL_CPU: ${{ inputs.install-cpu }}
       run: |
-        if [[ -n "$INSTALL_FILTER" ]]; then
-          bun install --frozen-lockfile --filter "$INSTALL_FILTER"
-        else
-          bun install --frozen-lockfile
-        fi
+        args=(--frozen-lockfile)
+        if [[ -n "$INSTALL_FILTER" ]]; then args+=(--filter "$INSTALL_FILTER"); fi
+        if [[ -n "$INSTALL_CPU" ]]; then args+=(--cpu "$INSTALL_CPU"); fi
+        bun install "${args[@]}"

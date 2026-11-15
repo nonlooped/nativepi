@@ -16,6 +16,7 @@ for (const step of workflow.jobs.check.steps) {
   console.log(`\n== ${step.name} ==`);
   if (step.name === "Lint workflows") run("bun scripts/lint-workflows.ts");
   else if (step.uses === "./.github/actions/setup") run("bun install --frozen-lockfile");
+  else if (step.name === "Save desktop build") continue;
   else if (step.run) run(step.run);
   else throw new Error(`Unsupported local CI step: ${step.name}`);
 }

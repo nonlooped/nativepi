@@ -43,6 +43,31 @@ publications.
 Output: `apps/desktop/release`. Installers are unsigned; macOS builds are also
 unnotarized and require manual updates.
 
+## Packaging performance
+
+Release packaging installs only the desktop workspace and its workspace dependencies.
+Bun's extracted package cache is not restored: its many-file extraction was slower
+than installation on the Windows and Intel macOS runners. Electron and packaging
+tool downloads remain cached by host/target architecture and locked tool versions.
+
+Full non-PR CI retains the platform-independent `apps/desktop/out` build for seven
+days. Releases reuse it only from the successful main-push CI run certifying the
+same source commit, or from their own reusable checks. If that artifact is absent
+or expired, one Ubuntu job builds it before the five packaging jobs start. Release
+versions are applied to package metadata during packaging; the shared build does
+not embed a release version. Local `bun run package` still builds before packaging.
+
+Both macOS jobs use Apple Silicon runners. The x64 job installs x64 optional
+native dependencies explicitly, then runs native dependency smoke checks in the
+packaged x64 Electron under Rosetta before uploading installers. The check covers
+terminal spawning, Koffi, transcription-library loading, extension compilation,
+and the computer-use binary/helper architecture. It does not replace an Intel
+hardware end-to-end check of dictation and desktop permissions.
+
+When comparing release times, include setup/cache and post-job cache saves, and
+compare cold and warm runs of the same commit. macOS x64 packaging can be returned
+to `macos-15-intel` without changing the artifact layout or installer targets.
+
 ## Extension packages and tooling
 
 Extension versions are independent of desktop releases. Bumping them on `main`

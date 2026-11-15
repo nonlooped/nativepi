@@ -63,6 +63,7 @@ jobs:
       sha: ${{ steps.plan.outputs.sha }}
       build: ${{ steps.plan.outputs.build }}
       certified: ${{ steps.plan.outputs.certified }}
+      ci-run: ${{ steps.plan.outputs.ci-run }}
       publish: ${{ steps.plan.outputs.release }}
       version: ${{ steps.plan.outputs.version }}
       tag: ${{ steps.plan.outputs.tag }}
@@ -111,12 +112,16 @@ jobs:
               echo "Nightly: newer main commit $latest superseded $HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
+            ci_run=${{ github.event.workflow_run.id || 0 }}
             certified=true
           else
             # Scheduled and manual releases reuse the commit's own full CI verdict when it has one.
-            certified=$(gh run list --workflow ci.yml --branch main --event push --commit "$HEAD_SHA" \
-              --status success --json databaseId --jq 'length > 0')
+            ci_run=$(gh run list --workflow ci.yml --branch main --event push --commit "$HEAD_SHA" \
+              --status success --json databaseId --jq '.[0].databaseId // empty')
+            certified=false
+            if [ -n "$ci_run" ]; then certified=true; fi
           fi
+          echo "ci-run=$ci_run" >> "$GITHUB_OUTPUT"
           echo "certified=$certified" >> "$GITHUB_OUTPUT"
           plan_args=()
           if [ "$FORCE_NIGHTLY" = true ]; then
@@ -146,11 +151,63 @@ jobs:
     if: needs.plan.outputs.build == 'true' && needs.plan.outputs.certified != 'true'
     uses: ./.github/workflows/ci.yml
 
-  package:
-    name: Package (${{ matrix.platform }} ${{ matrix.arch }})
+  build:
+    name: Prepare desktop build
     needs: [plan, checks]
     if: >-
       !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.build == 'true' &&
+      (needs.checks.result == 'success' ||
+       (needs.plan.outputs.certified == 'true' && needs.checks.result == 'skipped'))
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.artifact.outputs.run }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Find certified desktop build
+        id: artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RUN: ${{ needs.plan.outputs.ci-run || github.run_id }}
+        run: |
+          artifact=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CI_RUN/artifacts" \
+            --paginate --jq '.artifacts[] | select(.name == "desktop-build-${{ github.sha }}" and .expired == false) | .id')
+          if [ -n "$artifact" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "run=$CI_RUN" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Setup
+        if: steps.artifact.outputs.found != 'true'
+        uses: ./.github/actions/setup
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        with:
+          install-filter: '@nativepi/desktop...'
+      - name: Build desktop once
+        if: steps.artifact.outputs.found != 'true'
+        run: bun run --cwd apps/desktop build
+      - name: Save desktop build
+        if: steps.artifact.outputs.found != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-build-${{ github.sha }}
+          path: apps/desktop/out
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  package:
+    name: Package (${{ matrix.platform }} ${{ matrix.arch }})
+    needs: [plan, checks, build]
+    if: >-
+      !cancelled() && needs.build.result == 'success' && needs.plan.result == 'success' && needs.plan.outputs.build == 'true' &&
       (needs.checks.result == 'success' ||
        (needs.plan.outputs.certified == 'true' && needs.checks.result == 'skipped'))
     strategy:
@@ -160,7 +217,7 @@ jobs:
           - os: windows-2025
             platform: win
             arch: x64
-          - os: macos-15-intel
+          - os: macos-15
             platform: mac
             arch: x64
           - os: macos-latest
@@ -174,7 +231,11 @@ jobs:
             arch: arm64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
     env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
       VERSION: ${{ needs.plan.outputs.version }}
@@ -185,8 +246,19 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
         with:
-          bun-cache: 'true'
+          install-filter: '@nativepi/desktop...'
+          install-cpu: ${{ matrix.arch }}
           electron-cache: 'true'
+      - name: Download desktop build
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: desktop-build-${{ github.sha }}
+          path: apps/desktop/out
+          run-id: ${{ needs.build.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: Prepare macOS terminal helpers
+        if: matrix.platform == 'mac'
+        run: bun apps/desktop/scripts/prepare-node-pty.mjs
       # node-pty ships prebuilds for Windows and macOS only; compile on each Linux architecture.
       - name: Build the Linux terminal addon
         if: matrix.platform == 'linux'
@@ -198,7 +270,10 @@ jobs:
         run: bun scripts/release.mjs set-version "$VERSION"
       - name: Package without publishing
         working-directory: apps/desktop
-        run: bun run package --${{ matrix.platform }} --${{ matrix.arch }} --publish never
+        run: bun run electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
+      - name: Smoke-test packaged macOS native dependencies
+        if: matrix.platform == 'mac'
+        run: node scripts/smoke-packaged-mac.mjs "${{ matrix.arch }}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: installers-${{ matrix.platform }}-${{ matrix.arch }}-${{ env.VERSION }}

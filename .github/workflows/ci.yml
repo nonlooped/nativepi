@@ -81,3 +81,14 @@ jobs:
       - name: Build website
         if: steps.scope.outputs.web == 'true'
         run: bun run --cwd apps/web build
+
+      # Only full, non-PR checks produce reusable desktop output.
+      - name: Save desktop build
+        if: github.event_name != 'pull_request' && steps.scope.outputs.core == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-build-${{ github.sha }}
+          path: apps/desktop/out
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

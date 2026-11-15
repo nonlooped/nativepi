@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { readFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, rmSync, writeFileSync, chmodSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,7 +22,7 @@ test('PR scope selects affected work and retains cross-workspace integration tes
   for (const [paths, expected] of cases) {
     expect(scopeForPaths(paths)).toEqual(expected);
     const steps = { scope: { outputs: Object.fromEntries(Object.entries(expected).map(([k, v]) => [k, String(v)])) } };
-    const selected = ci.jobs.check.steps.filter(step => !step.if || allows(step.if, { steps }));
+    const selected = ci.jobs.check.steps.filter(step => !step.if || allows(step.if, { steps, github: { event_name: "pull_request" } }));
     expect(selected.some(step => step.run === 'bun test packages tests')).toBe(expected.core || expected.web);
     expect(selected.some(step => step.name === 'Test desktop')).toBe(expected.core);
     expect(selected.some(step => step.name === 'Build website')).toBe(expected.web);
@@ -71,9 +71,9 @@ test('release does not allocate packaging runners for failed, cancelled, or unce
   for (const [certified, result, expected] of cases) {
     const needs = {
       plan: { result: 'success', outputs: { build: 'true', publish: 'true', certified } },
-      checks: { result }, package: { result: 'success' },
+      checks: { result }, build: { result: 'success' }, package: { result: 'success' },
     };
-    for (const job of ['package', 'release']) {
+    for (const job of ['build', 'package', 'release']) {
       expect(Boolean(allows(release.jobs[job].if, { needs, cancelled: () => false }))).toBe(expected);
       expect(Boolean(allows(release.jobs[job].if, { needs, cancelled: () => true }))).toBe(false);
     }
@@ -134,7 +134,67 @@ test('scope CLI compares a PR merge with its base, excluding changes already on 
 });
 
 
-test('release packaging installs all workspace dependencies used by the desktop build', () => {
+test('release packaging installs the desktop dependency closure without restoring the full Bun cache', () => {
   const setup = release.jobs.package.steps.find(step => step.uses === './.github/actions/setup');
-  expect(setup.with['install-filter']).toBeUndefined();
+  expect(setup.with['install-filter']).toBe('@nativepi/desktop...');
+  expect(setup.with['bun-cache']).toBeUndefined();
+  expect(setup.with['install-cpu']).toBe('${{ matrix.arch }}');
+});
+
+test('packaging cache follows tool versions rather than app versions or unrelated dependencies', () => {
+  const setup = Bun.YAML.parse(readFileSync(new URL('../.github/actions/setup/action.yml', import.meta.url), 'utf8'));
+  const command = setup.runs.steps.find(step => step.id === 'packaging-tools').run;
+  const cwd = mkdtempSync(join(tmpdir(), 'nativepi-cache-key-'));
+  const output = join(cwd, 'output');
+  const key = (electron, appVersion = '1.0.0') => {
+    const entries = Object.entries({ electron, 'electron-builder': '26.18.0', 'builder-util': '26.16.0', 'dmg-builder': '26.18.0' })
+      .map(([name, version]) => `"${name}": ["${name}@${version}"]`).join(',\n');
+    writeFileSync(join(cwd, 'bun.lock'), `{"workspaces":{"apps/desktop":{"version":"${appVersion}"}},"packages":{${entries}}}`);
+    writeFileSync(output, '');
+    execFileSync('bash', ['-e', '-c', command], { cwd, env: { ...process.env, GITHUB_OUTPUT: output } });
+    return readFileSync(output, 'utf8');
+  };
+  try {
+    expect(key('45.3.1')).toBe('key=electron-45.3.1-electron-builder-26.18.0-builder-util-26.16.0-dmg-builder-26.18.0\n');
+    expect(key('45.3.1', '2.0.0')).toBe(key('45.3.1'));
+    expect(key('45.3.2')).not.toBe(key('45.3.1'));
+    writeFileSync(join(cwd, 'bun.lock'), '{}');
+    expect(() => execFileSync('bash', ['-e', '-c', command], { cwd, env: { ...process.env, GITHUB_OUTPUT: output }, stdio: 'pipe' })).toThrow();
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test('failed build preparation prevents packaging even with certified CI', () => {
+  const needs = { plan: { result: 'success', outputs: { build: 'true', certified: 'true' } }, checks: { result: 'skipped' } };
+  for (const result of ['failure', 'cancelled', 'skipped']) {
+    expect(Boolean(allows(release.jobs.package.if, { needs: { ...needs, build: { result } }, cancelled: () => false }))).toBe(false);
+  }
+});
+
+test('build preparation reuses only the selected run and falls back when its artifact is absent', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'nativepi-build-artifact-'));
+  const output = join(cwd, 'output');
+  const command = release.jobs.build.steps.find(step => step.id === 'artifact').run.replaceAll('${{ github.sha }}', 'source-sha');
+  try {
+    const gh = join(cwd, 'gh');
+    writeFileSync(gh, `#!/usr/bin/env node
+      const args = process.argv.slice(2);
+      if (args[1] !== 'repos/owner/repo/actions/runs/123/artifacts') process.exit(2);
+      if (!args.includes('.artifacts[] | select(.name == "desktop-build-source-sha" and .expired == false) | .id')) process.exit(3);
+      if (process.env.API_FAILURE) process.exit(1);
+      console.log(process.env.ARTIFACT_ID || '');
+    `);
+    chmodSync(gh, 0o755);
+    const run = overrides => {
+      writeFileSync(output, '');
+      execFileSync('bash', ['-e', '-o', 'pipefail', '-c', command], { cwd, env: {
+        ...process.env, PATH: `${cwd}:${process.env.PATH}`, GH_TOKEN: 'test', GITHUB_REPOSITORY: 'owner/repo',
+        CI_RUN: '123', GITHUB_RUN_ID: '456', GITHUB_OUTPUT: output, ...overrides,
+      } });
+      return readFileSync(output, 'utf8');
+    };
+    expect(run({ ARTIFACT_ID: '789' })).toBe('found=true\nrun=123\n');
+    expect(run({ ARTIFACT_ID: '' })).toBe('run=456\n');
+    expect(() => run({ API_FAILURE: 'true' })).toThrow();
+    expect(readFileSync(output, 'utf8')).toBe('');
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
