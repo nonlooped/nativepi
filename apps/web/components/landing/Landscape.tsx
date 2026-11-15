@@ -4,6 +4,11 @@ import { PauseIcon, PlayIcon } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { prepareLandscapeTexture } from "@/lib/landscapeTexture";
 
+const landscapes = {
+  mist: { image: "/landscape/mist.webp", still: "/landscape/mist-dither.png", ink: [158 / 255, 158 / 255, 150 / 255] },
+  dunes: { image: "/landscape/dunes.webp", still: "/landscape/dunes-dither.png", ink: [174 / 255, 170 / 255, 159 / 255] },
+} as const;
+
 const vertex = `
   attribute vec2 uv;
   attribute vec2 position;
@@ -18,6 +23,8 @@ const fragment = `
   precision highp float;
   uniform sampler2D uImage;
   uniform vec2 uSize;
+  uniform float uImageRatio;
+  uniform vec3 uInk;
   uniform float uTime;
   uniform float uDriftTime;
   uniform vec4 uWaves[6];
@@ -37,7 +44,7 @@ const fragment = `
     vec2 point = (grid + 0.5) * dotSize;
     vec2 uv = point / uSize;
     float ratio = uSize.x / uSize.y;
-    vec2 cover = vec2(min(1.0, ratio / 1.5), min(1.0, 1.5 / ratio));
+    vec2 cover = vec2(min(1.0, ratio / uImageRatio), min(1.0, uImageRatio / ratio));
     // Match the still plate's center/bottom crop, so the terrain does not jump on handoff.
     vec2 imageUv = vec2((uv.x - 0.5) * cover.x + 0.5, uv.y * cover.y);
     // Drift is under four source pixels, over tens of seconds. The dot grid stays still.
@@ -57,12 +64,12 @@ const fragment = `
       }
     }
     float ink = step(threshold(grid), density);
-    gl_FragColor = vec4(vec3(0.62, 0.62, 0.59), ink);
+    gl_FragColor = vec4(uInk, ink);
   }
 `;
 
 /** A quiet, 30fps living plate with a static presentation when motion is paused. */
-export function Landscape() {
+export function Landscape({ scene = "mist" }: { scene?: keyof typeof landscapes }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);
   const wakeRef = useRef<() => void>(() => {});
@@ -71,6 +78,7 @@ export function Landscape() {
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
+    const background = landscapes[scene];
     const motion = matchMedia("(prefers-reduced-motion: reduce)");
     const pointer = matchMedia("(hover: hover) and (pointer: fine)");
     let disposed = false;
@@ -98,6 +106,7 @@ export function Landscape() {
         vertex, fragment, depthTest: false, depthWrite: false,
         uniforms: {
           uImage: { value: texture }, uSize: { value: [1, 1] },
+          uImageRatio: { value: 1.5 }, uInk: { value: [...background.ink] },
           uTime: { value: 0 }, uDriftTime: { value: 0 }, uWaves: { value: waves },
         },
       });
@@ -203,11 +212,12 @@ export function Landscape() {
       image.onload = () => {
         if (disposed) return;
         texture.image = image;
+        program.uniforms.uImageRatio.value = image.naturalWidth / image.naturalHeight;
         loaded = true;
         requestDraw();
       };
       image.onerror = () => { if (!disposed) fallback(); };
-      image.src = "/landscape/mist.webp";
+      image.src = background.image;
       host.parentElement?.addEventListener("pointermove", move, { passive: true });
       host.parentElement?.addEventListener("click", click);
       motion.addEventListener("change", settle);
@@ -239,11 +249,11 @@ export function Landscape() {
     }).catch(() => { if (!disposed) host.dataset.fallback = "true"; });
 
     return () => { disposed = true; cleanup?.(); };
-  }, []);
+  }, [scene]);
 
   return <>
-    <div ref={hostRef} className="landscape" aria-hidden="true">
-      <div className="landscape-still" />
+    <div ref={hostRef} className="landscape" data-scene={scene} aria-hidden="true">
+      <div className="landscape-still" style={{ backgroundImage: `url(${landscapes[scene].still})` }} />
     </div>
     <button
       type="button"

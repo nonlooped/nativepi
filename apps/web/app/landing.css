@@ -60,7 +60,7 @@
 .site-notes a:hover { color: var(--landing-ink); }
 .landscape { position: absolute; z-index: -1; inset: 0; pointer-events: none; opacity: 0.38; mask-image: linear-gradient(180deg, transparent, #000 35%, #000 85%, transparent), linear-gradient(90deg, #0002, #000 65%); mask-composite: intersect; }
 .landscape-still, .landscape canvas { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity 700ms ease; }
-.landscape-still { background: url('/landscape/mist-dither.png') center bottom / cover no-repeat; opacity: 1; }
+.landscape-still { background-position: center bottom; background-size: cover; background-repeat: no-repeat; opacity: 1; }
 .landscape canvas { opacity: 0; }
 .landscape[data-ready="true"] canvas { opacity: 1; }
 .landscape[data-ready="true"] .landscape-still { opacity: 0; }

@@ -56,8 +56,8 @@ pages. Vercel Web Analytics is enabled.
 - `app/landing.css`: the shared neutral palette, typography, controls, and
   landing layout. Both pages use the living landscape. Ambient motion runs at up to 30fps, pauses offscreen
   or in hidden tabs, and respects reduced motion and the pause control.
-- `app/download/page.tsx` and `download.css`: the download page, with translucent
-  OS panels over the landscape and working HTML links for Windows x64,
+- `app/download/page.tsx` and `download.css`: the download page, with a distinct
+  Dunes backdrop, one glass OS picker, capsule download links for Windows x64,
   macOS Apple Silicon/Intel, and Linux x64/ARM64.
 - `app/download/[target]/route.ts`: resolve a build to the latest Stable GitHub
   installer. Missing assets and upstream errors fall back to the release page.
@@ -69,7 +69,9 @@ pages. Vercel Web Analytics is enabled.
 - `public/landscape/` and `public/brand/`: landscape and real product/platform
   marks. Sources, licenses, and attribution are recorded in their credits files.
 
-The still landscape is visible from the first CSS paint, including when
+`Landscape` accepts a `scene` prop: Mist by default, or Dunes for downloads.
+The live renderer reads each image's aspect ratio and ink color; its matching
+still landscape is visible from the first CSS paint, including when
 JavaScript loads slowly or fails. The live layer takes over only after a
 correctly sized, successful frame. Shader, texture, or context failures preserve
 the still image. `lib/landscapeTexture.ts` avoids an unsupported R-axis texture

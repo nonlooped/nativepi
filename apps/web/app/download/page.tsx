@@ -18,16 +18,16 @@ export const metadata: Metadata = {
   openGraph: { title: "Download NativePi", url: "/download" },
 };
 
-const platforms: { id: DesktopPlatform; format: string; Mark: typeof AppleMark }[] = [
-  { id: "windows", format: "Installer (.exe)", Mark: WindowsMark },
-  { id: "mac", format: "Disk image (.dmg)", Mark: AppleMark },
-  { id: "linux", format: "AppImage", Mark: LinuxMark },
+const platforms: { id: DesktopPlatform; note?: string; Mark: typeof AppleMark }[] = [
+  { id: "windows", note: "Unsigned installer", Mark: WindowsMark },
+  { id: "mac", note: "Unsigned installer", Mark: AppleMark },
+  { id: "linux", Mark: LinuxMark },
 ];
 
 export default function DownloadPage() {
   return (
     <div className="landing download-page">
-      <Landscape />
+      <Landscape scene="dunes" />
       <div className="landing-rail download-layout">
         <header className="landing-header">
           <Link href="/" aria-label="NativePi home"><Wordmark className="landing-logo" /></Link>
@@ -36,21 +36,21 @@ export default function DownloadPage() {
 
         <div className="download-main">
           <div className="download-intro">
-            <h1>Download NativePi</h1>
+            <h1>Download <span>NativePi</span></h1>
             <p>Free and open source. Pi is included.</p>
           </div>
 
           <div className="download-platforms">
-            {platforms.map(({ id, format, Mark }) => (
+            {platforms.map(({ id, note, Mark }) => (
               <section className="download-platform" key={id} aria-labelledby={`download-${id}`}>
                 <div className="download-platform-heading">
                   <h2 id={`download-${id}`}><Mark />{platformNames[id]}</h2>
-                  <p>{format}</p>
+                  {note && <p>{note}</p>}
                 </div>
                 <div className="download-builds">
                   {platformDownloads[id].map(build => (
-                    <a className="landing-button landing-button-secondary download-build" key={build.target} href={`/download/${build.target}`} aria-label={`Download NativePi for ${platformNames[id]}, ${build.label}`}>
-                      <span>{build.label}</span><ArrowDownIcon aria-hidden="true" />
+                    <a className="download-build" key={build.target} href={`/download/${build.target}`} aria-label={`Download NativePi for ${platformNames[id]}, ${build.label}`}>
+                      <span>{build.label}</span><span className="download-build-action"><ArrowDownIcon aria-hidden="true" /></span>
                     </a>
                   ))}
                 </div>
@@ -58,10 +58,6 @@ export default function DownloadPage() {
             ))}
           </div>
 
-          <div className="download-support">
-            <p>Installers are unsigned. Windows and macOS may show a warning on first launch. <a href={`${site.repo}#install`} target="_blank" rel="noreferrer noopener">Installation help</a></p>
-            <p>Connect your own model provider when you open NativePi.</p>
-          </div>
         </div>
 
         <footer className="download-footer">

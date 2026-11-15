@@ -31,8 +31,8 @@ Project documentation remains in the GitHub repository.
 - Resolve the latest stable installer through GitHub's releases API. Validate
   the release shape and require an exact repository, tag, and asset URL match.
   Missing builds, rate limits, or network failures fall back to the release page.
-- Installers are unsigned and macOS builds are not notarized. Explain expected
-  first-launch warnings briefly and link to the repository's installation help.
+- Windows and macOS groups use the subtitle “Unsigned installer”. Linux has no
+  subtitle. Keep explanatory installation and provider paragraphs off this page.
 - Pi is included; a separate Pi installation or NativePi account is not required.
 
 The landing page's download action opens `/download` directly. All installer
@@ -47,11 +47,12 @@ choices and release links must work without JavaScript.
   partnerships, performance claims, or provider-cost promises.
 - Keep the landing page to one viewport, with real desktop and phone browser
   captures and an iPhone-style frame. Do not fabricate the app interface.
-- The app's dithered landscape supplies both pages' visual identity.
+- The app's dithered landscapes supply both pages' visual identity: Mist on the
+  landing page and Dunes on the download page. Keep their backdrops distinct.
   Ambient motion is subtle and pausable; reduced motion keeps it static.
   Pointer movement and empty-space clicks can produce short ripples.
-- The download page is task-focused: simple OS groups and explicit architecture
-  choices in translucent app-like surfaces over the landscape, with no feature
+- The download page is task-focused: OS rows and explicit architecture choices
+  in one crafted glass panel, with tactile capsule download controls and no feature
   grids, sales sections, or download modal.
 - Use real platform and project marks to identify compatibility and provenance.
   They never imply endorsement. Asset sources and attribution live in the
@@ -85,7 +86,7 @@ README, and the implemented desktop behavior.
 - `public/app/desktop.webp` and `phone.webp` are actual captures of the same
   conversation in NativePi and its Local Access phone layout.
 - `public/brand/` contains the real Apple, Windows, Linux, and Pi marks.
-- `public/landscape/` contains the desktop app's Mist photograph and a no-script
-  or no-WebGL still fallback. See its credits file.
+- `public/landscape/` contains the desktop app's Mist and Dunes photographs with
+  no-script or no-WebGL still fallbacks. See its credits file.
 - The repository is `https://github.com/nonlooped/nativepi`.
 - The website is deployed to Vercel from `apps/web`.

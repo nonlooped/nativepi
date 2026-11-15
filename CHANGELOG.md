@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Changed
+- Give downloads a distinct Dunes backdrop and a unified glass picker with capsule controls; move unsigned-installer labels under Windows and macOS and remove the extra explanatory paragraphs.
 - Bring the living dithered landscape to the download page, with translucent OS panels and clearer platform marks.
 - Remove the old website documentation and download UI, and add a minimal download page covering Windows, macOS, and Linux with all supported architectures.
 - Remove the landscape and analytics links from the landing page footer.
