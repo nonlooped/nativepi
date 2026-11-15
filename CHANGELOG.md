@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace the top-left wordmark with back/forward chat navigation and move NativePi branding into the new-chat view.
 
 ### Fixed
+- Keep the update download spinner in its icon slot instead of overlapping the toast text and progress bar.
 - Give packaged native smoke checks time to initialize on fresh macOS runners and report each check before it runs.
 - Fix title-model settings failing to load after connecting a provider on a fresh install without a saved default model.
 - Keep phone and tablet layouts in drawers, fit composers and autocomplete to short viewports, and keep dialogs within the visible keyboard area. Improve touch actions, narrow labels and authentication forms, terminal toolbars, and browser file guidance and media previews.

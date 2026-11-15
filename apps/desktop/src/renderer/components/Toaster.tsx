@@ -41,7 +41,8 @@ export default function Toaster() {
           content: "min-w-0 flex-1",
           title: "whitespace-pre-wrap font-medium leading-5",
           description: "mt-0.5 leading-4 text-muted-foreground",
-          icon: "flex size-4 shrink-0 items-center justify-center self-center",
+          // Sonner absolutely positions even custom loaders inside this slot.
+          icon: "relative flex size-4 shrink-0 items-center justify-center self-center",
           actionButton:
             "h-7 shrink-0 rounded-md bg-primary px-2.5 font-semibold text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring",
           cancelButton:
