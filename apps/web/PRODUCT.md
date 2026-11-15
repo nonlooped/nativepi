@@ -47,11 +47,12 @@ choices and release links must work without JavaScript.
   partnerships, performance claims, or provider-cost promises.
 - Keep the landing page to one viewport, with real desktop and phone browser
   captures and an iPhone-style frame. Do not fabricate the app interface.
-- The app's dithered landscape supplies the landing page's visual identity.
+- The app's dithered landscape supplies both pages' visual identity.
   Ambient motion is subtle and pausable; reduced motion keeps it static.
   Pointer movement and empty-space clicks can produce short ripples.
 - The download page is task-focused: simple OS groups and explicit architecture
-  choices, with no feature grids, sales sections, or download modal.
+  choices in translucent app-like surfaces over the landscape, with no feature
+  grids, sales sections, or download modal.
 - Use real platform and project marks to identify compatibility and provenance.
   They never imply endorsement. Asset sources and attribution live in the
   credits files under `public/`.
@@ -78,7 +79,9 @@ README, and the implemented desktop behavior.
 ## Implementation and evidence
 
 - Next.js, React, and Tailwind; Bun is the package manager.
-- OGL enhances the landing page landscape. Zod validates GitHub release data.
+- OGL enhances the shared landscape. Its still image is visible independently
+  of JavaScript and remains available if live rendering fails. Zod validates
+  GitHub release data.
 - `public/app/desktop.webp` and `phone.webp` are actual captures of the same
   conversation in NativePi and its Local Access phone layout.
 - `public/brand/` contains the real Apple, Windows, Linux, and Pi marks.

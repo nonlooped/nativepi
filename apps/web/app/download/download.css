@@ -1,17 +1,18 @@
-.download-page { min-height: 100svh; }
-.download-layout { display: flex; flex-direction: column; min-height: 100svh; max-width: 1280px; }
+.download-page { position: relative; isolation: isolate; overflow: clip; min-height: 100svh; }
+.download-layout { display: flex; flex-direction: column; min-height: 100svh; }
+.download-page .landscape { opacity: .4; mask-image: linear-gradient(180deg, transparent, #0008 25%, #000 70%, transparent); mask-composite: add; }
 .download-main { display: flex; flex: 1; flex-direction: column; justify-content: center; padding-block: 48px 64px; }
 .download-intro h1 { font-size: clamp(40px, 5vw, 64px); font-weight: 450; line-height: 1.08; letter-spacing: -.055em; }
 .download-intro > p { margin-top: 20px; font-size: 18px; line-height: 1.6; color: var(--landing-muted); }
 .download-platforms { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 48px; margin-top: 56px; }
-.download-platform { border-top: 1px solid var(--landing-line); padding-top: 28px; }
-.download-platform h2 { display: flex; align-items: center; gap: 12px; font-size: 26px; font-weight: 450; line-height: 1.2; letter-spacing: -.025em; }
-.download-platform h2 img { width: 26px; height: 26px; object-fit: contain; }
+.download-platform { border: 1px solid #ffffff1f; border-radius: 16px; padding: 28px; background: #1b1b1b99; backdrop-filter: blur(16px); box-shadow: inset 0 1px #ffffff08, 0 20px 48px -32px #000a; }
+.download-platform h2 { display: flex; align-items: center; gap: 14px; font-size: 30px; font-weight: 450; line-height: 1.2; letter-spacing: -.035em; }
+.download-platform h2 img { width: 36px; height: 36px; object-fit: contain; flex-shrink: 0; }
 .download-platform-heading > p { margin-top: 12px; color: var(--landing-muted); font-size: 14px; line-height: 1.5; }
 .download-builds { display: flex; flex-direction: column; gap: 12px; margin-top: 28px; }
-.download-build { justify-content: space-between; width: 100%; min-height: 48px; font-size: 14px; padding-inline: 18px; }
+.download-build { justify-content: space-between; width: 100%; min-width: 0; min-height: 48px; font-size: 14px; padding-inline: 18px; }
 .download-build svg { width: 16px; height: 16px; color: var(--landing-muted); }
-.download-support { margin-top: 48px; max-width: 70ch; color: var(--landing-muted); font-size: 14px; line-height: 1.7; }
+.download-support { margin-top: 48px; max-width: 70ch; color: var(--landing-ink); font-size: 14px; line-height: 1.7; }
 .download-support p + p { margin-top: 12px; }
 .download-support a { color: var(--landing-ink); text-decoration: underline; text-decoration-color: #ffffff40; text-underline-offset: 4px; }
 .download-support a:hover { text-decoration-color: currentColor; }
@@ -21,13 +22,16 @@
 .download-footer nav a:hover { color: var(--landing-ink); }
 @media (max-width: 900px) {
   .download-platforms { gap: 28px; }
+  .download-platform { padding: 22px; }
+  .download-platform h2 { font-size: 24px; gap: 10px; }
+  .download-platform h2 img { width: 28px; height: 28px; }
 }
 @media (max-width: 640px) {
   .download-main { padding-block: 24px 32px; }
   .download-intro h1 { font-size: 40px; }
   .download-intro > p { font-size: 16px; margin-top: 16px; }
-  .download-platforms { grid-template-columns: 1fr; gap: 24px; margin-top: 36px; }
-  .download-platform { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 24px; padding-top: 24px; }
+  .download-platforms { grid-template-columns: 1fr; gap: 16px; margin-top: 36px; }
+  .download-platform { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 24px; padding: 20px; }
   .download-platform h2 { font-size: 22px; gap: 10px; }
   .download-platform h2 img { width: 22px; height: 22px; }
   .download-platform-heading > p { font-size: 13px; margin-top: 10px; }
@@ -37,11 +41,13 @@
   .download-footer { flex-wrap: wrap; gap: 16px; padding-bottom: 20px; }
   .download-github-name { display: none; }
   .download-footer nav { gap: 16px; }
+  .download-page .landscape { opacity: .32; }
 }
 @media (max-width: 360px) {
   .download-intro h1 { font-size: 36px; }
-  .download-platform { gap: 16px; }
-  .download-platform h2 { font-size: 20px; gap: 8px; }
+  .download-platform { gap: 16px; padding: 16px; }
+  .download-platform h2 { font-size: 18px; gap: 8px; }
+  .download-platform h2 img { width: 20px; height: 20px; }
   .download-build { font-size: 12px; padding-inline: 12px; white-space: normal; }
   .download-builds .landing-button > svg { display: block; }
 }

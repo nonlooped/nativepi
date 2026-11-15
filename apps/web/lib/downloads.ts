@@ -15,6 +15,6 @@ export const platformNames: Record<DesktopPlatform, string> = { mac: "macOS", wi
 
 export const platformDownloads: Record<DesktopPlatform, { target: DownloadTarget; label: string }[]> = {
   mac: [{ target: "mac-arm64", label: "Apple Silicon" }, { target: "mac-x64", label: "Intel" }],
-  windows: [{ target: "windows-x64", label: "Windows x64" }],
+  windows: [{ target: "windows-x64", label: "x64" }],
   linux: [{ target: "linux-x64", label: "x64" }, { target: "linux-arm64", label: "ARM64" }],
 };

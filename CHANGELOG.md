@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Changed
+- Bring the living dithered landscape to the download page, with translucent OS panels and clearer platform marks.
 - Remove the old website documentation and download UI, and add a minimal download page covering Windows, macOS, and Linux with all supported architectures.
 - Remove the landscape and analytics links from the landing page footer.
 - Give the website's phone preview an iPhone-style frame, Dynamic Island, status bar, side buttons, and home indicator.
@@ -40,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace the top-left wordmark with back/forward chat navigation and move NativePi branding into the new-chat view.
 
 ### Fixed
+- Restore interactive website previews over the local network, keep the landscape visible when JavaScript or WebGL cannot start, and fix WebGL1 texture setup.
 - Fix source-control hooks failing to find shell-installed tools such as Bun when launched from the desktop, and retain hook failure diagnostics in Git errors.
 - Fix QR-code Local Access and public links failing to load the app when the server code is bundled into a subfolder, and keep remote startup progress visible while preparing the link.
 - Keep the update download spinner in its icon slot instead of overlapping the toast text and progress bar.

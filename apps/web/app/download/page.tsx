@@ -4,6 +4,7 @@ import { ArrowDownIcon } from "@phosphor-icons/react/dist/ssr";
 
 import { AppleMark, GitHubMark, LinuxMark, WindowsMark } from "@/components/site/Marks";
 import { Wordmark } from "@/components/site/Wordmark";
+import { Landscape } from "@/components/landing/Landscape";
 import { type DesktopPlatform, platformDownloads, platformNames } from "@/lib/downloads";
 import { site } from "@/lib/site";
 
@@ -26,6 +27,7 @@ const platforms: { id: DesktopPlatform; format: string; Mark: typeof AppleMark }
 export default function DownloadPage() {
   return (
     <div className="landing download-page">
+      <Landscape />
       <div className="landing-rail download-layout">
         <header className="landing-header">
           <Link href="/" aria-label="NativePi home"><Wordmark className="landing-logo" /></Link>

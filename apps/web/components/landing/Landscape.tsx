@@ -2,6 +2,7 @@
 
 import { PauseIcon, PlayIcon } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
+import { prepareLandscapeTexture } from "@/lib/landscapeTexture";
 
 const vertex = `
   attribute vec2 uv;
@@ -25,7 +26,7 @@ const fragment = `
   // Recursive Bayer thresholds keep the ordered grid fixed as density changes.
   float bayer2(vec2 p) {
     p = mod(floor(p), 2.0);
-    return mod(2.0 * p.x + 3.0 * p.y, 4.0);
+    return mod(3.0 * p.x + 2.0 * p.y, 4.0);
   }
   float threshold(vec2 p) {
     return (16.0 * bayer2(p) + 4.0 * bayer2(p / 2.0) + bayer2(p / 4.0) + 0.5) / 64.0;
@@ -37,8 +38,9 @@ const fragment = `
     vec2 uv = point / uSize;
     float ratio = uSize.x / uSize.y;
     vec2 cover = vec2(min(1.0, ratio / 1.5), min(1.0, 1.5 / ratio));
-    vec2 imageUv = (uv - 0.5) * cover + 0.5;
-    // Drift is under three source pixels, over tens of seconds. The dot grid stays still.
+    // Match the still plate's center/bottom crop, so the terrain does not jump on handoff.
+    vec2 imageUv = vec2((uv.x - 0.5) * cover.x + 0.5, uv.y * cover.y);
+    // Drift is under four source pixels, over tens of seconds. The dot grid stays still.
     imageUv += vec2(sin(uDriftTime * 0.09), sin(uDriftTime * 0.07)) * 0.002;
     float luminance = dot(texture2D(uImage, imageUv).rgb, vec3(0.2126, 0.7152, 0.0722));
     float density = clamp((1.0 - luminance) * 0.8 - 0.04, 0.0, 0.8);
@@ -87,6 +89,7 @@ export function Landscape() {
       const canvas = gl.canvas;
       host.appendChild(canvas);
       const texture = new Texture(gl, { generateMipmaps: false, minFilter: gl.LINEAR, magFilter: gl.LINEAR });
+      prepareLandscapeTexture(texture, renderer.isWebgl2);
       const geometry = new Triangle(gl);
       // OGL recognizes flat JS arrays as array uniforms (typed arrays are walked as structs).
       const waves = Array<number>(24).fill(0);
@@ -107,6 +110,13 @@ export function Landscape() {
       let lastPaint = -100;
       let lastTick = 0;
       let bounds = host.getBoundingClientRect();
+      const fallback = () => {
+        cancelAnimationFrame(frame);
+        frame = 0;
+        loaded = false;
+        delete host.dataset.ready;
+        host.dataset.fallback = "true";
+      };
       // A cached image can decode before ResizeObserver delivers its first entry.
       // Size the drawing buffer and uniforms before any frame can become visible.
       renderer.setSize(Math.round(bounds.width), Math.round(bounds.height));
@@ -123,7 +133,20 @@ export function Landscape() {
         } else lastTick = 0;
         lastPaint = now;
         program.uniforms.uTime.value = now / 1000;
-        renderer.render({ scene: mesh });
+        try {
+          renderer.render({ scene: mesh });
+          if (!host.dataset.ready) {
+            if (!gl.getProgramParameter(program.program, gl.LINK_STATUS) || gl.getError() !== gl.NO_ERROR) {
+              fallback();
+              return;
+            }
+            // A decoded image is not proof of a painted frame (the tab may be hidden).
+            host.dataset.ready = "true";
+            delete host.dataset.fallback;
+          }
+        } catch {
+          fallback();
+        }
       };
       const requestDraw = () => { if (!frame) frame = requestAnimationFrame(draw); };
       const settle = () => {
@@ -161,7 +184,7 @@ export function Landscape() {
         if (pointer.matches && event.pointerType === "mouse") impulse(event, 0.65);
       };
       const click = (event: MouseEvent) => {
-        if (event.target instanceof Element && event.target.closest("a, button, input, textarea, select, h1, p, img, svg, .devices, .platform-marks, .site-notes")) return;
+        if (event.target instanceof Element && event.target.closest("a, button, input, textarea, select, h1, h2, h3, p, img, svg, .devices, .platform-marks, .site-notes")) return;
         impulse(event, 2.2);
       };
       const contextLost = (event: Event) => {
@@ -181,9 +204,9 @@ export function Landscape() {
         if (disposed) return;
         texture.image = image;
         loaded = true;
-        draw(performance.now());
-        if (!gl.isContextLost()) host.dataset.ready = "true";
+        requestDraw();
       };
+      image.onerror = () => { if (!disposed) fallback(); };
       image.src = "/landscape/mist.webp";
       host.parentElement?.addEventListener("pointermove", move, { passive: true });
       host.parentElement?.addEventListener("click", click);
@@ -195,6 +218,7 @@ export function Landscape() {
       cleanup = () => {
         cancelAnimationFrame(frame);
         image.onload = null;
+        image.onerror = null;
         resize.disconnect();
         intersection.disconnect();
         host.parentElement?.removeEventListener("pointermove", move);
@@ -220,7 +244,6 @@ export function Landscape() {
   return <>
     <div ref={hostRef} className="landscape" aria-hidden="true">
       <div className="landscape-still" />
-      <noscript><div className="landscape-no-script" /></noscript>
     </div>
     <button
       type="button"

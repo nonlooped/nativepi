@@ -12,12 +12,26 @@ bun run --cwd apps/web dev
 
 The site runs on <http://localhost:3000>.
 
+For another device on the same network, use this machine's LAN address on port
+3000. The Next.js configuration allows dev requests from IPv4 addresses assigned
+to this host, so its interactive client also initializes through the LAN URL.
+No arbitrary external origins are allowed. After a network-address change,
+restart the dev server to refresh the allowed addresses.
+
+With the dev server running, check that connection using:
+
+```sh
+bun run --cwd apps/web test:lan
+```
+
+An explicit LAN URL can also be passed as the first argument.
+
 ## Checks
 
 ```sh
 bun run --cwd apps/web typecheck
 bun run --cwd apps/web lint
-bun test apps/web/lib/downloads.test.ts
+bun test apps/web/lib/downloads.test.ts apps/web/lib/landscapeTexture.test.ts
 bun run --cwd apps/web build
 ```
 
@@ -40,10 +54,11 @@ pages. Vercel Web Analytics is enabled.
   real desktop/phone captures, and OGL dithered landscape. The download button
   navigates directly to `/download` and adapts its label to the visitor's OS.
 - `app/landing.css`: the shared neutral palette, typography, controls, and
-  landing layout. Ambient landscape motion runs at up to 30fps, pauses offscreen
+  landing layout. Both pages use the living landscape. Ambient motion runs at up to 30fps, pauses offscreen
   or in hidden tabs, and respects reduced motion and the pause control.
-- `app/download/page.tsx` and `download.css`: the download page, listing Windows
-  x64, macOS Apple Silicon/Intel, and Linux x64/ARM64 with working HTML links.
+- `app/download/page.tsx` and `download.css`: the download page, with translucent
+  OS panels over the landscape and working HTML links for Windows x64,
+  macOS Apple Silicon/Intel, and Linux x64/ARM64.
 - `app/download/[target]/route.ts`: resolve a build to the latest Stable GitHub
   installer. Missing assets and upstream errors fall back to the release page.
   `lib/releases.ts` validates release data and exact download URLs.
@@ -54,8 +69,11 @@ pages. Vercel Web Analytics is enabled.
 - `public/landscape/` and `public/brand/`: landscape and real product/platform
   marks. Sources, licenses, and attribution are recorded in their credits files.
 
-The live landscape fades in after its first correctly sized frame. Its still
-fallback is used only without JavaScript or WebGL to avoid a startup pattern swap.
+The still landscape is visible from the first CSS paint, including when
+JavaScript loads slowly or fails. The live layer takes over only after a
+correctly sized, successful frame. Shader, texture, or context failures preserve
+the still image. `lib/landscapeTexture.ts` avoids an unsupported R-axis texture
+parameter in OGL's WebGL1 path; its focused test exercises the real OGL uploader.
 
 The previous website documentation and download UI have been removed. There is
 no docs route or redirect; unknown URLs use the normal 404 page. Project docs

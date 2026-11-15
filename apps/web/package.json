@@ -16,6 +16,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "test:lan": "bun scripts/check-lan.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
