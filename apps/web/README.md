@@ -1,7 +1,7 @@
 # NativePi web
 
-NativePi's marketing site and task-focused documentation, built with Next.js 16,
-React 19.3, and Tailwind CSS 4. Deployed to Vercel.
+NativePi's landing and download site, built with Next.js, React, and Tailwind
+CSS. Deployed to Vercel. The website has two pages: `/` and `/download`.
 
 ## Develop
 
@@ -12,66 +12,55 @@ bun run --cwd apps/web dev
 
 The site runs on <http://localhost:3000>.
 
-## Build
+## Checks
 
 ```sh
-bun run --cwd apps/web build
 bun run --cwd apps/web typecheck
 bun run --cwd apps/web lint
+bun test apps/web/lib/downloads.test.ts
+bun run --cwd apps/web build
 ```
 
-Builds use Turbopack, which resolves modules correctly against Bun's isolated
-install layout in this workspace.
+Builds use Turbopack, which resolves this workspace's Bun install layout.
+After removing routes, `bun node_modules/next/dist/bin/next typegen` from
+`apps/web` refreshes generated route types before a standalone typecheck.
 
 ## Deploying to Vercel
 
-Create the project against this repository and set **Root Directory** to
-`apps/web`, with **Include source files outside of the Root Directory** enabled
-so the Bun workspace resolves. `vercel.json` supplies the install and build
-commands; nothing else needs configuring.
+Set **Root Directory** to `apps/web`, with **Include source files outside of the
+Root Directory** enabled. `vercel.json` supplies install and build commands.
 
-`lib/site.ts` holds the canonical origin, metadata, and public release links.
-`robots.txt` and `sitemap.xml` use that origin. Vercel Web Analytics is enabled.
-Asset sources and attribution are recorded in the credits files under `public/`.
+`lib/site.ts` holds the canonical origin and public release links. `robots.txt`
+and `sitemap.xml` use that origin; the sitemap lists the landing and download
+pages. Vercel Web Analytics is enabled.
 
-## How it is put together
+## Structure
 
-- `app/` routes. The marketing page is `app/page.tsx`; docs live under
-  `app/docs`.
-- `components/landing/` the single-screen introduction, OGL dithered landscape,
-  desktop/phone captures, and Base UI download dialog. Simple motion uses CSS.
-  Ambient motion renders at up to 30fps and pauses offscreen, in hidden tabs,
-  with reduced motion, or through the visible pause control. Empty-space clicks
-  and pointer movement produce short ripples.
-- `app/landing.css` the landing page's neutral palette, type, and responsive layout.
-- `app/download/` a JavaScript-free download page and platform routes that resolve
-  Stable assets from GitHub Releases. Missing assets or upstream failures fall
-  back to the release page. `lib/releases.ts` validates the release and asset URLs.
-- `public/landscape/` the desktop app's Mist photograph and a still dither fallback;
-  see its credits file. The live plate fades in after its first correctly sized
-  frame; the still plate is used only without JavaScript or WebGL, avoiding a
-  pattern swap during startup.
-- `public/app/desktop.webp` and `phone.webp` are matching real captures from the
-  running desktop app and Local Access. Retake them together when the UI changes.
-- `public/brand/` contains platform marks; sources and attribution are in its credits file.
-- `components/docs/` read-mode typography and navigation.
-- `lib/site.ts` shared metadata, release/download URLs, and common external links.
-- `lib/docs.ts` documentation navigation and descriptions.
+- `app/page.tsx` and `components/landing/`: the single-screen introduction,
+  real desktop/phone captures, and OGL dithered landscape. The download button
+  navigates directly to `/download` and adapts its label to the visitor's OS.
+- `app/landing.css`: the shared neutral palette, typography, controls, and
+  landing layout. Ambient landscape motion runs at up to 30fps, pauses offscreen
+  or in hidden tabs, and respects reduced motion and the pause control.
+- `app/download/page.tsx` and `download.css`: the download page, listing Windows
+  x64, macOS Apple Silicon/Intel, and Linux x64/ARM64 with working HTML links.
+- `app/download/[target]/route.ts`: resolve a build to the latest Stable GitHub
+  installer. Missing assets and upstream errors fall back to the release page.
+  `lib/releases.ts` validates release data and exact download URLs.
+- `lib/downloads.ts`: supported targets, architecture labels, and desktop OS
+  identification. `lib/downloads.test.ts` checks selection and failure paths.
+- `public/app/desktop.webp` and `phone.webp`: matching captures of the running
+  app and Local Access. Retake them together when the interface changes.
+- `public/landscape/` and `public/brand/`: landscape and real product/platform
+  marks. Sources, licenses, and attribution are recorded in their credits files.
 
-`PRODUCT.md` records product boundaries.
-Check workflow claims against the desktop implementation and keep the docs in
-sync with its actual controls. Desktop release automation is described in
-[`docs/release.md`](../../docs/release.md).
+The live landscape fades in after its first correctly sized frame. Its still
+fallback is used only without JavaScript or WebGL to avoid a startup pattern swap.
 
-## Assets
+The previous website documentation and download UI have been removed. There is
+no docs route or redirect; unknown URLs use the normal 404 page. Project docs
+remain in the repository. `PRODUCT.md` records the site's scope and boundaries.
+Desktop release operations are described in [`docs/release.md`](../../docs/release.md).
 
-Provider marks in `public/providers` are official SVGs copied unmodified from
-`@lobehub/icons-static-svg`. `lib/providerMarks.ts` is generated from them:
-
-```sh
-bun run marks
-```
-
-The Pi mark comes from <https://pi.dev/logo-auto.svg>. Departure Mono is by
-Helena Zhang under the SIL Open Font License; its license travels with the font
-in `public/fonts`.
+Departure Mono is by Helena Zhang under the SIL Open Font License; its license
+travels with the font in `public/fonts`. The Pi mark comes from <https://pi.dev/logo-auto.svg>.

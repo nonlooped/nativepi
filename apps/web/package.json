@@ -2,7 +2,7 @@
   "name": "@nativepi/web",
   "private": true,
   "version": "0.1.0",
-  "description": "Marketing and documentation site for NativePi, a cross-platform desktop interface for the Pi coding agent.",
+  "description": "Landing and download site for NativePi, a cross-platform desktop workspace for the Pi coding agent.",
   "author": "nonlooped",
   "keywords": [
     "nativepi",
@@ -17,13 +17,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "marks": "bun run scripts/generate-marks.mjs",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "bun node_modules/@typescript/native/bin/tsc --noEmit"
   },
   "dependencies": {
-    "@base-ui/react": "^1.9.0",
     "@phosphor-icons/react": "^2.1.10",
     "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.1",
@@ -31,7 +29,6 @@
     "ogl": "^1.0.11",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "shiki": "^4.6.0",
     "tailwind-merge": "^3.7.0",
     "zod": "^4.6.7"
   },

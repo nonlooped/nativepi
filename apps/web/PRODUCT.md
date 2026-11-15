@@ -1,202 +1,88 @@
 # Product
 
-## Platform
+## Purpose
 
-web
+NativePi's website helps people understand the desktop app, download it, or
+support its development on GitHub. It serves existing Pi users and developers
+who prefer a graphical agent workspace. NativePi is free and MIT licensed;
+model-provider access is supplied by the user.
 
-## Users
+## Pages
 
-The site serves people evaluating NativePi before they install anything:
+The website has two content pages:
 
-- Existing Pi users deciding whether a desktop interface is worth adding to a
-  workflow that already works in the terminal. Their real question is what they
-  lose by adopting it, not what they gain.
-- Developers who want a graphical coding agent and do not want terminal fluency
-  to be the price of entry. Their question is whether this is a serious tool.
-- Extension authors evaluating whether the graphical extension API is stable and
-  expressive enough to build against.
+- `/`: a single-screen landing page with a platform-aware download action,
+  GitHub support, and authentic desktop and phone browser captures.
+- `/download`: a minimal download page listing every supported operating system
+  and architecture, installer formats, installation help, and release links.
 
-All three arrive from GitHub, a link, or search, on desktop or mobile browsers.
-They are skeptical by default and have seen many agent wrappers.
+Do not add documentation, About, privacy, feature-tour, or other content pages
+unless requested. Deleted `/docs` routes return 404 rather than redirecting.
+The installer redirect handlers under `/download/[target]`, metadata endpoints,
+and normal 404 handling are infrastructure, not additional content pages.
+Project documentation remains in the GitHub repository.
 
-## Product Purpose
+## Downloads
 
-The site exists to make NativePi legible and credible in under a minute, and to
-help the visitor download it or inspect the source. It is the public face of a free,
-MIT-licensed desktop interface for the Pi coding agent on Windows, macOS, and
-Linux.
+- Windows x64: `.exe` installer.
+- macOS Apple Silicon and Intel: `.dmg` disk images.
+- Linux x64 and ARM64: AppImages.
+- Stable is the default. Nightly builds and release notes link to GitHub Releases.
+- Resolve the latest stable installer through GitHub's releases API. Validate
+  the release shape and require an exact repository, tag, and asset URL match.
+  Missing builds, rate limits, or network failures fall back to the release page.
+- Installers are unsigned and macOS builds are not notarized. Explain expected
+  first-launch warnings briefly and link to the repository's installation help.
+- Pi is included; a separate Pi installation or NativePi account is not required.
 
-Success means a visitor can state what NativePi is, why its relationship to Pi
-is different from other agent frontends, and what it costs them to try, then
-acts on that by downloading the app. The repository remains the secondary path
-for visitors who want to inspect the source first.
+The landing page's download action opens `/download` directly. All installer
+choices and release links must work without JavaScript.
 
-## Positioning
+## Brand and design
 
-NativePi is a desktop coding-agent interface built on Pi. Pi supplies the agent
-runtime, providers, authentication, configuration, tool execution, and sessions.
-NativePi adds built-in tools, instructions, and graphical workflows through Pi
-APIs, including Chat mode, web access, and inline HTML artifacts.
+- Dark-only website, using NativePi's neutral surfaces, restrained borders,
+  Geist typography, and Departure Mono wordmark. Departure Mono is reserved
+  for the wordmark and is licensed under the SIL Open Font License.
+- Direct, calm prose. No invented testimonials, usage figures, download counts,
+  partnerships, performance claims, or provider-cost promises.
+- Keep the landing page to one viewport, with real desktop and phone browser
+  captures and an iPhone-style frame. Do not fabricate the app interface.
+- The app's dithered landscape supplies the landing page's visual identity.
+  Ambient motion is subtle and pausable; reduced motion keeps it static.
+  Pointer movement and empty-space clicks can produce short ripples.
+- The download page is task-focused: simple OS groups and explicit architecture
+  choices, with no feature grids, sales sections, or download modal.
+- Use real platform and project marks to identify compatibility and provenance.
+  They never imply endorsement. Asset sources and attribution live in the
+  credits files under `public/`.
+- Preserve keyboard operation, visible focus, readable contrast, and responsive
+  content. The download page may grow vertically on narrow screens.
 
-The claim a neighboring product cannot truthfully copy: nothing is locked in.
-Sessions and credentials stay in Pi's normal storage in `~/.pi/agent` and remain
-fully interchangeable with the Pi CLI. There is no second conversation store, no
-product account, no cloud sync of your sessions, and no NativePi-owned desktop
-telemetry. The website uses Vercel Web Analytics. Uninstalling NativePi leaves
-the Pi workflow exactly as it was.
+## Product boundaries
 
-The second differentiator is that NativePi extends Pi's extension API into a
-graphical one, so the app itself is hackable by the same people who already
-shape Pi.
+NativePi is a Windows, macOS, and Linux desktop workspace for the Pi coding
+agent. Pi supplies model execution, provider authentication, configuration,
+extensions, and sessions. NativePi adds graphical workflows and built-in tools
+through Pi APIs, and preserves third-party Pi extension support.
 
-## Operating Context
+Pi sessions remain authoritative and compatible with the Pi CLI. The app does
+not require product accounts, a separate conversation store, or NativePi-owned
+cloud session storage. Local workspace storage does not imply that model or web
+requests stay offline. Optional phone/browser access uses the running desktop
+app; this website does not host workspaces or agent sessions.
 
-- The visitor is on the web, evaluating. The product itself is an Electron
-  desktop application on Windows, macOS, and Linux; the site never pretends
-  otherwise.
-- Distribution is GitHub Releases. Installers are currently unsigned and, on
-  macOS, not notarized, so Windows SmartScreen and macOS Gatekeeper warn on
-  first launch. The site states this plainly rather than letting the visitor
-  discover it after downloading.
-- Stable releases are published automatically from the Unreleased changelog.
-  Nightly prereleases track eligible changes on main. Users can choose the
-  Stable or Nightly update channel in the packaged app's System settings.
-- NativePi bundles a pinned Pi version, so a separate Pi installation is not
-  required, and existing Pi credentials, configuration, and sessions are reused.
-- The graphical extension API is published as `@nativepi/extension-api` at
-  contract version 1 (`apiVersion: 1`). NativePi rejects an incompatible bundle
-  at load time, and current slots include full conversation-area views.
+The website uses Vercel Web Analytics. Desktop telemetry and website analytics
+are distinct. Check product claims against `apps/desktop/PRODUCT.md`, the root
+README, and the implemented desktop behavior.
 
-## Capabilities and Constraints
+## Implementation and evidence
 
-Site scope:
-
-- Marketing surface (Persuade) plus a task-focused documentation surface (Read).
-- The landing page emphasizes the app's visual identity: its wordmark, neutral
-  surfaces, and an interactive dithered landscape. Keep it to one viewport,
-  pairing real desktop and phone browser captures rather than feature grids.
-  Ambient motion is subtle, pausable, and disabled with reduced motion.
-- The primary action is a platform-aware Stable download; GitHub support is
-  secondary. Offer explicit architecture choices, a JavaScript-free download
-  page, and a release-page fallback when GitHub's API is unavailable.
-- Documentation covers installation and core desktop workflows, then provides
-  separate graphical extension guides, examples, contribution guides, migration
-  help, and API reference.
-- Deployed on Vercel from this monorepo at `apps/web`.
-- The marketing site remains dark-only. The desktop app supports light, dark,
-  and system appearances, ten built-in color schemes, and user-created schemes.
-
-Product facts the site may state, all sourced from the desktop PRODUCT.md and
-README:
-
-- Projects, chat discovery, a live project file explorer, and opening folders
-  or files in installed editors.
-- Session workflows: new, resume, rename, clone, fork, delete, import, HTML
-  export, session tree, statistics, compaction.
-- Streamed text, thinking, tool activity, file-change summaries, rich diffs,
-  retries, steering, follow-ups, queues, and abort.
-- Image attachments by paste, drag and drop, or file picker; file and folder
-  mentions in the composer; and rich Markdown in user and assistant messages.
-- Sanitized Mermaid diagrams, math, and inline images inside the project;
-  remote image URLs and outside-project image paths are not loaded.
-- Pi-backed model and thinking-level selection, favorite models, provider
-  authentication, project trust.
-- Source control with staged and unstaged groups, file or hunk staging, confirmed
-  reversion of unstaged tracked-file changes, inline
-  commits, Pi-drafted Conventional Commit wording, push or fast-forward sync, a
-  local and remote commit graph, clean-worktree branch switching or creation,
-  worktrees added as projects, and GitHub pull requests opened through `gh`.
-  GitHub and GitLab review context is read through the user's authenticated
-  `gh` or `glab` installation.
-- Pi package install, update, removal, reload, and load-error display at user or
-  project scope.
-- Pi slash commands, prompt templates, skills, and extension autocomplete in the
-  composer, including while a turn is running.
-- Normal Pi terminal extension UI in the desktop window, plus optional graphical
-  tool, entry, composer, conversation-view, settings, and context contributions.
-- Project-scoped integrated terminals with selectable shells and resizable
-  splits that survive being hidden or switching projects.
-- Local cost and token usage dashboards read from Pi sessions.
-- Interactive HTML artifacts that follow the selected theme and remain in the conversation.
-- Settings for appearance, notifications, Pi options, rebindable shortcuts, ten
-  built-in color schemes, and editable custom schemes with JSON import/export.
-- On-demand, access-token-protected browser access to projects, chats, changes,
-  and terminals on the local network or through a temporary public Cloudflare
-  link, with connection accounting and token replacement or revocation.
-- Stable and Nightly updates from published GitHub releases on Windows and Linux, downloaded
-  automatically and installed when the app quits, with an explicit restart
-  action when the user wants to install sooner.
-- macOS receives Stable and Nightly DMG/ZIP builds; unsigned builds link to manual
-  downloads because automatic installation requires Developer ID signing.
-
-Boundaries the site must not blur:
-
-- Windows, macOS, and Linux; single window. The app supports light, dark, and
-  system appearances while the website remains dark-only.
-- Pi owns the agent loop and model execution. NativePi adds built-in tools and
-  instructions through Pi APIs; it does not support other agent harnesses.
-- Git mutation is narrow: branch checkout and creation on a clean worktree,
-  worktrees, hunk or file staging, confirmed reversion of an unstaged tracked
-  file from the index, commits, push, and opening a GitHub pull request through
-  `gh`. No merging, rebasing, checkpointing, or history rewriting.
-- No cloud sync of sessions, collaboration, remote projects, product accounts,
-  paid tiers, or NativePi-owned desktop telemetry. Pi's optional analytics
-  remain Pi configuration, and the marketing site uses Vercel Web Analytics.
-  Optional browser access is started by the user and
-  is not a NativePi hosting service.
-
-## Brand Commitments
-
-- The product name is NativePi. Pi is named accurately as the agent that owns
-  and performs agent work.
-- The Departure Mono wordmark is the identity anchor and stays. The existing
-  asset is `docs/assets/nativepi-wordmark.svg`. Departure Mono is by Helena
-  Zhang under the SIL Open Font License.
-- Voice is direct and calm. It does not assume Pi or terminal expertise, and it
-  does not oversell. No emoji. No em dashes in prose.
-- Third-party marks appear only for things NativePi genuinely uses or supports:
-  model providers Pi can authenticate, the Windows, macOS, and Linux platforms,
-  GitHub, and Pi itself. They indicate compatibility, never endorsement or
-  partnership.
-
-## Evidence on Hand
-
-- `docs/assets/nativepi-home.png`: a Work conversation about the project's tech
-  stack, also used in `public/app/window.png`.
-- `docs/assets/nativepi-chat.png`: a Chat conversation with an interactive HTML
-  artifact.
-- `docs/assets/nativepi-settings.png`: the current appearance settings.
-- `docs/assets/nativepi-wordmark.svg`: the wordmark.
-- `apps/desktop/src/`: the source of truth for implemented behavior.
-- `packages/extension-api/src/index.ts`, `protocol.ts`, `host.ts`, and `ui.ts`:
-  the graphical extension contract, channel, host methods, and shared controls.
-- The repository is `github.com/nonlooped/nativepi`, MIT licensed.
-
-No testimonials, customer logos, download counts, star counts, usage
-benchmarks, pricing, press coverage, or commercial proof assets exist. The site
-must not fabricate any of them. The device views on the marketing page are real
-captures of the desktop app and its Local Access phone layout. Do not fabricate
-product UI.
-
-## Product Principles
-
-1. Credibility comes from demonstration, not adjectives. Show the interface
-   doing the work rather than describing how good it is.
-2. State the costs where a visitor would otherwise find them later: unsigned
-   installers, experimental extension API.
-3. Pi is the product core. Never imply NativePi replaces, competes with, or
-   reimplements it.
-4. Respect the visitor's autonomy the way the product respects their machine:
-   no dark patterns, no manufactured urgency, no gated content.
-5. The site's own behavior should model the product's claims: fast, no account,
-   no cloud session storage, and only the disclosed Vercel Web Analytics.
-
-## Accessibility & Inclusion
-
-- Keyboard operable throughout, with visible focus treatment.
-- `prefers-reduced-motion: reduce` must neutralize ambient animation, leaving
-  all content readable and all meaning intact.
-- The ambient background is decorative. Every page remains complete and
-  legible with backgrounds, motion, and JavaScript disabled.
-- Text contrast meets WCAG AA against the dark ground. Copy does not require
-  prior familiarity with Pi's terminal interface.
+- Next.js, React, and Tailwind; Bun is the package manager.
+- OGL enhances the landing page landscape. Zod validates GitHub release data.
+- `public/app/desktop.webp` and `phone.webp` are actual captures of the same
+  conversation in NativePi and its Local Access phone layout.
+- `public/brand/` contains the real Apple, Windows, Linux, and Pi marks.
+- `public/landscape/` contains the desktop app's Mist photograph and a no-script
+  or no-WebGL still fallback. See its credits file.
+- The repository is `https://github.com/nonlooped/nativepi`.
+- The website is deployed to Vercel from `apps/web`.

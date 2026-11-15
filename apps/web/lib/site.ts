@@ -1,5 +1,5 @@
 /**
- * Shared site metadata, release links, and provider data. Every claim here must
+ * Shared site metadata and release links. Every claim here must
  * be backed by PRODUCT.md, the README, or source: no download counts, star
  * counts, or benchmarks.
  */
@@ -22,23 +22,3 @@ export const site = {
   pi: "https://pi.dev/",
   author: "nonlooped",
 } as const;
-
-/** Providers Pi can authenticate. Marks are official and unmodified. */
-export const providers = [
-  { file: "anthropic.svg", name: "Anthropic", mono: true },
-  { file: "openai.svg", name: "OpenAI", mono: true },
-  { file: "gemini-color.svg", name: "Google Gemini", mono: false },
-  { file: "xai.svg", name: "xAI", mono: true },
-  { file: "mistral-color.svg", name: "Mistral", mono: false },
-  { file: "deepseek-color.svg", name: "DeepSeek", mono: false },
-  { file: "qwen-color.svg", name: "Qwen", mono: false },
-  { file: "moonshot.svg", name: "Moonshot", mono: true },
-  { file: "zhipu-color.svg", name: "Zhipu", mono: false },
-  { file: "minimax-color.svg", name: "MiniMax", mono: false },
-  { file: "groq.svg", name: "Groq", mono: true },
-  { file: "githubcopilot.svg", name: "GitHub Copilot", mono: true },
-  { file: "openrouter-color.svg", name: "OpenRouter", mono: false },
-  { file: "bedrock-color.svg", name: "Amazon Bedrock", mono: false },
-  { file: "vertexai-color.svg", name: "Google Vertex AI", mono: false },
-  { file: "ollama.svg", name: "Ollama", mono: true },
-] as const;
