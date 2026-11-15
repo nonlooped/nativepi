@@ -513,7 +513,9 @@ function failure(res: {
   stdout: string;
   stderr: string;
 }): string {
-  return (res.stderr.trim() || res.stdout.trim() || "git failed").split("\n").slice(0, 4).join("\n");
+  // Hooks can print pages of setup output before the actual failure. Keep the
+  // diagnostic tail, including stdout-only hook failures, within a bounded size.
+  return [res.stdout.trim(), res.stderr.trim()].filter(Boolean).join("\n").slice(-12000) || "git failed";
 }
 function samePath(a: string, b: string): boolean {
   return path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();

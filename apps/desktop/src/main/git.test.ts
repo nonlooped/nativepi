@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -404,4 +404,22 @@ test("refusing the durable worktree intent creates no checkout or branch", async
   await expect(gitAddWorktree(dir, "cancelled-before-create", true, undefined, async prepared => { target = prepared.path; throw new Error("stopped"); })).rejects.toThrow("stopped");
   expect(existsSync(target)).toBe(false);
   expect((await gitBranches(dir)).some(branch => branch.name === "cancelled-before-create")).toBe(false);
+});
+
+test("push errors retain hook diagnostics after startup output", async () => {
+  const dir = await repo();
+  const remote = await mkdtemp(path.join(tmpdir(), "nativepi-hook-remote-"));
+  try {
+    execFileSync("git", ["init", "--bare", remote], { stdio: "pipe" });
+    execFileSync("git", ["remote", "add", "origin", remote], { cwd: dir });
+    const hook = path.join(dir, ".git", "hooks", "pre-push");
+    await writeFile(hook, "#!/bin/sh\nprintf 'startup 1\\nstartup 2\\nstartup 3\\nstartup 4\\n' >&2\nprintf 'Required hook tool failed\\n' >&2\nexit 1\n");
+    await chmod(hook, 0o755);
+    const result = await gitPush(dir);
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("Required hook tool failed");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+    await rm(remote, { recursive: true, force: true });
+  }
 });
