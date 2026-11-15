@@ -14,13 +14,18 @@ execFileSync(`${app}/MacOS/nativepi`, ['--input-type=module', '-e', `
   import { dirname, join } from 'node:path';
   import { pathToFileURL } from 'node:url';
   const require = createRequire(pathToFileURL(process.argv[1] + '/Resources/app.asar/package.json'));
+  console.log('Packaged Electron started (' + process.arch + ')');
   assert.equal(process.arch, process.argv[2]);
   const unpacked = file => file.replace(/app\\.asar([/\\\\])/, 'app.asar.unpacked$1');
+  console.log('Loading Koffi');
   require('koffi');
+  console.log('Loading transcription library');
   const speech = await import(pathToFileURL(join(process.argv[1], 'Resources/app.asar.unpacked/node_modules/transcribe-cpp/dist/index.js')));
   assert.ok(speech.version());
+  console.log('Checking extension compiler');
   process.env.ESBUILD_BINARY_PATH = unpacked(require.resolve('@esbuild/darwin-' + process.arch + '/bin/esbuild'));
   assert.match(require('esbuild').transformSync('const x: number = 1', { loader: 'ts' }).code, /const x = 1/);
+  console.log('Checking computer-use binaries');
   const bin = join(dirname(unpacked(require.resolve('agent-desktop/package.json'))), 'bin');
   const helper = join(bin, 'agent-desktop-macos-helper-darwin-' + process.arch);
   accessSync(helper, constants.X_OK);
@@ -30,6 +35,7 @@ execFileSync(`${app}/MacOS/nativepi`, ['--input-type=module', '-e', `
   execFileSync(desktop, ['--version'], {
     env: { ...process.env, AGENT_DESKTOP_MACOS_HELPER_PATH: helper }, timeout: 15000,
   });
+  console.log('Checking terminal spawn');
   const pty = require('node-pty').spawn(process.execPath, ['-e', 'console.log("nativepi-pty-ok")'], {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
   });
@@ -42,4 +48,5 @@ execFileSync(`${app}/MacOS/nativepi`, ['--input-type=module', '-e', `
     assert.match(output, /nativepi-pty-ok/);
     console.log('Packaged native dependencies passed (' + process.arch + ')');
   });
-`, app, arch], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: 'inherit', timeout: 60000 });
+`, app, arch], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: 'inherit', // Allow a cold Rosetta launch time to initialize; progress above identifies stalled checks.
+  timeout: 180000 });
