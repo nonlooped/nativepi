@@ -23,14 +23,17 @@
     "typecheck": "bun node_modules/@typescript/native/bin/tsc --noEmit"
   },
   "dependencies": {
+    "@base-ui/react": "^1.9.0",
     "@phosphor-icons/react": "^2.1.10",
     "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.1",
     "next": "^16.4.6",
+    "ogl": "^1.0.11",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "shiki": "^4.6.0",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@fontsource-variable/geist": "^5.3.0",

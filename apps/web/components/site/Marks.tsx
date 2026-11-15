@@ -1,4 +1,4 @@
-import { AppleLogoIcon, LinuxLogoIcon } from "@phosphor-icons/react/dist/ssr";
+import Image from "next/image";
 
 import { cn } from "@/lib/cn";
 
@@ -23,30 +23,18 @@ export function GitHubMark({ className }: { className?: string }) {
 
 /** The Windows logo. NativePi runs on Windows, macOS, and Linux. */
 export function WindowsMark({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 88 88"
-      fill="currentColor"
-      aria-hidden="true"
-      className={cn("h-4 w-4", className)}
-    >
-      <path d="M0 12.402l35.687-4.86.016 34.423-35.67.203zm35.67 33.529l.028 34.453L.028 75.48.026 45.7zm4.326-39.025L87.314 0v41.527l-47.318.376zm47.329 39.349l-.011 41.34-47.318-6.678-.066-34.739z" />
-    </svg>
-  );
+  return <Image src="/brand/windows.svg" alt="" aria-hidden="true" width={18} height={18} className={cn("h-4 w-4", className)} />;
 }
 
 /**
- * Apple and Linux, alongside the hand-drawn Windows mark above, are Phosphor's
- * own logo glyphs rather than raw brand SVGs: a stylized outline rather than
- * exact brand geometry, chosen to avoid hand-transcribing brand paths from
- * memory. Same purpose either way — stating what NativePi runs on.
+ * Real platform marks, with source and license details in public/brand/CREDITS.md.
  */
 export function AppleMark({ className }: { className?: string }) {
-  return <AppleLogoIcon weight="fill" aria-hidden="true" className={cn("h-4 w-4", className)} />;
+  return <Image src="/brand/apple.svg" alt="" aria-hidden="true" width={18} height={18} className={cn("h-4 w-4", className)} />;
 }
 
 export function LinuxMark({ className }: { className?: string }) {
-  return <LinuxLogoIcon weight="fill" aria-hidden="true" className={cn("h-4 w-4", className)} />;
+  return <Image src="/brand/linux.svg" alt="" aria-hidden="true" width={18} height={18} className={cn("h-4 w-4", className)} />;
 }
 
 /**

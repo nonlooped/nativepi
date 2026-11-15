@@ -3,7 +3,7 @@
 
 @theme {
   --color-void: oklch(0.115 0.004 285);
-  --color-ink: oklch(0.155 0.004 285);
+  --color-ink: #141414;
   --color-sidebar: oklch(0.18 0.005 285.885);
   --color-raised: oklch(0.19 0.005 285);
   --color-popover: oklch(0.21 0.006 285.885);

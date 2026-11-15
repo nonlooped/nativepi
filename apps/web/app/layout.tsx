@@ -8,10 +8,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
   title: {
-    default: `${site.name} | Under construction`,
+    default: `${site.name} | ${site.tagline}`,
     template: `%s | ${site.name}`,
   },
-  description: "The NativePi website is being updated. Follow development on GitHub while fresh content and screenshots are on the way.",
+  description: site.description,
   applicationName: site.name,
   authors: [{ name: site.author, url: site.repo }],
   creator: site.author,
@@ -34,20 +34,22 @@ export const metadata: Metadata = {
     type: "website",
     url: site.url,
     siteName: site.name,
-    title: `${site.name} | Under construction`,
-    description: "The NativePi website is being updated. Follow development on GitHub while fresh content and screenshots are on the way.",
+    title: `${site.name} | ${site.tagline}`,
+    description: site.description,
+    images: [{ url: "/share.png", width: 1200, height: 630, alt: "NativePi. Pi, on your desktop." }],
   },
   twitter: {
-    card: "summary",
-    title: `${site.name} | Under construction`,
-    description: "The NativePi website is being updated. Follow development on GitHub while fresh content and screenshots are on the way.",
+    card: "summary_large_image",
+    title: `${site.name} | ${site.tagline}`,
+    description: site.description,
+    images: ["/share.png"],
   },
   robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
   colorScheme: "dark",
-  themeColor: "#151517",
+  themeColor: "#141414",
 };
 
 export default function RootLayout({

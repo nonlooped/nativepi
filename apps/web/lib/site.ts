@@ -8,7 +8,7 @@ const latestRelease = "https://github.com/nonlooped/nativepi/releases/latest";
 
 export const site = {
   name: "NativePi",
-  tagline: "Keep Pi. Add a window.",
+  tagline: "Pi, on your desktop.",
   description:
     "A free, open-source desktop interface for the Pi coding agent on Windows, macOS, and Linux. Your Pi sessions, credentials, and configuration stay where they are.",
   url: "https://nativepi.nonlooped.xyz",

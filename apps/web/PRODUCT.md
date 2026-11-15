@@ -72,6 +72,13 @@ shape Pi.
 Site scope:
 
 - Marketing surface (Persuade) plus a task-focused documentation surface (Read).
+- The landing page emphasizes the app's visual identity: its wordmark, neutral
+  surfaces, and an interactive dithered landscape. Keep it to one viewport,
+  pairing real desktop and phone browser captures rather than feature grids.
+  Ambient motion is subtle, pausable, and disabled with reduced motion.
+- The primary action is a platform-aware Stable download; GitHub support is
+  secondary. Offer explicit architecture choices, a JavaScript-free download
+  page, and a release-page fallback when GitHub's API is unavailable.
 - Documentation covers installation and core desktop workflows, then provides
   separate graphical extension guides, examples, contribution guides, migration
   help, and API reference.
@@ -126,8 +133,8 @@ Boundaries the site must not blur:
 
 - Windows, macOS, and Linux; single window. The app supports light, dark, and
   system appearances while the website remains dark-only.
-- No agent loop of its own, no LLM requests of its own, no added agent tools,
-  no support for other harnesses.
+- Pi owns the agent loop and model execution. NativePi adds built-in tools and
+  instructions through Pi APIs; it does not support other agent harnesses.
 - Git mutation is narrow: branch checkout and creation on a clean worktree,
   worktrees, hunk or file staging, confirmed reversion of an unstaged tracked
   file from the index, commits, push, and opening a GitHub pull request through
@@ -167,8 +174,9 @@ Boundaries the site must not blur:
 
 No testimonials, customer logos, download counts, star counts, usage
 benchmarks, pricing, press coverage, or commercial proof assets exist. The site
-must not fabricate any of them. The window on the marketing page is a screenshot
-of the running app, and it is the only depiction of the product the site makes.
+must not fabricate any of them. The device views on the marketing page are real
+captures of the desktop app and its Local Access phone layout. Do not fabricate
+product UI.
 
 ## Product Principles
 

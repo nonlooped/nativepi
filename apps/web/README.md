@@ -38,12 +38,22 @@ and disclosed in the site footer.
 
 - `app/` routes. The marketing page is `app/page.tsx`; docs live under
   `app/docs`.
-- `components/stage/` the hero and the aligned application screenshot with a
-  full-size image link.
-- `components/app/` the NativePi window, which is a screenshot of the running
-  app in `public/app/window.png`. Retake it when the interface changes.
-- `components/sections/` workflow details, the shared-storage diagram, extension
-  links, and download calls to action. Workflow details work without JavaScript.
+- `components/landing/` the single-screen introduction, OGL dithered landscape,
+  desktop/phone captures, and Base UI download dialog. Simple motion uses CSS.
+  Ambient motion renders at up to 30fps and pauses offscreen, in hidden tabs,
+  with reduced motion, or through the visible pause control. Empty-space clicks
+  and pointer movement produce short ripples.
+- `app/landing.css` the landing page's neutral palette, type, and responsive layout.
+- `app/download/` a JavaScript-free download page and platform routes that resolve
+  Stable assets from GitHub Releases. Missing assets or upstream failures fall
+  back to the release page. `lib/releases.ts` validates the release and asset URLs.
+- `public/landscape/` the desktop app's Mist photograph and a still dither fallback;
+  see its credits file. The live plate fades in after its first correctly sized
+  frame; the still plate is used only without JavaScript or WebGL, avoiding a
+  pattern swap during startup.
+- `public/app/desktop.webp` and `phone.webp` are matching real captures from the
+  running desktop app and Local Access. Retake them together when the UI changes.
+- `public/brand/` contains platform marks; sources and attribution are in its credits file.
 - `components/docs/` read-mode typography and navigation.
 - `lib/site.ts` shared metadata, release/download URLs, and common external links.
 - `lib/docs.ts` documentation navigation and descriptions.

@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Changed
+- Replace the website's WIP page with a single-screen NativePi landing page, real desktop and phone views, official platform marks, a pausable living landscape with pointer/click ripples, platform-aware downloads, and GitHub support links.
 - Restore the pixel-style NativePi wordmark in the Windows and Linux sidebar header, with history and sidebar controls grouped on the right.
 - Increase both sidebar minimum widths to 280 px and keep source control actions clear of Windows and Linux window controls.
 - Publish eligible nightly releases immediately after CI passes, without a 30-minute cooldown.
