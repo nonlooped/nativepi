@@ -1,3 +1,5 @@
+import { useRequest } from "../lib/useRequest.ts";
+import { reviewSnapshotSchema } from "../../shared/review.ts";
 import StateNotice from "./StateNotice.tsx";
 import { DRAG_REGION, NO_DRAG_REGION, WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { createKeybindingsHandler } from "tinykeys";
@@ -53,6 +55,7 @@ export default function SourceControl({
   onReview?: () => void;
 }) {
   const keybindingOverrides = useAppStore(s => s.keybindingOverrides);
+  const revision = useAppStore(s => s.gitRevision);
   const gitLoading = useAppStore(s => s.gitLoading);
   const gitError = useAppStore(s => s.gitError);
   const refreshGit = useAppStore((s) => s.refreshGit);
@@ -62,6 +65,8 @@ export default function SourceControl({
   const setDraft = useAppStore(s => s.setSourceControlDraft);
   const setMessage = (message: string) => setDraft(projectDir, message);
   const review = useAppStore(s => s.sourceControlReview);
+  const findings = useRequest(async () => reviewSnapshotSchema.parse(await rpc.request.reviewList({ projectDir })), [projectDir, revision, review]);
+
   const setReview = useAppStore(s => s.setSourceControlReview);
   const selected = review?.projectDir === projectDir && !review.hash ? `${review.staged ? "staged" : "changed"}:${review.path}` : null;
   function setSelected(key: string | null) {
@@ -190,6 +195,10 @@ export default function SourceControl({
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex h-11 shrink-0 items-center gap-1 border-b px-3" role="tablist" aria-label="Source control view">
           <Button role="tab" aria-selected={tab === "changes"} variant={tab === "changes" ? "secondary" : "ghost"} size="sm" onClick={() => setTab("changes")}>Changes <span className="text-xs tabular-nums text-muted-foreground">{git.files.length}</span></Button>
+          <Button size="sm" variant="ghost" disabled={!findings.data?.findings.length} title={findings.error ?? "Open saved review findings, including files without changes"} onClick={() => {
+            const first = findings.data?.findings.find(f => f.state === "open") ?? findings.data?.findings[0];
+            if (first) { setReview({ projectDir, path: first.file, staged: first.mode === "staged" }); onReview?.(); }
+          }}>Findings{findings.data ? ` ${findings.data.findings.filter(f => f.state === "open").length}` : ""}</Button>
           <Button role="tab" aria-selected={tab === "history"} variant={tab === "history" ? "secondary" : "ghost"} size="sm" onClick={() => setTab("history")}>History</Button>
           {tab === "changes" && <span className="ml-auto text-xs tabular-nums"><span className="text-success">+{git.insertions}</span> <span className="text-destructive">−{git.deletions}</span></span>}
         </div>

@@ -1,3 +1,4 @@
+import { reviewNoteSchema } from "./review.ts";
 import { dictationAudioSchema } from "./dictation.ts";
 import { serviceTierSchema } from "./service-tier.ts";
 import { thinkingLevelSchema } from "./pi-values.ts";
@@ -21,6 +22,8 @@ const complete = target.extend({ lines: z.array(z.string().max(1000000)).max(100
 const auth = z.object({ projectDir: path.optional(), sessionFile: path.nullable().optional(), providerId: id });
 const packageChange = project.extend({ source: id, scope: z.enum(["user", "project"]) });
 const branch = project.extend({ branch: id, create: z.boolean() });
+const reviewFile = file.extend({ mode: z.enum(["working", "staged"]) });
+const reviewExpected = reviewFile.extend({ scope: z.string().regex(/^[a-f0-9]{64}$/), revision: z.string().regex(/^[a-f0-9]{64}$/), fingerprint: z.string().regex(/^[a-f0-9]{64}$/) });
 const hunks = file.extend({ untracked: z.boolean() });
 export const requestParams = {
   orchestrationSnapshot: z.object({ sessionFile: path.optional() }),
@@ -61,6 +64,10 @@ export const requestParams = {
   terminalEnsure: project.extend({ shellId: id.optional() }), terminalCreate: project.extend({ shellId: id.optional(), name: z.string().max(64).optional() }), terminalListShells: empty,
   terminalRename: terminal.extend({ name: z.string().min(1).max(64) }), terminalRestart: terminal, terminalAttach: attach, terminalDetach: attach,
   terminalWrite: terminal.extend({ data: z.string().max(64 * 1024) }), terminalResize: terminal.extend({ cols: z.number().int().min(2).max(1000), rows: z.number().int().min(1).max(1000) }), terminalClear: terminal, terminalClose: terminal, terminalCloseProject: project,
+  reviewList: project,
+  reviewSnapshot: reviewFile,
+  reviewUpdate: reviewExpected.extend({ note: reviewNoteSchema.optional(), id: id.optional(), state: z.enum(["open", "resolved", "dismissed"]).optional() }),
+  reviewRun: reviewExpected.extend({ model: id }),
   gitStatus: project, gitLog: project.extend({ query: z.string().max(500).optional(), limit: z.number().int().min(1).max(1000).optional() }),
   gitCommitDetails: project.extend({ hash: z.string().regex(/^[a-f0-9]{40,64}$/) }),
   gitCommitDiff: file.extend({ hash: z.string().regex(/^[a-f0-9]{40,64}$/) }), gitDiff: hunks.extend({ staged: z.boolean().optional() }), gitHunks: hunks, gitStageHunk: hunks.extend({ patch: text }), gitRevertFile: file, gitStageFile: file, gitUnstageFile: file.extend({ originalPath: path.optional() }), gitStageAll: project, gitUnstageAll: project,

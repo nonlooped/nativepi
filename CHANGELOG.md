@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Leave line/range review findings on local diffs, retain open/resolved/dismissed feedback across reopen, prepare selected or open findings for Pi revision, and re-review a file with an independent Pi model. Changed code is explicitly marked stale and never automatically resolved.
 - Website downloads select the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every supported architecture.
 
 ### Added

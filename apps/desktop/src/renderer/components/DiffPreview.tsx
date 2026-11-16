@@ -63,7 +63,7 @@ export default function DiffPreview({ projectDir, path, mode, revision = 0, onBa
       {error ? <div role="alert" className="space-y-2 p-4 text-xs"><p className="break-words text-destructive">{error}</p><Button variant="outline" size="sm" onClick={reload}>Try again</Button></div>
         : !data ? <div className="px-4"><StateNotice loading title="Loading diff…" /></div>
         : data.kind === "large" ? <div className="p-4 text-xs leading-5 text-muted-foreground"><p>This diff is too large to preview.</p><p>Open it in {editorName(editorId)} to view its contents.</p></div>
-        : data.kind === "diff" && !data.patch.trim() ? <p className="p-4 text-xs text-muted-foreground">No textual diff to show.</p>
+        : data.kind === "diff" && !data.patch.trim() && !renderPatch ? <p className="p-4 text-xs text-muted-foreground">No textual diff to show.</p>
         : <Suspense fallback={<div className="px-4"><StateNotice loading title="Preparing code…" /></div>}>
             {renderPatch ? renderPatch(data.patch) : <CodeView patch={data.patch} />}
           </Suspense>}

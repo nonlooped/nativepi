@@ -1,12 +1,17 @@
+import { ReviewAnchors } from "./ReviewAnchors.ts";
+import { reviewLines } from "../../shared/review.ts";
+import type { ReviewRange } from "../../shared/review.ts";
 import { PatchDiff, Virtualizer } from "@pierre/diffs/react";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { useAppStore } from "../lib/store.ts";
 import { diffHighlighterReady, primeDiffHighlighter } from "../lib/diffHighlighter.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
 
 /** Read-only diff surface; the host owns Git semantics. */
-export default function DiffView({ patch, className, embedded, controls }: { patch: string; className?: string; embedded?: boolean; controls?: { wrap: boolean } }) {
+export default function DiffView({ patch, className, embedded, controls, onSelect }: { patch: string; className?: string; embedded?: boolean; controls?: { wrap: boolean }; onSelect?: (range: ReviewRange) => void }) {
+  const findings = useContext(ReviewAnchors);
+  const annotations = findings.filter(f => reviewLines(patch, f.range.side).has(f.range.start)).map(f => ({ side: f.range.side === "old" ? "deletions" as const : "additions" as const, lineNumber: f.range.start, metadata: f }));
   const container = useRef<HTMLDivElement>(null);
   const [wide, setWide] = useState(false);
   const [wrap, setWrap] = useState(false);
@@ -41,6 +46,11 @@ export default function DiffView({ patch, className, embedded, controls }: { pat
     disableFileHeader: true,
     overflow: lineWrap ? "wrap" as const : "scroll" as const,
     unsafeCSS: codeCSS,
+    enableLineSelection: !!onSelect,
+    onLineSelected: (range: import("@pierre/diffs").SelectedLineRange | null) => {
+      if (!range || (range.endSide && range.endSide !== range.side)) return;
+      onSelect?.({ side: range.side === "deletions" ? "old" : "new", start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) });
+    },
   };
   const empty = !patch.trim();
   return <div ref={container} className={cn("flex min-h-0 min-w-0 flex-col text-xs", embedded ? "max-h-96" : "h-full", className)}>
@@ -52,7 +62,7 @@ export default function DiffView({ patch, className, embedded, controls }: { pat
           {failed && <p role="status" className="px-3 py-2 text-muted-foreground">Syntax highlighting is unavailable. Showing plain text.</p>}
           <pre className={cn("overflow-auto p-3 font-mono leading-5", lineWrap && "whitespace-pre-wrap break-all")}>{patch}</pre>
         </>
-        : <PatchDiff patch={patch} options={{ ...options, diffStyle: wide ? preferred : "unified", diffIndicators: "classic" }} />}
+        : <PatchDiff patch={patch} lineAnnotations={annotations} renderAnnotation={({ metadata: f }) => <div className="border-y border-border bg-muted px-3 py-2 font-sans text-xs leading-5"><span className="font-medium">Review · {f.range.side} {f.range.start}–{f.range.end}</span><p className="whitespace-pre-wrap">{f.body}</p></div>} options={{ ...options, diffStyle: wide ? preferred : "unified", diffIndicators: "classic" }} />}
     </Virtualizer>
   </div>;
 }
