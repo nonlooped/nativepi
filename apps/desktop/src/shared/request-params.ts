@@ -31,6 +31,7 @@ const reviewFile = file.extend({ mode: z.enum(["working", "staged"]) });
 const reviewExpected = reviewFile.extend({ scope: z.string().regex(/^[a-f0-9]{64}$/), revision: z.string().regex(/^[a-f0-9]{64}$/), fingerprint: z.string().regex(/^[a-f0-9]{64}$/) });
 const hunks = file.extend({ untracked: z.boolean() });
 export const requestParams = {
+  automationGithubStatus: z.object({ projectDir: path.optional() }),
   automationTools: z.object({ projectDir: path.optional() }),
   automationList: empty, automationSave: automationInputSchema, automationDelete: z.object({ id: z.string().uuid() }), automationRun: z.object({ id: z.string().uuid() }), automationStop: z.object({ id: z.string().uuid() }),
   configureMcp: mcpSetupSchema, subscriptionCapacity: empty, agentSetup: project, createAgentResource: resourceChangeSchema,

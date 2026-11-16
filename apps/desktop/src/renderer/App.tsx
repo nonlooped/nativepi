@@ -184,14 +184,7 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
         <div className="flex max-w-md flex-col items-center gap-3 px-6 text-center" role={startupError ? "alert" : "status"}>
           <NativePiWordmark display />
           {isRemote ? <ConnectionNotice /> : null}
-          <p className="text-sm text-body-muted-foreground">
-            {startupError ?? "Starting NativePi…"}
-          </p>
-          {startupError ? (
-            <Button variant="outline" onClick={() => window.location.reload()}>
-              Try again
-            </Button>
-          ) : null}
+          {startupError ? <StateNotice title="NativePi could not finish starting" detail={startupError} retry={() => window.location.reload()} /> : <p className="text-sm text-body-muted-foreground">Starting NativePi…</p>}
         </div>
         <WindowControls />
         <QuitDialog />

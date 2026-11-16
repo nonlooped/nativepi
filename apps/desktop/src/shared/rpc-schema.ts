@@ -1,5 +1,5 @@
 import type { WorkspaceListing, WorkspaceRecipe } from "./task-workspaces.ts";
-import type { AutomationInput, AutomationState, AutomationTool } from "./automations.ts";
+import type { AutomationInput, AutomationState, AutomationTool, GithubConnection } from "./automations.ts";
 import type { ReviewSnapshot, ReviewRange, Finding } from "./review.ts";
 import type { DictationStatus } from "./dictation.ts";
 import type { ComputerStatus } from "./computer-use.ts";
@@ -272,6 +272,7 @@ export const nativePiStateSchema = z.object({
 });
 export type NativePiState = z.infer<typeof nativePiStateSchema>;
 export type HostRequestContracts = {
+  automationGithubStatus: { params: { projectDir?: string }; response: GithubConnection };
   automationTools: { params: { projectDir?: string }; response: AutomationTool[] };
   automationList: { params: Record<string, never>; response: AutomationState };
   automationSave: { params: AutomationInput; response: AutomationState };

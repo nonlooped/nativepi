@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Managed task workspaces with explicit chat isolation/base selection, reusable setup/run/check actions, opt-in local file preparation, coordinated ports, action recovery and conservative workspace retirement.
 
 ### Changed
+- Start automations with an available model, show their folder and permissions before enabling them, check GitHub readiness with guided sign-in, accept pull request links, and explain invalid trigger fields.
+- Keep unfinished configuration and review-feedback drafts while navigating. Explain connections, skills and saved prompts, offer connection setup directly, and make invalid capability names easy to correct.
+- Give settings and extension failures clear recovery actions, keep technical errors in details, and open management for the affected extension.
 - Explain separate workspace contents and availability, open running apps directly, retain setup and feedback drafts, and provide review results with coverage limits and a path to request fixes in a new chat.
 - Explain selecting changes for a local commit and confirm the actual publishing destination before sending saved changes. Recheck changed destinations before publishing.
 - Explain Chat, Work and AI account setup in everyday language; streamline folder controls, search across connected models while retaining explicit filters, and describe response completion without implying verification.

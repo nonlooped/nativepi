@@ -1,4 +1,5 @@
 import SettingsDetails from "./settings/SettingsDetails.tsx";
+import { useExtensionManagement } from "../lib/extensionManagement.ts";
 import { copyText } from "@/lib/clipboard.ts";
 import type { SetupResource } from "../../shared/agent-setup.ts";
 import ChatExtensionSettings from "./settings/ChatExtensionSettings.tsx";
@@ -82,6 +83,8 @@ export default function ExtensionsManager({ projectDir: context, resources = [] 
   const workRoot = useAppStore(s => s.workRoot);
   const projectDir = context ?? activeProject ?? workRoot;
   const [query, setQuery] = useState("");
+  const recoveryTarget = useExtensionManagement(s => s.target);
+  const clearTarget = () => useExtensionManagement.setState({ target: null });
   const [expanded, setExpanded] = useState<string | null>(null);
   const addProject = useAppStore((s) => s.addProject);
   const reloadExtensions = useAppStore((s) => s.reloadExtensions);
@@ -206,7 +209,7 @@ export default function ExtensionsManager({ projectDir: context, resources = [] 
   const matches = (value: string) => value.toLowerCase().includes(query.trim().toLowerCase());
   return <div className="flex flex-col gap-5">
     <div className="flex flex-wrap items-center gap-2">
-      <Input type="search" value={query} onChange={event => setQuery(event.target.value)} aria-label="Search packages" placeholder="Search packages" className="h-8 min-w-32 flex-1" />
+      <Input type="search" value={query} onChange={event => { setQuery(event.target.value); clearTarget(); }} aria-label="Search packages" placeholder="Search packages" className="h-8 min-w-32 flex-1" />
       <Button variant="outline" size="sm" onClick={() => { refresh(); }} disabled={busy !== null}>Refresh</Button>
       <Button variant="outline" size="sm" disabled={busy !== null || running} onClick={() => void useAppStore.getState().applyPiSettingsRestart()}>Restart Pi</Button>
       <Button variant="outline" size="sm" onClick={() => setInstalling(!installing)} aria-expanded={installing}><PlusIcon />Install package</Button>
@@ -219,14 +222,15 @@ export default function ExtensionsManager({ projectDir: context, resources = [] 
       </div>
       <p className="text-xs leading-5 text-body-muted-foreground">Packages can run code with your permissions. Only install sources you trust.{!projectTrusted ? " Choose a trusted project to install for that project alone." : ""}</p>
     </div> : null}
+    {recoveryTarget ? <p className="text-xs leading-5 text-body-muted-foreground">Managing {recoveryTarget.name}. <Button size="xs" variant="ghost" onClick={clearTarget}>Show all packages</Button></p> : null}
     {actionError ? <StateNotice title="Could not complete the action" detail={actionError} /> : null}
     {listing.error ? <StateNotice title="Could not load packages" detail={listing.error} retry={refresh} /> : packages === null ? <StateNotice loading title="Loading packages…" /> : <>
       {!packageRows.length && !localExtensions?.length ? <p className="py-4 text-sm text-muted-foreground">No packages or local extensions found. Install a package to add capabilities.</p> : null}
-      <div>{packageRows.filter(pkg => matches(pkg.source)).map(pkg => {
+      <div>{packageRows.filter(pkg => matches(pkg.source) && (!recoveryTarget || recoveryTarget.id.startsWith(pkg.installedPath ?? pkg.source) || pkg.source.includes(recoveryTarget.name))).map(pkg => {
         const key = `${pkg.scope}:${pkg.source}`;
         const provided = resources.filter(resource => resource.source === pkg.source || !!pkg.installedPath && resource.path.startsWith(pkg.installedPath));
         return <SettingsEntity key={key} name={pkg.local ? extensionLabel(pkg.source) : packageLabel(pkg.source)} icon={pkg.local ? <LocalSourceIcon source={pkg.source} /> : <PackageSourceIcon source={pkg.source} />}
-          scope={pkg.scope === "project" ? "This project" : "All projects"} description={pkg.filtered ? "Selected resources only" : pkg.local ? "Local source" : "Installed package"} expanded={expanded === key} onToggle={() => setExpanded(expanded === key ? null : key)}>
+          scope={pkg.scope === "project" ? "This project" : "All projects"} description={pkg.filtered ? "Selected resources only" : pkg.local ? "Local source" : "Installed package"} expanded={expanded === key || !!recoveryTarget} onToggle={() => { clearTarget(); setExpanded(expanded === key ? null : key); }}>
           <ReadonlyRow label="Source" value={pkg.source} />
           {provided.length ? <div className="py-2 text-[0.8125rem] leading-5 text-body-muted-foreground"><p className="font-medium text-foreground">Provides</p>{provided.map(resource => <p key={resource.path}>{resource.name} · {resource.kind === "skill" ? "Skill" : "Prompt"}</p>)}</div> : null}
           <div className="flex flex-wrap gap-2 py-2">
@@ -238,14 +242,15 @@ export default function ExtensionsManager({ projectDir: context, resources = [] 
           <ChatExtensionSettings source={pkg.source} />
         </SettingsEntity>;
       })}
-      {localExtensions?.filter(extension => matches(extension.path)).map(extension => <SettingsEntity key={extension.path} name={extensionLabel(extension.path)} icon={<LocalSourceIcon source={extension.path} />} scope={extension.scope === "project" ? "This project" : "All projects"}
-        description={extension.enabled ? "Local extension" : "Disabled local extension"} expanded={expanded === extension.path} onToggle={() => setExpanded(expanded === extension.path ? null : extension.path)}>
+      {localExtensions?.filter(extension => matches(extension.path) && (!recoveryTarget || extension.path.startsWith(recoveryTarget.id) || recoveryTarget.id.startsWith(extension.path))).map(extension => <SettingsEntity key={extension.path} name={extensionLabel(extension.path)} icon={<LocalSourceIcon source={extension.path} />} scope={extension.scope === "project" ? "This project" : "All projects"}
+        description={extension.enabled ? "Local extension" : "Disabled local extension"} expanded={expanded === extension.path || !!recoveryTarget} onToggle={() => { clearTarget(); setExpanded(expanded === extension.path ? null : extension.path); }}>
         <ReadonlyRow label="Source" value={extension.path} />
         <div className="flex gap-2 py-2"><Button size="sm" variant="outline" onClick={() => void copyText(extension.path)}>Copy path</Button><Button size="sm" variant="outline" onClick={() => void rpc.request.showInFolder({ path: extension.path })}>Show files</Button></div>
         <ChatExtensionSettings source={extension.path} />
       </SettingsEntity>)}
       </div>
       {query.trim() && !packageRows.some(pkg => matches(pkg.source)) && !localExtensions?.some(extension => matches(extension.path)) ? <p role="status" className="text-sm text-muted-foreground">No matching packages.</p> : null}
+      {recoveryTarget && !packageRows.some(pkg => recoveryTarget.id.startsWith(pkg.installedPath ?? pkg.source) || pkg.source.includes(recoveryTarget.name)) && !localExtensions?.some(extension => extension.path.startsWith(recoveryTarget.id) || recoveryTarget.id.startsWith(extension.path)) ? <p role="status" className="text-xs text-body-muted-foreground">This extension is no longer in this folder’s package list. Show all packages to check its source or choose another project.</p> : null}
     </>}
     {graphicalErrors.length || errors.length ? <div className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-4 border-t border-border/40 pt-4"><div className="min-w-0"><p className="text-sm font-medium">Some extensions could not load</p><p className="mt-1 text-[0.8125rem] leading-5 text-body-muted-foreground">Update the affected packages, then reload.</p></div><Button variant="outline" size="sm" disabled={running || busy !== null} onClick={async () => {

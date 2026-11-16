@@ -130,7 +130,7 @@ test("unsaved line feedback survives closing the dialog and navigating away", as
   await act(async () => root!.render(view));
   await act(async () => container.querySelector("button")!.click());
   await act(async () => { const input = document.querySelector("textarea")!; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(input, "Do not lose this concern"); input.dispatchEvent(new Event("input", { bubbles: true })); });
-  await act(async () => [...document.querySelectorAll("button")].find(b => b.textContent === "Cancel")!.click());
+  await act(async () => [...document.querySelectorAll("button")].find(b => b.textContent === "Close")!.click());
   await act(async () => root!.render(<p>Another file</p>));
   await act(async () => root!.render(view));
   expect(document.querySelector("textarea")?.value).toBe("Do not lose this concern");

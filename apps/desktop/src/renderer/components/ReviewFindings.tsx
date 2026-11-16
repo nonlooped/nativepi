@@ -144,7 +144,7 @@ export default function ReviewFindings({ projectDir, file, mode, patch, revision
       <DialogHeader><DialogTitle>Add feedback</DialogTitle><DialogDescription className="break-all">{file} · {range?.side === "old" ? "Before" : "After"} · {range?.start === range?.end ? `Line ${range?.start}` : `Lines ${range?.start}–${range?.end}`}</DialogDescription></DialogHeader>
       <form id="line-feedback" onSubmit={e => { e.preventDefault(); void perform(async () => { if (!data || !range) return; remember(reviewSnapshotSchema.parse(await rpc.request.reviewUpdate({ projectDir, file, mode, ...data, note: { range, body } }))); clearBody(); setRange(undefined); setFeedbackOpen(false); }); }}><FieldGroup><Field><FieldLabel className="sr-only" htmlFor="review-note">Feedback</FieldLabel><Textarea id="review-note" aria-label="Line feedback" autoFocus rows={3} className="resize-none" value={body} onChange={e => setBody(e.target.value)} placeholder="What should change?" maxLength={10000} /></Field></FieldGroup></form>
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
-      <DialogFooter><Button variant="ghost" disabled={busy} onClick={() => setFeedbackOpen(false)}>Cancel</Button><Button type="submit" form="line-feedback" disabled={busy || !data || !matches || !body.trim()}>Save finding</Button></DialogFooter>
+      <DialogFooter><Button variant="ghost" disabled={busy} onClick={() => setFeedbackOpen(false)}>Close</Button><Button type="submit" form="line-feedback" disabled={busy || !data || !matches || !body.trim()}>Save finding</Button></DialogFooter>
     </DialogContent></Dialog>
   </div></ReviewControls>;
 }

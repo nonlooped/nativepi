@@ -60,7 +60,7 @@ export async function configureMcp(input: import("../shared/agent-setup.ts").Mcp
       if (error && value.action !== "check") reject(new Error("Pi could not update MCP configuration. Check the server name and settings."));
       else if (value.action === "check") {
         try { resolve(mcpReportSchema.parse(JSON.parse(stdout))); }
-        catch { reject(new Error("Pi could not complete the MCP check. A server may have timed out. Use /mcp for details.")); }
+        catch { reject(new Error("Pi could not check the connection. Try again, or use Connection setup beside the service for sign-in and details.")); }
       }
       else resolve((stdout || stderr || (error ? "MCP health check failed or timed out." : "MCP configuration saved.")).replace(/\x1b\[[0-9;]*m/g, ""));
     });

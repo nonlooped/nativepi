@@ -4,7 +4,7 @@ import { LiveView } from "./service/liveView.ts";
 import { readWorkspaceFile, saveWorkspaceFile } from "./workspaceFiles.ts";
 import { automationToolsSchema } from "../shared/automations.ts";
 import { AutomationService } from "./automations/service.ts";
-import { githubEvents } from "./automations/github.ts";
+import { githubEvents, githubConnection } from "./automations/github.ts";
 import { ReviewStore } from "./review.ts";
 import { Dictation, dictationMicrophone } from "./dictation.ts";
 import { computerStatus } from "./computerUse.ts";
@@ -1064,6 +1064,7 @@ const handlers: HandlerMap = {
     }
     return { blockers: [] };
   },
+  automationGithubStatus: async ({ projectDir }) => githubConnection(projectDir ? resolve(projectDir) : app.getPath("userData")),
   automationTools: async ({ projectDir }) => {
     const cwd = projectDir ?? join(app.getPath("userData"), "work");
     await mkdir(cwd, { recursive: true });
@@ -1074,7 +1075,10 @@ const handlers: HandlerMap = {
     return catalog.tools;
   },
   automationList: async () => automations.snapshot(),
-  automationSave: async input => automations.put({ ...input, project: input.project ? resolve(input.project) : null }),
+  automationSave: async input => {
+    if (input.enabled && input.trigger.kind === "github" && (await githubConnection(input.project ?? app.getPath("userData"))).state !== "ready") throw new Error("Connect GitHub on this computer before enabling this automation. You can save it paused while setting up the connection.");
+    return automations.put({ ...input, project: input.project ? resolve(input.project) : null });
+  },
   automationDelete: async ({ id }) => automations.remove(id),
   automationRun: async ({ id }) => automations.runNow(id),
   automationStop: async ({ id }) => { await automations.stop(id); return automations.snapshot(); },

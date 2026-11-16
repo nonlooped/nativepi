@@ -4,6 +4,17 @@ import {
   threadReferenceSchema,
 } from "./orchestration.ts";
 const text = z.string().trim().min(1).max(500);
+export const githubConnectionSchema = z.object({ state: z.enum(["ready", "sign-in", "missing", "unavailable"]), account: z.string().max(100).optional() });
+export type GithubConnection = z.infer<typeof githubConnectionSchema>;
+export const githubPullRequestSchema = z.string().url().transform((value, context) => {
+  const url = new URL(value);
+  const match = /^\/([^/]+)\/([^/]+)\/pull\/([1-9]\d*)\/?$/.exec(url.pathname);
+  if (url.protocol !== "https:" || url.hostname !== "github.com" || url.port || url.username || url.password || !match) {
+    context.addIssue({ code: "custom", message: "Paste a GitHub pull request link, such as https://github.com/owner/repository/pull/42." });
+    return z.NEVER;
+  }
+  return { repository: `${match[1]}/${match[2]}`, target: match[3]! };
+});
 export const automationTriggerSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("once"),
@@ -37,8 +48,8 @@ export const automationTriggerSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("github"),
-      repository: z.string().regex(/^[\w.-]+\/[\w.-]+$/),
-      target: text.refine((v) => !v.startsWith("-")),
+      repository: z.string().trim().regex(/^[\w.-]+\/[\w.-]+$/),
+      target: text.refine((v) => !v.startsWith("-") && !v.includes("://")),
       failedChecks: z.boolean(),
       reviews: z.boolean(),
     })

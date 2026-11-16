@@ -146,7 +146,7 @@ export default function AutomationSettings() {
                               : a.next
                                 ? `Ready · Next ${new Date(a.next).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`
                                 : a.input.trigger.kind === "github"
-                                  ? "Watching"
+                                  ? (a.pollFailures ?? 0) > 0 ? "GitHub connection needs attention" : a.initialized ? "Watching new activity" : "Connecting to GitHub…"
                                   : "No upcoming run"}
                         </span>
                         {latest && (

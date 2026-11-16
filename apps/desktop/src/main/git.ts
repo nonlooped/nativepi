@@ -519,7 +519,7 @@ export async function gitPrTarget(projectDir: string): Promise<GitPrTarget> {
   else if (!target.remote)
     target.blocker = "This repository has no “origin” remote to push to.";
   else if (!target.base)
-    target.blocker = "GitHub CLI could not read this repository. Check that `gh` is installed and authenticated.";
+    target.blocker = "GitHub could not read this repository. Check the connection below and make sure your account has access.";
   else if (branch === target.base)
     target.blocker = `You are on ${base.stdout.trim()}, the base branch. Create a branch before opening a pull request.`;
   return target;

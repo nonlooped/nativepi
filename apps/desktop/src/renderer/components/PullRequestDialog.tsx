@@ -1,4 +1,6 @@
 import StateNotice from "./StateNotice.tsx";
+import GithubConnection from "./GithubConnection.tsx";
+import { useFormDraft } from "../lib/formDrafts.ts";
 import { useEffect, useState } from "react";
 import { ArrowRightIcon } from "@phosphor-icons/react/ArrowRight";
 import type { GitPrTarget } from "../../shared/pi-types.ts";
@@ -19,8 +21,8 @@ import { Textarea } from "@/components/ui/textarea.tsx";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field.tsx";
 
 export default function PullRequestDialog({ projectDir, onClose }: { projectDir: string | null; onClose: () => void }) {
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
+  const [title, setTitle, clearTitle] = useFormDraft(`pull-request:${projectDir}:title`, "");
+  const [body, setBody, clearBody] = useFormDraft(`pull-request:${projectDir}:body`, "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -31,8 +33,6 @@ export default function PullRequestDialog({ projectDir, onClose }: { projectDir:
   const target = targetRequest.data;
 
   useEffect(() => {
-    setTitle("");
-    setBody("");
     setBusy(false);
     setError(null);
     setConfirming(false);
@@ -46,6 +46,7 @@ export default function PullRequestDialog({ projectDir, onClose }: { projectDir:
       const result = await rpc.request.gitPushAndCreatePr({ projectDir, title, body, expectedTarget: target });
       if (!result.ok) return setError(result.error ?? "GitHub CLI could not open the pull request.");
       if (result.url) window.open(result.url, "_blank", "noopener,noreferrer");
+      clearTitle(); clearBody();
       onClose();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "GitHub CLI could not open the pull request.");
@@ -54,7 +55,7 @@ export default function PullRequestDialog({ projectDir, onClose }: { projectDir:
     }
   }
 
-  const canOpen = Boolean(title.trim()) && !busy && target !== null && !target.blocker;
+  const canOpen = Boolean(title.trim()) && !busy && !!target && !target.blocker;
 
   return (
     <>
@@ -65,6 +66,7 @@ export default function PullRequestDialog({ projectDir, onClose }: { projectDir:
             <DialogDescription>Push this branch and open a pull request on GitHub.</DialogDescription>
           </DialogHeader>
           <FieldGroup className="flex flex-col gap-3">
+            {projectDir ? <GithubConnection projectDir={projectDir} onChecked={targetRequest.reload} /> : null}
             {targetRequest.error ? <StateNotice title="Could not read the repository" detail={targetRequest.error} retry={targetRequest.reload} /> : <PrTarget target={target} error={null} />}
             <Field>
               <FieldLabel htmlFor="pull-request-title">Title</FieldLabel>
@@ -85,7 +87,7 @@ export default function PullRequestDialog({ projectDir, onClose }: { projectDir:
               />
               <FieldDescription>Optional. Add context for reviewers.</FieldDescription>
             </Field>
-            {error ? <p className="whitespace-pre-wrap text-xs text-destructive">{error}</p> : null}
+            {error ? <StateNotice title="Could not open the pull request" detail={error} /> : null}
           </FieldGroup>
           <DialogFooter>
             <Button variant="ghost" onClick={onClose} disabled={busy}>Close</Button>

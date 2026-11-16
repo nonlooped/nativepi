@@ -1,6 +1,13 @@
 import { z } from "zod";
 import { runRepositoryCommand } from "../repoCommand.ts";
-import type { AutomationInput } from "../../shared/automations.ts";
+import type { AutomationInput, GithubConnection } from "../../shared/automations.ts";
+export async function githubConnection(cwd: string): Promise<GithubConnection> {
+  const installed = await runRepositoryCommand("gh", ["--version"], cwd, 4096, 10000);
+  if (installed.code) return { state: /ENOENT|not found|not recognized/i.test(installed.stderr) ? "missing" : "unavailable" };
+  const account = await runRepositoryCommand("gh", ["api", "user", "--hostname", "github.com", "--jq", ".login"], cwd, 4096, 15000);
+  if (!account.code && /^[a-z\d](?:[a-z\d-]{0,98}[a-z\d])?$/i.test(account.stdout.trim())) return { state: "ready", account: account.stdout.trim() };
+  return { state: /auth login|not logged|401|403|token|credentials/i.test(account.stderr) ? "sign-in" : "unavailable" };
+}
 const prSchema = z.object({
   number: z.number(),
   headRefOid: z.string(),

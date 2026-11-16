@@ -240,7 +240,7 @@ export function ExtensionToolResult({ call, result }: { call: ToolCall; result?:
       ? { toolName: result.toolName, text: textOf(result.content), details: result.details, isError: result.isError }
       : undefined;
     return (
-      <ExtensionBoundary key={`${ext.id}:${call.id}:${sessionKey(base)}`} name={ext.name}>
+      <ExtensionBoundary key={`${ext.id}:${call.id}:${sessionKey(base)}`} name={ext.name} extensionId={ext.id}>
         <ExtensionContribution
           render={() =>
             render({
@@ -265,7 +265,7 @@ export function ExtensionEntry({ entry }: { entry: SessionEntry }) {
     const render = ext.renderer.entries?.[entry.type];
     if (!render) continue;
     return (
-      <ExtensionBoundary key={`${ext.id}:${entry.id}:${sessionKey(base)}`} name={ext.name}>
+      <ExtensionBoundary key={`${ext.id}:${entry.id}:${sessionKey(base)}`} name={ext.name} extensionId={ext.id}>
         <ExtensionContribution render={() => render({ entry: entry as unknown as ExtSessionEntry, context: contextFor(base, ext) })} />
       </ExtensionBoundary>
     );
@@ -310,7 +310,7 @@ export function ComposerWidgets({ placement }: { placement: "aboveComposer" | "b
         </div>
       ))}
       {graphical.map(({ ext, w }) => (
-        <ExtensionBoundary key={`${ext.id}:${w.id}:${sessionKey(base)}`} name={ext.name}>
+        <ExtensionBoundary key={`${ext.id}:${w.id}:${sessionKey(base)}`} name={ext.name} extensionId={ext.id}>
           <ExtensionContribution render={() => w.render(contextFor(base, ext))} />
         </ExtensionBoundary>
       ))}
@@ -341,7 +341,7 @@ export function ComposerControls() {
   const controls = renderers.flatMap((ext) => (ext.renderer.composerControls ?? []).map((c) => ({ ext, c })));
 
   return controls.map(({ ext, c }) => (
-    <ExtensionBoundary key={`${ext.id}:${c.id}:${sessionKey(base)}`} name={ext.name}>
+    <ExtensionBoundary key={`${ext.id}:${c.id}:${sessionKey(base)}`} name={ext.name} extensionId={ext.id}>
       <ExtensionContribution render={() => c.render(contextFor(base, ext))} />
     </ExtensionBoundary>
   ));
@@ -354,7 +354,7 @@ export function ExtensionSettings() {
 
   return sections.map(({ ext, s }) => (
     <SettingsSection key={`${ext.id}:${s.id}:${sessionKey(base)}`} heading={s.heading} description={s.description}>
-      <ExtensionBoundary name={ext.name}>
+      <ExtensionBoundary name={ext.name} extensionId={ext.id}>
         <ExtensionContribution render={() => s.render(contextFor(base, ext))} />
       </ExtensionBoundary>
     </SettingsSection>
@@ -393,7 +393,7 @@ export function ExtensionConversationControls({
           onClick={() => onSelect(active === key ? null : key)}
         >
           <span className="min-w-0 truncate">
-            <ExtensionBoundary name={ext.name}>
+            <ExtensionBoundary name={ext.name} extensionId={ext.id}>
               <ExtensionContribution render={() => view.control?.(contextFor(base, ext)) ?? view.label} />
             </ExtensionBoundary>
           </span>
@@ -438,7 +438,7 @@ export function ExtensionConversationView({ active, onClose }: { active: string;
         </h2>
       </div>
       <div className="min-h-0 flex-1">
-        <ExtensionBoundary key={`${found.key}:${sessionKey(base)}`} name={found.ext.name}>
+        <ExtensionBoundary key={`${found.key}:${sessionKey(base)}`} name={found.ext.name} extensionId={found.ext.id}>
           <ExtensionContribution render={() => found.view.render(contextFor(base, found.ext))} />
         </ExtensionBoundary>
       </div>
@@ -457,7 +457,7 @@ export function ExtensionPanels() {
       {panels.map(({ ext, p }) => (
         <section key={`${ext.id}:${p.id}:${sessionKey(base)}`} className="flex flex-col gap-2">
           <h3 className="font-heading text-sm font-semibold text-foreground">{p.title}</h3>
-          <ExtensionBoundary name={ext.name}>
+          <ExtensionBoundary name={ext.name} extensionId={ext.id}>
             <ExtensionContribution render={() => p.render(contextFor(base, ext))} />
           </ExtensionBoundary>
         </section>

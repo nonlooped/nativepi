@@ -1,6 +1,7 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { useFormDrafts } from "../../lib/formDrafts.ts";
 import type {
   AutomationState,
   AutomationInput,
@@ -17,6 +18,7 @@ mock.module("../../lib/rpc.ts", () => ({
     events: { on: () => () => {} },
     request: {
       automationList: async () => (read ? read() : state),
+      automationGithubStatus: async () => ({ state: "ready", account: "sample-account" }),
       getChatTitleModels: async () => ({
         models: [
           {
@@ -59,6 +61,7 @@ afterEach(async () => {
   root = undefined;
   read = undefined;
   saved = undefined;
+  useFormDrafts.setState({ values: {} });
   container?.remove();
 });
 test("pause updates the displayed persisted state and delete retains run history", async () => {
@@ -279,4 +282,51 @@ test("an overlap skip does not hide the active run or its Stop action", async ()
   await act(async () => stop!.click());
   expect(state.runs[0]!.status).toBe("stopped");
   expect(container.textContent).not.toContain("Stop run");
+});
+
+async function fill(id: string, value: string) {
+  await act(async () => {
+    const input = document.getElementById(id)!;
+    const prototype = input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+test("a new automation reuses the available chat model and keeps unsaved instructions across navigation", async () => {
+  const { default: AutomationEditor } = await import("./AutomationEditor.tsx");
+  const { useAppStore } = await import("../../lib/store.ts");
+  useAppStore.setState({ model: { provider: "p", id: "chosen", name: "Chosen model" } as any, thinkingLevel: "high", serviceTier: { tier: "priority", tiers: ["default", "priority"] }, projects: [], workRoot: "/work" });
+  state = { version: 1, automations: [], runs: [] };
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  const editor = <AutomationEditor initial="new" onClose={() => {}} onSaved={() => {}} />;
+  await act(async () => root!.render(editor));
+  await fill("automation-name", "Check the report");
+  await fill("automation-instructions", "Review the report and keep my notes");
+  expect(document.body.textContent).toContain("Can change files and run programs");
+  await act(async () => root!.render(<p>Another settings page</p>));
+  await act(async () => root!.render(editor));
+  expect(document.querySelector<HTMLTextAreaElement>("#automation-instructions")?.value).toBe("Review the report and keep my notes");
+  await act(async () => document.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  expect(saved?.configuration).toEqual({ provider: "p", model: "chosen", reasoning: "high", tier: "priority", tools: ["read", "bash", "edit", "write"] });
+  await act(async () => root!.render(<p>Elsewhere</p>));
+  await act(async () => root!.render(editor));
+  expect(document.querySelector<HTMLInputElement>("#automation-name")?.value).toBe("");
+});
+
+test("GitHub trigger corrections name the invalid fields and a pasted link selects the repository and request", async () => {
+  const { default: AutomationEditor } = await import("./AutomationEditor.tsx");
+  state = { version: 1, automations: [], runs: [] };
+  const initial: AutomationInput = { name: "Watch review", prompt: "Read feedback", project: null, enabled: false, workspace: "shared", configuration: { provider: "p", model: "chosen", reasoning: "off", tools: ["read"] }, trigger: { kind: "github", repository: "invalid", target: "", failedChecks: false, reviews: false } };
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  await act(async () => root!.render(<AutomationEditor initial={initial} onClose={() => {}} onSaved={() => {}} />));
+  await act(async () => document.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  expect(document.body.textContent).toContain("Use owner/repository");
+  expect(document.body.textContent).toContain("Turn on failed checks or review feedback");
+  expect(saved).toBeUndefined();
+  await fill("automation-pr", "https://github.com/team/project/pull/42");
+  expect(document.querySelector<HTMLInputElement>("#automation-repo")?.value).toBe("team/project");
+  await act(async () => document.querySelector<HTMLButtonElement>('[role="switch"]')!.click());
+  await act(async () => document.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  expect(saved?.trigger).toEqual({ kind: "github", repository: "team/project", target: "42", failedChecks: true, reviews: false });
 });

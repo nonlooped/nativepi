@@ -11,6 +11,7 @@ import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
 import {
   automationInputSchema,
   automationToolsSchema,
+  githubPullRequestSchema,
   type AutomationInput,
   type AutomationState,
   type AutomationTool,
@@ -19,6 +20,7 @@ import type { ChatTitleCatalog } from "../../../shared/chat-title.ts";
 import { rpc } from "../../lib/rpc.ts";
 import { useAppStore } from "../../lib/store.ts";
 import ModelSelector from "../ModelSelector.tsx";
+import GithubConnection from "../GithubConnection.tsx";
 import StateNotice from "../StateNotice.tsx";
 import { Button } from "../ui/button.tsx";
 import { Input } from "../ui/input.tsx";
@@ -58,6 +60,7 @@ function fresh(): AutomationInput {
 }
 function localDate(at: string) {
   const date = new Date(at);
+  if (!Number.isFinite(date.getTime())) return "";
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
@@ -84,6 +87,7 @@ export default function AutomationEditor({
   const [toolsError, setToolsError] = useState("");
   const [customTools, setCustomTools] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
   const projects = useAppStore((s) => s.projects);
   const workRoot = useAppStore((s) => s.workRoot);
@@ -103,6 +107,16 @@ export default function AutomationEditor({
         if (disposed) return;
         setCatalog(result);
         setCatalogError(result.error ?? "");
+        setDraft(current => {
+          if (current.configuration.provider || current.configuration.model) return current;
+          const active = useAppStore.getState();
+          const preferred = result.models.find(m => m.provider === active.model?.provider && m.id === active.model.id)
+            ?? result.models.find(m => `${m.provider}/${m.id}` === result.defaultModel) ?? result.models[0];
+          if (!preferred) return current;
+          return { ...current, configuration: { ...current.configuration, provider: preferred.provider, model: preferred.id,
+            reasoning: preferred.thinkingLevels.includes(active.thinkingLevel) ? active.thinkingLevel : preferred.thinkingLevels[0] ?? "off",
+            tier: preferred.tiers.includes(active.serviceTier?.tier ?? "default") ? active.serviceTier?.tier ?? "default" : "default" } };
+        });
       })
       .catch(() => {
         if (!disposed) setCatalogError("Could not load models from Pi.");
@@ -167,13 +181,21 @@ export default function AutomationEditor({
       )?.[0] ?? "custom");
   async function save() {
     setError("");
+    setFieldErrors({});
     const parsed = automationInputSchema.safeParse(draft);
     if (!parsed.success) {
-      setError(
-        parsed.error.issues.some((i) => i.path.includes("configuration"))
-          ? "Choose a model before saving."
-          : "Complete the name, instructions and trigger.",
-      );
+      const corrections: Record<string, string> = {
+        name: "Give this automation a name.", prompt: "Describe what the automation should do.",
+        "trigger.repository": "Use owner/repository, or paste a full pull request link below.",
+        "trigger.target": "Enter a pull request number or branch, or paste a GitHub pull request link.",
+        "trigger.time": "Choose a valid time, such as 09:00.", "trigger.at": "Choose a valid date and time.",
+        "trigger.timezone": "Choose a valid timezone.", "trigger.weekday": "Choose a day of the week.",
+        trigger: "Turn on failed checks or review feedback so there is something to watch.",
+      };
+      setFieldErrors(Object.fromEntries(parsed.error.issues.map(issue => {
+        const key = issue.path.join(".");
+        return [key.startsWith("configuration") ? "configuration" : key || "workspace", key.startsWith("configuration") ? "Choose an available model and its supported settings." : corrections[key] ?? "Check this choice before saving."];
+      })));
       return;
     }
     setPending(true);
@@ -194,6 +216,7 @@ export default function AutomationEditor({
           </DialogTitle>
         </DialogHeader>
         <form
+          noValidate
           className="flex min-h-0 flex-col"
           onSubmit={(event) => {
             event.preventDefault();
@@ -212,6 +235,7 @@ export default function AutomationEditor({
                   placeholder="Morning maintenance review"
                   onChange={(e) => patch({ name: e.target.value })}
                 />
+                {fieldErrors.name && <p role="alert" className="text-xs text-destructive">{fieldErrors.name}</p>}
               </Field>
               <Field>
                 <FieldLabel htmlFor="automation-instructions">
@@ -225,6 +249,7 @@ export default function AutomationEditor({
                   placeholder="What should Pi do, and how should it verify the work?"
                   onChange={(e) => patch({ prompt: e.target.value })}
                 />
+                {fieldErrors.prompt && <p role="alert" className="text-xs text-destructive">{fieldErrors.prompt}</p>}
               </Field>
             </div>
             <SelectRow
@@ -278,6 +303,13 @@ export default function AutomationEditor({
               />
               {trigger.kind === "github" ? (
                 <>
+                  <GithubConnection projectDir={draft.project ?? workRoot ?? undefined} />
+                  <Field className="py-2">
+                    <FieldLabel htmlFor="automation-pr">Pull request link, number or branch</FieldLabel>
+                    <Input id="automation-pr" placeholder="https://github.com/owner/repository/pull/42" value={trigger.target} aria-invalid={!!fieldErrors["trigger.target"]}
+                      onChange={e => { const link = githubPullRequestSchema.safeParse(e.target.value.trim()); patch({ trigger: { ...trigger, ...(link.success ? link.data : { target: e.target.value }) } }); }} />
+                    {fieldErrors["trigger.target"] && <p role="alert" className="text-xs text-destructive">{fieldErrors["trigger.target"]}</p>}
+                  </Field>
                   <Field className="py-3">
                     <FieldLabel htmlFor="automation-repo">
                       Repository
@@ -292,21 +324,8 @@ export default function AutomationEditor({
                         })
                       }
                     />
-                  </Field>
-                  <Field className="pb-2">
-                    <FieldLabel htmlFor="automation-pr">
-                      Pull request or head branch
-                    </FieldLabel>
-                    <Input
-                      id="automation-pr"
-                      placeholder="42 or feature/branch"
-                      value={trigger.target}
-                      onChange={(e) =>
-                        patch({
-                          trigger: { ...trigger, target: e.target.value },
-                        })
-                      }
-                    />
+                    <p className="text-xs text-body-muted-foreground">Filled in automatically when you paste a pull request link.</p>
+                    {fieldErrors["trigger.repository"] && <p role="alert" className="text-xs text-destructive">{fieldErrors["trigger.repository"]}</p>}
                   </Field>
                   <SwitchRow
                     label="Failed checks"
@@ -322,9 +341,9 @@ export default function AutomationEditor({
                       patch({ trigger: { ...trigger, reviews } })
                     }
                   />
+                  {fieldErrors.trigger && <p role="alert" className="text-xs text-destructive">{fieldErrors.trigger}</p>}
                   <p className="pb-3 text-xs leading-5 text-body-muted-foreground">
-                    Uses your gh account. Watches new activity after the first
-                    connection.
+                    Watches new activity after the first successful connection. Save paused if GitHub is still being set up.
                   </p>
                 </>
               ) : (
@@ -403,6 +422,7 @@ export default function AutomationEditor({
                       )}
                     </div>
                   </Field>
+                  {fieldErrors["trigger.time"] && <p role="alert" className="text-xs text-destructive">{fieldErrors["trigger.time"]}</p>}
                   {trigger.kind === "once" ? (
                     <Field
                       orientation="horizontal"
@@ -417,10 +437,7 @@ export default function AutomationEditor({
                         value={localDate(trigger.at)}
                         onChange={(e) => {
                           const time = new Date(e.target.value);
-                          if (Number.isFinite(time.getTime()))
-                            patch({
-                              trigger: { kind: "once", at: time.toISOString() },
-                            });
+                          patch({ trigger: { kind: "once", at: Number.isFinite(time.getTime()) ? time.toISOString() : "" } });
                         }}
                       />
                     </Field>
@@ -465,6 +482,7 @@ export default function AutomationEditor({
                   )}
                 </>
               )}
+              {["trigger.at", "trigger.timezone", "trigger.weekday"].map(key => fieldErrors[key] ? <p key={key} role="alert" className="text-xs text-destructive">{fieldErrors[key]}</p> : null)}
             </SettingsSection>
             <Field
               orientation="horizontal"
@@ -486,6 +504,7 @@ export default function AutomationEditor({
                 />
               </div>
             </Field>
+            {fieldErrors.configuration && <p role="alert" className="text-xs text-destructive">{fieldErrors.configuration}</p>}
             {draft.configuration.model && !model && catalog ? (
               <p className="pb-2 text-xs text-destructive">
                 The saved model is unavailable. Choose an available model or
@@ -599,13 +618,13 @@ export default function AutomationEditor({
                 )}
               </div>
             )}
+            <div className="border-t border-border/40 pt-3 text-xs leading-5 text-body-muted-foreground">
+              <p>{draft.workspace === "worktree" ? "Runs in a separate folder from the last saved Git version. Current unsaved changes and dependencies are not copied." : `Runs directly in ${draft.project ? projects.find(p => p.path === draft.project)?.name ?? "the selected project folder" : "the No project work folder"}.`}</p>
+              <p>{draft.configuration.tools.includes("bash") ? "Can change files and run programs on your computer." : draft.configuration.tools.some(tool => ["edit", "write"].includes(tool)) ? "Can change files in that folder." : draft.configuration.tools.every(tool => ["read", "grep", "find", "ls"].includes(tool)) ? "File editing and shell commands are off." : "Uses custom tools. Review their permissions in Execution options."} {draft.enabled ? "Runs automatically without asking you before each run." : "Saved paused until you enable it."}</p>
+            </div>
+            {fieldErrors.workspace && <p role="alert" className="text-xs text-destructive">{fieldErrors.workspace}</p>}
             {error && (
-              <p
-                role="alert"
-                className="py-2 text-sm text-destructive [overflow-wrap:anywhere]"
-              >
-                {error}
-              </p>
+              <StateNotice title="Could not save the automation" detail={error} />
             )}
           </div>
           <DialogFooter className="mx-6 mb-5 flex-row flex-wrap items-center justify-between pt-4 sm:justify-between">
@@ -624,7 +643,7 @@ export default function AutomationEditor({
                 onClick={onClose}
                 disabled={pending}
               >
-                Cancel
+                Close
               </Button>
               <Button type="submit" disabled={pending}>
                 {pending ? "Saving…" : "Save automation"}

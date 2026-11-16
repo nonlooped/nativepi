@@ -86,7 +86,7 @@ export default function TaskWorkspacePanel({ projectDir, onStart, initiallySepar
         <div className="space-y-4">
         <p className="text-xs text-muted-foreground">Commands use your shell. Use PORT for concurrent servers and keep services in the foreground.</p>
         {(["setup", "run", "check"] as const).map(action => <label key={action} className="block space-y-1 text-sm"><span>{action === "setup" ? "Setup" : action === "run" ? "Run app" : "Checks"}</span><Textarea rows={2} value={recipe[action]} placeholder={action === "setup" ? "bun install" : action === "run" ? "bun run dev" : "bun run check"} onChange={e => setRecipe({ ...recipe, [action]: e.target.value })} /></label>)}
-        </div><DialogFooter><Button variant="ghost" onClick={() => setConfigure(false)}>Cancel</Button><Button disabled={busy} onClick={() => void perform(() => rpc.request.taskWorkspaceRecipe({ projectDir: repositoryDir, recipe }).then(result => { clearRecipe(); setConsent(false); setConfigure(false); return result; }))}>Save actions</Button></DialogFooter>
+        </div><DialogFooter><Button variant="ghost" onClick={() => setConfigure(false)}>Close</Button><Button disabled={busy} onClick={() => void perform(() => rpc.request.taskWorkspaceRecipe({ projectDir: repositoryDir, recipe }).then(result => { clearRecipe(); setConsent(false); setConfigure(false); return result; }))}>Save actions</Button></DialogFooter>
       </DialogContent></Dialog>
       {managed ? <>
         <p role="status" className="text-[0.8125rem] text-body-muted-foreground">{{ created: "Not prepared", running: "Running", ready: "Ready", failed: "Needs attention", interrupted: "Interrupted" }[managed.status]}</p>

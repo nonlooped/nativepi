@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { parseGithubEvents } from "./github.ts";
+import { githubPullRequestSchema, automationTriggerSchema } from "../../shared/automations.ts";
 const trigger = {
   kind: "github" as const,
   repository: "owner/repo",
@@ -56,4 +57,10 @@ test("GitHub events carry exact revision/check/review context and only relevant 
   expect(() =>
     parseGithubEvents(trigger, { ...pr, headRefOid: null }),
   ).toThrow();
+});
+test("GitHub pull request links normalize familiar URLs while unsupported URLs cannot become branch watches", () => {
+  expect(githubPullRequestSchema.parse("https://github.com/team/project/pull/42?tab=files#note")).toEqual({ repository: "team/project", target: "42" });
+  expect(githubPullRequestSchema.safeParse("https://example.com/team/project/pull/42").success).toBe(false);
+  expect(githubPullRequestSchema.safeParse("https://github.com/team/project/issues/42").success).toBe(false);
+  expect(automationTriggerSchema.safeParse({ ...trigger, target: "https://example.com/wrong" }).success).toBe(false);
 });

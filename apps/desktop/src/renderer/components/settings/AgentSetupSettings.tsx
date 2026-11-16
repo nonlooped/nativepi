@@ -74,15 +74,33 @@ export default function AgentSetupSettings({ tab = "mcp" }: { tab?: string }) {
       if (!result.ok) throw new Error(result.error);
     } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
   }
+  async function manageConnections() {
+    if (!cwd) return;
+    setBusy(true); setError(null);
+    try {
+      // Pi owns /mcp and its authentication UI. Use a fresh Work chat so an
+      // existing conversation's unsent draft and attachments stay untouched.
+      await useAppStore.getState().newChatIn(cwd);
+      const result = await rpc.request.submit({ projectDir: cwd, sessionFile: null, message: "/mcp" });
+      if (!result.ok) throw new Error(result.error ?? "Connection setup could not open. Try again.");
+      if (result.sessionFile) {
+        await useAppStore.getState().refreshSessions(cwd);
+        await useAppStore.getState().selectChat(result.sessionFile, cwd);
+      }
+      useAppStore.getState().closeSettings();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setBusy(false); }
+  }
   return <div className="flex flex-col gap-8">
     {!globalStatus ? <PiSettingsStatus /> : null}
     <SelectRow label="Viewing resources for" value={cwd ?? ""} description="Includes resources available in all projects. Choose where to save when adding one."
       options={[...(workspace.data ? [{ value: workspace.data.path, label: "No project" }] : []), ...projects.map(p => ({ value: p.path, label: p.name }))]}
       onChange={value => { setSelected(value); setExpanded(null); setQuery(""); setReport(null); setError(null); }} />
     <nav aria-label="Resource types" className="flex flex-wrap gap-1 border-b border-border/40 pb-2">
-      {[["mcp", "MCP servers"], ["skills", "Skills"], ["prompts", "Prompts"], ["packages", "Packages"]].map(([value, label]) => <Button key={value} variant={tab === value ? "secondary" : "ghost"} size="sm" aria-current={tab === value ? "page" : undefined}
+      {[["mcp", "Connections"], ["skills", "Skills"], ["prompts", "Saved prompts"], ["packages", "Packages"]].map(([value, label]) => <Button key={value} variant={tab === value ? "secondary" : "ghost"} size="sm" aria-current={tab === value ? "page" : undefined}
         onClick={() => { setQuery(""); setExpanded(null); openSettings(`Tools & extensions#${value}`); }}>{label}</Button>)}
     </nav>
+    <p className="-mt-4 text-[0.8125rem] leading-5 text-body-muted-foreground">{tab === "packages" ? "Install tools, skills and extensions from authors you trust. Packages run code on your computer." : kind === "mcp" ? "Connect services so Pi can use their tools. Services provide a connection URL or a local program, using MCP." : kind === "skill" ? "Give Pi reusable instructions for tasks such as reviewing changes or preparing a report. Pi chooses relevant skills as it works." : "Save instructions you want to use again. Choose a saved prompt from the composer’s slash menu."}</p>
     {tab === "packages" ? <div data-setting="packages"><ExtensionsManager key={cwd} projectDir={cwd} resources={request.data?.resources} /></div> : <>
     <div className="flex flex-wrap items-center gap-2">
       <Input aria-label="Search resources" placeholder={`Search ${activeKind === "mcp" ? "servers" : activeKind === "skill" ? "skills" : "prompts"}`} value={query} onChange={event => setQuery(event.target.value)} className="h-8 min-w-32 flex-1" />
@@ -93,13 +111,13 @@ export default function AgentSetupSettings({ tab = "mcp" }: { tab?: string }) {
     {request.loading && !request.data && <StateNotice title="Loading agent setup…" loading />}
     <section key={kind} data-setting={tab} aria-label={kind === "mcp" ? "MCP servers" : kind === "skill" ? "Skills" : "Prompt templates"}>
         <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-2">
-          <h2 className="text-sm font-semibold">{kind === "mcp" ? "MCP servers" : kind === "skill" ? "Skills" : "Prompt templates"}<span className="ml-2 text-xs font-normal tabular-nums text-muted-foreground">{count}</span></h2>
+          <h2 className="text-sm font-semibold">{kind === "mcp" ? "Connections" : kind === "skill" ? "Skills" : "Saved prompts"}<span className="ml-2 text-xs font-normal tabular-nums text-muted-foreground">{count}</span></h2>
           <div className="flex shrink-0 items-center gap-1">
             {kind === "mcp" && <Button variant="ghost" size="icon-sm" disabled={busy || !cwd} aria-label="Check servers and tools" title="Check connections and tools · runs configured servers" onClick={() => void checkServers()}><ArrowClockwiseIcon className={busy ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>}
             <Button variant="ghost" size="sm" disabled={!cwd || busy} onClick={() => setDialog({ kind })}><PlusIcon />Add<span className="sr-only"> {(kind === "mcp" ? "MCP server" : labels[kind].toLowerCase())}</span></Button>
           </div>
         </div>
-        {!count && !request.loading && !request.error && <p className="py-4 text-[0.8125rem] leading-5 text-body-muted-foreground">{kind === "mcp" ? "No MCP servers configured." : kind === "skill" ? "No skills found." : "No prompt templates found."}</p>}
+        {!count && !request.loading && !request.error && <p className="py-4 text-[0.8125rem] leading-5 text-body-muted-foreground">{kind === "mcp" ? "No services connected yet. Add a connection to get started." : kind === "skill" ? "No skills added yet. Add instructions for a task you repeat." : "No saved prompts yet. Add instructions you want to use again."}</p>}
         <div>{(kind === "mcp" ? servers : resources).filter(item => `${item.name} ${"description" in item ? item.description : ""} ${item.scope}`.toLowerCase().includes(query.trim().toLowerCase())).map(item => {
           const server = kind === "mcp" ? item as Server : null;
           const resource = kind !== "mcp" ? item as SetupResource : null;
@@ -114,10 +132,11 @@ export default function AgentSetupSettings({ tab = "mcp" }: { tab?: string }) {
               {resource && <ReadonlyRow label="Provided by" value={resource.source} action={resource.source.startsWith("npm:") || resource.source.startsWith("git:") ? <Button variant="ghost" size="sm" onClick={() => openSettings("Tools & extensions#packages")}>View package</Button> : undefined} />}
               {server && <>
                 <ReadonlyRow label="Tool exposure" value={server.exposure} />
-                {server.state === "not-checked" ? <p className="py-2 text-xs leading-5 text-body-muted-foreground">Check connections to discover tools. This runs the server’s configured program.</p> : server.state !== "connected" && <p className="py-2 text-xs leading-5 text-body-muted-foreground">Use /mcp in a Work chat for sign-in and full connection diagnostics.</p>}
+                {server.state === "not-checked" ? <p className="py-2 text-xs leading-5 text-body-muted-foreground">Check connections to discover tools. This runs the server’s configured program.</p> : server.state !== "connected" && <p className="py-2 text-xs leading-5 text-body-muted-foreground">Connection setup opens Pi’s manager in a new Work chat and keeps your current draft.</p>}
                 {!!server.tools.length && <p className="break-words py-2 text-xs leading-5 text-body-muted-foreground">{server.tools.join(", ")}</p>}
               </>}
               <div className="flex flex-wrap gap-1 pt-2">
+                {server && server.state !== "connected" && server.state !== "disabled" ? <Button size="sm" variant="outline" disabled={busy} onClick={() => void manageConnections()}>{server.state === "needs-auth" ? "Finish sign-in…" : "Connection setup…"}</Button> : null}
                 <Button variant="ghost" size="sm" onClick={() => void openFile(server?.source ?? resource!.path)}>Open file</Button>
                 {server && <><Button variant="ghost" size="sm" disabled={busy || server.scope === "project" && !request.data?.projectTrusted} onClick={() => setDialog({ kind: "mcp", server })}>Replace connection…</Button><Button variant="ghost" size="sm" disabled={busy || server.scope === "project" && !request.data?.projectTrusted} onClick={() => setRemoving(server)}>Remove…</Button></>}
               </div>
@@ -150,7 +169,7 @@ function AddCapabilityDialog({ kind, server, cwd, projectAvailable, onClose, onS
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function save(event: React.FormEvent) {
-    event.preventDefault(); setBusy(true); setError(null);
+    event.preventDefault(); if (!valid) return; setBusy(true); setError(null);
     try {
       if (kind === "mcp") {
         const result = await rpc.request.configureMcp({ projectDir: cwd, action: "add", scope, name, ...(transport === "http" ? { url } : { command, args: args ? args.split("\n") : [] }) });
@@ -163,24 +182,26 @@ function AddCapabilityDialog({ kind, server, cwd, projectAvailable, onClose, onS
     } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
     finally { setBusy(false); }
   }
-  const valid = (kind === "mcp" ? /^[a-zA-Z0-9_-]+$/ : /^[a-z0-9]+(?:-[a-z0-9]+)*$/).test(name) && (kind === "mcp" ? transport === "http" ? !!url.trim() : !!command.trim() : !!content.trim() && (kind !== "skill" || !!description.trim()));
+  const nameValid = (kind === "mcp" ? /^[a-zA-Z0-9_-]+$/ : /^[a-z0-9]+(?:-[a-z0-9]+)*$/).test(name);
+  const suggestedName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, kind === "mcp" ? 100 : 64).replace(/-$/, "");
+  const valid = nameValid && (kind === "mcp" ? transport === "http" ? !!url.trim() : !!command.trim() : !!content.trim() && (kind !== "skill" || !!description.trim()));
   return <Dialog open onOpenChange={open => !open && !busy && onClose()}><DialogContent className="max-w-lg">
     <form onSubmit={event => void save(event)} className="flex min-h-0 flex-col gap-4">
       <DialogHeader><DialogTitle>{server ? "Replace connection" : `Add ${(kind === "mcp" ? "MCP server" : labels[kind].toLowerCase())}`}</DialogTitle><DialogDescription>{server ? "Replaces connection settings, including advanced options. Open the config file to preserve custom settings." : kind === "mcp" ? "Connect tools and services to Pi." : kind === "skill" ? "Give Pi reusable instructions for a specific task." : "Save a prompt you can run with a slash command."}</DialogDescription></DialogHeader>
       <FieldGroup className="gap-3">
         <Field><FieldLabel>Available in</FieldLabel><Select disabled={!!server || busy} value={scope} onValueChange={value => value && setScope(value as "user" | "project")} items={[{ value: "user", label: "All projects" }, { value: "project", label: "This project" }]}><SelectTrigger aria-label="Available in" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="user">All projects</SelectItem><SelectItem value="project" disabled={!projectAvailable}>This project</SelectItem></SelectGroup></SelectContent></Select><FieldDescription>{!projectAvailable ? "Open a trusted project to save resources for that project alone." : "Project resources are only loaded in this trusted folder."}</FieldDescription></Field>
-        <Field><FieldLabel htmlFor="capability-name">Name</FieldLabel><Input id="capability-name" value={name} disabled={busy || !!server} onChange={event => setName(event.target.value)} placeholder={kind === "mcp" ? "docs" : "review-changes"} /></Field>
+        <Field><FieldLabel htmlFor="capability-name">Name</FieldLabel><Input id="capability-name" value={name} maxLength={kind === "mcp" ? 100 : 64} aria-invalid={!!name && !nameValid} aria-describedby="capability-name-help" disabled={busy || !!server} onChange={event => setName(event.target.value)} placeholder={kind === "mcp" ? "docs" : "review-changes"} /><FieldDescription id="capability-name-help">{!name || nameValid ? "Use a short name, such as review-changes." : kind === "mcp" ? "Use letters, numbers, hyphens or underscores. Spaces are not supported." : "Use lowercase letters, numbers and hyphens. Spaces are not supported."}</FieldDescription>{name && !nameValid && suggestedName ? <Button size="xs" variant="outline" className="w-fit" type="button" onClick={() => setName(suggestedName)}>Use {suggestedName}</Button> : null}</Field>
         {kind === "skill" && <Field><FieldLabel htmlFor="capability-description">Description</FieldLabel><Input id="capability-description" value={description} disabled={busy} onChange={event => setDescription(event.target.value)} placeholder="When Pi should use this skill" /></Field>}
         {kind === "mcp" ? <>
           <Field><FieldLabel>Connection</FieldLabel><Segmented label="Connection" value={transport} onChange={setTransport} disabled={busy} options={[{ value: "http", label: "URL" }, { value: "stdio", label: "Local command" }]} /></Field>
-          {transport === "http" ? <Field><FieldLabel htmlFor="server-url">Server URL</FieldLabel><Input id="server-url" type="url" value={url} disabled={busy} onChange={event => setUrl(event.target.value)} placeholder="https://example.com/mcp" /><FieldDescription>Use /mcp in a Work chat if the server needs sign-in.</FieldDescription></Field> : <>
+          {transport === "http" ? <Field><FieldLabel htmlFor="server-url">Server URL</FieldLabel><Input id="server-url" type="url" value={url} disabled={busy} onChange={event => setUrl(event.target.value)} placeholder="https://example.com/mcp" /><FieldDescription>After saving, check the connection. Its setup action helps you finish sign-in if needed.</FieldDescription></Field> : <>
             <Field><FieldLabel htmlFor="server-executable">Executable</FieldLabel><Input id="server-executable" value={command} disabled={busy} onChange={event => setCommand(event.target.value)} placeholder="uvx" /></Field>
             <Field><FieldLabel htmlFor="server-arguments">Arguments</FieldLabel><Textarea id="server-arguments" className="min-h-20" value={args} disabled={busy} onChange={event => setArgs(event.target.value)} placeholder="your-mcp-server" /><FieldDescription>One argument per line. Checking connections runs this program.</FieldDescription></Field>
           </>}
         </> : <Field><FieldLabel htmlFor="capability-content">{kind === "skill" ? "Instructions" : "Prompt"}</FieldLabel><Textarea id="capability-content" className="min-h-28 max-h-56 overflow-y-auto" value={content} disabled={busy} onChange={event => setContent(event.target.value)} placeholder={kind === "skill" ? "How Pi should carry out this task…" : "Review $ARGUMENTS and describe any issues."} />{kind === "prompt" && <FieldDescription>Use $1 or $ARGUMENTS for inputs.</FieldDescription>}</Field>}
         {error && <StateNotice title="Could not save" detail={error} />}
       </FieldGroup>
-      <DialogFooter><Button type="button" variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button><Button type="submit" disabled={busy || !valid}>{busy ? "Saving…" : server ? "Replace connection" : kind === "mcp" ? "Add server" : `Create ${labels[kind].toLowerCase()}`}</Button></DialogFooter>
+      <DialogFooter><Button type="button" variant="ghost" onClick={onClose} disabled={busy}>Close</Button><Button type="submit" disabled={busy || !valid}>{busy ? "Saving…" : server ? "Replace connection" : kind === "mcp" ? "Add server" : `Create ${labels[kind].toLowerCase()}`}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>;
 }
