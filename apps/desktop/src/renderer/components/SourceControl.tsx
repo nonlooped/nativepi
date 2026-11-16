@@ -228,7 +228,7 @@ export default function SourceControl({
         </div>
         {tab === "changes" ? <div className="min-h-0 flex-1 overflow-y-auto pb-4">
           <ReviewWorkflow projectDir={projectDir} />
-          <section className="border-b border-border/40 p-3" aria-label="Create a commit"><p className="mb-3 text-xs leading-5 text-muted-foreground">Select changes below (stage them), then create a local saved version (commit). Publish sends saved versions to the chosen repository.</p>
+          <section className="border-b border-border/40 p-3" aria-label="Create a commit">
             <div className="overflow-hidden rounded-xl border border-border/50 bg-sidebar/40 focus-within:border-ring/60">
             <Textarea id="source-control-message" aria-label="Commit message" value={message} onChange={event => { ++messageVersion.current; setMessage(event.target.value); }} ref={commitInput} placeholder="Message" rows={2} className="min-h-14 resize-none rounded-none border-0 bg-transparent dark:bg-transparent shadow-none focus-visible:ring-0" />
             <div className="flex min-w-0 items-center gap-1 px-2 pb-2">
@@ -259,7 +259,7 @@ export default function SourceControl({
       {tab === "history" ? <GitHistory key={projectDir} projectDir={projectDir} git={git} onReview={onReview} /> : null}
     </div>
     <ConfirmDialog open={!!publication} title={publication?.action === "sync" ? "Sync with this repository?" : "Publish saved changes?"}
-      description={<>{publication?.action === "sync" ? "Bring in saved changes, then send your local commits to this repository." : "Your saved commits will be sent to this repository. People with access to it can see them."} Current branch: {publication?.target.branch}. {publication?.target.rules.length ? "Custom Git publishing rules may also include other branches or tags. Review the rules below." : ""}</>}
+      description={<>{publication?.action === "sync" ? "Pull changes, then push local commits." : "Push commits to this repository."} Current branch: {publication?.target.branch}. {publication?.target.rules.length ? "Custom push rules may include other branches or tags." : ""}</>}
       detail={publication ? [...publication.target.urls, ...(publication.action === "sync" && publication.target.receiveFrom ? [`Receive updates from: ${publication.target.receiveFrom}`] : [])].map(url => url.replace(/^(https?:\/\/)[^/@]+@/, "$1…@")).join(" · ") : undefined} confirmLabel={publication?.action === "sync" ? "Sync saved changes" : "Publish changes"}
       onCancel={() => setPublication(null)} onConfirm={() => { const next = publication; if (!next) return; knownTargets.current.add(next.target.fingerprint); setPublication(null); void (next.commitFirst ? commit(next.action, next.target.fingerprint) : sync(next.action, next.target.fingerprint)); }}>
       {publication?.target.rules.length ? <SettingsDetails id="publish-rules" title="Git publishing rules"><pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">{publication.target.rules.join("\n")}</pre></SettingsDetails> : null}

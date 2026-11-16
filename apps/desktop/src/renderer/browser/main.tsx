@@ -184,7 +184,7 @@ function BrowserChrome() {
     <div className="flex h-full min-w-0 flex-col bg-background text-foreground">
       <header ref={header} className="shrink-0 bg-sidebar">
         <div className={cn("flex h-8 items-center gap-2 px-3 text-xs text-muted-foreground", mac && "pl-[100px]", DRAG_REGION)}><span className="min-w-0 flex-1 truncate" title={state.ownerTitle}>Browser · {state.ownerTitle || "New Work chat"}</span><span className={NO_DRAG_REGION}><IconAction label="About this chat’s browser" onClick={() => setAbout(value => !value)}><InfoIcon /></IconAction></span></div>
-        {about ? <p className="px-4 pb-2 text-xs leading-5 text-body-muted-foreground">You and Pi share these pages. Hiding this window keeps tabs and sign-ins available. Restarting or closing this chat’s agent clears them. Use your usual browser for downloads, popups or device permissions.</p> : null}
+        {about ? <p className="px-4 pb-2 text-xs leading-5 text-body-muted-foreground">Shared with Pi. Tabs and sign-ins clear when Pi closes or restarts. Downloads, popups and device permissions require your usual browser.</p> : null}
         <div
           className={cn(
             "flex h-12 min-w-0 items-center gap-1 px-3",
@@ -404,7 +404,7 @@ function BrowserChrome() {
                     ? ""
                     : "Enter a website or local server address above."}
               </p>
-              {!active && !state.error ? <p className="mt-2 text-xs leading-5 text-muted-foreground">This browser is shared with Pi in {state.ownerTitle || "this Work chat"}. Tabs and sign-ins last until its agent closes or restarts.</p> : null}
+              {!active && !state.error ? <p className="mt-2 text-xs leading-5 text-muted-foreground">This browser is shared with Pi in {state.ownerTitle || "this Work chat"}. Tabs and sign-ins clear when Pi closes or restarts.</p> : null}
             </div>
             {state.error && (
               <>

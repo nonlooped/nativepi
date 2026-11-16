@@ -58,7 +58,7 @@ export default function TaskWorkspacePanel({ projectDir, onStart, initiallySepar
   return <div className="space-y-5">
     <Segmented label="Task isolation" value={isolated ? "new" : "current"} options={[{ value: "current", label: "Existing folder" }, { value: "new", label: "Separate workspace" }]} onChange={value => setIsolated(value === "new")} className="w-full *:flex-1" />
     {isolated ? <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">Start from the last version saved in Git, keeping your current folder unchanged. Changes you haven’t committed, dependencies and ignored files are not copied automatically.</p>
+      <p className="text-sm text-muted-foreground">Starts from a Git commit. Uncommitted and ignored files are not copied.</p>
       {data?.supported === false ? <div className="space-y-2"><p className="text-sm text-body-muted-foreground">Separate workspaces need a Git project. You can still work in the current folder.</p><Button variant="outline" onClick={() => setIsolated(false)}>Use current folder</Button></div> : null}
       {data?.supported !== false ? <>
       <Button size="sm" variant="ghost" aria-expanded={branchOptions} onClick={() => setBranchOptions(v => !v)}><CaretRightIcon className={branchOptions ? "rotate-90" : ""} />Branch options</Button>

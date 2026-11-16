@@ -89,7 +89,6 @@ function BranchList({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="flex max-h-[min(24rem,60vh,var(--available-height))] flex-col">
-      <p className="px-3 pt-3 text-xs leading-5 text-muted-foreground">Switch which saved version of this project is in this folder.</p>
       <div className="p-1.5 pb-0">
         <Input
           value={query}

@@ -35,7 +35,7 @@ test("add dialog submits only the chosen transport and exposes restart after a s
   };
   try {
     await act(async () => root.render(<AgentSetupSettings />));
-    expect(container.textContent).not.toContain("Restart agents");
+    expect(container.textContent).not.toContain("Restart Pi");
     await act(async () => button("Add MCP server").click());
     await fill("capability-name", "docs");
     await fill("server-url", "https://example.com/mcp");
@@ -47,7 +47,7 @@ test("add dialog submits only the chosen transport and exposes restart after a s
     expect((document.getElementById("server-executable") as HTMLInputElement).value).toBe("uvx");
     saveError = false;
     await act(async () => document.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
-    expect(container.textContent).toContain("Restart agents");
+    expect(container.textContent).toContain("Restart Pi");
     expect(container.textContent).toContain("Not checked");
     expect(document.body.textContent).not.toContain("Raw command output");
     expect(document.getElementById("server-executable")).toBeNull();

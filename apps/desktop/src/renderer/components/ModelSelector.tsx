@@ -273,7 +273,6 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
             automatic: selection.automatic ? { selected: selection.automatic.tier, label: selection.automatic.tierLabel, onSelect: () => selection.automatic!.onChange("tier", "auto") } : undefined,
           } : undefined} />
         </div>
-        <p className="px-3 pb-2 text-xs leading-5 text-muted-foreground">Higher thinking effort can help with difficult tasks, but takes longer. The default is fine for everyday work.</p>
       </PopoverContent>
     </Popover>
   );

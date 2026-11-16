@@ -78,7 +78,7 @@ export default function ProviderSettings() {
       <Button variant="ghost" size="sm" onClick={() => openPanel("usage")}>View usage</Button>
     </div>
     {connected.length ? <ProviderGroup heading="Connected accounts" providers={connected} selected={selected} setSelected={setSelected} authFlow={authFlow} cancelLogin={cancelLogin} />
-      : <p className="text-sm leading-6 text-body-muted-foreground">An AI provider is the service that supplies your models. Sign in with a supported subscription, or use an API key that may be billed separately.</p>}
+      : <p className="text-sm leading-6 text-body-muted-foreground">Connect a model provider to start chatting. NativePi uses Pi’s authentication and models.</p>}
     <Dialog open={adding} onOpenChange={open => { setAdding(open); if (!open && authFlow && !connected.some(provider => provider.id === authFlow.providerId)) cancelLogin(); }}>
       <DialogContent className="max-h-[min(40rem,calc(var(--app-height,100dvh)-2rem))] max-w-xl">
         <DialogHeader><DialogTitle>Connect an AI account</DialogTitle><DialogDescription>Choose your AI service. Supported subscriptions can sign in; API keys may have separate charges.</DialogDescription></DialogHeader>
@@ -217,8 +217,8 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
 function describeConnected(provider: AuthProviderInfo): string {
   if (!provider.ready)
     return "Pi has credentials for this provider but cannot use them, so its models stay out of the picker. Signing in again replaces them.";
-  if (provider.storedType === "oauth") return "Signed in with your subscription account.";
-  if (provider.storedType === "api_key") return "Connected with an API key saved on this computer.";
+  if (provider.storedType === "oauth") return "Signed in with a subscription account through Pi.";
+  if (provider.storedType === "api_key") return "Connected with an API key stored by Pi.";
   if (provider.authSource === "environment")
     return `Configured from your environment${provider.authLabel ? ` (${provider.authLabel})` : ""}. You can also sign in below.`;
   return "This provider is connected through Pi.";
@@ -378,8 +378,8 @@ function AuthPromptForm({
         </div>
         <FieldDescription>
           {isSecret
-            ? "The key is saved on this computer for requests to your selected AI service."
-            : "Used to finish signing in to your selected AI service."}
+            ? "The key is sent directly to Pi and stored in Pi's credential file."
+            : "This value is sent directly to Pi to complete sign-in."}
         </FieldDescription>
       </Field>
       <Button variant="ghost" size="sm" className="mt-3" onClick={cancelLogin}>Cancel</Button>

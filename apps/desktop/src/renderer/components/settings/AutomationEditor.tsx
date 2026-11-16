@@ -324,7 +324,7 @@ export default function AutomationEditor({
                         })
                       }
                     />
-                    <p className="text-xs text-body-muted-foreground">Filled in automatically when you paste a pull request link.</p>
+                    <p className="text-xs text-body-muted-foreground">Accepts a pull request link.</p>
                     {fieldErrors["trigger.repository"] && <p role="alert" className="text-xs text-destructive">{fieldErrors["trigger.repository"]}</p>}
                   </Field>
                   <SwitchRow

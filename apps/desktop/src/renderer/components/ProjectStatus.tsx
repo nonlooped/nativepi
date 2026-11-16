@@ -29,7 +29,7 @@ export default function ProjectStatus({ compact = false, className }: { compact?
           <MenuPopup align="end" className="w-72 p-1.5">
             <p className="px-2 pb-1.5 pt-1 text-xs text-muted-foreground">{health.detail}</p>
              <MenuGroup><MenuItem onClick={() => void restartPi()} className="rounded-md text-sm">
-              Restart agent
+              Restart Pi
              </MenuItem></MenuGroup>
           </MenuPopup>
         </Menu>
@@ -79,7 +79,7 @@ export function PiStartingNotice() {
         )}
       >
         <CircleNotchIcon aria-hidden="true" className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-        <span className="font-medium">Starting agent</span>
+        <span className="font-medium">Starting Pi</span>
         {/* The one thing the header's status chip cannot say, and the only
             reason this is on screen at all: a draft written now is not lost. */}
         <span className="text-muted-foreground">You can keep typing</span>
@@ -155,14 +155,14 @@ function healthOf(status: PiStatus | undefined): { label: string; detail: string
   switch (status) {
     case "error":
       return {
-        label: "Agent unavailable",
-        detail: "The agent for this chat could not start. Try restarting it.",
+        label: "Pi unavailable",
+        detail: "Pi could not start. Try restarting it.",
         tone: "text-destructive",
       };
     case "exited":
       return {
-        label: "Agent stopped",
-        detail: "The agent for this chat stopped. Restart it to keep working.",
+        label: "Pi stopped",
+        detail: "Pi stopped. Restart it to keep working.",
         tone: "text-warning",
       };
     default:

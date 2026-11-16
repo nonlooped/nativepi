@@ -30,7 +30,7 @@ function updateSummary(update: UpdateState): { tone: CardTone; status: string; d
       return {
         tone: "warning",
         status: `${name} is ready`,
-        detail: "Install when you’re ready to stop running work and restart NativePi. Closing the window alone does not install this update.",
+        detail: "Installing stops background work and restarts NativePi.",
       };
     case "error":
       return { tone: "error", status: "The update did not go through", detail: update.error ?? "NativePi could not reach the release feed." };

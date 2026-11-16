@@ -129,7 +129,7 @@ export function showUpdateNotice(
     case "ready":
       return void toast.success(`${name} is ready to install`, {
         ...options,
-        description: "Install when you’re ready to stop background work and restart. Closing NativePi alone does not install it.",
+        description: "Installing stops background work and restarts NativePi.",
         action: {
           label: "Install…",
           onClick: () => void actions.install().catch((error: unknown) => {

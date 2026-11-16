@@ -25,7 +25,7 @@ export default function PiPanel({ children }: { children: (settings: PiSettings)
   if (!settings) {
     if (globalStatus && error) return null;
     return error ? (
-<StateNotice title="Could not load agent settings" detail={error} retry={() => void useAppStore.getState().loadPiSettings()} />
+<StateNotice title="Could not load Pi settings" detail={error} retry={() => void useAppStore.getState().loadPiSettings()} />
     ) : (
       <StateNotice loading title="Loading Pi's settings…" />
     );
@@ -51,11 +51,11 @@ export function PiSettingsStatus() {
 
   return (
     <div className="flex flex-col gap-2">
-      {error ? <StateNotice title="Could not load agent settings" detail={error} retry={() => void useAppStore.getState().loadPiSettings()} /> : null}
+      {error ? <StateNotice title="Could not load Pi settings" detail={error} retry={() => void useAppStore.getState().loadPiSettings()} /> : null}
       {restartPending ? <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-md bg-muted/20 px-3 py-2.5 text-xs">
       <InfoIcon className="shrink-0 text-muted-foreground" />
       <p className="min-w-0 flex-1 text-body-muted-foreground">
-        Saved. Open chats use these changes after their agents restart.
+        Saved. Open chats use these changes after Pi restarts.
       </p>
         <Button
           size="sm"
@@ -66,7 +66,7 @@ export function PiSettingsStatus() {
           onClick={async () => { setPending(true); try { await applyRestart(); } finally { setPending(false); } }}
         >
           <ArrowClockwiseIcon data-icon="inline-start" />
-          {pending ? "Restarting…" : "Restart agents"}
+          {pending ? "Restarting…" : "Restart Pi"}
         </Button>
       {running ? <p className="w-full text-body-muted-foreground">Wait for all running turns to finish before restarting open chats.</p> : null}
       </div> : null}

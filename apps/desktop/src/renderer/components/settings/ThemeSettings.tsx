@@ -485,7 +485,7 @@ function ThemeImport({ onClose, onImport }: { onClose: () => void; onImport: (th
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Import color scheme</DialogTitle>
-          <DialogDescription>Choose a shared NativePi color scheme file. It includes light and dark appearances.</DialogDescription>
+          <DialogDescription>Choose a NativePi color scheme file.</DialogDescription>
         </DialogHeader>
         <input ref={fileInput} type="file" accept=".json,application/json" className="hidden" aria-label="Color scheme file" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void file.text().then(text => { setJson(text); submit(text); }).catch(() => setError("Could not read this file. Choose a NativePi scheme file and try again.")); }} />
         <Button onClick={() => fileInput.current?.click()}>Choose scheme file…</Button>

@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { desktopPlatform, desktopTarget, downloadFailureSchema } from "./downloads";
+import { desktopPlatform, desktopTarget } from "./downloads";
 import { releaseDownload, nightlyDownload } from "./releases";
 import { GET } from "../app/download/[target]/route";
 import { site } from "./site";
@@ -72,26 +72,12 @@ describe("download selection", () => {
     try {
       globalThis.fetch = async () => Response.json(release);
       assert.equal((await GET(request, context)).headers.get("location"), release.assets[0].browser_download_url);
-      assert.equal((await GET(new Request(`${request.url}?channel=nightly`), context)).headers.get("location"), `${site.url}/download?unavailable=mac-arm64&channel=nightly`);
+      assert.equal((await GET(new Request(`${request.url}?channel=nightly`), context)).headers.get("location"), `${site.url}/download`);
       globalThis.fetch = async () => new Response("rate limited", { status: 403 });
-      assert.equal((await GET(request, context)).headers.get("location"), `${site.url}/download?unavailable=mac-arm64&channel=stable`);
+      assert.equal((await GET(request, context)).headers.get("location"), `${site.url}/download`);
       globalThis.fetch = async () => { throw new Error("network unavailable"); };
-      assert.equal((await GET(request, context)).headers.get("location"), `${site.url}/download?unavailable=mac-arm64&channel=stable`);
+      assert.equal((await GET(request, context)).headers.get("location"), `${site.url}/download`);
       assert.equal((await GET(request, { params: Promise.resolve({ target: "invalid" }) })).headers.get("location"), `${site.url}/download`);
     } finally { globalThis.fetch = originalFetch; }
   });
-  it("validates failure links and retries the lookup without a cached result", async () => {
-    assert.equal(downloadFailureSchema.safeParse({ unavailable: "https://example.com" }).success, false);
-    assert.equal(downloadFailureSchema.safeParse({ unavailable: ["mac-arm64", "mac-x64"] }).success, false);
-    assert.deepEqual(downloadFailureSchema.parse({ unavailable: "mac-arm64" }), { unavailable: "mac-arm64", channel: "stable" });
-    const previous = globalThis.fetch;
-    let options: RequestInit | undefined;
-    try {
-      globalThis.fetch = async (_url, init) => { options = init; return Response.json(release); };
-      const result = await GET(new Request(`${site.url}/download/mac-arm64?channel=stable&retry=1`), { params: Promise.resolve({ target: "mac-arm64" }) });
-      assert.equal(options?.cache, "no-store");
-      assert.equal(result.headers.get("location"), release.assets[0].browser_download_url);
-    } finally { globalThis.fetch = previous; }
-  });
-
 });
