@@ -651,6 +651,7 @@ const orchestration = new OrchestrationCoordinator({
   publish: () => { orchestrationRevision++; push("orchestrationChanged", orchestrationSnapshot()); },
 });
 const automations = new AutomationService(join(app.getPath("userData"), "automations.json"), {
+  groupBusy: ref => orchestration.busy(ref.id),
   events: async input => input.trigger.kind === "github" ? githubEvents(input.trigger, input.project ?? app.getPath("userData")) : [],
   busy: project => projectHasActiveRun(project ? resolve(project) : join(app.getPath("userData"), "work")),
   prepare: async (input, runId, signal, workspace) => {
@@ -2287,7 +2288,8 @@ export async function invokeHostRequest<K extends HostRequestName>(name: K, raw:
   };
   const project = values.projectDir;
   const file = values.sessionFile;
-  if (project && automations.ownsWorkspace(project) && (sessionWrites.has(name) || gitWorktreeWrites.has(name))) throw new Error("Stop the automation before writing in this workspace.");
+  const ownedPromptResponse = name === "extensionRespond" && !!file && orchestration.references().some(ref => ref.file === resolve(file) && (automations.ownsSession(ref.id) || automations.ownsSession(orchestration.snapshot(ref.id).relationship?.lead.id ?? "")));
+  if (project && automations.ownsWorkspace(project) && !ownedPromptResponse && (sessionWrites.has(name) || gitWorktreeWrites.has(name))) throw new Error("Stop the automation before writing in this workspace.");
   if (project && file && pis.has(file) && pis.get(file)?.projectDir !== project)
     throw new Error("That chat belongs to another project");
   if (gitWorktreeWrites.has(name) && project && projectHasActiveRun(project))

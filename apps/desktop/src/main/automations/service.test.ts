@@ -203,3 +203,31 @@ test("Stop invalidates an in-flight event poll before allocation", () =>
     await s.tick();
     expect(e.dispatched).toHaveLength(0);
   }));
+
+
+test("weekly DST gap advances to the next valid week", () => {
+  expect(nextOccurrence({ kind: "weekly", weekday: 0, time: "02:30", timezone: "America/New_York" }, Date.parse("2026-03-02T12:00:00Z")))
+    .toBe(Date.parse("2026-03-15T06:30:00Z"));
+});
+
+test("lead completion retains ownership and Stop until its group is idle", () =>
+  fixture(async (s, e) => {
+    let busy = true;
+    e.adapter.groupBusy = () => busy;
+    const a = (await s.put(input)).automations[0]!;
+    await s.runNow(a.id);
+    await s.outcome(e.dispatched[0]!, false, "Lead finished");
+    expect(s.ownsWorkspace("/project")).toBe(true);
+    expect((await s.snapshot()).runs[0]?.status).toBe("dispatched");
+    busy = false;
+    await s.tick();
+    expect(s.ownsWorkspace("/project")).toBe(false);
+    expect((await s.snapshot()).runs[0]?.status).toBe("needs-review");
+    busy = true;
+    await s.runNow(a.id);
+    await s.outcome(e.dispatched[1]!, false, "Lead finished again");
+    e.adapter.stop = async () => { busy = false; };
+    await s.stop(a.id);
+    expect(busy).toBe(false);
+    expect((await s.snapshot()).runs.at(-1)?.status).toBe("stopped");
+  }));

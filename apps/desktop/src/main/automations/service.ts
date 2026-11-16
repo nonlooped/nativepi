@@ -26,6 +26,7 @@ export interface AutomationAdapter {
   ): Promise<void>;
   stop(ref: ThreadReference): Promise<void>;
   busy(project: string | null): boolean;
+  groupBusy?(ref: ThreadReference): boolean;
 }
 /** Host-owned intent/history only. Transcripts and execution remain Pi-owned. */
 export class AutomationService {
@@ -42,6 +43,7 @@ export class AutomationService {
       controller: AbortController;
       run: AutomationRun;
       task: Promise<void>;
+      outcome?: { failed: boolean; detail: string };
     }
   >();
   private timer?: ReturnType<typeof setInterval>;
@@ -282,26 +284,34 @@ export class AutomationService {
     }
   }
   async outcome(sessionId: string, failed: boolean, detail: string) {
-    for (const [id, active] of this.active)
-      if (active.run.ref?.id === sessionId) {
-        if (active.controller.signal.aborted) return;
-        active.run.status = failed ? "failed" : "needs-review";
-        active.run.detail = detail;
-        active.run.ended = this.now();
-        this.active.delete(id);
-        const a = this.state.automations.find((a) => a.id === id);
-        if (a) {
-          a.failures = failed ? a.failures + 1 : 0;
-          if (a.failures >= 3) a.input.enabled = false;
-        }
-        await this.save();
+    for (const active of this.active.values())
+      if (active.run.ref?.id === sessionId && !active.controller.signal.aborted)
+        active.outcome = { failed, detail };
+    await this.finishIdleGroups();
+  }
+  private async finishIdleGroups() {
+    for (const [id, active] of this.active) {
+      if (!active.outcome || active.controller.signal.aborted ||
+          (active.run.ref && this.adapter.groupBusy?.(active.run.ref))) continue;
+      const { failed, detail } = active.outcome;
+      active.run.status = failed ? "failed" : "needs-review";
+      active.run.detail = detail;
+      active.run.ended = this.now();
+      this.active.delete(id);
+      const a = this.state.automations.find(a => a.id === id);
+      if (a) {
+        a.failures = failed ? a.failures + 1 : 0;
+        if (a.failures >= 3) a.input.enabled = false;
       }
+      await this.save();
+    }
   }
   async tick() {
     if (this.ticking || this.closed) return;
     this.ticking = true;
     try {
       await this.load();
+      await this.finishIdleGroups();
       for (const a of [...this.state.automations]) {
         if (!a.input.enabled) continue;
         const now = this.now();

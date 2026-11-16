@@ -40,6 +40,10 @@ mock.module("../../lib/rpc.ts", () => ({
         };
         return state;
       },
+      automationStop: async () => {
+        state = { ...state, runs: state.runs.map(run => run.status === "dispatched" ? { ...run, status: "stopped", ended: 3 } : run) };
+        return state;
+      },
       automationDelete: async () => {
         state = { ...state, automations: [] };
         return state;
@@ -259,4 +263,20 @@ test("editor saves catalog model/reasoning/speed choices without changing the ma
     tools: ["read"],
   });
   expect(useAppStore.getState().model).toEqual(manual);
+});
+
+
+test("an overlap skip does not hide the active run or its Stop action", async () => {
+  state = { version: 1, automations: [{ id, input: { id, name: "Active work", prompt: "Inspect", enabled: true, project: null, workspace: "shared", configuration: { provider: "test", model: "exact", reasoning: "off", tools: ["read"] }, trigger: { kind: "once", at: "2026-12-01T00:00:00Z" } }, next: null, seen: [], initialized: false, failures: 0, lastPoll: 0 }], runs: [
+    { id, automationId: id, name: "Active work", started: 1, status: "dispatched", detail: "Running", context: "Manual" },
+    { id: "22222222-2222-4222-8222-222222222222", automationId: id, name: "Active work", started: 2, ended: 2, status: "skipped", detail: "Overlap", context: "Manual" },
+  ] };
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  await act(async () => root!.render(<AutomationSettings />));
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Actions for Active work"]')!.click());
+  const stop = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(button => button.textContent === "Stop run");
+  expect(stop).toBeDefined();
+  await act(async () => stop!.click());
+  expect(state.runs[0]!.status).toBe("stopped");
+  expect(container.textContent).not.toContain("Stop run");
 });

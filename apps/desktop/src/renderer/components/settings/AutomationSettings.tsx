@@ -114,7 +114,7 @@ export default function AutomationSettings() {
                   (run) => run.automationId === a.id,
                 );
                 const active =
-                  latest && ["preparing", "dispatched"].includes(latest.status);
+                  runs.findLast(run => run.automationId === a.id && ["preparing", "dispatched"].includes(run.status));
                 const Icon =
                   a.input.trigger.kind === "github"
                     ? GitPullRequestIcon
@@ -140,7 +140,7 @@ export default function AutomationSettings() {
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                         <span>
                           {active
-                            ? runLabels[latest.status]
+                            ? runLabels[active.status]
                             : !a.input.enabled
                               ? "Paused"
                               : a.next
@@ -215,7 +215,6 @@ export default function AutomationSettings() {
                           </DropdownMenuItem>
                           {active && (
                             <DropdownMenuItem
-                              disabled={pending}
                               onClick={() =>
                                 void action(() =>
                                   rpc.request.automationStop({ id: a.id }),

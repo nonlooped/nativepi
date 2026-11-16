@@ -24,7 +24,7 @@ export function nextOccurrence(
     date = `${previous.year}-${previous.month}-${previous.day}`;
   for (
     let n = Math.floor(after / 60000) * 60000 + 60000;
-    n <= after + 9 * 86400000;
+    n <= after + 16 * 86400000;
     n += 60000
   ) {
     const p = parts(n);
@@ -42,5 +42,5 @@ export function nextOccurrence(
       continue;
     return n;
   }
-  throw new Error("No schedule occurrence in the next nine days");
+  throw new Error("No schedule occurrence in the next sixteen days");
 }
