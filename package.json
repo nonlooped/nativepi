@@ -33,7 +33,7 @@
   },
   "overrides": {
     "katex": "0.19.1",
-    "postcss": "8.5.32",
+    "postcss": "8.5.33",
     "sharp": "0.35.5",
     "shiki": "4.6.0"
   }
