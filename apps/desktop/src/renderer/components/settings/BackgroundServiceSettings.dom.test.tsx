@@ -16,13 +16,14 @@ test("stopping requires explicit confirmation and reports the completed stop", a
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   await act(async () => { root.render(<BackgroundServiceSettings />); });
   const button = (text: string) => [...document.querySelectorAll("button")].find(button => button.textContent === text)!;
-  await act(async () => button("Stop service…").click());
+  await act(async () => button("Manage…").click());
+  await act(async () => button("Stop work…").click());
   expect(actions).toEqual(["status"]);
   await act(async () => button("Cancel").click());
   expect(document.body.textContent).not.toContain("Stop all agents and terminals?");
-  await act(async () => button("Stop service…").click());
+  await act(async () => button("Stop work…").click());
   await act(async () => button("Stop all work").click());
   expect(actions).toEqual(["status", "stop"]);
   expect(host.textContent).toContain("Stopped");
-  expect(button("Start service")).toBeDefined();
+  expect(button("Resume work")).toBeDefined();
 });

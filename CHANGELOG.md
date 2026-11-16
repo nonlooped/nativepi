@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Keep background-work settings compact, with sign-in and stop controls in a focused management dialog.
 - Run all Pi agents, terminals, browser sessions and automations in a separate local background host. Closing or restarting the desktop preserves live work; reopening restores output, queues, questions and Stop. Add explicit service controls and optional start at login.
 - Defer installer execution until the background service is explicitly stopped; compatible desktop restarts reconnect without replaying prompts, and incompatible hosts remain running until stopped.
 - Reorganize Settings around everyday preferences, conversations, permissions, and advanced options, with search that reveals individual controls and hidden sections.
