@@ -33,7 +33,8 @@ test("fresh task, progress, question, reply, completion and follow-up stay disti
   const question = await f.coordinator.report("child", "question", "Which branch?", true);
   const waiting = f.coordinator.wait("lead", ["child"], true, new AbortController().signal);
   await f.coordinator.settled("child", { assignmentId: f.coordinator.snapshot("child").assignment!.id, attempt: f.coordinator.snapshot("child").assignment!.attempt, aborted: false, stopReason: "stop", resultEntry: "answer1" });
-  expect((await waiting)[0]?.assignment?.state).toBe("waiting");
+  expect((await waiting)[0]?.assignment?.questions).toEqual([question.id]);
+  expect(f.coordinator.snapshot("child").assignment?.state).toBe("waiting");
   const reply = await f.coordinator.assign("lead", "child", "reply", "main", { replyTo: question.id });
   expect(reply.id).toBe(first.id);
   await f.coordinator.settled("child", { assignmentId: f.coordinator.snapshot("child").assignment!.id, attempt: f.coordinator.snapshot("child").assignment!.attempt, aborted: false, stopReason: "stop", resultEntry: "answer2" });
@@ -200,4 +201,65 @@ test("a completed delegate accepts a normal follow-up after group Stop and expli
   const next = await f.coordinator.assign("lead", "child", "follow-up", "More work");
   expect(next.state).toBe("running");
   expect(next.id).not.toBe(assignment.id);
+});
+
+test("individual Stop must fence followups already queued in coordinator", async () => {
+  const f = fixture(); await f.setup();
+  const entered = Promise.withResolvers<void>();
+  let count = 0;
+  f.adapter.dispatch = async (_ref, message, signal) => {
+    if (++count === 1) {
+      entered.resolve();
+      await new Promise<void>((_, reject) => signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true }));
+    } else {
+      signal.throwIfAborted(); f.dispatched.push(message);
+    }
+  };
+  const first = f.coordinator.assign("lead", "child", "initial", "First").catch(() => {});
+  await entered.promise;
+  const second = f.coordinator.assign("lead", "child", "queued", "Should be cancelled").catch(() => {});
+  const stopping = f.coordinator.stop("child");
+  await Promise.all([first, second, stopping]);
+  expect(f.dispatched).toHaveLength(0);
+});
+
+
+test("individual Stop must fence an assignment queued behind a child report write", async () => {
+  const f = fixture(); await f.setup();
+  await f.coordinator.assign("lead", "child", "initial", "First"); f.dispatched.length = 0;
+  const entered = Promise.withResolvers<void>(), release = Promise.withResolvers<void>();
+  const append = f.adapter.append;
+  f.adapter.append = async (ref, record) => {
+    if (ref.id === "child" && record.operationId === "question" && record.kind === "assignment") { entered.resolve(); await release.promise; }
+    await append(ref, record);
+  };
+  const reporting = f.coordinator.report("child", "question", "Question", true).catch(() => {});
+  await entered.promise;
+  const queued = f.coordinator.assign("lead", "child", "queued", "Must not run").catch(() => {});
+  const stopping = f.coordinator.stop("child");
+  release.resolve(); await Promise.all([reporting, queued, stopping]);
+  expect(f.dispatched).toHaveLength(0);
+});
+
+test("Stop terminates actual work when its writer does not reply", async () => {
+ const f = fixture(); const coordinator = new OrchestrationCoordinator(f.adapter, 10);
+ for (const ref of [lead, child]) await coordinator.hydrate(ref);
+ coordinator.resumeLead(lead.id);
+ await coordinator.register({ operationId: "spawn", lead, delegate: child, label: "Review", configuration: { provider: "test", model: "model", reasoning: "off", tools: ["read"] }, workspace: { mode: "shared", path: "/repo" } });
+ await coordinator.assign(lead.id, child.id, "task", "Work");
+ const gate = Promise.withResolvers<void>(); const append = f.adapter.append;
+ f.adapter.append = async (ref, record) => { if (record.kind === "stop") await gate.promise; await append(ref, record); };
+ try {
+  await expect(coordinator.stop(child.id)).rejects.toThrow("could not be stopped");
+  expect(f.stopped).toEqual([child.id]);
+ } finally { gate.resolve(); }
+});
+
+test("a delivered clarification must release the lead wait before delegate settlement", async () => {
+ const f = fixture(); await f.setup(); await f.coordinator.assign("lead", "child", "task", "Work");
+ const controller = new AbortController();
+ const waiting = f.coordinator.wait("lead", ["child"], true, controller.signal);
+ await f.coordinator.report("child", "question", "Which branch?", true);
+ try { expect(f.coordinator.waiting("lead")).toBe(false); }
+ finally { controller.abort(); await waiting; }
 });

@@ -178,7 +178,9 @@ export function bindOrchestrationHost(session: AgentSession): () => void {
         if (action === "context") {
           if (supplied || accepted.has(message.id)) { reply({ accepted: true, supplied }); return; }
           accepted.add(message.id);
-          await session.sendCustomMessage({ customType: ORCHESTRATION_ENTRY, content: `[${message.kind} from Work thread ${message.source.id}]\n${message.content}`, display: true, details: message }, { triggerTurn: false });
+          try {
+            await session.sendCustomMessage({ customType: ORCHESTRATION_ENTRY, content: `[${message.kind} from Work thread ${message.source.id}]\n${message.content}`, display: true, details: message }, { triggerTurn: false });
+          } catch (error) { accepted.delete(message.id); throw error; }
           reply({ accepted: true, supplied: !session.isStreaming }); return;
         }
         if (!accepted.has(message.id) && !supplied) {

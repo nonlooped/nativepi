@@ -5,7 +5,7 @@ import { assignmentBusy, projectOrchestration } from "./records.ts";
 export interface OrchestrationAdapter {
   read(ref: ThreadReference): Promise<readonly unknown[]>;
   /** Must use the owning Pi writer and existing session revision/write lease. */
-  append(ref: ThreadReference, record: OrchestrationRecord): Promise<void>;
+  append(ref: ThreadReference, record: OrchestrationRecord, signal?: AbortSignal): Promise<void>;
   /** Resolves on durable acceptance, never on model completion. */
   dispatch(ref: ThreadReference, message: OrchestrationMessage, signal: AbortSignal): Promise<void | { supplied: boolean }>;
   fence?(ref: ThreadReference): void;
@@ -27,7 +27,7 @@ export class OrchestrationCoordinator {
   private pending = new Map<string, number>();
   private stopping = new Map<string, Promise<void>>();
   private deliveries = new Map<string, Promise<OrchestrationMessage>>();
-  constructor(private adapter: OrchestrationAdapter) {}
+  constructor(private adapter: OrchestrationAdapter, private stopPersistenceTimeout = 1000) {}
 
   async hydrate(ref: ThreadReference, notify = true): Promise<void> {
     const known = this.threads.get(ref.id);
@@ -61,10 +61,12 @@ export class OrchestrationCoordinator {
     void next.finally(() => { if (this.queues.get(id) === next) { this.queues.delete(id); this.changed(); } }).catch(() => {});
     return next;
   }
-  private async record(thread: Thread, record: OrchestrationRecord): Promise<void> {
+  private async record(thread: Thread, record: OrchestrationRecord, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted();
     const parsed = orchestrationRecordSchema.parse(record);
     if (parsed.sessionId !== thread.ref.id) throw new Error("Record identity mismatch");
-    await this.adapter.append(thread.ref, parsed);
+    await this.adapter.append(thread.ref, parsed, signal);
+    signal?.throwIfAborted();
     this.adapter.trace?.(parsed.operationId, thread.ref.id, parsed.kind, parsed.kind === "assignment" ? parsed.assignment.state : parsed.kind === "message" ? parsed.stage : undefined);
     // Projection updates happen only after the writer acknowledges persistence.
     const p = thread.projection;
@@ -85,9 +87,14 @@ export class OrchestrationCoordinator {
   private changed(): void {
     this.adapter.publish();
     for (const waiter of [...this.waits]) {
-      const states = waiter.ids.map((id, index) => { const t = this.thread(id); const p = t.projection; const assignmentId = waiter.assignments[index]; return (assignmentId ? p.assignments.get(assignmentId) : p.assignment)?.state ?? (t.fenced && t.controller.signal.aborted ? "stopped" : undefined); });
+      const states = waiter.ids.map((id, index) => { const t = this.thread(id); const p = t.projection; const assignmentId = waiter.assignments[index]; return t.fenced && t.controller.signal.aborted ? "stopped" : (assignmentId ? p.assignments.get(assignmentId) : p.assignment)?.state; });
+      const question = waiter.ids.some((id, index) => {
+        const p = this.thread(id).projection;
+        const assignment = waiter.assignments[index] ? p.assignments.get(waiter.assignments[index]!) : p.assignment;
+        return assignment?.questions.some(messageId => this.thread(waiter.lead).projection.inbox.has(messageId));
+      });
       const terminal = (state: typeof states[number]) => !!state && ["completed", "failed", "stopped", "interrupted"].includes(state);
-      if (states.includes("waiting") || states.some(state => state === "failed" || state === "stopped" || state === "interrupted") || (waiter.all ? states.every(terminal) : states.some(terminal))) waiter.resolve();
+      if (question || states.includes("waiting") || states.some(state => state === "failed" || state === "stopped" || state === "interrupted") || (waiter.all ? states.every(terminal) : states.some(terminal))) waiter.resolve();
     }
   }
   private startupError(t: Thread): string | undefined {
@@ -198,8 +205,10 @@ export class OrchestrationCoordinator {
     if (lead.fenced) throw new OrchestrationError("stopped", "Lead is stopped; explicit resumption is required.");
     if (((child.fenced && child.projection.assignment?.state !== "completed") || ["failed", "interrupted", "stopped"].includes(child.projection.assignment?.state ?? "")) && !options.resume) throw new OrchestrationError("stopped", "Use resume to start a new execution attempt.");
     const groupSignal = lead.controller.signal;
+    const generation = child.projection.generation;
     return this.serial(delegateId, async () => {
       groupSignal.throwIfAborted();
+      if (child.projection.generation !== generation || this.stopping.has(delegateId)) throw new OrchestrationError("stopped", "Assignment cancelled by Stop; resume with a new instruction.");
       let previous = child.projection.assignment;
       if (previous?.taskMessageId === `${leadId}:${operationId}`) return previous;
       if (child.projection.operations.has(operationId)) throw new OrchestrationError("interrupted", "This operation has already been recorded. Inspect its state; do not replay it.");
@@ -315,17 +324,28 @@ export class OrchestrationCoordinator {
     const group = target.projection.relationship ? [target] : [target, ...[...this.threads.values()].filter(t => t.projection.relationship?.lead.id === id)];
     // Synchronous fence before the first await, including preparing children.
     for (const t of group) { t.fenced = true; t.controller.abort(); t.projection.generation++; this.adapter.fence?.(t.ref); this.releaseWaits(t.ref.id); }
+    this.changed();
     const results = await Promise.allSettled(group.map(async t => {
       const pending = this.stopping.get(t.ref.id);
       if (pending) { await pending; return; }
       // Persist through the still-owning writer, then always stop actual work.
       // Adapter append must fail locally for an unavailable writer, never start
       // a process just to record Stop.
-      try { await this.serial(t.ref.id, async () => {
+      const controller = new AbortController();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try { await Promise.race([this.serial(t.ref.id, async () => {
         const operationId = randomUUID();
-        await this.record(t, { version: 1, sessionId: t.ref.id, operationId, kind: "stop", generation: t.projection.generation });
-        if (assignmentBusy(t.projection.assignment) || t.projection.assignment?.state === "interrupted") await this.record(t, { version: 1, sessionId: t.ref.id, operationId, kind: "assignment", assignment: { ...t.projection.assignment!, state: "stopped" } });
-      }); } finally { await this.adapter.stop(t.ref); }
+        await this.record(t, { version: 1, sessionId: t.ref.id, operationId, kind: "stop", generation: t.projection.generation }, controller.signal);
+        if (assignmentBusy(t.projection.assignment) || t.projection.assignment?.state === "interrupted") await this.record(t, { version: 1, sessionId: t.ref.id, operationId, kind: "assignment", assignment: { ...t.projection.assignment!, state: "stopped" } }, controller.signal);
+      }), new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new OrchestrationError("interrupted", "Stop persistence timed out; terminating Pi."));
+        }, this.stopPersistenceTimeout);
+      })]); } catch (error) {
+        await this.interrupted(t.ref.id, "Stop could not be persisted; explicit resumption required.");
+        throw error;
+      } finally { clearTimeout(timer); controller.abort(); await this.adapter.stop(t.ref); }
     }));
     this.changed();
     const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");

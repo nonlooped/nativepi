@@ -7,7 +7,7 @@ import { OrchestrationService } from "./orchestration/service.ts";
 import { allocateThread } from "./orchestration/allocation.ts";
 import { discoverThreads, sameDirectory } from "./orchestration/history.ts";
 import { assignmentBusy, projectOrchestration } from "./orchestration/records.ts";
-import { ORCHESTRATION_ENTRY, OrchestrationError, threadReferenceSchema, type ThreadReference, type OrchestrationSnapshot, type OrganizationSnapshot } from "../shared/orchestration.ts";
+import { ORCHESTRATION_ENTRY, OrchestrationError, orchestrationRecordSchema, threadReferenceSchema, type ThreadReference, type OrchestrationSnapshot, type OrganizationSnapshot } from "../shared/orchestration.ts";
 import { updateState as transformState, noteDeletedSession } from "./state.ts";
 import { gitResolveWorktreeBase } from "./git.ts";
 import { updateWindowMaterial } from "./windowMaterial.ts";
@@ -559,6 +559,32 @@ async function referenceForFile(file: string): Promise<ThreadReference> {
   if (!header || typeof header.id !== "string" || !("cwd" in header) || typeof header.cwd !== "string") throw new Error("not_found: Pi session header unavailable");
   return threadReferenceSchema.parse({ id: header.id, cwd: resolve(header.cwd), file: resolve(file) });
 }
+async function hydrateThreadGroup(file: string): Promise<ThreadReference> {
+  const ref = await referenceForFile(file);
+  await orchestration.hydrate(ref);
+  const entries = await readSession(file);
+  // Lead-side relationship records locate cold children without an archive scan.
+  for (const entry of entries) {
+    if (entry.type !== "custom" || entry.customType !== ORCHESTRATION_ENTRY) continue;
+    const parsed = orchestrationRecordSchema.safeParse(entry.data);
+    if (!parsed.success || parsed.data.sessionId !== ref.id || parsed.data.kind !== "relationship") continue;
+    const child = parsed.data.relationship.delegate;
+    if (parsed.data.relationship.lead.id === ref.id) await orchestration.hydrate(child).catch(() => {});
+  }
+  return ref;
+}
+async function stopThreadFile(file: string): Promise<void> {
+  const known = orchestration.references().find(ref => ref.file === resolve(file));
+  // Fence known work before any disk reads, including cold relationship hydration.
+  const members = new Set(known ? [known.id, ...orchestration.snapshot(known.id).delegates.map(child => child.ref.id)] : []);
+  const stopping = known ? orchestration.stop(known.id) : undefined;
+  const observed = stopping?.catch(error => error);
+  const ref = await hydrateThreadGroup(file);
+  const error = await observed;
+  if (error) throw error;
+  if (!known) await orchestration.stop(ref.id);
+  else for (const child of orchestration.snapshot(ref.id).delegates) if (!members.has(child.ref.id)) await orchestration.stop(child.ref.id);
+}
 let orchestrationRevision = 0;
 function orchestrationSnapshot(): OrchestrationSnapshot {
   const withAttention = (thread: ReturnType<typeof orchestration.snapshot>["delegates"][number]) => {
@@ -593,12 +619,12 @@ async function guardedOrchestration(ref: ThreadReference, action: "catalog" | "a
 }
 const orchestration = new OrchestrationCoordinator({
   read: ref => readSession(ref.file),
-  append: async (ref, record) => {
-    if (record.kind === "stop" && !pis.get(ref.file)?.isAvailable) {
-      const assignment = orchestration.snapshot(ref.id).assignment;
-      if (assignment?.state === "completed" || assignment?.state === "stopped" || (!assignment && !orchestration.busy(ref.id))) return;
-    }
-    await guardedOrchestration(ref, "append", record, undefined, record.kind === "stop" || (record.kind === "assignment" && record.assignment.state === "preparing") || (record.kind === "message" && record.stage === "inbox") || (record.kind === "relationship" && record.relationship.delegate.id === ref.id)); },
+  append: async (ref, record, signal) => {
+    const stopping = record.kind === "stop" || (record.kind === "assignment" && record.assignment.state === "stopped");
+    // Cold sessions recover as Interrupted; recording Stop must never boot Pi.
+    if (stopping && !pis.get(ref.file)?.isAvailable) return;
+    await guardedOrchestration(ref, "append", record, signal, !stopping && ((record.kind === "assignment" && record.assignment.state === "preparing") || (record.kind === "message" && record.stage === "inbox") || (record.kind === "relationship" && record.relationship.delegate.id === ref.id)));
+  },
   configure: async (ref, relationship, signal) => { await guardedOrchestration(ref, "configure", relationship.configuration, signal); },
   dispatch: async (ref, message, signal) => {
     signal.throwIfAborted();
@@ -951,10 +977,10 @@ type HandlerMap = {
   [K in HostRequestName]: (params: HostRequests[K]["params"], pi?: PiProcess) => Promise<HostRequests[K]["response"]> | HostRequests[K]["response"];
 };
 const handlers: HandlerMap = {
-  orchestrationSnapshot: async ({ sessionFile }) => { await orchestrationService.discover(); if (sessionFile) await orchestration.hydrate(await referenceForFile(sessionFile)); return orchestrationSnapshot(); },
-  stopThread: async ({ sessionFile }) => { await orchestrationService.discover(); const ref = orchestration.references().find(ref => ref.file === resolve(sessionFile)); if (!ref) throw new Error("not_found: Thread unavailable"); await orchestration.stop(ref.id); return { ok: true }; },
+  orchestrationSnapshot: async ({ sessionFile }) => { if (sessionFile) { await hydrateThreadGroup(sessionFile); void orchestrationService.discover().catch(error => console.error("Thread discovery failed", error instanceof Error ? error.name : "Error")); } else await orchestrationService.discover(); return orchestrationSnapshot(); },
+  stopThread: async ({ sessionFile }) => { await stopThreadFile(sessionFile); return { ok: true }; },
   wakeThread: async ({ threadId, messageIds }) => { await orchestrationService.discover(); await orchestration.wake(threadId, messageIds, new AbortController().signal); const ref = orchestration.references().find(ref => ref.id === threadId); if (ref) await organize(ref.file, "focus"); return { ok: true }; },
-  organizeThread: async ({ sessionFile, action }) => { await orchestrationService.discover(); return organize(resolve(sessionFile), action); },
+  organizeThread: async ({ sessionFile, action }) => { await hydrateThreadGroup(sessionFile); return organize(resolve(sessionFile), action); },
   pickProject: async () => {
     const options = {
       properties: ["openDirectory" as const],
@@ -1174,9 +1200,7 @@ const handlers: HandlerMap = {
   computerPermissions: () => computerStatus(true),
   abort: async ({ projectDir, sessionFile }) => {
     if (sessionFile && resolve(projectDir) !== resolve(join(app.getPath("userData"), "conversations"))) {
-      await orchestrationService.discover();
-      const ref = orchestration.references().find(ref => ref.file === resolve(sessionFile));
-      if (ref) { await orchestration.stop(ref.id); return { ok: true }; }
+      await stopThreadFile(sessionFile); return { ok: true };
     }
     projectPi(projectDir, sessionFile)?.send({ type: "abort" });
     return { ok: true };

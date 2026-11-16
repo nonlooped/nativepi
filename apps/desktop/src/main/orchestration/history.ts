@@ -1,6 +1,6 @@
-import { realpath } from "node:fs/promises";
-import { SessionManager } from "@earendil-works/pi-coding-agent";
-import { resolve } from "node:path";
+import { readdir, stat, realpath } from "node:fs/promises";
+import { getAgentDir, SessionManager } from "@earendil-works/pi-coding-agent";
+import { join, resolve } from "node:path";
 import { readSession, searchSnippet } from "../sessions.ts";
 import { textOf } from "../../shared/messages.ts";
 import type { ThreadReference } from "../../shared/orchestration.ts";
@@ -10,13 +10,55 @@ export async function sameDirectory(left: string, right: string): Promise<boolea
   return a === b;
 }
 
-/** Pi discovery only; never scan arbitrary directories or start a runtime. */
+type DiscoveredThread = { ref: ThreadReference; modified: number };
+const discoveryCache = new Map<string, { revision: string; refs: DiscoveredThread[] }>();
+const discoveryPending = new Map<string, Promise<DiscoveredThread[]>>();
+async function directoryRevision(directory: string): Promise<string> {
+  const names = (await readdir(directory).catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return []; throw error; })).filter(name => name.endsWith(".jsonl")).sort();
+  const revisions: string[] = [];
+  for (let index = 0; index < names.length; index += 16) {
+    revisions.push(...await Promise.all(names.slice(index, index + 16).map(async name => {
+      const value = await stat(join(directory, name)).catch(() => undefined);
+      return `${name}:${value ? `${value.ino}:${value.size}:${value.mtimeMs}:${value.ctimeMs}` : "missing"}`;
+    })));
+  }
+  return JSON.stringify(revisions);
+}
+async function discoverDirectory(directory: string): Promise<DiscoveredThread[]> {
+  const pending = discoveryPending.get(directory);
+  if (pending) return pending;
+  const task = (async () => {
+    const before = await directoryRevision(directory);
+    const cached = discoveryCache.get(directory);
+    if (cached?.revision === before) return cached.refs;
+    const refs = (await SessionManager.listAll(directory)).map(info => ({ ref: { id: info.id, cwd: resolve(info.cwd), file: resolve(info.path), title: info.name }, modified: info.modified.getTime() }));
+    const after = await directoryRevision(directory);
+    // Never cache a partial scan or one taken across a concurrent append.
+    if (before === after && refs.length === JSON.parse(after).length) {
+      discoveryCache.delete(directory);
+      discoveryCache.set(directory, { revision: after, refs });
+      if (discoveryCache.size > 100) discoveryCache.delete(discoveryCache.keys().next().value!);
+    }
+    return refs;
+  })();
+  discoveryPending.set(directory, task);
+  try { return await task; } finally { discoveryPending.delete(directory); }
+}
+/** Pi discovery only, with bounded concurrency and revision-validated directory results. */
 export async function discoverThreads(chatRoot: string, knownDirectories: string[] = []): Promise<ThreadReference[]> {
-  const lists = await Promise.all([SessionManager.listAll(), ...knownDirectories.map(directory => SessionManager.listAll(directory))]);
+  const root = join(getAgentDir(), "sessions");
+  const entries = await readdir(root, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return []; throw error; });
+  const directories = new Set(await Promise.all([...entries.filter(entry => entry.isDirectory() || entry.isSymbolicLink()).map(entry => join(root, entry.name)), ...knownDirectories].map(directory => realpath(directory).catch(() => resolve(directory)))));
   const seen = new Set<string>();
-  const candidates = lists.flat().filter(info => !seen.has(info.id) && !!seen.add(info.id));
-  const chat = await Promise.all(candidates.map(info => sameDirectory(info.cwd, chatRoot)));
-  return candidates.filter((_, index) => !chat[index]).map(info => ({ id: info.id, cwd: resolve(info.cwd), file: resolve(info.path), title: info.name }));
+  const candidates: DiscoveredThread[] = [];
+  const paths = [...directories];
+  for (let index = 0; index < paths.length; index += 4) {
+    const lists = await Promise.all(paths.slice(index, index + 4).map(directory => discoverDirectory(directory).catch(() => [])));
+    for (const item of lists.flat()) if (!seen.has(item.ref.id)) { seen.add(item.ref.id); candidates.push(item); }
+  }
+  const refs = candidates.sort((a, b) => b.modified - a.modified || a.ref.file.localeCompare(b.ref.file)).map(item => item.ref);
+  const chat = await Promise.all(refs.map(ref => sameDirectory(ref.cwd, chatRoot)));
+  return refs.filter((_, index) => !chat[index]);
 }
 export async function readThread(ref: ThreadReference, options: { cursor?: number; limit?: number; leafId?: string; includeTools?: boolean; includeThinking?: boolean }) {
   let entries = await readSession(ref.file);

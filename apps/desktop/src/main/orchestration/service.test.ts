@@ -130,3 +130,12 @@ test("worktree path/base intent is durable before creation, including Stop durin
   await f.coordinator.stop(lead.id); release.resolve(); await spawning;
   expect(f.dispatched).toHaveLength(0);
 });
+
+
+test("known delegate operations remain usable while archive discovery is unavailable", async () => {
+ const f = fixture(); await f.setup();
+ const child = await f.invoke("delegate_spawn", { label: "Review", task: "Task", configuration }) as { ref: ThreadReference };
+ f.operations.discover = async () => { throw new Error("archive unavailable"); };
+ await f.invoke("delegate_stop", { delegateId: child.ref.id });
+ expect(f.coordinator.snapshot(child.ref.id).assignment?.state).toBe("stopped");
+});

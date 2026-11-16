@@ -90,7 +90,7 @@ identities and become independent leads, without adopting historical ownership.
 
 **Stop group** remains available when a lead is idle but owns active work.
 Stopping a lead fences pending dispatch and stops its owned delegates, waits,
-startup, and queued continuations. Stopping one delegate leaves siblings alone.
+startup, and queued continuations. Stopping one delegate leaves siblings alone. Queued instructions accepted before Stop cannot resume it. Stop gives coordination writes a bounded deadline before terminating the runtime; cold sessions are never started just to record cancellation.
 Independent peers, including leads it created, are not children in this cascade.
 **Finish** only marks an idle group Finished; it refuses running, queued, or
 waiting-for-lead work. It never means Stop. History stays resumable.
@@ -116,7 +116,7 @@ follow the inspected delegate's actual cwd without pinning it as a project.
 `thread_list`, `thread_search`, and `thread_read` discover/read real Pi history,
 including cold and Finished sessions, without starting a model or historical
 session process. Discovery uses Pi's normal directories and known custom
-storage from opened/pinned/Finished sessions. It does not scan arbitrary paths.
+storage from opened/pinned/Finished sessions. It does not scan arbitrary paths. Discovery reuses revision-validated directory results, deduplicates default and custom directories, and limits concurrent scans. Opening controls and stopping known work do not wait for a full history scan.
 Reads are paginated, bounded, and retain entry IDs and parent/branch attribution;
 images are omitted, with tools/thinking included only when requested.
 

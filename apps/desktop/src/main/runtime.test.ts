@@ -1546,3 +1546,15 @@ test("project restart fences a pending acquisition before its Pi process exists"
   expect(await restarting).toEqual({ ok: true });
   expect(processes.length).toBe(count);
 });
+
+
+test("stopping a cold thread never boots Pi or scans unrelated history", async () => {
+ const target = await session("cold-stop-regression");
+ const { SessionManager } = await import("@earendil-works/pi-coding-agent");
+ const scan = spyOn(SessionManager, "listAll").mockImplementation(() => { throw new Error("unrelated history must not be scanned"); });
+ const before = processes.length;
+ try {
+  expect(await request("stopThread", { sessionFile: target.sessionFile })).toEqual({ ok: true });
+  expect(processes.length).toBe(before);
+ } finally { scan.mockRestore(); }
+});

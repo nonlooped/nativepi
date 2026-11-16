@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -55,4 +55,26 @@ test("Chat history remains excluded through a directory alias", async () => {
     const work = await discoverThreads(alias, [join(root, "sessions")]);
     expect(work.some(thread => thread.id === ref.id)).toBe(false);
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+
+test("discovery reuses unchanged directories and refreshes renamed or deleted history", async () => {
+ const root = await mkdtemp(join(tmpdir(), "nativepi-discovery-cache-"));
+ const directory = join(root, "sessions");
+ try {
+  const ref = await allocateThread(root, directory);
+  const manager = SessionManager.open(ref.file); manager.appendSessionInfo("Original");
+  expect((await discoverThreads("/not-chat", [directory, directory])).find(value => value.id === ref.id)?.title).toBe("Original");
+  const list = SessionManager.listAll.bind(SessionManager);
+  const hook = spyOn(SessionManager, "listAll").mockImplementation(((...args: unknown[]) => {
+   if (args[0] === directory) throw new Error("unchanged history should not be reparsed");
+   return Reflect.apply(list, SessionManager, args);
+  }) as typeof SessionManager.listAll);
+  try { expect((await discoverThreads("/not-chat", [directory])).some(value => value.id === ref.id)).toBe(true); }
+  finally { hook.mockRestore(); }
+  manager.appendSessionInfo("Renamed");
+  expect((await discoverThreads("/not-chat", [directory])).find(value => value.id === ref.id)?.title).toBe("Renamed");
+  await rm(ref.file);
+  expect((await discoverThreads("/not-chat", [directory])).some(value => value.id === ref.id)).toBe(false);
+ } finally { await rm(root, { recursive: true, force: true }); }
 });

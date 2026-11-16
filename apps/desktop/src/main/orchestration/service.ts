@@ -18,7 +18,15 @@ export interface ThreadServiceAdapter {
 export class OrchestrationService {
   private operations = new Map<string, Promise<unknown>>();
   constructor(readonly coordinator: OrchestrationCoordinator, private adapter: ThreadServiceAdapter) {}
-  async discover(): Promise<ThreadReference[]> {
+  private discovering?: Promise<ThreadReference[]>;
+  discover(): Promise<ThreadReference[]> {
+    if (this.discovering) return this.discovering;
+    const task = this.discoverAll();
+    this.discovering = task;
+    void task.finally(() => { if (this.discovering === task) this.discovering = undefined; }).catch(() => {});
+    return task;
+  }
+  private async discoverAll(): Promise<ThreadReference[]> {
     const refs = await this.adapter.discover();
     // One unreadable/deleted historical session must not disable every chat's
     // role hydration. Isolate it, and publish one converged discovery snapshot.
@@ -38,7 +46,12 @@ export class OrchestrationService {
       const p = orchestrationOperations.lead_message.parse(params);
       return this.coordinator.report(actor.id, toolId, p.content, p.needsReply);
     }
-    const refs = await this.discover();
+    const requestedId = "threadId" in params ? params.threadId : "delegateId" in params ? params.delegateId : undefined;
+    const history = ["thread_list", "thread_search"].includes(action);
+    const known = this.coordinator.references();
+    const pendingRecipient = action === "thread_inbox" && state.pendingDelivery.some(message => !known.some(ref => ref.id === message.destination.id));
+    const refs = history || pendingRecipient || (typeof requestedId === "string" && !known.some(ref => ref.id === requestedId)) || (action.startsWith("delegate_") && !state.delegates.length && action !== "delegate_spawn")
+      ? await this.discover() : known;
     const target = (id: string, peer = true) => {
       const ref = refs.find(ref => ref.id === id);
       if (!ref) throw new OrchestrationError("not_found", "Work thread unavailable. Discover it again; do not fabricate a replacement.");

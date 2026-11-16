@@ -160,3 +160,32 @@ test("settlement cannot borrow a successful answer from a branch without the ass
     expect(outcome).toBeDefined(); expect(outcome?.resultEntry).toBeUndefined(); expect(outcome?.stopReason).toBeUndefined();
   } finally { dispose(); process.send = priorSend; if (connected) Object.defineProperty(process, "connected", connected); else Reflect.deleteProperty(process, "connected"); }
 });
+
+test("a failed context append must be retried on the next context delivery", async () => {
+ const root = await mkdtemp(join(tmpdir(), "nativepi-context-failure-"));
+ const priorSend = process.send, connected = Object.getOwnPropertyDescriptor(process, "connected");
+ const frames: any[] = []; Object.defineProperty(process, "connected", { configurable: true, value: true });
+ process.send = ((value: any) => { frames.push(value); return true; }) as typeof process.send;
+ let dispose: (() => void) | undefined, session: any;
+ try {
+  const runtime = await ModelRuntime.create({ authPath: join(root, "auth.json"), modelsPath: null, modelsStorePath: join(root, "models.json"), refreshOnCreate: false });
+  const model = runtime.getModels("openai")[0]!;
+  const ref = await allocateThread(root, join(root, "sessions"));
+  ({ session } = await createAgentSession({ cwd: root, agentDir: root, model, modelRuntime: runtime, sessionManager: SessionManager.open(ref.file), settingsManager: SettingsManager.inMemory(), tools: ["read"] }));
+  const message: OrchestrationMessage = { id: "peer-context", operationId: "mail", source: { id: "peer", cwd: root, file: "/peer" }, destination: ref, kind: "peer", timestamp: new Date().toISOString(), content: "IMPORTANT_ACCEPTED_CONTEXT" };
+  session.sessionManager.appendCustomEntry(ORCHESTRATION_ENTRY, { version: 1, sessionId: ref.id, operationId: "mail", kind: "message", stage: "inbox", message });
+  const original = session.sessionManager.appendCustomMessageEntry.bind(session.sessionManager);
+  let calls = 0;
+  session.sessionManager.appendCustomMessageEntry = (...args: unknown[]) => { if (++calls === 1) throw new Error("temporary disk error"); return original(...args); };
+  dispose = bindOrchestrationHost(session);
+  const call = async (requestId: string) => {
+   process.emit("message", { type: "nativepi_orchestration_host", requestId, sessionId: ref.id, action: "context", payload: message });
+   for (let i = 0; i < 20 && !frames.some(frame => frame.requestId === requestId); i++) await Promise.resolve();
+   return frames.find(frame => frame.requestId === requestId);
+  };
+  expect((await call("first")).error).toBe("temporary disk error");
+  const second = await call("retry");
+  expect(second.error).toBeUndefined();
+  expect(await readFile(ref.file, "utf8")).toContain('"type":"custom_message"');
+ } finally { dispose?.(); session?.dispose(); process.send = priorSend; if (connected) Object.defineProperty(process, "connected", connected); else Reflect.deleteProperty(process, "connected"); await rm(root, { recursive: true, force: true }); }
+});
