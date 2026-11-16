@@ -1,3 +1,4 @@
+import { resourceChangeSchema, mcpSetupSchema } from "./agent-setup.ts";
 import { reviewNoteSchema } from "./review.ts";
 import { dictationAudioSchema } from "./dictation.ts";
 import { serviceTierSchema } from "./service-tier.ts";
@@ -26,6 +27,7 @@ const reviewFile = file.extend({ mode: z.enum(["working", "staged"]) });
 const reviewExpected = reviewFile.extend({ scope: z.string().regex(/^[a-f0-9]{64}$/), revision: z.string().regex(/^[a-f0-9]{64}$/), fingerprint: z.string().regex(/^[a-f0-9]{64}$/) });
 const hunks = file.extend({ untracked: z.boolean() });
 export const requestParams = {
+  configureMcp: mcpSetupSchema, subscriptionCapacity: empty, agentSetup: project, createAgentResource: resourceChangeSchema,
   orchestrationSnapshot: z.object({ sessionFile: path.optional() }),
   stopThread: z.object({ sessionFile: path }),
   wakeThread: z.object({ threadId: id, messageIds: z.array(id).min(1).max(100) }),

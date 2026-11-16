@@ -70,3 +70,12 @@ test("sidebar search filters descriptions, hides empty groups, and recovers from
   await search("");
   expect(container.querySelectorAll("nav button").length).toBe(CATEGORIES.length);
 });
+
+test("a settings link returns to its page after sidebar navigation", async () => {
+  initial="Terminal"; await mount();
+  const appearance=[...container.querySelectorAll<HTMLButtonElement>("nav button")].find(button=>button.textContent==="Appearance")!;
+  await act(async () => appearance.click());
+  expect(container.querySelector("output")?.textContent).toBe("appearance controls");
+  await act(async () => useAppStore.getState().openSettings("Terminal"));
+  expect(container.querySelector("output")?.textContent).toBe("terminal controls");
+});

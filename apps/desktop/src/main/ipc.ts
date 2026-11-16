@@ -31,6 +31,8 @@ import type { PiMessage } from "./pi/protocol.ts";
 import { readOrchestrationRecords, deleteSession, listMentionThreads, listSessions, readSession, searchSessions, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
 import { drainState, loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
+import { createCapacityReader } from "./subscriptionCapacity.ts";
+import { agentSetup, createAgentResource, configureMcp } from "./agentSetup.ts";
 import { gitBranchStatus, gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitCommitDetails, gitCommitDiff, gitDiff, gitHunks, gitLog, gitPrTarget, gitRevertFile, gitPush, gitPushAndCreatePr, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
 import { generateCommitMessage } from "./commitMessage.ts";
 import { getRepoHostContext } from "./repoHost.ts";
@@ -81,6 +83,7 @@ type RuntimeBinding = { file: string | undefined; generation: number; ready: Pro
 const runtimeBindings = new WeakMap<PiProcess, RuntimeBinding>();
 const conflicts = new Set<string>();
 const outstanding = new Map<string, number>();
+const readCapacity = createCapacityReader(auth.getRuntime);
 const authRoutes = new Map<string, {
   pi: PiProcess;
   id: string;
@@ -1906,6 +1909,20 @@ const handlers: HandlerMap = {
       // than reaching the menu as a shape it cannot render.
       return { commands: [] };
     }
+  },
+  configureMcp: async (params) => {
+    try {
+      const result = await configureMcp(params);
+      return typeof result === "string" ? { ok: true, output: result } : { ok: true, output: "MCP check complete.", report: result };
+    } catch (error) {
+      return { ok: false, output: errorMessage(error) };
+    }
+  },
+  subscriptionCapacity: async () => ({ providers: await readCapacity() }),
+  agentSetup: async ({ projectDir }) => agentSetup(projectDir),
+  createAgentResource: async (params) => {
+    try { await createAgentResource(params); return { ok: true }; }
+    catch (error) { return { ok: false, error: errorMessage(error) }; }
   },
   listSkills: async ({ projectDir }) => {
     try {

@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Add Codex and Anthropic OAuth subscription capacity windows, resets and refresh/stale/error states separately from local usage.
+- Add graphical Pi setup with compact MCP, skill and prompt management lists, focused setup dialogs, connection checks, and source/scope diagnostics.
 - Leave line/range review findings on local diffs, retain open/resolved/dismissed feedback across reopen, prepare selected or open findings for Pi revision, and re-review a file with an independent Pi model. Compact inline previews expand into an on-demand findings pane; feedback and reviewer setup use native app dialogs. Changed code is explicitly marked stale and never automatically resolved.
 - Shared live browser in Work, including project-free chats: chat-owned temporary tabs, navigation, agent snapshots and actions, screenshots, diagnostics, and explicit human handoff for sign-in and consent.
 - Website downloads select the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every supported architecture.

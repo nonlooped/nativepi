@@ -1,3 +1,4 @@
+import SubscriptionCapacity from "./SubscriptionCapacity.tsx";
 import StateNotice from "../StateNotice.tsx";
 import { useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
@@ -39,6 +40,7 @@ export default function UsageSettings() {
 
   return (
     <div className="flex flex-col gap-8">
+      <SubscriptionCapacity />
       <div className="flex flex-col gap-4 border-b border-border/40 pb-5 @min-[44rem]/settings-content:flex-row @min-[44rem]/settings-content:items-end @min-[44rem]/settings-content:justify-between">
         <div className="flex flex-col gap-2">
           <p className="text-sm text-body-muted-foreground">
