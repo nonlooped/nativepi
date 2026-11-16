@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Harden shared browser action scripts by escaping script-sensitive characters in action arguments while preserving typed text.
 - Ensure desktop development installs the Electron binary and launches the GUI even when the shell has Electron's Node mode enabled.
 
 ## [1.20.0] - 2026-11-16

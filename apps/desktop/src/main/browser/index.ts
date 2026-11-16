@@ -17,6 +17,7 @@ import {
 import { loadState } from "../state.ts";
 import { builtInTheme, DEFAULT_THEME } from "../../shared/themes.ts";
 import { snapshotPage } from "./page.ts";
+import { browserActionScript } from "./actionScript.ts";
 
 type Tab = {
   id: string;
@@ -475,7 +476,7 @@ export class SharedBrowser {
     tab.generation = "";
     const result = await wc.executeJavaScriptInIsolatedWorld(999, [
       {
-        code: `(() => { try { return {value:globalThis.nativepiBrowser.act(${JSON.stringify(op.ref)},${JSON.stringify(op.action)},${JSON.stringify(op.text)})}; } catch(error) { return {error:String(error).slice(0,1000)}; } })()`,
+        code: browserActionScript(op),
       },
     ]);
     if (result.error) throw new Error(result.error);
