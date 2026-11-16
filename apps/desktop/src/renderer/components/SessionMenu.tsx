@@ -45,6 +45,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import { cn } from "@/lib/utils.ts";
+import { ColumnsIcon } from "@phosphor-icons/react/Columns";
+import { RowsIcon } from "@phosphor-icons/react/Rows";
+import { THREAD_DRAG_TYPE, useWorkspacePanes, type PaneThread } from "../lib/workspacePanes.ts";
 
 type DialogKind = "rename" | "fork" | "tree" | "export" | "delete";
 
@@ -67,6 +70,8 @@ export default function SessionMenu({
   children: React.ReactElement;
 }) {
   const useAppStore = usePaneStore();
+  const panes = useWorkspacePanes();
+  const thread = { sessionFile: session.path, projectDir: projectPath, title: chatTitle(session) };
   const [dialog, setDialog] = useState<DialogKind | null>(null);
   const [exportPath, setExportPath] = useState<string>("");
 
@@ -118,6 +123,15 @@ export default function SessionMenu({
         <ContextMenuTrigger
           render={
             <div
+              draggable={!!panes && !panes.splitting}
+              onDragStart={event => {
+                if (!panes || panes.splitting) { event.preventDefault(); return; }
+                event.stopPropagation();
+                event.dataTransfer.effectAllowed = "copy";
+                event.dataTransfer.setData(THREAD_DRAG_TYPE, "thread");
+                panes.startDrag(thread);
+              }}
+              onDragEnd={() => panes?.endDrag()}
               className={cn(
                 "group/chat relative flex items-center transition-colors [content-visibility:auto] hover:bg-sidebar-accent/40 focus-within:bg-sidebar-accent/40",
                 finished
@@ -132,7 +146,7 @@ export default function SessionMenu({
           {children}
         </ContextMenuTrigger>
         <ContextMenuContent className="w-56">
-          <SessionItems actions={actions} />
+          <SessionItems actions={actions} thread={thread} />
         </ContextMenuContent>
       </ContextMenu>
 
@@ -185,8 +199,9 @@ type SessionActions = {
   delete: () => void;
 };
 
-function SessionItems({ actions }: { actions: SessionActions }) {
+function SessionItems({ actions, thread }: { actions: SessionActions; thread: PaneThread }) {
   const chatMode = useAppStore(s => s.destination === "chat");
+  const panes = useWorkspacePanes();
   return (
     <>
       <ContextMenuGroup>
@@ -206,6 +221,10 @@ function SessionItems({ actions }: { actions: SessionActions }) {
           <CopyIcon /> Duplicate
         </ContextMenuItem>
       </ContextMenuGroup>
+      {panes ? <><ContextMenuSeparator /><ContextMenuGroup>
+        <ContextMenuItem disabled={panes.splitting || panes.count >= 3} onClick={() => panes.openThread(thread, "right")}><ColumnsIcon />Open to the right</ContextMenuItem>
+        <ContextMenuItem disabled={panes.splitting || panes.count >= 3} onClick={() => panes.openThread(thread, "bottom")}><RowsIcon />Open below</ContextMenuItem>
+      </ContextMenuGroup></> : null}
       <ContextMenuSeparator />
       <ContextMenuGroup>
         <ContextMenuSub>

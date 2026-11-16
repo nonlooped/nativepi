@@ -29,6 +29,7 @@ test("provider loading resolves to onboarding, its action opens provider setting
   await act(async () => useAppStore.setState({ providers: [
     { id: "test", name: "Test", supportsApiKey: true, supportsOAuth: false, configured: true, ready: true },
   ] }));
-  expect(container.textContent).toContain("What should we work on?");
+  // Ready clears the setup message; the wordmark and composer provide the empty state.
+  expect(container.querySelector('[role="status"]')).toBeNull();
   expect(container.textContent).not.toContain("Connect a provider");
 });

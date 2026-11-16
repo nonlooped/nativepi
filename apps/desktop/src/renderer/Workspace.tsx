@@ -6,7 +6,8 @@ import { focusedPaneStore } from "./lib/store.ts";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { readPaneArrangement, restorePaneSelection } from "./lib/paneArrangement.ts";
 import App, { ConversationSurface } from "./App.tsx";
-import { WorkspacePanesContext } from "./lib/workspacePanes.ts";
+import { WorkspacePanesContext, THREAD_DRAG_TYPE, type PaneThread, type PaneSide } from "./lib/workspacePanes.ts";
+import ThreadDropTarget from "./components/ThreadDropTarget.tsx";
 import WorkspacePaneMenu from "./components/WorkspacePaneMenu.tsx";
 import { usePaneStore, activeConversation } from "./lib/store.ts";
 import { chatTitle } from "./lib/transcript.ts";
@@ -38,6 +39,14 @@ export default function Workspace() {
   const [stores, setStores] = useState<PaneStore[]>([primaryStore]);
   const [startupError, setStartupError] = useState<string>();
   const [splitting, setSplitting] = useState(false);
+  const opening = useRef(false);
+  const pendingPane = useRef<PaneStore | null>(null);
+  const [dragging, setDragging] = useState<PaneThread | null>(null);
+  useEffect(() => {
+    const end = () => setDragging(null);
+    window.addEventListener("dragend", end);
+    return () => window.removeEventListener("dragend", end);
+  }, []);
   const [active, setActive] = useState(0);
   const [orientation, setOrientation] = useState<"horizontal" | "vertical">(restored?.orientation ?? "horizontal");
   const [width, setWidth] = useState(window.innerWidth);
@@ -52,6 +61,7 @@ export default function Workspace() {
   const current = useRef({ stores, active, orientation });
   useEffect(() => { current.current = { stores, active, orientation }; save(); }, [stores, active, orientation]);
   useEffect(() => () => { for (const store of current.current.stores) if (store !== primaryStore) releasePaneStore(store); }, []);
+  useEffect(() => () => { if (pendingPane.current) releasePaneStore(pendingPane.current); }, []);
   useTurnCompletionSignal(); useAppearance();
   useEffect(() => useWorkspaceEditor.subscribe(() => {
     void import("./lib/rpc.ts").then(({ rpc }) => rpc.request.workspaceDirty({ files: dirtyWorkspaceFiles().map(b => b.file) }));
@@ -107,21 +117,43 @@ export default function Workspace() {
     return () => { disposed = true; };
   }, []);
   const focus = (index: number) => { focusPaneStore(stores[index]!); setActive(index); };
-  const split = async (direction: "horizontal" | "vertical" = orientation) => {
-    if (splitting || stores.length >= 3) return;
+  const openPane = async (thread: PaneThread | undefined, side: PaneSide, target = active) => {
+    if (opening.current) return;
+    const visible = thread ? stores.findIndex(store => store.getState().activeSessionFile === thread.sessionFile && store.getState().activeProjectPath === thread.projectDir) : -1;
+    if (visible >= 0) { focus(visible); return; }
+    if (stores.length >= 3) return;
+    opening.current = true;
     setSplitting(true);
     const store = createPaneStore();
+    pendingPane.current = store;
+    const source = stores[target] ?? stores[active]!;
     try {
       await store.getState().init();
-      const source = stores[active]!.getState();
-      const candidate = (source.sessionsByProject[source.activeProjectPath ?? ""] ?? []).find(session => !stores.some(s => s.getState().activeSessionFile === session.path));
-      if (candidate && source.activeProjectPath) await store.getState().selectChat(candidate.path, source.activeProjectPath);
-      else if (source.activeProjectPath) await store.getState().selectProject(source.activeProjectPath);
-      store.setState(Object.fromEntries(sharedPaneFields.map(key => [key, source[key]])));
-      setOrientation(direction); setStores([...stores, store]); focusPaneStore(store); setActive(stores.length);
-    } catch (error) { releasePaneStore(store); toast.error(String(error)); } finally { setSplitting(false); }
+      if (runtime(store.getState).disposed) return;
+      store.setState(Object.fromEntries(sharedPaneFields.map(key => [key, source.getState()[key]])));
+      if (thread) {
+        store.setState({ destination: thread.projectDir === store.getState().chatRoot ? "chat" : "work" });
+        await store.getState().selectChat(thread.sessionFile, thread.projectDir);
+      } else {
+        const state = source.getState();
+        const candidate = (state.sessionsByProject[state.activeProjectPath ?? ""] ?? []).find(session => !stores.some(s => s.getState().activeSessionFile === session.path));
+        if (candidate && state.activeProjectPath) await store.getState().selectChat(candidate.path, state.activeProjectPath);
+        else if (state.activeProjectPath) await store.getState().newChatIn(state.activeProjectPath);
+      }
+      if (runtime(store.getState).disposed) return;
+      // Copy the latest drafts/preferences after the read, including typing that happened while opening.
+      store.setState(Object.fromEntries(sharedPaneFields.map(key => [key, source.getState()[key]])));
+      const index = Math.max(0, Math.min(stores.length, target + (side === "left" || side === "top" ? 0 : 1)));
+      const next = [...stores.slice(0, index), store, ...stores.slice(index)];
+      sizes.current = undefined;
+      setOrientation(side === "left" || side === "right" ? "horizontal" : "vertical");
+      setStores(next); focusPaneStore(store); setActive(index);
+    } catch {
+      if (!runtime(store.getState).disposed) { releasePaneStore(store); toast.error("Could not open this chat beside your work. Try again."); }
+    } finally { pendingPane.current = null; opening.current = false; setSplitting(false); }
   };
-  const narrow = width < 760 || (orientation === "horizontal" && areaWidth < stores.length * 420);
+  const split = (direction: "horizontal" | "vertical" = orientation) => openPane(undefined, direction === "horizontal" ? "right" : "bottom");
+  const narrow = width < 760 || (orientation === "horizontal" && areaWidth < stores.length * 320);
   if (startupError) return <div role="alert" className="flex h-full flex-col items-center justify-center gap-4 bg-background p-6 text-foreground"><div className="w-full max-w-lg"><ConnectionNotice startupError={startupError} /></div>{!window.nativepi?.service && <Button variant="ghost" onClick={() => location.reload()}>Reload workspace</Button>}</div>;
   return <div className="flex h-full min-h-0 flex-col bg-background text-foreground" onKeyDownCapture={event => {
     if (workspaceShortcutsBlocked()) return;
@@ -141,6 +173,8 @@ export default function Workspace() {
       close: index => { const store = stores[index]!; releasePaneStore(store); const remaining = stores.filter(s => s !== store); setStores(remaining); setActive(0); focusPaneStore(remaining[0]!); },
       unsplit: () => { const keep = stores[active]!; stores.filter(s => s !== keep).forEach(releasePaneStore); setStores([keep]); focusPaneStore(keep); setActive(0); },
       titles: stores.map((store, index) => titles[index] ?? paneTitle(store)),
+      openThread: (thread, side, target) => void openPane(thread, side, target),
+      dragging, startDrag: setDragging, endDrag: () => setDragging(null),
     }}>
       <PaneStoreContext value={stores[active]!}>
         <App initialize={false} renderWorkspace={onStart => <div ref={setPaneElement} className="min-h-0 flex-1">
@@ -167,9 +201,9 @@ function Pane({ store, index, active, multiple, onFocus, onStart }: { store: Pan
   const [width, setWidth] = useState(window.innerWidth);
   useEffect(() => { const observer = new ResizeObserver(entries => { if (entries[0]) setWidth(entries[0].contentRect.width); }); if (element.current) observer.observe(element.current); return () => observer.disconnect(); }, []);
   return <PaneStoreContext value={store}><PaneWidthContext value={width}>
-    <div ref={element} data-workspace-pane={index} data-pane-active={active} className="@container/conversation flex h-full min-h-0 min-w-0 flex-col" onPointerDownCapture={onFocus} onFocusCapture={onFocus} onDragOverCapture={onFocus}>
+    <div ref={element} data-workspace-pane={index} data-pane-active={active} className="@container/conversation flex h-full min-h-0 min-w-0 flex-col" onPointerDownCapture={onFocus} onFocusCapture={onFocus} onDragOverCapture={event => { if (!event.dataTransfer.types.includes(THREAD_DRAG_TYPE)) onFocus(); }}>
       {multiple ? <ConversationPaneHeader active={active} /> : null}
-      <ConversationSurface onStart={onStart} />
+      <ThreadDropTarget index={index}><ConversationSurface onStart={onStart} /></ThreadDropTarget>
     </div>
   </PaneWidthContext></PaneStoreContext>;
 }
@@ -195,6 +229,6 @@ function ConversationPaneHeader({ active }: { active: boolean }) {
       </DropdownMenuContent>
     </DropdownMenu>
     {running ? <span className="size-1.5 shrink-0 rounded-full bg-primary" title="Pi is running" /> : null}
-    <WorkspacePaneMenu contextual />
+    <WorkspacePaneMenu />
   </div>;
 }

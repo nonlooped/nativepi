@@ -179,14 +179,14 @@ export default function SourceControl({
     showHint(action === "push" ? "Branch pushed" : "Branch synced");
   });
 
-  return <div className="flex min-h-0 flex-1 flex-col text-foreground">
+  return <div className="flex min-h-0 flex-1 flex-col text-muted-foreground">
     {/* Custom window controls occupy the top-right 132px; keep actions on a second row. */}
-    <header className={cn("grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1 border-b px-2 [[data-window-controls=custom]_&]:grid-cols-1", DRAG_REGION)}>
+    <header className={cn("grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1 border-b border-border/40 px-2 @max-[22rem]/context-pane:grid-cols-1 [[data-window-controls=custom]_&]:grid-cols-1", DRAG_REGION)}>
       <div className={cn("flex h-12 min-w-0 items-center", WINDOW_CONTROLS_CLEARANCE)}>
         <BranchSwitcher handleRequests className={cn("min-w-0 flex-1", NO_DRAG_REGION)} />
       </div>
-      <div className={cn("flex items-center justify-end gap-1 [[data-window-controls=custom]_&]:pb-2", NO_DRAG_REGION)}>
-        <Button size="sm" variant="outline" disabled={disabled || git.detached} onClick={() => void sync("push")}>{busy === "push" ? "Pushing…" : git.upstream ? `Push${git.ahead ? ` ${git.ahead}` : ""}` : "Publish"}</Button>
+      <div className={cn("flex items-center justify-end gap-1 @max-[22rem]/context-pane:pb-2 [[data-window-controls=custom]_&]:pb-2", NO_DRAG_REGION)}>
+        <Button size="sm" variant="ghost" disabled={disabled || git.detached} onClick={() => void sync("push")}>{busy === "push" ? "Pushing…" : git.upstream ? `Push${git.ahead ? ` ${git.ahead}` : ""}` : "Publish"}</Button>
         <DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" aria-label="Source control actions" />}><CaretDownIcon /></DropdownMenuTrigger>
           <DropdownMenuContent align="end"><DropdownMenuGroup>
             <DropdownMenuItem disabled={disabled || git.detached} onClick={() => void sync("push")}>{git.upstream ? "Push commits" : "Publish branch"}</DropdownMenuItem>
@@ -205,22 +205,22 @@ export default function SourceControl({
     {gitError && <div className="border-b px-4"><StateNotice title="Showing last known Git status" detail={gitError} retry={() => void refreshGit()} /></div>}
     {error && <p role="alert" className="shrink-0 whitespace-pre-wrap border-b px-4 py-2 text-xs text-destructive">{error}</p>}
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex h-11 shrink-0 items-center gap-1 border-b px-3" role="tablist" aria-label="Source control view">
+        <div className="flex h-11 shrink-0 items-center gap-1 border-b border-border/40 px-3" role="tablist" aria-label="Source control view">
           <Button role="tab" aria-selected={tab === "changes"} variant={tab === "changes" ? "secondary" : "ghost"} size="sm" onClick={() => setTab("changes")}>Changes <span className="text-xs tabular-nums text-muted-foreground">{git.files.length}</span></Button>
           <Button role="tab" aria-selected={tab === "history"} variant={tab === "history" ? "secondary" : "ghost"} size="sm" onClick={() => setTab("history")}>History</Button>
           {tab === "changes" && <span className="ml-auto text-xs tabular-nums"><span className="text-success">+{git.insertions}</span> <span className="text-destructive">−{git.deletions}</span></span>}
         </div>
         {tab === "changes" ? <div className="min-h-0 flex-1 overflow-y-auto pb-4">
           <ReviewWorkflow projectDir={projectDir} />
-          <section className="border-b p-3" aria-label="Create a commit">
-            <div className="overflow-hidden rounded-xl border bg-background/35 focus-within:border-ring">
+          <section className="border-b border-border/40 p-3" aria-label="Create a commit">
+            <div className="overflow-hidden rounded-xl border border-border/50 bg-sidebar/40 focus-within:border-ring/60">
             <Textarea id="source-control-message" aria-label="Commit message" value={message} onChange={event => { ++messageVersion.current; setMessage(event.target.value); }} ref={commitInput} placeholder="Message" rows={2} className="min-h-14 resize-none rounded-none border-0 bg-transparent dark:bg-transparent shadow-none focus-visible:ring-0" />
             <div className="flex min-w-0 items-center gap-1 px-2 pb-2">
               <CommitModelSelect />
               <Button variant="ghost" size="icon-xs" onClick={() => void generate()} disabled={!canGenerate} title="Generate a commit message with Pi"><SparkleIcon className={generating ? "animate-pulse" : undefined} /><span className="sr-only">{generating ? "Writing…" : "Write with Pi"}</span></Button>
               <span className="flex-1" />
-              <Button size="xs" className="min-w-0" onClick={() => void commit("commit")} disabled={!canCommit} title={commitDisabledReason ?? withHint("Commit staged changes", "commitChanges", keybindingOverrides)}><GitCommitIcon />{busy === "commit" ? "Committing…" : `Commit${stagedFiles.length ? ` ${stagedFiles.length}` : ""}`}</Button>
-              <DropdownMenu><DropdownMenuTrigger render={<Button size="icon-sm" variant="outline" disabled={!canCommit} aria-label="More commit actions" />}><CaretDownIcon /></DropdownMenuTrigger>
+              <Button size="xs" variant="secondary" className="min-w-0" onClick={() => void commit("commit")} disabled={!canCommit} title={commitDisabledReason ?? withHint("Commit staged changes", "commitChanges", keybindingOverrides)}><GitCommitIcon />{busy === "commit" ? "Committing…" : `Commit${stagedFiles.length ? ` ${stagedFiles.length}` : ""}`}</Button>
+              <DropdownMenu><DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" disabled={!canCommit} aria-label="More commit actions" />}><CaretDownIcon /></DropdownMenuTrigger>
                 <DropdownMenuContent align="end"><DropdownMenuGroup>
                   <DropdownMenuItem onClick={() => void commit("push")}>Commit and push</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => void commit("sync")}>Commit and sync</DropdownMenuItem>
@@ -229,7 +229,7 @@ export default function SourceControl({
             </div>
             </div>
           </section>
-          {git.files.length > 0 && <div className="p-3 pb-1"><Input aria-label="Filter changed files" placeholder="Filter files…" value={filter} onChange={event => setFilter(event.target.value)} /></div>}
+          {git.files.length > 0 && <div className="p-3 pb-1"><Input className="border-border/40 bg-transparent dark:bg-transparent" aria-label="Filter changed files" placeholder="Filter files…" value={filter} onChange={event => setFilter(event.target.value)} /></div>}
           <ChangeTree projectDir={projectDir} filtered={!!filter} title="Staged" files={visible(stagedFiles)} staged selected={selected} disabled={disabled} onSelect={setSelected}
             onFiles={files => void mutate(async () => { for (const file of files) { const result = await rpc.request.gitUnstageFile({ projectDir, file: file.path, originalPath: file.originalPath }); if (!result.ok) return result; } return { ok: true }; })}
             onAll={() => void mutate(() => rpc.request.gitUnstageAll({ projectDir }))} />

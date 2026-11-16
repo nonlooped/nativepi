@@ -44,7 +44,7 @@ export default function GitHistory({ projectDir, git, onReview }: {
   return <div className="flex min-h-0 flex-1 flex-col">
     {/* Keep search, loaded commits and scroll position when returning from a commit. */}
     <div className={selected ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3 focus-within:bg-muted/30">
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border/40 px-3 focus-within:bg-muted/30">
         <MagnifyingGlassIcon className="size-3.5 shrink-0 text-muted-foreground" />
         <Input value={query} onChange={event => setQuery(event.target.value)} aria-label="Search commits"
           placeholder="Search commits…" className="h-8 min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0 dark:bg-transparent" />
@@ -71,7 +71,7 @@ function CommitRow({ commit, onOpen }: { commit: GitCommit; onOpen: () => void }
   const primary = refs.find(ref => ref.startsWith("HEAD -> ")) ?? refs[0];
   return <button type="button" onClick={onOpen} title={commit.subject}
     className="flex w-full min-w-0 flex-col gap-1 rounded-md px-2 py-2 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-    <span className="block w-full truncate text-[13px] leading-5 text-foreground">{commit.subject}</span>
+    <span className="block w-full truncate text-[13px] leading-5 text-sidebar-foreground">{commit.subject}</span>
     <span className="flex w-full min-w-0 items-center gap-1.5 text-xs leading-4 text-muted-foreground">
       <span className="shrink-0 font-mono">{commit.shortHash}</span>
       <span className="min-w-0 flex-1 truncate">{commit.author}</span>
@@ -111,7 +111,7 @@ function CommitDetails({ projectDir, commit, onBack, onReview }: {
   }
 
   return <div className="flex min-h-0 flex-1 flex-col">
-    <div className="flex h-10 shrink-0 items-center border-b px-2">
+    <div className="flex h-10 shrink-0 items-center border-b border-border/40 px-2">
       <Button size="sm" variant="ghost" onClick={onBack}><ArrowLeftIcon />History</Button>
     </div>
     <div className="min-h-0 flex-1 overflow-y-auto pb-3">

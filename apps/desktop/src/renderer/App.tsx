@@ -1,10 +1,11 @@
 import { usePaneView } from "./lib/paneView.ts";
 import { useWorkspacePanes } from "./lib/workspacePanes.ts";
-import WorkspacePaneMenu from "./components/WorkspacePaneMenu.tsx";
 import { runtime } from "./lib/store/internals.ts";
 import WorkspaceEditor from "./components/WorkspaceEditor.tsx";
 import { useWorkspaceEditor } from "./lib/workspaceEditor.ts";
-import { BrowserIcon } from "@phosphor-icons/react/Browser";
+import { GlobeHemisphereWestIcon } from "@phosphor-icons/react/GlobeHemisphereWest";
+import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
+import { FilesIcon } from "@phosphor-icons/react/Files";
 import StateNotice from "./components/StateNotice.tsx";
 import ConnectionNotice from "./components/ConnectionNotice.tsx";
 import ThreadActivity, { ThreadInputBoundary } from "./components/ThreadActivity.tsx";
@@ -17,7 +18,6 @@ import { ArrowLineDownIcon } from "@phosphor-icons/react/ArrowLineDown";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
 import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
-import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
@@ -48,7 +48,7 @@ import { toast } from "sonner";
 import { chatTitle } from "./lib/transcript.ts";
 import { sidebarThreads } from "./lib/sidebarThreads.ts";
 import { workspaceShortcutsBlocked } from "./lib/shortcutContext.ts";
-import { bindingFor, bindings, hintFor, withHint, THREAD_SHORTCUTS } from "./lib/shortcuts.ts";
+import { bindingFor, bindings, withHint, THREAD_SHORTCUTS } from "./lib/shortcuts.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import {
@@ -630,18 +630,18 @@ function WorkspaceHeader({
           Sharing
         </Button>
       ) : null}
-      <WorkspacePaneMenu />
       {!chatMode && !projectFree && activeProjectPath ? <SourceControlButton onClick={() => onOpenContext("changes")} active={contextDocked} /> : null}
       {activeProjectPath ? <ProjectStatus compact={compact} className={NO_DRAG_REGION} /> : null}
       {!chatMode && activeProjectPath ? (
         <Button
           variant="ghost"
-          size="sm"
+          size="icon-sm"
           className={NO_DRAG_REGION}
+          aria-label="Open browser"
           title={isRemote ? "The shared browser opens on the host desktop; Local Access cannot display it" : "Open this chat's shared browser"}
           onClick={() => void rpc.request.browserShow({ projectDir: activeProjectPath, sessionFile: isNewChat ? null : activeSession?.path }).catch(error => toast.error(String(error)))}
         >
-          <BrowserIcon /><span className="max-[600px]:hidden">Browser</span>
+          <GlobeHemisphereWestIcon />
         </Button>
       ) : null}
       {!chatMode && activeProjectPath ? (
@@ -652,17 +652,14 @@ function WorkspaceHeader({
           title={withHint(terminalOpen ? "Hide terminal" : "Show terminal", "toggleTerminal", keybindingOverrides)}
           aria-label={terminalOpen ? "Hide terminal" : "Show terminal"}
           aria-pressed={terminalOpen}
-          className={cn(NO_DRAG_REGION, "hidden @min-[30rem]/conversation:flex")}
+          className={NO_DRAG_REGION}
         >
-          <SidebarSimpleIcon className="-rotate-90" />
+          <TerminalWindowIcon />
         </Button>
       ) : null}
       {activeProjectPath ? (
         <div className={cn(NO_DRAG_REGION, "@min-[30rem]/conversation:hidden")}>
           <HeaderCompactOverflow
-            showTerminal={!chatMode}
-            terminalOpen={terminalOpen}
-            onToggleTerminal={onToggleTerminal}
             extensionView={extensionView}
             onSelectExtensionView={onSelectExtensionView}
           />
@@ -671,14 +668,14 @@ function WorkspaceHeader({
       {!chatMode && activeProjectPath ? (
         <Button
           variant={contextDocked && contextPaneTab === "files" ? "secondary" : "ghost"}
-          size="sm"
+          size="icon-sm"
           onClick={() => onOpenContext("files")}
           title={withHint(contextDocked && contextPaneTab === "files" ? "Hide files" : "Show files", "toggleContextPane", keybindingOverrides)}
           aria-label={contextDocked && contextPaneTab === "files" ? "Hide files" : "Show files"}
           aria-pressed={contextDocked && contextPaneTab === "files"}
           className={NO_DRAG_REGION}
         >
-          <FolderIcon /><span className="max-[600px]:hidden">Files</span>
+          <FilesIcon />
         </Button>
       ) : null}
     </header>
@@ -751,19 +748,12 @@ function ChatTitle({ sessionPath, title }: { sessionPath: string; title: string 
 }
 
 function HeaderCompactOverflow({
-  showTerminal,
-  terminalOpen,
-  onToggleTerminal,
   extensionView,
   onSelectExtensionView,
 }: {
-  showTerminal: boolean;
-  terminalOpen: boolean;
-  onToggleTerminal: () => void;
   extensionView: string | null;
   onSelectExtensionView: (key: string | null) => void;
 }) {
-  const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const extRenderers = useAppStore((s) => s.extRenderers);
   const extensionViews = extRenderers.flatMap((ext) =>
     (ext.renderer.conversationViews ?? []).map((view) => ({
@@ -772,7 +762,7 @@ function HeaderCompactOverflow({
       key: `${ext.id}:${view.id}`,
     })),
   );
-  if (!showTerminal && extensionViews.length === 0) return null;
+  if (extensionViews.length === 0) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -781,24 +771,16 @@ function HeaderCompactOverflow({
         <DotsThreeIcon weight="bold" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        {extensionViews.length > 0
-          ? extensionViews.map(({ view, key }) => (
-              <DropdownMenuItem
-                key={key}
-                onClick={() => onSelectExtensionView(extensionView === key ? null : key)}
-                className="gap-2"
-              >
-                {view.label}
-                {extensionView === key ? <span className="ml-auto text-xs text-success">Active</span> : null}
-              </DropdownMenuItem>
-            ))
-          : null}
-        {showTerminal && extensionViews.length > 0 ? <div className="my-1 h-px bg-border/50" aria-hidden /> : null}
-        {showTerminal ? <DropdownMenuItem onClick={onToggleTerminal} className="gap-2">
-          <SidebarSimpleIcon className="-rotate-90" />
-          {terminalOpen ? "Hide terminal" : "Show terminal"}
-          <span className="ml-auto text-xs text-muted-foreground">{hintFor("toggleTerminal", keybindingOverrides)}</span>
-        </DropdownMenuItem> : null}
+        {extensionViews.map(({ view, key }) => (
+          <DropdownMenuItem
+            key={key}
+            onClick={() => onSelectExtensionView(extensionView === key ? null : key)}
+            className="gap-2"
+          >
+            {view.label}
+            {extensionView === key ? <span className="ml-auto text-xs text-success">Active</span> : null}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );

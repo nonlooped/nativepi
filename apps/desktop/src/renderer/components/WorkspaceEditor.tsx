@@ -18,6 +18,7 @@ import CodeEditor from "./CodeEditor.tsx";
 import Markdown from "./Markdown.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 import { WorkspacePaneActions } from "./WorkspacePaneMenu.tsx";
+import { useWorkspacePanes } from "../lib/workspacePanes.ts";
 import { useWorkspaceEditor } from "../lib/workspaceEditor.ts";
 import { isRemote, rpc } from "../lib/rpc.ts";
 import { runtime } from "../lib/store/internals.ts";
@@ -25,6 +26,7 @@ import { useAppStore, usePaneStore } from "../lib/store.ts";
 import { toast } from "sonner";
 
 export default function WorkspaceEditor({ projectDir }: { projectDir: string }) {
+  const panes = useWorkspacePanes();
   const paneId = runtime(usePaneStore().getState).paneId;
   const selectionKey = `${paneId}:${projectDir}`;
   const buffers = useWorkspaceEditor(s => s.buffers);
@@ -97,8 +99,7 @@ export default function WorkspaceEditor({ projectDir }: { projectDir: string }) 
           <DropdownMenuItem disabled={preview} onClick={() => { if (view.current) redo(view.current); }}>Redo</DropdownMenuItem>
           <DropdownMenuItem disabled={buffer.saving} onClick={() => act("reload")}><ArrowClockwiseIcon />Reload from disk</DropdownMenuItem>
           {!isRemote ? <DropdownMenuItem onClick={() => void rpc.request.openFileIn({ projectDir, file: buffer.file, editorId }).then(result => { if (!result.ok) toast.error(result.error); })}><ArrowSquareOutIcon />Open in external editor</DropdownMenuItem> : null}
-          <DropdownMenuSeparator />
-          <DropdownMenuSub><DropdownMenuSubTrigger>Pane</DropdownMenuSubTrigger><DropdownMenuSubContent><WorkspacePaneActions /></DropdownMenuSubContent></DropdownMenuSub>
+          {panes && panes.count > 1 ? <><DropdownMenuSeparator /><DropdownMenuSub><DropdownMenuSubTrigger>Pane</DropdownMenuSubTrigger><DropdownMenuSubContent><WorkspacePaneActions /></DropdownMenuSubContent></DropdownMenuSub></> : null}
         </DropdownMenuContent>
       </DropdownMenu>
       <Button size="icon-sm" variant="ghost" title="Close file" aria-label="Close file" disabled={buffer.saving} onClick={() => act("close")}><XIcon /></Button>

@@ -59,7 +59,7 @@ Built-in web access supplies Exa-backed web search and page reading in both dest
 - Managed task workspaces offer explicit shared checkout or isolated branch/base selection, local setup/run/check actions, opt-in ignored-file copying, coordinated ports and conservative manual retirement. New delegate and automation worktrees share the inventory without automatic setup or trust. See `docs/task-workspaces.md`.
 - Starting a new Work chat always offers a project chooser with “No project”, pinned folders, and an option to open another folder.
 - Conversations open directly from Pi session files without waiting for a Pi process to start. Drafts remain editable and are restored if a cold send fails.
-- Narrow windows move the context pane into a sheet. On a phone, project navigation moves there too so the conversation and composer remain usable.
+- Sidebar chats can be dragged onto a conversation edge to open beside, above, or below it; chat-row context menus also offer opening to the right or below. Up to three conversations share the existing resizable layout without restarting their Pi sessions. Narrow windows move the context pane into a sheet. On a phone, project navigation moves there too so the conversation and composer remain usable.
 
 ## Current Capabilities
 

@@ -36,6 +36,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
   const dictation = useDictation(composerRoot);
   const dictating = dictation.phase !== "idle";
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
+  const chatMode = useAppStore(s => s.destination === "chat");
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const draft = useAppStore((s) =>
     activeProjectPath ? (s.drafts[draftKeyFor(activeProjectPath, activeSessionFile)] ?? "") : "",
@@ -213,7 +214,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
                   ? "Steer this turn…"
                   : running
                     ? "Queue a follow-up…"
-                    : "Ask Pi… @ files · $ skills · / commands"
+                    : chatMode ? "Ask anything…" : "Describe what you’d like to do…"
           }
         />
         {/* Reply controls stay inside the composer; checkout controls sit below. */}

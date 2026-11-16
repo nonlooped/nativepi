@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Managed task workspaces with explicit chat isolation/base selection, reusable setup/run/check actions, opt-in local file preparation, coordinated ports, action recovery and conservative workspace retirement.
 
 ### Changed
+- Simplify the conversation header with clickable line-change totals and distinct browser, terminal and file icons. Use calmer Source Control controls, plain composer hints and a branding-only ready new-chat state.
+- Open chats in split panes by dragging sidebar rows onto a pane edge or using their context menu, preserving drafts and running conversations.
 - Keep extension recovery compact with contextual error details and a quiet activity example.
 - Harden graphical extension lifecycle with pane-bound handles, stale-call rejection, listener cleanup, explicit host disposal, live tool progress and capability requirements. Add load-error recovery, a runnable Pi/NativePi activity example and a compatibility guide.
 - Simplify workspace creation with a direct project-to-chat path, an optional separate workspace with automatic defaults, shared controls, focused action settings and on-demand output.

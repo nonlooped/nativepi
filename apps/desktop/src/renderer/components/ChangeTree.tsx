@@ -48,7 +48,7 @@ export default function ChangeTree({ projectDir, filtered, title, files, staged,
   const rows = (nodes: Node[], depth = 0): React.ReactNode => nodes.map(node => {
     const key = `${staged ? "staged" : "changed"}:${node.path}`;
     const expanded = !collapsed.has(node.path);
-    const row = <div className={cn("group flex h-8 items-center gap-1 rounded-md pr-2 hover:bg-sidebar-accent", selected === key && "bg-sidebar-accent")}>
+    const row = <div className={cn("group flex h-8 items-center gap-1 rounded-md pr-2 hover:bg-sidebar-accent", selected === key && "bg-sidebar-accent text-sidebar-accent-foreground")}>
         <button type="button" title={node.path} aria-current={selected === key ? "true" : undefined} aria-expanded={!node.file ? expanded : undefined}
           className="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-md pr-1 text-left text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
           style={{ paddingLeft: 6 + depth * 12 }} onClick={() => node.file ? onSelect(key) : toggle(node.path)}>
