@@ -22,6 +22,7 @@ import { runtime } from "./lib/store/internals.ts";
 import { dirtyWorkspaceFiles, useWorkspaceEditor } from "./lib/workspaceEditor.ts";
 import { toast } from "sonner";
 
+const sharedPaneFields = ["reopenLastProject", "commitMessageModel", "collapsedChatFolders", "drafts", "preferences", "projects", "favoriteModels", "keybindingOverrides", "chatFolders", "chatFolderBySession", "chatExtensions", "sidebarOpen", "sidebarWidth", "sidebarScope", "contextPaneOpen", "contextPaneWidth", "contextPaneTab", "terminalHeight", "terminalProjects"] as const;
 const restored = readPaneArrangement();
 const initializations = new WeakMap<PaneStore, Promise<void>>();
 function initializePane(store: PaneStore) {
@@ -77,7 +78,7 @@ export default function Workspace() {
       // NativePi-owned shared settings/drafts are shared. Selection, model,
       // attachments, conversation view state and extension UI stay in their pane.
       const patch: Partial<ReturnType<PaneStore["getState"]>> = {};
-      for (const key of ["reopenLastProject", "commitMessageModel", "collapsedChatFolders", "drafts", "preferences", "projects", "favoriteModels", "keybindingOverrides", "chatFolders", "chatFolderBySession", "chatExtensions", "sidebarOpen", "sidebarWidth", "sidebarScope", "contextPaneOpen", "contextPaneWidth", "contextPaneTab", "terminalHeight", "terminalProjects"] as const) {
+      for (const key of sharedPaneFields) {
         if (next[key] !== previous[key]) Object.assign(patch, { [key]: next[key] });
       }
       if (Object.keys(patch).length) for (const other of new Set([primaryStore, ...stores])) if (other !== store) other.setState(patch);
@@ -119,7 +120,7 @@ export default function Workspace() {
       const candidate = (source.sessionsByProject[source.activeProjectPath ?? ""] ?? []).find(session => !stores.some(s => s.getState().activeSessionFile === session.path));
       if (candidate && source.activeProjectPath) await store.getState().selectChat(candidate.path, source.activeProjectPath);
       else if (source.activeProjectPath) await store.getState().selectProject(source.activeProjectPath);
-      store.setState({ sidebarOpen: source.sidebarOpen, sidebarWidth: source.sidebarWidth, contextPaneOpen: source.contextPaneOpen, contextPaneTab: source.contextPaneTab, drafts: source.drafts, preferences: source.preferences, projects: source.projects });
+      store.setState(Object.fromEntries(sharedPaneFields.map(key => [key, source[key]])));
       setOrientation(direction); setStores([...stores, store]); focusPaneStore(store); setActive(stores.length);
     } catch (error) { releasePaneStore(store); toast.error(String(error)); } finally { setSplitting(false); }
   };

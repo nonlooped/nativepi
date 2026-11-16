@@ -6,7 +6,8 @@ Object.defineProperty(globalThis, "cancelAnimationFrame", { value: window.cancel
 const selectChat = mock(async (_session: string, _project: string) => {});
 const state = { projects: [{ path: "/repo", name: "Repo" }], workRoot: "/managed/work", chatRoot: "/managed/chat", destination: "work", sidebarScope: null as string | null, selectChat, selectionVersion: 1, activeSessionFile: "/session", transcriptTarget: null as unknown };
 const searchSessions = mock(async (_params: unknown) => ({ results: [{ sessionFile: "/session", projectDir: state.workRoot, title: "Device diagnostics", snippet: "Device diagnostics", modified: new Date().toISOString(), match: "title", entryId: undefined as string | undefined }] }));
-mock.module("../lib/store.ts", () => ({ useAppStore: Object.assign((select: (s: typeof state) => unknown) => select(state), { getState: () => state, setState: (patch: object) => Object.assign(state, patch) }) }));
+const store = Object.assign((select: (s: typeof state) => unknown) => select(state), { getState: () => state, setState: (patch: object) => Object.assign(state, patch) });
+mock.module("../lib/store.ts", () => ({ useAppStore: store, usePaneStore: () => store }));
 mock.module("../lib/rpc.ts", () => ({ rpc: { request: { searchSessions, cancelSearchSessions: async () => ({}) } } }));
 const { default: ChatSearchDialog } = await import("./ChatSearchDialog.tsx");
 let root: Root; let container: HTMLDivElement;
