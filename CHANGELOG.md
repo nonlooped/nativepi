@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Run all Pi agents, terminals, browser sessions and automations in a separate local background host. Closing or restarting the desktop preserves live work; reopening restores output, queues, questions and Stop. Add explicit service controls and optional start at login.
+- Defer installer execution until the background service is explicitly stopped; compatible desktop restarts reconnect without replaying prompts, and incompatible hosts remain running until stopped.
 - Reorganize Settings around everyday preferences, conversations, permissions, and advanced options, with search that reveals individual controls and hidden sections.
 - Reuse the composer model picker for chat titles, combine notification and image modes, and move theme, background, and provider catalogs into focused choosers while preserving existing selections.
 - Unify MCP, skills, prompts, and package management with explicit project scope and extension provenance, and show a shared pending-restart notice across settings.

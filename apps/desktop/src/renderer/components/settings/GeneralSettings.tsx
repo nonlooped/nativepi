@@ -1,3 +1,4 @@
+import BackgroundServiceSettings from "./BackgroundServiceSettings.tsx";
 import { useAppStore } from "../../lib/store.ts";
 import { SelectRow, SettingsSection, SwitchRow } from "./rows.tsx";
 
@@ -8,6 +9,7 @@ export default function GeneralSettings() {
   const sound = useAppStore(s => s.preferences.notificationSound);
   const setPreference = useAppStore(s => s.setPreference);
   return <div className="flex flex-col gap-7">
+    <BackgroundServiceSettings />
     <SettingsSection id="startup" heading="Startup">
       <SwitchRow label="Reopen last project" description="Return to your last project when NativePi starts." checked={reopen} onChange={setReopen} />
     </SettingsSection>

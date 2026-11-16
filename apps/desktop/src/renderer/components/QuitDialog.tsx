@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { PendingWork } from "../../shared/rpc-schema.ts";
 import { useAppStore, usePaneStore, focusedPaneStore } from "../lib/store.ts";
 import { flushPersist } from "../lib/store/internals.ts";
+import { remoteConnection } from "../lib/connection.ts";
 import { rpc } from "../lib/rpc.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
@@ -33,7 +34,7 @@ export default function QuitDialog() {
     setBusy(true);
     setError(undefined);
     try {
-      await flushPersist(useAppStore.getState);
+      if (remoteConnection.getState().phase !== "unavailable") await flushPersist(useAppStore.getState);
       const result = await rpc.request.confirmQuit({});
       if (!result.ok) throw new Error("Could not close NativePi. Try again.");
     } catch (error) { setError(error instanceof Error ? error.message : String(error)); }
@@ -91,6 +92,7 @@ export default function QuitDialog() {
             then meeting Delete chat in the same slot. Escape, the backdrop and
             the close button still mean keep working. */}
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+        {remoteConnection.getState().phase === "unavailable" ? <p className="text-sm text-body-muted-foreground">The background service is unavailable. Closing may also discard chat drafts that have not been saved.</p> : null}
         {dirtyFiles.length ? <p className="text-sm text-destructive">Quitting will discard unsaved edits: {dirtyFiles.join(", ")}. Keep working to save them.</p> : null}
         <DialogFooter>
           <Button variant="ghost" onClick={() => setWork(null)}>

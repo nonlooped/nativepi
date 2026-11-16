@@ -1,17 +1,51 @@
-import { app, BrowserWindow, ipcMain, Menu, shell, type MenuItemConstructorOptions } from "electron";
 import { leaseRendererDocument } from "./clientLeases.ts";
+import { app, BrowserWindow, ipcMain, Menu, shell, type MenuItemConstructorOptions } from "electron";
 import { join } from "node:path";
 import { DEFAULT_PREFERENCES } from "../shared/rpc-schema.ts";
 import type { HostRequestName, HostRequests } from "../shared/rpc-schema.ts";
 import { installDiagnostics, recordRendererCrash, recordRendererLog } from "./diagnostics.ts";
-import { bindWindowMaterial, hasWindowMaterial } from "./windowMaterial.ts";
-import { loadState } from "./state.ts";
-type Host = typeof import("./ipc.ts");
-let host: Host | undefined;
-let hostPromise: Promise<Host> | undefined;
-function loadHost(): Promise<Host> {
-  return hostPromise ??= import("./ipc.ts").then((loaded) => (host = loaded));
-}
+import { bindWindowMaterial, hasWindowMaterial, updateWindowMaterial } from "./windowMaterial.ts";
+import { protectDesktopEdits } from "./service/desktopClose.ts";
+import { ServiceClient } from "./service/client.ts";
+import { connectHost, hostStatus, runHost, serviceFile, serviceMode, setLogin } from "./service/lifecycle.ts";
+import { serviceActionSchema } from "../shared/background-service.ts";
+import { validateHostRequest } from "../shared/request-params.ts";
+import { checkForUpdate, installUpdate, setUpdateChannel, startUpdates, updateState } from "./updates.ts";
+// Resolve the original product data directory before splitting Electron profiles.
+app.setName("NativePi");
+// Only the service imports ipc.ts and can allocate Pi runtimes or persist host state.
+const configuredData = process.argv.find(arg => arg.startsWith("--nativepi-data-dir="))?.slice("--nativepi-data-dir=".length)
+  ?? (!app.isPackaged ? process.env.NATIVEPI_DEV_USER_DATA : undefined);
+if (configuredData) app.setPath("userData", configuredData);
+const hostData = app.getPath("userData");
+if (!serviceMode) app.setPath("userData", join(hostData, "desktop-client"));
+let service = new ServiceClient(serviceFile(hostData), () => {}, () => {});
+let startup: Promise<void> | undefined;
+function ensureHost() { return startup ??= connectHost(service, hostData).finally(() => { startup = undefined; }); }
+let serviceStopped = false;
+ipcMain.handle("nativepi:service", async (_event, action: unknown) => {
+  if (_event.senderFrame !== _event.sender.mainFrame) throw new Error("Main document required");
+  switch (serviceActionSchema.parse(action)) {
+    case "start":
+      service.dispose();
+      service = new ServiceClient(serviceFile(hostData), () => {}, () => {});
+      serviceStopped = false; await ensureHost(); break;
+    case "stop": {
+      const control = new ServiceClient(serviceFile(hostData), () => {}, () => {});
+      try { await control.stop(); } finally { control.dispose(); }
+      serviceStopped = true;
+      for (let attempt = 0; attempt < 50; attempt++) {
+        const status = await hostStatus(hostData);
+        if (!status.running) return status;
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      throw new Error("The background service is still stopping. Wait before starting it again.");
+    }
+    case "enableLogin": await setLogin(true, hostData); break;
+    case "disableLogin": await setLogin(false, hostData); break;
+  }
+  return hostStatus(hostData);
+});
 // This bridge is desktop-only; Local Access cannot raise the owner's window.
 ipcMain.handle("nativepi:focus-window", (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
@@ -20,52 +54,56 @@ ipcMain.handle("nativepi:focus-window", (event) => {
   win.show();
   win.focus();
 });
-const rendererClients = new Map<number, import("./ipc.ts").HostClient>();
-ipcMain.handle("nativepi:invoke", async (_event, name: HostRequestName, params: unknown) => {
-  const loaded = await loadHost();
-  let client = rendererClients.get(_event.sender.id);
-  if (!client) {
-    client = new loaded.HostClient();
-    rendererClients.set(_event.sender.id, client);
-    const current = client;
-    leaseRendererDocument(current, _event.sender, () => {
-      if (rendererClients.get(_event.sender.id) === current)
-        rendererClients.delete(_event.sender.id);
-    });
+const rendererClients = new Map<number, ServiceClient>();
+const closeGuards = new Map<number, ReturnType<typeof protectDesktopEdits>>();
+ipcMain.handle("nativepi:invoke", async (event, name: HostRequestName, raw: unknown) => {
+  if (event.senderFrame !== event.sender.mainFrame) throw new Error("Main document required");
+  const params = validateHostRequest(name, raw ?? {}) as HostRequests[typeof name]["params"];
+  const win = BrowserWindow.fromWebContents(event.sender);
+  switch (name) {
+    case "windowMinimize": win?.minimize(); return { ok: true };
+    case "windowToggleMaximize": if (win?.isMaximized()) win.unmaximize(); else win?.maximize(); return { maximized: win?.isMaximized() ?? false };
+    case "windowIsMaximized": return { maximized: win?.isMaximized() ?? false };
+    case "windowIsFullScreen": return { fullscreen: win?.isFullScreen() ?? false };
+    case "windowClose": win?.close(); return { ok: true };
+    case "confirmQuit": { const guard = closeGuards.get(event.sender.id); if (guard) guard.confirmed = true; app.quit(); return { ok: true }; }
+    case "workspaceDirty": { const guard = closeGuards.get(event.sender.id); if (guard) guard.files = (params as HostRequests["workspaceDirty"]["params"]).files; break; }
+    case "updateState": return updateState();
+    case "checkForUpdate": return checkForUpdate();
+    case "setUpdateChannel": return setUpdateChannel((params as HostRequests["setUpdateChannel"]["params"]).channel);
+    case "installUpdate":
+      if ((await hostStatus(hostData)).running) return { ok: false, error: "Stop the background service in Settings before installing. This ends its agents and terminals." };
+      installUpdate(); return { ok: true };
   }
-  return loaded.invokeHostRequest(name, (params ?? {}) as HostRequests[typeof name]["params"], client);
+  if (serviceStopped) throw new Error("Background service stopped. Start it in Settings.");
+  let client = rendererClients.get(event.sender.id);
+  if (!client) {
+    client = new ServiceClient(serviceFile(hostData), (channel, payload) => {
+      if (!event.sender.isDestroyed()) event.sender.send(channel, payload);
+    }, (connected, error) => {
+      if (!event.sender.isDestroyed()) event.sender.send("nativepi:connection", { connected, error });
+    });
+    rendererClients.set(event.sender.id, client);
+    const current = client;
+    leaseRendererDocument(current, event.sender, () => { if (rendererClients.get(event.sender.id) === current) rendererClients.delete(event.sender.id); });
+  }
+  const result = await client.request(name, params);
+  if (name === "saveState") updateWindowMaterial((params as HostRequests["saveState"]["params"]).state.preferences);
+  return result;
 });
 // Not named `__dirname`: rolldown injects a CommonJS `__dirname` shim at the top
 // of the main bundle, and a same-named top-level const collides with it at load.
 const mainDir = import.meta.dirname;
-// Separate development worktrees can be inspected without sharing app state or locks.
-if (!app.isPackaged && process.env.NATIVEPI_DEV_USER_DATA) app.setPath("userData", process.env.NATIVEPI_DEV_USER_DATA);
-app.setName("NativePi");
 installDiagnostics();
-/**
-* One NativePi at a time.
-*
-* A second copy would keep its own Pi process per project and its own copy of
-* the state file, so the two would overwrite each other's projects, drafts and
-* pane sizes, and each would see the other's session writes as an external
-* edit. Electron hands the losing launch to the instance holding the lock,
-* which raises the window the user already has. `exit` rather than `quit`: this
-* process owns nothing yet, so there is nothing for `before-quit` to shut down.
-*/
+// Desktop and host use distinct Electron profiles and locks. Every host launch
+// uses the original profile, so duplicate starts cannot allocate competing Pi owners.
 if (!app.requestSingleInstanceLock())
   app.exit(0);
 let quitting = false;
-let relaunchAfterQuit = false;
+
 app.on("second-instance", () => {
-  // The lock is held until this process exits, so a launch that arrives while
-  // `stopAllPi` is still running lands here with no window left to raise.
-  // Handing it to a second process instead would put two owners on the Pi
-  // children and the state file, so honour it by relaunching once this one has
-  // finished shutting down.
-  if (quitting) {
-    relaunchAfterQuit = true;
-    return;
-  }
+  if (serviceMode) return;
+  if (quitting) return;
   const win = BrowserWindow.getAllWindows()[0];
   // No window but not quitting: macOS keeps the app alive after the last close.
   if (!win) {
@@ -86,7 +124,7 @@ function createWindow(): Promise<void> {
 }
 async function createMainWindow(): Promise<void> {
   // Still open the renderer if state is unreadable so its recovery UI can explain it.
-  const { preferences } = await loadState().catch(() => ({ preferences: DEFAULT_PREFERENCES }));
+  const { preferences } = await service.request("loadState", {}).then(value => value as { preferences: typeof DEFAULT_PREFERENCES }).catch(() => ({ preferences: DEFAULT_PREFERENCES }));
   const isMac = process.platform === "darwin";
   const win = new BrowserWindow({
     title: "NativePi",
@@ -130,37 +168,17 @@ async function createMainWindow(): Promise<void> {
     win.webContents.setIgnoreMenuShortcuts(modifier && !input.alt
       && ["Equal", "Minus", "Digit0"].includes(input.code));
   });
-  host?.setMainWindow(win);
-  /**
-  * Closing is where an agent turn and a shell die, so it is where the user is
-  * asked. Held here rather than in `before-quit`, which can run after the
-  * window is already gone and leave nothing left to show a dialog in. A quit
-  * that is already under way is let through: by then the answer has been
-  * given, or the OS is ending the session and is not waiting for one.
-  *
-  * A renderer that has crashed or hung is let through too: it can neither draw
-  * the confirmation nor answer it, and holding the close for one would leave
-  * the window, its Pi processes and its shells with no way out short of a
-  * force-kill. An unanswerable question is worse than no question.
-  */
-  let rendererAnswers = true;
-  win.on("unresponsive", () => (rendererAnswers = false));
-  win.on("responsive", () => (rendererAnswers = true));
+
+  // The renderer's beforeunload protects unsaved buffers. Pi and terminals
+  // stay in the independent service, including when this renderer crashes.
+  closeGuards.set(win.webContents.id, protectDesktopEdits(win));
+  win.on("closed", () => { closeGuards.delete(win.webContents.id); });
   win.webContents.on("console-message", (_event, level, message) => recordRendererLog(level, message));
   win.webContents.on("render-process-gone", (_event, details) => {
-    rendererAnswers = false;
     if (details.reason !== "clean-exit") {
       recordRendererCrash("render-process-gone", `${details.reason} (exit ${details.exitCode})`);
     }
   });
-  win.on("close", (event) => {
-    if (quitting || !rendererAnswers || win.webContents.isCrashed())
-      return;
-    if (host?.quitBlocked())
-      event.preventDefault();
-  });
-  win.webContents.on("will-prevent-unload", event => { if (host?.quitWasConfirmed()) event.preventDefault(); });
-  win.on("closed", () => host?.setMainWindow(null));
   win.on("ready-to-show", () => win.show());
   const sendMaximized = () => {
     win.webContents.send("windowMaximized", { maximized: win.isMaximized() });
@@ -216,29 +234,16 @@ async function createMainWindow(): Promise<void> {
     void win.loadFile(join(mainDir, "../renderer/index.html"));
   }
 }
-app.whenReady().then(async () => {
-  await createWindow();
-  void loadHost().then((loaded) => {
-    loaded.setMainWindow(BrowserWindow.getAllWindows()[0] ?? null);
-    loaded.initializeHost();
+if (serviceMode) {
+  app.on("window-all-closed", () => {});
+  app.whenReady().then(() => runHost(hostData)).catch(error => { console.error("Host startup failed", error); app.exit(1); });
+} else {
+  app.whenReady().then(async () => {
+    await ensureHost().catch(error => console.error("Host unavailable", error instanceof Error ? error.message : "Startup failed"));
+    startUpdates(state => { for (const win of BrowserWindow.getAllWindows()) win.webContents.send("updateState", state); }, hostData);
+    await createWindow();
+    app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) void createWindow(); });
   });
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0)
-      createWindow();
-  });
-});
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin")
-    app.quit();
-});
-app.on("before-quit", (event) => {
-  if (quitting)
-    return;
-  event.preventDefault();
-  quitting = true;
-  void loadHost().then((loaded) => loaded.shutdownHost()).catch(error => console.error("Host shutdown failed", error)).finally(() => {
-    if (relaunchAfterQuit)
-      app.relaunch();
-    app.quit();
-  });
-});
+  app.on("window-all-closed", () => app.quit());
+  app.on("will-quit", () => { quitting = true; service.dispose(); for (const client of rendererClients.values()) client.dispose(); });
+}

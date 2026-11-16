@@ -48,6 +48,17 @@ skips signing and leaves Electron's stale signature on the modified bundle,
 which macOS rejects as damaged. Both macOS packaging jobs verify the complete
 bundle with `codesign --verify --deep --strict` before uploading installers.
 
+## Running background hosts during updates
+
+The desktop updater downloads updates but never installs on desktop quit: the
+independent host may still have active work and installed files open. Users must
+explicitly stop the background service before installing or manually replacing
+the app. Compatible desktop restarts attach to a running host; incompatible wire
+protocols leave it running and require an explicit stop. See
+[background-service.md](background-service.md). Keep `SERVICE_PROTOCOL` stable for
+compatible handler/event changes, and increment it for incompatible semantics.
+No new certificates or paid signing services are required for this host.
+
 ## Packaging performance
 
 Release packaging installs only the desktop workspace and its workspace dependencies.

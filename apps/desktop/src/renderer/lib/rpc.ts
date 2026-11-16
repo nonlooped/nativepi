@@ -14,6 +14,10 @@ declare global {
 }
 export const isRemote = !window.nativepi;
 const api = window.nativepi ?? browserApi();
+if (window.nativepi?.connection) {
+  window.nativepi.connection(state => remoteConnection.setState({ phase: state.connected ? "connected" : "unavailable", error: state.error }, true));
+  void window.nativepi.service?.("status").then(status => remoteConnection.setState({ phase: status.running && status.compatible ? "connected" : "unavailable", error: status.error }, true)).catch(error => remoteConnection.setState({ phase: "unavailable", error: String(error) }, true));
+}
 /**
 * `rpc.request.someCall(params)` over the bridge's single `invoke`.
 *

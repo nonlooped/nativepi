@@ -36,6 +36,7 @@ export function settingsPage(value: string | null): Category { return settingsDe
 // Search indexes tasks and consequences, not just navigation labels. Targets
 // identify actual sections, including closed disclosures and resource tabs.
 export const SETTINGS_ENTRIES: { page: Category; target: string; label: string; keywords: string }[] = [
+  ["General", "background-service", "Background service", "host agents close quit restart login stop start background"],
   ["General", "startup", "Reopen last project", "startup launch restore"],
   ["General", "notifications", "Background turn notifications", "notification sound alert finish completion"],
   ["Appearance", "mode", "Mode", "theme system light dark"],

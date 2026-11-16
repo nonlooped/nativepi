@@ -20,12 +20,12 @@ const updater = Object.assign(new EventEmitter(), {
   quitAndInstall: mock((_silent: boolean, _restart: boolean) => { }),
 });
 mock.module("electron", () => ({
-  app: { isPackaged: true, getVersion: () => version, getPath: () => dataDir },
+  app: { isPackaged: true, getVersion: () => version, getPath: () => join(dataDir, "desktop-client") },
 }));
 mock.module("electron-updater", () => ({ default: { autoUpdater: updater } }));
 const { checkForUpdate, installUpdate, setUpdateChannel, startUpdates, updateState } = await import("./updates.ts");
 const changes: UpdateState[] = [];
-startUpdates((state) => changes.push(state));
+startUpdates((state) => changes.push(state), dataDir);
 afterAll(() => {
   Object.defineProperty(process, "platform", { value: originalPlatform });
   // Only the isolated directory created by this test; never Electron user data.
@@ -37,7 +37,8 @@ test("a nightly install follows nightlies and downloads without disturbing the c
   await checkForUpdate();
   expect(updateState()).toEqual({ status: "idle", channel: "nightly" });
   expect(updater.autoDownload).toBeTrue();
-  expect(updater.autoInstallOnAppQuit).toBeTrue();
+  // Quitting the desktop must never replace files used by its live host.
+  expect(updater.autoInstallOnAppQuit).toBeFalse();
   expect(updater.allowPrerelease).toBeTrue();
   expect(updater.allowDowngrade).toBeFalse();
   updater.emit("update-available", { version: "1.15.0-nightly.202610091300" });
@@ -67,7 +68,8 @@ test("leaving nightly discards a ready installer and checks stable even when sta
   expect(updater.quitAndInstall).not.toHaveBeenCalled();
   updater.emit("update-available", { version: "1.14.0" });
   updater.emit("update-downloaded", { version: "1.14.0" });
-  expect(updater.autoInstallOnAppQuit).toBeTrue();
+  // Quitting the desktop must never replace files used by its live host.
+  expect(updater.autoInstallOnAppQuit).toBeFalse();
   installUpdate();
   expect(updater.quitAndInstall).toHaveBeenCalledWith(false, true);
 });
@@ -79,7 +81,8 @@ test("a failed channel save keeps the downloaded installer and current preferenc
   await expect(setUpdateChannel("nightly")).rejects.toThrow();
   expect(updateState().channel).toBe("stable");
   expect(updateState().status).toBe("ready");
-  expect(updater.autoInstallOnAppQuit).toBeTrue();
+  // Quitting the desktop must never replace files used by its live host.
+  expect(updater.autoInstallOnAppQuit).toBeFalse();
   if (file !== join(dataDir, "update-channel.json"))
     throw new Error("Invalid test channel path");
   rmSync(file, { recursive: true });
@@ -114,7 +117,7 @@ test("a saved channel survives restart and an invalid preference follows the ins
     updater.removeAllListeners();
     version = installed;
     writeFileSync(file, JSON.stringify({ channel: saved }));
-    startUpdates((state) => changes.push(state));
+    startUpdates((state) => changes.push(state), dataDir);
     await checkForUpdate();
     expect(updateState().channel).toBe(expected);
     expect(updater.allowPrerelease).toBe(expected === "nightly");
@@ -128,7 +131,7 @@ test("unsigned macOS builds offer both channels without downloading an unusable 
     updater.removeAllListeners();
     version = "1.14.0";
     writeFileSync(join(dataDir, "update-channel.json"), JSON.stringify({ channel: "stable" }));
-    startUpdates((state) => changes.push(state));
+    startUpdates((state) => changes.push(state), dataDir);
     expect(updateState()).toEqual({ status: "manual", channel: "stable" });
     await setUpdateChannel("nightly");
     expect(updateState()).toEqual({ status: "manual", channel: "nightly" });

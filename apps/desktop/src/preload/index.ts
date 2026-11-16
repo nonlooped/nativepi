@@ -1,3 +1,4 @@
+import type { ServiceAction, ServiceStatus } from "../shared/background-service.ts";
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "electron";
 import { validHostEvent } from "../shared/host-events.ts";
 import { hostEventKeys } from "../shared/rpc-schema.ts";
@@ -6,6 +7,8 @@ import type { HostEventName, HostEvents, HostRequestName, HostRequests } from ".
 // builds per-channel request functions over this single invoke boundary.
 export type NativePiApi = {
   windowMaterial?: boolean;
+  service?: (action: ServiceAction) => Promise<ServiceStatus>;
+  connection?: (listener: (state: { connected: boolean; error?: string }) => void) => () => void;
   focusWindow?: () => Promise<void>;
   invoke: <K extends HostRequestName>(channel: K, params: HostRequests[K]["params"]) => Promise<HostRequests[K]["response"]>;
   /**
@@ -22,6 +25,12 @@ export type NativePiApi = {
   };
 };
 const api: NativePiApi = {
+  service: action => ipcRenderer.invoke("nativepi:service", action),
+  connection: listener => {
+    const handler = (_event: IpcRendererEvent, state: { connected: boolean; error?: string }) => listener(state);
+    ipcRenderer.on("nativepi:connection", handler);
+    return () => { ipcRenderer.removeListener("nativepi:connection", handler); };
+  },
   focusWindow: () => ipcRenderer.invoke("nativepi:focus-window"),
   windowMaterial: process.argv.includes("--nativepi-window-material"),
   invoke: (channel, params) => ipcRenderer.invoke("nativepi:invoke", channel, params),

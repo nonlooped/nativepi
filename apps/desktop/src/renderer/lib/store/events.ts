@@ -209,7 +209,7 @@ export function applyExtensionUi(
     case "editor":
       set((s) => {
         const prompt = { ...req, projectDir, sessionFile } as ExtensionPrompt;
-        const prompts = [...(s.extensionPromptsByProject[projectDir] ?? []), prompt];
+        const prompts = [...(s.extensionPromptsByProject[projectDir] ?? []).filter(existing => existing.id !== prompt.id), prompt];
         return {
           extensionPromptsByProject: { ...s.extensionPromptsByProject, [projectDir]: prompts },
           ...(projectDir === s.activeProjectPath ? { extPrompts: prompts } : {}),

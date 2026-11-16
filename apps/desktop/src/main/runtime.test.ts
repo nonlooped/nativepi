@@ -286,12 +286,13 @@ test("idle conflict blocks writes; reload retires stale Pi and next acquisition 
   expect(await request("setModel", { ...target, provider: "test", modelId: "test" })).toEqual({ ok: true });
   expect(processes.at(-1)!.loaded).toContain("external");
 });
-test("active hydration is explicit retry and settled hydration provides stable history and AFTER watermark", async () => {
+test("live hydration is fenced and settled hydration provides stable history and AFTER watermark", async () => {
   const target = await session("snapshot");
   await request("ensurePi", target);
   const pi = processes.at(-1)!;
   pi.emit("agent_start");
-  expect((await request("readSessionSnapshot", target)).consistency).toBe("retry");
+  // Live reads now include the fenced transient Pi display state.
+  expect(await request("readSessionSnapshot", target)).toMatchObject({ consistency: "stable", liveEvents: [{ type: "agent_start" }] });
   expect(await request("reloadSession", target)).toMatchObject({ ok: false });
   pi.emit("agent_settled");
   const value = await request("readSessionSnapshot", target);
@@ -1010,7 +1011,8 @@ test("write attribution: a running owner's settled event acknowledges its own wr
   pi.emit("agent_start");
   await appendOutside(target.sessionFile, "own-run-write");
   expect(await request("setModel", { ...target, provider: "test", modelId: "valid" })).toEqual({ ok: true });
-  expect((await request("readSessionSnapshot", target)).consistency).toBe("retry");
+  // Live reads now include the fenced transient Pi display state.
+  expect(await request("readSessionSnapshot", target)).toMatchObject({ consistency: "stable", liveEvents: [{ type: "agent_start" }] });
   const gate = gateStat(target.sessionFile);
   try {
     pi.emit("agent_settled");
@@ -1570,4 +1572,28 @@ test("conversation pane leases in one desktop client keep independent watched se
   expect(desktop.panes.has("left")).toBe(false);
   expect(desktop.panes.get("right")?.sessions.get(root)).toBe(b.sessionFile);
   const right = desktop.panes.get("right")!; desktop.dispose(); expect(right.disposed).toBe(true);
+});
+
+test("a detached live Pi turn provides a fenced display snapshot without starting or replaying it", async () => {
+  const target = await session("service-live-reconnect");
+  const before = processes.length;
+  const client = new HostClient();
+  await request("ensurePi", target, client);
+  const pi = processes.at(-1)!;
+  pi.emit("agent_start");
+  pi.event({ type: "message_update", message: { role: "assistant", content: [{ type: "text", text: "Still working" }] } });
+  pi.event({ type: "extension_ui_request", id: "question-1", method: "confirm", title: "Continue?" });
+  client.dispose();
+  const reconnected = new HostClient();
+  try {
+    const snapshot = await request("readSessionSnapshot", target, reconnected);
+    expect(snapshot.consistency).toBe("stable");
+    expect(snapshot.liveEvents).toContainEqual({ type: "agent_start" });
+    expect(snapshot.liveEvents).toContainEqual({ type: "message_start", message: { role: "assistant", content: [{ type: "text", text: "Still working" }] } });
+    expect(snapshot.liveEvents).toContainEqual({ type: "extension_ui_request", id: "question-1", method: "confirm", title: "Continue?" });
+    expect(processes.length).toBe(before + 1);
+    expect(pi.stopped).toBe(false);
+    await request("extensionRespond", { ...target, response: { type: "extension_ui_response", id: "question-1", confirmed: true } }, reconnected);
+    expect((await request("readSessionSnapshot", target, reconnected)).liveEvents?.some(event => event.type === "extension_ui_request")).toBe(false);
+  } finally { pi.emit("agent_settled"); reconnected.dispose(); }
 });
