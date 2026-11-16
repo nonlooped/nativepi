@@ -9,7 +9,7 @@ let root: Root; let container: HTMLDivElement;
 afterEach(async () => { if (root) await act(async () => root.unmount()); container?.remove(); });
 const listing = { recipe: { setup: "echo setup", run: "echo run", check: "echo check" }, worktrees: [{ path: "/repo", branch: "main", main: true }, { path: "/task", branch: "feature", main: false, managed: { path: "/task", repository: "/repo", branch: "feature", base: "abc", owner: "chat", status: "created", output: "" } }] };
 function button(text: string) { return [...document.querySelectorAll("button")].find(b => b.textContent === text)!; }
-async function mount(start: (path: string) => Promise<void>) { container = document.createElement("div"); document.body.append(container); root = createRoot(container); await act(async () => root.render(<TaskWorkspacePanel projectDir="/repo" onStart={start} />)); }
+async function mount(start: (path: string) => Promise<void>, projectDir = "/repo") { container = document.createElement("div"); document.body.append(container); root = createRoot(container); await act(async () => root.render(<TaskWorkspacePanel projectDir={projectDir} onStart={start} />)); }
 test("shared checkout remains deliberate and isolation sends explicit branch and base", async () => {
   let started = ""; const created: unknown[] = [];
   stubInvoke(async (name, params) => { if (name === "taskWorkspaceList") return listing; if (name === "taskWorkspaceCreate") { created.push(params); return { path: "/task" }; } return {}; });
@@ -35,4 +35,24 @@ test("execution requires consent and retirement displays host blockers without d
   expect(actions[0]).toEqual({ projectDir: "/task", action: "setup", confirmed: true, copyFiles: [] });
   await act(async () => button("Retire…").click()); expect(container.textContent).toContain("Active agent");
   expect(button("Remove workspace folder")).toBeUndefined();
+});
+
+
+test("retiring the current worktree keeps the panel and next chat on the surviving project", async () => {
+  let removed = false; let started = "";
+  stubInvoke(async (name, params) => {
+    const p = params as any;
+    if (name === "taskWorkspaceList") {
+      if (removed && p.projectDir === "/task") throw new Error("Folder was removed");
+      return removed ? { ...listing, worktrees: listing.worktrees.slice(0, 1) } : listing;
+    }
+    if (name === "taskWorkspaceAction") { if (p.action === "remove") removed = true; return { blockers: [] }; }
+    return {};
+  });
+  await mount(async path => { started = path; }, "/task");
+  await act(async () => button("Retire…").click());
+  await act(async () => button("Remove workspace folder").click());
+  await act(async () => button("Start chat here").click());
+  expect(removed).toBe(true); expect(started).toBe("/repo");
+  expect(container.textContent).not.toContain("Folder was removed");
 });

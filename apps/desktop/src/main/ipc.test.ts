@@ -174,7 +174,10 @@ git("init", "-b", "main"); git("-c", "user.name=Test", "-c", "user.email=test@ex
 mock.module("electron", () => ({ app: { getPath: () => root }, BrowserWindow: class {}, dialog: {}, shell: {}, powerSaveBlocker: { start: () => 1, isStarted: () => true, stop: () => {} }, nativeTheme: new EventEmitter(), systemPreferences: {} }));
 mock.module("electron-updater", () => ({ default: { autoUpdater: {} } }));
 mock.module("node-pty", () => ({ spawn: () => { throw new Error("Unexpected terminal"); } }));
-const { invokeHostRequest: request, shutdownHost } = await import(${JSON.stringify(new URL("./ipc.ts", import.meta.url).href)});
+// Allocation is real; dispatch intentionally has no model in this isolated fixture.
+console.info = () => {};
+mock.module(${JSON.stringify(new URL("./pi/client.ts", import.meta.url).href)}, () => ({ PiProcess: class { constructor() { throw new Error("Fixture model unavailable"); } } }));
+const { invokeHostRequest: request, shutdownHost, quitBlocked } = await import(${JSON.stringify(new URL("./ipc.ts", import.meta.url).href)});
 try {
  const { path: cwd } = await request("taskWorkspaceCreate", { projectDir: repo, branch: "task", base: "HEAD" });
  await request("taskWorkspaceRecipe", { projectDir: repo, recipe: { setup: "echo prepared", run: "", check: "" } });
@@ -190,6 +193,19 @@ try {
  const { blockers } = await request("taskWorkspaceAction", { projectDir: cwd, action: "inspect" });
  assert.equal(blockers.some(b => b.includes("agents")), false);
  assert.equal(blockers.some(b => b.includes("Commits")), true);
+ await request("taskWorkspaceRecipe", { projectDir: repo, recipe: { setup: "", run: '\"'+process.execPath+'\" -e \"setTimeout(() => {},30000)\"', check: "" } });
+ await request("taskWorkspaceAction", { projectDir: cwd, action: "run", confirmed: true });
+ assert.equal(quitBlocked(), true, "an owned workspace action must block host shutdown");
+ await request("taskWorkspaceAction", { projectDir: cwd, action: "stop" });
+ assert.equal(quitBlocked(), false);
+ const parent = join(root, "parent"); git("worktree", "add", "-b", "parent", parent);
+ const saved = await request("automationSave", { name: "nested", prompt: "No remote work", enabled: false, project: parent, workspace: "worktree", configuration: { provider: "fixture", model: "fixture", reasoning: "off", tools: ["read"] }, trigger: { kind: "once", at: new Date(Date.now()+3600000).toISOString() } });
+ await request("automationRun", { id: saved.automations[0].id });
+ const inventory = await request("taskWorkspaceList", { projectDir: repo });
+ const automation = inventory.worktrees.find(w => w.managed?.owner === "automation");
+ assert.ok(automation, "automation allocation should be registered even if fixture model cannot dispatch");
+ const { realpath } = await import("node:fs/promises");
+ assert.equal(automation.managed.repository, await realpath(repo), "nested worktrees must retain the primary repository");
 } finally { await shutdownHost(); await rm(root, { recursive: true, force: true }); }
 `], { cwd: fileURLToPath(new URL("../..", import.meta.url)), stdout: "pipe", stderr: "pipe" });
   const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);

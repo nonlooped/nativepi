@@ -15,7 +15,8 @@ import type { WorkspaceRecipe } from "../../shared/task-workspaces.ts";
 
 /** Both the new-chat flow and the branch menu use this same workspace inventory. */
 export default function TaskWorkspacePanel({ projectDir, onStart, initiallySeparate = false }: { projectDir: string; initiallySeparate?: boolean; onStart: (path: string) => Promise<void> }) {
-  const { data, error: loadError, reload } = useRequest(() => rpc.request.taskWorkspaceList({ projectDir }), [projectDir], { keepPreviousData: true });
+  const [repositoryDir, setRepositoryDir] = useState(projectDir);
+  const { data, error: loadError, reload } = useRequest(() => rpc.request.taskWorkspaceList({ projectDir: repositoryDir }), [repositoryDir], { keepPreviousData: true });
   const [isolated, setIsolated] = useState(initiallySeparate);
   const [branch, setBranch] = useState(() => `task/work-${Date.now().toString(36)}`);
   const [base, setBase] = useState("HEAD");
@@ -55,7 +56,7 @@ export default function TaskWorkspacePanel({ projectDir, onStart, initiallySepar
         <label className={input}>Starting base<Input value={base} onChange={e => setBase(e.target.value)} placeholder="HEAD or origin/main" /></label>
       </div>}
       <div className="flex justify-end"><Button disabled={busy || !branch.trim() || !base.trim()} onClick={() => void perform(async () => {
-        const result = await rpc.request.taskWorkspaceCreate({ projectDir, branch: branch.trim(), base: base.trim() });
+        const result = await rpc.request.taskWorkspaceCreate({ projectDir: repositoryDir, branch: branch.trim(), base: base.trim() });
         setSelected(result.path); setIsolated(false); setConsent(false); setBranch(`task/work-${Date.now().toString(36)}`);
       })}>Create workspace</Button></div>
     </div> : <div className="space-y-3">
@@ -74,7 +75,7 @@ export default function TaskWorkspacePanel({ projectDir, onStart, initiallySepar
         <div className="space-y-4">
         <p className="text-xs text-muted-foreground">Commands use your shell. Use PORT for concurrent servers and keep services in the foreground.</p>
         {(["setup", "run", "check"] as const).map(action => <label key={action} className="block space-y-1 text-sm"><span>{action === "setup" ? "Setup" : action === "run" ? "Run app" : "Checks"}</span><Textarea rows={2} value={recipe[action]} placeholder={action === "setup" ? "bun install" : action === "run" ? "bun run dev" : "bun run check"} onChange={e => setRecipe({ ...recipe, [action]: e.target.value })} /></label>)}
-        </div><DialogFooter><Button variant="ghost" onClick={() => setConfigure(false)}>Cancel</Button><Button disabled={busy} onClick={() => void perform(() => rpc.request.taskWorkspaceRecipe({ projectDir, recipe }).then(result => { setConsent(false); setConfigure(false); return result; }))}>Save actions</Button></DialogFooter>
+        </div><DialogFooter><Button variant="ghost" onClick={() => setConfigure(false)}>Cancel</Button><Button disabled={busy} onClick={() => void perform(() => rpc.request.taskWorkspaceRecipe({ projectDir: repositoryDir, recipe }).then(result => { setConsent(false); setConfigure(false); return result; }))}>Save actions</Button></DialogFooter>
       </DialogContent></Dialog>
       {managed ? <>
         <p role="status" className="text-[0.8125rem] text-body-muted-foreground">{{ created: "Not prepared", running: "Running", ready: "Ready", failed: "Needs attention", interrupted: "Interrupted" }[managed.status]}</p>
@@ -93,7 +94,10 @@ export default function TaskWorkspacePanel({ projectDir, onStart, initiallySepar
         {showOutput && (managed.output || managed.error) ? <pre aria-label="Action output" className="max-h-40 overflow-auto rounded-md bg-muted/40 p-3 font-mono text-xs whitespace-pre-wrap">{managed.error ? `${managed.error}\n\n` : ""}{managed.output}</pre> : null}
         {showFiles && <div className="space-y-2"><label className="text-sm font-medium" htmlFor="workspace-files">Copy during setup</label><Textarea id="workspace-files" aria-label="Ignored files to copy" rows={2} value={files} onChange={e => { setFiles(e.target.value); setConsent(false); }} placeholder=".env.local" /><p className="text-xs leading-5 text-muted-foreground">One ignored file per line, copied from your current checkout. May include secrets. Existing files stay untouched.</p></div>}
         {blockers ? <div className="space-y-2 rounded-md border p-3 text-xs">
-          {blockers.length ? <><p className="font-medium">Workspace retained</p><ul className="list-disc space-y-1 pl-4">{blockers.map(b => <li key={b}>{b}</li>)}</ul></> : <><p>Remove this clean, published workspace folder? Its Git branch and Pi conversations will be retained.</p><Button size="sm" variant="destructive" disabled={busy} onClick={() => void perform(async () => { await rpc.request.taskWorkspaceAction({ projectDir: selected, action: "remove", confirmed: true }); setSelected(projectDir); setBlockers(null); })}>Remove workspace folder</Button></>}
+          {blockers.length ? <><p className="font-medium">Workspace retained</p><ul className="list-disc space-y-1 pl-4">{blockers.map(b => <li key={b}>{b}</li>)}</ul></> : <><p>Remove this clean, published workspace folder? Its Git branch and Pi conversations will be retained.</p><Button size="sm" variant="destructive" disabled={busy} onClick={() => void perform(async () => { const survivor = data?.worktrees.find(workspace => workspace.main)?.path;
+          if (!survivor) throw new Error("Could not find the project folder. Reopen it before removing this workspace.");
+          await rpc.request.taskWorkspaceAction({ projectDir: selected, action: "remove", confirmed: true });
+          setRepositoryDir(survivor); setSelected(survivor); setBlockers(null); })}>Remove workspace folder</Button></>}
         </div> : null}
       </> : <p className="text-xs text-muted-foreground">Save setup and run commands in Project actions to reuse them in new worktrees.</p>}
     </div></SettingsDetails>}

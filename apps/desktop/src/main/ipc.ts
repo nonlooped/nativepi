@@ -367,12 +367,13 @@ export function quitBlocked(): boolean {
   const runs = livePis
     .filter((pi) => (pi.isRunning && !orchestration.references().some(ref => ref.file === pi.boundSessionFile && orchestration.waiting(ref.id))) || Boolean(pi.boundSessionFile && sessionWriteCount(pi.boundSessionFile)) || (outstanding.get(pi.projectDir) ?? 0) > 0)
     .map((pi) => pi.projectDir).concat(ephemeralProjects());
+  const commands = taskWorkspaces.runningProjects();
   const terminals = liveTerminalProjects();
   const viewers = localServerStatus().clients.length;
   const dirtyFiles = [...new Set([...clients].flatMap(client => client.dirtyFiles))];
-  if (runs.length === 0 && terminals.length === 0 && viewers === 0 && dirtyFiles.length === 0)
+  if (runs.length === 0 && commands.length === 0 && terminals.length === 0 && viewers === 0 && dirtyFiles.length === 0)
     return false;
-  pushDesktop("quitRequested", { work: { runs, terminals, viewers, dirtyFiles } });
+  pushDesktop("quitRequested", { work: { runs, commands, terminals, viewers, dirtyFiles } });
   return true;
 }
 function stopSessionWatch(sessionFile: string): void {
@@ -669,9 +670,10 @@ const automations = new AutomationService(join(app.getPath("userData"), "automat
     if (input.workspace === "worktree") {
       const base = await gitResolveWorktreeBase(cwd);
       signal.throwIfAborted();
-      const result = await gitAddWorktree(cwd, `automation-${runId}`, true, base, async prepared => { await workspace(prepared.path); signal.throwIfAborted(); });
+      let repository = cwd;
+      const result = await gitAddWorktree(cwd, `automation-${runId}`, true, base, async prepared => { repository = prepared.repository; await workspace(prepared.path); signal.throwIfAborted(); });
       if (!result.ok || !result.path) throw new Error(result.error ?? "Worktree allocation failed");
-      await taskWorkspaces.register({ path: result.path, repository: cwd, branch: `automation-${runId}`, base, owner: "automation" });
+      await taskWorkspaces.register({ path: result.path, repository, branch: `automation-${runId}`, base, owner: "automation" });
       cwd = result.path;
     }
     await workspace(cwd);

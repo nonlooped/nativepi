@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Open Usage, Automations, and device sharing directly from icon buttons beside Settings in the sidebar. Simplify usage summaries and keep input/cache breakdowns limited to recorded all-time totals.
 
 ### Fixed
+- Restore login-shell tools for workspace actions, retain automation ownership at the primary checkout, protect running commands during shutdown, and recover the workspace picker after retirement.
 - Harden shared browser action scripts by escaping script-sensitive characters in action arguments while preserving typed text.
 - Ensure desktop development installs the Electron binary and launches the GUI even when the shell has Electron's Node mode enabled.
 

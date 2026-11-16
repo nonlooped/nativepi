@@ -5,7 +5,7 @@ import path from "node:path";
 import net from "node:net";
 import { z } from "zod";
 import { gitAddWorktree, gitResolveWorktreeBase } from "./git.ts";
-import { runRepositoryCommand } from "./repoCommand.ts";
+import { repositoryEnv, runRepositoryCommand } from "./repoCommand.ts";
 import { workspaceRecordSchema, workspaceRecipeSchema, type WorkspaceListing, type WorkspaceRecord, type WorkspaceRecipe } from "../shared/task-workspaces.ts";
 const diskSchema = z.object({ version: z.literal(1), records: z.array(workspaceRecordSchema), recipes: z.record(z.string(), workspaceRecipeSchema) });
 const git = async (cwd: string, args: string[]) => {
@@ -18,6 +18,7 @@ export class TaskWorkspaces {
   private records: WorkspaceRecord[] = [];
   private recipes: Record<string, WorkspaceRecipe> = {};
   private jobs = new Map<string, { child: ChildProcess; done: Promise<void> }>();
+  runningProjects() { return [...this.jobs.keys()]; }
   private closing = false;
   private exclusive = new Set<string>();
   isPreparing(cwd: string) { return this.exclusive.has(cwd) || (this.jobs.has(cwd) && this.records.find(r => r.path === cwd)?.action === "setup"); }
@@ -126,7 +127,7 @@ export class TaskWorkspaces {
         record.port = port;
         if (!command.trim()) { record.status = "ready"; await this.save(); return; }
         record.status = "running"; await this.save();
-        const child = spawn(command, { cwd, shell: process.env.SHELL || true, detached: process.platform !== "win32", env: { ...process.env, NATIVEPI_WORKSPACE_PORT: String(port), PORT: String(port) }, stdio: ["ignore", "pipe", "pipe"] });
+        const child = spawn(command, { cwd, shell: process.env.SHELL || true, detached: process.platform !== "win32", env: { ...await repositoryEnv(), NATIVEPI_WORKSPACE_PORT: String(port), PORT: String(port) }, stdio: ["ignore", "pipe", "pipe"] });
         const append = (data: Buffer) => { record.output = (record.output + data.toString()).slice(-64000); };
         child.stdout?.on("data", append); child.stderr?.on("data", append);
         let spawnError: string | undefined;

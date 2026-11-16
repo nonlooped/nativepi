@@ -57,6 +57,8 @@ export interface ImageAttachment {
 */
 export interface PendingWork {
   dirtyFiles?: string[];
+  /** Projects with an owned setup, app server or check command running. */
+  commands?: string[];
   /** Projects with an agent turn in flight. */
   runs: string[];
   /** Projects owning a terminal whose shell is still alive. */

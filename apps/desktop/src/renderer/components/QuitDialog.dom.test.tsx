@@ -50,3 +50,18 @@ domTest("quit confirmation still opens after the shared shell switches pane stor
     expect(document.body.textContent).toContain("unsaved.ts");
   } finally { releasePaneStore(first); releasePaneStore(second); focusPaneStore(primaryStore); }
 });
+
+
+domTest("a workspace command is named in the quit guard and can be kept running", async () => {
+  let requested!: (payload: unknown) => void;
+  const calls: string[] = [];
+  rpc.events.on = ((channel: string, listener: (payload: unknown) => void) => { if (channel === "quitRequested") requested = listener; return () => {}; }) as typeof rpc.events.on;
+  stubInvoke(async name => { calls.push(name); return { ok: true }; });
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  await act(async () => root!.render(<QuitDialog />));
+  await act(async () => requested({ work: { runs: [], terminals: [], commands: ["/project"], viewers: 0 } }));
+  expect(document.body.textContent).toContain("Project commands are still running");
+  await act(async () => [...document.querySelectorAll("button")].find(b => b.textContent === "Keep working")!.click());
+  expect(calls).toEqual([]);
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+});
