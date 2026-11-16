@@ -618,16 +618,17 @@ export default function AutomationEditor({
                 )}
               </div>
             )}
-            <div className="border-t border-border/40 pt-3 text-xs leading-5 text-body-muted-foreground">
-              <p>{draft.workspace === "worktree" ? "Runs in a separate folder from the last saved Git version. Current unsaved changes and dependencies are not copied." : `Runs directly in ${draft.project ? projects.find(p => p.path === draft.project)?.name ?? "the selected project folder" : "the No project work folder"}.`}</p>
-              <p>{draft.configuration.tools.includes("bash") ? "Can change files and run programs on your computer." : draft.configuration.tools.some(tool => ["edit", "write"].includes(tool)) ? "Can change files in that folder." : draft.configuration.tools.every(tool => ["read", "grep", "find", "ls"].includes(tool)) ? "File editing and shell commands are off." : "Uses custom tools. Review their permissions in Execution options."} {draft.enabled ? "Runs automatically without asking you before each run." : "Saved paused until you enable it."}</p>
-            </div>
             {fieldErrors.workspace && <p role="alert" className="text-xs text-destructive">{fieldErrors.workspace}</p>}
             {error && (
               <StateNotice title="Could not save the automation" detail={error} />
             )}
           </div>
           <DialogFooter className="mx-6 mb-5 flex-row flex-wrap items-center justify-between pt-4 sm:justify-between">
+            <div className="w-full pb-2 text-xs leading-5 text-body-muted-foreground">
+              <p>{draft.workspace === "worktree" ? "Runs in a separate folder from the last saved Git version. Current unsaved changes and dependencies are not copied." : `Runs directly in ${draft.project ? projects.find(p => p.path === draft.project)?.name ?? "the selected project folder" : "the No project work folder"}.`}</p>
+              <p>{draft.configuration.tools.includes("bash") ? "Can change files and run programs on your computer." : draft.configuration.tools.some(tool => ["edit", "write"].includes(tool)) ? "Can change files in that folder." : draft.configuration.tools.every(tool => ["read", "grep", "find", "ls"].includes(tool)) ? "File editing and shell commands are off." : "Uses custom tools. Review their permissions in Execution options."} {draft.enabled ? "Runs automatically without asking you before each run." : "Saved paused until you enable it."}</p>
+            </div>
+
             <label className="flex items-center gap-2 text-sm text-body-muted-foreground">
               <Switch
                 checked={draft.enabled}
