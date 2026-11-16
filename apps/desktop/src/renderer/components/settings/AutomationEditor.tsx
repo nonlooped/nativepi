@@ -31,6 +31,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../ui/dialog.tsx";
+import SettingsDetails from "./SettingsDetails.tsx";
 import { ChoiceRow, SelectRow, SwitchRow, SettingsSection } from "./rows.tsx";
 
 function fresh(): AutomationInput {
@@ -444,6 +445,7 @@ export default function AutomationEditor({
                           }
                         />
                       )}
+                      <SettingsDetails id="automation-timezone" title="Timezone" summary={trigger.timezone.replaceAll("_", " ")}>
                       <SelectRow
                         inline
                         label="Timezone"
@@ -456,6 +458,7 @@ export default function AutomationEditor({
                           patch({ trigger: { ...trigger, timezone } })
                         }
                       />
+                      </SettingsDetails>
                     </>
                   )}
                 </>
@@ -610,7 +613,7 @@ export default function AutomationEditor({
                 disabled={pending}
                 onCheckedChange={(enabled) => patch({ enabled })}
               />
-              Enabled
+              Run automatically
             </label>
             <div className="ml-auto flex justify-end gap-2">
               <Button

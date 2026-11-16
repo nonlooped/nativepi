@@ -1,12 +1,13 @@
 # Scheduled and event-triggered Work
 
-Settings → Automations creates explicit persistent automation intent.
+The Automations icon beside Settings in the main sidebar opens scheduled and
+event-triggered Work. Saving an automation creates explicit persistent intent.
 NativePi must remain running; there is no background daemon or remote execution.
 Each accepted run gets a fresh ordinary Pi Work session, configured through the
 same Pi host as manual work. Third-party extensions remain available when selected.
 No manual conversation or interrupted run is resumed automatically.
 
-The settings list shows each trigger, next run and current state. Open a row to
+The automation list shows each trigger, next run and current state. Open a row to
 edit it, use its action menu to run or delete it, or open its last run for history.
 
 The focused editor offers a pinned project or No project and schedule or GitHub

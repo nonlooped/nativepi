@@ -13,6 +13,7 @@ import { CheckIcon } from "@phosphor-icons/react/Check";
 import { ColumnsIcon } from "@phosphor-icons/react/Columns";
 import { RowsIcon } from "@phosphor-icons/react/Rows";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
+import { GearSixIcon } from "@phosphor-icons/react/GearSix";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { toast } from "sonner";
 import type { ShellProfile, TerminalSession } from "../../shared/rpc-schema.ts";
@@ -146,6 +147,7 @@ export default function TerminalDock({
             setOrientation("vertical");
             void addSplit(preferredShellId || undefined);
           }}><RowsIcon /></Button>
+          <Button variant="ghost" size="icon-xs" title="Terminal settings" aria-label="Terminal settings" onClick={() => useAppStore.getState().openSettings("Advanced#terminal")}><GearSixIcon /></Button>
           <NewTerminalButton
             shells={shells}
             preferredShellId={preferredShellId}

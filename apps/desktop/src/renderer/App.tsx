@@ -36,6 +36,7 @@ import NativePiWordmark from "./components/NativePiWordmark.tsx";
 import NavigationControls from "./components/NavigationControls.tsx";
 import ProjectStatus, { PiStartingNotice } from "./components/ProjectStatus.tsx";
 import QuitDialog from "./components/QuitDialog.tsx";
+const AppPanel = lazy(() => import("./components/AppPanel.tsx"));
 const Settings = lazy(() => import("./components/Settings.tsx"));
 import Toaster from "./components/Toaster.tsx";
 import TrustDialog from "./components/TrustDialog.tsx";
@@ -96,6 +97,7 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
     return !!s.activeSessionFile || c.entries.length > 0 || !!c.streaming || c.pending.length > 0 || c.running;
   });
   const settingsOpen = useAppStore((s) => s.settingsOpen);
+  const appPanel = useAppStore(s => s.appPanel);
   const closeSettings = useAppStore((s) => s.closeSettings);
   const horizontalGroup = useRef<HTMLDivElement>(null);
   const verticalGroup = useRef<HTMLDivElement>(null);
@@ -203,7 +205,7 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
           the whole app, unmounting the transcript, composer and run status while
           an agent was mid-edit — and its most likely entry point is the
           composer's own "Connect a provider" button. */}
-      <div className="h-full" inert={settingsOpen || undefined}>
+      <div className="h-full" inert={settingsOpen || !!appPanel || undefined}>
       <ResizablePanelGroup orientation="horizontal" elementRef={horizontalGroup}
         onLayoutChanged={(_, meta) => {
           if (!meta.isUserInteraction) return;
@@ -411,6 +413,8 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
           </SettingsDialog.Popup>
         </SettingsDialog.Portal>
       </SettingsDialog.Root>
+
+      {appPanel ? <Suspense fallback={null}><AppPanel /></Suspense> : null}
 
       <DropZone />
       <Toaster />

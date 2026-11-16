@@ -16,8 +16,10 @@ export default function LeftSidebar({
   open,
   overlay = false,
   layoutKey,
+  footer,
 }: {
   children: ReactNode;
+  footer?: ReactNode;
   actionIcon: ReactNode;
   actionLabel: string;
   onAction: () => void;
@@ -63,10 +65,10 @@ export default function LeftSidebar({
           NO_DRAG_REGION,
         )}
       >
-        <Button variant="ghost" className="min-w-0 flex-1 justify-start text-muted-foreground" onClick={onAction}>
+        <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground" aria-label={actionLabel} title={actionLabel} onClick={onAction}>
           {actionIcon}
-          {actionLabel}
         </Button>
+        {footer}
       </div>
     </aside>
   );

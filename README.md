@@ -82,7 +82,7 @@ and instructions through Pi's APIs.
   stay alive while hidden and when you switch projects.
 - **Make it yours.** Light and dark appearances, built-in and custom color
   schemes, landscape or custom backgrounds, and rebindable shortcuts for chats,
-  terminals, and source control. Inspect local cost and token usage in Settings.
+  terminals, and source control. Open Usage from its icon beside Settings to inspect local cost and token usage.
 - **Open it on another device.** Enable token-protected browser access over your
   local network or a temporary public link while the desktop app stays open.
 

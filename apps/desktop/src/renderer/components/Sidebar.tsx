@@ -14,6 +14,9 @@ import { ClockIcon } from "@phosphor-icons/react/Clock";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderPlusIcon } from "@phosphor-icons/react/FolderPlus";
 import { FunnelSimpleIcon } from "@phosphor-icons/react/FunnelSimple";
+import { ChartLineUpIcon } from "@phosphor-icons/react/ChartLineUp";
+import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
+import { CalendarCheckIcon } from "@phosphor-icons/react/CalendarCheck";
 import { GearSixIcon } from "@phosphor-icons/react/GearSix";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
@@ -80,7 +83,13 @@ interface SidebarProps {
 export default function Sidebar(props: SidebarProps) {
   const destination = useAppStore(s => s.destination);
   const openSettings = useAppStore(s => s.openSettings);
-  return <LeftSidebar actionIcon={<GearSixIcon data-icon="inline-start" />} actionLabel="Settings" onAction={() => { openSettings(); if (props.overlay) props.onClose(); }} onClose={props.onClose} open={props.open ?? true} overlay={props.overlay} layoutKey={props.layoutKey}>
+  const openPanel = useAppStore(s => s.openAppPanel);
+  const open = (panel: "usage" | "automations" | "access") => { openPanel(panel); if (props.overlay) props.onClose(); };
+  return <LeftSidebar footer={<>
+    <Button variant="ghost" size="icon" aria-label="Usage" title="Usage" className="text-muted-foreground" onClick={() => open("usage")}><ChartLineUpIcon /></Button>
+    <Button variant="ghost" size="icon" aria-label="Automations" title="Automations" className="text-muted-foreground" onClick={() => open("automations")}><CalendarCheckIcon /></Button>
+    <Button variant="ghost" size="icon" aria-label="Open on another device" title="Open on another device" className="text-muted-foreground" onClick={() => open("access")}><WifiHighIcon /></Button>
+  </>} actionIcon={<GearSixIcon data-icon="inline-start" />} actionLabel="Settings" onAction={() => { openSettings(); if (props.overlay) props.onClose(); }} onClose={props.onClose} open={props.open ?? true} overlay={props.overlay} layoutKey={props.layoutKey}>
     {destination === "chat" ? <ChatContents {...props} /> : <WorkContents {...props} />}
   </LeftSidebar>;
 }

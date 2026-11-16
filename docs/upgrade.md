@@ -27,9 +27,10 @@ Add `--local` for project installations. Then:
 - Leave existing `mcp.json` files and session names as they are.
 - Change `MODEL_API_KEY` to `META_API_KEY` for Meta API-key authentication.
 - Treat saved Standard/Fast session choices as Standard/Priority. The old title
-  model picker is gone; new chats use the current model.
+  generation controls now use the shared composer picker under Settings →
+  Conversations, with Automatic model, reasoning, and tier defaults.
 
-Configure MCP in Settings → Agent setup, with `pi mcp` or `mcp.json`, and inspect live connections with `/mcp`. Meta uses
+Configure MCP in Settings → Tools & extensions → MCP servers, with `pi mcp` or `mcp.json`, and inspect live connections with `/mcp`. Meta uses
 `META_API_KEY` or Pi's Meta sign-in.
 
 Open the composer model picker and use **Speed** beside reasoning to choose a tier
@@ -47,7 +48,7 @@ to load the built-in tools. HTML artifacts are saved with the Pi conversation an
 work in both Chat and Work.
 
 The NativePi subagents, subscription-usage, and throughput packages have been
-removed. Their packages remain retired. Subscription reporting is now built into Settings → Usage for Codex and Anthropic OAuth accounts, separate from local cost and token usage. See [coverage and setup](agent-setup.md) for supported windows and provider gaps.
+removed. Their packages remain retired. Subscription reporting is now built into Usage, opened from its icon beside Settings in the main sidebar, for Codex and Anthropic OAuth accounts, separate from local cost and token usage. See [coverage and setup](agent-setup.md) for supported windows and provider gaps.
 Existing installations of all five packages are ignored in NativePi. Remove them
 from Pi's configuration with its package manager (add `--local` for project scope):
 

@@ -12,6 +12,8 @@ let handoffId = 0;
 export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   settingsOpen: false,
   settingsCategory: null,
+  settingsNavigationVersion: 0,
+  appPanel: null,
   sidebarWidth: 304,
   contextPaneWidth: 304,
   terminalHeight: undefined,
@@ -42,8 +44,16 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   update: { status: "unsupported", channel: "stable" },
   accessHandoffs: [],
 
-  openSettings: (category) => set({ settingsOpen: true, ...(category ? { settingsCategory: category } : {}) }),
+  openSettings: (category) => {
+    // Keep old extension/app entry points working after these features move out
+    // of preferences. This state is transient; Pi data and sessions stay put.
+    const panel = category === "Usage" ? "usage" : category === "Automations" ? "automations" : category === "Access" ? "access" : null;
+    if (panel) { set({ settingsOpen: false, appPanel: panel }); return; }
+    set({ settingsOpen: true, appPanel: null, settingsNavigationVersion: get().settingsNavigationVersion + 1, ...(category ? { settingsCategory: category } : {}) });
+  },
   closeSettings: () => set({ settingsOpen: false }),
+  openAppPanel: (appPanel) => set({ appPanel, settingsOpen: false }),
+  closeAppPanel: () => set({ appPanel: null }),
 
   setSidebarWidth: (sidebarWidth) => {
     set({ sidebarWidth });

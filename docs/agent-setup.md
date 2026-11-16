@@ -1,12 +1,12 @@
 # Agent setup and subscription capacity
 
-Settings → Agent setup uses the selected project context (or No project) to
-show compact management lists for configured MCP servers and the effective skills
-and prompt templates resolved by Pi's resource loader.
+Settings → Tools & extensions uses the selected project context (or No project)
+to show searchable MCP servers, Skills, Prompts, and Packages tabs. Skills and
+prompts are resolved by Pi's resource loader.
 Expand a row for its source, scope, file path and details. Loader errors
 and collisions are available under View diagnostics. Extensions may discover additional
 resources in a running chat; this static view does not execute third-party
-extensions. Manage package-provided resources in Settings → Extensions.
+extensions. Manage package-provided resources in the Packages tab.
 
 Use Add in a list to open a focused setup dialog. Create a skill with a name,
 description and instructions, or create a prompt
@@ -45,7 +45,7 @@ IPC summary excludes credentials. Explicit checks continue to use the CLI.
 
 ## Provider quota coverage
 
-Settings → Usage shows compact provider rows with remaining-capacity progress
+The Usage icon beside Settings in the main sidebar shows compact provider rows with remaining-capacity progress
 and concise reset times. Expand a row for timestamps and supplied metadata.
 Unsupported connections share a quiet disclosure. It separates provider account limits from model-reported local
 tokens and API-equivalent costs. Local costs are not subscription charges and

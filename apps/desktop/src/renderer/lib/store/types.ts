@@ -334,6 +334,7 @@ export interface PiSettingsSlice {
   loadPiSettings: () => Promise<void>;
   updatePiSetting: <K extends keyof PiSettings>(key: K, value: PiSettings[K]) => Promise<void>;
   applyPiSettingsRestart: () => Promise<void>;
+  requirePiRestart: () => void;
 }
 
 /** Chrome: what is open, how wide, and one-shot requests to the view. */
@@ -357,6 +358,8 @@ export interface AccessHandoff {
 export interface UiSlice {
   settingsOpen: boolean;
   settingsCategory: string | null;
+  settingsNavigationVersion: number;
+  appPanel: "usage" | "automations" | "access" | null;
   sidebarWidth: number;
   contextPaneWidth: number;
   terminalHeight: number | undefined;
@@ -394,6 +397,8 @@ export interface UiSlice {
 
   openSettings: (category?: string) => void;
   closeSettings: () => void;
+  openAppPanel: (panel: NonNullable<UiSlice["appPanel"]>) => void;
+  closeAppPanel: () => void;
   setSidebarWidth: (size: number) => void;
   setSidebarOpen: (open: boolean) => void;
   setSidebarScope: (path: string | null) => void;

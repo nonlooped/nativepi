@@ -11,6 +11,7 @@ import { useAppStore } from "../../lib/store.ts";
 import { useRequest } from "../../lib/useRequest.ts";
 import { showDiagnosticsCopied, showDiagnosticsExportFailed } from "../../lib/toast.tsx";
 import { ActionRow, ChoiceRow, ReadonlyRow, SettingsCard, SettingsSection, type CardTone } from "./rows.tsx";
+import SettingsDetails from "./SettingsDetails.tsx";
 import { Button } from "@/components/ui/button.tsx";
 
 const REPOSITORY_URL = "https://github.com/nonlooped/nativepi";
@@ -100,6 +101,7 @@ function Updates() {
         )
       }
     >
+      <SettingsDetails id="update-options" title="Update options" summary={`${update.channel === "stable" ? "Stable" : "Nightly"} channel`}>
       <ChoiceRow
         label="Release channel"
         description="Nightly includes the newest changes ahead of Stable. Switching to Stable may install an earlier version."
@@ -108,6 +110,7 @@ function Updates() {
         disabled={busy}
         onChange={(channel) => void runAction(() => setUpdateChannel(channel))}
       />
+      </SettingsDetails>
     </SettingsCard>
   );
 }
@@ -140,9 +143,7 @@ export default function AboutSettings() {
 
   return (
     <div className="flex flex-col gap-8">
-      <Updates />
-
-      <SettingsSection heading="Version">
+      <SettingsSection id="version" heading="Version">
         {versions.error ? <StateNotice title="Could not read versions" detail={versions.error} retry={versions.reload} /> : versions.loading ? <StateNotice loading title="Reading versions…" /> : <>
         <ReadonlyRow
           label="NativePi"
@@ -157,8 +158,9 @@ export default function AboutSettings() {
         </>}
       </SettingsSection>
 
+      <div data-setting="updates"><Updates /></div>
       {!isRemote ? (
-        <SettingsSection heading="Support">
+        <SettingsSection id="support" heading="Support">
           <ActionRow
             label="Diagnostics"
             description="Copy system details, recent logs, package state, and redacted configuration for a bug report."
@@ -171,10 +173,7 @@ export default function AboutSettings() {
         </SettingsSection>
       ) : null}
 
-      <SettingsSection
-        heading="Where Pi keeps things"
-        description="NativePi exposes the settings most people need. Pi supports more, and its files are here."
-      >
+      <SettingsDetails id="configuration" title="Configuration files" summary="Pi’s local settings and credential locations.">
         {paths.error ? <StateNotice title="Could not read Pi locations" detail={paths.error} retry={paths.reload} /> : paths.loading ? <StateNotice loading title="Reading Pi locations…" /> : <>
         <ReadonlyRow
           label="Configuration"
@@ -217,7 +216,7 @@ export default function AboutSettings() {
           value={paths.data?.paths.authFile ?? "Unavailable"}
         />
         </>}
-      </SettingsSection>
+      </SettingsDetails>
     </div>
   );
 }

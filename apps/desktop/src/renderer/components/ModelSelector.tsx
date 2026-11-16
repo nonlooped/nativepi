@@ -1,4 +1,4 @@
-import type { ChatTitleModel } from "../../shared/chat-title.ts";
+import { chatTitleModelKey, type ChatTitleModel } from "../../shared/chat-title.ts";
 import type { Relationship } from "../../shared/orchestration.ts";
 import { LightningIcon } from "@phosphor-icons/react/Lightning";
 import { serviceTierTarget } from "../../shared/service-tier.ts";
@@ -38,6 +38,15 @@ export interface ModelSelection {
   loading: boolean;
   error?: string;
   retry: () => void;
+  /** Background tasks can inherit each choice without freezing its resolved value. */
+  automatic?: {
+    model: boolean;
+    reasoning: boolean;
+    tier: boolean;
+    reasoningLabel: string;
+    tierLabel: string;
+    onChange: (field: "model" | "reasoning" | "tier", value: string) => void;
+  };
 }
 export default function ModelSelector({ selection }: { selection?: ModelSelection } = {}) {
   const keybindingOverrides = useAppStore(s => s.keybindingOverrides);
@@ -65,6 +74,7 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
   const setModel = selection ? (next: ModelInfo) => {
     const choice = selection.models.find(m => m.provider === next.provider && m.id === next.id);
     if (!choice) return;
+    if (selection.automatic) { selection.automatic.onChange("model", chatTitleModelKey(choice)); return; }
     selection.onChange({ ...selection.configuration, provider: choice.provider, model: choice.id, reasoning: choice.thinkingLevels.includes(selection.configuration.reasoning) ? selection.configuration.reasoning : choice.thinkingLevels[0] ?? "off", tier: choice.tiers.includes(selection.configuration.tier ?? "default") ? selection.configuration.tier : "default" });
   } : storedSetModel;
   const openSettings = useAppStore((s) => s.openSettings);
@@ -111,7 +121,7 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
     : model && availableProviders.includes(model.provider) ? model.provider : availableProviders[0] ?? "favorites";
   const favoriteModelKeys = new Set(favoriteModels);
   const providerNames = new Map(providers.map((item) => [item.id, item.name]));
-  const label = model ? friendlyModelName(model) : selection ? selection.configuration.model ? "Unavailable model" : "Choose a model" : "Model";
+  const label = selection?.automatic?.model ? "Automatic" : model ? friendlyModelName(model) : selection ? selection.configuration.model ? "Unavailable model" : "Choose a model" : "Model";
   const queryTerms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
 
   const visibleModels = models.filter((item) => {
@@ -123,7 +133,7 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
     return queryTerms.every((term) => searchable.includes(term));
   });
 
-  if (models.length === 0 && catalogError && !catalogLoading) return <Button variant="ghost" title={catalogError} onClick={() => void refreshModels()}><WarningCircleIcon />Retry models</Button>;
+  if (!selection?.automatic && models.length === 0 && catalogError && !catalogLoading) return <Button variant="ghost" title={catalogError} onClick={() => void refreshModels()}><WarningCircleIcon />Retry models</Button>;
   if (!selection && models.length === 0 && providersLoaded && (!catalogLoading || !providers.some(provider => provider.ready))) {
     const ready = providers.some((item) => item.ready);
     return (
@@ -139,7 +149,7 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
     );
   }
 
-  if (selection && !catalogLoading && !models.length && !catalogError) return <Button type="button" variant="ghost" onClick={() => openSettings("Providers")}><WarningCircleIcon />Connect a provider</Button>;
+  if (selection && !selection.automatic && !catalogLoading && !models.length && !catalogError) return <Button type="button" variant="ghost" onClick={() => openSettings("Providers")}><WarningCircleIcon />Connect a provider</Button>;
   return (
     <Popover
       open={open}
@@ -151,22 +161,22 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
     >
       <PopoverTrigger
         data-model-picker-trigger=""
-        disabled={models.length === 0}
+        disabled={models.length === 0 && !selection?.automatic}
         render={
           <Button
             variant="ghost"
             className="min-w-0 max-w-[min(16rem,100%)] @max-[30rem]/conversation:flex-1 max-sm:h-auto max-sm:min-h-8 max-sm:py-1 justify-start gap-1.5 px-2 font-normal"
           />
         }
-        title={models.length === 0 ? "Loading models from Pi…" : withHint("Change model, reasoning, and service tier", "selectModel", keybindingOverrides)}
+        title={models.length === 0 && !selection?.automatic ? "Loading models from Pi…" : withHint("Change model, reasoning, and service tier", "selectModel", keybindingOverrides)}
         aria-label={
-          models.length === 0
+          models.length === 0 && !selection?.automatic
             ? "Loading models"
             : `Model ${label}, reasoning ${thinkingLabel(thinkingLevel)}${priority ? ", priority speed" : ""}. Change model, reasoning, and service tier`
         }
       >
         {model ? <ModelProviderIcon provider={model.provider} /> : null}
-        <span className="min-w-0 truncate max-sm:whitespace-normal max-sm:wrap-anywhere font-medium text-foreground">{models.length === 0 ? "Loading models…" : label}</span>
+        <span className="min-w-0 truncate max-sm:whitespace-normal max-sm:wrap-anywhere font-medium text-foreground">{models.length === 0 && !selection?.automatic ? "Loading models…" : label}</span>
         {models.length > 0 ? (
           <>
             <span className="text-muted-foreground/50 @max-[30rem]/conversation:hidden" aria-hidden="true">·</span>
@@ -192,6 +202,13 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
         <PopoverDescription className="sr-only">
           Search models from every provider and adjust reasoning and service tier.
         </PopoverDescription>
+
+        {selection?.automatic ? <button type="button" onClick={() => selection.automatic!.onChange("model", "auto")}
+          aria-pressed={selection.automatic.model} className="flex shrink-0 items-center justify-between gap-3 border-b border-border/50 px-3 py-2.5 text-left text-sm hover:bg-muted">
+          <span><span className="block font-medium">Automatic</span><span className="block text-xs text-muted-foreground">Choose a fast model from connected providers.</span></span>
+          {selection.automatic.model ? <CheckIcon className="size-4 shrink-0" /> : null}
+        </button> : null}
+        {catalogError ? <div role="alert" className="px-3 py-2 text-xs text-destructive">{catalogError}<Button size="sm" variant="ghost" onClick={() => void refreshModels()}>Retry models</Button></div> : null}
 
         <div className="flex min-h-0 flex-1">
           <nav aria-label="Filter models" className="flex w-10 shrink-0 flex-col items-center gap-1 overflow-y-auto overscroll-contain border-r border-border/40 px-1 py-1.5">
@@ -228,6 +245,8 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
               />
             </div>
             <div ref={listRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-1">
+              {catalogLoading ? <p role="status" className="p-3 text-xs text-muted-foreground">Loading models…</p> : null}
+              {!models.length && !catalogLoading && !catalogError ? <Button variant="ghost" size="sm" onClick={() => openSettings("Providers")}>Connect a provider</Button> : null}
               <ModelList
                 visibleModels={visibleModels}
                 query={query}
@@ -243,7 +262,12 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
 
         <div className="flex shrink-0 items-start gap-2 border-t border-border/50 p-2">
           <ReasoningControl selection={selection} />
-          <ServiceTierSelector selection={selection ? { tier: selection.configuration.tier ?? "default", tiers: selection.models.find(m => m.provider === selection.configuration.provider && m.id === selection.configuration.model)?.tiers ?? [], onChange: tier => selection.onChange({ ...selection.configuration, tier }) } : undefined} />
+          <ServiceTierSelector selection={selection ? {
+            tier: selection.configuration.tier ?? "default",
+            tiers: selection.models.find(m => m.provider === selection.configuration.provider && m.id === selection.configuration.model)?.tiers ?? [],
+            onChange: tier => selection.automatic ? selection.automatic.onChange("tier", tier) : selection.onChange({ ...selection.configuration, tier }),
+            automatic: selection.automatic ? { selected: selection.automatic.tier, label: selection.automatic.tierLabel, onSelect: () => selection.automatic!.onChange("tier", "auto") } : undefined,
+          } : undefined} />
         </div>
       </PopoverContent>
     </Popover>
@@ -263,18 +287,22 @@ function ReasoningControl({ selection }: { selection?: ModelSelection }) {
   const error = selection ? selection.error : storedError;
   const retry = selection?.retry ?? storedRetry;
   const setThinkingLevel = selection ? (reasoning: typeof thinkingLevel) => selection.onChange({ ...selection.configuration, reasoning }) : storedSetThinkingLevel;
-  const options = thinkingLevels.map((level) => ({ value: level, label: thinkingLabel(level) }));
+  const options = [
+    ...(selection?.automatic ? [{ value: "auto", label: selection.automatic.reasoningLabel }] : []),
+    ...thinkingLevels.map((level) => ({ value: level, label: thinkingLabel(level) })),
+  ];
 
   return (
     <section className="min-w-0 flex-1" aria-label="Reasoning">
       <div className="flex min-h-8 items-center gap-2">
         {!error && thinkingLevels.length > 0 ? (
           <Select
-            value={thinkingLevels.includes(thinkingLevel) ? thinkingLevel : null}
+            value={selection?.automatic?.reasoning ? "auto" : thinkingLevels.includes(thinkingLevel) ? thinkingLevel : null}
             items={options}
-            disabled={loading || thinkingLevels.length === 1}
+            disabled={loading || (!selection?.automatic && thinkingLevels.length === 1)}
             onValueChange={(level) => {
-              if (level && level !== thinkingLevel) void setThinkingLevel(level);
+              if (selection?.automatic) { if (level) selection.automatic.onChange("reasoning", level); }
+              else if (level && level !== thinkingLevel) void setThinkingLevel(level as typeof thinkingLevel);
             }}
           >
             <SelectTrigger aria-label="Reasoning effort" title="Reasoning effort" className="h-8 w-full gap-2 rounded-full border-border/50 bg-foreground/3 px-3 text-xs font-normal shadow-none hover:bg-muted dark:bg-foreground/3 dark:hover:bg-muted">
