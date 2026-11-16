@@ -14,6 +14,7 @@ import { MinusIcon } from "@phosphor-icons/react/Minus";
 import { SquareIcon } from "@phosphor-icons/react/Square";
 import { SpinnerGapIcon } from "@phosphor-icons/react/SpinnerGap";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
+import { InfoIcon } from "@phosphor-icons/react/Info";
 import { Button } from "../components/ui/button.tsx";
 import { Input } from "../components/ui/input.tsx";
 import { cn, DRAG_REGION, NO_DRAG_REGION } from "../lib/utils.ts";
@@ -76,6 +77,7 @@ function BrowserChrome() {
   const [error, setError] = useState("");
   const [details, setDetails] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [about, setAbout] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const header = useRef<HTMLElement>(null);
   const tabs = useRef<HTMLElement>(null);
@@ -181,6 +183,8 @@ function BrowserChrome() {
   return (
     <div className="flex h-full min-w-0 flex-col bg-background text-foreground">
       <header ref={header} className="shrink-0 bg-sidebar">
+        <div className={cn("flex h-8 items-center gap-2 px-3 text-xs text-muted-foreground", mac && "pl-[100px]", DRAG_REGION)}><span className="min-w-0 flex-1 truncate" title={state.ownerTitle}>Browser · {state.ownerTitle || "New Work chat"}</span><span className={NO_DRAG_REGION}><IconAction label="About this chat’s browser" onClick={() => setAbout(value => !value)}><InfoIcon /></IconAction></span></div>
+        {about ? <p className="px-4 pb-2 text-xs leading-5 text-body-muted-foreground">You and Pi share these pages. Hiding this window keeps tabs and sign-ins available. Restarting or closing this chat’s agent clears them. Use your usual browser for downloads, popups or device permissions.</p> : null}
         <div
           className={cn(
             "flex h-12 min-w-0 items-center gap-1 px-3",
@@ -334,7 +338,7 @@ function BrowserChrome() {
           <Input
             ref={input}
             aria-label="Address"
-            placeholder="Enter a URL or localhost address"
+            placeholder="Enter a website or local app address"
             value={address}
             onChange={(event) => setAddress(event.target.value)}
             onFocus={() => {
@@ -361,6 +365,7 @@ function BrowserChrome() {
             <ArrowRightIcon />
           </Button>
         </form>
+        {state.notice ? <div role="status" className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-xs leading-5 text-body-muted-foreground"><WarningCircleIcon className="size-4 shrink-0" /><span className="min-w-0 flex-1">{state.notice.message}</span>{state.notice.url ? <Button type="button" size="xs" variant="outline" title="Opens outside this chat; you may need to sign in there" onClick={() => void send("openExternal", { url: state.notice?.url })}>Open in usual browser</Button> : null}<IconAction label="Dismiss notice" onClick={() => void send("dismissNotice")}><XIcon /></IconAction></div> : null}
         {error && (
           <div
             role="alert"
@@ -399,6 +404,7 @@ function BrowserChrome() {
                     ? ""
                     : "Enter a website or local server address above."}
               </p>
+              {!active && !state.error ? <p className="mt-2 text-xs leading-5 text-muted-foreground">This browser is shared with Pi in {state.ownerTitle || "this Work chat"}. Tabs and sign-ins last until its agent closes or restarts.</p> : null}
             </div>
             {state.error && (
               <>

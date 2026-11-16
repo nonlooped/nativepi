@@ -81,6 +81,7 @@ export class PiProcess {
   private closed = false;
   private stopTask?: Promise<void>;
   private browser?: SharedBrowser;
+  private browserTitle = "New Work chat";
   private browserRequests = new Map<string, AbortController>();
   private computerAllowed = false;
   private computerFenced = false;
@@ -266,9 +267,9 @@ export class PiProcess {
     if (!this.computerAllowed || !this.isAvailable) throw new Error("Browser requires an available Work chat.");
     const {SharedBrowser} = await import("../browser/index.ts");
     this.browser ??= new SharedBrowser();
+    this.browser.setOwner(this.browserTitle);
     if (url) { await this.browser.chrome({ action: "open", url }); return; }
-    const state = await this.browser.run({action:"list"}) as {tabs:{tab:string}[]};
-    await this.browser.run(state.tabs[0] ? {action:"show",tab:state.tabs[0].tab} : {action:"open",url:"https://example.com"});
+    this.browser.show();
   }
   private async handleBrowser(raw: unknown): Promise<void> {
     const cancel = browserCancel.safeParse(raw);
@@ -282,6 +283,7 @@ export class PiProcess {
       const {SharedBrowser} = await import("../browser/index.ts");
       if (controller.signal.aborted) throw new Error("Browser cancelled.");
       this.browser ??= new SharedBrowser();
+      this.browser.setOwner(this.browserTitle);
       const data = await this.browser.run(operation,controller.signal);
       const image = operation.action === "screenshot" ? (data as {image: unknown}).image : undefined;
       const result = browserResult.parse(JSON.parse(JSON.stringify({ok:true,data: image ? {tab:operation.action === "screenshot" ? operation.tab : undefined} : data,image})));
@@ -446,6 +448,14 @@ export class PiProcess {
     const id = `lc-${nextRequestId++}`;
     return new Promise<T>((resolve, reject) => {
       this.pending.set(id, { resolve: data => {
+        if (command.type === "get_state" && data && typeof data === "object" && "sessionName" in data && typeof data.sessionName === "string") {
+          this.browserTitle = data.sessionName || "New Work chat";
+          this.browser?.setOwner(this.browserTitle);
+        }
+        if (command.type === "set_session_name") {
+          this.browserTitle = command.name || "New Work chat";
+          this.browser?.setOwner(this.browserTitle);
+        }
         if (command.type === "prompt" && data && typeof data === "object" && "disposition" in data && (data.disposition === "started" || data.disposition === "queued")) { this.isRunning = true; this.onOrchestrationRuntime?.(); }
         resolve(data as T);
       }, reject });

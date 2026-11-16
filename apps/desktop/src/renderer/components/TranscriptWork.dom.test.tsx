@@ -61,10 +61,12 @@ domTest("work is expanded during a run and collapses on completion, leaving the 
 domTest("group and individual outputs expand only on demand, including failures", async () => {
   await mount();
   await render(true);
-  expect(container.textContent).not.toContain("Failed");
+  expect(container.textContent).toContain("1 tool attempt failed");
+  expect(container.textContent).toContain("1 failed");
   expect(container.textContent).not.toContain("Completed");
   await click("Ran 2 commands");
   expect(container.textContent).toContain("bun test");
+  expect(container.textContent).toContain("Couldn’t finish");
   expect(container.textContent).not.toContain("First command failed");
   await click("bun test");
   expect(container.textContent).toContain("First command failed");

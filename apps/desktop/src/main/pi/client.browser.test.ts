@@ -4,6 +4,8 @@ import { PassThrough } from "node:stream";
 import * as childProcess from "node:child_process";
 let pending: ((signal: AbortSignal) => Promise<void>) | undefined;
 class Browser {
+  setOwner() {}
+  show() {}
   async run(_op: unknown, signal?: AbortSignal) {
     await pending?.(signal!);
     return { tabs: [] };

@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Managed task workspaces with explicit chat isolation/base selection, reusable setup/run/check actions, opt-in local file preparation, coordinated ports, action recovery and conservative workspace retirement.
 
 ### Changed
+- Identify the chat in each browser window, explain browser session lifetime, and show blocked downloads, popups and device permissions with an option to continue in the usual browser. Start empty browsers on a useful address screen and explain computer-only opening from another device.
+- Keep failed tool attempts visible in collapsed work, tool groups and individual results without treating a later successful response as a failed conversation.
 - Start automations with an available model, show their folder and permissions before enabling them, check GitHub readiness with guided sign-in, accept pull request links, and explain invalid trigger fields.
 - Keep unfinished configuration and review-feedback drafts while navigating. Explain connections, skills and saved prompts, offer connection setup directly, and make invalid capability names easy to correct.
 - Give settings and extension failures clear recovery actions, keep technical errors in details, and open management for the affected extension.

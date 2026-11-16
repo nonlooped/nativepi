@@ -90,12 +90,16 @@ export const browserChromeActionSchema = z.object({
     "windowMinimize",
     "windowMaximize",
     "new",
+    "openExternal",
+    "dismissNotice",
   ]),
   tab: z.string().uuid().optional(),
   url: browserUrl.optional(),
-  height: z.number().int().min(40).max(300).optional(),
+  height: z.number().int().min(40).max(1600).optional(),
 });
 export const browserChromeStateSchema = z.object({
+  ownerTitle: z.string().max(200).optional(),
+  notice: z.object({ message: z.string().max(500), url: browserUrl.optional() }).optional(),
   tabs: z
     .array(z.object({ id: z.string().uuid(), title: z.string().max(300) }))
     .max(8),

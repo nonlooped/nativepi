@@ -634,8 +634,11 @@ function WorkspaceHeader({
           size="icon-sm"
           className={NO_DRAG_REGION}
           aria-label="Open browser"
-          title={isRemote ? "The shared browser opens on the host desktop; Local Access cannot display it" : "Open this chat's shared browser"}
-          onClick={() => void rpc.request.browserShow({ projectDir: activeProjectPath, sessionFile: isNewChat ? null : activeSession?.path }).catch(error => toast.error(String(error)))}
+          title={isRemote ? "Open this chat’s browser on the computer. This device cannot display it." : "Open this chat's shared browser"}
+          onClick={() => {
+            if (isRemote) { toast.info("This browser opens on the computer running NativePi.", { description: "It cannot be displayed on this device.", action: { label: "Open on computer", onClick: () => void rpc.request.browserShow({ projectDir: activeProjectPath, sessionFile: isNewChat ? null : activeSession?.path }).then(() => toast.info("Browser opened on the computer."), error => toast.error(String(error))) } }); return; }
+            void rpc.request.browserShow({ projectDir: activeProjectPath, sessionFile: isNewChat ? null : activeSession?.path }).catch(error => toast.error(String(error)));
+          }}
         >
           <GlobeHemisphereWestIcon />
         </Button>

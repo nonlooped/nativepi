@@ -505,6 +505,7 @@ export function AssistantResponse({
     const artifact = result && !result.isError ? artifactFromDetails(result.details) : undefined;
     return artifact ? [{ id: block.id, artifact }] : [];
   });
+  const failedTools = work.filter(block => block.type === "toolCall" && results.get(block.id)?.isError).length;
   let error: string | undefined;
   for (const message of messages) {
     if (message.errorMessage) error = message.errorMessage;
@@ -521,6 +522,7 @@ export function AssistantResponse({
           <Collapsible.Trigger className={`group flex w-fit items-center gap-1.5 rounded-sm py-1 text-xs tabular-nums outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring ${streaming ? "font-medium text-foreground" : "text-muted-foreground"}`}>
             {streaming ? <CircleNotchIcon className="size-3.5 animate-spin text-active motion-reduce:animate-none" aria-hidden /> : null}
             <span>{streaming ? (elapsed ? `Working · ${elapsed}` : "Working") : `Worked for ${formatDuration(startedAt, finishedAt)}`}</span>
+            {failedTools > 0 ? <span className="flex items-center gap-1 text-warning"><WarningCircleIcon className="size-3.5" />{failedTools} tool {failedTools === 1 ? "attempt" : "attempts"} failed</span> : null}
             <CaretRightIcon className="transition-transform group-data-[panel-open]:rotate-90" />
           </Collapsible.Trigger>
           <Collapsible.Panel keepMounted={keepWorkMounted} className="transcript-work mt-2 flex flex-col gap-2 pb-1">
@@ -737,10 +739,12 @@ function ToolCallGroup({ calls, results }: { calls: ToolCall[]; results: Map<str
   const [open, setOpen] = useToolDisclosure();
   if (calls.length === 1) return <ToolCallView call={calls[0]} result={results.get(calls[0].id)} />;
   const running = calls.some(call => !results.has(call.id));
+  const failures = calls.filter(call => results.get(call.id)?.isError).length;
   return <Collapsible.Root className="min-w-0" open={open} onOpenChange={setOpen}>
     <Collapsible.Trigger className="transcript-activity-row group">
       {calls.every(call => call.name === "bash") ? <TerminalWindowIcon className="size-3.5" /> : <WrenchIcon className="size-3.5" />}
       <span>{toolGroupLabel(calls, running)}</span>
+      {failures > 0 ? <span className="flex items-center gap-1 text-warning"><WarningCircleIcon className="size-3.5" />{failures} failed</span> : null}
       <CaretRightIcon className="size-3 group-data-[panel-open]:rotate-90" />
     </Collapsible.Trigger>
     <Collapsible.Panel className="flex min-w-0 flex-col pl-5 pt-1">
@@ -806,6 +810,7 @@ function ToolCallView({ call, result }: { call: ToolCall; result?: ToolResultMes
     <>
       {path ? <FileTypeIcon path={path} size={14} /> : call.name === "bash" ? <TerminalWindowIcon className="size-3.5 shrink-0" /> : computer ? <MonitorIcon className="size-3.5 shrink-0" /> : <WrenchIcon className="size-3.5 shrink-0" />}
       <span className="min-w-0 flex-1 truncate">{summary || call.name}</span>
+      {failed ? <span className="flex shrink-0 items-center gap-1 text-warning"><WarningCircleIcon className="size-3.5" />Couldn’t finish</span> : null}
       {panel ? <CaretRightIcon className="size-3 shrink-0 group-data-[panel-open]:rotate-90" /> : null}
     </>
   );

@@ -5,6 +5,7 @@ import {
   session,
   nativeTheme,
   app,
+  shell,
 } from "electron";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
@@ -26,6 +27,7 @@ type Tab = {
   generation: string;
   loading: boolean;
   error?: string;
+  notice?: { message: string; url?: string };
 };
 export class SharedBrowser {
   private window?: BrowserWindow;
@@ -38,6 +40,18 @@ export class SharedBrowser {
   private sessionConfigured = false;
   private chromeHeight = 92;
   private partition = `nativepi-browser-${randomUUID()}`;
+  private ownerTitle = "New Work chat";
+  setOwner(title: string) {
+    this.ownerTitle = title.trim().slice(0, 200) || "New Work chat";
+    this.window?.setTitle(`Browser · ${this.ownerTitle} · NativePi`);
+    this.state();
+  }
+  show() { this.ensureWindow(); this.window!.show(); this.state(); }
+  private blocked(tab: Tab | undefined, message: string, url?: string) {
+    if (!tab) return;
+    tab.notice = { message, url: browserUrl.safeParse(url).success ? url : undefined };
+    this.state();
+  }
   cancel() {
     this.epoch++;
     for (const tab of this.tabs.values()) {
@@ -114,7 +128,7 @@ export class SharedBrowser {
       minHeight: 400,
       maxWidth: 2400,
       maxHeight: 1800,
-      title: "Browser · NativePi",
+      title: `Browser · ${this.ownerTitle} · NativePi`,
       titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
       webPreferences: {
         preload: join(app.getAppPath(), "out/preload/browser.cjs"),
@@ -125,7 +139,7 @@ export class SharedBrowser {
     }));
     win.webContents.on("page-title-updated", (event) => {
       event.preventDefault();
-      win.setTitle("Browser · NativePi");
+      win.setTitle(`Browser · ${this.ownerTitle} · NativePi`);
     });
     win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     win.webContents.on("will-navigate", (event) => event.preventDefault());
@@ -154,6 +168,17 @@ export class SharedBrowser {
   }
   async chrome(raw: unknown) {
     const op = browserChromeActionSchema.parse(raw);
+    if (op.action === "dismissNotice") {
+      const tab = this.active ? this.tabs.get(this.active) : undefined;
+      if (tab) tab.notice = undefined;
+      this.state(); return;
+    }
+    if (op.action === "openExternal") {
+      const current = this.active ? this.tabs.get(this.active) : undefined;
+      const url = browserUrl.parse(op.url ?? current?.notice?.url ?? current?.view.webContents.getURL());
+      await shell.openExternal(url);
+      return;
+    }
     if (op.action === "layout") {
       if (op.height) this.chromeHeight = op.height;
       this.layout();
@@ -225,6 +250,8 @@ export class SharedBrowser {
     const current = this.active ? this.tabs.get(this.active) : undefined;
     this.layout();
     this.window.webContents.send("nativepi:browser-state", {
+      ownerTitle: this.ownerTitle,
+      notice: current?.notice,
       tabs: [...this.tabs.values()].map((t) => ({
         id: t.id,
         title: t.view.webContents.getTitle().slice(0, 300) || "New tab",
@@ -274,13 +301,19 @@ export class SharedBrowser {
       if (this.tabs.size >= 8)
         throw new Error("Eight tabs per chat. Close a tab first.");
       const ses = session.fromPartition(this.partition);
-      ses.setPermissionRequestHandler((_wc, _permission, callback) =>
-        callback(false),
-      );
+      ses.setPermissionRequestHandler((contents, permission, callback) => {
+        callback(false);
+        const tab = [...this.tabs.values()].find(tab => tab.view.webContents === contents);
+        this.blocked(tab, `${permission === "media" ? "Camera and microphone access is" : permission === "geolocation" ? "Location access is" : permission === "notifications" ? "Website notifications are" : "This device permission is"} unavailable in the shared browser. Use your usual browser if this page needs it.`, contents.getURL());
+      });
       ses.setPermissionCheckHandler(() => false);
       if (!this.sessionConfigured) {
         this.sessionConfigured = true;
-        ses.on("will-download", (event) => event.preventDefault());
+        ses.on("will-download", (event, item, contents) => {
+          event.preventDefault();
+          const tab = [...this.tabs.values()].find(tab => tab.view.webContents === contents);
+          this.blocked(tab, "Downloads are unavailable in the shared browser. Open the download in your usual browser.", item.getURL());
+        });
         ses.webRequest.onBeforeRequest((details, callback) => {
           let allowed = false;
           try {
@@ -320,7 +353,10 @@ export class SharedBrowser {
       this.layout();
       this.window!.show();
       const wc = view.webContents;
-      wc.setWindowOpenHandler(() => ({ action: "deny" }));
+      wc.setWindowOpenHandler(({ url }) => {
+        this.blocked(tab, "This page tried to open another window. Open it in your usual browser to continue.", url);
+        return { action: "deny" };
+      });
       const guard = (event: Electron.Event, url: string) => {
         if (!browserUrl.safeParse(url).success) event.preventDefault();
       };
