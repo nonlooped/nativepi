@@ -139,3 +139,20 @@ test("known delegate operations remain usable while archive discovery is unavail
  await f.invoke("delegate_stop", { delegateId: child.ref.id });
  expect(f.coordinator.snapshot(child.ref.id).assignment?.state).toBe("stopped");
 });
+
+test("discovery bounds historical hydration and keeps later readable threads after a failure", async () => {
+  const f = fixture();
+  f.refs.splice(0, f.refs.length, ...Array.from({ length: 25 }, (_, i) => ({ id: `history-${i}`, cwd: "/repo", file: `/history-${i}` })));
+  let active = 0, peak = 0;
+  f.adapter.read = async ref => {
+    active++; peak = Math.max(peak, active);
+    await new Promise(resolve => setTimeout(resolve, 1));
+    active--;
+    if (ref.id === "history-9") throw new Error("unreadable");
+    return [];
+  };
+  const refs = await f.service.discover();
+  expect(peak).toBeLessThanOrEqual(8);
+  expect(refs).toHaveLength(24);
+  expect(refs.at(-1)?.id).toBe("history-24");
+});

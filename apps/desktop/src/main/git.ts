@@ -29,6 +29,15 @@ function invalidateGitStatusCache(projectDir: string): void {
   gitStatusCache.delete(projectDir);
   gitStatusRequests.delete(projectDir);
 }
+/** One cheap ref read for sidebar labels; no diff, untracked scan or index refresh. */
+export async function gitBranchStatus(projectDir: string): Promise<GitStatus> {
+  const result = await run(["rev-parse", "--abbrev-ref", "HEAD"], projectDir);
+  const branch = result.stdout.trim();
+  if (result.code === 0) return { isRepo: true, branch: branch === "HEAD" ? undefined : branch, detached: branch === "HEAD", files: [], ahead: 0, behind: 0, insertions: 0, deletions: 0 };
+  // Unborn repositories have a symbolic HEAD but no commit yet.
+  const unborn = await run(["symbolic-ref", "--short", "HEAD"], projectDir);
+  return { isRepo: unborn.code === 0, branch: unborn.code === 0 ? unborn.stdout.trim() : undefined, files: [], ahead: 0, behind: 0, insertions: 0, deletions: 0 };
+}
 export function gitStatus(projectDir: string): Promise<GitStatus> {
   const cached = gitStatusCache.get(projectDir);
   if (cached && Date.now() - cached.at < GIT_STATUS_TTL_MS)

@@ -2,7 +2,7 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { deleteSession, listSessions, readSession, searchSessions, searchSnippet, usageDashboard, watchProjectSessions } from "./sessions.ts";
+import { readOrchestrationRecords, deleteSession, listSessions, readSession, searchSessions, searchSnippet, usageDashboard, watchProjectSessions } from "./sessions.ts";
 function jsonl(records: unknown[]): string {
   return records.map((r) => JSON.stringify(r)).join("\n") + "\n";
 }
@@ -425,4 +425,41 @@ test("session watch follows atomic replacement and missing-then-created files", 
     stop();
     clearTimeout(timeout);
   }
+});
+
+ test("orchestration reads exclude message payloads and retain unknown coordination fields", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "nativepi-records-"));
+  const file = path.join(dir, "session.jsonl");
+  const record = { type: "custom" as const, parentId: null, timestamp: "2026-01-01T00:00:00Z", id: "record", customType: "nativepi-orchestration", data: { future: true } };
+  await writeFile(file, jsonl([{ type: "message", message: { role: "toolResult", content: [{ type: "text", text: "payload".repeat(10000) }] } }, record]));
+  expect(await readOrchestrationRecords(file)).toEqual([record]);
+});
+
+test("Pi summary cache preserves isolation and invalidates an external rewrite", async () => {
+  const { SessionManager } = await import("@earendil-works/pi-coding-agent");
+  const cwd = await mkdtemp(path.join(tmpdir(), "nativepi-summary-"));
+  const header = { type: "session", version: 3, id: "summary", timestamp: "2026-01-01T00:00:00Z", cwd };
+  const message = (text: string) => ({ type: "message", id: "m", timestamp: "2026-01-01T00:00:01Z", message: { role: "user", content: text, timestamp: 1 } });
+  const file = await writeSession(cwd, "summary.jsonl", [header, message("original")]);
+  const first = await SessionManager.list(cwd);
+  first[0]!.created.setTime(0);
+  first[0]!.firstMessage = "caller mutation";
+  expect((await SessionManager.list(cwd))[0]!.firstMessage).toBe("original");
+  expect((await SessionManager.list(cwd))[0]!.created.getUTCFullYear()).toBe(2026);
+  await writeFile(file, jsonl([header, message("externally rewritten")]));
+  expect((await SessionManager.list(cwd))[0]!.firstMessage).toBe("externally rewritten");
+});
+
+test("cancelling search interrupts Pi discovery before its results arrive", async () => {
+  const { SessionManager } = await import("@earendil-works/pi-coding-agent");
+  const original = SessionManager.list;
+  const cwd = await mkdtemp(path.join(tmpdir(), "nativepi-cancel-"));
+  const controller = new AbortController();
+  SessionManager.list = async (_cwd, _directory, _progress, signal) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve([]), 30);
+    signal?.addEventListener("abort", () => { clearTimeout(timer); reject(signal.reason); }, { once: true });
+    controller.abort(new Error("search cancelled"));
+  });
+  try { await expect(searchSessions([cwd], "query", controller.signal)).rejects.toThrow("search cancelled"); }
+  finally { SessionManager.list = original; }
 });

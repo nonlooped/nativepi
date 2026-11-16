@@ -36,5 +36,8 @@
     "postcss": "8.5.33",
     "sharp": "0.35.5",
     "shiki": "4.6.0"
+  },
+  "patchedDependencies": {
+    "@earendil-works/pi-coding-agent@1.5.2": "patches/@earendil-works%2Fpi-coding-agent@1.5.2.patch"
   }
 }

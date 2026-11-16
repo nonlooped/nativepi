@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { spawn } from "node:child_process";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 
@@ -44,17 +44,26 @@ export async function listProjectFiles(projectDir: string): Promise<string[]> {
 }
 
 function gitFiles(projectDir: string, maxFiles: number): Promise<string[] | null> {
-  return new Promise((resolve) => {
-    execFile(
-      "git",
-      ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
-      { cwd: projectDir, maxBuffer: 64 * 1024 * 1024, windowsHide: true },
-      (err, stdout) => {
-        // Not a repository, or no git at all: both mean "walk it yourself".
-        if (err) return resolve(null);
-        resolve(stdout.split("\0").filter(Boolean).slice(0, maxFiles));
-      },
-    );
+  return new Promise(resolve => {
+    const child = spawn("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], { cwd: projectDir, windowsHide: true, stdio: ["ignore", "pipe", "ignore"] });
+    const files: string[] = [];
+    let pending = "", capped = false;
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      if (capped) return;
+      pending += chunk;
+      let end: number;
+      while ((end = pending.indexOf("\0")) !== -1) {
+        const file = pending.slice(0, end);
+        pending = pending.slice(end + 1);
+        if (file) files.push(file);
+        if (files.length >= maxFiles) { capped = true; pending = ""; child.kill(); break; }
+      }
+      // Refuse pathological output rather than retaining an unbounded partial path.
+      if (pending.length > 1024 * 1024) child.kill();
+    });
+    child.once("error", () => resolve(null));
+    child.once("close", code => resolve(capped || code === 0 ? files : null));
   });
 }
 

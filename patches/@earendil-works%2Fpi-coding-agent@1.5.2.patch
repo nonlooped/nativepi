@@ -1,0 +1,54 @@
+diff --git a/dist/core/session-manager.js b/dist/core/session-manager.js
+index 7ee05014e13c6434040bfdd7b39b455a6731a7d6..3d124caa2cff9c8f8d3344ab89e04eec3c940cbe 100644
+--- a/dist/core/session-manager.js
++++ b/dist/core/session-manager.js
+@@ -490,9 +490,19 @@ function getMessageActivityTime(entry) {
+     const t = new Date(entry.timestamp).getTime();
+     return Number.isNaN(t) ? undefined : t;
+ }
++// NativePi patch: preserve Pi summaries while avoiding archive-wide reparsing.
++// Bound retained text and validate inode/size/times before publishing a scan.
++const sessionInfoCache = new Map();
++let sessionInfoCacheBytes = 0;
++const sessionInfoRevision = stats => `${stats.dev}:${stats.ino}:${stats.size}:${stats.mtimeMs}:${stats.ctimeMs}`;
++const copySessionInfo = info => ({ ...info, created: new Date(info.created), modified: new Date(info.modified) });
+ async function buildSessionInfo(filePath, signal, fileStats) {
+     try {
+         const stats = fileStats ?? (await stat(filePath));
++        signal?.throwIfAborted();
++        const revision = sessionInfoRevision(stats);
++        const cached = sessionInfoCache.get(filePath);
++        if (cached?.revision === revision) return copySessionInfo(cached.info);
+         let header = null;
+         let messageCount = 0;
+         let firstMessage = "";
+@@ -547,7 +557,7 @@ async function buildSessionInfo(filePath, signal, fileStats) {
+             : !Number.isNaN(headerTime)
+                 ? new Date(headerTime)
+                 : stats.mtime;
+-        return {
++        const info = {
+             path: filePath,
+             id: header.id,
+             cwd,
+@@ -559,6 +569,20 @@ async function buildSessionInfo(filePath, signal, fileStats) {
+             firstMessage: firstMessage || "(no messages)",
+             allMessagesText: allMessages.join(" "),
+         };
++        const bytes = 512 + 2 * (filePath.length + info.firstMessage.length + info.allMessagesText.length + (info.name?.length ?? 0));
++        if (sessionInfoRevision(await stat(filePath)) === revision) {
++            if (cached) { sessionInfoCacheBytes -= cached.bytes; sessionInfoCache.delete(filePath); }
++            if (bytes <= 8 * 1024 * 1024) {
++                sessionInfoCache.set(filePath, { revision, info, bytes });
++                sessionInfoCacheBytes += bytes;
++            }
++            while (sessionInfoCache.size > 1000 || sessionInfoCacheBytes > 8 * 1024 * 1024) {
++                const key = sessionInfoCache.keys().next().value;
++                sessionInfoCacheBytes -= sessionInfoCache.get(key).bytes;
++                sessionInfoCache.delete(key);
++            }
++        }
++        return copySessionInfo(info);
+     }
+     catch {
+         signal?.throwIfAborted();
