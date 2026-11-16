@@ -3,7 +3,7 @@ import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { classifyDrop, draggingFiles } from "../lib/drops.ts";
 import { isRemote } from "../lib/rpc.ts";
 import { showDropRejected, showHint } from "../lib/toast.tsx";
-import { useAppStore } from "../lib/store.ts";
+import { useAppStore, usePaneStore, focusedPaneStore } from "../lib/store.ts";
 
 /**
  * The window as a drop target for the two things that open something.
@@ -20,6 +20,7 @@ import { useAppStore } from "../lib/store.ts";
  * behind it.
  */
 export default function DropZone() {
+  const store = usePaneStore();
   const [over, setOver] = useState(false);
   const openProjectPath = useAppStore((s) => s.openProjectPath);
   const importSession = useAppStore((s) => s.importSession);
@@ -31,7 +32,7 @@ export default function DropZone() {
     if (isRemote) {
       const prevent = (event: DragEvent) => { if (draggingFiles(event.dataTransfer)) event.preventDefault(); };
       const reject = (event: DragEvent) => {
-        if (!draggingFiles(event.dataTransfer)) return;
+        if (store !== focusedPaneStore() || !draggingFiles(event.dataTransfer)) return;
         event.preventDefault();
         showDropRejected("Drop images on the message box to attach them. Open folders and import chats from the desktop app.");
       };
@@ -42,7 +43,7 @@ export default function DropZone() {
 
     let idle = 0;
     const dragOver = (event: DragEvent) => {
-      if (!draggingFiles(event.dataTransfer)) return;
+      if (store !== focusedPaneStore() || !draggingFiles(event.dataTransfer)) return;
       event.preventDefault();
       // The composer answers its own drops and draws its own target, so the
       // window steps back rather than covering it with a second one.
@@ -79,7 +80,7 @@ export default function DropZone() {
     const drop = (event: DragEvent) => {
       // Files only: dragging a selection inside the composer is a drop too, and
       // preventing that one would break moving text with the mouse.
-      if (!draggingFiles(event.dataTransfer)) return;
+      if (store !== focusedPaneStore() || !draggingFiles(event.dataTransfer)) return;
       event.preventDefault();
       clearTimeout(idle);
       setOver(false);

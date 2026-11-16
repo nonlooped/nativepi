@@ -1,3 +1,6 @@
+import { useWorkspacePanes } from "../lib/workspacePanes.ts";
+import { usePaneStore } from "../lib/store.ts";
+import { runtime } from "../lib/store/internals.ts";
 import { isRemote } from "../lib/rpc.ts";
 import { useDictation } from "../lib/useDictation.ts";
 import { DictationButton, DictationFeedback } from "./DictationControls.tsx";
@@ -26,6 +29,10 @@ import WorkspaceSwitcher from "./WorkspaceSwitcher.tsx";
 const TuiAutoPane = lazy(() => import("./TuiSurface.tsx").then((module) => ({ default: module.TuiAutoPane })));
 
 export default function Composer({ prominent = false }: { prominent?: boolean }) {
+  const paneStore = usePaneStore();
+  const panes = useWorkspacePanes();
+  const paneActive = !panes || panes.activePaneId === runtime(paneStore.getState).paneId;
+  const composerRoot = useRef<HTMLDivElement>(null);
   const dictation = useDictation();
   const dictating = dictation.phase !== "idle";
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -56,7 +63,8 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
   useEffect(() => {
     if (prevHadEditorSurface.current && !editorSurface) {
       const frame = requestAnimationFrame(() => {
-        document.querySelector<HTMLElement>("[data-composer-input]")?.focus();
+        const root = composerRoot.current;
+        if (root?.closest("[data-workspace-pane]")?.getAttribute("data-pane-active") !== "false") root?.querySelector<HTMLElement>("[data-composer-input]")?.focus();
       });
       prevHadEditorSurface.current = !!editorSurface;
       return () => cancelAnimationFrame(frame);
@@ -134,7 +142,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
         <QueuedMessages />
         <div className="mx-auto w-full max-w-(--conversation-width) overflow-hidden rounded-xl bg-card/60 px-3 py-2">
           <Suspense fallback={null}>
-            <TuiAutoPane surface={editorSurface} maxRows={24} focus />
+            <TuiAutoPane surface={editorSurface} maxRows={24} focus={paneActive} />
           </Suspense>
         </div>
         <ComposerWidgets placement="belowComposer" />
@@ -146,6 +154,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
     // pb clears the iOS home indicator, which sits over the send button
     // otherwise. `env()` is 0 everywhere else.
     <div
+      ref={composerRoot}
       className={cn(
         "flex shrink-0 flex-col gap-2 px-5 pb-[max(1rem,env(safe-area-inset-bottom))]",
         prominent ? "w-full pt-0" : cn(SCROLLBAR_GUTTER_OFFSET, "pt-2"),
@@ -192,7 +201,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           onAttach={(files) => void attach(files)}
           projectPath={activeProjectPath}
           disabled={disabled || dictating}
-          autoFocus={prominent}
+          autoFocus={prominent && paneActive}
           // During a turn, name the active send behavior; when idle, show the
           // prefixes that open the composer's search menus.
           placeholder={

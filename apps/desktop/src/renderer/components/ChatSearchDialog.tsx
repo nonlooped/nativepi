@@ -4,7 +4,7 @@ import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { SpinnerGapIcon } from "@phosphor-icons/react/SpinnerGap";
 import type { SessionSearchResult } from "../../shared/pi-types.ts";
-import { useAppStore } from "../lib/store.ts";
+import { useAppStore, usePaneStore } from "../lib/store.ts";
 import { useWorkProjects } from "../lib/workProjects.ts";
 import { rpc } from "../lib/rpc.ts";
 import {
@@ -27,6 +27,7 @@ export default function ChatSearchDialog({
   onNavigate?: () => void;
   onOpenChangeComplete?: (open: boolean) => void;
 }) {
+  const useAppStore = usePaneStore();
   const destination = useAppStore(s => s.destination);
   const chatRoot = useAppStore(s => s.chatRoot);
   const projects = useWorkProjects();

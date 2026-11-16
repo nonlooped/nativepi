@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
 /**
  * Both side panes dock when the window has room for them and uses most of
@@ -20,7 +20,9 @@ function currentWorkspaceLayout(): WorkspaceLayout {
   return workspaceLayoutFor(window.innerWidth, window.screen.availWidth || window.innerWidth);
 }
 
+export const PaneWidthContext = createContext<number | null>(null);
 export function useWorkspaceLayout(): WorkspaceLayout {
+  const paneWidth = useContext(PaneWidthContext);
   const [layout, setLayout] = useState(currentWorkspaceLayout);
 
   useEffect(() => {
@@ -34,7 +36,7 @@ export function useWorkspaceLayout(): WorkspaceLayout {
     };
   }, []);
 
-  return layout;
+  return paneWidth === null ? layout : workspaceLayoutFor(paneWidth, window.screen.availWidth || window.innerWidth);
 }
 
 /** The visual viewport shrinks when a browser's software keyboard opens. */

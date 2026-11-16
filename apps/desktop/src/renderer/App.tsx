@@ -1,3 +1,9 @@
+import { usePaneView } from "./lib/paneView.ts";
+import { useWorkspacePanes } from "./lib/workspacePanes.ts";
+import WorkspacePaneMenu from "./components/WorkspacePaneMenu.tsx";
+import { runtime } from "./lib/store/internals.ts";
+import WorkspaceEditor from "./components/WorkspaceEditor.tsx";
+import { useWorkspaceEditor } from "./lib/workspaceEditor.ts";
 import StateNotice from "./components/StateNotice.tsx";
 import ConnectionNotice from "./components/ConnectionNotice.tsx";
 import ThreadActivity, { ThreadInputBoundary } from "./components/ThreadActivity.tsx";
@@ -33,7 +39,7 @@ import Settings from "./components/Settings.tsx";
 import Toaster from "./components/Toaster.tsx";
 import TrustDialog from "./components/TrustDialog.tsx";
 import WindowControls from "./components/WindowControls.tsx";
-import { activeConversation, useAppStore } from "./lib/store.ts";
+import { activeConversation, useAppStore, usePaneStore, focusedPaneStore } from "./lib/store.ts";
 import { startNewChatFlow } from "./lib/newChat.ts";
 import { isRemote, rpc } from "./lib/rpc.ts";
 import { toast } from "sonner";
@@ -57,8 +63,6 @@ import {
 } from "@/components/ui/resizable.tsx";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet.tsx";
 import { DRAG_REGION, NO_DRAG_REGION, SCROLLBAR_GUTTER_OFFSET, TRAFFIC_LIGHTS_CLEARANCE, WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
-import { useTurnCompletionSignal } from "./lib/completion.ts";
-import { useAppearance } from "./lib/appearance.ts";
 import { DEFAULT_INTERFACE_SCALE, stepInterfaceScale } from "../shared/interface-scale.ts";
 import { useWorkspaceLayout, useWorkspaceHeight, type WorkspaceLayout } from "./lib/layout.ts";
 
@@ -70,28 +74,26 @@ const TerminalDock = lazy(() => import("./components/TerminalDock.tsx"));
 const Transcript = lazy(() => import("./components/Transcript.tsx"));
 const TuiOverlay = lazy(() => import("./components/TuiSurface.tsx"));
 
-export default function App() {
+export default function App({ initialize = true, renderWorkspace }: { initialize?: boolean; renderWorkspace?: (onStart: () => void) => React.ReactNode }) {
+  const useAppStore = usePaneStore();
+
   const chatMode = useAppStore(s => s.destination === "chat");
   const projects = useAppStore((s) => s.projects);
   const projectPresentation = useSidebarProjects(projects);
   const init = useAppStore((s) => s.init);
   const ready = useAppStore((s) => s.ready);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
-  const activeProjectName = useAppStore(
-    (s) => s.workRoot && s.activeProjectPath === s.workRoot ? "No project" : s.projects.find((project) => project.path === s.activeProjectPath)?.name,
-  );
+  const editorProject = useAppStore(s => s.activeProjectPath);
+  const editorOpen = useWorkspaceEditor(s => s.selected[`${runtime(useAppStore.getState).paneId}:${editorProject ?? ""}`]);
+  const editorNavigation = useWorkspaceEditor(s => editorOpen ? s.buffers[editorOpen]?.jumpRequest : undefined);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const isNewChat = useAppStore((s) => s.isNewChat);
-  const selectionVersion = useAppStore(s => s.selectionVersion);
-  const error = useAppStore((s) => activeConversation(s).error);
-  const externalChange = useAppStore((s) => activeConversation(s).externalChange);
   const hasConversation = useAppStore((s) => {
     const c = activeConversation(s);
     // A selected session is still a conversation while its history is loading
     // (or empty). Never render new-thread onboarding during that gap.
     return !!s.activeSessionFile || c.entries.length > 0 || !!c.streaming || c.pending.length > 0 || c.running;
   });
-  const composerReady = useAppStore(s => s.providersLoaded && s.providers.some(provider => provider.ready));
   const settingsOpen = useAppStore((s) => s.settingsOpen);
   const closeSettings = useAppStore((s) => s.closeSettings);
   const horizontalGroup = useRef<HTMLDivElement>(null);
@@ -100,19 +102,26 @@ export default function App() {
   const terminalHeight = useAppStore((s) => s.terminalHeight);
   const contextPaneOpen = useAppStore((s) => s.contextPaneOpen);
   const sourceControlReview = useAppStore(s => s.sourceControlReview);
-  useEffect(() => { useAppStore.getState().setSourceControlReview(null); }, [activeProjectPath, activeSessionFile, isNewChat]);
+  useEffect(() => {
+    const saved = (event: Event) => { if ((event as CustomEvent).detail === useAppStore.getState().activeProjectPath) void useAppStore.getState().refreshGit(); };
+    window.addEventListener("workspace-file-saved", saved);
+    return () => window.removeEventListener("workspace-file-saved", saved);
+  }, [useAppStore]);
+  useEffect(() => { if (sourceControlReview) useWorkspaceEditor.setState(s => ({ selected: Object.fromEntries(Object.entries(s.selected).filter(([project]) => project !== `${runtime(useAppStore.getState).paneId}:${activeProjectPath}`)) })); }, [sourceControlReview]);
+
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
   const [sidebarSheetOpen, setSidebarSheetOpen] = useState(false);
   const [contextSheetOpen, setContextSheetOpen] = useState(false);
+  useEffect(() => { if (editorOpen) setContextSheetOpen(false); }, [editorOpen, editorNavigation]);
   const sidebarRestoreFocus = useRef(true);
   const sidebarHandoff = useRef<"search" | "newChat" | null>(null);
   const [searchMounted, setSearchMounted] = useState(false);
   const [projectPickerMounted, setProjectPickerMounted] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [newChatProjectOpen, setNewChatProjectOpen] = useState(false);
-  const [extensionView, setExtensionView] = useState<string | null>(null);
+  const { extensionView, setExtensionView } = usePaneView();
   const layout = useWorkspaceLayout();
   const shortWorkspace = useWorkspaceHeight() < 600;
   const [startupError, setStartupError] = useState<string>();
@@ -130,13 +139,14 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (!initialize || useAppStore.getState().ready) return;
     void init().catch((error: unknown) => {
       setStartupError(error instanceof Error ? error.message : String(error));
     });
-  }, [init]);
+  }, [init, initialize]);
 
-  useTurnCompletionSignal();
-  useAppearance();
+
+
 
   useEffect(() => {
     sidebarHandoff.current = null;
@@ -149,7 +159,7 @@ export default function App() {
     if (sidebarSheetOpen) sidebarRestoreFocus.current = true;
   }, [sidebarSheetOpen, searchOpen, newChatProjectOpen]);
 
-  useEffect(() => setExtensionView(null), [activeProjectPath, activeSessionFile, selectionVersion]);
+
 
 
   useWorkspaceShortcuts(
@@ -246,35 +256,8 @@ export default function App() {
             <ConnectionNotice />
             <PiStartingNotice />
 
-            {activeProjectPath ? (
-              !chatMode && sourceControlReview?.projectDir === activeProjectPath ? (
-                <Suspense fallback={<SurfaceLoading label="Loading diff…" />}><SourceControlReview key={`${activeProjectPath}:${sourceControlReview.path}:${sourceControlReview.staged}:${sourceControlReview.hash ?? ""}`} review={sourceControlReview} /></Suspense>
-              ) : extensionView ? (
-                <Suspense fallback={<SurfaceLoading label="Loading extension view…" />}>
-                  <ExtensionConversationView active={extensionView} onClose={() => setExtensionView(null)} />
-                </Suspense>
-              ) : (
-                <div className="chat-stage flex min-h-0 flex-1 flex-col" data-new={!hasConversation && isNewChat}>
-                  <div className="conversation-content flex min-h-0 flex-1 flex-col">
-                    {hasConversation ? (
-                      <Suspense fallback={<SurfaceLoading label="Loading conversation…" />}>
-                        <Transcript key={activeSessionFile ?? "new"} />
-                      </Suspense>
-                    ) : isNewChat ? (
-                      <NewThread />
-                    ) : (
-                      <SurfaceLoading label="Loading conversation…" />
-                    )}
-                  </div>
-                  {externalChange ? <ExternalChangeNotice /> : null}
-                  {error ? <ErrorBanner /> : null}
-                  <ThreadActivity />
-                  <WorkspaceComposer prominent={!hasConversation} visible={hasConversation || (isNewChat && composerReady)} />
-                </div>
-              )
-            ) : (
-              <WelcomeScreen onStart={() => startNewChatFlow(() => setNewChatProjectOpen(true))} />
-            )}
+            {renderWorkspace ? renderWorkspace(() => startNewChatFlow(() => setNewChatProjectOpen(true))) : <ConversationSurface onStart={() => startNewChatFlow(() => setNewChatProjectOpen(true))} />}
+
           </main>
           </ResizablePanel>
           {activeProjectPath && terminalOpen ? (
@@ -491,6 +474,55 @@ function ExternalChangeNotice() {
   );
 }
 
+/** One session surface; the app shell and project tools are owned by the focused pane. */
+export function ConversationSurface({ onStart }: { onStart: () => void }) {
+  const useAppStore = usePaneStore();
+  const activeProjectPath = useAppStore(s => s.activeProjectPath);
+  const activeSessionFile = useAppStore(s => s.activeSessionFile);
+  const isNewChat = useAppStore(s => s.isNewChat);
+  const selectionVersion = useAppStore(s => s.selectionVersion);
+  const chatMode = useAppStore(s => s.destination === "chat");
+  const sourceControlReview = useAppStore(s => s.sourceControlReview);
+  const { extensionView, setExtensionView } = usePaneView();
+  const editorOpen = useWorkspaceEditor(s => s.selected[`${runtime(useAppStore.getState).paneId}:${activeProjectPath ?? ""}`]);
+  const openingFile = useWorkspaceEditor(s => s.loading[`${runtime(useAppStore.getState).paneId}:${activeProjectPath ?? ""}`]);
+  const externalChange = useAppStore(s => activeConversation(s).externalChange);
+  const error = useAppStore(s => activeConversation(s).error);
+  const composerReady = useAppStore(s => s.providersLoaded && s.providers.some(provider => provider.ready));
+  const hasConversation = useAppStore(s => !!s.activeSessionFile || activeConversation(s).entries.length > 0 || !!activeConversation(s).streaming || activeConversation(s).pending.length > 0 || activeConversation(s).running);
+  useEffect(() => { useAppStore.getState().setSourceControlReview(null); }, [activeProjectPath, activeSessionFile, isNewChat]);
+  useEffect(() => setExtensionView(null), [activeProjectPath, activeSessionFile, selectionVersion]);
+  return <>            {activeProjectPath ? (
+              !chatMode && openingFile ? <div className="px-4"><StateNotice loading title={`Opening ${openingFile}…`} /></div> : !chatMode && editorOpen ? <WorkspaceEditor projectDir={activeProjectPath} /> : !chatMode && sourceControlReview?.projectDir === activeProjectPath ? (
+                <Suspense fallback={<SurfaceLoading label="Loading diff…" />}><SourceControlReview key={`${activeProjectPath}:${sourceControlReview.path}:${sourceControlReview.staged}:${sourceControlReview.hash ?? ""}`} review={sourceControlReview} /></Suspense>
+              ) : extensionView ? (
+                <Suspense fallback={<SurfaceLoading label="Loading extension view…" />}>
+                  <ExtensionConversationView active={extensionView} onClose={() => setExtensionView(null)} />
+                </Suspense>
+              ) : (
+                <div className="chat-stage flex min-h-0 flex-1 flex-col" data-new={!hasConversation && isNewChat}>
+                  <div className="conversation-content flex min-h-0 flex-1 flex-col">
+                    {hasConversation ? (
+                      <Suspense fallback={<SurfaceLoading label="Loading conversation…" />}>
+                        <Transcript key={activeSessionFile ?? "new"} />
+                      </Suspense>
+                    ) : isNewChat ? (
+                      <NewThread />
+                    ) : (
+                      <SurfaceLoading label="Loading conversation…" />
+                    )}
+                  </div>
+                  {externalChange ? <ExternalChangeNotice /> : null}
+                  {error ? <ErrorBanner /> : null}
+                  <ThreadActivity />
+                  <WorkspaceComposer prominent={!hasConversation} visible={hasConversation || (isNewChat && composerReady)} />
+                </div>
+              )
+            ) : (
+              <WelcomeScreen onStart={onStart} />
+            )}</>;
+}
+
 /** The drag-region title bar: project, chat title, and pane toggles. */
 function WorkspaceHeader({
   projectIcon,
@@ -530,6 +562,7 @@ function WorkspaceHeader({
   );
   const title = isNewChat ? "New chat" : activeSession ? chatTitle(activeSession) : "Untitled chat";
   const contextPaneTab = useAppStore(s => s.contextPaneTab);
+  const panes = useWorkspacePanes();
   const compact = layout === "compact";
   const sharing = useAppStore((s) => s.accessHandoffs.length > 0);
   const openSettings = useAppStore((s) => s.openSettings);
@@ -561,8 +594,8 @@ function WorkspaceHeader({
               <span className="hidden min-w-0 max-w-40 shrink truncate text-muted-foreground @min-[36rem]/conversation:block" title={chatMode ? "Chat" : projectFree ? "No project" : activeProjectPath}>
                 {chatMode ? "Chat" : activeProjectName ?? activeProjectPath}
               </span>
-              <span aria-hidden="true" className="hidden shrink-0 text-muted-foreground/50 @min-[36rem]/conversation:block">/</span>
-              {activeSession && !isNewChat ? (
+              {(!panes || panes.count === 1) ? <span aria-hidden="true" className="hidden shrink-0 text-muted-foreground/50 @min-[36rem]/conversation:block">/</span> : null}
+              {panes && panes.count > 1 ? null : activeSession && !isNewChat ? (
                 <h1 className="flex min-w-0 font-medium">
                   <ChatTitle sessionPath={activeSession.path} title={title} />
                 </h1>
@@ -592,6 +625,7 @@ function WorkspaceHeader({
           Sharing
         </Button>
       ) : null}
+      <WorkspacePaneMenu />
       {!chatMode && !projectFree && activeProjectPath ? <SourceControlButton onClick={() => onOpenContext("changes")} active={contextDocked} /> : null}
       {activeProjectPath ? <ProjectStatus compact={compact} className={NO_DRAG_REGION} /> : null}
       {!chatMode && activeProjectPath ? (
@@ -763,6 +797,7 @@ export function useWorkspaceShortcuts(
   setNewChatProjectOpen: React.Dispatch<React.SetStateAction<boolean>>,
   toggleTerminal: () => void,
 ) {
+  const useAppStore = usePaneStore();
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const running = useAppStore((s) => activeConversation(s).running);
   const settingsOpen = useAppStore((s) => s.settingsOpen);
@@ -781,11 +816,12 @@ export function useWorkspaceShortcuts(
   useEffect(() => {
     /** Shortcuts that need a project open do nothing without one. */
     const withProject = (run: () => void) => (event: KeyboardEvent) => {
-      if (!activeProjectPath) return;
+      if (useAppStore !== focusedPaneStore() || !activeProjectPath) return;
       event.preventDefault();
       run();
     };
     const always = (run: () => void) => (event: KeyboardEvent) => {
+      if (useAppStore !== focusedPaneStore()) return;
       event.preventDefault();
       run();
     };
@@ -793,7 +829,7 @@ export function useWorkspaceShortcuts(
     // New navigation commands must not move focus or change conversations
     // underneath a dialog, Settings, or an extension's custom editor.
     const workspace = (run: () => void, allowedSheet?: "sidebar" | "context") => (event: KeyboardEvent) => {
-      if (workspaceShortcutsBlocked(allowedSheet)) return;
+      if (useAppStore !== focusedPaneStore() || workspaceShortcutsBlocked(allowedSheet)) return;
       event.preventDefault();
       event.stopPropagation();
       run();
@@ -825,8 +861,13 @@ export function useWorkspaceShortcuts(
         const s = useAppStore.getState();
         if (!s.activeProjectPath || s.destination === "chat") return;
         s.openTerminal(s.activeProjectPath);
-        (document.querySelector<HTMLElement>('.terminal-dock [data-terminal-active] .xterm-helper-textarea')
-          ?? document.querySelector<HTMLElement>(".terminal-dock .xterm-helper-textarea"))?.focus();
+        ((document.querySelector<HTMLElement>("[data-pane-active=true]") ?? document).querySelector<HTMLElement>('.terminal-dock [data-terminal-active] .xterm-helper-textarea')
+          ?? (document.querySelector<HTMLElement>("[data-pane-active=true]") ?? document).querySelector<HTMLElement>(".terminal-dock .xterm-helper-textarea"))?.focus();
+      }),
+      jumpToFile: workspace(() => {
+        const s = useAppStore.getState(); if (!s.activeProjectPath || s.destination === "chat") return;
+        s.setContextPaneTab("files"); useAppStore.setState({ fileSearchRequest: s.fileSearchRequest + 1 });
+        if (layout === "wide") { if (!s.contextPaneOpen) s.toggleContextPane(); } else setContextSheetOpen(true);
       }),
       openSourceControl: workspace(() => {
         const s = useAppStore.getState();
@@ -837,8 +878,8 @@ export function useWorkspaceShortcuts(
         void s.refreshGit();
       }, "context"),
       refreshSourceControl: workspace(() => void useAppStore.getState().refreshGit(), "context"),
-      focusComposer: workspace(() => document.querySelector<HTMLElement>('[data-composer-input][contenteditable="true"]')?.focus()),
-      selectModel: workspace(() => document.querySelector<HTMLButtonElement>('[data-model-picker-trigger]:not(:disabled)')?.click()),
+      focusComposer: workspace(() => (document.querySelector<HTMLElement>("[data-pane-active=true]") ?? document).querySelector<HTMLElement>('[data-composer-input][contenteditable="true"]')?.focus()),
+      selectModel: workspace(() => (document.querySelector<HTMLElement>("[data-pane-active=true]") ?? document).querySelector<HTMLButtonElement>('[data-model-picker-trigger]:not(:disabled)')?.click()),
       nextChat: workspace(() => void useAppStore.getState().selectAdjacentChat(1)),
       previousChat: workspace(() => void useAppStore.getState().selectAdjacentChat(-1)),
       showChat: workspace(() => void useAppStore.getState().setDestination("chat")),
@@ -861,6 +902,7 @@ export function useWorkspaceShortcuts(
         resetScale: always(() => useAppStore.getState().setPreference("interfaceScale", DEFAULT_INTERFACE_SCALE)),
 
         stopTurn: (event) => {
+          if (useAppStore !== focusedPaneStore()) return;
           // Escape belongs to a single-line field first — it clears or closes
           // whatever the user is typing in. The composer is a textarea, so
           // stopping a run while writing the next message still works.

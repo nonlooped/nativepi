@@ -16,17 +16,18 @@
 
 type Inserter = (text: string) => boolean;
 
-let inserter: Inserter | null = null;
+const defaultOwner = {};
+const inserters = new WeakMap<object, Inserter>();
 
 /** Called by the composer while it is mounted; returns the unregister. */
-export function registerComposerInserter(insert: Inserter): () => void {
-  inserter = insert;
+export function registerComposerInserter(insert: Inserter, owner: object = defaultOwner): () => void {
+  inserters.set(owner, insert);
   return () => {
-    if (inserter === insert) inserter = null;
+    if (inserters.get(owner) === insert) inserters.delete(owner);
   };
 }
 
 /** `false` when there is no composer with a caret to insert into. */
-export function insertAtComposerCaret(text: string): boolean {
-  return inserter?.(text) ?? false;
+export function insertAtComposerCaret(text: string, owner: object = defaultOwner): boolean {
+  return inserters.get(owner)?.(text) ?? false;
 }

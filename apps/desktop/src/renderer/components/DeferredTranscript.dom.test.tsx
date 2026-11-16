@@ -2,7 +2,7 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { stubInvoke } from "../lib/store/testBridge.ts";
-import { useAppStore } from "../lib/store.ts";
+import { useAppStore, createPaneStore, releasePaneStore, PaneStoreContext } from "../lib/store.ts";
 import { emptyConversation } from "../lib/store/conversation.ts";
 import type { SessionEntry } from "../../shared/pi-types.ts";
 import { DeferredTranscript, DeferredTranscriptItem } from "./DeferredTranscript.tsx";
@@ -134,4 +134,19 @@ domTest("missing targets are consumed without substituting another message", asy
   await act(async () => useAppStore.setState({ transcriptTarget: { session: "chat", entry: "deleted-or-other-branch" } }));
   expect(useAppStore.getState().transcriptTarget).toBeNull();
   expect(container.textContent).not.toContain("Answer 0");
+});
+
+domTest("a deep link scrolls its own pane when another pane has the same entry ID", async () => {
+  const left = createPaneStore(), right = createPaneStore();
+  for (const [store, file] of [[left, "left"], [right, "right"]] as const) store.setState({ activeProjectPath: "/project", activeSessionFile: file, conversations: { [file]: { ...emptyConversation(), entries: history.slice(-2) } } });
+  await mount(<><section data-pane="left"><PaneStoreContext value={left}><Transcript /></PaneStoreContext></section><section data-pane="right"><PaneStoreContext value={right}><Transcript /></PaneStoreContext></section></>);
+  const scroll = HTMLElement.prototype.scrollIntoView;
+  const scrolled: HTMLElement[] = [];
+  HTMLElement.prototype.scrollIntoView = function () { scrolled.push(this); };
+  try {
+    await act(async () => right.setState({ transcriptTarget: { session: "right", entry: "a99" } }));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+    expect(scrolled).toContain(container.querySelector<HTMLElement>('[data-pane="right"] #entry-a99')!);
+    expect(scrolled).not.toContain(container.querySelector<HTMLElement>('[data-pane="left"] #entry-a99')!);
+  } finally { HTMLElement.prototype.scrollIntoView = scroll; releasePaneStore(left); releasePaneStore(right); }
 });

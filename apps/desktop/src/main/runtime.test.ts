@@ -1558,3 +1558,16 @@ test("stopping a cold thread never boots Pi or scans unrelated history", async (
   expect(processes.length).toBe(before);
  } finally { scan.mockRestore(); }
 });
+
+test("conversation pane leases in one desktop client keep independent watched sessions", async () => {
+  const a = await session("pane-a"), b = await session("pane-b");
+  const desktop = new HostClient();
+  await request("watchSession", { ...a, paneId: "left" }, desktop);
+  await request("watchSession", { ...b, paneId: "right" }, desktop);
+  expect(desktop.panes.get("left")?.sessions.get(root)).toBe(a.sessionFile);
+  expect(desktop.panes.get("right")?.sessions.get(root)).toBe(b.sessionFile);
+  await request("closeWorkspacePane", { paneId: "left" }, desktop);
+  expect(desktop.panes.has("left")).toBe(false);
+  expect(desktop.panes.get("right")?.sessions.get(root)).toBe(b.sessionFile);
+  const right = desktop.panes.get("right")!; desktop.dispose(); expect(right.disposed).toBe(true);
+});

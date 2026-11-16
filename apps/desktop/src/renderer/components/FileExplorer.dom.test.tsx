@@ -21,6 +21,7 @@ beforeEach(() => {
       { name: "photo.png", path: "photo.png", kind: "file" },
     ] };
     if (channel === "listProjectFiles") return { files: ["notes.ts", "photo.png"] };
+    if (channel === "readWorkspaceFile") return { text: "notes", revision: "a".repeat(64) };
     if (channel === "readProjectMedia") return { src: "data:image/png;base64,YQ==" };
     return {};
   });
@@ -35,11 +36,12 @@ async function click(label: string) {
   expect(button).toBeDefined();
   await act(async () => button.click());
 }
-for (const search of [false, true]) test(`Local Access file taps preview media and explain unsupported files (search ${search})`, async () => {
+for (const search of [false, true]) test(`Local Access file taps open text buffers and preview media (search ${search})`, async () => {
   await mount();
   if (search) await click("Search files");
   await click("notes.ts");
-  expect(container.querySelector('[role="status"]')?.textContent).toContain("notes.ts: Open this file in the NativePi desktop app");
+  const { useWorkspaceEditor } = await import("../lib/workspaceEditor.ts");
+  expect(Object.values(useWorkspaceEditor.getState().buffers).find(b => b.file === "notes.ts")?.text).toBe("notes");
   expect(calls.some(call => call.channel === "openFileIn")).toBe(false);
   await click("photo.png");
   expect(calls.filter(call => call.channel === "readProjectMedia")).toEqual([{ channel: "readProjectMedia", params: { projectDir: "/project", file: "photo.png" } }]);

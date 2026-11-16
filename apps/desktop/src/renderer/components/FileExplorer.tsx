@@ -1,4 +1,4 @@
-import { isDesktopShell } from "../lib/platform.ts";
+import { openWorkspaceFile } from "../lib/workspaceEditor.ts";
 import { mediaKind } from "./TranscriptMedia.tsx";
 import { Dialog, DialogViewerContent } from "./ui/dialog.tsx";
 import StateNotice from "./StateNotice.tsx";
@@ -8,11 +8,10 @@ import { Input } from "@/components/ui/input.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
 import { rpc } from "../lib/rpc.ts";
-import { useAppStore } from "../lib/store.ts";
+import { runtime } from "../lib/store/internals.ts";
+import { useAppStore, usePaneStore } from "../lib/store.ts";
 import { createExplorerDirectories, emptyExplorerDirectories } from "../lib/explorerDirectories.ts";
 import FileTypeIcon from "./FileTypeIcon.tsx";
-import { toast } from "sonner";
-import { editorName } from "../lib/paths.ts";
 
 type FileExplorerProps = { projectDir: string; renderHeader: (actions: { refresh: () => void; collapse: () => void; search: () => void; searching: boolean }) => ReactNode };
 
@@ -21,9 +20,12 @@ export default function FileExplorer({ projectDir, renderHeader }: FileExplorerP
 }
 
 function ProjectFiles({ projectDir, renderHeader }: FileExplorerProps) {
+  const paneId = runtime(usePaneStore().getState).paneId;
   const [previewFile, setPreviewFile] = useState<string | null>(null);
   const [fileNotice, setFileNotice] = useState("");
   const [state, setState] = useState(emptyExplorerDirectories);
+  const requestSearch = useAppStore(s => s.fileSearchRequest);
+  useEffect(() => { if (requestSearch) setSearching(true); }, [requestSearch]);
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState("");
   const [searchRefresh, setSearchRefresh] = useState(0);
@@ -40,7 +42,6 @@ function ProjectFiles({ projectDir, renderHeader }: FileExplorerProps) {
     );
     return () => { cancelled = true; };
   }, [projectDir, searching, searchRefresh]);
-  const editorId = useAppStore(s => s.preferences.preferredEditorId);
   const controller = useRef<ReturnType<typeof createExplorerDirectories> | null>(null);
   useEffect(() => {
     const directories = createExplorerDirectories(path => rpc.request.readProjectDirectory({ projectDir, path }), setState);
@@ -53,28 +54,16 @@ function ProjectFiles({ projectDir, renderHeader }: FileExplorerProps) {
   }, [projectDir]);
   const watched = JSON.stringify(state.visible);
   useEffect(() => {
-    void rpc.request.watchProjectDirectories({ projectDir, paths: JSON.parse(watched) }).catch(() => {});
-  }, [projectDir, watched]);
+    void rpc.request.watchProjectDirectories({ paneId, projectDir, paths: JSON.parse(watched) }).catch(() => {});
+  }, [paneId, projectDir, watched]);
   useEffect(() => () => {
-    void rpc.request.watchProjectDirectories({ projectDir, paths: [] }).catch(() => {});
-  }, [projectDir]);
+    void rpc.request.watchProjectDirectories({ paneId, projectDir, paths: [] }).catch(() => {});
+  }, [paneId, projectDir]);
 
   async function openFile(file: string) {
-    if (!isDesktopShell) {
-      if (mediaKind(file)) {
-        setFileNotice("");
-        setPreviewFile(file);
-      } else {
-        setFileNotice(`${file}: Open this file in the NativePi desktop app. Local Access previews images, audio, and video.`);
-      }
-      return;
-    }
-    try {
-      const result = await rpc.request.openFileIn({ projectDir, file, editorId });
-      if (!result.ok) throw new Error(result.error ?? "Could not open this file.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
-    }
+    if (mediaKind(file)) { setFileNotice(""); setPreviewFile(file); return; }
+    try { await openWorkspaceFile(projectDir, file); setFileNotice(""); }
+    catch (error) { setFileNotice(error instanceof Error ? error.message : String(error)); }
   }
 
   function directory(path: string, depth: number): React.ReactNode {
@@ -87,7 +76,7 @@ function ProjectFiles({ projectDir, renderHeader }: FileExplorerProps) {
         const folder = entry.kind === "dir";
         const open = state.expanded.has(entry.path);
         return <li key={entry.path}>
-          <button type="button" aria-expanded={folder ? open : undefined} title={folder ? entry.path : isDesktopShell ? `Open ${entry.path} in ${editorName(editorId)}` : mediaKind(entry.path) ? `Preview ${entry.path}` : `${entry.path} — desktop app required`}
+          <button type="button" aria-expanded={folder ? open : undefined} title={folder ? entry.path : `Open ${entry.path}`}
             className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm text-sidebar-foreground outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-inset"
             onClick={() => folder ? controller.current?.toggle(entry.path) : void openFile(entry.path)}>
             <CaretRightIcon aria-hidden className={cn("size-3 shrink-0 text-muted-foreground", !folder && "invisible", open && "rotate-90")} />

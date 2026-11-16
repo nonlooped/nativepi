@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { Preferences } from "../../shared/rpc-schema.ts";
-import { useAppStore } from "./store.ts";
+import { useAppStore, usePaneStore } from "./store.ts";
 import { applyTheme } from "./themes.ts";
 
 /**
@@ -24,6 +24,7 @@ const WIDTHS: Record<Preferences["conversationWidth"], string> = {
 const BASE_FONT_SIZE_PX = 16;
 
 export function useAppearance(): void {
+  const useAppStore = usePaneStore();
   const scale = useAppStore((s) => s.preferences.interfaceScale);
   const width = useAppStore((s) => s.preferences.conversationWidth);
   const reducedMotion = useAppStore((s) => s.preferences.reducedMotion);

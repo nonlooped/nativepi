@@ -1,3 +1,4 @@
+import { openWorkspaceFile } from "../lib/workspaceEditor.ts";
 import { copyText } from "@/lib/clipboard.ts";
 import StateNotice from "./StateNotice.tsx";
 import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
@@ -30,8 +31,8 @@ export default function DiffPreview({ projectDir, path, mode, revision = 0, onBa
 
   async function openEditor() {
     try {
-      const result = await rpc.request.openFileIn({ projectDir, file: path, editorId });
-      if (!result.ok) throw new Error(result.error ?? "Could not open this file.");
+      await openWorkspaceFile(projectDir, path);
+
     } catch (error) { toast.error(String(error)); }
   }
 
@@ -40,10 +41,11 @@ export default function DiffPreview({ projectDir, path, mode, revision = 0, onBa
       <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeftIcon />{backLabel}</Button>
       <span className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground">{mode === "staged" ? "Staged" : "Working tree"}</span>
       <Button variant="ghost" size="icon-sm" onClick={reload} aria-label="Reload diff" title="Reload diff"><ArrowClockwiseIcon /></Button>
-      <Button variant="ghost" size="icon-sm" onClick={() => void openEditor()} aria-label={`Open in ${editorName(editorId)}`} title={`Open in ${editorName(editorId)}`}><FileArrowUpIcon /></Button>
+      <Button variant="ghost" size="icon-sm" onClick={() => void openEditor()} aria-label="Edit file in workspace" title="Edit file in workspace"><FileArrowUpIcon /></Button>
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="File actions" />}><DotsThreeIcon /></DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => void rpc.request.openFileIn({ projectDir, file: path, editorId })}>Open in {editorName(editorId)}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => mention(chipText("file", path))}>Mention in chat</DropdownMenuItem>
           <DropdownMenuItem onClick={() => void copyText(path)}>Copy relative path</DropdownMenuItem>
           <DropdownMenuItem onClick={() => void copyText(absoluteProjectPath(projectDir, path))}>Copy absolute path</DropdownMenuItem>

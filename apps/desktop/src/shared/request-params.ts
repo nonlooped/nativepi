@@ -41,7 +41,7 @@ export const requestParams = {
   computerStatus: empty, computerPermissions: empty,
   abort: target, getModels: target, getState: target, getThinkingLevels: target,
   setModel: target.extend({ provider: id, modelId: id }), setThinkingLevel: target.extend({ level: thinking }),
-  renameChat: session.extend({ name: z.string().max(10000) }), cloneChat: session, deleteChat: session, watchSession: project.extend({ sessionFile: path.nullable() }), watchProjectSessions: project, unwatchProjectSessions: project,
+  renameChat: session.extend({ name: z.string().max(10000) }), cloneChat: session, deleteChat: session, watchSession: project.extend({ sessionFile: path.nullable(), paneId: id.optional() }), watchProjectSessions: project.extend({ paneId: id.optional() }), unwatchProjectSessions: project.extend({ paneId: id.optional() }),
   getForkPoints: session, forkChat: session.extend({ entryId: id }), getTree: session,
   getUsageDashboard: z.object({ projects: z.array(z.object({ path, name: z.string().min(1).max(200) })).max(100) }),
   getContextInspector: target, compact: session, abortRetry: session, exportHtml: session, listProviders: empty, getSessionProviders: target,
@@ -52,6 +52,9 @@ export const requestParams = {
   openExternal: z.object({ url: z.string().url().max(32767).refine(value => /^(https?:|mailto:)/i.test(value)) }), listEditors: empty,
   openProjectIn: project.extend({ editorId: id }), openFileIn: file.extend({ editorId: id, line: z.number().int().positive().optional(), column: z.number().int().positive().optional() }),
   readProjectDiffPreview: file.extend({ mode: z.enum(["working", "staged"]) }),
+  workspaceDirty: z.object({ files: z.array(path).max(100) }),
+  closeWorkspacePane: z.object({ paneId: id }),
+  readWorkspaceFile: file, saveWorkspaceFile: file.extend({ text: z.string().max(1024 * 1024), revision: z.string().regex(/^[a-f0-9]{64}$/) }),
   readProjectImage: file, readProjectMedia: file, versions: empty, exportDiagnostics: z.object({ projectDir: path.optional() }),
   reportRendererError: z.object({ kind: z.enum(["error", "unhandledRejection"]), message: z.string().max(20000), stack: z.string().max(100000).optional() }),
   updateState: empty, checkForUpdate: empty, setUpdateChannel: z.object({ channel: updateChannelSchema }), installUpdate: empty,
@@ -66,7 +69,7 @@ export const requestParams = {
   gitCommitDiff: file.extend({ hash: z.string().regex(/^[a-f0-9]{40,64}$/) }), gitDiff: hunks.extend({ staged: z.boolean().optional() }), gitHunks: hunks, gitStageHunk: hunks.extend({ patch: text }), gitRevertFile: file, gitStageFile: file, gitUnstageFile: file.extend({ originalPath: path.optional() }), gitStageAll: project, gitUnstageAll: project,
   gitGenerateCommitMessage: target.extend({ model: id.optional() }), gitCommit: project.extend({ message: z.string().trim().min(1).max(10000) }), gitPush: project, gitSync: project, gitPrTarget: project,
   gitPushAndCreatePr: project.extend({ title: z.string().trim().min(1).max(256), body: z.string().max(50000), expectedTarget: z.object({ branch: z.string().optional(), base: z.string().optional(), remote: z.string().optional(), blocker: z.string().optional() }).optional() }), gitBranches: project, gitCheckout: branch, gitAddWorktree: branch, repoHostContext: project,
-  listCommands: target, listSkills: project, listProjectFiles: project, readProjectDirectory: project.extend({ path: z.string().max(32767) }), watchProjectDirectories: project.extend({ paths: z.array(z.string().max(32767)).max(500) }),
+  listCommands: target, listSkills: project, listProjectFiles: project, readProjectDirectory: project.extend({ path: z.string().max(32767) }), watchProjectDirectories: project.extend({ paths: z.array(z.string().max(32767)).max(500), paneId: id.optional() }),
   listPackages: project, installPackage: packageChange, removePackage: packageChange, updatePackage: project.extend({ source: id.optional() }), loadGraphicalExtensions: project, callExtension: extensionCallParamsSchema,
   extensionRespond: target.extend({
     response: z.union([

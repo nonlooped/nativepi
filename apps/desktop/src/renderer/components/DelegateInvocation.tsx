@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import type { ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
 import { threadReferenceSchema } from "../../shared/orchestration.ts";
 import { textOf } from "../../shared/messages.ts";
-import { useAppStore } from "../lib/store.ts";
+import { useAppStore, usePaneStore } from "../lib/store.ts";
 import { delegateStatus } from "../lib/delegates.ts";
 import { providerIconName } from "../lib/providerIcons.ts";
 import BrandIcon from "./BrandIcon.tsx";
@@ -26,6 +26,7 @@ function spawnResult(result: ToolResultMessage | undefined) {
 
 /** A live resource row anchored to the original Pi tool call, never to prompt text. */
 export default function DelegateInvocation({ call, result }: { call: ToolCall; result?: ToolResultMessage }) {
+  const useAppStore = usePaneStore();
   const threads = useAppStore(s => s.orchestration.threads);
   const file = useAppStore(s => s.activeSessionFile);
   const recorded = spawnResult(result);

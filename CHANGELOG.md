@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Resizable conversation workspaces with up to three independently selectable panes, keyboard navigation, saved layouts, and a full-width active pane on narrow screens.
+- In-app text/code and Markdown editing from Files, transcript links, terminals, and diffs, also over authenticated Local Access, with highlighting, search, explicit saves, dirty feedback, undo/redo, and disk conflict protection.
 - Website downloads select the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every supported architecture.
 
 ### Added

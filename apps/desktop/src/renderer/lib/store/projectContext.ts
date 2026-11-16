@@ -2,7 +2,7 @@ import { insertAtComposerCaret } from "../composerInsert.ts";
 import { dispatchExtensionEvent } from "../extensionEvents.ts";
 import { rpc } from "../rpc.ts";
 import { showHint } from "../toast.tsx";
-import { dropAllSurfaces, dropSurface, retainSurfaceHistory, writeSurface } from "../tuiSurfaces.ts";
+import { resetUnobservedSurface, dropSurface, retainSurfaceHistory, writeSurface } from "../tuiSurfaces.ts";
 import { patchConversation } from "./conversation.ts";
 import { markGitRefreshed, runtime, observeRuntime } from "./internals.ts";
 import { NO_EXTENSION_UI_STATE, type ProjectContextSlice, type SliceCreator } from "./types.ts";
@@ -139,7 +139,7 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
           // drop xterm's active write listener, leaving the visible pane frozen.
           // A different chat has already cleared all surfaces before it syncs, so
           // only a genuinely new id needs its old replay buffer discarded.
-          if (!isDuplicate) dropSurface(frame.surface.id);
+          if (!isDuplicate) resetUnobservedSurface(frame.surface.id);
           if (frame.surface.placement === "timeline") {
             retainSurfaceHistory(frame.surface.id);
             // Custom messages reach the host as `message_end` and are persisted
@@ -173,14 +173,14 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
           return;
         }
         case "nativepi_tui_write":
-          writeSurface(frame.surfaceId, frame.data);
+          writeSurface(frame.surfaceId, frame.data, frame);
           return;
         case "nativepi_tui_close":
           dropSurface(frame.surfaceId);
           set((s) => ({ extSurfaces: s.extSurfaces.filter((surface) => surface.id !== frame.surfaceId) }));
           return;
         case "nativepi_tui_reset":
-          dropAllSurfaces();
+          // Other panes may still be displaying these host-owned surfaces.
           set({ extSurfaces: [], extTriggers: [], extUiState: NO_EXTENSION_UI_STATE });
           return;
         case "nativepi_tui_triggers":
@@ -196,10 +196,10 @@ export const createProjectContextSlice: SliceCreator<ProjectContextSlice> = (set
         // the terminal: an extension completing a path mid-sentence is not asking
         // for a new paragraph at the end of the draft.
         case "nativepi_tui_paste":
-          if (!insertAtComposerCaret(frame.text)) get().insertIntoComposer(frame.text);
+          if (!insertAtComposerCaret(frame.text, get)) get().insertIntoComposer(frame.text);
           return;
         case "nativepi_tui_ext_event":
-          dispatchExtensionEvent(frame.extension, frame.event, frame.payload);
+          dispatchExtensionEvent(frame.extension, frame.event, frame.payload, get);
           return;
       }
     },

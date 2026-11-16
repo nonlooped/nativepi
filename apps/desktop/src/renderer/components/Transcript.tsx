@@ -23,7 +23,7 @@ import { imagesOf, isUser, textOf } from "../../shared/messages.ts";
 import { groupWork, toolGroupLabel, hasPendingGraphicalTool, toolArgSummary, toolResultsById } from "../lib/transcript.ts";
 import { diffPatchFor, fileDir, fileName, turnChanges, type FileChange } from "../lib/changes.ts";
 import { formatDuration, formatElapsed, pluralize } from "../lib/format.ts";
-import { activeConversation, useAppStore } from "../lib/store.ts";
+import { activeConversation, useAppStore, usePaneStore } from "../lib/store.ts";
 import { projectRelativePath } from "../lib/paths.ts";
 import { threadHref } from "../lib/markdownReferences.ts";
 import { TranscriptReferenceProvider } from "./TranscriptReferences.tsx";
@@ -72,6 +72,7 @@ export default function Transcript() {
 }
 
 function TranscriptContent() {
+  const useAppStore = usePaneStore();
   const historyLoading = useAppStore(s => activeConversation(s).historyLoading);
   const historyError = useAppStore(s => activeConversation(s).historyError);
   const reloadHistory = () => {
@@ -90,6 +91,7 @@ function TranscriptContent() {
   const abortRetry = useAppStore((s) => s.abortRetry);
   const jumpRequest = useAppStore((s) => s.jumpRequest);
   const lastJumpRequest = useRef(jumpRequest);
+  const paneRoot = useRef<HTMLDivElement>(null);
 
   const results = useMemo(() => toolResultsById(entries), [entries]);
   const committed = useMemo(() => transcriptItems(entries), [entries]);
@@ -103,19 +105,20 @@ function TranscriptContent() {
       useAppStore.setState({ transcriptTarget: null });
       return;
     }
+    const findTarget = () => [...(paneRoot.current?.querySelectorAll<HTMLElement>("[id]") ?? [])].find(element => element.id === `entry-${transcriptTarget.entry}`);
     // Deferred history and collapsed assistant work must commit before measuring.
     const frame = requestAnimationFrame(() => {
-      const target = document.getElementById(`entry-${transcriptTarget.entry}`);
+      const target = findTarget();
       if (!target) return;
       target.scrollIntoView({ block: "center" });
       target.classList.add("ring-2", "ring-ring", "rounded-md");
     });
     const timer = window.setTimeout(() => {
-      document.getElementById(`entry-${transcriptTarget.entry}`)?.classList.remove("ring-2", "ring-ring", "rounded-md");
+      findTarget()?.classList.remove("ring-2", "ring-ring", "rounded-md");
       if (useAppStore.getState().transcriptTarget === transcriptTarget) useAppStore.setState({ transcriptTarget: null });
     }, 3000);
     return () => { cancelAnimationFrame(frame); window.clearTimeout(timer);
-      document.getElementById(`entry-${transcriptTarget.entry}`)?.classList.remove("ring-2", "ring-ring", "rounded-md");
+      findTarget()?.classList.remove("ring-2", "ring-ring", "rounded-md");
     };
   }, [transcriptTarget, targetItem, historyLoading, historyError]);
   const turnFiles = lastTurnFileCount(items, results);
@@ -169,7 +172,7 @@ function TranscriptContent() {
   useEffect(() => {
     const update = () => {
       const selection = window.getSelection();
-      setTranscriptSelection(selection?.toString().trim() ?? "");
+      setTranscriptSelection(selection?.anchorNode && paneRoot.current?.contains(selection.anchorNode) && selection.focusNode && paneRoot.current.contains(selection.focusNode) ? selection.toString().trim() : "");
     };
     document.addEventListener("selectionchange", update);
     return () => document.removeEventListener("selectionchange", update);
@@ -186,7 +189,7 @@ function TranscriptContent() {
   }, [jumpRequest]);
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <div ref={paneRoot} className="relative flex min-h-0 flex-1 flex-col">
       {/* The scroller supplies the region and the log; this element exists only
           to catch a right-click on transcript whitespace, so it stays a plain
           wrapper rather than a third, duplicately-labelled landmark. Live
@@ -447,6 +450,7 @@ export function AssistantResponse({
   finishedAt?: string;
   streaming?: boolean;
 }) {
+  const useAppStore = usePaneStore();
   const streaming = isStreaming ?? false;
   const session = useAppStore(s => s.activeSessionFile);
   const source = session && entryId !== "streaming-response" ? { session, entry: entryId } : undefined;
@@ -868,7 +872,9 @@ function TranscriptContextMenu({ children, items, source }: { children: ReactEle
       <ContextMenuTrigger
         render={children}
         onContextMenuCapture={(event) => {
-          setSelection(window.getSelection()?.toString().trim() ?? "");
+          const selection = window.getSelection();
+          const pane = (event.target as Element).closest("[data-workspace-pane]") ?? event.currentTarget;
+          setSelection(selection?.anchorNode && selection.focusNode && pane.contains(selection.anchorNode) && pane.contains(selection.focusNode) ? selection.toString().trim() : "");
           setCodeBlock((event.target as Element).closest("pre")?.innerText ?? "");
         }}
       />
