@@ -42,6 +42,8 @@ NativePi is a Pi-based desktop coding-agent interface. Pi supplies model executi
 
 ## Chat and Work
 
+Work’s History groups older and manually finished chats for organization; it does not verify or accept agent work.
+
 NativePi offers two independent destinations. Work supports project folders and general work without a project. Project-free Work chats use a dedicated NativePi-managed working directory with normal Pi tools, configuration, and extensions. The managed directory is not a pinned project; its ordinary Pi sessions appear alongside project chats and can be filtered with “No project”. Chat starts without a project picker, using an internal working directory only because Pi requires one. Its transcripts remain ordinary Pi session files. Existing project conversations stay in Work; conversations cannot be transferred between destinations.
 
 Chat folders are NativePi-owned organization metadata, with unique colors and persistent collapsed state. Chats appear inside their folders, and unfiled chats appear outside them. Moving a chat changes only its folder membership. Deleting a folder permanently deletes its chats after explicit confirmation; failed deletions retain the folder and remaining memberships.

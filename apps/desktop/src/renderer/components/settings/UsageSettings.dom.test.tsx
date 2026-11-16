@@ -4,6 +4,8 @@ import { createRoot } from "react-dom/client";
 import { useAppStore } from "../../lib/store.ts";
 import { stubInvoke } from "../../lib/store/testBridge.ts";
 import UsageSettings from "./UsageSettings.tsx";
+globalThis.requestAnimationFrame = window.requestAnimationFrame.bind(window);
+globalThis.cancelAnimationFrame = window.cancelAnimationFrame.bind(window);
 
 test("usage controls retain the selected date range without extension requests", async () => {
   useAppStore.setState({ projects: [{ path: "/p", name: "Project" }], activeProjectPath: "/p", activeSessionFile: null });
@@ -56,4 +58,22 @@ test("filtered zero-cost usage keeps recorded token totals and does not invent i
     expect(metric("Uncached input")).toBe("500");
     expect(metric("Cached input")).toBe("300");
   } finally { await act(() => root.unmount()); container.remove(); }
+});
+
+test("all activity includes Chat and No project, and selecting No project sends only that scope", async () => {
+  useAppStore.setState({ projects: [{path:"/audit-project",name:"Project"}], workRoot:"/audit-work",chatRoot:"/audit-chat" });
+  const scopes: string[][]=[];
+  stubInvoke(async (name,params:any) => {
+    if(name==="subscriptionCapacity") return {providers:[]};
+    if(name==="getUsageDashboard") { scopes.push(params.projects.map((p:any)=>p.path)); return {dashboard:{totalCost:0,sessions:0,daily:[],projects:[],models:[],tokens:{input:0,output:0,cacheRead:0,cacheWrite:0,total:0}}}; }
+    return {};
+  });
+  const container=document.createElement("div");document.body.append(container);const root=createRoot(container);
+  try {
+    await act(async()=>root.render(<UsageSettings/>));
+    expect(scopes.at(-1)).toEqual(["/audit-project","/audit-work","/audit-chat"]);
+    await act(async()=>container.querySelector<HTMLButtonElement>('button[aria-label="Project"]')!.click());
+    await act(async()=>[...document.querySelectorAll<HTMLElement>('[role="option"]')].find(e=>e.textContent==="No project")!.click());
+    expect(scopes.at(-1)).toEqual(["/audit-work"]);
+  } finally {await act(async()=>root.unmount());container.remove();}
 });

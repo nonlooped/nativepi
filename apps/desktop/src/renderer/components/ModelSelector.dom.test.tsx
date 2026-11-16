@@ -388,7 +388,7 @@ domTest("provider scopes stay separate and search supports provider and model te
     const choices = () => [...document.querySelectorAll<HTMLButtonElement>("[data-model-choice]")];
     expect(choices()).toHaveLength(1);
     expect(choices()[0]!.title).toContain("200K context");
-    expect(document.querySelector('nav [aria-label="All models"]')).toBeNull();
+    expect(!!document.querySelector('nav [aria-label="All models"]')).toBe(true);
     await chooseFilter("Favorites");
     expect(choices()).toHaveLength(1);
     expect(choices()[0]!.textContent).toContain("Beta model");
@@ -473,5 +473,22 @@ domTest("the picker opens on the current provider and falls back when a provider
     expect(document.querySelector("[data-model-choice]")?.textContent).toContain("Beta model");
     await act(async () => { store.setState({ model: undefined }); });
     expect(document.querySelector("[data-model-choice]")?.textContent).toContain("Beta model");
+  });
+});
+
+domTest("typing a model name searches every connected provider until an explicit filter is selected", async () => {
+  stubInvoke(async channel => pickerReply(channel));
+  await withPicker(async store => {
+    const a = { provider: "alpha", id: "one", name: "Alpha model" }, b = { provider: "beta", id: "two", name: "Beta model" };
+    await act(async () => store.setState({ models: [a,b], model: a, providers: [] }));
+    const search = document.querySelector<HTMLInputElement>('[aria-label="Search models"]')!;
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(search,"Beta"); search.dispatchEvent(new Event("input",{bubbles:true})); });
+    expect(document.body.textContent).toContain("Beta model");
+    expect(document.querySelector('button[aria-label="All models"]')?.getAttribute("aria-pressed")).toBe("true");
+    await chooseFilter("alpha");
+    expect(document.body.textContent).toContain("No models match");
+    expect(search.placeholder).toBe("Search alpha models…");
+    await chooseFilter("All models");
+    expect(document.body.textContent).toContain("Beta model");
   });
 });

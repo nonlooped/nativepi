@@ -3,6 +3,7 @@ import type { Relationship } from "../../shared/orchestration.ts";
 import { LightningIcon } from "@phosphor-icons/react/Lightning";
 import { serviceTierTarget } from "../../shared/service-tier.ts";
 import { BrainIcon } from "@phosphor-icons/react/Brain";
+import { SquaresFourIcon } from "@phosphor-icons/react/SquaresFour";
 import { CaretDownIcon, CheckIcon, MagnifyingGlassIcon, StarIcon, WarningCircleIcon } from "../../shared/icons.ts";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { ModelInfo } from "../../shared/pi-types.ts";
@@ -116,17 +117,19 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
     rows[index]?.scrollIntoView({ block: "nearest" });
   }
   const availableProviders = [...new Set(models.map((item) => item.provider))];
-  const activeScope = scope === "favorites" || (scope !== null && availableProviders.includes(scope))
+  const activeScope = scope === "all" || scope === "favorites" || (scope !== null && availableProviders.includes(scope))
     ? scope
     : model && availableProviders.includes(model.provider) ? model.provider : availableProviders[0] ?? "favorites";
   const favoriteModelKeys = new Set(favoriteModels);
   const providerNames = new Map(providers.map((item) => [item.id, item.name]));
   const label = selection?.automatic?.model ? "Automatic" : model ? friendlyModelName(model) : selection ? selection.configuration.model ? "Unavailable model" : "Choose a model" : "Model";
   const queryTerms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const explicitScope = scope === "all" || scope === "favorites" || (scope !== null && availableProviders.includes(scope));
+  const searchScope = queryTerms.length && !explicitScope ? "all" : activeScope;
 
   const visibleModels = models.filter((item) => {
-    if (activeScope === "favorites" && !favoriteModelKeys.has(modelKey(item))) return false;
-    if (activeScope !== "favorites" && item.provider !== activeScope) return false;
+    if (searchScope === "favorites" && !favoriteModelKeys.has(modelKey(item))) return false;
+    if (searchScope !== "all" && searchScope !== "favorites" && item.provider !== searchScope) return false;
     if (!queryTerms.length) return true;
     const providerName = providerNames.get(item.provider) ?? "";
     const searchable = `${item.name ?? item.id} ${item.id} ${item.provider} ${providerName}`.toLocaleLowerCase();
@@ -144,12 +147,12 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
         className="px-2 font-normal text-muted-foreground hover:text-foreground"
       >
         <WarningCircleIcon data-icon="inline-start" />
-        {ready ? "No models available" : "Connect a provider"}
+        {ready ? "No models available" : "Connect an AI account"}
       </Button>
     );
   }
 
-  if (selection && !selection.automatic && !catalogLoading && !models.length && !catalogError) return <Button type="button" variant="ghost" onClick={() => openSettings("Providers")}><WarningCircleIcon />Connect a provider</Button>;
+  if (selection && !selection.automatic && !catalogLoading && !models.length && !catalogError) return <Button type="button" variant="ghost" onClick={() => openSettings("Providers")}><WarningCircleIcon />Connect an AI account</Button>;
   return (
     <Popover
       open={open}
@@ -213,6 +216,7 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
         <div className="flex min-h-0 flex-1">
           <nav aria-label="Filter models" className="flex w-10 shrink-0 flex-col items-center gap-1 overflow-y-auto overscroll-contain border-r border-border/40 px-1 py-1.5">
             {[
+              { value: "all", label: "All models" },
               { value: "favorites", label: "Favorites" },
               ...availableProviders.map((id) => ({ value: id, label: providerNames.get(id) ?? id })),
             ].map((item) => (
@@ -220,15 +224,15 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
                 key={item.value}
                 type="button"
                 aria-label={item.label}
-                aria-pressed={activeScope === item.value}
+                aria-pressed={searchScope === item.value}
                 onClick={() => setScope(item.value)}
                 title={item.label}
                 className={cn(
                   "flex size-8 shrink-0 items-center justify-center rounded-md outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
-                  activeScope === item.value ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:text-foreground",
+                  searchScope === item.value ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {item.value === "favorites" ? <StarIcon className="size-4 shrink-0" /> : <ModelProviderIcon provider={item.value} />}
+                {item.value === "all" ? <SquaresFourIcon className="size-4" /> : item.value === "favorites" ? <StarIcon className="size-4 shrink-0" /> : <ModelProviderIcon provider={item.value} />}
               </button>
             ))}
           </nav>
@@ -239,14 +243,14 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
                 ref={searchRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search models…"
+                placeholder={searchScope === "all" ? "Search all models…" : searchScope === "favorites" ? "Search favorites…" : `Search ${providerNames.get(searchScope) ?? searchScope} models…`}
                 aria-label="Search models"
                 className="h-8 min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0 dark:bg-transparent"
               />
             </div>
             <div ref={listRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-1">
               {catalogLoading ? <p role="status" className="p-3 text-xs text-muted-foreground">Loading models…</p> : null}
-              {!models.length && !catalogLoading && !catalogError ? <Button variant="ghost" size="sm" onClick={() => openSettings("Providers")}>Connect a provider</Button> : null}
+              {!models.length && !catalogLoading && !catalogError ? <Button variant="ghost" size="sm" onClick={() => openSettings("Providers")}>Connect an AI account</Button> : null}
               <ModelList
                 visibleModels={visibleModels}
                 query={query}
@@ -269,6 +273,7 @@ export default function ModelSelector({ selection }: { selection?: ModelSelectio
             automatic: selection.automatic ? { selected: selection.automatic.tier, label: selection.automatic.tierLabel, onSelect: () => selection.automatic!.onChange("tier", "auto") } : undefined,
           } : undefined} />
         </div>
+        <p className="px-3 pb-2 text-xs leading-5 text-muted-foreground">Higher thinking effort can help with difficult tasks, but takes longer. The default is fine for everyday work.</p>
       </PopoverContent>
     </Popover>
   );

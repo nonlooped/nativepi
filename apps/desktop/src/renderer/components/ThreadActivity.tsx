@@ -1,3 +1,5 @@
+import { Checkbox } from "./ui/checkbox.tsx";
+import SettingsDetails from "./settings/SettingsDetails.tsx";
 import StateNotice from "./StateNotice.tsx";
 import { delegateStatus } from "../lib/delegates.ts";
 import { providerIconName } from "../lib/providerIcons.ts";
@@ -67,10 +69,17 @@ export default function ThreadActivity() {
   if (destination !== "work" || !thread || thread.relationship || (!peers.length && !groupBusy && !thread.pendingDelivery.length)) return null;
   return <div className="mx-auto max-h-[35vh] w-full max-w-3xl shrink-0 overflow-y-auto px-4 pb-2 text-sm">
     {groupBusy ? <div className="flex justify-end"><Button variant="ghost" size="sm" onClick={() => void stop(thread.ref.file)}><StopIcon />Stop group</Button></div> : null}
-    {thread.pendingDelivery.length ? <p className="py-1 text-xs text-muted-foreground">{thread.pendingDelivery.length} message delivery pending. Accepted content is retained.</p> : null}
-    {peers.length ? <details className="mt-1 rounded-md border border-border px-3 py-2"><summary className="cursor-pointer text-xs text-muted-foreground">Inbox · {peers.filter(message => !thread.readMessageIds.includes(message.id)).length} unread · {peers.length} pending</summary><div className="mt-2 max-h-48 space-y-3 overflow-y-auto">
-      {peers.map(message => <label key={message.id} className="flex items-start gap-2"><input type="checkbox" className="mt-1 accent-primary" checked={selected.includes(message.id)} onChange={event => setSelected(current => event.target.checked ? [...current, message.id] : current.filter(id => id !== message.id))} /><span className="min-w-0"><span className="block text-xs text-muted-foreground">{message.source.id} · {new Date(message.timestamp).toLocaleString()} · Delivered to inbox</span><span className="whitespace-pre-wrap break-words text-xs">{message.content}</span></span></label>)}
-    </div><Button className="mt-3" variant="secondary" size="sm" disabled={!selected.some(id => peers.some(message => message.id === id))} onClick={() => { const ids = selected.filter(id => peers.some(message => message.id === id)); void rpc.request.wakeThread({ threadId: thread.ref.id, messageIds: ids }).then(() => setSelected([])).catch(error => toast.error(String(error))); }}>Resume with selected messages</Button></details> : null}
+    {thread.pendingDelivery.length ? <p className="py-1 text-xs text-muted-foreground">{thread.pendingDelivery.length} messages waiting for delivery. Your text is kept.</p> : null}
+    {peers.length ? <SettingsDetails id="peer-inbox" title="Messages from other chats" summary={`${peers.filter(message => !thread.readMessageIds.includes(message.id)).length} unread`}><p className="py-2 text-xs text-muted-foreground">Choose which messages to include when this agent continues.</p><div className="mt-2 max-h-48 space-y-3 overflow-y-auto">
+      {peers.map(message => {
+        const sender = threads.find(t => t.ref.id === message.source.id);
+        const name = sender?.relationship?.label || message.source.title || "Another chat";
+        return <div key={message.id} className="space-y-1">
+          <div className="flex items-start gap-2"><Checkbox id={`peer-${message.id}`} className="mt-1" checked={selected.includes(message.id)} onCheckedChange={checked => setSelected(current => checked ? [...current, message.id] : current.filter(id => id !== message.id))} /><label htmlFor={`peer-${message.id}`} className="min-w-0"><span className="block text-xs text-muted-foreground">{name} · {new Date(message.timestamp).toLocaleString()}</span><span className="whitespace-pre-wrap break-words text-xs">{message.content}</span></label></div>
+          <SettingsDetails id={`peer-details-${message.id}`} title="Delivery details"><p className="break-all text-xs text-muted-foreground">Chat: {message.source.id} · Message: {message.id} · Delivered to inbox</p></SettingsDetails>
+        </div>;
+      })}
+    </div><Button className="mt-3" variant="secondary" size="sm" disabled={!selected.some(id => peers.some(message => message.id === id))} onClick={() => { const ids = selected.filter(id => peers.some(message => message.id === id)); void rpc.request.wakeThread({ threadId: thread.ref.id, messageIds: ids }).then(() => setSelected([])).catch(error => toast.error(String(error))); }}>Continue with selected messages</Button></SettingsDetails> : null}
   </div>;
 }
 

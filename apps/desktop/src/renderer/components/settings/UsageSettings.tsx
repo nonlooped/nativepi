@@ -27,9 +27,12 @@ type ChartMetric = "cost" | "tokens";
 
 export default function UsageSettings() {
   const projects = useAppStore((state) => state.projects);
+  const workRoot = useAppStore(s => s.workRoot);
+  const chatRoot = useAppStore(s => s.chatRoot);
+  const scopes = [...projects.filter(p => p.path !== workRoot && p.path !== chatRoot), ...(workRoot ? [{ path: workRoot, name: "No project" }] : []), ...(chatRoot ? [{ path: chatRoot, name: "Chat" }] : [])];
   const [projectPath, setProjectPath] = useState(ALL_PROJECTS);
   const [range, setRange] = useState<Range>("30");
-  const selectedProjects = projectPath === ALL_PROJECTS ? projects : projects.filter((project) => project.path === projectPath);
+  const selectedProjects = projectPath === ALL_PROJECTS ? scopes : scopes.filter((project) => project.path === projectPath);
   const cacheKey = usageProjectsKey(selectedProjects);
   const request = useRequest(
     () => dashboardReader.load(selectedProjects),
@@ -53,15 +56,15 @@ export default function UsageSettings() {
           <Select
             value={projectPath}
             onValueChange={(value) => typeof value === "string" && setProjectPath(value)}
-            items={[{ value: ALL_PROJECTS, label: "All projects" }, ...projects.map((project) => ({ value: project.path, label: project.name }))]}
+            items={[{ value: ALL_PROJECTS, label: "All activity" }, ...scopes.map((project) => ({ value: project.path, label: project.name }))]}
           >
             <SelectTrigger aria-label="Project" className="h-8 w-full min-w-44 px-2.5 text-xs @min-[36rem]/settings-content:w-52">
               <SelectValue />
             </SelectTrigger>
             <SelectContent alignItemWithTrigger={false} align="end">
               <SelectGroup>
-                <SelectItem value={ALL_PROJECTS}>All projects</SelectItem>
-                {projects.map((project) => (
+                <SelectItem value={ALL_PROJECTS}>All activity</SelectItem>
+                {scopes.map((project) => (
                   <SelectItem key={project.path} value={project.path}>
                     {project.name}
                   </SelectItem>

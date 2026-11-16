@@ -382,8 +382,8 @@ function WorkContents(props: SidebarProps) {
 
         {!loading && projects.length > 0 && failedProjects.length === 0 && pinned.length === 0 && focus.length === 0 && finished.length > 0 ? (
           <div className="px-3 pt-3 text-xs leading-relaxed text-muted-foreground">
-            <p className="font-medium text-sidebar-foreground/80">No active chats</p>
-            <p className="mt-0.5">Start a chat, or return one from Finished.</p>
+            <p className="font-medium text-sidebar-foreground/80">No recent chats</p>
+            <p className="mt-0.5">Start a chat, or reopen one from History.</p>
           </div>
         ) : null}
 
@@ -394,9 +394,9 @@ function WorkContents(props: SidebarProps) {
         ) : null}
 
         {finished.length > 0 ? (
-          <section className="mt-auto shrink-0 pt-8" aria-label="Finished chats">
+          <section className="mt-auto shrink-0 pt-8" aria-label="Chat history">
             <button type="button" onClick={() => useAppStore.setState({ sidebarFinishedOpen: !finishedOpen })} aria-expanded={finishedOpen} className="flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[0.6875rem] tracking-[0.06em] uppercase text-muted-foreground transition-colors hover:text-sidebar-foreground">
-              <span className="font-medium">Finished</span>
+              <span className="font-medium">History</span>
               <span data-finished-count className="ml-auto tabular-nums text-muted-foreground">{finished.length}</span>
               <CaretDownIcon className={cn("transition-transform", !finishedOpen && "-rotate-90")} weight="bold" />
             </button>
@@ -433,7 +433,7 @@ function WorkContents(props: SidebarProps) {
         title="Remove this project?"
         description={
           <>
-            NativePi will stop tracking <span className="font-medium text-foreground" title={pendingRemoval?.path}>{pendingRemoval?.name}</span> and close its chats. Nothing is deleted from disk.
+            NativePi will stop tracking <span className="font-medium text-foreground" title={pendingRemoval?.path}>{pendingRemoval?.name}</span> and close its chats. Running agents and terminals in this folder will stop. Files and chat history stay on disk.
           </>
         }
         confirmLabel="Remove project"
@@ -616,7 +616,7 @@ function ProjectActionsMenuItems({
           <DropdownMenuItem onClick={() => void onTerminal(project.path)}>Open terminal here</DropdownMenuItem>
           <DropdownMenuItem onClick={() => void copyText(project.path).then(copied => { if (copied) showHint("Path copied"); })}>Copy path</DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => onWorktrees(project.path)}>Worktrees…</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onWorktrees(project.path)}>Workspaces…</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={() => onRemove(project)}>Remove from NativePi</DropdownMenuItem>
         </DropdownMenuGroup>

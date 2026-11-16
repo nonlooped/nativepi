@@ -22,7 +22,7 @@ test("provider loading resolves to onboarding, its action opens provider setting
   expect(container.querySelector("button")).toBeNull();
 
   await act(async () => useAppStore.setState({ providersLoaded: true }));
-  const connect = [...container.querySelectorAll("button")].find(button => button.textContent === "Connect a provider")!;
+  const connect = [...container.querySelectorAll("button")].find(button => button.textContent === "Connect an AI account")!;
   await act(async () => connect.click());
   expect(useAppStore.getState()).toMatchObject({ settingsOpen: true, settingsCategory: "Providers" });
 
@@ -31,5 +31,5 @@ test("provider loading resolves to onboarding, its action opens provider setting
   ] }));
   // Ready clears the setup message; the wordmark and composer provide the empty state.
   expect(container.querySelector('[role="status"]')).toBeNull();
-  expect(container.textContent).not.toContain("Connect a provider");
+  expect(container.textContent).not.toContain("Connect an AI account");
 });

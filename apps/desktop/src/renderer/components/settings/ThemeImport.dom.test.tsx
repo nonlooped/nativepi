@@ -1,0 +1,27 @@
+import { afterEach, expect, test } from "bun:test";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import ThemeSettings from "./ThemeSettings.tsx";
+import { NATIVE_THEME } from "../../../shared/themes.ts";
+import { useAppStore } from "../../lib/store.ts";
+globalThis.requestAnimationFrame = window.requestAnimationFrame.bind(window);
+globalThis.cancelAnimationFrame = window.cancelAnimationFrame.bind(window);
+const original = useAppStore.getState();
+let root: Root | undefined; let container: HTMLDivElement;
+afterEach(async()=>{if(root)await act(async()=>root!.unmount());root=undefined;container?.remove();useAppStore.setState(original,true);});
+test("choosing a shared scheme file validates it, leaves a malformed choice unapplied, then imports a valid file",async()=>{
+  useAppStore.setState({preferences:{...original.preferences,customThemes:[]}});
+  container=document.createElement("div");document.body.append(container);root=createRoot(container);
+  await act(async()=>root!.render(<ThemeSettings/>));
+  await act(async()=>container.querySelector<HTMLButtonElement>('[aria-label="Choose color scheme"]')!.click());
+  await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent?.includes('Import scheme'))!.click());
+  const input=document.querySelector<HTMLInputElement>('input[aria-label="Color scheme file"]')!;
+  const choose=async(text:string)=>{Object.defineProperty(input,'files',{value:[new File([text],'shared.json',{type:'application/json'})],configurable:true});await act(async()=>{input.dispatchEvent(new Event('change',{bubbles:true}));await Promise.resolve();});};
+  await choose('not JSON');
+  expect(useAppStore.getState().preferences.customThemes).toHaveLength(0);
+  expect(document.body.textContent).toContain('This is not a NativePi color scheme');
+  await choose(JSON.stringify({...NATIVE_THEME,name:'Shared scheme'}));
+  const scheme=useAppStore.getState().preferences.customThemes.find(t=>t.name==='Shared scheme');
+  expect(scheme?.colors).toEqual(NATIVE_THEME.colors);
+  expect(useAppStore.getState().preferences.themeId).toBe(scheme!.id);
+});

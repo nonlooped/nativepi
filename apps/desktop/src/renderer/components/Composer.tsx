@@ -362,6 +362,7 @@ function QueuedMessages() {
 }
 
 function QueueRow({ label, text }: { label: string; text: string }) {
+  const [expanded, setExpanded] = useState(false);
   return (
     <li className="status-enter flex items-start gap-2 rounded-xl bg-card/60 px-3 py-2 text-sm">
       <span className="mt-0.5 shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
@@ -369,9 +370,7 @@ function QueueRow({ label, text }: { label: string; text: string }) {
       </span>
       {/* Two lines rather than one: a queued message you cannot read back is
           one you cannot verify before it reaches the agent. */}
-      <span className="min-w-0 flex-1 line-clamp-2 break-words whitespace-pre-wrap text-muted-foreground" title={text}>
-        {text}
-      </span>
+      <button type="button" aria-expanded={expanded} title={expanded ? "Collapse queued message" : "Read full queued message"} className={cn("min-w-0 flex-1 break-words whitespace-pre-wrap text-left text-muted-foreground", expanded ? "max-h-48 overflow-y-auto" : "line-clamp-2")} onClick={() => setExpanded(!expanded)}>{text}</button>
     </li>
   );
 }

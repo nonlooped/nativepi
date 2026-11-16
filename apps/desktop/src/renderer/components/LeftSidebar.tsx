@@ -53,8 +53,9 @@ export default function LeftSidebar({
       </div>
 
       <div className="mx-3 my-2 flex rounded-lg bg-sidebar-accent/60 p-1" aria-label="Destination">
-        {(["chat", "work"] as const).map(mode => <Button key={mode} variant={destination === mode ? "secondary" : "ghost"} size="sm" className="flex-1" aria-pressed={destination === mode} onClick={() => void setDestination(mode)}>{mode === "chat" ? "Chat" : "Work"}</Button>)}
+        {(["chat", "work"] as const).map(mode => <Button key={mode} variant={destination === mode ? "secondary" : "ghost"} size="sm" className="flex-1" aria-pressed={destination === mode} title={mode === "chat" ? "Conversations for questions and ideas. Chats stay in this destination." : "Tasks on your computer. Chats stay in this destination."} onClick={() => void setDestination(mode)}>{mode === "chat" ? "Chat" : "Work"}</Button>)}
       </div>
+      <p className="mx-4 mb-1 text-xs leading-5 text-muted-foreground">{destination === "chat" ? "Questions, research and drafts. Use Work for changes to files." : "Get tasks done on your computer, with or without a project."}</p>
       {children}
 
       {/* The bottom padding clears the iOS home indicator, which otherwise sits

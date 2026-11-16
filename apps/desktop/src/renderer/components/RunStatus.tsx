@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
+import { ChatCircleIcon } from "@phosphor-icons/react/ChatCircle";
 import { CheckIcon } from "@phosphor-icons/react/Check";
 import { CircleIcon } from "@phosphor-icons/react/Circle";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
@@ -130,15 +131,16 @@ export function RunStatusBar({
  * A stopped run says so — "Done" would misreport an abort as a completion.
  */
 export function RunDoneBar({ elapsed, files, stopped }: { elapsed: string; files: number; stopped: boolean }) {
+  const isRepo = useAppStore(s => s.git?.isRepo ?? false);
   return (
     <div className="flex min-w-0 items-center gap-2 px-3 py-1.5 text-xs">
       {stopped ? (
         <StopIcon weight="fill" className="shrink-0 text-muted-foreground" />
       ) : (
-        <CheckIcon weight="bold" className="shrink-0 text-success" />
+        <ChatCircleIcon className="shrink-0 text-muted-foreground" />
       )}
       <span className="truncate font-medium">
-        {stopped ? (elapsed ? `Stopped after ${elapsed}` : "Stopped") : elapsed ? `Done in ${elapsed}` : "Done"}
+        {stopped ? (elapsed ? `Stopped after ${elapsed}` : "Stopped") : elapsed ? `Response finished in ${elapsed}` : "Response finished"}
       </span>
       {files > 0 ? (
         <>
@@ -146,6 +148,7 @@ export function RunDoneBar({ elapsed, files, stopped }: { elapsed: string; files
             ·
           </span>
           <span className="hidden shrink-0 truncate text-muted-foreground min-[380px]:inline">{pluralize(files, "file")} changed</span>
+          <Button size="xs" variant="ghost" onClick={() => { const state = useAppStore.getState(); const label = state.git?.isRepo ? "Open source control" : "Show files"; document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)?.click(); }}>{isRepo ? "Review changes" : "View files"}</Button>
         </>
       ) : null}
     </div>

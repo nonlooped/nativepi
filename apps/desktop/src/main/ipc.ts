@@ -1497,7 +1497,14 @@ const handlers: HandlerMap = {
       const { projects } = requestParams.getUsageDashboard.parse(params);
       const refs = await orchestrationService.discover();
       const paths = new Map(projects.map(project => [project.path, project]));
-      for (const ref of refs) if (orchestration.snapshot(ref.id).relationship && !paths.has(ref.cwd)) paths.set(ref.cwd, { path: ref.cwd, name: ref.cwd });
+      // Include only descendants of the requested roots; a project filter must not collect unrelated delegates.
+      for (let added = true; added;) {
+        added = false;
+        for (const ref of refs) {
+          const relationship = orchestration.snapshot(ref.id).relationship;
+          if (relationship && paths.has(relationship.lead.cwd) && !paths.has(ref.cwd)) { paths.set(ref.cwd, { path: ref.cwd, name: ref.cwd }); added = true; }
+        }
+      }
       return { dashboard: await usageDashboard([...paths.values()]) };
     }
     catch (err) {

@@ -1,5 +1,3 @@
-import WorktreeDialog from "./WorktreeDialog.tsx";
-import { Button } from "@/components/ui/button.tsx";
 import StateNotice from "./StateNotice.tsx";
 import { useEffect, useState } from "react";
 import { CaretDownIcon, CheckIcon, GitBranchIcon, PlusIcon } from "../../shared/icons.ts";
@@ -35,18 +33,15 @@ export default function BranchSwitcher({
     setOpen(true);
   }, [branchMenuRequested, consumeBranchMenuRequest, handleRequests]);
 
-  const [workspacesOpen, setWorkspacesOpen] = useState(false);
-  const projectDir = useAppStore(s => s.activeProjectPath);
   if (!isRepo) return null;
 
   const label = detached ? "No branch (detached)" : (branch ?? "No branch");
 
   return (
-    <><Button variant="ghost" size="sm" onClick={() => setWorkspacesOpen(true)}>Workspaces</Button>
     <Menu open={open} onOpenChange={setOpen}>
       <MenuTrigger
         disabled={running}
-        title={running ? "Stop the current run before switching branches" : "Switch branch"}
+        title={running ? "Stop the current run before switching branches" : "Choose a version of this project (Git branch)"}
         aria-label={`Branch: ${label}`}
         className={cn(
           "flex h-8 min-w-0 max-w-48 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
@@ -61,8 +56,6 @@ export default function BranchSwitcher({
         {open ? <BranchList onDone={() => setOpen(false)} /> : null}
       </MenuPopup>
     </Menu>
-    <WorktreeDialog projectPath={workspacesOpen ? projectDir : null} onClose={() => setWorkspacesOpen(false)} />
-    </>
   );
 }
 
@@ -96,6 +89,7 @@ function BranchList({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="flex max-h-[min(24rem,60vh,var(--available-height))] flex-col">
+      <p className="px-3 pt-3 text-xs leading-5 text-muted-foreground">Switch which saved version of this project is in this folder.</p>
       <div className="p-1.5 pb-0">
         <Input
           value={query}

@@ -399,7 +399,7 @@ function TreeDialog({ projectDir, session, onClose }: { projectDir: string; sess
         <DialogHeader>
           <DialogTitle>Chat branches</DialogTitle>
           <DialogDescription>
-            Branches created by forking. The highlighted entry is the current tip.
+            Alternate paths through this conversation. The highlighted entry is the current conversation.
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-96 overflow-auto">
@@ -426,7 +426,7 @@ function TreeNode({ node, depth, leafId }: { node: SessionTreeNode; depth: numbe
     <>
       <div
         className={cn("flex items-center gap-2 rounded-md px-2 py-1", isLeaf && "bg-accent")}
-        style={{ marginLeft: depth * 16 }}
+        style={{ marginLeft: depth * 16 }} title={node.entry.type}
       >
         <span className="shrink-0 text-xs font-medium text-muted-foreground">{nodeKind(node)}</span>
         <span className="truncate text-muted-foreground">{node.label ?? nodeText(node)}</span>
@@ -495,9 +495,9 @@ function nodeKind(node: SessionTreeNode): string {
   const entry = node.entry;
   if (entry.type === "message") {
     const role = (entry.message as { role?: string }).role ?? "message";
-    return role;
+    return ({ user: "You", assistant: "Assistant", toolResult: "Tool result", custom: "Extension note" } as Record<string,string>)[role] ?? "Message";
   }
-  return entry.type;
+  return ({ model_change: "Model changed", thinking_level_change: "Thinking effort changed", compaction: "Earlier messages summarized", branch_summary: "Conversation summary", session_info: "Chat name changed", label: "Saved label", custom: "Extension event", custom_message: "Extension note" } as Record<string,string>)[entry.type] ?? "Conversation event";
 }
 
 function nodeText(node: SessionTreeNode): string {

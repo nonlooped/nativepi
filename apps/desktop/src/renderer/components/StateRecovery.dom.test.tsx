@@ -51,7 +51,7 @@ domTest("provider discovery failure offers recovery without a false search resul
   expect(document.body.textContent).not.toContain("No providers match");
   expect(useAppStore.getState().conversations["/p"]?.error).not.toBe("Provider discovery failed");
   stubInvoke(async () => ({ providers: [] })); await click("Try again");
-  expect(document.body.textContent).toContain("No providers available");
+  expect(document.body.textContent).toContain("No AI services could be found");
 });
 domTest("About failures settle and can be retried instead of keeping ellipses", async () => {
   stubInvoke(async () => { throw new Error("Read failed"); });
@@ -87,7 +87,7 @@ domTest("authentication answer rejection remains visible with the retained form 
     authFlow: { providerId: "test", providerName: "Test", type: "api_key", projectDir: "/p", sessionFile: null, busy: false, notices: [], prompt: { id: "key", request: { kind: "secret", message: "API key" } } } });
   stubInvoke(async () => { throw new Error("Answer could not be delivered"); });
   const flow = useAppStore.getState().authFlow; useAppStore.setState({ authFlow: null });
-  await render(<ProviderSettings />); await click("Add provider"); await click("Test");
+  await render(<ProviderSettings />); await click("Connect an AI account"); await click("Test");
   await act(async () => { useAppStore.setState({ authFlow: flow }); useAppStore.getState().submitAuthPrompt("test-key"); });
   expect(document.body.textContent).toContain("Answer could not be delivered");
   expect(document.querySelector('input[type="password"]')).not.toBeNull();

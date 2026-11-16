@@ -1,5 +1,6 @@
+import SettingsDetails from "./SettingsDetails.tsx";
 import { copyText } from "@/lib/clipboard.ts";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
@@ -454,11 +455,12 @@ function ThemeImport({ onClose, onImport }: { onClose: () => void; onImport: (th
   const [json, setJson] = useState("");
   const [error, setError] = useState<string>();
 
-  const submit = () => {
+  const fileInput = useRef<HTMLInputElement>(null);
+  const submit = (source = json) => {
     try {
-      const parsed = themeFileSchema.safeParse(JSON.parse(json));
+      const parsed = themeFileSchema.safeParse(JSON.parse(source));
       if (!parsed.success) {
-        setError(parsed.error.issues[0]?.message ?? "The theme JSON is not valid.");
+        setError("This scheme is missing required colors. Choose an exported NativePi scheme file.");
         return;
       }
       const issues = (["light", "dark"] as const).flatMap((appearance) =>
@@ -474,7 +476,7 @@ function ThemeImport({ onClose, onImport }: { onClose: () => void; onImport: (th
       setJson("");
       setError(undefined);
     } catch {
-      setError("Paste a complete theme JSON object.");
+      setError("This is not a NativePi color scheme. Choose an exported scheme file or check the pasted text.");
     }
   };
 
@@ -483,8 +485,12 @@ function ThemeImport({ onClose, onImport }: { onClose: () => void; onImport: (th
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Import color scheme</DialogTitle>
-          <DialogDescription>Paste a NativePi color scheme with light and dark variants.</DialogDescription>
+          <DialogDescription>Choose a shared NativePi color scheme file. It includes light and dark appearances.</DialogDescription>
         </DialogHeader>
+        <input ref={fileInput} type="file" accept=".json,application/json" className="hidden" aria-label="Color scheme file" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void file.text().then(text => { setJson(text); submit(text); }).catch(() => setError("Could not read this file. Choose a NativePi scheme file and try again.")); }} />
+        <Button onClick={() => fileInput.current?.click()}>Choose scheme file…</Button>
+        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+        <SettingsDetails id="scheme-paste" title="Paste scheme text">
         <Field data-invalid={!!error || undefined}>
           <FieldLabel htmlFor="theme-json">Color scheme JSON</FieldLabel>
           <Textarea
@@ -501,9 +507,10 @@ function ThemeImport({ onClose, onImport }: { onClose: () => void; onImport: (th
           />
           {error ? <FieldError>{error}</FieldError> : null}
         </Field>
+        <div className="mt-3 flex justify-end"><Button variant="secondary" onClick={() => submit()} disabled={!json.trim()}>Import pasted scheme</Button></div>
+        </SettingsDetails>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={!json.trim()}>Import scheme</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

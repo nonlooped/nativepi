@@ -1,9 +1,12 @@
+import { stubInvoke } from "../lib/store/testBridge.ts";
 import { afterEach, expect, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { ThreadInputBoundary } from "./ThreadActivity.tsx";
+import ThreadActivity, { ThreadInputBoundary } from "./ThreadActivity.tsx";
 import { useAppStore } from "../lib/store.ts";
 import type { ThreadSnapshot } from "../../shared/orchestration.ts";
+globalThis.requestAnimationFrame = window.requestAnimationFrame.bind(window);
+globalThis.cancelAnimationFrame = window.cancelAnimationFrame.bind(window);
 const domTest = test.skipIf(typeof document === "undefined");
 let root: Root | undefined, container: HTMLDivElement | undefined;
 afterEach(async () => { if (root) await act(async () => root!.unmount()); root = undefined; container?.remove(); });
@@ -57,4 +60,24 @@ domTest("the delegate composer has static model/status with only navigation and 
   expect(container.querySelector('input, textarea, [contenteditable="true"], [data-model-picker-trigger], [aria-haspopup]')).toBeNull();
   expect([...container.querySelectorAll("button")].map(button => button.getAttribute("aria-label"))).toEqual(["Back to lead", "Stop delegate"]);
   expect(container.textContent).toContain("Running");
+});
+
+
+domTest("selecting an incoming chat message continues with only that message and clears the selection on acceptance", async () => {
+  const peer = { id: "peer-message",operationId:"peer-op",source:{...ref,title:"Review helper"},destination:lead,kind:"peer" as const,timestamp:new Date().toISOString(),content:"The review needs another look." };
+  const parent: ThreadSnapshot = { ref:lead,running:false,busy:false,inbox:[peer],pendingDelivery:[],readMessageIds:[],reports:[],delegates:[] };
+  useAppStore.setState({destination:"work",activeSessionFile:lead.file,orchestration:{revision:1,threads:[parent]}});
+  let accepted: unknown;
+  stubInvoke(async(name,params)=>{if(name==="wakeThread")accepted=params;return {ok:true};});
+  container=document.createElement("div");document.body.append(container);root=createRoot(container);
+  await act(async()=>root!.render(<ThreadActivity/>));
+  await act(async()=>container!.querySelector("summary")!.click());
+  const resume=[...container.querySelectorAll<HTMLButtonElement>("button")].find(b=>b.textContent==="Continue with selected messages")!;
+  expect(resume.disabled).toBe(true);
+  await act(async()=>(container!.querySelector('[role="checkbox"]') as HTMLElement).click());
+  expect(resume.disabled).toBe(false);
+  await act(async()=>resume.click());
+  expect(accepted).toEqual({threadId:"lead",messageIds:["peer-message"]});
+  expect(resume.disabled).toBe(true);
+  expect(container.textContent).toContain("Review helper");
 });

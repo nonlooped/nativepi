@@ -1,5 +1,5 @@
 import StateNotice from "../StateNotice.tsx";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import type { AuthProviderInfo } from "../../../shared/rpc-schema.ts";
@@ -38,7 +38,7 @@ function providerStatusLabel(provider: AuthProviderInfo): string {
   }
   if (provider.configured) return "Credentials aren't working";
   const methods = loginMethods(provider);
-  if (methods.length > 0) return "Not connected";
+  if (methods.length > 0) return provider.supportsOAuth ? "Subscription sign-in available" : "API key required";
   return "Set up with environment variables";
 }
 
@@ -50,12 +50,18 @@ export default function ProviderSettings() {
   const [selected, setSelected] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
+  const firstChoiceShown = useRef(false);
   const openPanel = useAppStore(s => s.openAppPanel);
   useEffect(() => { if (adding && selected && providers.some(provider => provider.id === selected && provider.ready)) setAdding(false); }, [adding, selected, providers]);
 
   const loading = useAppStore(s => s.providersLoading);
   const error = useAppStore(s => s.providersError);
   const reload = useAppStore(s => s.loadProviders);
+  useEffect(() => {
+    if (firstChoiceShown.current || !providersLoaded || loading || error || !providers.length) return;
+    firstChoiceShown.current = true;
+    if (!providers.some(p => p.ready || p.configured)) setAdding(true);
+  }, [providersLoaded, loading, error, providers]);
   if (error && !loading) return <StateNotice title="Could not load providers" detail={error} retry={() => void reload().catch(() => {})} />;
   if (!providersLoaded || loading) return <StateNotice loading title="Loading providers…" />;
 
@@ -64,21 +70,21 @@ export default function ProviderSettings() {
     ? providers.filter((provider) => provider.name.toLocaleLowerCase().includes(normalized))
     : providers;
   const connected = providers.filter(provider => provider.ready || provider.configured).toSorted(byProviderName);
-  const available = matching.filter(provider => !provider.ready && !provider.configured).toSorted(byProviderName);
+  const available = matching.filter(provider => !provider.ready && !provider.configured).toSorted((a,b) => Number(b.supportsOAuth) - Number(a.supportsOAuth) || byProviderName(a,b));
   return <div className="flex flex-col gap-7">
-    {!providers.length ? <p role="status" className="text-sm text-muted-foreground">No providers available. Check your Pi provider configuration.</p> : null}
+    {!providers.length ? <div role="status"><p className="text-sm text-muted-foreground">No AI services could be found.</p><Button variant="outline" size="sm" className="mt-2" onClick={() => void reload()}>Try loading accounts again</Button></div> : null}
     <div className="flex items-center justify-between gap-3">
-      <Button variant="outline" size="sm" onClick={() => { setSelected(null); setAdding(true); setQuery(""); }}>Add provider</Button>
+      <Button variant="outline" size="sm" onClick={() => { setSelected(null); setAdding(true); setQuery(""); }}>Connect an AI account</Button>
       <Button variant="ghost" size="sm" onClick={() => openPanel("usage")}>View usage</Button>
     </div>
     {connected.length ? <ProviderGroup heading="Connected accounts" providers={connected} selected={selected} setSelected={setSelected} authFlow={authFlow} cancelLogin={cancelLogin} />
-      : <p className="text-sm leading-6 text-body-muted-foreground">Connect a model provider to start chatting. NativePi uses Pi’s authentication and models.</p>}
+      : <p className="text-sm leading-6 text-body-muted-foreground">An AI provider is the service that supplies your models. Sign in with a supported subscription, or use an API key that may be billed separately.</p>}
     <Dialog open={adding} onOpenChange={open => { setAdding(open); if (!open && authFlow && !connected.some(provider => provider.id === authFlow.providerId)) cancelLogin(); }}>
       <DialogContent className="max-h-[min(40rem,calc(var(--app-height,100dvh)-2rem))] max-w-xl">
-        <DialogHeader><DialogTitle>Add provider</DialogTitle><DialogDescription>Choose a provider, then connect with a subscription or API key.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Connect an AI account</DialogTitle><DialogDescription>Choose your AI service. Supported subscriptions can sign in; API keys may have separate charges.</DialogDescription></DialogHeader>
         <Input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search providers" aria-label="Search providers" />
         <div className="@container/settings-content min-h-0 overflow-y-auto">
-          {available.length ? <ProviderGroup heading="Available providers" providers={available} selected={selected} setSelected={setSelected} authFlow={authFlow} cancelLogin={cancelLogin} /> : <p role="status" className="text-sm text-muted-foreground">{query.trim() ? `No providers match “${query.trim()}”.` : "All available providers are connected."}</p>}
+          {available.length ? <ProviderGroup heading="Available providers" providers={available} selected={selected} setSelected={setSelected} authFlow={authFlow} cancelLogin={cancelLogin} /> : <p role="status" className="text-sm text-muted-foreground">{!providers.length ? "No AI services were found. Close this chooser and try loading accounts again." : query.trim() ? `No providers match “${query.trim()}”.` : "All available providers are connected."}</p>}
         </div>
         <DialogFooter><Button variant="outline" size="sm" onClick={() => { setAdding(false); if (authFlow) cancelLogin(); }}>Done</Button></DialogFooter>
       </DialogContent>
@@ -211,8 +217,8 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
 function describeConnected(provider: AuthProviderInfo): string {
   if (!provider.ready)
     return "Pi has credentials for this provider but cannot use them, so its models stay out of the picker. Signing in again replaces them.";
-  if (provider.storedType === "oauth") return "Signed in with a subscription account through Pi.";
-  if (provider.storedType === "api_key") return "Connected with an API key stored by Pi.";
+  if (provider.storedType === "oauth") return "Signed in with your subscription account.";
+  if (provider.storedType === "api_key") return "Connected with an API key saved on this computer.";
   if (provider.authSource === "environment")
     return `Configured from your environment${provider.authLabel ? ` (${provider.authLabel})` : ""}. You can also sign in below.`;
   return "This provider is connected through Pi.";
@@ -372,8 +378,8 @@ function AuthPromptForm({
         </div>
         <FieldDescription>
           {isSecret
-            ? "The key is sent directly to Pi and stored in Pi's credential file."
-            : "This value is sent directly to Pi to complete sign-in."}
+            ? "The key is saved on this computer for requests to your selected AI service."
+            : "Used to finish signing in to your selected AI service."}
         </FieldDescription>
       </Field>
       <Button variant="ghost" size="sm" className="mt-3" onClick={cancelLogin}>Cancel</Button>
