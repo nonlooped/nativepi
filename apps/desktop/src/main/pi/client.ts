@@ -1,8 +1,10 @@
+import { browserRequest, browserCancel, browserResult } from "../../shared/browser.ts";
+import type { SharedBrowser } from "../browser/index.ts";
 import { computerController, computerFailure } from "../computerUse.ts";
 import { computerRequestSchema, computerCancelSchema } from "../../shared/computer-use.ts";
 import { orchestrationRequestSchema, orchestrationReplySchema, orchestrationCancelSchema, orchestrationOutcomeSchema, orchestrationSuppliedSchema, orchestrationRuntimeSchema, type ThreadReference } from "../../shared/orchestration.ts";
 import { fork, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isTuiFrameType, tuiHostFrameSchema, type TuiClientFrame, type TuiHostFrame } from "../../shared/tui-frames.ts";
 import type { AuthProviderInfo } from "../../shared/rpc-schema.ts";
@@ -78,6 +80,8 @@ export class PiProcess {
   private channelError?: Error;
   private closed = false;
   private stopTask?: Promise<void>;
+  private browser?: SharedBrowser;
+  private browserRequests = new Map<string, AbortController>();
   private computerAllowed = false;
   private computerFenced = false;
   private computerRequests = new Map<string, AbortController>();
@@ -139,6 +143,8 @@ export class PiProcess {
   }
   resetOrchestrationBinding(): void {
     this.cancelComputer();
+    this.browser?.dispose();
+    this.browser = undefined;
     void computerController.dispose(this);
     this.orchestrationSessionId = undefined;
     for (const controller of this.orchestrationRequests.values()) controller.abort();
@@ -168,7 +174,7 @@ export class PiProcess {
       silent: true,
       windowsHide: true,
     }) as ChildProcessWithoutNullStreams;
-    this.proc.on("message", (message: unknown) => { void this.handleComputer(message); void this.handleArtifactPreview(message); void this.handleOrchestration(message); });
+    this.proc.on("message", (message: unknown) => { void this.handleBrowser(message); void this.handleComputer(message); void this.handleArtifactPreview(message); void this.handleOrchestration(message); });
     this.proc.stdout.setEncoding("utf8");
     this.proc.stdout.on("data", (chunk: string) => {
       if (this.terminalError)
@@ -192,6 +198,8 @@ export class PiProcess {
       this.closed = true;
       this.cancelArtifactPreviews();
       this.cancelComputer();
+      this.browser?.dispose();
+      this.browser = undefined;
       void computerController.dispose(this);
       this.isRunning = false;
       this.terminalError ??= error ?? new Error(`Pi exited (${code ?? "?"})`);
@@ -249,8 +257,37 @@ export class PiProcess {
   }
   private cancelComputer(): void {
     this.computerFenced = true;
+    for (const controller of this.browserRequests.values()) controller.abort();
+    this.browser?.cancel();
     for (const controller of this.computerRequests.values()) controller.abort();
     computerController.release(this);
+  }
+  async showBrowser(): Promise<void> {
+    if (!this.computerAllowed || !this.isAvailable) throw new Error("Browser requires an available Work chat.");
+    const {SharedBrowser} = await import("../browser/index.ts");
+    this.browser ??= new SharedBrowser(this.boundSessionFile ? basename(this.boundSessionFile, ".jsonl") : basename(this.projectDir));
+    const state = await this.browser.run({action:"list"}) as {tabs:{tab:string}[]};
+    await this.browser.run(state.tabs[0] ? {action:"show",tab:state.tabs[0].tab} : {action:"open",url:"https://example.com"});
+  }
+  private async handleBrowser(raw: unknown): Promise<void> {
+    const cancel = browserCancel.safeParse(raw);
+    if (cancel.success) { this.browserRequests.get(cancel.data.requestId)?.abort(); return; }
+    const parsed = browserRequest.safeParse(raw);
+    if (!parsed.success || this.browserRequests.has(parsed.data.requestId)) return;
+    const {requestId, operation} = parsed.data;
+    const controller = new AbortController(); this.browserRequests.set(requestId,controller);
+    try {
+      if (!this.isAvailable || !this.computerAllowed || (!this.isRunning || this.computerFenced)) throw new Error("Browser requires an available Work chat.");
+      const {SharedBrowser} = await import("../browser/index.ts");
+      if (controller.signal.aborted) throw new Error("Browser cancelled.");
+      this.browser ??= new SharedBrowser(this.boundSessionFile ? basename(this.boundSessionFile, ".jsonl") : basename(this.projectDir));
+      const data = await this.browser.run(operation,controller.signal);
+      const image = operation.action === "screenshot" ? (data as {image: unknown}).image : undefined;
+      const result = browserResult.parse(JSON.parse(JSON.stringify({ok:true,data: image ? {tab:operation.action === "screenshot" ? operation.tab : undefined} : data,image})));
+      if(this.proc.connected) this.proc.send({type:"nativepi_browser_reply",requestId,result},()=>{});
+    } catch(error) {
+      if(this.proc.connected) this.proc.send({type:"nativepi_browser_reply",requestId,result:{ok:false,error:String(error).slice(0,4000)}},()=>{});
+    } finally { this.browserRequests.delete(requestId); }
   }
   private async handleComputer(raw: unknown): Promise<void> {
     const cancel = computerCancelSchema.safeParse(raw);
@@ -444,6 +481,8 @@ export class PiProcess {
       return;
     this.stopping = true;
     this.cancelComputer();
+    this.browser?.dispose();
+    this.browser = undefined;
     void computerController.dispose(this);
     this.cancelArtifactPreviews();
     this.terminalError ??= new Error("Pi is stopping");

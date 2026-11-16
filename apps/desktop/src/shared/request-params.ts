@@ -38,6 +38,7 @@ export const requestParams = {
   getChatTitleModels: z.object({ projectDir: path.optional(), sessionFile: path.nullable().optional() }),
   dictationStatus: empty, dictationInstall: z.object({ id }), dictationCancel: z.object({ id }),
   dictationTranscribe: z.object({ id, audio: dictationAudioSchema }), dictationMicrophone: empty,
+  browserShow: target,
   computerStatus: empty, computerPermissions: empty,
   abort: target, getModels: target, getState: target, getThinkingLevels: target,
   setModel: target.extend({ provider: id, modelId: id }), setThinkingLevel: target.extend({ level: thinking }),

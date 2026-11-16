@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Shared live browser in Work, including project-free chats: chat-owned temporary tabs, navigation, agent snapshots and actions, screenshots, diagnostics, and explicit human handoff for sign-in and consent.
 - Website downloads select the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every supported architecture.
 
 ### Added

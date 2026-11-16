@@ -1196,6 +1196,7 @@ const handlers: HandlerMap = {
   dictationCancel: () => { throw new Error("Dictation needs a client"); },
   dictationTranscribe: () => { throw new Error("Dictation needs a client"); },
   dictationMicrophone: () => dictationMicrophone(),
+  browserShow: async ({projectDir,sessionFile}) => { const pi = await ensurePi(projectDir,sessionFile ?? undefined); await pi.showBrowser(); return {ok:true}; },
   computerStatus: () => computerStatus(),
   computerPermissions: () => computerStatus(true),
   abort: async ({ projectDir, sessionFile }) => {
