@@ -174,6 +174,9 @@ export class AutomationService {
     }
     return run;
   }
+  ownsSession(id: string) {
+    return [...this.active.values()].some((a) => a.run.ref?.id === id);
+  }
   ownsWorkspace(cwd: string) {
     return [...this.active.values()].some(
       (a) =>

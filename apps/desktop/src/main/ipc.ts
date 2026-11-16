@@ -602,6 +602,7 @@ function orchestrationSnapshot(): OrchestrationSnapshot {
 }
 async function guardedOrchestration(ref: ThreadReference, action: "catalog" | "append" | "configure" | "dispatch" | "context" | "arm", payload?: unknown, signal?: AbortSignal, acquire = true): Promise<unknown> {
   signal?.throwIfAborted();
+  if (action === "dispatch" && automations.ownsWorkspace(ref.cwd) && !automations.ownsSession(ref.id) && !automations.ownsSession(orchestration.snapshot(ref.id).relationship?.lead.id ?? "")) throw new Error("busy: Automation owns this workspace; Stop it before dispatching another writer.");
   if (shuttingDown || restartingAll || restartingProjects.has(ref.cwd)) throw new Error("stopped: Host is stopping");
   const actual = await referenceForFile(ref.file);
   if (actual.id !== ref.id || actual.cwd !== ref.cwd) throw new Error("external_session_change: Thread identity changed");
