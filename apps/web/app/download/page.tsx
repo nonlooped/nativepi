@@ -11,11 +11,28 @@ import { site } from "@/lib/site";
 import "../landing.css";
 import "./download.css";
 
+const title = "Download NativePi for Windows, macOS, and Linux";
+const description = "Download NativePi for Windows, macOS, and Linux. Free and open source, with Pi included.";
+
 export const metadata: Metadata = {
-  title: "Download",
-  description: "Download NativePi for Windows, macOS, and Linux. Free and open source, with Pi included.",
+  title: { absolute: title },
+  description,
   alternates: { canonical: "/download" },
-  openGraph: { title: "Download NativePi", url: "/download" },
+  // Next replaces nested metadata objects instead of merging their fields.
+  openGraph: {
+    type: "website",
+    url: "/download",
+    siteName: site.name,
+    title,
+    description,
+    images: [site.shareImage],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: [site.shareImage],
+  },
 };
 
 const platforms: { id: DesktopPlatform; note?: string; Mark: typeof AppleMark }[] = [

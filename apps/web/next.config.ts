@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 import { networkInterfaces } from "node:os";
 
+import { site } from "./lib/site";
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   // Next's development client must also initialize through this machine's LAN URL.
@@ -10,6 +12,14 @@ const nextConfig: NextConfig = {
   ),
   experimental: {
     optimizePackageImports: ["@phosphor-icons/react"],
+  },
+  async redirects() {
+    return [{
+      source: "/:path*",
+      has: [{ type: "host", value: "nativepi\\.vercel\\.app" }],
+      destination: `${site.url}/:path*`,
+      permanent: true,
+    }];
   },
   async headers() {
     return [

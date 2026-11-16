@@ -19,7 +19,7 @@ export function Introduction() {
         <div className="intro-main">
           <div className="intro-content" data-enter>
             <h1 id="intro-title">Pi, on your<br /> desktop.</h1>
-            <p className="intro-description">A desktop workspace for the Pi coding agent.<span className="intro-extra"> For conversations and work on your machine.</span></p>
+            <p className="intro-description">A desktop app for the Pi coding agent.<span className="intro-extra"> Your Pi sessions and extensions, in one workspace.</span></p>
             <div className="landing-actions">
               <DownloadButton />
               <a className="landing-button landing-button-secondary" href={site.repo} target="_blank" rel="noreferrer noopener"><GitHubMark />Star on GitHub</a>

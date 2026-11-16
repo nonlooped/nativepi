@@ -8,7 +8,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
   title: {
-    default: `${site.name} | ${site.tagline}`,
+    default: site.title,
     template: `%s | ${site.name}`,
   },
   description: site.description,
@@ -34,15 +34,15 @@ export const metadata: Metadata = {
     type: "website",
     url: site.url,
     siteName: site.name,
-    title: `${site.name} | ${site.tagline}`,
+    title: site.title,
     description: site.description,
-    images: [{ url: "/share.png", width: 1200, height: 630, alt: "NativePi. Pi, on your desktop." }],
+    images: [site.shareImage],
   },
   twitter: {
     card: "summary_large_image",
-    title: `${site.name} | ${site.tagline}`,
+    title: site.title,
     description: site.description,
-    images: ["/share.png"],
+    images: [site.shareImage],
   },
   robots: { index: true, follow: true },
 };

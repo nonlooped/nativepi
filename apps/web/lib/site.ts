@@ -8,10 +8,17 @@ const latestRelease = "https://github.com/nonlooped/nativepi/releases/latest";
 
 export const site = {
   name: "NativePi",
+  title: "NativePi — Desktop App for the Pi Coding Agent",
   tagline: "Pi, on your desktop.",
   description:
     "A free, open-source desktop interface for the Pi coding agent on Windows, macOS, and Linux. Your Pi sessions, credentials, and configuration stay where they are.",
   url: "https://nativepi.nonlooped.xyz",
+  shareImage: {
+    url: "/share.png",
+    width: 1200,
+    height: 630,
+    alt: "NativePi. Pi, on your desktop.",
+  },
   repo: "https://github.com/nonlooped/nativepi",
   releases: "https://github.com/nonlooped/nativepi/releases",
   releasesLatest: latestRelease,

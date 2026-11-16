@@ -12,6 +12,10 @@ bun run --cwd apps/web dev
 
 The site runs on <http://localhost:3000>.
 
+With the site running, `bun run --cwd apps/web test:seo` checks the emitted
+download metadata and legacy-host redirects. Set `NATIVEPI_SEO_ORIGIN` to use
+another local HTTP port, including a production server.
+
 For another device on the same network, use this machine's LAN address on port
 3000. The Next.js configuration allows dev requests from IPv4 addresses assigned
 to this host, so its interactive client also initializes through the LAN URL.
@@ -46,7 +50,10 @@ Root Directory** enabled. `vercel.json` supplies install and build commands.
 
 `lib/site.ts` holds the canonical origin and public release links. `robots.txt`
 and `sitemap.xml` use that origin; the sitemap lists the landing and download
-pages. Vercel Web Analytics is enabled.
+pages. Modification dates are omitted rather than changed on unrelated builds.
+The legacy `nativepi.vercel.app` host permanently redirects to the canonical
+origin while preserving paths and queries. Deleted docs still return 404 on
+the canonical host. Vercel Web Analytics is enabled.
 
 ## Structure
 

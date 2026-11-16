@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Improve website search titles and download sharing previews, identify NativePi in structured data, redirect the legacy hostname, and keep the free/open-source and bundled-Pi note visible on short screens.
+
 ## [1.19.0] - 2026-11-15
 
 ### Added
