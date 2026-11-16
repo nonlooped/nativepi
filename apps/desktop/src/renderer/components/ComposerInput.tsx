@@ -166,6 +166,7 @@ export default function ComposerInput({
   const offeredSuggestion = value.length === 0 && !disabled && !complete.open ? suggestion : null;
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest("[data-remove-annotation]")) return;
     // The open menu owns Enter and the arrows; sending is what Enter means only
     // once there is nothing to insert.
     if (complete.onKeyDown(event)) return;
@@ -214,6 +215,14 @@ export default function ComposerInput({
           complete.open ? `composer-autocomplete-${complete.options[complete.active]?.value ?? ""}` : undefined
         }
         onInput={emit}
+        onClick={(event) => {
+          const remove = (event.target as HTMLElement).closest("[data-remove-annotation]");
+          if (!remove || disabled) return;
+          event.preventDefault();
+          remove.closest('[data-chip="browser"]')?.remove();
+          emit();
+          root.current?.focus();
+        }}
         onKeyDown={onKeyDown}
         onBlur={complete.close}
         // Rich clipboard content would arrive as markup this editor does not

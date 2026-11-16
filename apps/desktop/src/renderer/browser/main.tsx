@@ -1,3 +1,4 @@
+import { CursorClickIcon } from "@phosphor-icons/react/CursorClick";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { create } from "zustand";
@@ -246,6 +247,7 @@ function BrowserChrome() {
             >
               <PlusIcon />
             </IconAction>
+            {active && <IconAction label="Select element for message" disabled={state.selecting || state.loading || !!state.error} onClick={() => void send("annotate")}><CursorClickIcon /></IconAction>}
             {active && (
               <Button
                 variant={state.handoff ? "secondary" : "ghost"}
@@ -340,6 +342,7 @@ function BrowserChrome() {
             <ArrowRightIcon />
           </Button>
         </form>
+        {state.selecting ? <div role="status" className="flex items-center gap-2 border-b bg-accent px-4 py-2 text-xs text-accent-foreground"><CursorClickIcon className="size-4 shrink-0" /><span className="min-w-0 flex-1">Click an element to add to your message. Esc cancels.</span><Button size="xs" variant="outline" onClick={() => void send("cancelAnnotation")}>Cancel</Button></div> : null}
         {state.notice ? <div role="status" className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-xs leading-5 text-body-muted-foreground"><WarningCircleIcon className="size-4 shrink-0" /><span className="min-w-0 flex-1">{state.notice.message}</span>{state.notice.url ? <Button type="button" size="xs" variant="outline" title="Opens outside this chat; you may need to sign in there" onClick={() => void send("openExternal", { url: state.notice?.url })}>Open in usual browser</Button> : null}<IconAction label="Dismiss notice" onClick={() => void send("dismissNotice")}><XIcon /></IconAction></div> : null}
         {error && (
           <div

@@ -1,9 +1,26 @@
+import { usePaneStore } from "../lib/store.ts";
+import { insertBrowserAnnotation } from "../lib/browserAnnotations.ts";
+import { showHint } from "../lib/toast.tsx";
 import { NO_DRAG_REGION } from "../lib/utils.ts";
 import { useEffect, useRef, useState } from "react";
 export function useBrowserPanel(context: string) {
+  const store = usePaneStore();
   const [id, setId] = useState<string | null>(null);
   useEffect(() => window.nativepi?.browserPanel?.onChange(setId), []);
   useEffect(() => { setId(null); }, [context]);
+  useEffect(() => window.nativepi?.browserPanel?.onAnnotation(raw => {
+    const result = insertBrowserAnnotation(store, raw);
+    if (result.error) showHint(result.error);
+    if (!result.added) return;
+    const { activeProjectPath, activeSessionFile } = store.getState();
+    requestAnimationFrame(() => {
+      // A chat change during the frame must not focus a different draft.
+      const current = store.getState();
+      if (current.activeProjectPath !== activeProjectPath || current.activeSessionFile !== activeSessionFile) return;
+      const pane = document.querySelector('[data-workspace-pane][data-pane-active="true"]') ?? document;
+      pane.querySelector<HTMLElement>('[data-composer-input][contenteditable="true"]')?.focus();
+    });
+  }), [store]);
   return id;
 }
 export function BrowserPanel({ id, hidden }: { id: string; hidden: boolean }) {
