@@ -44,7 +44,7 @@ export function subscribeTurnCompletion(store: CompletionStore = useAppStore): (
             notification.close();
             notifications.delete(notification);
             void window.nativepi?.focusWindow?.().catch(report);
-            void store.getState().selectChat(sessionFile, projectDir).catch(report);
+            void focusedPaneStore().getState().selectChat(sessionFile, projectDir).catch(report);
           };
         } catch (error) { report(error); }
       };

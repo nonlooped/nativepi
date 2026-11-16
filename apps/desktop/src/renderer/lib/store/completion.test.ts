@@ -108,3 +108,16 @@ test("Pi assistant errors identify a failed turn without a separate UI error", (
   finish({ entries: [{ type: "message", id: "failed", parentId: null, timestamp: "2026-11-15T00:00:00Z", message: { role: "assistant", content: [], stopReason: "error" } }] });
   expect(notices[0]?.options.body).toContain("Failed");
 });
+
+test("notification clicks use the pane focused at click time after the observer pane closes", async () => {
+  const { store: observer, finish, selections: observedSelections } = fixture();
+  const target = createStore<AppState>()(createAppState);
+  const selections: unknown[] = [];
+  target.setState({ selectChat: async (...args) => { selections.push(args); } });
+  finish();
+  observer.setState({ activeProjectPath: null, activeSessionFile: null });
+  focusPaneStore(target as PaneStore);
+  notices[0]!.onclick!();
+  expect(selections).toEqual([["chat", "/repo"]]);
+  expect(observedSelections).toEqual([]);
+});
