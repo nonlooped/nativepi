@@ -6,14 +6,29 @@ Windows, macOS, and Linux desktop (Electron)
 
 ## Users
 
-NativePi serves two primary groups equally:
+NativePi serves people who want to get work done with an agent, including people who are not technically savvy:
 
 - Existing Pi users who want a polished desktop workflow without losing Pi's capabilities, sessions, configuration, or extensions.
-- Developers who prefer a graphical coding-agent experience and do not want terminal knowledge to be a prerequisite.
+- People who want a graphical agent experience for projects and everyday work without needing developer or terminal knowledge.
 
-Both groups use NativePi for local project work and general work on their devices. Basic workflows must remain approachable, while advanced Pi capabilities are available through progressive disclosure.
+Do not assume familiarity with Pi, coding agents, Git, branches, worktrees, command-line tools, or the app's architecture. Existing Pi users and developers remain important users, but their expertise must not be a prerequisite for the everyday interface. Advanced capabilities remain available through progressive disclosure.
 
-NativePi is optimized for its primary desktop workflow and expert users. Accessibility is not a product goal, differentiator, or release criterion, and it does not justify adding redundant controls or alternate interaction paths that compromise the intended interface.
+NativePi is optimized for its primary desktop workflow. Accessibility is not a product goal, differentiator, or release criterion, and it does not justify adding redundant controls or alternate interaction paths that compromise the intended interface. Understandable everyday interaction is a product requirement for everyone.
+
+## UI and UX Requirements
+
+Read and apply this section before designing or implementing any new feature or UI enhancement. This includes technical features such as workspaces, code review, extensions, and background execution. Working backend functionality alone does not make a feature ready to ship.
+
+- **Design around the person's task.** Start with what they want to accomplish and the next useful action. Do not turn backend options, state records, or implementation steps into a form the person must decipher.
+- **Make the normal path simple.** Provide sensible defaults and one clear primary action for the current step. Users must not configure every available option before starting. Keep specialist controls in contextual settings or an advanced disclosure without removing their capabilities.
+- **Use plain language.** Name actions by their outcome. Explain an unfamiliar concept briefly where it first matters; a technical label is not its own explanation. For example, offer a separate workspace with a short explanation of what happens to the current files, rather than assuming the person understands a Git worktree or starting ref. Keep precise technical terms available where an expert needs them.
+- **Give each surface a clear purpose.** Keep starting work, configuring it, inspecting results, and browsing history distinct. Use focused dialogs, compact lists, and contextual details. Do not collect configuration, logs, history, permissions, and diagnostics in one long modal or dashboard.
+- **Match the established app.** Use main's existing UI as the visual reference: its typography, spacing, density, alignment, control sizes, themes, and interaction patterns. Reuse the existing shadcn/base-ui primitives and shared pickers. Do not introduce raw browser selects or checkboxes, improvised disclosure controls, generic form stacks, redundant cards, or a separate visual style for each feature.
+- **Keep everyday copy about the task.** Avoid walls of instructions, repeated caveats, implementation terminology, IDs, hashes, and internal state names in the normal flow. Put diagnostics, exact evidence, paths, and advanced configuration behind relevant details. Explain permissions, irreversible effects, and material limitations at the decision where the person needs them; keep those explanations concise and concrete.
+- **Make state and recovery understandable.** Show what is happening, what finished, and what the person can do next. Empty, loading, running, failed, and completed states must be distinct. Errors need a useful recovery action. Preserve drafts, selections, and ongoing work while people navigate. Do not imply that an agent finishing means its work was verified or accepted.
+- **Review the real experience.** Create, inspect, enhance, polish, and repeat. Compare the new surface with the established app in a running build, including representative empty, configured, running, result, and failure states. Check narrow layouts and light/dark appearances. Capture before/after evidence outside the repository. Passing tests or using the right component library is not evidence that the design is good.
+
+Before calling UI work finished, verify that a person unfamiliar with the implementation can identify its purpose, take the main action, understand the result, and recover from a problem without an explanation from its developer. If the interface needs a tutorial to make its basic flow understandable, simplify that flow first. Preserve NativePi's calm, polished desktop character as features are added.
 
 ## Product Purpose
 
@@ -134,7 +149,7 @@ Switching files, sessions, or projects retains unsaved buffers in memory. Closin
 ## Product Principles
 
 1. Pi is the product core: call Pi and present its result instead of rebuilding its behavior.
-2. Serve new and experienced users together: make the basic path obvious and reveal advanced Pi capabilities progressively.
+2. Assume no technical expertise in everyday workflows; keep advanced Pi capabilities available through progressive disclosure.
 3. Protect local work: keep Pi sessions authoritative, preserve drafts, and fail conservatively around external session changes.
 4. Prefer direct, understandable behavior over speculative infrastructure or hidden automation.
 5. Keep user trust explicit through local-by-default operation, no NativePi-owned telemetry, honest extension trust boundaries, and narrowly scoped Git operations.
