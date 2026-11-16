@@ -44,3 +44,9 @@ test("renderer definitions are rejected before contribution code can run", async
   expect(validateRenderer({ apiVersion: 1, panels: [{ id: "summary", title: "Summary", render }] }))
     .toMatchObject({ apiVersion: 1, panels: [{ id: "summary", title: "Summary" }] });
 });
+
+test("required host capabilities negotiate additively with actionable recovery", async () => {
+  const { validateRenderer } = await import("./extensionHost.ts");
+  expect(validateRenderer({ apiVersion: 1, requires: ["scoped-handles"] }).apiVersion).toBe(1);
+  expect(() => validateRenderer({ apiVersion: 1, requires: ["future-feature"] })).toThrow("Update NativePi");
+});

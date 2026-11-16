@@ -2,7 +2,7 @@ import { createExtensionModuleCache } from "./extensionModules.ts";
 import * as React from "react";
 import * as JsxRuntime from "react/jsx-runtime";
 import * as JsxDevRuntime from "react/jsx-dev-runtime";
-import { defineProtocol, defineRenderer, extensionApiVersion, version } from "@nativepi/extension-api";
+import { defineProtocol, defineRenderer, extensionApiVersion, hostCapabilities, version } from "@nativepi/extension-api";
 import type { NativePiRenderer, ValueSchema } from "@nativepi/extension-api";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -41,7 +41,7 @@ function ExtensionConversationTranscript(props: React.ComponentProps<typeof Lazy
 
 // Re-exported to extensions through `__NATIVEPI_HOST__`, so the values they see
 // are the package's own rather than a second copy that can drift from it.
-const extApi = { version, extensionApiVersion, defineProtocol, defineRenderer };
+const extApi = { version, extensionApiVersion, hostCapabilities, defineProtocol, defineRenderer };
 const extSchema = { z };
 
 // The menu is published under neutral names so an extension is not written
@@ -122,6 +122,7 @@ const keyedRenderSchema = z.object({ id: nameSchema, render: renderSchema });
 const rendererSchema = z.object({
   apiVersion: z.literal(extensionApiVersion),
   protocol: protocolSchema.optional(),
+  requires: z.array(nameSchema).optional(),
   tools: z.record(nameSchema, renderSchema).optional(),
   entries: z.record(nameSchema, renderSchema).optional(),
   composerWidgets: z.array(keyedRenderSchema.extend({ placement: z.enum(["aboveComposer", "belowComposer"]) })).optional(),
@@ -142,6 +143,9 @@ export function validateRenderer(value: unknown): NativePiRenderer {
   }
   const parsed = rendererSchema.safeParse(value);
   if (!parsed.success) throw new Error(rendererError(parsed.error));
+
+  const unsupported = parsed.data.requires?.filter(feature => !(hostCapabilities as readonly string[]).includes(feature));
+  if (unsupported?.length) throw new Error(`This renderer requires unsupported NativePi features: ${unsupported.join(", ")}. Update NativePi or install a compatible extension version. The Pi entry remains available.`);
 
   for (const [slot, contributions] of [
     ["composerWidgets", parsed.data.composerWidgets],

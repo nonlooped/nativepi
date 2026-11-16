@@ -1,3 +1,5 @@
+import { createExtensionBinding } from "../lib/extensionBinding.ts";
+import { runtime, runtimeEpoch } from "../lib/store/internals.ts";
 import { copyText } from "@/lib/clipboard.ts";
 import type {
   ExtensionProtocol,
@@ -25,7 +27,7 @@ import { SettingsSection } from "./settings/rows.tsx";
 
 const TuiAutoPane = lazy(() => import("./TuiSurface.tsx").then((module) => ({ default: module.TuiAutoPane })));
 
-type BaseContext = Pick<RendererContext, "project" | "session" | "agent"> & { draftGeneration: number; store: PaneStore };
+type BaseContext = Pick<RendererContext, "project" | "session" | "agent" | "composer"> & { draftGeneration: number; store: PaneStore };
 
 const EMPTY_PROTOCOL: ExtensionProtocol = { methods: {}, events: {} };
 
@@ -41,25 +43,33 @@ function parse<Output extends JsonValue | undefined>(schema: ValueSchema<Output>
   }
 }
 
-/**
- * The channel half of an extension's context, made once per extension.
- *
- * Stable across renders on purpose: an extension subscribing in `useEffect`
- * would otherwise resubscribe on every render, since the context object itself
- * is rebuilt each time. Both functions read the session when they are called
- * rather than when they are built, which is also the correct reading — a call
- * fired from a click belongs to the session on screen then, not at render.
- */
-const paneBridges = new WeakMap<PaneStore, Map<string, { protocol: ExtensionProtocol; channel: RendererChannel }>>();
+const paneBindings = new WeakMap<PaneStore, Map<LoadedExtension, ReturnType<typeof bindingFor>>>();
+function bindingFor(extension: LoadedExtension, store: PaneStore) {
+  const selected = store.getState();
+  const epoch = runtimeEpoch(store.getState, selected.activeProjectPath);
+  const binding = createExtensionBinding(() => {
+    const state = store.getState();
+    return runtimeEpoch(store.getState, selected.activeProjectPath) === epoch && !runtime(store.getState).disposed && state.selectionVersion === selected.selectionVersion &&
+      state.activeProjectPath === selected.activeProjectPath && state.activeSessionFile === selected.activeSessionFile &&
+      state.extRenderers.includes(extension);
+  }, store.subscribe);
+  return { ...binding, channel: null as RendererChannel | null, actions: null as RendererActions | null };
+}
+function viewBinding(extension: LoadedExtension, store: PaneStore) {
+  let bindings = paneBindings.get(store);
+  if (!bindings) { bindings = new Map(); paneBindings.set(store, bindings); }
+  for (const [key, value] of bindings) if (!value.valid()) bindings.delete(key);
+  let binding = bindings.get(extension);
+  if (!binding) { binding = bindingFor(extension, store); bindings.set(extension, binding); }
+  return binding;
+}
+type ViewBinding = ReturnType<typeof bindingFor>;
 
-function bridgeFor(extension: string, protocol: ExtensionProtocol, useAppStore: PaneStore): RendererChannel {
-  let bridges = paneBridges.get(useAppStore);
-  if (!bridges) { bridges = new Map(); paneBridges.set(useAppStore, bridges); }
-  const existing = bridges.get(extension);
-  if (existing?.protocol === protocol) return existing.channel;
-
+function bridgeFor(extension: string, protocol: ExtensionProtocol, useAppStore: PaneStore, binding: ViewBinding): RendererChannel {
+  if (binding.channel) return binding.channel;
   const channel = {
     call: async (method: string, params?: JsonValue) => {
+      binding.assert();
       const schema = protocol.methods[method];
       if (!schema) throw new Error(`Extension ${extension} has no declared method "${method}"`);
       let parsedParams: JsonValue | undefined;
@@ -78,6 +88,7 @@ function bridgeFor(extension: string, protocol: ExtensionProtocol, useAppStore: 
         ...(parsedParams === undefined ? {} : { params: parsedParams }),
       });
       if (error) throw new Error(error);
+      binding.assert();
       const current = useAppStore.getState();
       if (current.activeProjectPath !== projectDir || current.activeSessionFile !== sessionFile) {
         throw new Error("Chat changed before the extension call completed");
@@ -85,9 +96,11 @@ function bridgeFor(extension: string, protocol: ExtensionProtocol, useAppStore: 
       return parse(schema.result, result, `Invalid result from "${method}"`);
     },
     on: (event: string, handler: (payload?: JsonValue) => void) => {
+      binding.assert();
       if (!(event in protocol.events)) throw new Error(`Extension ${extension} has no declared event "${event}"`);
       const schema = protocol.events[event];
-      return subscribeToExtension(extension, (name, payload) => {
+      return binding.own(subscribeToExtension(extension, (name, payload) => {
+        if (!binding.valid()) return;
         if (name !== event) return;
         if (!schema) {
           if (payload !== undefined) throw new Error(`Event "${event}" received an unexpected payload.`);
@@ -95,14 +108,12 @@ function bridgeFor(extension: string, protocol: ExtensionProtocol, useAppStore: 
           return;
         }
         (handler as (payload: JsonValue | undefined) => void)(parse(schema, payload, `Invalid payload for "${event}"`));
-      }, useAppStore.getState);
+      }, useAppStore.getState));
     },
   } as unknown as RendererChannel;
-  bridges.set(extension, { protocol, channel });
+  binding.channel = channel;
   return channel;
 }
-
-const paneActions = new WeakMap<PaneStore, Map<string, RendererActions>>();
 
 function projectRelativeFile(file: string): string {
   const normalized = file.replace(/\\/g, "/");
@@ -119,21 +130,24 @@ function projectRelativeFile(file: string): string {
   return file;
 }
 
-function actionsFor(extension: string, useAppStore: PaneStore): RendererActions {
-  let actions = paneActions.get(useAppStore);
-  if (!actions) { actions = new Map(); paneActions.set(useAppStore, actions); }
-  const existing = actions.get(extension);
-  if (existing) return existing;
+function actionsFor(extension: string, useAppStore: PaneStore, binding: ViewBinding): RendererActions {
+  if (binding.actions) return binding.actions;
   const next: RendererActions = {
-    notify: (message, tone) => showExtensionNotification(`${extension}: ${message}`, tone),
-    insertIntoComposer: (text) => useAppStore.getState().insertIntoComposer(text),
+    notify: (message, tone) => { binding.assert(); showExtensionNotification(`${extension}: ${message}`, tone); },
+    insertIntoComposer: (text) => {
+      binding.assert();
+      if (!composerWritable(useAppStore.getState())) throw new Error("This conversation has a read-only composer.");
+      useAppStore.getState().insertIntoComposer(text);
+    },
     openExternal: async (url) => {
+      binding.assert();
       const parsed = new URL(url);
       if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error("Only http(s) URLs can be opened.");
       const result = await rpc.request.openExternal({ url: parsed.href });
       if (!result.ok) throw new Error("NativePi could not open that URL.");
     },
     openFile: async (file, location) => {
+      binding.assert();
       const state = useAppStore.getState();
       if (!state.activeProjectPath) throw new Error("No project is open.");
       const { line, column } = location ?? {};
@@ -147,25 +161,38 @@ function actionsFor(extension: string, useAppStore: PaneStore): RendererActions 
       if (!result.ok) throw new Error(result.error ?? `NativePi could not open ${file}.`);
     },
     revealFile: async (file) => {
+      binding.assert();
       const projectDir = useAppStore.getState().activeProjectPath;
       if (!projectDir) throw new Error("No project is open.");
       const result = await rpc.request.showInFolder({ path: absoluteProjectPath(projectDir, projectRelativeFile(file)) });
       if (!result.ok) throw new Error(`NativePi could not reveal ${file}.`);
     },
-    copyText: async (text) => { if (!await copyText(text)) throw new Error("Could not copy text."); },
+    copyText: async (text) => {
+      binding.assert();
+      if (!await copyText(text)) throw new Error("Could not copy text.");
+    },
   };
-  actions.set(extension, next);
+  binding.actions = next;
   return next;
 }
 
+function composerWritable(state: ReturnType<PaneStore["getState"]>) {
+  if (state.destination !== "work" || !state.activeSessionFile) return true;
+  const thread = state.orchestration.threads.find(thread => thread.ref.file === state.activeSessionFile);
+  return state.confirmedNewLead === state.activeSessionFile || !!(state.orchestrationLoaded && thread &&
+    thread.available !== false && !thread.roleUnavailable && !thread.relationship && !state.orchestrationError);
+}
+
 function contextFor(base: BaseContext, extension: LoadedExtension): RendererContext {
+  const binding = viewBinding(extension, base.store);
   return {
+    composer: base.composer,
     project: base.project,
     session: base.session,
     agent: base.agent,
     extension: { id: extension.id, name: extension.name },
-    channel: bridgeFor(extension.name, extension.renderer.protocol ?? EMPTY_PROTOCOL, base.store),
-    actions: actionsFor(extension.name, base.store),
+    channel: bridgeFor(extension.name, extension.renderer.protocol ?? EMPTY_PROTOCOL, base.store, binding),
+    actions: actionsFor(extension.name, base.store, binding),
   };
 }
 
@@ -180,8 +207,9 @@ function useRendererContext(): BaseContext {
   const status = useAppStore((s) => s.activeProjectPath ? (s.piStatus[s.activeProjectPath] ?? "idle") : "idle");
   const model = useAppStore((s) => s.model);
   const thinkingLevel = useAppStore((s) => s.thinkingLevel);
+  const writable = useAppStore(composerWritable);
   return {
-    draftGeneration, store,
+    draftGeneration, store, composer: { writable },
     project: { path: projectDir ?? "", name: projectName ?? projectDir ?? "" },
     session: { file: sessionFile, name: sessionName },
     agent: { status, running, model, thinkingLevel },
@@ -197,12 +225,13 @@ function ExtensionContribution({ render }: { render: () => ReactNode }) {
 // channel functions. A new key remounts that work for a chat change, so a slow
 // response from the old chat has no component left to update.
 function sessionKey(ctx: BaseContext) {
-  return JSON.stringify([ctx.project.path, ctx.session.file, ctx.session.file ? null : ctx.draftGeneration]);
+  return JSON.stringify([ctx.project.path, ctx.session.file, ctx.draftGeneration]);
 }
 
 export function ExtensionToolResult({ call, result }: { call: ToolCall; result?: ToolResultMessage }) {
   const renderers = useAppStore((s) => s.extRenderers);
   const base = useRendererContext();
+  const progress = useAppStore(s => activeConversation(s).toolProgress?.[call.id]);
 
   for (const ext of renderers) {
     const render = ext.renderer.tools?.[call.name];
@@ -217,6 +246,7 @@ export function ExtensionToolResult({ call, result }: { call: ToolCall; result?:
             render({
               call: { id: call.id, name: call.name, arguments: call.arguments },
               result: toolResult,
+              progress: result ? undefined : progress,
               context: contextFor(base, ext),
             })
           }

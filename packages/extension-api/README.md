@@ -13,6 +13,9 @@ A package can have two independent entries:
 The two entries communicate through a typed, runtime-validated protocol. They
 do not share process memory, and the renderer is never loaded by Pi's CLI.
 
+See the [compatibility matrix and lifecycle guide](COMPATIBILITY.md) and the
+[runnable activity example](examples/activity/README.md).
+
 ## Install
 
 When a renderer is purely visual, a development dependency is enough:
@@ -113,6 +116,8 @@ export default function counterExtension(pi: ExtensionAPI) {
     },
   });
 
+  pi.on("session_shutdown", () => nativepi.dispose());
+
   pi.registerCommand("counter", {
     description: "Show the current counter",
     handler: async (_args, context) => {
@@ -191,6 +196,7 @@ function Counter({
 
 export default defineRenderer({
   apiVersion: 1,
+  requires: ["scoped-handles", "host-dispose"],
   protocol: counterProtocol,
   composerControls: [
     {
@@ -203,16 +209,18 @@ export default defineRenderer({
 
 `context.channel.call` validates parameters before IPC and validates the result
 again when it returns. `context.channel.on` validates each event payload before
-the listener runs. Both functions keep stable identities until the extension is
-reloaded, so they are safe effect dependencies. Calls reject after 30 seconds or
-when the user switches chats before the result returns.
+the listener runs. Both functions keep stable identities within one pane selection and loaded
+renderer, so they are safe effect dependencies. Old handles reject after a
+selection change or runtime reload instead of following global focus. Calls
+also reject after the transport timeout. Already delivered work is not undone.
 
 ## Contributions
 
 All graphical surfaces are optional and controlled by NativePi:
 
 - `tools` maps a Pi tool name to an inline renderer. It receives `call`, the
-  optional `result` while a tool is running, and `context`.
+  final `result` when complete, transient `progress` text/details during execution,
+  and `context`. Require `tool-progress` when relying on intermediate updates.
 - `entries` maps a Pi session-entry type to a renderer.
 - `composerWidgets` places keyed content immediately above or below the
   composer. Keep it short; detailed content belongs in a panel or dialog.

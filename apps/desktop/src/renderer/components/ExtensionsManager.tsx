@@ -246,7 +246,17 @@ export default function ExtensionsManager({ projectDir: context, resources = [] 
       </div>
       {query.trim() && !packageRows.some(pkg => matches(pkg.source)) && !localExtensions?.some(extension => matches(extension.path)) ? <p role="status" className="text-sm text-muted-foreground">No matching packages.</p> : null}
     </>}
-    {graphicalErrors.length || errors.length ? <StateNotice title="Some extensions could not load" detail={[...errors, ...graphicalErrors.map(error => `${error.name}: ${error.error}`)].join("\n")} /> : null}
+    {graphicalErrors.length || errors.length ? <div className="flex flex-col gap-3">
+      <StateNotice title="Some extensions could not load" detail={[...errors, ...graphicalErrors.map(error => `${error.name}: ${error.error}`)].join("\n")} />
+      <p className="text-xs text-muted-foreground">Fix the source or install a compatible package, then reload. An optional graphical error does not disable the package’s Pi entry.</p>
+      <div><Button variant="outline" size="sm" disabled={running || busy !== null} onClick={async () => {
+        setBusy("reload"); setActionError(undefined);
+        try { await reloadExtensions(); refresh(); }
+        catch (error) { setActionError(actionErrorMessage(error, "Extensions could not reload.")); }
+        finally { setBusy(null); }
+      }}>{busy === "reload" ? "Reloading…" : "Reload extensions"}</Button></div>
+      {running ? <p className="text-xs text-muted-foreground">Wait for running turns to finish before reloading.</p> : null}
+    </div> : null}
     <ExtensionSettings />
     <ConfirmDialog open={pendingRemoval !== null} title="Remove this package?" description={<>Pi will no longer load this source for {pendingRemoval?.scope === "project" ? "this project" : "your user account"}. You can install it again from the same source.</>} detail={pendingRemoval?.source} confirmLabel="Remove package" destructive onCancel={() => setPendingRemoval(null)} onConfirm={() => { const target = pendingRemoval; setPendingRemoval(null); if (target) void remove(target); }} />
   </div>;

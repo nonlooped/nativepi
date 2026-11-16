@@ -17,3 +17,12 @@ test("a failed extension import can be retried after recovery", async () => {
   failed = false;
   expect(await load("extension", "code")).toBe("ready");
 });
+
+test("the cache releases old source references after repeated edits", async () => {
+  let instances = 0;
+  const load = createExtensionModuleCache(async () => ++instances, 2);
+  expect(await load("a", "1")).toBe(1);
+  await load("a", "2");
+  await load("b", "1");
+  expect(await load("a", "1")).toBe(4);
+});

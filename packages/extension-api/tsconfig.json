@@ -1,4 +1,21 @@
 {
   "extends": "../tsconfig.json",
-  "include": ["src", "tests"]
+  "include": [
+    "src",
+    "tests",
+    "examples"
+  ],
+  "compilerOptions": {
+    "paths": {
+      "@nativepi/extension-api": [
+        "./src/index.ts"
+      ],
+      "@nativepi/extension-api/*": [
+        "./src/*.ts"
+      ],
+      "@earendil-works/pi-coding-agent": [
+        "../../apps/desktop/node_modules/@earendil-works/pi-coding-agent/dist/index.d.ts"
+      ]
+    }
+  }
 }

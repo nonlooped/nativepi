@@ -73,3 +73,15 @@ test("Pi cancellation preserves a partial reply and resets for the next turn", (
   const finished = reduce(restarted, { type: "agent_settled", aborted: false });
   expect(finished.aborted).toBe(false);
 });
+
+test("tool updates remain transient and clear independently for concurrent tools", () => {
+  let state = emptyConversation();
+  state = { ...state, ...reduce(state, { type: "tool_execution_update", toolCallId: "a", partialResult: { content: [{ type: "text", text: "Half done" }], details: { percent: 50 } } }) };
+  state = { ...state, ...reduce(state, { type: "tool_execution_update", toolCallId: "b", partialResult: { content: [{ type: "text", text: "Waiting" }] } }) };
+  expect(state.toolProgress?.a).toEqual({ text: "Half done", details: { percent: 50 } });
+  state = { ...state, ...reduce(state, { type: "tool_execution_end", toolCallId: "a" }) };
+  expect(state.toolProgress).toEqual({ b: { text: "Waiting" } });
+  expect(reduce(state, { type: "agent_settled", aborted: true }).toolProgress).toEqual({});
+  expect(reduce(state, { type: "tool_execution_update", toolCallId: "a", partialResult: { content: "broken" } })).toEqual({});
+  expect(state.entries).toEqual([]);
+});
