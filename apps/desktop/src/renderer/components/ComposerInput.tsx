@@ -36,6 +36,7 @@ export default function ComposerInput({
   placeholder,
   disabled,
   autoFocus,
+  compact = false,
   suggestion = null,
   onDismissSuggestion,
 }: {
@@ -47,6 +48,7 @@ export default function ComposerInput({
   placeholder: string;
   disabled: boolean;
   autoFocus?: boolean;
+  compact?: boolean;
   suggestion?: string | null;
   onDismissSuggestion?: () => void;
 }) {
@@ -198,7 +200,7 @@ export default function ComposerInput({
   };
 
   return (
-    <div className="relative grid min-w-0">
+    <div className="relative grid min-w-0 flex-1">
       <AutocompleteMenu state={complete} />
       <div
         ref={root}
@@ -232,14 +234,15 @@ export default function ComposerInput({
         // `0.9375rem` rather than `15px`: Interface scale works by moving the
         // root font size, which an absolute length ignores — the composer was
         // the one piece of text in the window that did not scale with it.
-        style={{ maxHeight: editorHeight, minHeight: editorHeight === undefined ? undefined : 40 }}
+        style={{ maxHeight: compact ? 40 : editorHeight, minHeight: compact ? 40 : editorHeight === undefined ? undefined : 40 }}
         className={cn(
           "col-start-1 row-start-1 max-h-56 max-sm:max-h-[calc(var(--app-height,100dvh)*0.2)] [@media(max-height:600px)]:max-h-[calc(var(--app-height,100dvh)*0.2)] min-h-10 sm:min-h-16 w-full overflow-y-auto whitespace-pre-wrap break-words px-2.5 py-2 text-composer font-normal text-foreground outline-none",
+          compact && "overflow-hidden",
           disabled && "cursor-not-allowed opacity-50",
         )}
       />
       {value.trim() === "" ? (
-        <p aria-hidden="true" className={cn("pointer-events-none col-start-1 row-start-1 max-sm:absolute max-sm:inset-0 max-h-56 max-sm:max-h-[calc(var(--app-height,100dvh)*0.2)] [@media(max-height:600px)]:max-h-[calc(var(--app-height,100dvh)*0.2)] self-start overflow-hidden break-words px-2.5 py-2 text-composer font-normal text-placeholder-foreground", editorHeight !== undefined && "absolute inset-0 whitespace-nowrap text-ellipsis")}>
+        <p aria-hidden="true" className={cn("pointer-events-none col-start-1 row-start-1 max-sm:absolute max-sm:inset-0 max-h-56 max-sm:max-h-[calc(var(--app-height,100dvh)*0.2)] [@media(max-height:600px)]:max-h-[calc(var(--app-height,100dvh)*0.2)] self-start overflow-hidden break-words px-2.5 py-2 text-composer font-normal text-placeholder-foreground", (compact || editorHeight !== undefined) && "absolute inset-0 whitespace-nowrap text-ellipsis")}>
           {offeredSuggestion ? <>{offeredSuggestion} <Kbd className="ml-1 align-middle">Tab</Kbd></> : placeholder}
         </p>
       ) : null}

@@ -225,3 +225,20 @@ domTest("long chip labels and drafts retain raw references and caret offsets aft
   expect(changes).toEqual([`${draft} edited`]);
   expect(caretOffset(editor)).toBe(draft.length + 7);
 });
+
+domTest("compacting and refocusing retains the editor, draft chips and selection", async () => {
+  mount();
+  stubInvoke(async () => ({}));
+  const value = `Review ${chipText("file", "src/app.ts")}\nKeep this second line`;
+  const draw = (compact: boolean) => <ComposerInput compact={compact} value={value} onChange={() => {}}
+    onSubmit={() => {}} onAttach={() => {}} projectPath="/project" placeholder="Message" disabled={false} />;
+  await act(async () => root!.render(draw(false)));
+  const editor = container.querySelector<HTMLElement>("[data-composer-input]")!;
+  await act(async () => { editor.focus(); caretTo(editor, 3); });
+  await act(async () => root!.render(draw(true)));
+  await act(async () => root!.render(draw(false)));
+  expect(container.querySelector("[data-composer-input]")).toBe(editor);
+  expect(serialize(editor)).toBe(value);
+  expect(caretOffset(editor)).toBe(3);
+  expect(editor.querySelector("[data-chip]")?.getAttribute("data-value")).toBe("src/app.ts");
+});
