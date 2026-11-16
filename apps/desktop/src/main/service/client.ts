@@ -58,6 +58,9 @@ export class ServiceClient extends ClientLeases {
           ready = true; clearTimeout(timeout); this.opening = undefined; this.socket = socket; this.connection(true); resolve(); return;
         }
         if (!ready) return;
+        if (message.type === "browser" && this.browserHandler) {
+          void this.browserHandler(message).then(result => socket.send(JSON.stringify({ type: "browserReply", id: message.id, result })), error => socket.send(JSON.stringify({ type: "browserReply", id: message.id, error: String(error).slice(0, 4000) })));
+        }
         if (message.type === "event" && typeof message.name === "string" && validHostEvent(message.name, message.payload)) this.event(message.name as HostEventName, message.payload as HostEvents[HostEventName]);
         if (message.type === "response" && typeof message.id === "string") {
           const pending = this.pending.get(message.id);
@@ -68,6 +71,12 @@ export class ServiceClient extends ClientLeases {
       });
     });
   }
+  async attachBrowser(handler: (command: import("zod").z.infer<typeof import("../../shared/background-service.ts").browserRelaySchema>) => Promise<unknown>) {
+    this.browserHandler = handler;
+    await this.connect();
+    await this.send({ type: "browserAttach" });
+  }
+  private browserHandler?: (command: import("zod").z.infer<typeof import("../../shared/background-service.ts").browserRelaySchema>) => Promise<unknown>;
   async request(name: string, params: unknown): Promise<unknown> { await this.connect(); return this.send({ type: "request", name, params }); }
   async probe(): Promise<void> { await this.open(true); }
   async stop(): Promise<void> { if (!this.socket) await this.open(true); await this.send({ type: "stop" }); }

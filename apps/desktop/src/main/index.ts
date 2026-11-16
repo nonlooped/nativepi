@@ -90,7 +90,12 @@ ipcMain.handle("nativepi:invoke", async (event, name: HostRequestName, raw: unkn
     leaseRendererDocument(current, event.sender, () => { if (rendererClients.get(event.sender.id) === current) rendererClients.delete(event.sender.id); });
   }
   const result = await client.request(name, params);
-  if (name === "saveState") updateWindowMaterial((params as HostRequests["saveState"]["params"]).state.preferences);
+  if (name === "saveState") {
+    const preferences = (params as HostRequests["saveState"]["params"]).state.preferences;
+    updateWindowMaterial(preferences);
+    const { updateBrowserPreferences } = await import("./browser/desktop.ts");
+    await updateBrowserPreferences(preferences);
+  }
   return result;
 });
 // Not named `__dirname`: rolldown injects a CommonJS `__dirname` shim at the top
@@ -153,6 +158,13 @@ async function createMainWindow(): Promise<void> {
       sandbox: true,
     },
   });
+  const browserClient = new ServiceClient(serviceFile(hostData), () => {}, () => {});
+  void ensureHost().then(async () => {
+    const { desktopBrowserCommand } = await import("./browser/desktop.ts");
+    await browserClient.attachBrowser(desktopBrowserCommand);
+  }).catch(error => console.error("Browser connection failed", error));
+  win.once("closed", () => browserClient.dispose());
+
   bindWindowMaterial(win, preferences);
   // Only NativePi's main document may capture microphone audio. Artifacts and
   // embedded extension frames must not inherit that grant; other permissions

@@ -10,14 +10,12 @@ import { GlobeIcon } from "@phosphor-icons/react/Globe";
 import { HandIcon } from "@phosphor-icons/react/Hand";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { XIcon } from "@phosphor-icons/react/X";
-import { MinusIcon } from "@phosphor-icons/react/Minus";
-import { SquareIcon } from "@phosphor-icons/react/Square";
 import { SpinnerGapIcon } from "@phosphor-icons/react/SpinnerGap";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import { InfoIcon } from "@phosphor-icons/react/Info";
 import { Button } from "../components/ui/button.tsx";
 import { Input } from "../components/ui/input.tsx";
-import { cn, DRAG_REGION, NO_DRAG_REGION } from "../lib/utils.ts";
+import { cn, NO_DRAG_REGION } from "../lib/utils.ts";
 import { themeCssProperties } from "../../shared/themeCss.ts";
 import {
   browserUrl,
@@ -82,7 +80,6 @@ function BrowserChrome() {
   const header = useRef<HTMLElement>(null);
   const tabs = useRef<HTMLElement>(null);
   const active = state.tabs.find((t) => t.id === state.active);
-  const mac = bridge.platform === "darwin";
   const send = async (
     action: Action["action"],
     extra: Partial<Action> = {},
@@ -183,13 +180,10 @@ function BrowserChrome() {
   return (
     <div className="flex h-full min-w-0 flex-col bg-background text-foreground">
       <header ref={header} className="shrink-0 bg-sidebar">
-        <div className={cn("flex h-8 items-center gap-2 px-3 text-xs text-muted-foreground", mac && "pl-[100px]", DRAG_REGION)}><span className="min-w-0 flex-1 truncate" title={state.ownerTitle}>Browser · {state.ownerTitle || "New Work chat"}</span><span className={NO_DRAG_REGION}><IconAction label="About this chat’s browser" onClick={() => setAbout(value => !value)}><InfoIcon /></IconAction></span></div>
-        {about ? <p className="px-4 pb-2 text-xs leading-5 text-body-muted-foreground">Shared with Pi. Tabs and sign-ins clear when Pi closes or restarts. Downloads, popups and device permissions require your usual browser.</p> : null}
+
         <div
           className={cn(
             "flex h-12 min-w-0 items-center gap-1 px-3",
-            mac && "pl-[100px]",
-            DRAG_REGION,
           )}
         >
           <nav
@@ -279,30 +273,11 @@ function BrowserChrome() {
                 )}
               </Button>
             )}
-            {!mac && (
-              <div className="flex">
-                <IconAction
-                  label="Minimize"
-                  onClick={() => void send("windowMinimize")}
-                >
-                  <MinusIcon />
-                </IconAction>
-                <IconAction
-                  label="Maximize"
-                  onClick={() => void send("windowMaximize")}
-                >
-                  <SquareIcon />
-                </IconAction>
-                <IconAction
-                  label="Hide browser"
-                  onClick={() => void send("windowClose")}
-                >
-                  <XIcon />
-                </IconAction>
-              </div>
-            )}
+            <IconAction label="About this chat’s browser" onClick={() => setAbout(value => !value)}><InfoIcon /></IconAction>
+            <IconAction label="Hide browser" onClick={() => void send("windowClose")}><XIcon /></IconAction>
           </div>
         </div>
+        {about ? <p className="border-b px-4 py-2 text-xs leading-5 text-body-muted-foreground">Shared with Pi in {state.ownerTitle || "this Work chat"}. Tabs and sign-ins clear when this window or Pi closes, or Pi restarts. Downloads, popups and device permissions require your usual browser.</p> : null}
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -404,7 +379,7 @@ function BrowserChrome() {
                     ? ""
                     : "Enter a website or local server address above."}
               </p>
-              {!active && !state.error ? <p className="mt-2 text-xs leading-5 text-muted-foreground">This browser is shared with Pi in {state.ownerTitle || "this Work chat"}. Tabs and sign-ins clear when Pi closes or restarts.</p> : null}
+              {!active && !state.error ? <p className="mt-2 text-xs leading-5 text-muted-foreground">This browser is shared with Pi in {state.ownerTitle || "this Work chat"}. Tabs and sign-ins clear when this window or Pi closes, or Pi restarts.</p> : null}
             </div>
             {state.error && (
               <>

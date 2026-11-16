@@ -1,5 +1,5 @@
 import { browserRequest, browserCancel, browserResult } from "../../shared/browser.ts";
-import type { SharedBrowser } from "../browser/index.ts";
+import type { SharedBrowser } from "../browser/relay.ts";
 import { computerController, computerFailure } from "../computerUse.ts";
 import { computerRequestSchema, computerCancelSchema } from "../../shared/computer-use.ts";
 import { orchestrationRequestSchema, orchestrationReplySchema, orchestrationCancelSchema, orchestrationOutcomeSchema, orchestrationSuppliedSchema, orchestrationRuntimeSchema, type ThreadReference } from "../../shared/orchestration.ts";
@@ -265,11 +265,11 @@ export class PiProcess {
   }
   async showBrowser(url?: string): Promise<void> {
     if (!this.computerAllowed || !this.isAvailable) throw new Error("Browser requires an available Work chat.");
-    const {SharedBrowser} = await import("../browser/index.ts");
+    const {SharedBrowser} = await import("../browser/relay.ts");
     this.browser ??= new SharedBrowser();
     this.browser.setOwner(this.browserTitle);
     if (url) { await this.browser.chrome({ action: "open", url }); return; }
-    this.browser.show();
+    await this.browser.show();
   }
   private async handleBrowser(raw: unknown): Promise<void> {
     const cancel = browserCancel.safeParse(raw);
@@ -280,7 +280,7 @@ export class PiProcess {
     const controller = new AbortController(); this.browserRequests.set(requestId,controller);
     try {
       if (!this.isAvailable || !this.computerAllowed || (!this.isRunning || this.computerFenced)) throw new Error("Browser requires an available Work chat.");
-      const {SharedBrowser} = await import("../browser/index.ts");
+      const {SharedBrowser} = await import("../browser/relay.ts");
       if (controller.signal.aborted) throw new Error("Browser cancelled.");
       this.browser ??= new SharedBrowser();
       this.browser.setOwner(this.browserTitle);

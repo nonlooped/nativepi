@@ -15,7 +15,7 @@ import {
   browserUrl,
   type BrowserAction,
 } from "../../shared/browser.ts";
-import { loadState } from "../state.ts";
+import { DEFAULT_PREFERENCES, type Preferences } from "../../shared/rpc-schema.ts";
 import { builtInTheme, DEFAULT_THEME } from "../../shared/themes.ts";
 import { snapshotPage } from "./page.ts";
 import { browserActionScript } from "./actionScript.ts";
@@ -31,6 +31,14 @@ type Tab = {
 };
 export class SharedBrowser {
   private window?: BrowserWindow;
+  private chromeView?: WebContentsView;
+  private bounds?: { x: number; y: number; width: number; height: number };
+  constructor(private host: BrowserWindow, private reveal: () => void, private hide: () => void) {}
+  setBounds(bounds?: { x: number; y: number; width: number; height: number }) {
+    this.bounds = bounds;
+    this.layout();
+  }
+  private present() { this.reveal(); this.state(); }
   private tabs = new Map<string, Tab>();
   private active?: string;
   private handoff = false;
@@ -39,15 +47,16 @@ export class SharedBrowser {
   private closed = false;
   private sessionConfigured = false;
   private chromeHeight = 92;
+  preferences: Preferences = DEFAULT_PREFERENCES;
   private partition = `nativepi-browser-${randomUUID()}`;
   private ownerTitle = "New Work chat";
   setOwner(title: string) {
     if (this.closed) return;
     this.ownerTitle = title.trim().slice(0, 200) || "New Work chat";
-    this.window?.setTitle(`Browser · ${this.ownerTitle} · NativePi`);
+
     this.state();
   }
-  show() { this.ensureWindow(); this.window!.show(); this.state(); }
+  show() { this.ensureWindow(); this.present(); }
   private blocked(tab: Tab | undefined, message: string, url?: string) {
     if (!tab) return;
     tab.notice = { message, url: browserUrl.safeParse(url).success ? url : undefined };
@@ -61,9 +70,15 @@ export class SharedBrowser {
     }
   }
   dispose() {
+    if (this.closed) return;
     this.closed = true;
     this.cancel();
-    this.window?.destroy();
+    if (this.chromeView) {
+      if (!this.host.isDestroyed()) this.host.contentView.removeChildView(this.chromeView);
+      chromeOwners.delete(this.chromeView.webContents.id);
+      if (!this.chromeView.webContents.isDestroyed()) this.chromeView.webContents.close();
+    }
+    if (!this.host.isDestroyed()) for (const tab of this.tabs.values()) this.host.contentView.removeChildView(tab.view);
     for (const tab of this.tabs.values())
       if (!tab.view.webContents.isDestroyed()) tab.view.webContents.close();
     this.tabs.clear();
@@ -122,51 +137,22 @@ export class SharedBrowser {
   }
   private ensureWindow() {
     if (this.window && !this.window.isDestroyed()) return;
-    const win = (this.window = new BrowserWindow({
-      width: 1100,
-      height: 800,
-      minWidth: 420,
-      minHeight: 400,
-      maxWidth: 2400,
-      maxHeight: 1800,
-      title: `Browser · ${this.ownerTitle} · NativePi`,
-      titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
-      webPreferences: {
-        preload: join(app.getAppPath(), "out/preload/browser.cjs"),
-        sandbox: true,
-        contextIsolation: true,
-        nodeIntegration: false,
-      },
-    }));
-    win.webContents.on("page-title-updated", (event) => {
-      event.preventDefault();
-      win.setTitle(`Browser · ${this.ownerTitle} · NativePi`);
-    });
-    win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-    win.webContents.on("will-navigate", (event) => event.preventDefault());
-    win.on("resize", () => this.layout());
-    win.on("close", (event) => {
-      if (!this.closed) {
-        event.preventDefault();
-        win.hide();
-      }
-    });
-    win.webContents.on("did-finish-load", () => {
-      this.state();
-      void this.theme().catch(() => {});
-    });
-    win.on("focus", () => {
-      void this.theme().catch(() => {});
-    });
+    this.window = this.host;
+    const view = this.chromeView = new WebContentsView({ webPreferences: {
+      preload: join(app.getAppPath(), "out/preload/browser.cjs"),
+      sandbox: true, contextIsolation: true, nodeIntegration: false,
+    } });
+    const wc = view.webContents;
+    wc.setWindowOpenHandler(() => ({ action: "deny" }));
+    wc.on("will-navigate", event => event.preventDefault());
+    wc.on("did-finish-load", () => { this.state(); void this.theme().catch(() => {}); });
     if (process.env.ELECTRON_RENDERER_URL)
-      void win.loadURL(
-        new URL("browser.html", process.env.ELECTRON_RENDERER_URL).href,
-      );
-    else void win.loadFile(join(app.getAppPath(), "out/renderer/browser.html"));
-    const chromeId = win.webContents.id;
-    chromeOwners.set(chromeId, this);
-    win.on("closed", () => chromeOwners.delete(chromeId));
+      void wc.loadURL(new URL("browser.html", process.env.ELECTRON_RENDERER_URL).href);
+    else void wc.loadFile(join(app.getAppPath(), "out/renderer/browser.html"));
+    chromeOwners.set(wc.id, this);
+    this.layout();
   }
+
   async chrome(raw: unknown) {
     const op = browserChromeActionSchema.parse(raw);
     if (op.action === "dismissNotice") {
@@ -186,7 +172,7 @@ export class SharedBrowser {
       return;
     }
     if (op.action === "windowClose") {
-      this.window?.hide();
+      this.hide();
       return;
     }
     if (op.action === "windowMinimize") {
@@ -227,7 +213,7 @@ export class SharedBrowser {
     return result;
   }
   private async theme() {
-    const { preferences } = await loadState();
+    const preferences = this.preferences;
     const appearance =
       preferences.theme === "system"
         ? nativeTheme.shouldUseDarkColors
@@ -239,7 +225,7 @@ export class SharedBrowser {
       builtInTheme(preferences.themeId)?.theme ??
       DEFAULT_THEME;
     if (this.closed || !this.window || this.window.isDestroyed()) return;
-    this.window.webContents.send("nativepi:browser-theme", {
+    this.chromeView?.webContents.send("nativepi:browser-theme", {
       appearance,
       colors: theme.colors[appearance],
       scale: preferences.interfaceScale,
@@ -250,7 +236,7 @@ export class SharedBrowser {
     if (this.closed || !this.window || this.window.isDestroyed()) return;
     const current = this.active ? this.tabs.get(this.active) : undefined;
     this.layout();
-    this.window.webContents.send("nativepi:browser-state", {
+    this.chromeView?.webContents.send("nativepi:browser-state", {
       ownerTitle: this.ownerTitle,
       notice: current?.notice,
       tabs: [...this.tabs.values()].map((t) => ({
@@ -272,16 +258,24 @@ export class SharedBrowser {
   }
   private layout() {
     if (this.closed || !this.window || this.window.isDestroyed()) return;
-    const [width, height] = this.window.getContentSize();
+    const bounds = this.bounds;
+    const chrome = this.chromeView;
+    if (chrome) {
+      const attached = this.host.contentView.children.includes(chrome);
+      if (bounds && !attached) this.host.contentView.addChildView(chrome);
+      else if (!bounds && attached) this.host.contentView.removeChildView(chrome);
+      if (bounds) chrome.setBounds(bounds);
+    }
+    const { x = 0, y = 0, width = 800, height = 600 } = bounds ?? {};
     for (const tab of this.tabs.values()) {
-      const visible = tab.id === this.active && !tab.error;
+      const visible = !!bounds && tab.id === this.active && !tab.error;
       const attached = this.window.contentView.children.includes(tab.view);
       if (visible && !attached) this.window.contentView.addChildView(tab.view);
       else if (!visible && attached)
         this.window.contentView.removeChildView(tab.view);
       tab.view.setBounds({
-        x: 0,
-        y: this.chromeHeight,
+        x,
+        y: y + this.chromeHeight,
         width,
         height: Math.max(1, height - this.chromeHeight),
       });
@@ -350,9 +344,9 @@ export class SharedBrowser {
       };
       this.tabs.set(tab.id, tab);
       this.active = tab.id;
-      this.window!.contentView.addChildView(view);
+
       this.layout();
-      this.window!.show();
+      this.present();
       const wc = view.webContents;
       wc.setWindowOpenHandler(({ url }) => {
         this.blocked(tab, "This page tried to open another window. Open it in your usual browser to continue.", url);
@@ -439,7 +433,7 @@ export class SharedBrowser {
       }
       this.layout();
       this.state();
-      this.window!.show();
+      this.present();
       return { tab: tab.id, handoff: this.handoff };
     }
     if (op.action === "navigate") {
@@ -476,7 +470,7 @@ export class SharedBrowser {
       this.active = tab.id;
       this.layout();
       this.state();
-      this.window!.show();
+      this.present();
       const image = await wc.capturePage();
       check();
       const size = image.getSize();

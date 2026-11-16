@@ -13,7 +13,7 @@ class Browser {
   cancel() {}
   dispose() {}
 }
-mock.module("../browser/index.ts", () => ({ SharedBrowser: Browser }));
+mock.module("../browser/relay.ts", () => ({ SharedBrowser: Browser }));
 class Child extends EventEmitter {
   connected = true;
   stdout = new PassThrough();

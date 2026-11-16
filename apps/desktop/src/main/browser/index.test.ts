@@ -15,6 +15,7 @@ class Contents extends EventEmitter {
   isDestroyed() { return false; }
   stop() {}
   close() {}
+  async loadFile() {}
   getTitle() { return "Test page"; }
   getURL() { return this.url; }
   async loadURL(url: string) { this.url = url; }
@@ -39,12 +40,17 @@ mock.module("electron", () => ({ BrowserWindow: Window, WebContentsView: class {
 mock.module("../state.ts", () => ({ loadState: async () => ({ preferences: {} }) }));
 const { SharedBrowser } = await import("./index.ts");
 test("a chat browser starts without navigating and blocked actions remain denied with explicit recovery", async () => {
-  const browser = new SharedBrowser();
+  const host = new Window();
+  let visible = false;
+  const browser = new SharedBrowser(host as never, () => { visible = true; }, () => { visible = false; });
+  browser.setBounds({ x: 600, y: 40, width: 500, height: 700 });
   browser.setOwner("Review the report"); browser.show();
   expect(state.tabs).toEqual([]);
   expect(state.ownerTitle).toBe("Review the report");
   await browser.chrome({ action: "open", url: "https://example.com" });
-  const contents = window.contentView.children[0].webContents as Contents;
+  expect(visible).toBe(true);
+  expect(window).toBe(host);
+  const contents = host.contentView.children[1].webContents as Contents;
   expect(contents.popup({ url: "https://example.com/sign-in" })).toEqual({ action: "deny" });
   expect(state.notice.message).toContain("another window");
   expect(opened).toBeUndefined();
@@ -62,8 +68,17 @@ test("a chat browser starts without navigating and blocked actions remain denied
   expect(state.notice.message).toContain("Camera and microphone");
   await expect(browser.chrome({ action: "openExternal", url: "file:///private" })).rejects.toThrow();
   browser.setOwner("Updated chat name");
-  expect(window.title).toContain("Updated chat name");
+  expect(state.ownerTitle).toBe("Updated chat name");
+  await browser.chrome({ action: "windowClose" });
+  expect(visible).toBe(false);
+  browser.setBounds();
+  expect(host.contentView.children).toHaveLength(0);
+  browser.show();
+  browser.setBounds({ x: 500, y: 40, width: 600, height: 700 });
+  expect(host.contentView.children).toHaveLength(2);
+  expect(host.contentView.children[1].webContents).toBe(contents);
   browser.dispose();
+  expect(host.contentView.children).toHaveLength(0);
   browser.setOwner("Late reply from the closed chat");
-  expect(window.title).toContain("Updated chat name");
+  expect(state.ownerTitle).toBe("Updated chat name");
 });

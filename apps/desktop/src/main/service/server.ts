@@ -1,3 +1,4 @@
+import { attachBrowserDesktop } from "../browser/relay.ts";
 import { createServer } from "node:http";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { WebSocket, WebSocketServer } from "ws";
@@ -20,12 +21,14 @@ export async function serveHost(options: {
   sockets.on("connection", socket => {
     let client: HostClient | undefined;
     let compatible = false;
+    let detachBrowser: (() => void) | undefined;
+    const browserPending = new Map<string, { resolve(value: unknown): void; reject(error: Error): void }>();
     const timeout = setTimeout(() => socket.close(1008, "Authentication required"), 5000);
     const unsubscribe = options.subscribe((name, payload) => {
       if (client) sendHostEvent(socket, JSON.stringify({ type: "event", name, payload }));
     });
     socket.on("error", () => socket.terminate());
-    socket.once("close", () => { clearTimeout(timeout); unsubscribe(); client?.dispose(); });
+    socket.once("close", () => { clearTimeout(timeout); unsubscribe(); client?.dispose(); detachBrowser?.(); for (const pending of browserPending.values()) pending.reject(new Error("Browser desktop disconnected.")); browserPending.clear(); });
     socket.on("message", data => { void (async () => {
       let raw: unknown;
       try { raw = JSON.parse(String(data)); } catch { socket.close(1008, "Invalid message"); return; }
@@ -44,6 +47,21 @@ export async function serveHost(options: {
         return;
       }
       if (message.type === "auth") { socket.close(1008, "Already authenticated"); return; }
+      if (message.type === "browserAttach") {
+        if (!compatible || detachBrowser) return;
+        detachBrowser = attachBrowserDesktop(command => new Promise((resolve, reject) => {
+          const timer = setTimeout(() => { browserPending.delete(command.id); reject(new Error("Browser desktop timed out.")); }, 25000);
+          browserPending.set(command.id, { resolve: value => { clearTimeout(timer); resolve(value); }, reject: error => { clearTimeout(timer); reject(error); } });
+          socket.send(JSON.stringify(command));
+        }));
+        socket.send(JSON.stringify({ type: "response", id: message.id, result: { ok: true } }));
+        return;
+      }
+      if (message.type === "browserReply") {
+        const pending = browserPending.get(message.id); browserPending.delete(message.id);
+        if (message.error) pending?.reject(new Error(message.error)); else pending?.resolve(message.result);
+        return;
+      }
       try {
         if (message.type === "stop") {
           // Respond after shutdown drains Pi sessions and credentials. No restart

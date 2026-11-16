@@ -1,3 +1,4 @@
+import { BrowserPanel, useBrowserPanel } from "./components/BrowserPanel.tsx";
 import { usePaneView } from "./lib/paneView.ts";
 import { useWorkspacePanes } from "./lib/workspacePanes.ts";
 import { runtime } from "./lib/store/internals.ts";
@@ -102,6 +103,7 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
   const closeSettings = useAppStore((s) => s.closeSettings);
   const horizontalGroup = useRef<HTMLDivElement>(null);
   const verticalGroup = useRef<HTMLDivElement>(null);
+  const browserPanel = useBrowserPanel(`${activeProjectPath}:${activeSessionFile}`);
   const contextPaneWidth = useAppStore((s) => s.contextPaneWidth);
   const terminalHeight = useAppStore((s) => s.terminalHeight);
   const contextPaneOpen = useAppStore((s) => s.contextPaneOpen);
@@ -274,7 +276,7 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
               </ResizablePanel>
             </>
           ) : null}
-          </ResizablePanelGroup>
+      </ResizablePanelGroup>
         </ResizablePanel>
 
         {!chatMode && activeProjectPath && layout === "wide" ? (
@@ -314,6 +316,7 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
             </ResizablePanel>
           </>
         ) : null}
+            {browserPanel ? <><ResizableHandle withHandle /><ResizablePanel id="browser" defaultSize="45%" minSize="320px"><BrowserPanel id={browserPanel} hidden={settingsOpen || !!appPanel} /></ResizablePanel></> : null}
       </ResizablePanelGroup>
       </div>
 

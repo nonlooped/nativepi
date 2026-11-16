@@ -6,6 +6,10 @@ import type { HostEventName, HostEvents, HostRequestName, HostRequests } from ".
 // contextBridge clones exposed objects and strips Proxy traps, so the renderer
 // builds per-channel request functions over this single invoke boundary.
 export type NativePiApi = {
+  browserPanel?: {
+    onChange(listener: (id: string | null) => void): () => void;
+    layout(id: string, bounds?: { x: number; y: number; width: number; height: number }): Promise<void>;
+  };
   windowMaterial?: boolean;
   service?: (action: ServiceAction) => Promise<ServiceStatus>;
   connection?: (listener: (state: { connected: boolean; error?: string }) => void) => () => void;
@@ -25,6 +29,10 @@ export type NativePiApi = {
   };
 };
 const api: NativePiApi = {
+  browserPanel: {
+    onChange(listener) { const receive = (_event: IpcRendererEvent, id: string | null) => listener(id); ipcRenderer.on("nativepi:browser-panel", receive); return () => { ipcRenderer.removeListener("nativepi:browser-panel", receive); }; },
+    layout: (id, bounds) => ipcRenderer.invoke("nativepi:browser-panel", { id, bounds }),
+  },
   service: action => ipcRenderer.invoke("nativepi:service", action),
   connection: listener => {
     const handler = (_event: IpcRendererEvent, state: { connected: boolean; error?: string }) => listener(state);
