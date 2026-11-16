@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Separate review setup from results, reuse the composer model picker, and keep review evidence and history in contextual details.
 - Add independent multi-file Pi reviews in Source Control, with saved review scopes and settings, host-owned progress and Stop, retained input evidence, explicit fix drafts and named-issue verification.
 - Reorganize Settings around everyday preferences, conversations, permissions, and advanced options, with search that reveals individual controls and hidden sections.
 - Reuse the composer model picker for chat titles, combine notification and image modes, and move theme, background, and provider catalogs into focused choosers while preserving existing selections.

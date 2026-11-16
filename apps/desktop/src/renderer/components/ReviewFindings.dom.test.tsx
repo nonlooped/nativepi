@@ -47,7 +47,7 @@ test("line feedback saves, selected findings prepare a batch, stale refresh pres
   await act(async () => document.body.querySelector<HTMLButtonElement>('[role="checkbox"]')!.click());
   await act(async () => button("Request fixes for 1 selected…").click());
   expect(closed).toBe(false);
-  expect(document.body.textContent).toContain("This prepares an editable composer draft");
+  expect(document.body.textContent).toContain("You can edit it before sending");
   await act(async () => button("Prepare draft").click());
   expect(closed).toBe(true);
   expect(Object.values(useAppStore.getState().drafts).join("\n")).toContain("a.txt (working, new side, lines 1-1; STALE");
