@@ -72,6 +72,8 @@ ipcMain.handle("nativepi:invoke", async (event, name: HostRequestName, raw: unkn
     case "checkForUpdate": return checkForUpdate();
     case "setUpdateChannel": return setUpdateChannel((params as HostRequests["setUpdateChannel"]["params"]).channel);
     case "installUpdate":
+      if (updateState().status !== "ready") return { ok: false, error: "No update has finished downloading. Check for updates again." };
+      if ([...closeGuards.values()].some(guard => guard.files.length)) return { ok: false, error: "Save or close your edited files before installing." };
       if ((await hostStatus(hostData)).running) return { ok: false, error: "Stop the background service in Settings before installing. This ends its agents and terminals." };
       installUpdate(); return { ok: true };
   }

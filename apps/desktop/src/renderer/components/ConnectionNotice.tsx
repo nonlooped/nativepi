@@ -16,7 +16,7 @@ export default function ConnectionNotice({ startupError }: { startupError?: stri
   const start = () => { void window.nativepi?.service?.("start").then(() => window.location.reload()).catch(error => setActionError(String(error))); };
   if (connection.phase === "connected" && !startupError) return null;
   if (!isRemote) return <div className="relative z-30 shrink-0 border-b border-border bg-background px-4">
-    <StateNotice title={incompatible ? "Another version is still running" : "Background work disconnected"} detail={actionError ? "Could not reconnect. See connection details, then try again." : stopped ? "Background work has stopped. Reconnect to start the current version." : incompatible ? "Stop background work to open this version. Your saved chats will stay available." : "Your chats are saved. Reconnect to continue."}
+    <StateNotice title={incompatible ? "Another version is still running" : "Background work disconnected"} detail={actionError ? "Could not reconnect. See connection details, then try again." : stopped ? "Background work has stopped. Reconnect to start the current version." : incompatible ? "Stop background work to open this version. Your saved chats will stay available." : "Saved chats are kept. Unsent text stays in this window; reconnect to save it and continue."}
       retry={incompatible ? undefined : start} />
     {incompatible && <Button variant="outline" size="sm" className="mb-3" onClick={() => setConfirmStop(true)}>Stop background work…</Button>}
     {(startupError || actionError) && <SettingsDetails id="startup-connection-details" title="Connection details"><p className="break-words text-xs leading-5 text-muted-foreground">{actionError ?? failure}</p></SettingsDetails>}
@@ -25,7 +25,7 @@ export default function ConnectionNotice({ startupError }: { startupError?: stri
   const waiting = connection.phase !== "unavailable";
   return <div className="relative z-30 shrink-0 border-b border-border bg-background px-4">
     <StateNotice loading={waiting} title={connection.phase === "connecting" ? "Connecting to NativePi…" : waiting ? "Reconnecting to your desktop…" : "This link is no longer available"}
-      detail={waiting ? "Displayed information may be out of date. Keep the desktop app open; your draft is preserved." : "Open Access in the desktop app and use its current link. Access may have stopped or the token may have changed."}
+      detail={waiting ? "Displayed information may be out of date. Keep the host computer awake and background work running. Unsent text stays in this window." : "Open “Open on another device” on the computer and use its current link. Sharing may have stopped or the link may have been replaced."}
       retry={waiting ? undefined : () => window.location.reload()} />
   </div>;
 }

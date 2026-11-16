@@ -106,6 +106,7 @@ export default function AccessSettings() {
 
   return (
     <div className="flex flex-col gap-4">
+      <p className="text-[0.8125rem] leading-5 text-body-muted-foreground">Anyone with the complete link can read your chats and control NativePi, including work on this computer. Only share it with people you trust.</p>
       <ChoiceRow label="Connection" value={scope} options={[{ value: "local", label: "Same network" }, { value: "remote", label: "Anywhere" }]} onChange={setScope} />
       {shared ? <p role="status" className="text-xs text-muted-foreground">Active sharing: {[status.local.running ? "same network" : "", remote.state === "running" ? "public link" : ""].filter(Boolean).join(" and ") || "starting"}. Both connections can stay active.</p> : null}
       {scope === "local" ? <SettingsCard
@@ -113,7 +114,7 @@ export default function AccessSettings() {
         title="Same network"
         tone={status.local.running ? "active" : "idle"}
         status={status.local.running ? "Serving on your network" : "Not shared"}
-        description="Reach this window from another device on the same network. NativePi has to stay open."
+        description="Use NativePi from another device on the same network. This computer must stay awake; sharing continues when you close the window."
         error={status.local.error}
         action={
           <Button
@@ -139,7 +140,7 @@ export default function AccessSettings() {
           <LinkPanel
             scope="local"
             link={localLink}
-            note="The link stops working when you stop access or close NativePi."
+            note="Stop network sharing here, or stop background work in General settings, to end access."
             copied={copied === "local"}
             onCopy={copy}
             onShowQr={showQr}
@@ -454,7 +455,7 @@ function remoteStatus(status: RemoteAccessStatus): string {
 function remoteDescription(status: RemoteAccessStatus): string {
   switch (status.state) {
     case "idle":
-      return "Reach this window from anywhere over a temporary Cloudflare address. The first run downloads the tunnel client.";
+      return "Use NativePi from anywhere with a temporary Cloudflare link. Keep this computer awake; sharing continues after the window closes. First use downloads the connection helper.";
     case "starting":
       return "Asking Cloudflare for an address.";
     case "running":

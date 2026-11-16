@@ -36,6 +36,7 @@ import NativePiWordmark from "./components/NativePiWordmark.tsx";
 import NavigationControls from "./components/NavigationControls.tsx";
 import ProjectStatus, { PiStartingNotice } from "./components/ProjectStatus.tsx";
 import QuitDialog from "./components/QuitDialog.tsx";
+import { UpdateInstallDialog, RecoveredWorkDialog } from "./components/WorkRecovery.tsx";
 const AppPanel = lazy(() => import("./components/AppPanel.tsx"));
 const Settings = lazy(() => import("./components/Settings.tsx"));
 import Toaster from "./components/Toaster.tsx";
@@ -418,6 +419,8 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
 
       <DropZone />
       <Toaster />
+      <UpdateInstallDialog />
+      <RecoveredWorkDialog />
       <WindowControls />
 
       <TrustDialog />

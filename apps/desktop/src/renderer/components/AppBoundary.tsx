@@ -3,7 +3,7 @@ import NativePiWordmark from "./NativePiWordmark.tsx";
 import WindowControls from "./WindowControls.tsx";
 import { isDesktopShell } from "../lib/platform.ts";
 import { rpc } from "../lib/rpc.ts";
-import { Button } from "@/components/ui/button.tsx";
+import { CrashRecovery } from "./WorkRecovery.tsx";
 
 interface State {
   error?: string;
@@ -40,14 +40,7 @@ export default class AppBoundary extends Component<{ children: ReactNode }, Stat
       <div className="relative flex h-full items-center justify-center overflow-hidden bg-background text-foreground">
         <div role="alert" className="flex max-w-md flex-col items-center gap-3 px-6 text-center">
           <NativePiWordmark display />
-          <p className="text-sm text-body-muted-foreground">
-            NativePi hit an error it could not recover from. Reloading the window is safe:
-            conversations live in Pi's session files and drafts are preserved.
-          </p>
-          <p className="max-w-full break-words font-mono text-xs text-muted-foreground">{this.state.error}</p>
-          <Button variant="outline" onClick={() => window.location.reload()}>
-            Reload window
-          </Button>
+          <CrashRecovery error={this.state.error} />
         </div>
         <WindowControls />
       </div>

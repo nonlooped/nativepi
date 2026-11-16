@@ -1,8 +1,9 @@
+import { requestUpdateInstall } from "../updateInstall.ts";
 import { DEFAULT_PREFERENCES } from "../../../shared/rpc-schema.ts";
 import { isRemote, rpc } from "../rpc.ts";
 import { conflictFor, defaultBindingFor, SHORTCUTS, type KeybindingOverrides } from "../shortcuts.ts";
 import { showHint, showUpdateNotice } from "../toast.tsx";
-import { flushPersist, persist } from "./internals.ts";
+import { persist } from "./internals.ts";
 import type { SliceCreator, UiSlice } from "./types.ts";
 
 // `crypto.randomUUID` is unavailable in a plain-HTTP context, which a LAN link
@@ -198,8 +199,6 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
     get().onUpdateState(update);
   },
   installUpdate: async () => {
-    await flushPersist(get);
-    const result = await rpc.request.installUpdate({});
-    if (!result.ok) throw new Error(result.error ?? "NativePi could not install the update.");
+    requestUpdateInstall();
   },
 });

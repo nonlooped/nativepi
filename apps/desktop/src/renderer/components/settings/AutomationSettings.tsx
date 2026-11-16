@@ -83,7 +83,7 @@ export default function AutomationSettings() {
     <div className="flex min-w-0 flex-col gap-6">
       <div className="flex items-center justify-between gap-3">
         <p className="text-[0.8125rem] text-body-muted-foreground">
-          Runs while NativePi is open.
+          Runs while this computer is awake and background work is running. Closing the window does not pause tasks.
         </p>
         <Button size="sm" variant="outline" onClick={() => setEditor("new")}>
           <PlusIcon />

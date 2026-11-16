@@ -23,7 +23,7 @@ domTest("confirmed quit waits for the latest draft save and keeps the modal open
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   await act(async () => root!.render(<QuitDialog />));
   await act(async () => requested({ work: { runs: [], terminals: [], viewers: 1 } }));
-  const quit = [...document.querySelectorAll("button")].find(button => button.textContent?.includes("Disconnect and quit"))!;
+  const quit = [...document.querySelectorAll("button")].find(button => button.textContent?.includes("Close NativePi"))!;
   expect(quit).toBeDefined();
   await act(async () => quit.click());
   expect(calls.map(([c]) => c)).toEqual(["saveState"]);

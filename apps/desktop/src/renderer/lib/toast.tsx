@@ -129,9 +129,9 @@ export function showUpdateNotice(
     case "ready":
       return void toast.success(`${name} is ready to install`, {
         ...options,
-        description: "Restart to update now, or NativePi will install it when you quit.",
+        description: "Install when you’re ready to stop background work and restart. Closing NativePi alone does not install it.",
         action: {
-          label: "Restart",
+          label: "Install…",
           onClick: () => void actions.install().catch((error: unknown) => {
             toast.error("Unable to install the update", {
               ...options,

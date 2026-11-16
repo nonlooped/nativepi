@@ -59,10 +59,10 @@ export default function QuitDialog() {
           </DialogTitle>
           <DialogDescription>
             {dirtyFiles.length ? "Unsaved file edits" : runs > 0
-              ? "Quitting stops the active turn. Messages already written are saved."
-              : commands > 0 ? "Quitting stops setup, app servers and checks in these projects." : rows.length > 0
-                ? "Quitting closes these shells and ends whatever they are running."
-                : `${devices(viewers)} reading NativePi over the shared link, which this window serves. Quitting ends their session.`}
+              ? "Closing this window leaves the agent working. Stop background work in General settings to end it."
+              : commands > 0 ? "Setup, app servers and checks continue after this window closes. Stop background work in General settings to end them." : rows.length > 0
+                ? "Terminals and their programs continue after this window closes. Stop background work in General settings to end them."
+                : `${devices(viewers)} using NativePi over a shared link. Closing this window leaves their access active. Stop sharing to end access.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -83,7 +83,7 @@ export default function QuitDialog() {
             phone is not one of this machine's projects, and the person holding
             it cannot see this dialog. */}
         {viewers > 0 && rows.length > 0 ? (
-          <p className="text-sm text-body-muted-foreground">{devices(viewers)} also connected over the shared link, and will be disconnected.</p>
+          <p className="text-sm text-body-muted-foreground">{devices(viewers)} also connected over the shared link. Their access remains active until sharing or background work is stopped.</p>
         ) : null}
 
         {/* Same order as ConfirmDialog: dismiss on the left, the consequential
@@ -100,7 +100,7 @@ export default function QuitDialog() {
             Keep working
           </Button>
           <Button variant="destructive" disabled={busy} onClick={() => void quit()}>
-            {dirtyFiles.length ? "Discard edits and quit" : rows.length > 0 ? "Stop and quit" : "Disconnect and quit"}
+            {dirtyFiles.length ? "Discard edits and quit" : "Close NativePi"}
           </Button>
         </DialogFooter>
       </DialogContent>
