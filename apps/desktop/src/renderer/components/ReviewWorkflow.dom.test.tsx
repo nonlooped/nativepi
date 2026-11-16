@@ -40,3 +40,22 @@ test("starting a review uses explicit check permission and opening its result do
   expect(useAppStore.getState().sourceControlReview).toEqual({ projectDir: "/project", path: "math.ts", staged: false });
   expect(starts).toHaveLength(1);
 });
+
+
+test("project review resets a saved file-only scope", async () => {
+  let received: any;
+  const model = { provider: "test", id: "reviewer", name: "Reviewer", thinkingLevels: ["high"], tiers: ["default"] };
+  stubInvoke(async (name, params) => {
+    if (name === "getChatTitleModels") return { models: [model] };
+    if (name === "reviewJobs") return { jobs: [], options: reviewJobOptionsSchema.parse({ model: "test/reviewer", scope: "file", file: "old.ts" }) };
+    if (name === "reviewStart") { received = params; throw new Error("Stopped after scope capture"); }
+    return {};
+  });
+  useAppStore.setState({ models: [model as any], model: model as any, providers: [] });
+  host = document.createElement("div"); document.body.append(host); root = createRoot(host);
+  await act(async () => root.render(<ReviewWorkflow projectDir="/project" />));
+  await act(async () => button("Review changes").click());
+  await act(async () => button("Start review").click());
+  expect(received.options).toMatchObject({ scope: "uncommitted" });
+  expect(received.options.file).toBeUndefined();
+});

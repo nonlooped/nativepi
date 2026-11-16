@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Open Usage, Automations, and device sharing directly from icon buttons beside Settings in the sidebar. Simplify usage summaries and keep input/cache breakdowns limited to recorded all-time totals.
 
 ### Fixed
+- Keep review sessions recoverable during interruption, support new repositories and colored Git configurations, reset file-only defaults for project reviews, and drain reviews on host shutdown.
 - Deduplicate repeated review findings, preserve unchanged anchors across staging and unrelated commits, and merge completed reviewer results without discarding concurrent finding updates.
 - Harden shared browser action scripts by escaping script-sensitive characters in action arguments while preserving typed text.
 - Ensure desktop development installs the Electron binary and launches the GUI even when the shell has Electron's Node mode enabled.

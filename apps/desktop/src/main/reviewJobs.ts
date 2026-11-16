@@ -12,7 +12,10 @@ const hash = (text: string) => createHash("sha256").update(text).digest("hex");
 const journalSchema = z.object({ jobs: z.array(reviewJobSchema), options: reviewJobOptionsSchema.optional() }).passthrough();
 /** UI metadata only. Pi owns all model/tool transcripts. One job per canonical checkout. */
 export class ReviewJobs {
-  private active = new Map<string, { job: ReviewJob; abort: AbortController }>();
+  private active = new Map<string, { job: ReviewJob; abort: AbortController; done: Promise<void> }>();
+  private closing = false;
+  activeProjects() { return [...this.active.keys()]; }
+  async close() { this.closing = true; const active = [...this.active.values()]; for (const run of active) run.abort.abort(); await Promise.all(active.map(run => run.done)); }
   constructor(private directory: string, private reviews: ReviewStore, private reviewer = runCodeReviewer) {}
   private path(root: string) { return join(this.directory, `${hash(root)}.json`); }
   private async load(root: string) {
@@ -53,24 +56,26 @@ export class ReviewJobs {
   }
   async start(projectDir: string, supplied: ReviewJobOptions) {
     const root = await realpath(projectDir);
+    if (this.closing) throw new Error("Review host is stopping.");
     if (this.active.has(root)) throw new Error("A review is already running in this checkout.");
     const options = reviewJobOptionsSchema.parse(supplied);
     const job: ReviewJob = { id: randomUUID(), options, status: "running", createdAt: new Date().toISOString(), message: "Collecting review inputs…", inputs: [], skipped: [], checks: [], verifications: [], verificationFiles: [] };
     const abort = new AbortController();
-    this.active.set(root, { job, abort });
+    const completion = Promise.withResolvers<void>();
+    this.active.set(root, { job, abort, done: completion.promise });
     try {
       await this.collect(root, job);
       if (!job.inputs.length && !options.verifyIds.length) throw new Error("No supported textual changes in this scope.");
       abort.signal.throwIfAborted();
       await this.save(root, job);
-    } catch (error) { this.active.delete(root); throw error; }
+    } catch (error) { this.active.delete(root); completion.resolve(); throw error; }
     // Execution belongs to the host, never a mounted renderer or pending request.
-    void this.execute(root, job, abort).finally(() => this.active.delete(root));
+    void this.execute(root, job, abort).finally(() => { this.active.delete(root); completion.resolve(); });
     return job;
   }
   private async git(root: string, args: string[]) {
     const result = await runRepositoryCommand("git", args, root);
-    if (result.code) throw new Error(result.stderr);
+    if (result.code && !(result.code === 1 && args.includes("--no-index"))) throw new Error(result.stderr);
     return result.stdout;
   }
   private async collect(root: string, job: ReviewJob) {
@@ -80,15 +85,17 @@ export class ReviewJobs {
       const commit = (await this.git(root, ["rev-parse", "--verify", "--end-of-options", `${o.base}^{commit}`])).trim();
       base = (await this.git(root, ["merge-base", "HEAD", commit])).trim();
     }
-    const args = o.scope === "staged" ? ["--cached"] : base ? [base, "HEAD"] : ["HEAD"];
-    let files = o.scope === "file" ? [o.file ?? ""] : (await this.git(root, ["diff", "--name-only", "-z", ...args, "--"])).split("\0").filter(Boolean);
+    const hasHead = await this.git(root, ["rev-parse", "--verify", "HEAD"]).then(() => true, () => false);
+    const args = o.scope === "staged" ? ["--cached"] : base ? [base, "HEAD"] : hasHead ? ["HEAD"] : [];
+    let files = o.scope === "file" ? [o.file ?? ""] : !hasHead && o.scope === "uncommitted" ? (await this.git(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"])).split("\0").filter(Boolean) : (await this.git(root, ["diff", "--name-only", "-z", ...args, "--"])).split("\0").filter(Boolean);
     if (o.scope === "uncommitted") files = [...new Set([...files, ...(await this.git(root, ["ls-files", "--others", "--exclude-standard", "-z"])).split("\0").filter(Boolean)])];
     let size = 0;
     for (const file of files) {
       if (!file) continue;
       if (job.inputs.length >= 100 || size >= 240000) { job.skipped.push(`${file}: review input limit`); continue; }
       try {
-        let patch = await this.git(root, ["--literal-pathspecs", "diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--unified=5", ...args, "--", file]);
+        const compare = !hasHead && o.scope !== "staged" ? ["--no-index", "--", "/dev/null", file] : [...args, "--", file];
+        let patch = await this.git(root, ["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--unified=5", ...compare]);
         if (!patch && !base && o.scope !== "staged") patch = await this.reviews.patch(root, file, "working");
         if (!/^@@ /m.test(patch) || patch.includes("\0")) { job.skipped.push(`${file}: binary, unsupported or no textual changes`); continue; }
         if (patch.length > 80000 || size + patch.length > 240000) { job.skipped.push(`${file}: oversized diff (not truncated)`); continue; }
@@ -109,7 +116,7 @@ export class ReviewJobs {
       await this.save(root, job);
       const context = await getRepoHostContext(root).catch(() => null);
       abort.signal.throwIfAborted();
-      const result = await this.reviewer(root, job.inputs.map(i => `FILE ${JSON.stringify(i.file)}\n${i.patch}`).join("\n\n"), job.options.model, abort.signal, job.options, job.inputs, JSON.stringify({ namedIssues: issues, existingPullRequestContext: context }), async path => { job.sessionFile = path; });
+      const result = await this.reviewer(root, job.inputs.map(i => `FILE ${JSON.stringify(i.file)}\n${i.patch}`).join("\n\n"), job.options.model, abort.signal, job.options, job.inputs, JSON.stringify({ namedIssues: issues, existingPullRequestContext: context }), async path => { job.sessionFile = path; await this.save(root, job); });
       job.sessionFile = result.reviewerSession; job.checks = result.checks; job.verifications = result.verifications;
       abort.signal.throwIfAborted();
       for (const input of job.inputs) {

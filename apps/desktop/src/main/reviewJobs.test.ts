@@ -74,3 +74,57 @@ test("verification with no remaining diff retains named verdicts and detects sta
   await writeFile(join(root, "a.txt"), "regression\n");
   expect((await jobs.state(root)).jobs[0]!.inputChanged).toBe(true);
 });
+
+
+test("tracked changes remain reviewable when Git always colors diffs", async () => {
+  const f = await fixture(async () => ({ notes: [], reviewerSession: "/review", checks: [], verifications: [] }));
+  execFileSync("git", ["config", "color.ui", "always"], { cwd: f.root });
+  execFileSync("git", ["config", "color.diff", "always"], { cwd: f.root });
+  const started = await f.jobs.start(f.root, options);
+  expect(started.inputs.map(i => i.file)).toEqual(["a.txt", "b.txt"]);
+  expect(started.inputs[0]!.patch).toContain("+working");
+  expect((await settled(f.jobs, f.root)).status).toBe("completed");
+});
+
+test("new repositories review staged and untracked files before the first commit", async () => {
+  const root = await mkdtemp(join(tmpdir(), "nativepi-unborn-review-")); roots.push(root);
+  execFileSync("git", ["init", "-b", "main"], { cwd: root });
+  await writeFile(join(root, "staged.txt"), "new staged content\n");
+  await writeFile(join(root, "new.txt"), "untracked content\n");
+  execFileSync("git", ["add", "staged.txt"], { cwd: root });
+  const jobs = new ReviewJobs(join(root, ".git", "jobs"), new ReviewStore(join(root, ".git", "reviews")), async () => ({ notes: [], reviewerSession: "/review", checks: [], verifications: [] }));
+  const all = await jobs.start(root, options);
+  expect(all.inputs.map(i => i.file).sort()).toEqual(["new.txt", "staged.txt"]);
+  expect((await settled(jobs, root)).status).toBe("completed");
+  const one = await jobs.start(root, { ...options, scope: "file", file: "new.txt" });
+  expect(one.inputs[0]!.patch).toContain("+untracked content");
+  await settled(jobs, root);
+});
+
+test("interrupted reviews retain a session reference before model completion", async () => {
+  const entered = Promise.withResolvers<void>();
+  const pending = Promise.withResolvers<Awaited<ReturnType<typeof runCodeReviewer>>>();
+  const f = await fixture(async (_root, _diff, _model, _signal, _options, _inputs, _issues, onSession) => {
+    await onSession!("/sessions/partial-review.jsonl"); entered.resolve(); return pending.promise;
+  });
+  await f.jobs.start(f.root, options); await entered.promise;
+  const reopened = await new ReviewJobs(f.directory, f.reviews).state(f.root);
+  expect(reopened.jobs[0]).toMatchObject({ status: "interrupted", sessionFile: "/sessions/partial-review.jsonl" });
+  pending.resolve({ notes: [], reviewerSession: "/sessions/partial-review.jsonl", checks: [], verifications: [] });
+  await settled(f.jobs, f.root);
+});
+
+
+test("host shutdown cancels and drains active review evidence before returning", async () => {
+  const entered = Promise.withResolvers<void>();
+  const f = await fixture(async (_root, _diff, _model, signal, _options, _inputs, _issues, onSession) => {
+    await onSession!("/sessions/stopped-review.jsonl"); entered.resolve();
+    return new Promise((_resolve, reject) => { signal!.addEventListener("abort", () => reject(new Error("Review stopped")), { once: true }); });
+  });
+  await f.jobs.start(f.root, options); await entered.promise;
+  expect(f.jobs.activeProjects()).toHaveLength(1);
+  await f.jobs.close();
+  expect(f.jobs.activeProjects()).toEqual([]);
+  expect((await new ReviewJobs(f.directory, f.reviews).state(f.root)).jobs[0]).toMatchObject({ status: "interrupted", sessionFile: "/sessions/stopped-review.jsonl" });
+  await expect(f.jobs.start(f.root, options)).rejects.toThrow("stopping");
+});

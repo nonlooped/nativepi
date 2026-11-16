@@ -49,7 +49,7 @@ export default function ReviewWorkflow({ projectDir, file, verifyIds = [] }: { p
     return () => { alive = false; if (interval) clearInterval(interval); };
   }, [projectDir, open, running, revision]);
   const latest = jobs.at(-1);
-  const value = options ?? reviewJobOptionsSchema.parse({ ...saved, file, scope: file ? "file" : saved?.scope ?? "uncommitted", model: saved?.model || (model ? `${model.provider}/${model.id}` : "unavailable"), verifyIds });
+  const value = options ?? reviewJobOptionsSchema.parse({ ...saved, file, scope: file ? "file" : saved?.scope === "file" ? "uncommitted" : saved?.scope ?? "uncommitted", model: saved?.model || (model ? `${model.provider}/${model.id}` : "unavailable"), verifyIds });
   const change = (patch: Partial<ReviewJobOptions>) => setOptions({ ...value, ...patch });
   const [provider = "", ...modelId] = value.model.split("/");
   const summary = latest ? latest.inputChanged ? "Changes made since review" : latest.status === "completed" ? `${latest.count ?? 0} finding${latest.count === 1 ? "" : "s"}` : statusLabels[latest.status] : "Not reviewed";

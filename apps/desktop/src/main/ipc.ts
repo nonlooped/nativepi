@@ -2514,6 +2514,7 @@ export function shutdownHost(): Promise<void> { return shutdownTask ??= shutdown
 async function shutdown(): Promise<void> {
   shuttingDown = true;
   await automations.close();
+  await reviewJobs.close();
   for (const client of [...clients])
     client.dispose();
   runtimeGeneration++;
