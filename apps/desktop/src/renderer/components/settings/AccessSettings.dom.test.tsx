@@ -35,7 +35,7 @@ domTest("Access action result stays visible when a background status read arrive
   try {
     await act(async () => { root.render(<AccessSettings />); });
     await act(async () => { refresh(); });
-    const start = [...container.querySelectorAll("button")].find((button) => button.textContent === "Start");
+    const start = [...container.querySelectorAll("button")].find((button) => button.textContent === "Share on network");
     expect(start).toBeDefined();
     await act(async () => { start!.click(); });
     expect(container.textContent).toContain("Serving on your network");
@@ -49,4 +49,29 @@ domTest("Access action result stays visible when a background status read arrive
     globalThis.setInterval = originalSetInterval;
     globalThis.clearInterval = originalClearInterval;
   }
+});
+
+domTest("switching sharing views preserves both active connections without starting or stopping either", async () => {
+  const { default: AccessSettings } = await import("./AccessSettings.tsx");
+  const actions: string[] = [];
+  stubInvoke(async channel => {
+    if (channel !== "accessStatus") actions.push(channel);
+    return {
+      ...STOPPED_STATUS,
+      local: { running: true, link: "http://network-link", links: ["http://network-link"], clients: [] },
+      remote: { state: "running", link: "https://public-link.example", reachable: true },
+    };
+  });
+  const container = document.createElement("div"); document.body.append(container); const root = createRoot(container);
+  try {
+    await act(async () => root.render(<AccessSettings />));
+    expect(container.querySelector("code")?.textContent).toBe("http://network-link");
+    const choose = (name: string) => [...container.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === name)!;
+    await act(() => choose("Anywhere").click());
+    expect(container.querySelector("code")?.textContent).toBe("https://public-link.example");
+    expect(container.textContent).toContain("same network and public link");
+    await act(() => choose("Same network").click());
+    expect(container.querySelector("code")?.textContent).toBe("http://network-link");
+    expect(actions).toEqual([]);
+  } finally { await act(() => root.unmount()); container.remove(); }
 });

@@ -1,14 +1,13 @@
 import { copyText } from "@/lib/clipboard.ts";
+import type { SetupResource } from "../../shared/agent-setup.ts";
+import ChatExtensionSettings from "./settings/ChatExtensionSettings.tsx";
+import { SettingsEntity, ReadonlyRow } from "./settings/rows.tsx";
 import { useState } from "react";
-import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
-import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { CubeIcon } from "@phosphor-icons/react/Cube";
 import { FileCodeIcon } from "@phosphor-icons/react/FileCode";
 import { FolderIcon } from "@phosphor-icons/react/Folder";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
-import { TrashIcon } from "@phosphor-icons/react/Trash";
-import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import npmLogo from "material-icon-theme/icons/npm.svg?raw";
 import type { PackageInfo } from "../../shared/pi-types.ts";
 import { showHint } from "../lib/toast.tsx";
@@ -17,15 +16,7 @@ import { rpc } from "../lib/rpc.ts";
 import StateNotice from "./StateNotice.tsx";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
-import { Badge } from "@/components/ui/badge.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu.tsx";
-import { HOVER_REVEAL, cn } from "@/lib/utils.ts";
 import { Segmented } from "./settings/rows.tsx";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 import { ExtensionSettings } from "./ExtensionSlots.tsx";
@@ -45,10 +36,6 @@ function extensionLabel(path: string) {
 
 function packageLabel(source: string) {
   return source.startsWith("npm:") ? source.slice(4) : source;
-}
-
-function scopeLabel(scope: string) {
-  return scope === "project" ? "Project" : "User";
 }
 
 function actionErrorMessage(error: unknown, fallback: string) {
@@ -88,17 +75,22 @@ export function canReloadProjectAfterPackageChange(projectDir: string) {
   );
 }
 
-export default function ExtensionsManager() {
+export default function ExtensionsManager({ projectDir: context, resources = [] }: { projectDir?: string; resources?: SetupResource[] } = {}) {
   const useAppStore = usePaneStore();
-  const projectDir = useAppStore((s) => s.activeProjectPath);
+  const activeProject = useAppStore((s) => s.activeProjectPath);
+  const workRoot = useAppStore(s => s.workRoot);
+  const projectDir = context ?? activeProject ?? workRoot;
+  const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
   const addProject = useAppStore((s) => s.addProject);
   const reloadExtensions = useAppStore((s) => s.reloadExtensions);
   const graphicalErrors = useAppStore((s) => s.extLoadErrors);
   // Reloading extensions restarts Pi, which ends whatever turn it is in the
   // middle of. Every other route to that restart already waits for the run;
   // this one used to take it out from under the user without a word.
-  const hasRunningTurns = useAppStore((s) => Object.values(s.conversations).some((conversation) => conversation.running));
 
+
+  const running = useAppStore(s => Object.values(s.conversations).some(chat => chat.running));
   const [source, setSource] = useState("");
   const [scope, setScope] = useState<"user" | "project">("user");
   const [installing, setInstalling] = useState(false);
@@ -133,11 +125,12 @@ export default function ExtensionsManager() {
   async function applyPackageChange(modifiedProjectDir: string, message: string) {
     const activeProjectPath = useAppStore.getState().activeProjectPath;
     if (!canReloadProjectAfterPackageChange(modifiedProjectDir)) {
+      useAppStore.getState().requirePiRestart();
       if (activeProjectPath === modifiedProjectDir) {
         refresh();
-        showHint(`${message}. Reload after the running turns finish.`);
+        showHint(`${message}. Restart Pi after the running turns finish.`);
       } else {
-        showHint(`${message}. Reload Pi when you return to that project.`);
+        showHint(`${message}. Restart Pi to load the change.`);
       }
       return;
     }
@@ -208,301 +201,53 @@ export default function ExtensionsManager() {
     }
   }
 
-  async function reload() {
-    setBusy("reload");
-    setActionError(undefined);
-    try {
-      await reloadExtensions();
-      refresh();
-    } catch (error) {
-      setActionError(actionErrorMessage(error, "Unable to reload extensions. Wait a moment and try again."));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-8">
-      <section aria-labelledby="installed-heading" className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-start gap-2">
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <div className="flex items-center gap-2">
-              <h2 id="installed-heading" className="font-heading text-sm font-semibold">
-                Installed packages
-              </h2>
-              {installedPackages ? <Badge variant="secondary">{installedPackages.length}</Badge> : null}
-            </div>
-            <p className="text-xs text-muted-foreground">Packages added from npm or Git.</p>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void reload()}
-            disabled={busy !== null || hasRunningTurns}
-            title={
-              hasRunningTurns
-                ? "Wait for every running turn to finish. Reloading restarts Pi."
-                : "Restart Pi so it picks up changed extensions"
-            }
-          >
-            {busy === "reload" ? (
-              <CircleNotchIcon className="animate-spin" data-icon="inline-start" />
-            ) : (
-              <ArrowClockwiseIcon data-icon="inline-start" />
-            )}
-            Reload
-          </Button>
-          <Button
-            variant={installing ? "secondary" : "outline"}
-            size="sm"
-            aria-expanded={installing}
-            onClick={() => setInstalling((open) => !open)}
-          >
-            <PlusIcon data-icon="inline-start" />
-            Install package
-          </Button>
-        </div>
-
-        {installing ? (
-          <div className="flex flex-col gap-2.5 rounded-md bg-muted/20 p-3">
-            <div className="flex flex-col gap-2 @min-[44rem]/settings-content:flex-row">
-              <Input
-                autoFocus
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void install();
-                  if (e.key === "Escape") {
-                    e.preventDefault();
-                    setInstalling(false);
-                  }
-                }}
-                placeholder="npm package or Git URL"
-                aria-label="Package source"
-                className="h-8 min-w-0 flex-1"
-              />
-              <div className="flex items-center gap-2">
-                <Segmented
-                  label="Install for"
-                  value={scope}
-                  onChange={setScope}
-                  options={[
-                    { value: "user", label: "User" },
-                    {
-                      value: "project",
-                      label: "Project",
-                      disabled: !projectTrusted,
-                      title: projectTrusted ? undefined : "Trust this project to install for it alone",
-                    },
-                  ]}
-                />
-                <Button size="sm" className="h-8" onClick={() => void install()} disabled={!source.trim() || busy !== null}>
-                  {busy === "install" ? <CircleNotchIcon className="animate-spin" /> : "Install"}
-                </Button>
-              </div>
-            </div>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              Extensions are trusted code that runs inside Pi with your permissions. Only install sources you recognize.
-              {projectTrusted ? "" : " Trust this project to install for it alone."}
-            </p>
-          </div>
-        ) : null}
-
-        {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
-
-        {listing.error ? <StateNotice title="Could not load packages" detail={listing.error} retry={refresh} /> : installedPackages === null ? (
-          <StateNotice loading title="Loading installed packages…" />
-        ) : installedPackages.length === 0 ? (
-          <p className="py-4 text-sm text-muted-foreground">
-            No npm or Git packages installed.
-          </p>
-        ) : (
-          <div className="border-t border-border/40">
-            {installedPackages.map((pkg) => (
-              <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
-                <ContextMenuTrigger render={<div className="group flex min-h-12 items-center gap-3 py-2" />}>
-                  <PackageSourceIcon source={pkg.source} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-medium">{packageLabel(pkg.source)}</span>
-                      <Badge variant="outline">{scopeLabel(pkg.scope)}</Badge>
-                      {pkg.filtered ? <Badge variant="secondary">Filtered</Badge> : null}
-                    </div>
-                  </div>
-                  {busy === pkg.source ? (
-                    <CircleNotchIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
-                  ) : (
-                    <div
-                      className={cn(
-                        HOVER_REVEAL,
-                        "flex shrink-0 items-center gap-1 group-focus-within:opacity-100 group-hover:opacity-100",
-                      )}
-                    >
-                      <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => void update(pkg)}>
-                        Update
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        disabled={busy !== null}
-                        onClick={() => setPendingRemoval(pkg)}
-                        title={`Remove ${packageLabel(pkg.source)}`}
-                        aria-label={`Remove ${packageLabel(pkg.source)}`}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <TrashIcon />
-                      </Button>
-                    </div>
-                  )}
-                </ContextMenuTrigger>
-                <ContextMenuContent className="w-48">
-                  <ContextMenuItem onClick={() => void copyText(pkg.source)}>Copy source</ContextMenuItem>
-                  <ContextMenuItem
-                    disabled={!pkg.installedPath}
-                    onClick={() => pkg.installedPath && void rpc.request.showInFolder({ path: pkg.installedPath })}
-                  >
-                    Reveal install folder
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {!listing.error ? <section aria-labelledby="local-heading" className="flex flex-col gap-3">
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-2">
-            <h2 id="local-heading" className="font-heading text-sm font-semibold">
-              Local extensions
-            </h2>
-            {localPackages && localExtensions ? (
-              <Badge variant="secondary">{localPackages.length + localExtensions.length}</Badge>
-            ) : null}
-          </div>
-          <p className="text-xs text-muted-foreground">Extensions loaded directly from files and folders on this computer.</p>
-        </div>
-
-        {listing.error ? null : localPackages === null || localExtensions === null ? (
-          <StateNotice loading title="Loading local extensions…" />
-        ) : localPackages.length === 0 && localExtensions.length === 0 ? (
-          <p className="py-4 text-sm text-muted-foreground">No local extensions found.</p>
-        ) : (
-          <div className="border-t border-border/40">
-            {localPackages.map((pkg) => (
-              <ContextMenu key={`${pkg.scope}:${pkg.source}`}>
-                <ContextMenuTrigger render={<div className="group flex min-h-12 items-center gap-3 py-2" />}>
-                  <LocalSourceIcon source={pkg.source} />
-                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                    <span title={pkg.source} className="truncate text-sm font-medium">
-                      {extensionLabel(pkg.source)}
-                    </span>
-                    <Badge variant="outline">{scopeLabel(pkg.scope)}</Badge>
-                    {pkg.filtered ? <Badge variant="secondary">Filtered</Badge> : null}
-                  </div>
-                  {busy === pkg.source ? (
-                    <CircleNotchIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      disabled={busy !== null}
-                      onClick={() => setPendingRemoval(pkg)}
-                      title={`Remove ${extensionLabel(pkg.source)}`}
-                      aria-label={`Remove ${extensionLabel(pkg.source)}`}
-                      className={cn(
-                        HOVER_REVEAL,
-                        "shrink-0 text-muted-foreground group-focus-within:opacity-100 group-hover:opacity-100 hover:text-destructive",
-                      )}
-                    >
-                      <TrashIcon />
-                    </Button>
-                  )}
-                </ContextMenuTrigger>
-                <ContextMenuContent className="w-48">
-                  <ContextMenuItem onClick={() => void copyText(pkg.source)}>Copy path</ContextMenuItem>
-                  <ContextMenuItem
-                    disabled={!pkg.installedPath}
-                    onClick={() => pkg.installedPath && void rpc.request.showInFolder({ path: pkg.installedPath })}
-                  >
-                    Reveal in folder
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
-            ))}
-            {localExtensions.map((extension) => (
-              <ContextMenu key={extension.path}>
-                <ContextMenuTrigger render={<div className="flex min-h-12 items-center gap-3 py-2" />}>
-                  <LocalSourceIcon source={extension.path} />
-                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                    <span title={extension.path} className="truncate text-sm font-medium">
-                      {extensionLabel(extension.path)}
-                    </span>
-                    <Badge variant="outline">{scopeLabel(extension.scope)}</Badge>
-                    {!extension.enabled ? <Badge variant="secondary">Disabled</Badge> : null}
-                  </div>
-                </ContextMenuTrigger>
-                <ContextMenuContent className="w-48">
-                  <ContextMenuItem onClick={() => void copyText(extension.path)}>Copy path</ContextMenuItem>
-                  <ContextMenuItem onClick={() => void rpc.request.showInFolder({ path: extension.path })}>
-                    Reveal in folder
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
-            ))}
-          </div>
-        )}
-      </section> : null}
-
-      {graphicalErrors.length > 0 || errors.length > 0 ? (
-        <section aria-labelledby="ext-errors-heading" className="flex flex-col gap-2">
-          <h2 id="ext-errors-heading" className="flex items-center gap-1.5 font-heading text-sm font-semibold text-destructive">
-            <WarningCircleIcon weight="fill" />
-            Load errors
-          </h2>
-          <div className="flex flex-col gap-1.5 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-            {errors.map((e, i) => (
-              <p key={`s${i}`} className="break-words">
-                {e}
-              </p>
-            ))}
-            {graphicalErrors.map((e, i) => (
-              <p key={`g${i}`} className="break-words">
-                <span className="font-medium">{e.name}:</span> {e.error}
-              </p>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <ExtensionSettings />
-
-      <ConfirmDialog
-        open={pendingRemoval !== null}
-        title="Remove this extension?"
-        description={
-          <>
-            Pi will no longer load this package for{" "}
-            {pendingRemoval?.scope === "project" ? "this project" : "your user account"}. You can add it again from the
-            same source.
-          </>
-        }
-        detail={
-          pendingRemoval
-            ? pendingRemoval.local
-              ? extensionLabel(pendingRemoval.source)
-              : packageLabel(pendingRemoval.source)
-            : undefined
-        }
-        confirmLabel="Remove extension"
-        destructive
-        onConfirm={() => {
-          const target = pendingRemoval;
-          setPendingRemoval(null);
-          if (target) void remove(target);
-        }}
-        onCancel={() => setPendingRemoval(null)}
-      />
+  const packageRows = [...(installedPackages ?? []), ...(localPackages ?? [])];
+  const matches = (value: string) => value.toLowerCase().includes(query.trim().toLowerCase());
+  return <div className="flex flex-col gap-5">
+    <div className="flex flex-wrap items-center gap-2">
+      <Input type="search" value={query} onChange={event => setQuery(event.target.value)} aria-label="Search packages" placeholder="Search packages" className="h-8 min-w-32 flex-1" />
+      <Button variant="outline" size="sm" onClick={() => { refresh(); }} disabled={busy !== null}>Refresh</Button>
+      <Button variant="outline" size="sm" disabled={busy !== null || running} onClick={() => void useAppStore.getState().applyPiSettingsRestart()}>Restart Pi</Button>
+      <Button variant="outline" size="sm" onClick={() => setInstalling(!installing)} aria-expanded={installing}><PlusIcon />Install package</Button>
     </div>
-  );
+    {installing ? <div className="flex flex-col gap-3 rounded-md border border-border/50 p-4">
+      <label className="text-sm font-medium" htmlFor="package-source">Package source</label>
+      <Input id="package-source" autoFocus value={source} onChange={event => setSource(event.target.value)} placeholder="npm package or Git URL" aria-label="Package source" onKeyDown={event => { if (event.key === "Enter") void install(); }} />
+      <div className="flex flex-wrap items-center justify-between gap-3"><Segmented label="Available in" value={scope} onChange={setScope} options={[{ value: "user", label: "All projects" }, { value: "project", label: "This project", disabled: !projectTrusted, title: projectTrusted ? undefined : "Trust this project to install for it alone" }]} />
+        <div className="flex gap-2"><Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => setInstalling(false)}>Cancel</Button><Button size="sm" disabled={!source.trim() || busy !== null} onClick={() => void install()}>{busy === "install" ? "Installing…" : "Install"}</Button></div>
+      </div>
+      <p className="text-xs leading-5 text-body-muted-foreground">Packages can run code with your permissions. Only install sources you trust.{!projectTrusted ? " Choose a trusted project to install for that project alone." : ""}</p>
+    </div> : null}
+    {actionError ? <StateNotice title="Could not complete the action" detail={actionError} /> : null}
+    {listing.error ? <StateNotice title="Could not load packages" detail={listing.error} retry={refresh} /> : packages === null ? <StateNotice loading title="Loading packages…" /> : <>
+      {!packageRows.length && !localExtensions?.length ? <p className="py-4 text-sm text-muted-foreground">No packages or local extensions found. Install a package to add capabilities.</p> : null}
+      <div>{packageRows.filter(pkg => matches(pkg.source)).map(pkg => {
+        const key = `${pkg.scope}:${pkg.source}`;
+        const provided = resources.filter(resource => resource.source === pkg.source || !!pkg.installedPath && resource.path.startsWith(pkg.installedPath));
+        return <SettingsEntity key={key} name={pkg.local ? extensionLabel(pkg.source) : packageLabel(pkg.source)} icon={pkg.local ? <LocalSourceIcon source={pkg.source} /> : <PackageSourceIcon source={pkg.source} />}
+          scope={pkg.scope === "project" ? "This project" : "All projects"} description={pkg.filtered ? "Selected resources only" : pkg.local ? "Local source" : "Installed package"} expanded={expanded === key} onToggle={() => setExpanded(expanded === key ? null : key)}>
+          <ReadonlyRow label="Source" value={pkg.source} />
+          {provided.length ? <div className="py-2 text-[0.8125rem] leading-5 text-body-muted-foreground"><p className="font-medium text-foreground">Provides</p>{provided.map(resource => <p key={resource.path}>{resource.name} · {resource.kind === "skill" ? "Skill" : "Prompt"}</p>)}</div> : null}
+          <div className="flex flex-wrap gap-2 py-2">
+            {!pkg.local ? <Button variant="outline" size="sm" disabled={busy !== null} onClick={() => void update(pkg)}>{busy === pkg.source ? "Working…" : "Update"}</Button> : null}
+            <Button variant="outline" size="sm" onClick={() => void copyText(pkg.source)}>Copy source</Button>
+            {pkg.installedPath ? <Button variant="outline" size="sm" onClick={() => void rpc.request.showInFolder({ path: pkg.installedPath! })}>Show files</Button> : null}
+            <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => setPendingRemoval(pkg)}>Remove…</Button>
+          </div>
+          <ChatExtensionSettings source={pkg.source} />
+        </SettingsEntity>;
+      })}
+      {localExtensions?.filter(extension => matches(extension.path)).map(extension => <SettingsEntity key={extension.path} name={extensionLabel(extension.path)} icon={<LocalSourceIcon source={extension.path} />} scope={extension.scope === "project" ? "This project" : "All projects"}
+        description={extension.enabled ? "Local extension" : "Disabled local extension"} expanded={expanded === extension.path} onToggle={() => setExpanded(expanded === extension.path ? null : extension.path)}>
+        <ReadonlyRow label="Source" value={extension.path} />
+        <div className="flex gap-2 py-2"><Button size="sm" variant="outline" onClick={() => void copyText(extension.path)}>Copy path</Button><Button size="sm" variant="outline" onClick={() => void rpc.request.showInFolder({ path: extension.path })}>Show files</Button></div>
+        <ChatExtensionSettings source={extension.path} />
+      </SettingsEntity>)}
+      </div>
+      {query.trim() && !packageRows.some(pkg => matches(pkg.source)) && !localExtensions?.some(extension => matches(extension.path)) ? <p role="status" className="text-sm text-muted-foreground">No matching packages.</p> : null}
+    </>}
+    {graphicalErrors.length || errors.length ? <StateNotice title="Some extensions could not load" detail={[...errors, ...graphicalErrors.map(error => `${error.name}: ${error.error}`)].join("\n")} /> : null}
+    <ExtensionSettings />
+    <ConfirmDialog open={pendingRemoval !== null} title="Remove this package?" description={<>Pi will no longer load this source for {pendingRemoval?.scope === "project" ? "this project" : "your user account"}. You can install it again from the same source.</>} detail={pendingRemoval?.source} confirmLabel="Remove package" destructive onCancel={() => setPendingRemoval(null)} onConfirm={() => { const target = pendingRemoval; setPendingRemoval(null); if (target) void remove(target); }} />
+  </div>;
 }

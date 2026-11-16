@@ -1,8 +1,6 @@
 import StateNotice from "../StateNotice.tsx";
-import { useState } from "react";
-import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
+import { useEffect, useState } from "react";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
-import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import type { AuthProviderInfo } from "../../../shared/rpc-schema.ts";
 import type { AuthFlow } from "../../lib/store.ts";
@@ -15,6 +13,8 @@ import { Input } from "@/components/ui/input.tsx";
 import { cn } from "@/lib/utils.ts";
 import BrandIcon from "../BrandIcon.tsx";
 import ConfirmDialog from "../ConfirmDialog.tsx";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog.tsx";
+import { SettingsEntity, SettingsSection } from "./rows.tsx";
 
 const byProviderName = (a: AuthProviderInfo, b: AuthProviderInfo) => a.name.localeCompare(b.name);
 
@@ -49,6 +49,9 @@ export default function ProviderSettings() {
   const cancelLogin = useAppStore((s) => s.cancelLogin);
   const [selected, setSelected] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [adding, setAdding] = useState(false);
+  const openPanel = useAppStore(s => s.openAppPanel);
+  useEffect(() => { if (adding && selected && providers.some(provider => provider.id === selected && provider.ready)) setAdding(false); }, [adding, selected, providers]);
 
   const loading = useAppStore(s => s.providersLoading);
   const error = useAppStore(s => s.providersError);
@@ -60,50 +63,27 @@ export default function ProviderSettings() {
   const matching = normalized
     ? providers.filter((provider) => provider.name.toLocaleLowerCase().includes(normalized))
     : providers;
-  const connected = matching.filter((provider) => provider.ready).toSorted(byProviderName);
-  const available = matching.filter((provider) => !provider.ready).toSorted(byProviderName);
-
-  return (
-    <div className="flex flex-col gap-8">
-      <div className="relative max-w-md">
-        <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search providers"
-          aria-label="Search providers"
-          className="pl-9"
-        />
-      </div>
-
-      {connected.length === 0 && available.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{query.trim() ? `No providers match “${query.trim()}”.` : "No providers available. Check your Pi provider configuration."}</p>
-      ) : null}
-
-      {connected.length > 0 ? (
-        <ProviderGroup
-          heading="Connected"
-          providers={connected}
-          selected={selected}
-          setSelected={setSelected}
-          authFlow={authFlow}
-          cancelLogin={cancelLogin}
-        />
-      ) : null}
-
-      {available.length > 0 ? (
-        <ProviderGroup
-          heading="Available"
-          providers={available}
-          selected={selected}
-          setSelected={setSelected}
-          authFlow={authFlow}
-          cancelLogin={cancelLogin}
-        />
-      ) : null}
+  const connected = providers.filter(provider => provider.ready || provider.configured).toSorted(byProviderName);
+  const available = matching.filter(provider => !provider.ready && !provider.configured).toSorted(byProviderName);
+  return <div className="flex flex-col gap-7">
+    {!providers.length ? <p role="status" className="text-sm text-muted-foreground">No providers available. Check your Pi provider configuration.</p> : null}
+    <div className="flex items-center justify-between gap-3">
+      <Button variant="outline" size="sm" onClick={() => { setSelected(null); setAdding(true); setQuery(""); }}>Add provider</Button>
+      <Button variant="ghost" size="sm" onClick={() => openPanel("usage")}>View usage</Button>
     </div>
-  );
+    {connected.length ? <ProviderGroup heading="Connected accounts" providers={connected} selected={selected} setSelected={setSelected} authFlow={authFlow} cancelLogin={cancelLogin} />
+      : <p className="text-sm leading-6 text-body-muted-foreground">Connect a model provider to start chatting. NativePi uses Pi’s authentication and models.</p>}
+    <Dialog open={adding} onOpenChange={open => { setAdding(open); if (!open && authFlow && !connected.some(provider => provider.id === authFlow.providerId)) cancelLogin(); }}>
+      <DialogContent className="max-h-[min(40rem,calc(var(--app-height,100dvh)-2rem))] max-w-xl">
+        <DialogHeader><DialogTitle>Add provider</DialogTitle><DialogDescription>Choose a provider, then connect with a subscription or API key.</DialogDescription></DialogHeader>
+        <Input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search providers" aria-label="Search providers" />
+        <div className="@container/settings-content min-h-0 overflow-y-auto">
+          {available.length ? <ProviderGroup heading="Available providers" providers={available} selected={selected} setSelected={setSelected} authFlow={authFlow} cancelLogin={cancelLogin} /> : <p role="status" className="text-sm text-muted-foreground">{query.trim() ? `No providers match “${query.trim()}”.` : "All available providers are connected."}</p>}
+        </div>
+        <DialogFooter><Button variant="outline" size="sm" onClick={() => { setAdding(false); if (authFlow) cancelLogin(); }}>Done</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </div>;
 }
 
 function ProviderGroup({
@@ -121,76 +101,17 @@ function ProviderGroup({
   authFlow: AuthFlow | null;
   cancelLogin: () => void;
 }) {
-  const headingId = `providers-${heading.toLocaleLowerCase()}`;
-
-  return (
-    <section
-      aria-labelledby={headingId}
-      className="flex min-w-0 flex-col"
-    >
-      <div className="border-b border-border/40 pb-2">
-        <h2 id={headingId} className="text-sm font-semibold">
-          {heading}
-          <span className="ml-2 font-sans text-xs font-normal text-muted-foreground tabular-nums">
-            {providers.length}
-          </span>
-        </h2>
-      </div>
-      <div>
-        {providers.map((provider) => {
-          const expanded = selected === provider.id;
-          const activeFlow = authFlow?.providerId === provider.id ? authFlow : null;
-
-          return (
-            <div key={provider.id} className="border-t border-border/40 first:border-t-0">
-              <button
-                type="button"
-                aria-expanded={expanded}
-                onClick={() => {
-                  if (expanded) {
-                    if (activeFlow) cancelLogin();
-                    setSelected(null);
-                    return;
-                  }
-                  if (authFlow) cancelLogin();
-                  setSelected(provider.id);
-                }}
-                className="flex w-full items-center gap-3 rounded-md px-2 py-3 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className="flex size-8 shrink-0 items-center justify-center text-foreground">
-                  <BrandIcon
-                    name={providerIconName(provider.id)}
-                    size={19}
-                    color
-                  />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{provider.name}</span>
-                  <span
-                    className={cn(
-                      "mt-0.5 block truncate text-xs",
-                      provider.ready ? "text-success" : provider.configured ? "text-warning" : "text-muted-foreground",
-                    )}
-                  >
-                    {providerStatusLabel(provider)}
-                  </span>
-                </span>
-                {activeFlow?.busy ? (
-                  <CircleNotchIcon className="shrink-0 animate-spin text-muted-foreground" />
-                ) : (
-                  <CaretDownIcon
-                    className={cn("shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")}
-                  />
-                )}
-              </button>
-
-              {expanded ? <ProviderDetails provider={provider} /> : null}
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
+  return <SettingsSection heading={heading}>
+    {providers.map(provider => {
+      const expanded = selected === provider.id;
+      return <SettingsEntity key={provider.id} name={provider.name} description={providerStatusLabel(provider)} icon={<BrandIcon name={providerIconName(provider.id)} size={18} color />} expanded={expanded} onToggle={() => {
+        if (authFlow) cancelLogin();
+        setSelected(expanded ? null : provider.id);
+      }}>
+        <ProviderDetails provider={provider} />
+      </SettingsEntity>;
+    })}
+  </SettingsSection>;
 }
 
 function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
@@ -219,7 +140,7 @@ function ProviderDetails({ provider }: { provider: AuthProviderInfo }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 px-4 pb-4 pt-1 @min-[36rem]/settings-content:px-14">
+    <div className="flex flex-col gap-3">
       {/* The failure accompanies the orientation copy rather than replacing it:
           "Choose how you'd like to sign in" is exactly what you still need when
           a sign-in has just failed. */}
@@ -321,7 +242,7 @@ function AuthProgress({ provider, flow }: { provider: AuthProviderInfo; flow: Au
   const messages = flow.notices.filter((n) => n.kind === "progress" || n.kind === "info");
 
   return (
-    <div className="flex flex-col gap-3 px-4 pb-4 pt-1 @min-[36rem]/settings-content:px-14">
+    <div className="flex flex-col gap-3">
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <CircleNotchIcon className="animate-spin" />
         Waiting for you to finish signing in to {provider.name} in your browser…
@@ -391,7 +312,7 @@ function AuthPromptForm({
 
   if (prompt.request.kind === "select") {
     return (
-      <div className="flex flex-col gap-3 px-4 pb-4 pt-1 @min-[36rem]/settings-content:px-14">
+      <div className="flex flex-col gap-3">
         <p className="text-sm font-medium">{prompt.request.message}</p>
         <div className="flex flex-wrap gap-2">
           {prompt.request.options.map((option) => (

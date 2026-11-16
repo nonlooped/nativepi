@@ -29,7 +29,7 @@ domTest("package read failure replaces loading and retry reveals the empty resul
   expect(document.body.textContent).toContain("Disk unavailable");
   expect(document.body.textContent).not.toContain("Loading…");
   failed = false; await click("Try again");
-  expect(document.body.textContent).toContain("No npm or Git packages installed.");
+  expect(document.body.textContent).toContain("No packages or local extensions found.");
 });
 domTest("Chat extension discovery never reports empty while pending or failed", async () => {
   let reject!: (error: Error) => void;
@@ -85,7 +85,7 @@ domTest("authentication answer rejection remains visible with the retained form 
     authFlow: { providerId: "test", providerName: "Test", type: "api_key", projectDir: "/p", sessionFile: null, busy: false, notices: [], prompt: { id: "key", request: { kind: "secret", message: "API key" } } } });
   stubInvoke(async () => { throw new Error("Answer could not be delivered"); });
   const flow = useAppStore.getState().authFlow; useAppStore.setState({ authFlow: null });
-  await render(<ProviderSettings />); await click("Test");
+  await render(<ProviderSettings />); await click("Add provider"); await click("Test");
   await act(async () => { useAppStore.setState({ authFlow: flow }); useAppStore.getState().submitAuthPrompt("test-key"); });
   expect(document.body.textContent).toContain("Answer could not be delivered");
   expect(document.querySelector('input[type="password"]')).not.toBeNull();
@@ -113,4 +113,23 @@ domTest("artifact script failure offers recovery and rejects messages from the r
   expect(document.querySelector("iframe")).not.toBe(frame);
   await act(async () => window.dispatchEvent(new window.MessageEvent("message", { source: frame.contentWindow, data: { type: "nativepi.artifact.console", level: "error", text: "Retired failure" } })));
   expect(document.body.textContent).not.toContain("Retired failure");
+});
+
+domTest("user packages can be managed in the no-project context and changes remain pending for Pi", async () => {
+  useAppStore.setState({ activeProjectPath: null, workRoot: "/work", chatRoot: "/chat", conversations: {}, piRestartPending: false, extLoadErrors: [] });
+  let updated = false;
+  stubInvoke(async (channel, params: any) => {
+    if (channel === "listPackages") {
+      expect(["/work", "/chat"]).toContain(params.projectDir);
+      return { packages: params.projectDir === "/work" ? [{ source: "npm:example-tools", scope: "user", local: false, filtered: false, installedPath: "/installed" }] : [], extensions: [], errors: [], projectTrusted: false };
+    }
+    if (channel === "updatePackage") { updated = params.projectDir === "/work" && params.source === "npm:example-tools"; return { ok: true }; }
+    throw new Error(channel);
+  });
+  await render(<ExtensionsManager />);
+  expect(document.body.textContent).not.toContain("Open a project");
+  await click("example-tools"); await click("Update");
+  expect(updated).toBe(true);
+  expect(useAppStore.getState().piRestartPending).toBe(true);
+  expect(useAppStore.getState().activeProjectPath).toBeNull();
 });

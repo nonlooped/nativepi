@@ -1,3 +1,5 @@
+import { usesNativeGlass } from "../../../shared/themes.ts";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog.tsx";
 import { useRef, useState } from "react";
 import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
 import { CheckIcon } from "../../../shared/icons.ts";
@@ -5,10 +7,10 @@ import { BACKGROUND_IMAGE_ACCEPT } from "../../../shared/chat-background.ts";
 import { CHAT_BACKGROUNDS, importChatBackground } from "../../lib/chat-backgrounds.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { rpc } from "../../lib/rpc.ts";
-import { SettingsSection } from "./rows.tsx";
+import { ActionRow } from "./rows.tsx";
 import { Button } from "../ui/button.tsx";
 
-export default function ChatBackgroundSettings() {
+function BackgroundChooser() {
   const background = useAppStore((s) => s.preferences.chatBackground);
   const setPreference = useAppStore((s) => s.setPreference);
   const input = useRef<HTMLInputElement>(null);
@@ -34,7 +36,7 @@ export default function ChatBackgroundSettings() {
   };
 
   return (
-    <SettingsSection heading="Background" description="Most visible in new chats; quieter behind messages.">
+    <div className="@container/settings-content">
       <input ref={input} type="file" accept={BACKGROUND_IMAGE_ACCEPT} className="hidden" aria-label="Choose a background image"
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
@@ -73,6 +75,24 @@ export default function ChatBackgroundSettings() {
       {selected ? <button type="button" className="mt-2 text-left text-xs text-muted-foreground hover:text-foreground"
         onClick={() => void rpc.request.openExternal({ url: selected.url })}>Photo by {selected.photographer} / Unsplash</button>
         : <p className="mt-2 text-xs text-muted-foreground">{background.preset === "custom" ? "Your image is saved locally in NativePi." : "Bundled backgrounds are available offline."}</p>}
-    </SettingsSection>
+    </div>
   );
+}
+
+export default function ChatBackgroundSettings() {
+  const [open, setOpen] = useState(false);
+  const preferences = useAppStore(s => s.preferences);
+  const glass = usesNativeGlass(preferences);
+  const current = CHAT_BACKGROUNDS.find(entry => entry.id === preferences.chatBackground.preset);
+  const name = glass ? "Managed by Acrylic" : current?.name ?? (preferences.chatBackground.preset === "custom" ? "Your image" : "None");
+  return <>
+    <ActionRow label="Background" description={glass ? "Acrylic uses the system backdrop. Your saved image returns with another scheme." : "Most visible in new chats; quieter behind messages."}>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)} aria-label="Choose background">{name}</Button>
+    </ActionRow>
+    <Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-w-2xl">
+      <DialogHeader><DialogTitle>Background</DialogTitle><DialogDescription>{glass ? "Acrylic manages the background. Choose a different color scheme to use an image. Your saved choice is kept." : "Choose an image or a plain background. Changes apply immediately."}</DialogDescription></DialogHeader>
+      {glass ? <p className="text-sm text-body-muted-foreground">Native glass is available on macOS and Windows 11. Other systems and browser access use a solid backdrop.</p> : <BackgroundChooser />}
+      <DialogFooter><Button variant="outline" size="sm" onClick={() => setOpen(false)}>Done</Button></DialogFooter>
+    </DialogContent></Dialog>
+  </>;
 }

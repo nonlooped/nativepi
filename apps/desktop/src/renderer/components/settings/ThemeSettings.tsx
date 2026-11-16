@@ -130,6 +130,7 @@ function MiniThemePreview({ theme }: { theme: ThemeFile }) {
 export default function ThemeSettings() {
   const preferences = useAppStore((state) => state.preferences);
   const setPreference = useAppStore((state) => state.setPreference);
+  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CustomTheme | null>(null);
   const [importing, setImporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -189,6 +190,16 @@ export default function ThemeSettings() {
 
   return (
     <>
+      <ActionRow label="Color scheme">
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)} aria-label="Choose color scheme">
+          <span aria-hidden="true" className="flex gap-0.5">{[selectedTheme(preferences).colors.light.primary, selectedTheme(preferences).colors.dark.primary].map((color, index) => <span key={index} className="size-3 rounded-full border border-border/50" style={{ background: color }} />)}</span>
+          {selectedTheme(preferences).name}
+        </Button>
+      </ActionRow>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[min(44rem,calc(var(--app-height,100dvh)-2rem))] max-w-3xl">
+          <DialogHeader><DialogTitle>Color scheme</DialogTitle><DialogDescription>Choose a scheme or make your own. Changes apply immediately.</DialogDescription></DialogHeader>
+          <div className="@container/settings-content min-h-0 overflow-y-auto">
       <ChoiceCards
         label="Color scheme"
         description="Each preview shows light on the left and dark on the right."
@@ -243,6 +254,10 @@ export default function ThemeSettings() {
         </div>
       </ActionRow>
 
+          </div>
+          <DialogFooter><Button variant="outline" size="sm" onClick={() => setOpen(false)}>Done</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
       {editing ? (
         <ThemeEditor
           theme={editing}

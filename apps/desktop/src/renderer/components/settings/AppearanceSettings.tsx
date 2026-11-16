@@ -1,8 +1,8 @@
-import { usesNativeGlass } from "../../../shared/themes.ts";
 import { MIN_INTERFACE_SCALE, MAX_INTERFACE_SCALE, INTERFACE_SCALE_STEP } from "../../../shared/interface-scale.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { osName } from "../../lib/platform.ts";
-import { ChoiceRow, SettingsSection, SliderRow } from "./rows.tsx";
+import { ChoiceRow, SettingsSection, SliderRow, SwitchRow } from "./rows.tsx";
+import PiPanel from "./PiPanel.tsx";
 import ThemeSettings from "./ThemeSettings.tsx";
 import ChatBackgroundSettings from "./ChatBackgroundSettings.tsx";
 
@@ -16,9 +16,9 @@ export default function AppearanceSettings() {
 
   return (
     <div className="flex flex-col gap-8">
-      <SettingsSection heading="Interface">
+      <SettingsSection id="style" heading="Style">
         <ChoiceRow
-          label="Light & dark"
+          label="Mode"
           value={preferences.theme}
           options={[
             { value: "system", label: "System" },
@@ -27,6 +27,10 @@ export default function AppearanceSettings() {
           ]}
           onChange={(value) => setPreference("theme", value)}
         />
+        <ThemeSettings />
+        <ChatBackgroundSettings />
+      </SettingsSection>
+      <SettingsSection id="display" heading="Display">
         <SliderRow
           label="Interface scale"
           description="Scale text, spacing, and controls."
@@ -61,25 +65,22 @@ export default function AppearanceSettings() {
           onChange={(value) => setPreference("diffStyle", value)}
         />
         <ChoiceRow
-          label="Animation"
+          label="Motion"
           description={`NativePi follows the reduced-motion setting in ${system} unless you override it here.`}
           value={preferences.reducedMotion}
           options={[
-            { value: "system", label: `Follow ${system}` },
-            { value: "always", label: "Reduce" },
+            { value: "system", label: "System" },
+            { value: "always", label: "Reduced" },
             { value: "never", label: "Full" },
           ]}
           onChange={(value) => setPreference("reducedMotion", value)}
         />
       </SettingsSection>
 
-      <SettingsSection heading="Colors">
-        <ThemeSettings />
-      </SettingsSection>
-
-      {usesNativeGlass(preferences) ? (
-        <SettingsSection heading="Glass background" description="Acrylic uses live macOS vibrancy or Windows 11 Acrylic, with a dither texture across the window. Linux, older Windows, and browser access use a solid backdrop. Your image background is kept for other color schemes.">{null}</SettingsSection>
-      ) : <ChatBackgroundSettings />}
+      <PiPanel>{settings => <SettingsSection id="reasoning-display" heading="Messages">
+        <SwitchRow label="Show reasoning" description="Display the model’s thinking alongside answers and tool activity."
+          checked={!settings.hideThinkingBlock} onChange={value => void useAppStore.getState().updatePiSetting("hideThinkingBlock", !value)} />
+      </SettingsSection>}</PiPanel>
     </div>
   );
 }

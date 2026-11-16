@@ -40,8 +40,8 @@ bun install
 bun run dev
 ```
 
-For browser testing, start **Local access** in the running app under Settings,
-**Access**. Its development link uses the live Vite renderer and the same host
+For browser testing, use the **Open on another device** icon beside Settings
+in the main sidebar, choose **Same network**, then **Share on network**. Its development link uses the live Vite renderer and the same host
 as the Electron window.
 
 The desktop application lives in `apps/desktop`. The public graphical extension

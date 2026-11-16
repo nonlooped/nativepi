@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useId, useRef } from "react";
 import { CheckIcon } from "@phosphor-icons/react/Check";
+import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
 import { Input } from "@/components/ui/input.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
 import { Slider } from "@/components/ui/slider.tsx";
@@ -11,22 +12,25 @@ import { cn } from "@/lib/utils.ts";
 
 // Consistent setting groups; rows adapt to the content pane, not the window.
 export function SettingsSection({
+  id,
   heading,
   description,
   children,
 }: {
+  id?: string;
   heading: string;
   description?: string;
   children: React.ReactNode;
 }) {
-  const id = useId();
+  const headingId = useId();
   return (
     <section
-      aria-labelledby={id}
+      aria-labelledby={headingId}
+      data-setting={id}
       className="flex min-w-0 flex-col gap-1"
     >
       <div className="border-b border-border/60 pb-2.5">
-        <h2 id={id} className="text-[0.9375rem] font-semibold leading-6 text-foreground">
+        <h2 id={headingId} className="text-sm font-semibold leading-6 text-foreground">
           {heading}
         </h2>
         {description ? <p className="mt-1 max-w-[60ch] text-pretty text-[0.8125rem] leading-5 text-body-muted-foreground">{description}</p> : null}
@@ -71,10 +75,11 @@ function Row({
       {description ? <FieldDescription className="max-w-[60ch] text-[0.8125rem] leading-5 text-body-muted-foreground">{description}</FieldDescription> : null}
     </FieldContent>
   );
+  const target = typeof label === "string" ? label.toLocaleLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") : undefined;
 
   if (wide) {
     return (
-      <Field orientation="vertical" className="settings-row-wide flex flex-col gap-3 py-3">
+      <Field data-setting={target} orientation="vertical" className="settings-row-wide flex flex-col gap-3 py-3">
         {text}
         {children}
       </Field>
@@ -82,7 +87,7 @@ function Row({
   }
 
   return (
-    <Field orientation="horizontal" data-disabled={disabled || undefined} className={cn("settings-row py-3", inline && "settings-row-inline")}>
+    <Field data-setting={target} orientation="horizontal" data-disabled={disabled || undefined} className={cn("settings-row py-3", inline && "settings-row-inline")}>
       {text}
       <div className={cn("settings-row-control", shrinkable && "min-w-0")}>{children}</div>
     </Field>
@@ -509,4 +514,29 @@ export function ReadonlyRow({
       </div>
     </Row>
   );
+}
+
+/** The same identity, summary and disclosure rhythm for every managed resource. */
+export function SettingsEntity({ icon, name, description, scope, expanded, onToggle, children }: {
+  icon?: React.ReactNode;
+  name: string;
+  description?: string;
+  scope?: string;
+  expanded: boolean;
+  onToggle: () => void;
+  children?: React.ReactNode;
+}) {
+  return <div className="border-b border-border/30 last:border-b-0">
+    <button type="button" aria-expanded={expanded} onClick={onToggle}
+      className="flex w-full items-center gap-3 rounded-md px-1 py-3 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring">
+      {icon ? <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center text-muted-foreground [&_svg]:size-[18px]">{icon}</span> : null}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium" title={name}>{name}</span>
+        {description ? <span className="mt-0.5 block truncate text-[0.8125rem] leading-5 text-body-muted-foreground" title={description}>{description}</span> : null}
+      </span>
+      {scope ? <span className="shrink-0 text-xs text-muted-foreground">{scope}</span> : null}
+      <CaretDownIcon aria-hidden="true" className={cn("size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none", expanded && "rotate-180")} />
+    </button>
+    {expanded ? <div className={cn("pb-4 pt-1", icon && "@min-[36rem]/settings-content:pl-11")}>{children}</div> : null}
+  </div>;
 }

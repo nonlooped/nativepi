@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react/ArrowCounterClockwise";
 import { PencilSimpleIcon } from "@phosphor-icons/react/PencilSimple";
+import { Input } from "@/components/ui/input.tsx";
+import { SettingsSection } from "./rows.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
 import { HOVER_REVEAL, cn } from "@/lib/utils.ts";
@@ -29,6 +31,8 @@ export default function KeybindSettings() {
   const setKeybinding = useAppStore((s) => s.setKeybinding);
   const resetKeybinding = useAppStore((s) => s.resetKeybinding);
   const resetAllKeybindings = useAppStore((s) => s.resetAllKeybindings);
+  const [query, setQuery] = useState("");
+  const [onlyModified, setOnlyModified] = useState(false);
   const [recordingId, setRecordingId] = useState<ShortcutId | null>(null);
 
   // Captured at the window so the recorder wins over every other shortcut
@@ -55,7 +59,7 @@ export default function KeybindSettings() {
   const anyCustomized = groups.some(({ shortcuts }) => shortcuts.some((s) => isCustomized(s.id, overrides)));
 
   return (
-    <div className="flex flex-col gap-8">
+    <div data-setting="shortcuts" className="flex flex-col gap-7">
       <div className="flex flex-col gap-3 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-end @min-[36rem]/settings-content:justify-between">
         <div className="flex max-w-2xl flex-col gap-1">
           <p className="text-xs leading-relaxed text-body-muted-foreground">
@@ -70,11 +74,9 @@ export default function KeybindSettings() {
         ) : null}
       </div>
 
-      {groups.map(({ group, shortcuts }) => (
-        <section key={group} aria-labelledby={`shortcuts-${group.replaceAll(" ", "-")}`} className="flex flex-col">
-          <h2 id={`shortcuts-${group.replaceAll(" ", "-")}`} className="border-b border-border/40 pb-2 text-sm font-semibold">
-            {group}
-          </h2>
+      <div className="flex items-center gap-2"><Input aria-label="Search shortcuts" placeholder="Search shortcuts" type="search" onFocus={() => setRecordingId(null)} value={query} onChange={event => setQuery(event.target.value)} className="h-8" /><Button variant={onlyModified ? "secondary" : "outline"} size="sm" aria-pressed={onlyModified} onClick={() => { setRecordingId(null); setOnlyModified(!onlyModified); }}>Modified</Button></div>
+      {groups.map(({ group, shortcuts }) => ({ group, shortcuts: shortcuts.filter(shortcut => `${shortcut.label} ${shortcut.description}`.toLowerCase().includes(query.trim().toLowerCase()) && (!onlyModified || isCustomized(shortcut.id, overrides))) })).filter(group => group.shortcuts.length).map(({ group, shortcuts }) => (
+        <SettingsSection key={group} heading={group}>
           <div className="mt-1 flex flex-col">
             {shortcuts.map((shortcut) => {
               const recording = recordingId === shortcut.id;
@@ -143,8 +145,9 @@ export default function KeybindSettings() {
               );
             })}
           </div>
-        </section>
+        </SettingsSection>
       ))}
+      {!groups.some(({ shortcuts }) => shortcuts.some(shortcut => `${shortcut.label} ${shortcut.description}`.toLowerCase().includes(query.trim().toLowerCase()) && (!onlyModified || isCustomized(shortcut.id, overrides)))) ? <p role="status" className="text-sm text-muted-foreground">No matching shortcuts.</p> : null}
     </div>
   );
 }

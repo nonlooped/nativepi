@@ -38,7 +38,7 @@ test("add dialog submits only the chosen transport and exposes restart after a s
     await act(async () => button("Add MCP server").click());
     await fill("capability-name", "docs");
     await fill("server-url", "https://example.com/mcp");
-    await act(async () => button("Local program").click());
+    await act(async () => button("Local command").click());
     expect(document.getElementById("server-url")).toBeNull();
     await fill("server-executable", "uvx");
     await act(async () => document.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));

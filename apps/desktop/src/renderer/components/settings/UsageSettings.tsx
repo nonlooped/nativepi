@@ -1,3 +1,4 @@
+import SettingsDetails from "./SettingsDetails.tsx";
 import SubscriptionCapacity from "./SubscriptionCapacity.tsx";
 import StateNotice from "../StateNotice.tsx";
 import { useState } from "react";
@@ -115,17 +116,17 @@ function Dashboard({ dashboard, range }: { dashboard: UsageDashboard; range: Ran
   const view = filterDashboard(dashboard, range);
   const providers = groupByProvider(view.models);
   const activeDays = view.daily.length;
-  const observedInput = view.tokens.input + view.tokens.cacheRead;
+
 
   return (
     <div className="flex flex-col gap-9">
       <section className="grid gap-8 border-b border-border/40 pb-9 @min-[52rem]/settings-content:grid-cols-[minmax(16rem,0.72fr)_minmax(30rem,1.45fr)] @min-[52rem]/settings-content:gap-10">
         <div className="flex flex-col">
           <div className="flex items-baseline justify-between gap-4">
-            <h2 className="text-sm font-semibold">Cost by provider</h2>
+            <h2 className="text-sm font-semibold">Estimated cost by provider</h2>
             <span className="text-lg font-medium tabular-nums">{cost(view.totalCost)}</span>
           </div>
-          <p className="mt-1 max-w-sm text-xs leading-5 text-body-muted-foreground">Model-reported estimates from Pi session files, not provider invoices.</p>
+          <p className="mt-1 max-w-sm text-xs leading-5 text-body-muted-foreground">API-equivalent estimates from Pi’s local records, not provider invoices.</p>
 
           <div className="mt-5 flex flex-col gap-4">
             {providers.map((provider, index) => {
@@ -152,26 +153,23 @@ function Dashboard({ dashboard, range }: { dashboard: UsageDashboard; range: Ran
         <UsageChart daily={view.daily} providers={providers.slice(0, 4)} />
       </section>
 
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-6 border-b border-border/40 pb-7 @min-[36rem]/settings-content:grid-cols-3 @min-[52rem]/settings-content:grid-cols-5">
-        <Metric label="Processed tokens" value={formatTokens(view.tokens.total)} detail={activeDays ? `${formatTokens(view.tokens.total / activeDays)} per active day` : "No activity"} />
-        <Metric
-          label="Cached input"
-          value={formatTokens(view.tokens.cacheRead)}
-          detail={observedInput ? `${((view.tokens.cacheRead / observedInput) * 100).toFixed(1)}% of observed input` : "No cached input"}
-        />
-        <Metric label="Uncached input" value={formatTokens(view.tokens.input)} detail={`${formatTokens(view.tokens.cacheWrite)} cache writes`} />
-        <Metric label="Output" value={formatTokens(view.tokens.output)} detail={view.sessions ? `${cost(view.totalCost / view.sessions)} per session` : "No sessions"} />
-        <Metric label="Sessions" value={view.sessions.toLocaleString()} detail={`${activeDays.toLocaleString()} active ${activeDays === 1 ? "day" : "days"}`} />
+      <dl className="grid grid-cols-3 gap-5">
+        <Metric label="Processed tokens" value={formatTokens(view.tokens.total)} detail="Recorded in this period" />
+        <Metric label="Sessions" value={view.sessions.toLocaleString()} detail="With recorded activity" />
+        <Metric label="Active days" value={activeDays.toLocaleString()} detail="In this period" />
       </dl>
-
-      <section className="grid gap-10 @min-[52rem]/settings-content:grid-cols-[minmax(0,1.7fr)_minmax(15rem,0.75fr)]">
+      <SettingsDetails id="usage-models" title="Model breakdown" summary={`${view.models.length} models in this period`}>
         <ModelBreakdown models={view.models} totalCost={view.totalCost} />
-        <UsageSummary dashboard={dashboard} view={view} />
-      </section>
+      </SettingsDetails>
+      {range === "all" ? <SettingsDetails id="usage-tokens" title="Input and output tokens" summary="Breakdown across all recorded activity.">
+        <dl className="grid grid-cols-2 gap-5 py-3">
+          <Metric label="Uncached input" value={formatTokens(dashboard.tokens.input)} detail="Recorded input tokens" />
+          <Metric label="Cached input" value={formatTokens(dashboard.tokens.cacheRead)} detail="Recorded cache reads" />
+          <Metric label="Cache writes" value={formatTokens(dashboard.tokens.cacheWrite)} detail="Recorded cache writes" />
+          <Metric label="Output" value={formatTokens(dashboard.tokens.output)} detail="Recorded output tokens" />
+        </dl>
+      </SettingsDetails> : null}
 
-      <p className="max-w-3xl text-xs leading-5 text-body-muted-foreground">
-        Costs and tokens come from the usage records Pi writes to session files on this device. Forked sessions count inherited cost once. NativePi stores these totals locally and does not submit them as product telemetry.
-      </p>
     </div>
   );
 }
@@ -350,37 +348,13 @@ function ModelBreakdown({ models, totalCost }: { models: UsageDashboard["models"
   );
 }
 
-function UsageSummary({ dashboard, view }: { dashboard: UsageDashboard; view: ReturnType<typeof filterDashboard> }) {
-  const rows = [
-    ["Sessions", view.sessions.toLocaleString()],
-    ["Active days", view.daily.length.toLocaleString()],
-    ["Projects in view", dashboard.projects.length.toLocaleString()],
-    ["Average daily cost", view.daily.length ? cost(view.totalCost / view.daily.length) : "$0"],
-    ["Average session cost", view.sessions ? cost(view.totalCost / view.sessions) : "$0"],
-  ];
-
-  return (
-    <div>
-      <h2 className="text-sm font-semibold">Activity</h2>
-      <dl className="mt-3">
-        {rows.map(([label, value]) => (
-          <div key={label} className="flex items-center justify-between gap-4 py-2.5 text-sm">
-            <dt className="text-muted-foreground">{label}</dt>
-            <dd className="text-xs tabular-nums">{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
-  );
-}
-
 function EmptyUsage() {
   return (
     <div className="flex min-h-40 items-center justify-center px-4 py-8 text-center">
       <div className="flex max-w-sm flex-col items-center gap-3">
-        <h2 className="text-sm font-semibold">No billed usage yet</h2>
+        <h2 className="text-sm font-semibold">No recorded usage yet</h2>
         <p className="text-sm leading-6 text-body-muted-foreground">
-          Usage appears after Pi records a model cost in a session file. The data stays on this device.
+          Usage appears after Pi records activity in a session file. The data stays on this device.
         </p>
       </div>
     </div>
@@ -413,14 +387,9 @@ function filterDashboard(dashboard: UsageDashboard, range: Range) {
     }
   }
 
-  const ratio = dashboard.totalCost > 0 ? totalCost / dashboard.totalCost : 0;
-  const tokens = {
-    input: Math.round(dashboard.tokens.input * ratio),
-    output: Math.round(dashboard.tokens.output * ratio),
-    cacheRead: Math.round(dashboard.tokens.cacheRead * ratio),
-    cacheWrite: Math.round(dashboard.tokens.cacheWrite * ratio),
-    total: totalTokens,
-  };
+  // Daily records contain exact total tokens, not input/cache subdivisions.
+  // Only show those subdivisions for the all-time view; do not infer them from cost.
+  const tokens = { total: totalTokens };
   const sessions = Math.min(dashboard.sessions, daily.reduce((total, day) => total + day.sessions, 0));
 
   return {

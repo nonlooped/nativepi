@@ -33,6 +33,7 @@ export const createPiSettingsSlice: SliceCreator<PiSettingsSlice> = (set, get) =
     piSettings: null,
     piSettingsError: undefined,
     piRestartPending: false,
+    requirePiRestart: () => { restartVersion++; set({ piRestartPending: true }); },
 
     loadPiSettings: async () => {
       const version = ++loadVersion;

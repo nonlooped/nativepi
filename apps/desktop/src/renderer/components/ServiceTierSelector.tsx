@@ -6,7 +6,7 @@ import { serviceTierDescriptions, serviceTierLabels, serviceTierSchema, serviceT
 import { Button } from "./ui/button.tsx";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./ui/select.tsx";
 
-export default function ServiceTierSelector({ selection }: { selection?: { tier: ServiceTier; tiers: ServiceTier[]; onChange: (tier: ServiceTier) => void } } = {}) {
+export default function ServiceTierSelector({ selection }: { selection?: { tier: ServiceTier; tiers: ServiceTier[]; onChange: (tier: ServiceTier) => void; automatic?: { selected: boolean; label: string; onSelect: () => void } } } = {}) {
   const project = useAppStore(s => s.activeProjectPath);
   const session = useAppStore(s => s.activeSessionFile);
   const model = useAppStore(s => s.model);
@@ -30,18 +30,19 @@ export default function ServiceTierSelector({ selection }: { selection?: { tier:
   const tier = (selection?.tier ?? state?.tier) === "priority" ? "priority" : "default";
   const tiers = selection?.tiers ?? serviceTierSchema.options;
   const select = selection?.onChange ?? storedSelect;
-  const items = tiers.map(value => ({ value, label: serviceTierLabels[value] }));
+  const items = [...(selection?.automatic ? [{ value: "auto", label: selection.automatic.label }] : []), ...tiers.map(value => ({ value, label: serviceTierLabels[value] }))];
   return (
     <section className="min-w-0 flex-1" aria-label="Speed">
-      <Select value={tier} items={items} disabled={!selection && (busy || loading || saving)}
-        onValueChange={value => { if ((value === "default" || value === "priority") && value !== tier) void select(value); }}>
-        <SelectTrigger aria-label="Service tier" title={busy ? "Service tier can be changed when Pi is idle" : "Change service tier"}
+      <Select value={selection?.automatic?.selected ? "auto" : tier} items={items} disabled={!selection && (busy || loading || saving)}
+        onValueChange={value => { if (value === "auto") selection?.automatic?.onSelect(); else if ((value === "default" || value === "priority") && (value !== tier || selection?.automatic?.selected)) void select(value); }}>
+        <SelectTrigger aria-label="Service tier" title={!selection && busy ? "Service tier can be changed when Pi is idle" : "Change service tier"}
           className="h-8 w-full gap-2 rounded-full border-border/50 bg-foreground/3 px-3 text-xs font-normal shadow-none hover:bg-muted dark:bg-foreground/3 dark:hover:bg-muted">
           <LightningIcon className="size-4 text-muted-foreground" weight={tier === "priority" ? "fill" : "regular"} aria-hidden />
           <SelectValue />
         </SelectTrigger>
         <SelectContent side="top" align="start" alignItemWithTrigger={false} className="w-72 max-w-[calc(100vw-2rem)]">
           <SelectGroup>
+            {selection?.automatic ? <SelectItem value="auto"><span className="flex flex-col gap-0.5"><span>{selection.automatic.label}</span><span className="text-xs font-normal text-muted-foreground">Priority can increase cost or subscription usage.</span></span></SelectItem> : null}
             {tiers.map(tier => <SelectItem key={tier} value={tier} className="py-2">
               <span className="flex flex-col gap-0.5">
                 <span>{serviceTierLabels[tier]}</span>

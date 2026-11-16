@@ -1,10 +1,13 @@
 import StateNotice from "../StateNotice.tsx";
+import { createContext, useContext, useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { InfoIcon } from "@phosphor-icons/react/Info";
 import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import type { PiSettings } from "../../../shared/pi-settings.ts";
 import { useAppStore } from "../../lib/store.ts";
 import { Button } from "@/components/ui/button.tsx";
+
+export const SettingsStatusContext = createContext(false);
 
 /**
  * The frame around every Pi-backed settings panel.
@@ -15,6 +18,7 @@ import { Button } from "@/components/ui/button.tsx";
  * settings it actually offers.
  */
 export default function PiPanel({ children }: { children: (settings: PiSettings) => React.ReactNode }) {
+  const globalStatus = useContext(SettingsStatusContext);
   const settings = useAppStore((s) => s.piSettings);
   const error = useAppStore((s) => s.piSettingsError);
 
@@ -31,17 +35,17 @@ export default function PiPanel({ children }: { children: (settings: PiSettings)
 
   return (
     <div className="flex flex-col gap-6">
-      <PiSettingsStatus />
+      {!globalStatus ? <PiSettingsStatus /> : null}
       {children(settings)}
     </div>
   );
 }
 
-function PiSettingsStatus() {
+export function PiSettingsStatus() {
   const error = useAppStore((s) => s.piSettingsError);
   const restartPending = useAppStore((s) => s.piRestartPending);
   const applyRestart = useAppStore((s) => s.applyPiSettingsRestart);
-  const activeProjectPath = useAppStore((s) => s.activeProjectPath);
+  const [pending, setPending] = useState(false);
   const running = useAppStore((s) => Object.values(s.conversations).some((conversation) => conversation.running));
 
   // An empty wrapper would still claim a gap in the panel's flex column.
@@ -53,21 +57,20 @@ function PiSettingsStatus() {
       {restartPending ? <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-md bg-muted/20 px-3 py-2.5 text-xs">
       <InfoIcon className="shrink-0 text-muted-foreground" />
       <p className="min-w-0 flex-1 text-body-muted-foreground">
-        Saved. Applies when Pi next starts.
+        Saved. Open chats use these changes after Pi restarts.
       </p>
-      {activeProjectPath ? (
         <Button
           size="sm"
           variant="outline"
           className="shrink-0"
-          disabled={running}
+          disabled={running || pending}
           title={running ? "Wait for every running turn to finish" : undefined}
-          onClick={() => void applyRestart()}
+          onClick={async () => { setPending(true); try { await applyRestart(); } finally { setPending(false); } }}
         >
           <ArrowClockwiseIcon data-icon="inline-start" />
-          Restart Pi
+          {pending ? "Restarting…" : "Restart Pi"}
         </Button>
-      ) : null}
+      {running ? <p className="w-full text-body-muted-foreground">Wait for all running turns to finish before restarting open chats.</p> : null}
       </div> : null}
     </div>
   );

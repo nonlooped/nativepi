@@ -236,3 +236,17 @@ test("a failed selected-runtime refresh retains the global restart notice", asyn
   expect(store.getState().piRestartPending).toBe(true);
   expect(store.getState().piSettingsError).toBe("refresh failed");
 });
+
+test("resource changes made during a restart keep their restart obligation", async () => {
+  const { store } = fixture();
+  const restart = deferred<{ ok: boolean }>();
+  stubInvoke(async channel => { if (channel === "restartAllPi") return restart.promise; throw new Error(channel); });
+  store.getState().requirePiRestart();
+  const applying = store.getState().applyPiSettingsRestart();
+  store.getState().requirePiRestart();
+  restart.resolve({ ok: true });
+  await applying;
+  expect(store.getState().piRestartPending).toBe(true);
+  await store.getState().applyPiSettingsRestart();
+  expect(store.getState().piRestartPending).toBe(false);
+});

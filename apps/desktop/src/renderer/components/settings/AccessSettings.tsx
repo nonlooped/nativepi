@@ -22,7 +22,7 @@ import type { AccessHandoff } from "../../lib/store/types.ts";
 import { isRemote, rpc } from "../../lib/rpc.ts";
 import { useAppStore } from "../../lib/store.ts";
 import ConfirmDialog from "../ConfirmDialog.tsx";
-import { SettingsCard, type CardTone } from "./rows.tsx";
+import { ChoiceRow, SettingsCard, type CardTone } from "./rows.tsx";
 import { createAccessStatusController, STOPPED_STATUS, type AccessAction } from "./accessStatus.ts";
 
 type Scope = "local" | "remote";
@@ -37,6 +37,7 @@ type Scope = "local" | "remote";
  * about it is a decision.
  */
 export default function AccessSettings() {
+  const [scope, setScope] = useState<Scope>("local");
   const [checked, setChecked] = useState(false);
   const [status, setStatus] = useState<AccessStatus>(STOPPED_STATUS);
   const [busy, setBusy] = useState<AccessAction>();
@@ -105,16 +106,18 @@ export default function AccessSettings() {
 
   return (
     <div className="flex flex-col gap-4">
-      <SettingsCard
+      <ChoiceRow label="Connection" value={scope} options={[{ value: "local", label: "Same network" }, { value: "remote", label: "Anywhere" }]} onChange={setScope} />
+      {shared ? <p role="status" className="text-xs text-muted-foreground">Active sharing: {[status.local.running ? "same network" : "", remote.state === "running" ? "public link" : ""].filter(Boolean).join(" and ") || "starting"}. Both connections can stay active.</p> : null}
+      {scope === "local" ? <SettingsCard
         icon={<WifiHighIcon />}
-        title="Local access"
+        title="Same network"
         tone={status.local.running ? "active" : "idle"}
         status={status.local.running ? "Serving on your network" : "Not shared"}
         description="Reach this window from another device on the same network. NativePi has to stay open."
         error={status.local.error}
         action={
           <Button
-            variant={status.local.running ? "destructive" : "default"}
+            variant={status.local.running ? "destructive" : "outline"}
             size="sm"
             disabled={Boolean(busy)}
             onClick={() => void run(
@@ -128,7 +131,7 @@ export default function AccessSettings() {
               activeIcon={<StopIcon weight="fill" />}
               inactiveIcon={<PlayIcon weight="fill" />}
             />
-            {busy === "local" ? "Working…" : status.local.running ? "Stop" : "Start"}
+            {busy === "local" ? "Working…" : status.local.running ? "Stop network sharing" : "Share on network"}
           </Button>
         }
       >
@@ -144,11 +147,9 @@ export default function AccessSettings() {
             onPickAddress={setPreferredLocalLink}
           />
         ) : null}
-      </SettingsCard>
-
-      <SettingsCard
+      </SettingsCard> : <SettingsCard
         icon={<GlobeIcon />}
-        title="Remote access"
+        title="Anywhere"
         tone={remoteTone(remote)}
         status={remoteStatus(remote)}
         description={remote.preparing ?? remoteDescription(remote)}
@@ -165,7 +166,7 @@ export default function AccessSettings() {
             onShowQr={showQr}
           />
         ) : null}
-      </SettingsCard>
+      </SettingsCard>}
 
       {shared ? (
         <SettingsCard
@@ -199,9 +200,9 @@ export default function AccessSettings() {
             className="flex w-full items-center gap-3 py-3 text-left outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium">The access token</span>
+              <span className="block text-sm font-medium">Sharing links</span>
               <span className="mt-1 block text-xs leading-relaxed text-body-muted-foreground">
-                Where your links have been, and how to make every one of them stop working.
+                Link history and controls to replace links or stop all sharing.
               </span>
             </span>
             <CaretDownIcon className={cn("shrink-0 text-muted-foreground transition-transform", auditOpen && "rotate-180")} />
@@ -243,7 +244,7 @@ export default function AccessSettings() {
                       onClick={() => setPending("replace")}
                     >
                       <ArrowsClockwiseIcon data-icon="inline-start" />
-                      {busy === "replace" ? "Replacing…" : "Replace token"}
+                      {busy === "replace" ? "Replacing…" : "Replace links"}
                     </Button>
                     <Button
                       variant="destructive"
@@ -251,7 +252,7 @@ export default function AccessSettings() {
                       disabled={Boolean(busy) || remote.state === "starting"}
                       onClick={() => setPending("revoke")}
                     >
-                      {busy === "revoke" ? "Revoking…" : "Revoke all access"}
+                      {busy === "revoke" ? "Revoking…" : "Stop all sharing"}
                     </Button>
                   </div>
                 </div>
@@ -263,14 +264,14 @@ export default function AccessSettings() {
 
       <ConfirmDialog
         open={pending !== undefined}
-        title={pending === "revoke" ? "Revoke all access?" : "Replace the access token?"}
+        title={pending === "revoke" ? "Stop all sharing?" : "Replace sharing links?"}
         description={
           pending === "revoke"
             ? "Local and remote access both stop and every link handed out so far goes dead. Nothing on this computer changes."
             : "Every link handed out so far stops working, and any device still using one has to be given the new link."
         }
         detail={clients.length > 0 ? `${clients.length} device${clients.length === 1 ? "" : "s"} connected right now` : undefined}
-        confirmLabel={pending === "revoke" ? "Revoke access" : "Replace token"}
+        confirmLabel={pending === "revoke" ? "Stop all sharing" : "Replace links"}
         destructive
         onConfirm={() => {
           const action = pending;
@@ -404,7 +405,7 @@ function RemoteAction({
     return (
       <Button variant="destructive" size="sm" disabled={busy} onClick={() => void onRun("remote", () => rpc.request.stopRemoteAccess({}))}>
         <StopIcon weight="fill" data-icon="inline-start" />
-        {busy ? "Working…" : "Stop"}
+        {busy ? "Working…" : "Stop public sharing"}
       </Button>
     );
   }
@@ -424,7 +425,7 @@ function RemoteAction({
       onClick={() => void onRun("remote", () => rpc.request.startRemoteAccess({}))}
     >
       <PlayIcon weight="fill" data-icon="inline-start" />
-      {busy || status.state === "starting" ? "Starting…" : "Start"}
+      {busy || status.state === "starting" ? "Starting…" : "Create public link"}
     </Button>
   );
 }

@@ -1,19 +1,17 @@
+import { useState } from "react";
+import { Input } from "../ui/input.tsx";
+import SettingsDetails from "./SettingsDetails.tsx";
 import { useAppStore } from "../../lib/store.ts";
 import PiPanel from "./PiPanel.tsx";
-import { SettingsSection, SliderRow, SwitchRow, TextRow } from "./rows.tsx";
+import { ActionRow, SelectRow, SettingsSection, SliderRow, SwitchRow, TextRow } from "./rows.tsx";
 
 /** The same stack `TerminalDock` hands to xterm, so the preview is not a guess. */
 const TERMINAL_FONT = "Consolas, 'Cascadia Mono', ui-monospace, monospace";
 
-/**
- * Two different terminals, on one screen because the distinction is not the
- * user's problem: the integrated terminal NativePi draws, and the shell Pi runs
- * its own commands in.
- */
+/** Presentation for the integrated terminal; Pi’s command shell is a separate section. */
 export default function TerminalSettings() {
   const preferences = useAppStore((s) => s.preferences);
   const setPreference = useAppStore((s) => s.setPreference);
-  const update = useAppStore((s) => s.updatePiSetting);
 
   return (
     <div className="flex flex-col gap-8">
@@ -30,16 +28,6 @@ export default function TerminalSettings() {
           format={(value) => `${value}px`}
           onChange={(value) => setPreference("terminalFontSize", value)}
         />
-        <SliderRow
-          label="Scrollback"
-          description="Lines of output kept in each terminal."
-          value={preferences.terminalScrollback}
-          min={500}
-          max={100000}
-          step={500}
-          format={(value) => (value >= 1000 ? `${Math.round(value / 1000)}k` : String(value))}
-          onChange={(value) => setPreference("terminalScrollback", value)}
-        />
         <SwitchRow
           label="Blink the cursor"
           checked={preferences.terminalCursorBlink}
@@ -52,7 +40,17 @@ export default function TerminalSettings() {
         />
       </SettingsSection>
 
-      <PiPanel>
+      <SettingsDetails id="scrollback" title="Scrollback" summary={`${preferences.terminalScrollback.toLocaleString()} lines kept per terminal`}>
+        <ScrollbackControl />
+      </SettingsDetails>
+    </div>
+  );
+}
+
+export function PiShellSettings() {
+  const update = useAppStore(s => s.updatePiSetting);
+  return (
+    <PiPanel>
         {(settings) => (
           <SettingsSection
             heading="Pi’s shell"
@@ -74,9 +72,25 @@ export default function TerminalSettings() {
             />
           </SettingsSection>
         )}
-      </PiPanel>
-    </div>
+    </PiPanel>
   );
+}
+
+function ScrollbackControl() {
+  const value = useAppStore(s => s.preferences.terminalScrollback);
+  const setPreference = useAppStore(s => s.setPreference);
+  const [custom, setCustom] = useState(false);
+  const presets = [1000, 5000, 10000, 50000, 100000];
+  return <>
+    <SelectRow label="Lines of output" value={custom || !presets.includes(value) ? "custom" : String(value)}
+      options={[...presets.map(count => ({ value: String(count), label: count.toLocaleString() })), { value: "custom", label: "Custom" }]}
+      onChange={next => { setCustom(next === "custom"); if (next !== "custom") setPreference("terminalScrollback", Number(next)); }} />
+    {custom || !presets.includes(value) ? <ActionRow label="Custom line count" description="Between 500 and 100,000 lines.">
+      <Input aria-label="Custom line count" type="number" min={500} max={100000} step={500} key={value} defaultValue={value} className="h-8 w-36"
+        onBlur={event => { const next = Number(event.currentTarget.value); if (Number.isInteger(next) && next >= 500 && next <= 100000) setPreference("terminalScrollback", next); else event.currentTarget.value = String(value); }}
+        onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }} />
+    </ActionRow> : null}
+  </>;
 }
 
 /**
