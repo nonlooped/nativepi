@@ -1,3 +1,5 @@
+import AutomationSettings from "./settings/AutomationSettings.tsx";
+import { CalendarCheckIcon } from "@phosphor-icons/react/CalendarCheck";
 import ConnectionNotice from "./ConnectionNotice.tsx";
 import { transitionView } from "../lib/viewTransition.ts";
 import { SettingsDialogAppearance } from "./ui/dialog-styles.ts";
@@ -45,6 +47,7 @@ export const CATEGORIES = [
   { name: "Agent setup", icon: PlugsConnectedIcon, group: "Pi", blurb: "MCP servers, skills, and prompt templates." },
   { name: "Extensions", icon: PuzzlePieceIcon, group: "Pi", blurb: "Packages that extend Pi." },
   { name: "Usage", icon: ChartLineUpIcon, group: "Pi", blurb: "Local costs, tokens, and subscription limits." },
+  { name: "Automations", icon: CalendarCheckIcon, group: "Application", blurb: "Scheduled Work and GitHub PR watches." },
   { name: "Terminal", icon: TerminalWindowIcon, group: "Application", blurb: "The integrated terminal and Pi’s shell." },
   { name: "Access", icon: WifiHighIcon, group: "Application", blurb: "Open this workspace from another device." },
   { name: "About", icon: InfoIcon, group: "Application", blurb: "Updates, diagnostics, and local files." },
@@ -228,6 +231,8 @@ function CategoryPanel({ category }: { category: Category }) {
       );
     case "Keyboard":
       return <KeybindSettings />;
+    case "Automations":
+      return <AutomationSettings />;
     case "Terminal":
       return <TerminalSettings />;
     case "General":

@@ -1,3 +1,4 @@
+import type { AutomationInput, AutomationState, AutomationTool } from "./automations.ts";
 import type { ReviewSnapshot, ReviewRange, Finding } from "./review.ts";
 import type { DictationStatus } from "./dictation.ts";
 import type { ComputerStatus } from "./computer-use.ts";
@@ -267,6 +268,12 @@ export const nativePiStateSchema = z.object({
 });
 export type NativePiState = z.infer<typeof nativePiStateSchema>;
 export type HostRequestContracts = {
+  automationTools: { params: { projectDir?: string }; response: AutomationTool[] };
+  automationList: { params: Record<string, never>; response: AutomationState };
+  automationSave: { params: AutomationInput; response: AutomationState };
+  automationDelete: { params: { id: string }; response: AutomationState };
+  automationRun: { params: { id: string }; response: AutomationState };
+  automationStop: { params: { id: string }; response: AutomationState };
   orchestrationSnapshot: { params: { sessionFile?: string }; response: OrchestrationSnapshot };
   stopThread: { params: { sessionFile: string }; response: { ok: boolean } };
   wakeThread: { params: { threadId: string; messageIds: string[] }; response: { ok: boolean } };

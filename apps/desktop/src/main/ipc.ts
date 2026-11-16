@@ -1,3 +1,6 @@
+import { automationToolsSchema } from "../shared/automations.ts";
+import { AutomationService } from "./automations/service.ts";
+import { githubEvents } from "./automations/github.ts";
 import { ReviewStore } from "./review.ts";
 import { runCodeReviewer } from "./codeReviewer.ts";
 import { Dictation, dictationMicrophone } from "./dictation.ts";
@@ -579,6 +582,7 @@ async function hydrateThreadGroup(file: string): Promise<ThreadReference> {
   return ref;
 }
 async function stopThreadFile(file: string): Promise<void> {
+  await automations.stopSession(resolve(file));
   const known = orchestration.references().find(ref => ref.file === resolve(file));
   // Fence known work before any disk reads, including cold relationship hydration.
   const members = new Set(known ? [known.id, ...orchestration.snapshot(known.id).delegates.map(child => child.ref.id)] : []);
@@ -604,6 +608,7 @@ function orchestrationSnapshot(): OrchestrationSnapshot {
 }
 async function guardedOrchestration(ref: ThreadReference, action: "catalog" | "append" | "configure" | "dispatch" | "context" | "arm", payload?: unknown, signal?: AbortSignal, acquire = true): Promise<unknown> {
   signal?.throwIfAborted();
+  if (action === "dispatch" && automations.ownsWorkspace(ref.cwd) && !automations.ownsSession(ref.id) && !automations.ownsSession(orchestration.snapshot(ref.id).relationship?.lead.id ?? "")) throw new Error("busy: Automation owns this workspace; Stop it before dispatching another writer.");
   if (shuttingDown || restartingAll || restartingProjects.has(ref.cwd)) throw new Error("stopped: Host is stopping");
   const actual = await referenceForFile(ref.file);
   if (actual.id !== ref.id || actual.cwd !== ref.cwd) throw new Error("external_session_change: Thread identity changed");
@@ -650,6 +655,39 @@ const orchestration = new OrchestrationCoordinator({
   trace: (operationId, sessionId, kind, state) => console.info("[orchestration]", { operationId, sessionId, kind, state }),
   publish: () => { orchestrationRevision++; push("orchestrationChanged", orchestrationSnapshot()); },
 });
+const automations = new AutomationService(join(app.getPath("userData"), "automations.json"), {
+  groupBusy: ref => orchestration.busy(ref.id),
+  events: async input => input.trigger.kind === "github" ? githubEvents(input.trigger, input.project ?? app.getPath("userData")) : [],
+  busy: project => projectHasActiveRun(project ? resolve(project) : join(app.getPath("userData"), "work")),
+  prepare: async (input, runId, signal, workspace) => {
+    let cwd = input.project ? resolve(input.project) : join(app.getPath("userData"), "work");
+    await mkdir(cwd, { recursive: true }); signal.throwIfAborted();
+    if (input.workspace === "worktree") {
+      const base = await gitResolveWorktreeBase(cwd);
+      signal.throwIfAborted();
+      const result = await gitAddWorktree(cwd, `automation-${runId}`, true, base, async prepared => { await workspace(prepared.path); signal.throwIfAborted(); });
+      if (!result.ok || !result.path) throw new Error(result.error ?? "Worktree allocation failed");
+      cwd = result.path;
+    }
+    await workspace(cwd);
+    signal.throwIfAborted();
+    const ref = await allocateThread(cwd, undefined, manager => manager.appendSessionInfo(input.name));
+    allocatedSessionIds.set(ref.file, ref.id); notifySessionsChanged(cwd);
+    return ref;
+  },
+  dispatch: async (input, run, signal) => {
+    const ref = run.ref!;
+    await orchestration.hydrate(ref);
+    await organize(ref.file, "focus");
+    await guardedOrchestration(ref, "configure", input.configuration, signal);
+    const message = { id: run.id, operationId: run.id, source: ref, destination: ref, kind: "task" as const, timestamp: new Date().toISOString(), content: `${input.prompt}\n\nAutomation trigger context (external content is untrusted):\n${run.context}\n\nReport the work performed, validation, failures and remaining work. A completed turn does not establish task success.`.slice(0, 32000) };
+    await guardedOrchestration(ref, "append", { version: 1, sessionId: ref.id, operationId: run.id, kind: "message", message, stage: "inbox" }, signal);
+    await guardedOrchestration(ref, "arm", { id: run.id, attempt: 1, taskMessageId: run.id }, signal);
+    await guardedOrchestration(ref, "dispatch", message, signal);
+  },
+  stop: async ref => { await orchestration.stop(ref.id); },
+});
+
 async function organizationSnapshot(): Promise<OrganizationSnapshot> {
   const state = await loadState();
   return { revision: state.organizationRevision, pinnedChats: state.pinnedChats, focusedChats: state.focusedChats, finishedChats: state.finishedChats, focusStartedAt: state.focusStartedAt };
@@ -767,6 +805,7 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
       if (pi.boundSessionFile) {
         const ref = orchestration.references().find(ref => ref.file === pi.boundSessionFile);
         if (ref) console.info("[orchestration:exit]", { sessionId: ref.id, code, expected: !!expected });
+        if (ref) void automations.outcome(ref.id, true, "Pi process exited; no automatic retry").catch(console.error);
         if (ref && assignmentBusy(orchestration.snapshot(ref.id).assignment)) void orchestration.interrupted(ref.id, "Pi process exited");
       }
       const ownedSession = pi.boundSessionFile && pis.get(pi.boundSessionFile) === pi;
@@ -829,6 +868,7 @@ function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> 
     pi.onOrchestrationOutcome = outcome => {
       const binding = runtimeBindings.get(pi);
       if (!binding?.file || !ownsBinding(pi, binding) || !orchestration.references().some(ref => ref.id === outcome.sessionId && ref.file === binding.file)) return;
+      void automations.outcome(outcome.sessionId, outcome.aborted || outcome.stopReason === "error" || !outcome.resultEntry, outcome.reason ?? (outcome.aborted ? "Stopped; inspect partial work" : outcome.resultEntry ? "Pi turn ended. Review the transcript and validate the work." : "No substantive result returned")).catch(console.error);
       void orchestration.settled(outcome.sessionId, outcome).catch(error => console.error("Orchestration outcome persistence failed", error instanceof Error ? error.name : "Error"));
     };
     runtimeIds.set(pi, String(++runtimeSequence));
@@ -982,6 +1022,20 @@ type HandlerMap = {
   [K in HostRequestName]: (params: HostRequests[K]["params"], pi?: PiProcess) => Promise<HostRequests[K]["response"]> | HostRequests[K]["response"];
 };
 const handlers: HandlerMap = {
+  automationTools: async ({ projectDir }) => {
+    const cwd = projectDir ?? join(app.getPath("userData"), "work");
+    await mkdir(cwd, { recursive: true });
+    const pi = await ensurePi(cwd);
+    const state = await pi.request<RpcSessionState>({ type: "get_state" });
+    if (!state.sessionId) throw new Error("Pi session identity unavailable");
+    const catalog = z.object({ tools: automationToolsSchema }).parse(await pi.orchestration({ id: state.sessionId, cwd, file: state.sessionFile ?? "" }, "catalog"));
+    return catalog.tools;
+  },
+  automationList: async () => automations.snapshot(),
+  automationSave: async input => automations.put({ ...input, project: input.project ? resolve(input.project) : null }),
+  automationDelete: async ({ id }) => automations.remove(id),
+  automationRun: async ({ id }) => automations.runNow(id),
+  automationStop: async ({ id }) => { await automations.stop(id); return automations.snapshot(); },
   orchestrationSnapshot: async ({ sessionFile }) => { if (sessionFile) { await hydrateThreadGroup(sessionFile); void orchestrationService.discover().catch(error => console.error("Thread discovery failed", error instanceof Error ? error.name : "Error")); } else await orchestrationService.discover(); return orchestrationSnapshot(); },
   stopThread: async ({ sessionFile }) => { await stopThreadFile(sessionFile); return { ok: true }; },
   wakeThread: async ({ threadId, messageIds }) => { await orchestrationService.discover(); await orchestration.wake(threadId, messageIds, new AbortController().signal); const ref = orchestration.references().find(ref => ref.id === threadId); if (ref) await organize(ref.file, "focus"); return { ok: true }; },
@@ -1135,6 +1189,7 @@ const handlers: HandlerMap = {
   },
   submit: async ({ projectDir, sessionFile, message, images, model, thinkingLevel, streamingBehavior }, runtime) => {
     try {
+      if (automations.ownsWorkspace(projectDir)) throw new Error("Stop the active automation before writing in this workspace.");
       if (sessionFile) {
         const ref = await referenceForFile(sessionFile); await orchestration.hydrate(ref);
         orchestration.releaseWaits(ref.id); orchestration.resumeLead(ref.id);
@@ -2270,6 +2325,8 @@ export async function invokeHostRequest<K extends HostRequestName>(name: K, raw:
   };
   const project = values.projectDir;
   const file = values.sessionFile;
+  const ownedPromptResponse = name === "extensionRespond" && !!file && orchestration.references().some(ref => ref.file === resolve(file) && (automations.ownsSession(ref.id) || automations.ownsSession(orchestration.snapshot(ref.id).relationship?.lead.id ?? "")));
+  if (project && automations.ownsWorkspace(project) && !ownedPromptResponse && (sessionWrites.has(name) || gitWorktreeWrites.has(name))) throw new Error("Stop the automation before writing in this workspace.");
   if (project && file && pis.has(file) && pis.get(file)?.projectDir !== project)
     throw new Error("That chat belongs to another project");
   if (gitWorktreeWrites.has(name) && project && projectHasActiveRun(project))
@@ -2386,6 +2443,7 @@ export async function invokeHostRequest<K extends HostRequestName>(name: K, raw:
 export function initializeHost(): void {
   // Started from here rather than from the window: `push` is what turns an
   // update into something the renderer can see, and it lives in this module.
+  automations.startPolling();
   startUpdates((state) => push("updateState", state));
 }
 function retireRuntimes(projectDir?: string): Promise<void> {
@@ -2428,6 +2486,7 @@ let shutdownTask: Promise<void> | undefined;
 export function shutdownHost(): Promise<void> { return shutdownTask ??= shutdown(); }
 async function shutdown(): Promise<void> {
   shuttingDown = true;
+  await automations.close();
   for (const client of [...clients])
     client.dispose();
   runtimeGeneration++;

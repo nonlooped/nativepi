@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Schedule Work once, daily or weekly in a chosen timezone, or watch GitHub PR check failures and review feedback, with explicit Pi configuration, workspace controls, a compact settings list, focused editing and contextual run history.
 - Add Codex and Anthropic OAuth subscription capacity windows, resets and refresh/stale/error states separately from local usage.
 - Add graphical Pi setup with compact MCP, skill and prompt management lists, focused setup dialogs, connection checks, and source/scope diagnostics.
 - Leave line/range review findings on local diffs, retain open/resolved/dismissed feedback across reopen, prepare selected or open findings for Pi revision, and re-review a file with an independent Pi model. Compact inline previews expand into an on-demand findings pane; feedback and reviewer setup use native app dialogs. Changed code is explicitly marked stale and never automatically resolved.
