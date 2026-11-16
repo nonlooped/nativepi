@@ -31,13 +31,14 @@ index 7ee05014e13c6434040bfdd7b39b455a6731a7d6..3d124caa2cff9c8f8d3344ab89e04eec
              path: filePath,
              id: header.id,
              cwd,
-@@ -559,6 +569,20 @@ async function buildSessionInfo(filePath, signal, fileStats) {
+@@ -559,6 +569,21 @@ async function buildSessionInfo(filePath, signal, fileStats) {
              firstMessage: firstMessage || "(no messages)",
              allMessagesText: allMessages.join(" "),
          };
 +        const bytes = 512 + 2 * (filePath.length + info.firstMessage.length + info.allMessagesText.length + (info.name?.length ?? 0));
 +        if (sessionInfoRevision(await stat(filePath)) === revision) {
-+            if (cached) { sessionInfoCacheBytes -= cached.bytes; sessionInfoCache.delete(filePath); }
++            const current = sessionInfoCache.get(filePath);
++            if (current) { sessionInfoCacheBytes -= current.bytes; sessionInfoCache.delete(filePath); }
 +            if (bytes <= 8 * 1024 * 1024) {
 +                sessionInfoCache.set(filePath, { revision, info, bytes });
 +                sessionInfoCacheBytes += bytes;
