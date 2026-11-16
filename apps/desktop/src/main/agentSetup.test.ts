@@ -23,3 +23,24 @@ test("resource creation preserves existing CLI files and refuses traversal and l
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("MCP discovery uses Pi trust and config precedence without connecting or exposing secrets", async () => {
+  const root = await mkdtemp(join(tmpdir(), "nativepi-discovery-"));
+  const previous = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = join(root, "agent");
+  try {
+    const { writeFile } = await import("node:fs/promises");
+    const { agentSetup } = await import("./agentSetup.ts");
+    await mkdir(join(root, "agent")); await mkdir(join(root, ".pi"));
+    await writeFile(join(root, "agent/mcp.json"), JSON.stringify({ mcpServers: { docs: { url: "https://example.invalid/mcp", enabled: false, headers: { Authorization: "secret-value" } } } }));
+    await writeFile(join(root, ".pi/mcp.json"), JSON.stringify({ mcpServers: { hidden: { command: "must-not-run" } } }));
+    const setup = await agentSetup(root);
+    expect(setup.servers.map(server => [server.name, server.state])).toEqual([["docs", "disabled"]]);
+    expect(setup.projectTrusted).toBe(false);
+    expect(JSON.stringify(setup.servers)).not.toContain("secret-value");
+    expect(setup.servers[0]?.source).toBe(join(root, "agent/mcp.json"));
+  } finally {
+    if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR; else process.env.PI_CODING_AGENT_DIR = previous;
+    await rm(root, { recursive: true, force: true });
+  }
+});

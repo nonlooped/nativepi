@@ -7,7 +7,7 @@ export const resourceChangeSchema = z.object({
 });
 export type ResourceChange = z.infer<typeof resourceChangeSchema>;
 export interface SetupResource { kind: "skill" | "prompt"; name: string; description: string; path: string; scope: string; source: string }
-export interface AgentSetup { resources: SetupResource[]; errors: string[]; projectTrusted: boolean }
+export interface AgentSetup { servers: McpReport["servers"]; resources: SetupResource[]; errors: string[]; projectTrusted: boolean }
 export const mcpSetupSchema = z.object({
   projectDir: z.string().min(1).max(32767), action: z.enum(["add", "remove", "check"]), scope: z.enum(["user", "project"]),
   name: z.string().regex(/^[a-zA-Z0-9_-]+$/).max(100),

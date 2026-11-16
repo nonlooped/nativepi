@@ -14,11 +14,11 @@ test("refresh shows provider errors while retaining clearly stale quota", async 
   const root = createRoot(container);
   try {
     await act(async () => root.render(<SubscriptionCapacity />));
-    expect(container.textContent).toContain("27% used · 73% remaining");
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuetext")).toBe("27% used · 73% remaining");
     failed = true;
     await act(async () => container.querySelector("button")!.click());
     expect(container.textContent).toContain("Stale");
     expect(container.querySelector('[role="alert"]')?.textContent).toBe("Quota refresh failed");
-    expect(container.textContent).toContain("73% remaining");
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuetext")).toBe("27% used · 73% remaining");
   } finally { await act(async () => root.unmount()); container.remove(); }
 });

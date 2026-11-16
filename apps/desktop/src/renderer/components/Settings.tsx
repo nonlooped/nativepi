@@ -68,11 +68,8 @@ function SettingsContent() {
   const closeSettings = useAppStore((s) => s.closeSettings);
   const loadPiSettings = useAppStore((s) => s.loadPiSettings);
   const initialCategory = useAppStore((s) => s.settingsCategory);
-  const [category, setCategory] = useState<Category>(settingsPage(initialCategory));
+  const category = settingsPage(initialCategory);
 
-  useEffect(() => {
-    if (initialCategory) setCategory(settingsPage(initialCategory));
-  }, [initialCategory]);
   const [railSheetOpen, setRailSheetOpen] = useState(false);
 
   // Pi's settings file is shared with the Pi command line and editable by hand,
@@ -85,7 +82,7 @@ function SettingsContent() {
     <CategoryNav
       category={category}
       onSelect={(next) => {
-        transitionView("category", () => setCategory(next));
+        transitionView("category", () => useAppStore.setState({ settingsCategory: next }));
         setRailSheetOpen(false);
       }}
     />

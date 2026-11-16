@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { DefaultResourceLoader, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { mkdir, writeFile, lstat } from "node:fs/promises";
 import { join } from "node:path";
@@ -10,13 +11,21 @@ export async function agentSetup(projectDir: string): Promise<AgentSetup> {
   await loader.reload();
   const skills = loader.getSkills();
   const prompts = loader.getPrompts();
+  // Pi 1.5.2 exposes the MCP extension but not its config reader at the package
+  // root. Keep this pinned-version adapter here; never duplicate its merge/trust rules.
+  const configModule = await import(new URL("./extensions/mcp/config.js", import.meta.resolve("@earendil-works/pi-coding-agent")).href);
+  const configured = z.object({ servers: z.array(z.object({
+    name: z.string(), scope: z.string().optional(), source: z.string(), override: z.string().optional(),
+    config: z.object({ enabled: z.boolean().optional(), exposure: z.string().optional() }),
+  })), errors: z.array(z.string()) }).parse(configModule.loadMcpConfig({ agentDir: getAgentDir(), cwd: projectDir, projectTrusted: settings.isProjectTrusted() }));
   return {
+    servers: configured.servers.map(server => ({ name: server.name, scope: server.scope ?? "global", source: server.source, override: server.override, enabled: server.config.enabled !== false, exposure: server.config.exposure ?? "codemode", state: server.config.enabled === false ? "disabled" : "not-checked", tools: [] })),
     projectTrusted: settings.isProjectTrusted(),
     resources: [
       ...skills.skills.map(s => ({ kind: "skill" as const, name: s.name, description: s.description, path: s.filePath, scope: s.sourceInfo.scope, source: s.sourceInfo.source })),
       ...prompts.prompts.map(s => ({ kind: "prompt" as const, name: s.name, description: s.description, path: s.filePath, scope: s.sourceInfo.scope, source: s.sourceInfo.source })),
     ],
-    errors: [...skills.diagnostics, ...prompts.diagnostics].map(d => `${d.path ?? "Resource"}: ${d.message}`),
+    errors: [...configured.errors, ...[...skills.diagnostics, ...prompts.diagnostics].map(d => `${d.path ?? "Resource"}: ${d.message}`)],
   };
 }
 /** Create only: exclusive writes cannot overwrite CLI edits or package resources. */
