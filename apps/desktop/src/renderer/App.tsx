@@ -11,6 +11,7 @@ import StateNotice from "./components/StateNotice.tsx";
 import ConnectionNotice from "./components/ConnectionNotice.tsx";
 import ThreadActivity, { ThreadInputBoundary } from "./components/ThreadActivity.tsx";
 import { Dialog as SettingsDialog } from "@base-ui/react/dialog";
+import { finishViewTransition, transitionView } from "./lib/viewTransition.ts";
 import { useLayoutMotion } from "./lib/layoutMotion.ts";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createKeybindingsHandler, tinykeys } from "tinykeys";
@@ -245,9 +246,14 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
               onSelectExtensionView={setExtensionView}
               onOpenSidebar={() => (layout !== "wide" ? setSidebarSheetOpen(true) : setSidebarOpen(true))}
               onOpenContext={(tab) => {
+                finishViewTransition();
                 const state = useAppStore.getState();
                 const showing = state.contextPaneTab === tab;
-                state.setContextPaneTab(tab);
+                // Only swap the contents of an already visible pane. Opening
+                // the pane lets its container carry the content entrance.
+                if (layout === "wide" && state.contextPaneOpen && !showing) {
+                  transitionView("context", () => state.setContextPaneTab(tab));
+                } else state.setContextPaneTab(tab);
                 if (layout === "wide") { if (!state.contextPaneOpen || showing) toggleContextPane(); }
                 else setContextSheetOpen(true);
               }}
@@ -1058,18 +1064,18 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
   return (
     <div className="flex min-h-0 flex-1 overflow-y-auto px-6 py-10">
-      <section className="stagger-enter m-auto flex w-full max-w-md flex-col items-center text-center">
+      <section className="welcome-enter m-auto flex w-full max-w-md flex-col items-center text-center">
         <NativePiWordmark display className="mb-6" />
-        <h1 style={{ "--i": 0 } as React.CSSProperties} className="text-balance text-headline">Start a chat</h1>
-        <p style={{ "--i": 1 } as React.CSSProperties} className="mt-3 max-w-[38ch] text-balance text-sm leading-6 text-body-muted-foreground">
+        <h1 className="text-balance text-headline">Start a chat</h1>
+        <p className="mt-3 max-w-[38ch] text-balance text-sm leading-6 text-body-muted-foreground">
           Choose a project, or start without one for general work on your device.
         </p>
-        <Button style={{ "--i": 2 } as React.CSSProperties} size="xl" className="mt-7" onClick={onStart}>
+        <Button size="xl" className="mt-7" onClick={onStart}>
           <NotePencilIcon data-icon="inline-start" weight="fill" />
           New chat
         </Button>
         {isRemote ? null : (
-          <p style={{ "--i": 3 } as React.CSSProperties} className="mt-8 flex items-center gap-2 rounded-xl border border-dashed border-border/80 px-4 py-2.5 text-xs text-muted-foreground">
+          <p className="mt-8 flex items-center gap-2 rounded-xl border border-dashed border-border/80 px-4 py-2.5 text-xs text-muted-foreground">
             <ArrowLineDownIcon aria-hidden="true" />
             Or drop a folder anywhere in this window
           </p>

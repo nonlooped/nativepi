@@ -462,23 +462,10 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   animation: status-enter 150ms ease-out;
 }
 
-/* A one-shot entrance for a screen the user sees once in a while, such as the
-   welcome state: children rise in together on a short index-based stagger. The
-   whole sequence stays under ~300ms and never gates a control. */
-.stagger-enter > * {
-  animation: stagger-enter 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc(var(--i, 0) * 55ms);
-}
-
-.stagger-enter > :nth-child(2):not([style*="--i"]) {
-  --i: 1;
-}
-
-@keyframes stagger-enter {
-  from {
-    opacity: 0;
-    transform: translateY(0.5rem);
-  }
+/* The welcome surface carries its copy and primary action together. No
+   invisible-but-focusable controls waiting for a child stagger. */
+.welcome-enter {
+  animation: status-enter 150ms ease-out;
 }
 
 @keyframes status-enter {
