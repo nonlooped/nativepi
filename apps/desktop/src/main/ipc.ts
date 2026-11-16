@@ -1,5 +1,6 @@
 import { TaskWorkspaces } from "./taskWorkspaces.ts";
 import { ReviewJobs } from "./reviewJobs.ts";
+import { LiveView } from "./service/liveView.ts";
 import { readWorkspaceFile, saveWorkspaceFile } from "./workspaceFiles.ts";
 import { automationToolsSchema } from "../shared/automations.ts";
 import { AutomationService } from "./automations/service.ts";
@@ -61,6 +62,7 @@ import { checkForUpdate, setUpdateChannel, installUpdate, startUpdates, updateSt
 import { createDiagnosticsReport, recordRendererCrash } from "./diagnostics.ts";
 /** One Pi process per session: Pi already permits concurrent sessions in a project. */
 const pis = new Map<string, PiProcess>();
+const liveViews = new WeakMap<PiProcess, LiveView>();
 // Pi gives even an unsent chat a session file, but the renderer deliberately
 // keeps it invisible until its first prompt. Keep that process distinct from
 // the project's opened chats so pre-send controls configure the right chat.
@@ -166,15 +168,18 @@ function beginSessionWrite(pi: PiProcess, binding: RuntimeBinding): () => Promis
 let mainWindow: BrowserWindow | null = null;
 type HostEventListener = <K extends keyof HostEvents>(channel: K, payload: HostEvents[K]) => void;
 const hostEventListeners = new Set<HostEventListener>();
+const desktopEventListeners = new Set<HostEventListener>();
+export function subscribeDesktopEvents(listener: HostEventListener) { desktopEventListeners.add(listener); return () => { desktopEventListeners.delete(listener); }; }
 export function setMainWindow(win: BrowserWindow | null): void {
   mainWindow = win;
 }
-function pushDesktop<K extends keyof HostEvents>(channel: K, payload: HostEvents[K]): void {
+function pushDesktop<K extends keyof HostEvents>(channel: K, payload: HostEvents[K], direct = true): void {
+  if (direct && process.argv.includes("--nativepi-service")) for (const listener of desktopEventListeners) listener(channel, payload);
   if (mainWindow && !mainWindow.isDestroyed())
     mainWindow.webContents.send(channel, payload);
 }
 function push<K extends keyof HostEvents>(channel: K, payload: HostEvents[K]): void {
-  pushDesktop(channel, payload);
+  pushDesktop(channel, payload, false);
   for (const listener of hostEventListeners) {
     try {
       listener(channel, payload);
@@ -319,6 +324,9 @@ function queueDisplayDelta(projectDir: string, pi: PiProcess, event: PiMessage):
 function updatePowerProtection(): void { setSleepBlocked(localServerConnection() !== undefined || [...pis.values(), ...draftPis.values(), ...startingPis.values()].some(pi => pi.isRunning) || starting.size > 0); }
 const turnAttentionByPi = new WeakMap<PiProcess, TurnAttention>();
 function forwardEvent(projectDir: string, pi: PiProcess, event: PiMessage): void {
+  let view = liveViews.get(pi);
+  if (!view) { view = new LiveView(); liveViews.set(pi, view); }
+  view.accept(event);
   if (event.type === "agent_start" || event.type === "agent_settled") { updatePowerProtection(); }
   turnAttentionByPi.set(pi, reduceTurnAttention(turnAttentionByPi.get(pi) ?? { retrying: false }, event));
   runtimeEvents.set(pi, (runtimeEvents.get(pi) ?? 0) + 1);
@@ -1197,9 +1205,9 @@ const handlers: HandlerMap = {
       if (pi)
         flushEventBatch(pi);
       eventWatermark = eventSequence;
-      if (pis.get(sessionFile) === pi && !pi?.isRunning && !sessionWriteCount(sessionFile) && !starting.has(sessionFile) && !retiringSessions.has(sessionFile)
+      if (pis.get(sessionFile) === pi && (!sessionWriteCount(sessionFile) || pi?.isRunning) && !starting.has(sessionFile) && !retiringSessions.has(sessionFile)
         && before === after && (!pi || runtimeEvents.get(pi) === sequence)) {
-        return { entries, eventWatermark, runtimeId: pi ? runtimeIds.get(pi) : undefined, consistency: "stable" as const, revision: after };
+        return { entries, eventWatermark, runtimeId: pi ? runtimeIds.get(pi) : undefined, consistency: "stable" as const, revision: after, liveEvents: pi ? liveViews.get(pi)?.snapshot() : undefined };
       }
     }
     return { entries, eventWatermark, runtimeId: pis.get(sessionFile) ? runtimeIds.get(pis.get(sessionFile)!) : undefined, consistency: "retry" as const };
@@ -2125,7 +2133,7 @@ const handlers: HandlerMap = {
   },
   extensionRespond: ({ response }, pi) => {
     pi?.sendRaw(response);
-    if (pi) extensionActivity.get(pi)?.delete(`prompt:${response.id}`);
+    if (pi) { extensionActivity.get(pi)?.delete(`prompt:${response.id}`); liveViews.get(pi)?.answered(response.id); }
     orchestrationRevision++; push("orchestrationChanged", orchestrationSnapshot());
     return { ok: true };
   },
@@ -2507,7 +2515,7 @@ export function initializeHost(): void {
   // Started from here rather than from the window: `push` is what turns an
   // update into something the renderer can see, and it lives in this module.
   automations.startPolling();
-  startUpdates((state) => push("updateState", state));
+  if (!process.argv.includes("--nativepi-service")) startUpdates((state) => push("updateState", state));
 }
 function retireRuntimes(projectDir?: string): Promise<void> {
   const key = projectDir ?? "*";

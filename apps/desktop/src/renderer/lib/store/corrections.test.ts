@@ -367,3 +367,18 @@ test("cold binding never treats preexisting transcript history as its submission
   store.getState().onEvent({ projectDir: "/p", sessionFile: "bound", runtimeId: "r", sequence: 1, event: echo });
   expect(store.getState().conversations.bound.pending).toEqual([]);
 });
+
+test("reopening a running chat reconciles Pi history, current output, queue and pending question once", async () => {
+  const store = fixture();
+  const question = { type: "extension_ui_request", id: "pending-question", method: "confirm", title: "Continue?" };
+  const assistant = { role: "assistant", content: [{ type: "text", text: "Current output" }], timestamp: 2 };
+  stubInvoke(async channel => channel === "readSessionSnapshot" ? {
+    consistency: "stable", entries: [entry("persisted")], runtimeId: "live", eventWatermark: 10,
+    liveEvents: [{ type: "agent_start" }, { type: "message_start", message: assistant }, { type: "queue_update", steering: ["adjust"], followUp: [] }, question],
+  } : { ok: true });
+  await store.getState().selectChat("a");
+  expect(store.getState().conversations.a).toMatchObject({ running: true, streaming: assistant, queue: { steering: ["adjust"], followUp: [] } });
+  expect(store.getState().conversations.a?.entries).toHaveLength(1);
+  store.getState().onEvent({ projectDir: "/p", sessionFile: "a", runtimeId: "live", sequence: 11, event: question as never });
+  expect(store.getState().extPrompts.map(prompt => prompt.id)).toEqual(["pending-question"]);
+});

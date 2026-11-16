@@ -1,7 +1,7 @@
 import type { FileEntry, PiEventBatch } from "../../../shared/pi-types.ts";
 import { rpc } from "../rpc.ts";
 import { emptyConversation, mergeConversation, patchConversation } from "./conversation.ts";
-import { reduce, sessionInfoName } from "./events.ts";
+import { applyExtensionUi, reduce, sessionInfoName } from "./events.ts";
 import { runtime, runtimeEpoch, observeRuntime } from "./internals.ts";
 import type { Conversation, ChatSlice, GetState, SetState } from "./types.ts";
 
@@ -26,6 +26,7 @@ export function createHydration(set: SetState, get: GetState) {
       let conversation: Conversation = { ...emptyConversation(), ...get().conversations[sessionFile], projectDir, sessionFile,
         entries: snapshot.entries.filter((entry): entry is Exclude<FileEntry, { type: "session" }> => entry.type !== "session"),
         streaming: null, running: false, compacting: false, retry: null, runStartedAt: null, sessionName: sessionInfoName(snapshot.entries) };
+      for (const event of snapshot.liveEvents ?? []) conversation = mergeConversation(conversation, reduce(conversation, event));
       for (const payload of owner.events) {
         if (payload.runtimeId === snapshot.runtimeId && payload.sequence !== undefined && payload.sequence <= snapshot.eventWatermark) continue;
         // Unsequenced events cannot safely be merged with file contents.
@@ -38,6 +39,9 @@ export function createHydration(set: SetState, get: GetState) {
       if (snapshot.runtimeId) observeRuntime(get, projectDir, sessionFile, snapshot.runtimeId);
       runtime(get).eventWatermarks.set(sessionFile, { runtimeId: snapshot.runtimeId, sequence: snapshot.eventWatermark, pending: new Set(conversation.pending.map(item => item.id)) });
       patchConversation(set, projectDir, sessionFile, conversation);
+      for (const event of snapshot.liveEvents ?? []) {
+        if (event.type === "extension_ui_request") applyExtensionUi(set, get, projectDir, sessionFile, event as import("../../../shared/pi-types.ts").ExtensionUiRequest);
+      }
       reads.delete(sessionFile);
     } catch (error) {
       if (reads.get(sessionFile) === owner && runtimeEpoch(get, projectDir) === owner.epoch) {

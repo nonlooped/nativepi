@@ -4,12 +4,13 @@ import { createRoot, type Root } from "react-dom/client";
 import { rpc } from "../lib/rpc.ts";
 import { stubInvoke } from "../lib/store/testBridge.ts";
 import { PaneStoreContext, createPaneStore, releasePaneStore, focusPaneStore, primaryStore, useAppStore } from "../lib/store.ts";
+import { remoteConnection } from "../lib/connection.ts";
 import QuitDialog from "./QuitDialog.tsx";
 const domTest = test.skipIf(typeof document === "undefined");
 let root: Root | undefined;
 let container: HTMLElement;
 const originalOn = rpc.events.on;
-afterEach(async () => { if (root) await act(async () => root!.unmount()); root = undefined; container?.remove(); rpc.events.on = originalOn; });
+afterEach(async () => { if (root) await act(async () => root!.unmount()); root = undefined; container?.remove(); rpc.events.on = originalOn; remoteConnection.setState({ phase: "connected" }, true); });
 domTest("confirmed quit waits for the latest draft save and keeps the modal open on typed host failure", async () => {
   globalThis.requestAnimationFrame = window.requestAnimationFrame.bind(window);
   globalThis.cancelAnimationFrame = window.cancelAnimationFrame.bind(window);
@@ -64,4 +65,21 @@ domTest("a workspace command is named in the quit guard and can be kept running"
   await act(async () => [...document.querySelectorAll("button")].find(b => b.textContent === "Keep working")!.click());
   expect(calls).toEqual([]);
   expect(document.querySelector('[role="dialog"]')).toBeNull();
+});
+
+domTest("explicitly discarding edits can close a client whose background host is unavailable", async () => {
+  globalThis.requestAnimationFrame = window.requestAnimationFrame.bind(window);
+  globalThis.cancelAnimationFrame = window.cancelAnimationFrame.bind(window);
+  let requested!: (payload: unknown) => void;
+  rpc.events.on = ((channel: string, listener: (payload: unknown) => void) => { if (channel === "quitRequested") requested = listener; return () => {}; }) as typeof rpc.events.on;
+  const calls: string[] = [];
+  stubInvoke(async channel => { calls.push(channel); if (channel === "saveState") throw new Error("Host unavailable"); return { ok: true }; });
+  remoteConnection.setState({ phase: "unavailable" }, true);
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  await act(async () => root!.render(<QuitDialog />));
+  await act(async () => requested({ work: { runs: [], terminals: [], viewers: 0, dirtyFiles: ["unsaved.ts"] } }));
+  expect(document.body.textContent).toContain("Closing may also discard chat drafts");
+  const discard = [...document.querySelectorAll("button")].find(button => button.textContent === "Discard edits and quit")!;
+  await act(async () => discard.click());
+  expect(calls).toEqual(["confirmQuit"]);
 });

@@ -30,7 +30,7 @@ function updateSummary(update: UpdateState): { tone: CardTone; status: string; d
       return {
         tone: "warning",
         status: `${name} is ready`,
-        detail: "Install when you quit, or restart now to update. Restarting stops your agents and terminals.",
+        detail: "Stop the background service in General settings before installing. Closing this window leaves your agents running.",
       };
     case "error":
       return { tone: "error", status: "The update did not go through", detail: update.error ?? "NativePi could not reach the release feed." };
@@ -38,7 +38,7 @@ function updateSummary(update: UpdateState): { tone: CardTone; status: string; d
       return {
         tone: "active",
         status: "Up to date",
-        detail: "NativePi checks every four hours, downloads updates, and installs them when you quit.",
+        detail: "NativePi checks every four hours while the desktop is open and downloads updates. Installation requires stopping the background service.",
       };
   }
 }

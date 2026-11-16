@@ -44,6 +44,13 @@ For browser testing, use the **Open on another device** icon beside Settings
 in the main sidebar, choose **Same network**, then **Share on network**. Its development link uses the live Vite renderer and the same host
 as the Electron window.
 
+The desktop automatically connects to or starts its independent Electron background
+host. Closing the UI does not stop that host. Use Settings → General → Background
+service to stop it before rebuilding incompatible host code or replacing an app.
+For isolated worktrees set `NATIVEPI_DEV_USER_DATA` and `NATIVEPI_DEV_PORT`; stop
+only your worktree's host after testing. Host ownership, local transport, restart
+behavior and login registration are documented in [docs/background-service.md](docs/background-service.md).
+
 The desktop application lives in `apps/desktop`. The public graphical extension
 contract lives in `packages/extension-api`.
 
