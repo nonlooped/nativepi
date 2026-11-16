@@ -85,3 +85,19 @@ test("simultaneous saves cannot drop or duplicate findings", async () => {
   expect(saves.filter(result => result.status === "fulfilled")).toHaveLength(1);
   expect((await store.snapshot(dir, "a.txt", "working")).findings).toHaveLength(1);
 });
+
+
+test("saved feedback can be resolved after the file is removed or becomes too large", async () => {
+  const { dir, git, store } = await fixture();
+  const saved = await store.update(dir, "a.txt", "working", await store.snapshot(dir, "a.txt", "working"), { notes: [note] });
+  git("rm", "-f", "a.txt"); git("commit", "-m", "remove");
+  const missing = await store.snapshot(dir, "a.txt", "working");
+  expect(missing.findings[0]).toMatchObject({ context: "1: changed", stale: true });
+  const resolved = await store.update(dir, "a.txt", "working", missing, { id: saved.findings[0]!.id, state: "resolved" });
+  expect(resolved.findings[0]!.state).toBe("resolved");
+  await writeFile(join(dir, "a.txt"), "large".repeat(1_000_000));
+  const large = await store.snapshot(dir, "a.txt", "working");
+  expect(large.patch).toBe("");
+  expect(large.findings[0]!.state).toBe("resolved");
+  expect((await store.update(dir, "a.txt", "working", large, { id: saved.findings[0]!.id, state: "open" })).findings[0]!.state).toBe("open");
+});

@@ -20,7 +20,7 @@ const CodeView = lazy(() => import("./DiffView.tsx"));
 
 export default function DiffPreview({ projectDir, path, mode, revision = 0, onBack, actions, renderPatch, backLabel = "Changes" }: {
   projectDir: string; path: string; mode: "working" | "staged"; revision?: number;
-  backLabel?: string; onBack: () => void; actions?: ReactNode; renderPatch?: (patch: string) => ReactNode;
+  backLabel?: string; onBack: () => void; actions?: ReactNode; renderPatch?: (patch: string, fallback?: ReactNode) => ReactNode;
 }) {
   const mention = useAppStore(s => s.insertIntoComposer);
   const editorId = useAppStore(s => s.preferences.preferredEditorId);
@@ -60,12 +60,12 @@ export default function DiffPreview({ projectDir, path, mode, revision = 0, onBa
     </div>
     {actions}
     <div className="min-h-0 flex-1 overflow-hidden border-t bg-background">
-      {error ? <div role="alert" className="space-y-2 p-4 text-xs"><p className="break-words text-destructive">{error}</p><Button variant="outline" size="sm" onClick={reload}>Try again</Button></div>
+      {renderPatch ? renderPatch(data?.kind === "diff" ? data.patch : "", error ? <div role="alert" className="p-4 text-xs"><p>{error}</p><Button variant="outline" size="sm" onClick={reload}>Try again</Button></div> : !data ? <StateNotice loading title="Loading diff…" /> : data.kind === "large" ? <p className="p-4 text-xs text-muted-foreground">This diff is too large to preview.</p> : undefined) : error ? <div role="alert" className="space-y-2 p-4 text-xs"><p className="break-words text-destructive">{error}</p><Button variant="outline" size="sm" onClick={reload}>Try again</Button></div>
         : !data ? <div className="px-4"><StateNotice loading title="Loading diff…" /></div>
         : data.kind === "large" ? <div className="p-4 text-xs leading-5 text-muted-foreground"><p>This diff is too large to preview.</p><p>Open it in {editorName(editorId)} to view its contents.</p></div>
         : data.kind === "diff" && !data.patch.trim() && !renderPatch ? <p className="p-4 text-xs text-muted-foreground">No textual diff to show.</p>
         : <Suspense fallback={<div className="px-4"><StateNotice loading title="Preparing code…" /></div>}>
-            {renderPatch ? renderPatch(data.patch) : <CodeView patch={data.patch} />}
+            {<CodeView patch={data.patch} />}
           </Suspense>}
     </div>
   </section>;

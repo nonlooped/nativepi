@@ -32,12 +32,12 @@ export class ReviewStore {
       if (!pending) { pending = this.patch(s.root, file, mode).then(patch => digest(s.head + patch)).catch(() => "unavailable"); fingerprints.set(key, pending); }
       return pending;
     };
-    const currentPatch = file ? await this.patch(s.root, file, mode) : "";
-    if (file) fingerprints.set(JSON.stringify([file, mode]), Promise.resolve(digest(s.head + currentPatch)));
+    const currentPatch = file ? await this.patch(s.root, file, mode).catch(() => null) : "";
+    if (file) fingerprints.set(JSON.stringify([file, mode]), Promise.resolve(currentPatch === null ? "unavailable" : digest(s.head + currentPatch)));
     const findings: ReviewSnapshot["findings"] = [];
     // Bound Git subprocess concurrency even for a large persisted review.
     for (const f of stored.document.findings) findings.push({ ...f, stale: f.fingerprint !== await fingerprint(f.file, f.mode) });
-    return { runs: stored.document.runs, patch: currentPatch, scope: s.scope, revision: stored.revision, fingerprint: file ? await fingerprint(file, mode) : "", findings };
+    return { runs: stored.document.runs, patch: currentPatch ?? "", scope: s.scope, revision: stored.revision, fingerprint: file ? await fingerprint(file, mode) : "", findings };
   }
   async patch(projectDir: string, file: string, mode: "working" | "staged") {
     const preview = await readProjectDiffPreview(projectDir, file, mode);
