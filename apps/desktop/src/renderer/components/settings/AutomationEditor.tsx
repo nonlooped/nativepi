@@ -1,3 +1,4 @@
+import { useFormDraft } from "../../lib/formDrafts.ts";
 import {
   Select,
   SelectContent,
@@ -71,9 +72,10 @@ export default function AutomationEditor({
   onClose: () => void;
   onSaved: (state: AutomationState) => void;
 }) {
-  const [draft, setDraft] = useState<AutomationInput>(() =>
+  const [initialDraft] = useState<AutomationInput>(() =>
     initial === "new" ? fresh() : structuredClone(initial),
   );
+  const [draft, setDraft, clearDraft] = useFormDraft<AutomationInput>(`automation:${initial === "new" ? "new" : initial.id ?? initial.name}`, initialDraft);
   const [catalog, setCatalog] = useState<ChatTitleCatalog | null>(null);
   const [catalogError, setCatalogError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -176,7 +178,7 @@ export default function AutomationEditor({
     }
     setPending(true);
     try {
-      onSaved(await rpc.request.automationSave(parsed.data));
+      const saved = await rpc.request.automationSave(parsed.data); clearDraft(); onSaved(saved);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save automation.");
     } finally {

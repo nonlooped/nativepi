@@ -262,10 +262,11 @@ export class PiProcess {
     for (const controller of this.computerRequests.values()) controller.abort();
     computerController.release(this);
   }
-  async showBrowser(): Promise<void> {
+  async showBrowser(url?: string): Promise<void> {
     if (!this.computerAllowed || !this.isAvailable) throw new Error("Browser requires an available Work chat.");
     const {SharedBrowser} = await import("../browser/index.ts");
     this.browser ??= new SharedBrowser();
+    if (url) { await this.browser.chrome({ action: "open", url }); return; }
     const state = await this.browser.run({action:"list"}) as {tabs:{tab:string}[]};
     await this.browser.run(state.tabs[0] ? {action:"show",tab:state.tabs[0].tab} : {action:"open",url:"https://example.com"});
   }

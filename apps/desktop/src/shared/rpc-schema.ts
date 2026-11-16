@@ -457,7 +457,7 @@ export type HostRequestContracts = {
   dictationCancel: { params: { id: string }; response: { ok: true } };
   dictationTranscribe: { params: { id: string; audio: string }; response: { text: string } };
   dictationMicrophone: { params: Record<string, never>; response: { ok: true } };
-  browserShow: { params: { projectDir: string; sessionFile?: string | null }; response: { ok: true } };
+  browserShow: { params: { projectDir: string; sessionFile?: string | null; url?: string }; response: { ok: true } };
   computerStatus: { params: Record<string, never>; response: ComputerStatus };
   computerPermissions: { params: Record<string, never>; response: ComputerStatus };
   abort: {
@@ -1220,8 +1220,10 @@ export type HostRequestContracts = {
       error?: string;
     };
   };
+  gitPushTarget: { params: { projectDir: string }; response: { target: import("./pi-types.ts").GitPushTarget } };
   gitPush: {
     params: {
+      expectedTarget?: string;
       projectDir: string;
     };
     response: {
@@ -1231,6 +1233,7 @@ export type HostRequestContracts = {
   };
   gitSync: {
     params: {
+      expectedTarget?: string;
       projectDir: string;
     };
     response: {

@@ -135,9 +135,12 @@ domTest("filtered group staging only stages the matching files", async () => {
 
 domTest("push works without creating a commit and reports failures", async () => {
   let pushes = 0;
-  stubInvoke(async c => { if (c === "gitCommit") throw new Error("Must not create a commit"); if (c === "gitPush") { pushes++; return { ok: false, error: "remote unavailable" }; } return c === "gitStatus" ? { status: git } : {}; });
+  stubInvoke(async c => { if (c === "gitPushTarget") return { target: { branch: "main", remote: "origin", urls: ["https://example.com/project.git"], rules: [], fingerprint: "destination" } }; if (c === "gitCommit") throw new Error("Must not create a commit"); if (c === "gitPush") { pushes++; return { ok: false, error: "remote unavailable" }; } return c === "gitStatus" ? { status: git } : {}; });
   await mount({ ...git, upstream: "origin/main", ahead: 2 });
   await act(async () => [...container.querySelectorAll("button")].find(button => button.textContent === "Push 2")!.click());
+  expect(pushes).toBe(0);
+  expect(document.body.textContent).toContain("https://example.com/project.git");
+  await act(async () => [...document.querySelectorAll("button")].find(button => button.textContent === "Publish changes")!.click());
   expect(pushes).toBe(1);
   expect(container.textContent).toContain("remote unavailable");
   expect(useAppStore.getState().sourceControlBusy).toBe(false);

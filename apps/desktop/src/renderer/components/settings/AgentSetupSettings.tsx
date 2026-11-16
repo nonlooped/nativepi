@@ -1,3 +1,4 @@
+import { useFormDraft, forgetFormDrafts } from "../../lib/formDrafts.ts";
 import { useContext, useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
@@ -137,14 +138,15 @@ export default function AgentSetupSettings({ tab = "mcp" }: { tab?: string }) {
 }
 
 function AddCapabilityDialog({ kind, server, cwd, projectAvailable, onClose, onSaved }: { kind: Kind; server?: Server; cwd: string; projectAvailable: boolean; onClose: () => void; onSaved: (kind: Kind) => void }) {
-  const [scope, setScope] = useState<"user" | "project">(server?.scope === "project" ? "project" : "user");
-  const [transport, setTransport] = useState<"http" | "stdio">("http");
-  const [name, setName] = useState(server?.name ?? "");
-  const [description, setDescription] = useState("");
-  const [content, setContent] = useState("");
-  const [url, setUrl] = useState("");
-  const [command, setCommand] = useState("");
-  const [args, setArgs] = useState("");
+  const draftKey = JSON.stringify([cwd, kind, server?.name ?? "new"]);
+  const [scope, setScope] = useFormDraft<"user" | "project">(`${draftKey}:scope`, server?.scope === "project" ? "project" : "user");
+  const [transport, setTransport] = useFormDraft<"http" | "stdio">(`${draftKey}:transport`, "http");
+  const [name, setName] = useFormDraft(`${draftKey}:name`, server?.name ?? "");
+  const [description, setDescription] = useFormDraft(`${draftKey}:description`, "");
+  const [content, setContent] = useFormDraft(`${draftKey}:content`, "");
+  const [url, setUrl] = useFormDraft(`${draftKey}:url`, "");
+  const [command, setCommand] = useFormDraft(`${draftKey}:command`, "");
+  const [args, setArgs] = useFormDraft(`${draftKey}:args`, "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function save(event: React.FormEvent) {
@@ -157,7 +159,7 @@ function AddCapabilityDialog({ kind, server, cwd, projectAvailable, onClose, onS
         const result = await rpc.request.createAgentResource({ projectDir: cwd, kind, scope, name, content: kind === "skill" ? `---\nname: ${name}\ndescription: ${JSON.stringify(description)}\n---\n${content}` : content });
         if (!result.ok) throw new Error(result.error);
       }
-      onSaved(kind);
+      forgetFormDrafts(draftKey); onSaved(kind);
     } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
     finally { setBusy(false); }
   }

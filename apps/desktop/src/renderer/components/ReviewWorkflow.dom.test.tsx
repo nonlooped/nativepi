@@ -59,3 +59,15 @@ test("project review resets a saved file-only scope", async () => {
   expect(received.options).toMatchObject({ scope: "uncommitted" });
   expect(received.options.file).toBeUndefined();
 });
+
+
+test("a zero-finding result still identifies skipped files and absence of recorded checks",async()=>{
+  const job:ReviewJob={id:"partial",options:reviewJobOptionsSchema.parse({model:"test/reviewer"}),status:"completed",createdAt:new Date().toISOString(),message:"Finished",count:0,inputs:[{file:"small.ts",mode:"working",patch:"+code",fingerprint:"one"}],skipped:["large.ts: oversized diff"],checks:[],verifications:[],verificationFiles:[]};
+  stubInvoke(async name=>name==="reviewJobs"?{jobs:[job]}:name==="getChatTitleModels"?{models:[]} :{});
+  host=document.createElement("div");document.body.append(host);root=createRoot(host);
+  await act(async()=>root.render(<ReviewWorkflow projectDir="/project"/>));
+  expect(host.querySelector('[role="status"]')?.textContent).toBe("0 findings · 1 skipped");
+  await act(async()=>button("Review changes").click());
+  expect(document.body.textContent).toContain("This review did not cover 1 file");
+  expect(document.body.textContent).toContain("commands and tests were not run");
+});

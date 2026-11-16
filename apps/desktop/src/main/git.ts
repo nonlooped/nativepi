@@ -4,7 +4,7 @@ import { createReadStream, existsSync } from "node:fs";
 import path from "node:path";
 import { stat } from "node:fs/promises";
 import { MAX_DIFF_PREVIEW_BYTES } from "../shared/diff-preview.ts";
-import type { GitBranch, GitCommit, GitDiff, GitHunk, GitPrTarget, GitStatus } from "../shared/pi-types.ts";
+import type { GitBranch, GitCommit, GitDiff, GitHunk, GitPrTarget, GitPushTarget, GitStatus } from "../shared/pi-types.ts";
 function run(args: string[], cwd: string) {
   return runRepositoryCommand("git", ["--literal-pathspecs", ...args], cwd, 32 * 1024 * 1024);
 }
@@ -443,7 +443,28 @@ export async function gitCommit(projectDir: string, message: string): Promise<{
     invalidateGitStatusCache(projectDir);
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
 }
-export async function gitPush(projectDir: string) {
+export async function gitPushTarget(projectDir: string): Promise<GitPushTarget> {
+  const branch = (await run(["branch", "--show-current"], projectDir)).stdout.trim();
+  if (!branch) throw new Error("Choose a branch before publishing saved changes.");
+  const config = async (key: string) => (await run(["config", "--get", key], projectDir)).stdout.trim();
+  const [pushRemote, pushDefaultRemote, fetchRemote, defaults, merge, tags] = await Promise.all([config(`branch.${branch}.pushRemote`), config("remote.pushDefault"), config(`branch.${branch}.remote`), config("push.default"), config(`branch.${branch}.merge`), config("push.followTags")]);
+  const remote = pushRemote || pushDefaultRemote || fetchRemote || "origin";
+  if (remote.startsWith("-")) throw new Error("The publishing destination is not usable. Check this project’s Git remote settings.");
+  const [result, pushRefs, mirror, receive] = await Promise.all([
+    remote === "." ? Promise.resolve({ code: 0, stdout: projectDir }) : run(["remote", "get-url", "--push", "--all", remote], projectDir),
+    run(["config", "--get-all", `remote.${remote}.push`], projectDir).then(r => r.stdout.trim()), config(`remote.${remote}.mirror`),
+    !fetchRemote ? Promise.resolve("") : fetchRemote === "." ? Promise.resolve(projectDir) : run(["remote", "get-url", "--", fetchRemote], projectDir).then(r => r.stdout.trim()),
+  ]);
+  if (result.code !== 0 || !result.stdout.trim()) throw new Error("This project has no usable publishing destination. Add a Git remote before publishing.");
+  const urls = result.stdout.trim().split("\n");
+  const rules = [pushRefs && `Push rules: ${pushRefs}`, defaults === "matching" && "Matching saved branches will be sent", mirror === "true" && "This remote mirrors all references", tags === "true" && "Annotated tags are included"].filter((v): v is string => !!v);
+  return { branch, remote, urls, rules, receiveFrom: receive || undefined, fingerprint: JSON.stringify({ branch, remote, urls, pushRefs, defaults, mirror, tags, merge, fetchRemote, receive }) };
+}
+async function publishTargetChanged(projectDir: string, expected?: string) {
+  return expected !== undefined && (await gitPushTarget(projectDir)).fingerprint !== expected;
+}
+export async function gitPush(projectDir: string, expectedTarget?: string) {
+  if (await publishTargetChanged(projectDir, expectedTarget)) return { ok: false, error: "The publishing destination changed. Review it again before sending changes." };
   const [branch, upstream] = await Promise.all([
     run(["branch", "--show-current"], projectDir),
     run(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], projectDir),
@@ -456,19 +477,21 @@ export async function gitPush(projectDir: string) {
     const configured = await run(["config", "--get", `branch.${name}.pushRemote`], projectDir);
     const pushDefault = configured.stdout.trim() || (await run(["config", "--get", "remote.pushDefault"], projectDir)).stdout.trim();
     const branchRemote = pushDefault || (await run(["config", "--get", `branch.${name}.remote`], projectDir)).stdout.trim();
+    if (branchRemote.startsWith("-")) return { ok: false, error: "The publishing destination is not usable." };
     args = ["push", "-u", branchRemote || "origin", "HEAD"];
   }
   const result = await run(args, projectDir);
   return result.code === 0 ? { ok: true } : { ok: false, error: failure(result) };
 }
-export async function gitSync(projectDir: string) {
+export async function gitSync(projectDir: string, expectedTarget?: string) {
+  if (await publishTargetChanged(projectDir, expectedTarget)) return { ok: false, error: "The publishing destination changed. Review it again before syncing." };
   const upstream = await run(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], projectDir);
   if (upstream.code !== 0)
-    return await gitPush(projectDir);
+    return await gitPush(projectDir, expectedTarget);
   const pull = await run(["pull", "--ff-only"], projectDir);
   if (pull.code !== 0)
     return { ok: false, error: failure(pull) };
-  return await gitPush(projectDir);
+  return await gitPush(projectDir, expectedTarget);
 }
 /**
 * Where a pull request would go, read before the user commits to sending one.

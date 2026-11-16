@@ -482,3 +482,13 @@ export type PiEventBatch = {
   type: "nativepi_event_batch";
   events: PiEvent[];
 };
+
+/** Git's current publishing destination, shown before the person sends saved changes. */
+export interface GitPushTarget {
+  branch: string;
+  remote: string;
+  urls: string[];
+  rules: string[];
+  receiveFrom?: string;
+  fingerprint: string;
+}

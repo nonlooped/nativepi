@@ -22,6 +22,7 @@ export default function ReviewWorkflow({ projectDir, file, verifyIds = [] }: { p
   const lastStatus = useRef<string | null>(null);
   const [open, setOpen] = useState(false);
   const [configure, setConfigure] = useState(true);
+  const [readAttempt, setReadAttempt] = useState(0);
   const [jobs, setJobs] = useState<ReviewJob[]>([]);
   const [saved, setSaved] = useState<ReviewJobOptions>();
   const [options, setOptions] = useState<ReviewJobOptions>();
@@ -38,7 +39,7 @@ export default function ReviewWorkflow({ projectDir, file, verifyIds = [] }: { p
       try {
         const state = z.object({ jobs: z.array(reviewJobSchema), options: reviewJobOptionsSchema.optional() }).parse(await rpc.request.reviewJobs({ projectDir }));
         if (!alive) return;
-        setJobs(state.jobs); setSaved(state.options);
+        setJobs(state.jobs); setSaved(state.options); setError("");
         const status = state.jobs.map(j => `${j.id}:${j.status}`).join();
         if (lastStatus.current !== null && status !== lastStatus.current) window.dispatchEvent(new Event("nativepi-review-updated"));
         lastStatus.current = status;
@@ -47,12 +48,12 @@ export default function ReviewWorkflow({ projectDir, file, verifyIds = [] }: { p
     void load();
     const interval = open || running ? setInterval(() => void load(), 2500) : undefined;
     return () => { alive = false; if (interval) clearInterval(interval); };
-  }, [projectDir, open, running, revision]);
+  }, [projectDir, open, running, revision, readAttempt]);
   const latest = jobs.at(-1);
-  const value = options ?? reviewJobOptionsSchema.parse({ ...saved, file, scope: file ? "file" : saved?.scope === "file" ? "uncommitted" : saved?.scope ?? "uncommitted", model: saved?.model || (model ? `${model.provider}/${model.id}` : "unavailable"), verifyIds });
+  const value = options ?? reviewJobOptionsSchema.parse({ ...saved, file, scope: file ? "file" : saved?.scope === "file" ? "uncommitted" : saved?.scope ?? "uncommitted", model: saved?.model || (model ? `${model.provider}/${model.id}` : catalog.data?.models[0] ? `${catalog.data.models[0].provider}/${catalog.data.models[0].id}` : "unavailable"), verifyIds });
   const change = (patch: Partial<ReviewJobOptions>) => setOptions({ ...value, ...patch });
   const [provider = "", ...modelId] = value.model.split("/");
-  const summary = latest ? latest.inputChanged ? "Changes made since review" : latest.status === "completed" ? `${latest.count ?? 0} finding${latest.count === 1 ? "" : "s"}` : statusLabels[latest.status] : "Not reviewed";
+  const summary = latest ? latest.inputChanged ? "Changes made since review" : latest.status === "completed" ? `${latest.count ?? 0} finding${latest.count === 1 ? "" : "s"}${latest.skipped.length ? ` · ${latest.skipped.length} skipped` : ""}` : statusLabels[latest.status] : "Not reviewed";
   function openChanges(path: string) {
     useAppStore.getState().setSourceControlReview({ projectDir, path, staged: latest?.options.scope === "staged" });
     setOpen(false);
@@ -68,7 +69,7 @@ export default function ReviewWorkflow({ projectDir, file, verifyIds = [] }: { p
         <DialogTitle>{configure && !running ? verifyIds.length ? "Verify fixes" : "Review changes" : latest ? statusLabels[latest.status] : "Review changes"}</DialogTitle>
         <DialogDescription>{configure && !running ? verifyIds.length ? "Check whether the selected issues have been fixed." : "Ask Pi to look for bugs in your changes." : latest?.inputChanged ? "The code has changed. These results belong to the earlier version." : latest?.status === "running" ? "You can keep working while Pi reviews your changes." : latest?.status === "completed" ? `${latest.count ?? 0} finding${latest.count === 1 ? "" : "s"} across ${latest.inputs.length} file${latest.inputs.length === 1 ? "" : "s"}.` : "Your changes and any saved findings are still available."}</DialogDescription>
       </DialogHeader>
-      {error && <p role="alert" className="break-words text-xs leading-5 text-destructive">{error}</p>}
+      {error && <div role="alert"><p className="text-sm text-destructive">The review could not finish. Your changes are kept.</p><Button variant="outline" size="sm" className="mt-2" onClick={() => setReadAttempt(n => n + 1)}>Try again</Button><SettingsDetails id="review-error" title="Error details"><p className="break-words text-xs text-muted-foreground">{error}</p></SettingsDetails></div>}
       {configure && !running ? <div className="flex flex-col gap-5">
         <Field><FieldLabel>Changes to review</FieldLabel>
           <Select value={value.scope} onValueChange={scope => { if (scope) change({ scope: scope as ReviewJobOptions["scope"] }); }} items={Object.entries(scopeLabels).filter(([scope]) => scope !== "file" || !!file).map(([value, label]) => ({ value, label }))}>
@@ -85,6 +86,8 @@ export default function ReviewWorkflow({ projectDir, file, verifyIds = [] }: { p
         <div className="flex items-start justify-between gap-4 border-t border-border/40 pt-4"><div><label htmlFor="review-checks" className="text-sm font-medium">Run checks</label><p className="mt-1 text-[0.8125rem] leading-5 text-body-muted-foreground">{value.allowChecks ? "Allows shell commands with access to your files and network." : "Pi reads the code without running shell commands."}</p></div><Switch id="review-checks" aria-label="Allow shell checks" checked={value.allowChecks} onCheckedChange={allowChecks => change({ allowChecks })} /></div>
       </div> : latest ? <div className="max-h-[min(55dvh,28rem)] min-h-0 overflow-y-auto overscroll-contain">
         {(latest.status === "failed" || latest.status === "interrupted") && <p role="status" className="mb-4 text-sm leading-6 text-body-muted-foreground">{latest.message}</p>}
+        {latest.status === "completed" && latest.skipped.length > 0 ? <p role="status" className="mb-3 text-sm text-warning">This review did not cover {latest.skipped.length} file{latest.skipped.length === 1 ? "" : "s"}. Check skipped files in Review details before relying on the result.</p> : null}
+        {latest.status === "completed" && !latest.checks.length ? <p className="mb-3 text-xs text-muted-foreground">{latest.options.allowChecks ? "No command checks were recorded in this review." : "Code was read; commands and tests were not run."}</p> : null}
         <div className="divide-y divide-border/30">{latest.inputs.map(input => <button key={input.file} className="flex w-full min-w-0 items-center justify-between gap-3 py-2.5 text-left text-sm hover:text-foreground focus-visible:outline-ring" onClick={() => openChanges(input.file)}><span className="truncate" title={input.file}>{input.file}</span><span className="shrink-0 text-xs text-muted-foreground">View changes</span></button>)}</div>
         <SettingsDetails id="review-evidence" title="Review details" summary={`${latest.checks.length ? `${latest.checks.length} recorded checks` : "No recorded checks"}${latest.skipped.length ? ` · ${latest.skipped.length} skipped files` : ""}`}>
           <div className="space-y-3 text-xs leading-5 text-body-muted-foreground">
@@ -98,7 +101,7 @@ export default function ReviewWorkflow({ projectDir, file, verifyIds = [] }: { p
         </SettingsDetails>
         {jobs.length > 1 && <SettingsDetails id="review-history" title="Previous reviews"><div className="space-y-2">{jobs.slice(0, -1).reverse().map(job => <div key={job.id} className="flex items-center justify-between gap-3 text-xs text-muted-foreground"><span>{new Date(job.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</span><Button size="xs" variant="ghost" disabled={!job.sessionFile} onClick={() => { setOpen(false); void useAppStore.getState().selectChat(job.sessionFile!, projectDir); }}>{statusLabels[job.status]}</Button></div>)}</div></SettingsDetails>}
       </div> : null}
-      <DialogFooter><Button variant="ghost" onClick={() => setOpen(false)}>{running ? "Keep working" : "Close"}</Button>{running ? <Button variant="outline" onClick={() => { void rpc.request.reviewStop({ projectDir }).catch(e => setError(String(e))); }}>Stop review</Button> : !configure ? <><Button variant="ghost" onClick={() => setConfigure(true)}>Review again</Button>{latest?.inputs[0] && <Button onClick={() => openChanges(latest.inputs[0]!.file)}>View changes</Button>}</> : <Button disabled={busy || !models.length || value.model === "unavailable"} onClick={() => {
+      <DialogFooter><Button variant="ghost" onClick={() => setOpen(false)}>{running ? "Keep working" : "Close"}</Button>{running ? <Button variant="outline" onClick={() => { void rpc.request.reviewStop({ projectDir }).catch(e => setError(String(e))); }}>Stop review</Button> : !configure ? <><Button variant="ghost" onClick={() => setConfigure(true)}>Review again</Button>{latest?.inputs[0] && <Button onClick={() => openChanges(latest.inputs[0]!.file)}>View changes</Button>}</> : <Button disabled={busy || !(catalog.data?.models.length ?? models.length) || value.model === "unavailable"} onClick={() => {
         setBusy(true); setError("");
         void rpc.request.reviewStart({ projectDir, options: { ...value, verifyIds } }).then(job => { setJobs(previous => [...previous, reviewJobSchema.parse(job)]); setConfigure(false); setBusy(false); }, e => { setError(String(e)); setBusy(false); });
       }}>{busy ? "Starting…" : verifyIds.length ? "Verify fixes" : "Start review"}</Button>}</DialogFooter>

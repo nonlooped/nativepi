@@ -1,3 +1,4 @@
+import { useFormDraft } from "../lib/formDrafts.ts";
 import ReviewWorkflow from "./ReviewWorkflow.tsx";
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { ChatCircleTextIcon } from "@phosphor-icons/react/ChatCircleText";
@@ -32,8 +33,10 @@ export default function ReviewFindings({ projectDir, file, mode, patch, revision
 }) {
   const [snapshot, setSnapshot] = useState<{ value: ReviewSnapshot; source: ReviewSnapshot | null; patch: string; revision: number }>();
   const [original, setOriginal] = useState<ReviewSnapshot["findings"][number]>();
-  const [range, setRange] = useState<ReviewRange>();
-  const [body, setBody] = useState("");
+  const draftKey = JSON.stringify([projectDir, file, mode]);
+  const [range, setRange] = useFormDraft<ReviewRange | undefined>(`${draftKey}:range`, undefined);
+  const [body, setBody, clearBody] = useFormDraft(`${draftKey}:${JSON.stringify(range)}`, "");
+  const [feedbackOpen, setFeedbackOpen] = useState(!!range);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -49,7 +52,7 @@ export default function ReviewFindings({ projectDir, file, mode, patch, revision
   const activeProject = useAppStore(s => s.activeProjectPath);
   const [allFiles, setAllFiles] = useState(false);
   const [fixTarget, setFixTarget] = useState(false);
-  const [target, setTarget] = useState("");
+  const [target, setTarget] = useState("new");
   const sessionProjects = useAppStore(s => s.sessionsByProject);
   const sessions = sessionProjects[projectDir] ?? [];
   const request = useRequest(async () => reviewSnapshotSchema.parse(await rpc.request.reviewSnapshot({ projectDir, file, mode })), [projectDir, file, mode, revision, patch]);
@@ -62,6 +65,7 @@ export default function ReviewFindings({ projectDir, file, mode, patch, revision
   const data = snapshot && snapshot.source === request.data && snapshot.patch === patch && snapshot.revision === revision ? snapshot.value : request.data;
   const matches = data?.patch === patch;
   const lastRun = data?.runs.findLast(run => run.file === file && run.mode === mode);
+  const reviewCurrent = !!lastRun && lastRun.fingerprint === data?.fingerprint;
   const readError = request.error && (/"code"\s*:|Unexpected token|not valid JSON/i.test(request.error) ? "Saved findings could not be loaded." : request.error.replace(/^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/, ""));
   const problem = error || readError || (data && !matches ? "The code changed while loading. Refresh the diff before adding feedback." : undefined);
   async function perform(work: () => Promise<void>) {
@@ -71,14 +75,14 @@ export default function ReviewFindings({ projectDir, file, mode, patch, revision
     setBusy(false);
   }
   function select(next: ReviewRange) {
-    try { reviewContext(patch, next); setRange(next); setError(undefined); }
+    try { reviewContext(patch, next); setRange(next); setFeedbackOpen(true); setError(undefined); }
     catch (cause) { setError(String(cause)); setPanel(true); }
   }
   const open = data?.findings.filter(f => f.state === "open" && (allFiles || f.file === file)) ?? [];
   const chosen = data?.findings.filter(f => selected.includes(f.id) && (allFiles || f.file === file)) ?? [];
   const batch = selecting ? chosen : open;
   const visible = data?.findings.filter(f => (allFiles || f.file === file) && (filter === "all" || f.state === "open")) ?? [];
-  function inspect(id: string) { setRange(undefined); setExpanded(id); setFilter("all"); setPanel(true); }
+  function inspect(id: string) { setFeedbackOpen(false); setExpanded(id); setFilter("all"); setPanel(true); }
   const toolbar = <>
     <Button size="xs" variant="ghost" aria-expanded={panel} onClick={() => setPanel(v => !v)}><ChatCircleTextIcon />Findings{data ? ` ${open.length}` : ""}{problem && <WarningCircleIcon className="text-destructive" />}</Button>
     <ReviewWorkflow projectDir={projectDir} file={file} />
@@ -106,7 +110,7 @@ export default function ReviewFindings({ projectDir, file, mode, patch, revision
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {problem && <div role="alert" className="mx-3 mb-3 flex items-start gap-2 rounded-lg bg-destructive/5 p-3 text-xs leading-5 text-destructive"><WarningCircleIcon className="mt-0.5 size-4 shrink-0" /><div className="min-w-0 flex-1 break-words">{problem}<div className="mt-1"><Button size="xs" variant="ghost" onClick={() => { setSnapshot(undefined); setError(undefined); request.reload(); }}>Try again</Button></div></div></div>}
         {notice && <p role="status" className="px-4 pb-3 text-xs leading-5 text-muted-foreground">{notice}</p>}
-        {request.loading && !data ? <p role="status" className="px-4 py-8 text-sm text-muted-foreground">Loading findings…</p> : !visible.length && !problem ? <div className="px-5 py-10 text-center"><ChatCircleTextIcon className="mx-auto mb-3 size-6 text-muted-foreground" /><p className="text-sm font-medium">{data?.findings.length ? "No open findings" : "No findings yet"}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Select lines to leave feedback, or ask Pi to review this file.</p><ReviewWorkflow projectDir={projectDir} file={file} /></div> : null}
+        {request.loading && !data ? <p role="status" className="px-4 py-8 text-sm text-muted-foreground">Loading findings…</p> : !visible.length && !problem ? <div className="px-5 py-10 text-center"><ChatCircleTextIcon className="mx-auto mb-3 size-6 text-muted-foreground" /><p className="text-sm font-medium">{visible.length === 0 && (filter === "open" && data?.findings.some(f => f.file === file)) ? "No open findings" : reviewCurrent && !data?.findings.some(f => f.file === file) ? "Reviewed: no findings" : lastRun && !reviewCurrent ? "Review out of date" : "Not reviewed yet"}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{lastRun && !reviewCurrent ? "The code changed after this review. Review the current version before relying on its result." : lastRun ? "No remaining feedback in this view. Review results apply to the version that was checked; you can review again after changes." : "Select lines to leave feedback, or ask Pi to review this file."}</p><ReviewWorkflow projectDir={projectDir} file={file} /></div> : null}
         {visible.map(f => <article key={f.id} className="border-b border-border/50 last:border-0">
           <div className={cn("flex items-start gap-2 px-3 py-3", expanded === f.id && "bg-muted/30")}>
             {selecting && <Checkbox className="mt-1 shrink-0" aria-label={`Select finding ${f.file} ${f.range.start}`} checked={selected.includes(f.id)} onCheckedChange={checked => setSelected(ids => checked ? [...ids, f.id] : ids.filter(id => id !== f.id))} />}
@@ -130,17 +134,17 @@ export default function ReviewFindings({ projectDir, file, mode, patch, revision
           </div>}
         </article>)}
       </div>
-      {(open.length > 0 || selecting) && <footer className="shrink-0 border-t p-3"><Button className="w-full" size="sm" disabled={busy || !batch.length || activeProject !== projectDir} onClick={() => { setTarget(useAppStore.getState().activeSessionFile ?? ""); setFixTarget(true); }}><PaperPlaneTiltIcon />{selecting ? `Request fixes for ${chosen.length} selected…` : "Request fixes…"}</Button><ReviewWorkflow projectDir={projectDir} file={file} verifyIds={batch.map(f => f.id)} /></footer>}
+      {(open.length > 0 || selecting) && <footer className="shrink-0 border-t p-3"><Button className="w-full" size="sm" disabled={busy || !batch.length || activeProject !== projectDir} onClick={() => { setTarget(useAppStore.getState().activeSessionFile ?? "new"); setFixTarget(true); }}><PaperPlaneTiltIcon />{selecting ? `Request fixes for ${chosen.length} selected…` : "Request fixes…"}</Button><ReviewWorkflow projectDir={projectDir} file={file} verifyIds={batch.map(f => f.id)} /></footer>}
     </aside>}
     <Dialog open={!!original} onOpenChange={v => { if (!v) setOriginal(undefined); }}><DialogContent className="h-[80vh] max-w-4xl grid-rows-[auto_minmax(0,1fr)]"><DialogHeader><DialogTitle>Original review evidence</DialogTitle><DialogDescription>{original?.file} · captured lines, independent of current changes</DialogDescription></DialogHeader><div className="min-h-0 flex-1 overflow-hidden"><ReviewControls value={{ toolbar: null, inspect, focused: original?.id }}><ReviewAnchors value={original ? [original] : []}><Suspense fallback={<p className="p-3 text-xs text-muted-foreground">Loading original diff…</p>}><OriginalDiff patch={original ? reviewEvidencePatch(original) : ""} /></Suspense></ReviewAnchors></ReviewControls></div></DialogContent></Dialog>
     <Dialog open={fixTarget} onOpenChange={setFixTarget}><DialogContent><DialogHeader><DialogTitle>Request fixes</DialogTitle><DialogDescription>Choose a chat for the fix request. You can edit it before sending.</DialogDescription></DialogHeader>
-      <Select value={target} onValueChange={v => { if (v) setTarget(v); }} items={sessions.map(s => ({ value: s.path, label: s.name || s.firstMessage || s.path }))}><SelectTrigger aria-label="Target Work chat"><SelectValue placeholder="Choose a chat" /></SelectTrigger><SelectContent>{sessions.map(s => <SelectItem key={s.path} value={s.path}>{s.name || s.firstMessage || s.path}</SelectItem>)}</SelectContent></Select>
-      <DialogFooter><Button disabled={!target} onClick={() => void perform(async () => { await useAppStore.getState().selectChat(target, projectDir); useAppStore.getState().insertIntoComposer(revisionPrompt(batch)); setFixTarget(false); onBack(); })}>Prepare draft</Button></DialogFooter></DialogContent></Dialog>
-    <Dialog open={!!range} onOpenChange={value => { if (!value && !busy) setRange(undefined); }}><DialogContent>
+      <Select value={target} onValueChange={v => { if (v) setTarget(v); }} items={[{ value: "new", label: "New Work chat" }, ...sessions.map(s => ({ value: s.path, label: s.name || s.firstMessage || "Untitled chat" }))]}><SelectTrigger aria-label="Target Work chat"><SelectValue placeholder="Choose a chat" /></SelectTrigger><SelectContent><SelectItem value="new">New Work chat</SelectItem>{sessions.map(s => <SelectItem key={s.path} value={s.path}>{s.name || s.firstMessage || s.path}</SelectItem>)}</SelectContent></Select>
+      <DialogFooter><Button disabled={!target} onClick={() => void perform(async () => { if (target === "new") await useAppStore.getState().newChatIn(projectDir); else await useAppStore.getState().selectChat(target, projectDir); useAppStore.getState().insertIntoComposer(revisionPrompt(batch)); setFixTarget(false); onBack(); })}>Prepare draft</Button></DialogFooter></DialogContent></Dialog>
+    <Dialog open={!!range && feedbackOpen} onOpenChange={value => { if (!value && !busy) setFeedbackOpen(false); }}><DialogContent>
       <DialogHeader><DialogTitle>Add feedback</DialogTitle><DialogDescription className="break-all">{file} · {range?.side === "old" ? "Before" : "After"} · {range?.start === range?.end ? `Line ${range?.start}` : `Lines ${range?.start}–${range?.end}`}</DialogDescription></DialogHeader>
-      <form id="line-feedback" onSubmit={e => { e.preventDefault(); void perform(async () => { if (!data || !range) return; remember(reviewSnapshotSchema.parse(await rpc.request.reviewUpdate({ projectDir, file, mode, ...data, note: { range, body } }))); setRange(undefined); setBody(""); }); }}><FieldGroup><Field><FieldLabel className="sr-only" htmlFor="review-note">Feedback</FieldLabel><Textarea id="review-note" aria-label="Line feedback" autoFocus rows={3} className="resize-none" value={body} onChange={e => setBody(e.target.value)} placeholder="What should change?" maxLength={10000} /></Field></FieldGroup></form>
+      <form id="line-feedback" onSubmit={e => { e.preventDefault(); void perform(async () => { if (!data || !range) return; remember(reviewSnapshotSchema.parse(await rpc.request.reviewUpdate({ projectDir, file, mode, ...data, note: { range, body } }))); clearBody(); setRange(undefined); setFeedbackOpen(false); }); }}><FieldGroup><Field><FieldLabel className="sr-only" htmlFor="review-note">Feedback</FieldLabel><Textarea id="review-note" aria-label="Line feedback" autoFocus rows={3} className="resize-none" value={body} onChange={e => setBody(e.target.value)} placeholder="What should change?" maxLength={10000} /></Field></FieldGroup></form>
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
-      <DialogFooter><Button variant="ghost" disabled={busy} onClick={() => setRange(undefined)}>Cancel</Button><Button type="submit" form="line-feedback" disabled={busy || !data || !matches || !body.trim()}>Save finding</Button></DialogFooter>
+      <DialogFooter><Button variant="ghost" disabled={busy} onClick={() => setFeedbackOpen(false)}>Cancel</Button><Button type="submit" form="line-feedback" disabled={busy || !data || !matches || !body.trim()}>Save finding</Button></DialogFooter>
     </DialogContent></Dialog>
   </div></ReviewControls>;
 }

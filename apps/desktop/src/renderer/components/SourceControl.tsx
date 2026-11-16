@@ -1,3 +1,5 @@
+import SettingsDetails from "./settings/SettingsDetails.tsx";
+import type { GitPushTarget } from "../../shared/pi-types.ts";
 import ReviewWorkflow from "./ReviewWorkflow.tsx";
 import { ChatCircleTextIcon } from "@phosphor-icons/react/ChatCircleText";
 import { useRequest } from "../lib/useRequest.ts";
@@ -90,6 +92,9 @@ export default function SourceControl({
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [publication, setPublication] = useState<{ action: "push" | "sync"; commitFirst: boolean; target: GitPushTarget } | null>(null);
+  const [readingTarget, setReadingTarget] = useState(false);
+  const knownTargets = useRef(new Set<string>());
   const showPullRequest = useAppStore((s) => s.repoHost?.host !== "gitlab");
   const stagedFiles = git.files.filter((file) => file.staged);
   const changedFiles = git.files.filter((file) => file.unstaged);
@@ -129,7 +134,7 @@ export default function SourceControl({
       if (alive.current && current.activeProjectPath === projectDir && current.activeSessionFile === sessionFile && version === messageVersion.current) setMessage(result.message);
     });
   }
-  async function commit(action: CommitAction) {
+  async function commit(action: CommitAction, expectedTarget?: string) {
     if (!message.trim() || !stagedFiles.length) return;
     const version = messageVersion.current;
     await run(action, async () => {
@@ -138,7 +143,7 @@ export default function SourceControl({
       if (alive.current && version === messageVersion.current) setMessage("");
       await refreshGit();
       if (action === "commit") { if (alive.current) showHint("Commit created"); return; }
-      const sent = action === "sync" ? await rpc.request.gitSync({ projectDir }) : await rpc.request.gitPush({ projectDir });
+      const sent = action === "sync" ? await rpc.request.gitSync({ projectDir, expectedTarget }) : await rpc.request.gitPush({ projectDir, expectedTarget });
       await refreshGit();
       if (!sent.ok) throw new Error(`Commit created, but Git could not ${action}: ${sent.error ?? "Unknown error"}`);
       if (alive.current) showHint(action === "sync" ? "Committed and synced" : "Committed and pushed");
@@ -151,9 +156,9 @@ export default function SourceControl({
       await refreshGit();
     });
   }
-  const disabled = sharedBusy || busy !== null || generating || !!gitError;
+  const disabled = readingTarget || sharedBusy || busy !== null || generating || !!gitError;
   const canCommit = Boolean(message.trim()) && stagedFiles.length > 0 && !disabled;
-  const commitDisabledReason = disabled ? "Working…" : stagedFiles.length === 0 ? "Stage changes first" : !message.trim() ? "Add a commit message" : undefined;
+  const commitDisabledReason = disabled ? "Working…" : stagedFiles.length === 0 ? "Select (stage) changes first" : !message.trim() ? "Add a commit message" : undefined;
   useEffect(() => {
     const input = commitInput.current;
     if (!input) return;
@@ -172,13 +177,24 @@ export default function SourceControl({
   const canGenerate = stagedFiles.length > 0 && !disabled;
 
   const visible = (files: GitChangedFile[]) => files.filter(file => file.path.toLowerCase().includes(filter.toLowerCase()));
-  const sync = (action: "push" | "sync") => run(action, async () => {
-    const result = await (action === "push" ? rpc.request.gitPush({ projectDir }) : rpc.request.gitSync({ projectDir }));
+  const sync = (action: "push" | "sync", expectedTarget?: string) => run(action, async () => {
+    const result = await (action === "push" ? rpc.request.gitPush({ projectDir, expectedTarget }) : rpc.request.gitSync({ projectDir, expectedTarget }));
     await refreshGit();
     if (!result.ok) throw new Error(result.error ?? "Git could not sync this branch.");
     showHint(action === "push" ? "Branch pushed" : "Branch synced");
   });
 
+  async function requestPublication(action: "push" | "sync", commitFirst = false) {
+    if (disabled) return;
+    setReadingTarget(true); setError(null);
+    try {
+      const { target } = await rpc.request.gitPushTarget({ projectDir });
+      if (!alive.current) return;
+      if (knownTargets.current.has(target.fingerprint)) await (commitFirst ? commit(action, target.fingerprint) : sync(action, target.fingerprint));
+      else setPublication({ action, commitFirst, target });
+    } catch (cause) { if (alive.current) setError(cause instanceof Error ? cause.message : "Could not read the publishing destination. Try again."); }
+    finally { if (alive.current) setReadingTarget(false); }
+  }
   return <div className="flex min-h-0 flex-1 flex-col text-muted-foreground">
     {/* Custom window controls occupy the top-right 132px; keep actions on a second row. */}
     <header className={cn("grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1 border-b border-border/40 px-2 @max-[22rem]/context-pane:grid-cols-1 [[data-window-controls=custom]_&]:grid-cols-1", DRAG_REGION)}>
@@ -186,11 +202,11 @@ export default function SourceControl({
         <BranchSwitcher handleRequests className={cn("min-w-0 flex-1", NO_DRAG_REGION)} />
       </div>
       <div className={cn("flex items-center justify-end gap-1 @max-[22rem]/context-pane:pb-2 [[data-window-controls=custom]_&]:pb-2", NO_DRAG_REGION)}>
-        <Button size="sm" variant="ghost" disabled={disabled || git.detached} onClick={() => void sync("push")}>{busy === "push" ? "Pushing…" : git.upstream ? `Push${git.ahead ? ` ${git.ahead}` : ""}` : "Publish"}</Button>
+        <Button size="sm" variant="ghost" disabled={disabled || git.detached} onClick={() => void requestPublication("push")}>{busy === "push" ? "Pushing…" : git.upstream ? `Push${git.ahead ? ` ${git.ahead}` : ""}` : "Publish"}</Button>
         <DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" aria-label="Source control actions" />}><CaretDownIcon /></DropdownMenuTrigger>
           <DropdownMenuContent align="end"><DropdownMenuGroup>
-            <DropdownMenuItem disabled={disabled || git.detached} onClick={() => void sync("push")}>{git.upstream ? "Push commits" : "Publish branch"}</DropdownMenuItem>
-            <DropdownMenuItem disabled={disabled || git.detached || !git.upstream} onClick={() => void sync("sync")}>Sync (fast-forward only){git.behind ? ` · ${git.behind} behind` : ""}</DropdownMenuItem>
+            <DropdownMenuItem disabled={disabled || git.detached} onClick={() => void requestPublication("push")}>{git.upstream ? "Push commits" : "Publish branch"}</DropdownMenuItem>
+            <DropdownMenuItem disabled={disabled || git.detached || !git.upstream} onClick={() => void requestPublication("sync")}>Sync (fast-forward only){git.behind ? ` · ${git.behind} behind` : ""}</DropdownMenuItem>
             <DropdownMenuItem disabled={!findings.data?.findings.length} onClick={() => {
               const first = findings.data?.findings.find(f => f.state === "open") ?? findings.data?.findings[0];
               if (first) { setReview({ projectDir, path: first.file, staged: first.mode === "staged", findingId: first.id }); onReview?.(); }
@@ -203,7 +219,7 @@ export default function SourceControl({
       </div>
     </header>
     {gitError && <div className="border-b px-4"><StateNotice title="Showing last known Git status" detail={gitError} retry={() => void refreshGit()} /></div>}
-    {error && <p role="alert" className="shrink-0 whitespace-pre-wrap border-b px-4 py-2 text-xs text-destructive">{error}</p>}
+    {error && <div className="shrink-0 border-b border-border/40 px-4"><StateNotice title="Could not finish this change" detail={error} /></div>}
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex h-11 shrink-0 items-center gap-1 border-b border-border/40 px-3" role="tablist" aria-label="Source control view">
           <Button role="tab" aria-selected={tab === "changes"} variant={tab === "changes" ? "secondary" : "ghost"} size="sm" onClick={() => setTab("changes")}>Changes <span className="text-xs tabular-nums text-muted-foreground">{git.files.length}</span></Button>
@@ -212,7 +228,7 @@ export default function SourceControl({
         </div>
         {tab === "changes" ? <div className="min-h-0 flex-1 overflow-y-auto pb-4">
           <ReviewWorkflow projectDir={projectDir} />
-          <section className="border-b border-border/40 p-3" aria-label="Create a commit">
+          <section className="border-b border-border/40 p-3" aria-label="Create a commit"><p className="mb-3 text-xs leading-5 text-muted-foreground">Select changes below (stage them), then create a local saved version (commit). Publish sends saved versions to the chosen repository.</p>
             <div className="overflow-hidden rounded-xl border border-border/50 bg-sidebar/40 focus-within:border-ring/60">
             <Textarea id="source-control-message" aria-label="Commit message" value={message} onChange={event => { ++messageVersion.current; setMessage(event.target.value); }} ref={commitInput} placeholder="Message" rows={2} className="min-h-14 resize-none rounded-none border-0 bg-transparent dark:bg-transparent shadow-none focus-visible:ring-0" />
             <div className="flex min-w-0 items-center gap-1 px-2 pb-2">
@@ -222,8 +238,8 @@ export default function SourceControl({
               <Button size="xs" variant="secondary" className="min-w-0" onClick={() => void commit("commit")} disabled={!canCommit} title={commitDisabledReason ?? withHint("Commit staged changes", "commitChanges", keybindingOverrides)}><GitCommitIcon />{busy === "commit" ? "Committing…" : `Commit${stagedFiles.length ? ` ${stagedFiles.length}` : ""}`}</Button>
               <DropdownMenu><DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" disabled={!canCommit} aria-label="More commit actions" />}><CaretDownIcon /></DropdownMenuTrigger>
                 <DropdownMenuContent align="end"><DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => void commit("push")}>Commit and push</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => void commit("sync")}>Commit and sync</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void requestPublication("push", true)}>Save commit and publish…</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void requestPublication("sync", true)}>Save commit and sync…</DropdownMenuItem>
                 </DropdownMenuGroup></DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -242,6 +258,12 @@ export default function SourceControl({
         </div> : null}
       {tab === "history" ? <GitHistory key={projectDir} projectDir={projectDir} git={git} onReview={onReview} /> : null}
     </div>
+    <ConfirmDialog open={!!publication} title={publication?.action === "sync" ? "Sync with this repository?" : "Publish saved changes?"}
+      description={<>{publication?.action === "sync" ? "Bring in saved changes, then send your local commits to this repository." : "Your saved commits will be sent to this repository. People with access to it can see them."} Current branch: {publication?.target.branch}. {publication?.target.rules.length ? "Custom Git publishing rules may also include other branches or tags. Review the rules below." : ""}</>}
+      detail={publication ? [...publication.target.urls, ...(publication.action === "sync" && publication.target.receiveFrom ? [`Receive updates from: ${publication.target.receiveFrom}`] : [])].map(url => url.replace(/^(https?:\/\/)[^/@]+@/, "$1…@")).join(" · ") : undefined} confirmLabel={publication?.action === "sync" ? "Sync saved changes" : "Publish changes"}
+      onCancel={() => setPublication(null)} onConfirm={() => { const next = publication; if (!next) return; knownTargets.current.add(next.target.fingerprint); setPublication(null); void (next.commitFirst ? commit(next.action, next.target.fingerprint) : sync(next.action, next.target.fingerprint)); }}>
+      {publication?.target.rules.length ? <SettingsDetails id="publish-rules" title="Git publishing rules"><pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">{publication.target.rules.join("\n")}</pre></SettingsDetails> : null}
+    </ConfirmDialog>
     <ConfirmDialog open={pendingRevert !== null} title="Revert file changes?" description="Discard unstaged changes in this file? Staged changes will remain. This cannot be undone." detail={pendingRevert?.path} confirmLabel="Revert changes" destructive
       onConfirm={() => { const file = pendingRevert; setPendingRevert(null); if (file) void mutate(() => rpc.request.gitRevertFile({ projectDir, file: file.path })); }} onCancel={() => setPendingRevert(null)} />
   </div>;

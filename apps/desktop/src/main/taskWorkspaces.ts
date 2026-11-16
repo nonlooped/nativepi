@@ -46,13 +46,17 @@ export class TaskWorkspaces {
   }
   async list(cwd: string): Promise<WorkspaceListing> {
     await this.queue; await this.loaded;
+    const currentPath = await realpath(cwd);
+    const probe = await runRepositoryCommand("git", ["rev-parse", "--is-inside-work-tree"], cwd, 4096);
+    if ((probe.code !== 0 && /not a git repository|must be run in a work tree/i.test(probe.stderr)) || probe.stdout.trim() === "false") return { currentPath, supported: false, worktrees: [], recipe: workspaceRecipeSchema.parse({}) };
+    if (probe.code !== 0) throw new Error(probe.stderr || "Git could not read this project. You can still start a chat in the current folder.");
     const raw = await git(cwd, ["worktree", "list", "--porcelain", "-z"]);
     const worktrees = raw.split("\0\0").filter(Boolean).flatMap((block, index) => {
       const fields = block.split("\0"); const dir = fields.find(f => f.startsWith("worktree "))?.slice(9);
       return dir ? [{ path: dir, branch: fields.find(f => f.startsWith("branch "))?.slice(7).replace(/^refs\/heads\//, "") ?? "Detached HEAD", main: index === 0, managed: this.records.find(r => r.path === dir) }] : [];
     });
     const repository = worktrees[0]?.path ?? cwd;
-    return { worktrees, recipe: this.recipes[repository] ?? workspaceRecipeSchema.parse({}) };
+    return { currentPath, worktrees, recipe: this.recipes[repository] ?? workspaceRecipeSchema.parse({}) };
   }
   async recipe(cwd: string, recipe: WorkspaceRecipe) {
     const listing = await this.list(cwd);
@@ -79,13 +83,13 @@ export class TaskWorkspaces {
     await this.loaded;
     const record = this.records.find(r => r.path === cwd);
     const reasons = this.blockers(cwd);
-    if (!record) reasons.push("Only NativePi-managed worktrees can be removed here.");
-    if (this.jobs.has(cwd)) reasons.push("Stop the workspace action first.");
-    if (record?.status === "interrupted") reasons.push("An interrupted action may have surviving services. Inspect and retry an action before removal.");
+    if (!record) reasons.push("Only separate workspaces created by NativePi can be removed here.");
+    if (this.jobs.has(cwd)) reasons.push("Stop the running setup, app or check command first.");
+    if (record?.status === "interrupted") reasons.push("An earlier command was interrupted. Check its output and stop any program it left running before removing this folder.");
     const listing = await this.list(cwd);
-    if (listing.worktrees.find(w => w.path === cwd)?.main !== false) reasons.push("The primary checkout cannot be removed.");
-    if (await git(cwd, ["status", "--porcelain", "--untracked-files=all", "--ignored"])) reasons.push("Workspace contains modified, untracked or ignored files. Preserve or remove them yourself before retirement.");
-    if (await git(cwd, ["rev-list", "HEAD", "--not", "--remotes"])) reasons.push("Commits are not reachable from a local remote-tracking ref. Push and verify them before retirement.");
+    if (listing.worktrees.find(w => w.path === cwd)?.main !== false) reasons.push("This is the project’s original folder. It cannot be removed as a separate workspace.");
+    if (await git(cwd, ["status", "--porcelain", "--untracked-files=all", "--ignored"])) reasons.push("This folder still contains local changes or additional files. Review Changes and Files, then save them elsewhere before removal.");
+    if (await git(cwd, ["rev-list", "HEAD", "--not", "--remotes"])) reasons.push("Some saved changes have not been published. Publish them and check the result before removing this folder.");
     return reasons;
   }
   async remove(cwd: string) {

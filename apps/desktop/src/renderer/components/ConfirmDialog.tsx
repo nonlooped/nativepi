@@ -15,6 +15,7 @@ export default function ConfirmDialog({
   title,
   description,
   detail,
+  children,
   confirmLabel,
   cancelLabel = "Cancel",
   destructive = false,
@@ -25,6 +26,7 @@ export default function ConfirmDialog({
   title: string;
   description: ReactNode;
   detail?: string;
+  children?: ReactNode;
   confirmLabel: string;
   cancelLabel?: string;
   destructive?: boolean;
@@ -45,6 +47,7 @@ export default function ConfirmDialog({
             {detail}
           </p>
         ) : null}
+        {children}
         <AlertDialogFooter>
           <AlertDialogCancel variant="ghost">
             {cancelLabel}

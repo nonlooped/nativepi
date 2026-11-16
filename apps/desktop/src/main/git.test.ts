@@ -4,7 +4,7 @@ import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:f
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { gitBranchStatus, gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitLog, gitPush, gitRevertFile, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
+import { gitBranchStatus, gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitLog, gitPushTarget, gitPush, gitRevertFile, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
 /**
 * These run against a real repository rather than a mocked `git`.
 *
@@ -432,4 +432,25 @@ test("sidebar branch summaries handle detached and unborn repositories", async (
   const unborn = await mkdtemp(path.join(tmpdir(), "nativepi-unborn-"));
   execFileSync("git", ["init", "-b", "new-branch"], { cwd: unborn, stdio: "pipe" });
   expect((await gitBranchStatus(unborn)).branch).toBe("new-branch");
+});
+
+
+test("publishing shows the configured push destination and refuses a destination changed after confirmation", async () => {
+  const dir = await repo();
+  const first = await mkdtemp(path.join(tmpdir(), "nativepi-publish-one-"));
+  const second = await mkdtemp(path.join(tmpdir(), "nativepi-publish-two-"));
+  const git = (...args: string[]) => execFileSync("git",args,{cwd:dir,encoding:"utf8",stdio:"pipe"});
+  try {
+    for(const remote of [first,second]) execFileSync("git",["init","--bare",remote],{stdio:"pipe"});
+    git("remote","add","origin",first); git("remote","add","publish",second); git("config","branch.main.pushRemote","publish");
+    const shown = await gitPushTarget(dir);
+    expect(shown).toMatchObject({branch:"main",remote:"publish",urls:[second]});
+    git("remote","set-url","publish",first);
+    expect(await gitPush(dir,shown.fingerprint)).toMatchObject({ok:false});
+    expect(()=>execFileSync("git",["rev-parse","refs/heads/main"],{cwd:first,stdio:"pipe"})).toThrow();
+    const confirmed=await gitPushTarget(dir);
+    expect(await gitPush(dir,confirmed.fingerprint)).toEqual({ok:true});
+    expect(execFileSync("git",["rev-parse","refs/heads/main"],{cwd:first,encoding:"utf8"}).trim()).toBe(git("rev-parse","HEAD").trim());
+    expect(()=>execFileSync("git",["rev-parse","refs/heads/main"],{cwd:second,stdio:"pipe"})).toThrow();
+  } finally {await Promise.all([dir,first,second].map(cwd=>rm(cwd,{recursive:true,force:true})));}
 });

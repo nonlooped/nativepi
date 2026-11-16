@@ -1,3 +1,4 @@
+import { openWorkDetails } from "../lib/newChat.ts";
 import TaskWorkspacePanel from "./TaskWorkspacePanel.tsx";
 import StateNotice from "./StateNotice.tsx";
 import { useState } from "react";
@@ -35,12 +36,12 @@ export default function WorktreeDialog({
         <DialogHeader>
           <DialogTitle>Task workspaces</DialogTitle>
           <DialogDescription>
-            Start a chat or manage a worktree.
+            Choose the folder for your work, or prepare and run an existing workspace.
           </DialogDescription>
         </DialogHeader>
         {/* Keyed on the project so switching projects cannot show the previous
             repository's branches while the new ones load. */}
-        {projectPath ? existingBranch ? <Branches key={projectPath} projectPath={projectPath} onClose={onClose} /> : <TaskWorkspacePanel key={projectPath} projectDir={projectPath} onStart={async path => { await useAppStore.getState().newChatIn(path); onClose(); }} /> : null}
+        {projectPath ? existingBranch ? <Branches key={projectPath} projectPath={projectPath} onClose={onClose} /> : <TaskWorkspacePanel key={projectPath} projectDir={projectPath} onInspect={async (path, tab) => { onClose(); await openWorkDetails(path, tab); }} onStart={async path => { await useAppStore.getState().newChatIn(path); onClose(); }} /> : null}
         <Button variant="ghost" size="sm" onClick={() => setExistingBranch(!existingBranch)}>{existingBranch ? "Back to workspaces" : "Existing branch…"}</Button>
       </DialogContent>
     </Dialog>

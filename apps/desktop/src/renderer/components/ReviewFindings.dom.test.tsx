@@ -3,6 +3,7 @@ import { act, useContext } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { stubInvoke } from "../lib/store/testBridge.ts";
 import { useAppStore } from "../lib/store.ts";
+import { useFormDrafts } from "../lib/formDrafts.ts";
 import { ReviewControls } from "./ReviewAnchors.ts";
 import ReviewFindings from "./ReviewFindings.tsx";
 import type { ReviewSnapshot } from "../../shared/review.ts";
@@ -12,7 +13,7 @@ if (typeof document !== "undefined") {
 }
 let root: Root | undefined;
 let container: HTMLDivElement;
-afterEach(async () => { if (root) await act(async () => root!.unmount()); root = undefined; container?.remove(); });
+afterEach(async () => { if (root) await act(async () => root!.unmount()); root = undefined; container?.remove(); useFormDrafts.setState({ values: {} }); });
 test("line feedback saves, selected findings prepare a batch, stale refresh preserves open state", async () => {
   let reads = 0;
   let snapshot: ReviewSnapshot = { runs: [], scope: "scope", revision: "0", fingerprint: "code", patch: "@@ -1 +1 @@\n-old\n+new", findings: [] };
@@ -66,13 +67,13 @@ test("the findings pane distinguishes loading, failed reads and a genuinely empt
   await act(async () => root!.render(<ReviewFindings projectDir="/project" file="a.txt" mode="working" patch={"@@ -1 +1 @@\n-old\n+new"} revision={0} onBack={() => {}}>{() => <Surface />}</ReviewFindings>));
   await act(async () => [...document.querySelectorAll("button")].find(b => b.textContent === "Findings")!.click());
   expect(container.textContent).toContain("Loading findings…");
-  expect(container.textContent).not.toContain("No findings yet");
+  expect(container.textContent).not.toContain("Not reviewed yet");
   await act(async () => reject(new Error('Error invoking remote method "nativepi:invoke": [{"code":"invalid_type","path":["findings"]}]')));
   expect(container.querySelector('[role="alert"]')?.textContent).toContain("Saved findings could not be loaded.");
   expect(container.textContent).not.toContain("invalid_type");
   failed = true;
   await act(async () => [...document.querySelectorAll("button")].find(b => b.textContent === "Try again")!.click());
-  expect(container.textContent).toContain("No findings yet");
+  expect(container.textContent).toContain("Not reviewed yet");
   expect(container.querySelector('[role="alert"]')).toBeNull();
 });
 test("Source Control can reopen the same finding after its contextual pane was closed", async () => {
@@ -87,4 +88,50 @@ test("Source Control can reopen the same finding after its contextual pane was c
   await act(async () => root!.render(view()));
   expect(container.textContent).toContain("Verify the empty-list case");
   expect([...container.querySelectorAll("button")].some(b => b.textContent === "Resolve")).toBe(true);
+});
+
+test("requesting fixes without an existing Work chat creates an editable draft", async () => {
+  const patch = "@@ -1 +1 @@\n-old\n+new";
+  stubInvoke(async name => name === "reviewSnapshot" ? { runs: [], scope: "scope", revision: "1", fingerprint: "code", patch, findings: [{ id: "finding", file: "a.txt", mode: "working", range: { side: "new", start: 1, end: 1 }, body: "Handle an empty list", state: "open", fingerprint: "code", context: "1: new", createdAt: "now", stale: false }] } : {});
+  useAppStore.setState({ activeProjectPath: "/project", activeSessionFile: null, sessionsByProject: {}, drafts: {}, newChatIn: async project => { useAppStore.setState({ activeProjectPath: project, activeSessionFile: "/project/new.jsonl" }); } });
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  let closed = false;
+  await act(async () => root!.render(<ReviewFindings projectDir="/project" file="a.txt" mode="working" patch={patch} revision={0} focusRequest={{ findingId: "finding" }} onBack={() => { closed = true; }}>{() => <p>Code</p>}</ReviewFindings>));
+  const click = (label: string) => [...document.querySelectorAll("button")].find(b => b.textContent === label)!.click();
+  await act(async () => click("Request fixes…"));
+  expect(document.body.textContent).toContain("New Work chat");
+  await act(async () => click("Prepare draft"));
+  expect(closed).toBe(true);
+  expect(useAppStore.getState().activeSessionFile).toBe("/project/new.jsonl");
+  expect(Object.values(useAppStore.getState().drafts).join("\n")).toContain("Handle an empty list");
+});
+
+test("a clean review is distinguished from one that checked an older version", async () => {
+  const patch = "@@ -1 +1 @@\n-old\n+new";
+  let fingerprint = "code";
+  stubInvoke(async name => name === "reviewSnapshot" ? { runs: [{ file: "a.txt", mode: "working", fingerprint: "code", sessionFile: "/review.jsonl", model: "p/m", createdAt: "now" }], scope: "scope", revision: "1", fingerprint, patch, findings: [] } : {});
+  function Surface() { return <>{useContext(ReviewControls)?.toolbar}</>; }
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  const view = (revision: number) => <ReviewFindings projectDir="/project" file="a.txt" mode="working" patch={patch} revision={revision} onBack={() => {}}>{() => <Surface />}</ReviewFindings>;
+  await act(async () => root!.render(view(0)));
+  await act(async () => [...document.querySelectorAll("button")].find(b => b.textContent === "Findings 0")!.click());
+  expect(container.textContent).toContain("Reviewed: no findings");
+  fingerprint = "changed";
+  await act(async () => root!.render(view(1)));
+  expect(container.textContent).toContain("Review out of date");
+  expect(container.textContent).not.toContain("Reviewed: no findings");
+});
+
+test("unsaved line feedback survives closing the dialog and navigating away", async () => {
+  const patch = "@@ -1 +1 @@\n-old\n+new";
+  stubInvoke(async () => ({ runs: [], scope: "scope", revision: "0", fingerprint: "code", patch, findings: [] }));
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  const view = <ReviewFindings projectDir="/project" file="a.txt" mode="working" patch={patch} revision={0} onBack={() => {}}>{select => <button onClick={() => select({ side: "new", start: 1, end: 1 })}>Select line</button>}</ReviewFindings>;
+  await act(async () => root!.render(view));
+  await act(async () => container.querySelector("button")!.click());
+  await act(async () => { const input = document.querySelector("textarea")!; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(input, "Do not lose this concern"); input.dispatchEvent(new Event("input", { bubbles: true })); });
+  await act(async () => [...document.querySelectorAll("button")].find(b => b.textContent === "Cancel")!.click());
+  await act(async () => root!.render(<p>Another file</p>));
+  await act(async () => root!.render(view));
+  expect(document.querySelector("textarea")?.value).toBe("Do not lose this concern");
 });

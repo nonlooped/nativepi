@@ -39,7 +39,7 @@ import { drainState, loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
 import { createCapacityReader } from "./subscriptionCapacity.ts";
 import { agentSetup, createAgentResource, configureMcp } from "./agentSetup.ts";
-import { gitBranchStatus, gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitCommitDetails, gitCommitDiff, gitDiff, gitHunks, gitLog, gitPrTarget, gitRevertFile, gitPush, gitPushAndCreatePr, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
+import { gitBranchStatus, gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitCommitDetails, gitCommitDiff, gitDiff, gitHunks, gitLog, gitPrTarget, gitRevertFile, gitPushTarget, gitPush, gitPushAndCreatePr, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
 import { generateCommitMessage } from "./commitMessage.ts";
 import { getRepoHostContext } from "./repoHost.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
@@ -1298,7 +1298,7 @@ const handlers: HandlerMap = {
   dictationCancel: () => { throw new Error("Dictation needs a client"); },
   dictationTranscribe: () => { throw new Error("Dictation needs a client"); },
   dictationMicrophone: () => dictationMicrophone(),
-  browserShow: async ({projectDir,sessionFile}) => { const pi = await ensurePi(projectDir,sessionFile ?? undefined); await pi.showBrowser(); return {ok:true}; },
+  browserShow: async ({projectDir,sessionFile,url}) => { const pi = await ensurePi(projectDir,sessionFile ?? undefined); await pi.showBrowser(url); return {ok:true}; },
   computerStatus: () => computerStatus(),
   computerPermissions: () => computerStatus(true),
   abort: async ({ projectDir, sessionFile }) => {
@@ -1963,8 +1963,9 @@ const handlers: HandlerMap = {
       return { ok: false, error: errorMessage(err) };
     }
   },
-  gitPush: async ({ projectDir }) => await gitPush(projectDir),
-  gitSync: async ({ projectDir }) => await gitSync(projectDir),
+  gitPushTarget: async ({ projectDir }) => ({ target: await gitPushTarget(projectDir) }),
+  gitPush: async ({ projectDir, expectedTarget }) => await gitPush(projectDir, expectedTarget),
+  gitSync: async ({ projectDir, expectedTarget }) => await gitSync(projectDir, expectedTarget),
   gitPrTarget: async ({ projectDir }) => ({ target: await gitPrTarget(projectDir) }),
   gitPushAndCreatePr: async (params) => {
     try {

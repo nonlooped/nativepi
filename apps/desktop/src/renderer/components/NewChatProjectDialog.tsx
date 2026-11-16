@@ -1,3 +1,4 @@
+import { openWorkDetails } from "../lib/newChat.ts";
 import { Switch } from "@/components/ui/switch.tsx";
 import TaskWorkspacePanel from "./TaskWorkspacePanel.tsx";
 import { isDesktopShell } from "../lib/platform.ts";
@@ -53,6 +54,7 @@ export default function NewChatProjectDialog({
     : ordered;
 
   async function chooseProject(path: string) {
+    if (path === workRoot && separate) { setFolderNotice("Separate workspaces need a Git project. Choose a project, or turn off separate workspace to start without one."); return; }
     if (path !== workRoot && separate) { setWorkspaceProject(path); return; }
     await startChat(path);
   }
@@ -84,7 +86,7 @@ export default function NewChatProjectDialog({
           <DialogDescription>{workspaceProject ? "Start in your project or a separate folder." : "Choose a project, or start without one."}</DialogDescription>
         </DialogHeader>
 
-        {workspaceProject ? <div className="max-h-[70dvh] overflow-y-auto px-6 pb-6"><Button variant="ghost" size="sm" className="mb-3" onClick={() => setWorkspaceProject(null)}>Back</Button><TaskWorkspacePanel projectDir={workspaceProject} initiallySeparate onStart={startChat} /></div> : <>
+        {workspaceProject ? <div className="max-h-[70dvh] overflow-y-auto px-6 pb-6"><Button variant="ghost" size="sm" className="mb-3" onClick={() => setWorkspaceProject(null)}>Back</Button><TaskWorkspacePanel projectDir={workspaceProject} initiallySeparate onInspect={async (path, tab) => { changeOpen(false); await openWorkDetails(path, tab); }} onStart={startChat} /></div> : <>
         <Combobox.Root<Project>
           items={matches}
           inline

@@ -62,7 +62,7 @@ test("coordinates busy ports, rejects duplicate actions, and stops process group
     const assignments = (await f.manager.list(cwd)).worktrees.flatMap(w => w.managed?.port ?? []);
     expect(new Set(assignments).size).toBe(2);
     await expect(f.manager.start(cwd, "run", [])).rejects.toThrow("Stop");
-    expect(await f.manager.inspect(cwd)).toContain("Stop the workspace action first.");
+    expect(await f.manager.inspect(cwd)).toContain("Stop the running setup, app or check command first.");
     await f.manager.stop(cwd); expect((await settled(f.manager, cwd)).status).toBe("failed");
   } finally { server.close(); await f.manager.close(); }
 });
