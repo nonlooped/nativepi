@@ -16,7 +16,8 @@ function set(next: Omit<UpdateState, "channel">): void {
 }
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
-const channelFile = () => join(app.getPath("userData"), "update-channel.json");
+let updateDirectory: string | undefined;
+const channelFile = () => join(updateDirectory ?? app.getPath("userData"), "update-channel.json");
 
 function applyChannel(): void {
   // GitHub prereleases are nightlies. Returning to stable may install an older
@@ -29,7 +30,8 @@ export function updateState(): UpdateState {
   return state;
 }
 
-export function startUpdates(onChange: (state: UpdateState) => void): void {
+export function startUpdates(onChange: (state: UpdateState) => void, dataDirectory?: string): void {
+  updateDirectory = dataDirectory;
   publish = onChange;
   if (!app.isPackaged) return;
   let channel: UpdateChannel = app.getVersion().includes("-") ? "nightly" : "stable";
@@ -47,7 +49,7 @@ export function startUpdates(onChange: (state: UpdateState) => void): void {
     return;
   }
   autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoInstallOnAppQuit = false;
   applyChannel();
 
   autoUpdater.on("update-available", (info) => set({ status: "downloading", version: info.version, percent: 0 }));
@@ -56,7 +58,7 @@ export function startUpdates(onChange: (state: UpdateState) => void): void {
     set({ status: "downloading", version: state.version, percent: Math.min(100, Math.max(0, Math.round(percent))) }),
   );
   autoUpdater.on("update-downloaded", (info) => {
-    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.autoInstallOnAppQuit = false;
     set({ status: "ready", version: info.version, percent: 100 });
   });
   autoUpdater.on("error", (error) => set({ status: "error", version: state.version, error: message(error) }));

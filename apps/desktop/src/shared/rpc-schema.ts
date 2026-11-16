@@ -381,6 +381,8 @@ export type HostRequestContracts = {
     response: {
       entries: FileEntry[];
       eventWatermark: number;
+      /** Current in-memory Pi display state, fenced with the file read. */
+      liveEvents?: PiEvent[];
       runtimeId?: string;
       consistency: "stable" | "retry";
       revision?: string;

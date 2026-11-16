@@ -1,3 +1,4 @@
+import BackgroundServiceSettings from "./BackgroundServiceSettings.tsx";
 import { useAppStore } from "../../lib/store.ts";
 import { SelectRow, SettingsSection, SwitchRow } from "./rows.tsx";
 
@@ -21,5 +22,6 @@ export default function GeneralSettings() {
           if (value !== "off") setPreference("notificationSound", value === "sound");
         }} />
     </SettingsSection>
+    <BackgroundServiceSettings />
   </div>;
 }

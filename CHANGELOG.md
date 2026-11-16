@@ -16,15 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplify workspace creation with a direct project-to-chat path, an optional separate workspace with automatic defaults, shared controls, focused action settings and on-demand output.
 - Separate review setup from results, reuse the composer model picker, and keep review evidence and history in contextual details.
 - Add independent multi-file Pi reviews in Source Control, with saved review scopes and settings, host-owned progress and Stop, retained input evidence, explicit fix drafts and named-issue verification.
+- Keep background-work settings compact, with sign-in and stop controls in a focused management dialog.
+- Run all Pi agents, terminals, browser sessions and automations in a separate local background host. Closing or restarting the desktop preserves live work; reopening restores output, queues, questions and Stop. Add explicit service controls and optional start at login.
+- Defer installer execution until the background service is explicitly stopped; compatible desktop restarts reconnect without replaying prompts, and incompatible hosts remain running until stopped.
 - Reorganize Settings around everyday preferences, conversations, permissions, and advanced options, with search that reveals individual controls and hidden sections.
 - Reuse the composer model picker for chat titles, combine notification and image modes, and move theme, background, and provider catalogs into focused choosers while preserving existing selections.
 - Unify MCP, skills, prompts, and package management with explicit project scope and extension provenance, and show a shared pending-restart notice across settings.
 - Open Usage, Automations, and device sharing directly from icon buttons beside Settings in the sidebar. Simplify usage summaries and keep input/cache breakdowns limited to recorded all-time totals.
 
 ### Fixed
+- Keep managed worktrees available to code review, protect active review folders from preparation/removal, and cancel and drain reviews when Pi or its host restarts.
 - Restore login-shell tools for workspace actions, retain automation ownership at the primary checkout, protect running commands during shutdown, and recover the workspace picker after retirement.
 - Keep review sessions recoverable during interruption, support new repositories and colored Git configurations, reset file-only defaults for project reviews, and drain reviews on host shutdown.
 - Deduplicate repeated review findings, preserve unchanged anchors across staging and unrelated commits, and merge completed reviewer results without discarding concurrent finding updates.
+- Restore partial assistant and tool progress on reconnect using Pi’s actual stream protocol, and expose service recovery before workspace startup completes.
 - Harden shared browser action scripts by escaping script-sensitive characters in action arguments while preserving typed text.
 - Ensure desktop development installs the Electron binary and launches the GUI even when the shell has Electron's Node mode enabled.
 

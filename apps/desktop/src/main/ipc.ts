@@ -1,5 +1,6 @@
 import { TaskWorkspaces } from "./taskWorkspaces.ts";
 import { ReviewJobs } from "./reviewJobs.ts";
+import { LiveView } from "./service/liveView.ts";
 import { readWorkspaceFile, saveWorkspaceFile } from "./workspaceFiles.ts";
 import { automationToolsSchema } from "../shared/automations.ts";
 import { AutomationService } from "./automations/service.ts";
@@ -22,7 +23,7 @@ import type { ChatTitleCatalog } from "../shared/chat-title.ts";
 import { serviceTierStateSchema } from "../shared/service-tier.ts";
 import { readProjectDiffPreview } from "./diffPreview.ts";
 import { app, BrowserWindow, dialog, shell } from "electron";
-import { mkdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, realpath, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
@@ -61,6 +62,7 @@ import { checkForUpdate, setUpdateChannel, installUpdate, startUpdates, updateSt
 import { createDiagnosticsReport, recordRendererCrash } from "./diagnostics.ts";
 /** One Pi process per session: Pi already permits concurrent sessions in a project. */
 const pis = new Map<string, PiProcess>();
+const liveViews = new WeakMap<PiProcess, LiveView>();
 // Pi gives even an unsent chat a session file, but the renderer deliberately
 // keeps it invisible until its first prompt. Keep that process distinct from
 // the project's opened chats so pre-send controls configure the right chat.
@@ -166,15 +168,18 @@ function beginSessionWrite(pi: PiProcess, binding: RuntimeBinding): () => Promis
 let mainWindow: BrowserWindow | null = null;
 type HostEventListener = <K extends keyof HostEvents>(channel: K, payload: HostEvents[K]) => void;
 const hostEventListeners = new Set<HostEventListener>();
+const desktopEventListeners = new Set<HostEventListener>();
+export function subscribeDesktopEvents(listener: HostEventListener) { desktopEventListeners.add(listener); return () => { desktopEventListeners.delete(listener); }; }
 export function setMainWindow(win: BrowserWindow | null): void {
   mainWindow = win;
 }
-function pushDesktop<K extends keyof HostEvents>(channel: K, payload: HostEvents[K]): void {
+function pushDesktop<K extends keyof HostEvents>(channel: K, payload: HostEvents[K], direct = true): void {
+  if (direct && process.argv.includes("--nativepi-service")) for (const listener of desktopEventListeners) listener(channel, payload);
   if (mainWindow && !mainWindow.isDestroyed())
     mainWindow.webContents.send(channel, payload);
 }
 function push<K extends keyof HostEvents>(channel: K, payload: HostEvents[K]): void {
-  pushDesktop(channel, payload);
+  pushDesktop(channel, payload, false);
   for (const listener of hostEventListeners) {
     try {
       listener(channel, payload);
@@ -319,6 +324,9 @@ function queueDisplayDelta(projectDir: string, pi: PiProcess, event: PiMessage):
 function updatePowerProtection(): void { setSleepBlocked(localServerConnection() !== undefined || [...pis.values(), ...draftPis.values(), ...startingPis.values()].some(pi => pi.isRunning) || starting.size > 0); }
 const turnAttentionByPi = new WeakMap<PiProcess, TurnAttention>();
 function forwardEvent(projectDir: string, pi: PiProcess, event: PiMessage): void {
+  let view = liveViews.get(pi);
+  if (!view) { view = new LiveView(); liveViews.set(pi, view); }
+  view.accept(event);
   if (event.type === "agent_start" || event.type === "agent_settled") { updatePowerProtection(); }
   turnAttentionByPi.set(pi, reduceTurnAttention(turnAttentionByPi.get(pi) ?? { retrying: false }, event));
   runtimeEvents.set(pi, (runtimeEvents.get(pi) ?? 0) + 1);
@@ -1022,7 +1030,12 @@ const searchControllers = new Map<string, AbortController>();
 /** Capped because it is a watcher each: an explorer with 500 folders open is already past useful. */
 async function knownProject(projectDir: string): Promise<boolean> {
   const project = resolve(projectDir);
-  return (await loadState()).projects.some((entry) => resolve(entry.path) === project);
+  const pinned = (await loadState()).projects;
+  if (pinned.some(entry => resolve(entry.path) === project)) return true;
+  const canonical = await realpath(project).catch(() => undefined);
+  if (!canonical) return false;
+  if (await taskWorkspaces.owns(canonical)) return true;
+  return (await Promise.all(pinned.map(entry => realpath(entry.path).catch(() => undefined)))).includes(canonical);
 }
 function isThinkingLevel(level: unknown): level is ThinkingLevel {
   return thinkingLevelSchema.safeParse(level).success;
@@ -1032,7 +1045,7 @@ type HandlerMap = {
 };
 const taskWorkspaces = new TaskWorkspaces(join(app.getPath("userData"), "task-workspaces.json"), cwd => {
   const reasons: string[] = [];
-  if (projectHasActiveRun(cwd) || automations.ownsWorkspace(cwd)) reasons.push("Stop all agents and automations in this workspace first.");
+  if (projectHasActiveRun(cwd) || automations.ownsWorkspace(cwd) || ephemeralProjects().includes(cwd) || reviewJobs.activeProjects().includes(cwd)) reasons.push("Stop all agents and automations in this workspace first.");
   if (liveTerminalProjects().includes(cwd)) reasons.push("Close the workspace's live terminals first.");
   if ([...clients].some(client => client.dirtyFiles.length > 0)) reasons.push("Save or close unsaved editors first.");
   return reasons;
@@ -1197,9 +1210,9 @@ const handlers: HandlerMap = {
       if (pi)
         flushEventBatch(pi);
       eventWatermark = eventSequence;
-      if (pis.get(sessionFile) === pi && !pi?.isRunning && !sessionWriteCount(sessionFile) && !starting.has(sessionFile) && !retiringSessions.has(sessionFile)
+      if (pis.get(sessionFile) === pi && (!sessionWriteCount(sessionFile) || pi?.isRunning) && !starting.has(sessionFile) && !retiringSessions.has(sessionFile)
         && before === after && (!pi || runtimeEvents.get(pi) === sequence)) {
-        return { entries, eventWatermark, runtimeId: pi ? runtimeIds.get(pi) : undefined, consistency: "stable" as const, revision: after };
+        return { entries, eventWatermark, runtimeId: pi ? runtimeIds.get(pi) : undefined, consistency: "stable" as const, revision: after, liveEvents: pi ? liveViews.get(pi)?.snapshot() : undefined };
       }
     }
     return { entries, eventWatermark, runtimeId: pis.get(sessionFile) ? runtimeIds.get(pis.get(sessionFile)!) : undefined, consistency: "retry" as const };
@@ -2125,7 +2138,7 @@ const handlers: HandlerMap = {
   },
   extensionRespond: ({ response }, pi) => {
     pi?.sendRaw(response);
-    if (pi) extensionActivity.get(pi)?.delete(`prompt:${response.id}`);
+    if (pi) { extensionActivity.get(pi)?.delete(`prompt:${response.id}`); liveViews.get(pi)?.answered(response.id); }
     orchestrationRevision++; push("orchestrationChanged", orchestrationSnapshot());
     return { ok: true };
   },
@@ -2384,7 +2397,7 @@ export async function invokeHostRequest<K extends HostRequestName>(name: K, raw:
   };
   const project = values.projectDir;
   const file = values.sessionFile;
-  if (project && taskWorkspaces.isPreparing(project) && (sessionWrites.has(name) || gitWorktreeWrites.has(name) || name === "terminalCreate" || name === "saveWorkspaceFile")) throw new Error("Wait for workspace preparation or retirement to finish.");
+  if (project && taskWorkspaces.isPreparing(project) && (sessionWrites.has(name) || gitWorktreeWrites.has(name) || name === "reviewStart" || name === "terminalCreate" || name === "saveWorkspaceFile")) throw new Error("Wait for workspace preparation or retirement to finish.");
   const ownedPromptResponse = name === "extensionRespond" && !!file && orchestration.references().some(ref => ref.file === resolve(file) && (automations.ownsSession(ref.id) || automations.ownsSession(orchestration.snapshot(ref.id).relationship?.lead.id ?? "")));
   if (project && automations.ownsWorkspace(project) && !ownedPromptResponse && (name === "saveWorkspaceFile" || sessionWrites.has(name) || gitWorktreeWrites.has(name))) throw new Error("Stop the automation before writing in this workspace.");
   if (project && file && pis.has(file) && pis.get(file)?.projectDir !== project)
@@ -2507,7 +2520,7 @@ export function initializeHost(): void {
   // Started from here rather than from the window: `push` is what turns an
   // update into something the renderer can see, and it lives in this module.
   automations.startPolling();
-  startUpdates((state) => push("updateState", state));
+  if (!process.argv.includes("--nativepi-service")) startUpdates((state) => push("updateState", state));
 }
 function retireRuntimes(projectDir?: string): Promise<void> {
   const key = projectDir ?? "*";
@@ -2525,6 +2538,7 @@ function retireRuntimes(projectDir?: string): Promise<void> {
   const previous = [...retirementTasks.values()];
   const task = (async () => {
     try {
+      await reviewJobs.stop(projectDir);
       await Promise.all([stopEphemeral(projectDir), ...all.map(pi => pi.stop()), ...previous]);
       await Promise.allSettled(acquisitions);
       for (const [key, pi] of pis)
@@ -2550,8 +2564,8 @@ export function shutdownHost(): Promise<void> { return shutdownTask ??= shutdown
 async function shutdown(): Promise<void> {
   shuttingDown = true;
   await automations.close();
-  await taskWorkspaces.close();
   await reviewJobs.close();
+  await taskWorkspaces.close();
   for (const client of [...clients])
     client.dispose();
   runtimeGeneration++;

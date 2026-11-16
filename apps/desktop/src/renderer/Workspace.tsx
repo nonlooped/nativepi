@@ -1,3 +1,4 @@
+import ConnectionNotice from "./components/ConnectionNotice.tsx";
 import { createKeybindingsHandler } from "tinykeys";
 import { bindings } from "./lib/shortcuts.ts";
 import { workspaceShortcutsBlocked } from "./lib/shortcutContext.ts";
@@ -121,7 +122,7 @@ export default function Workspace() {
     } catch (error) { releasePaneStore(store); toast.error(String(error)); } finally { setSplitting(false); }
   };
   const narrow = width < 760 || (orientation === "horizontal" && areaWidth < stores.length * 420);
-  if (startupError) return <div role="alert" className="flex h-full flex-col items-center justify-center gap-4 bg-background p-6 text-foreground"><p>{startupError}</p><Button onClick={() => location.reload()}>Reload workspace</Button></div>;
+  if (startupError) return <div role="alert" className="flex h-full flex-col items-center justify-center gap-4 bg-background p-6 text-foreground"><div className="w-full max-w-lg"><ConnectionNotice startupError={startupError} /></div>{!window.nativepi?.service && <Button variant="ghost" onClick={() => location.reload()}>Reload workspace</Button>}</div>;
   return <div className="flex h-full min-h-0 flex-col bg-background text-foreground" onKeyDownCapture={event => {
     if (workspaceShortcutsBlocked()) return;
     const move = (direction: number) => {
