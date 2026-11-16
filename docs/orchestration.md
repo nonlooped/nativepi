@@ -164,3 +164,11 @@ Project restart includes owned worktree delegates. IPC/host loss aborts/disposes
 the child and settles credential writes. Usage comes from real Pi assistant
 entries, with delegate cwd/model attribution and no parent-group double count.
 Diagnostics record operation IDs and transitions, not prompts or message text.
+
+## Managed workspace integration
+
+New isolated delegates register their real Git worktrees in the Workspaces inventory.
+Leads still own integration; setup/run/check commands and local-file preparation
+require explicit user execution. Nothing grants project trust or copies credentials
+automatically. Use the shared retirement preflight after the delegate is idle,
+changes are published and local files are preserved. See [Task workspaces](task-workspaces.md).

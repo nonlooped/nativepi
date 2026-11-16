@@ -1,3 +1,4 @@
+import { workspaceRecipeSchema, workspaceActionSchema } from "./task-workspaces.ts";
 import { automationInputSchema } from "./automations.ts";
 import { resourceChangeSchema, mcpSetupSchema } from "./agent-setup.ts";
 import { reviewNoteSchema } from "./review.ts";
@@ -81,6 +82,10 @@ export const requestParams = {
   gitCommitDetails: project.extend({ hash: z.string().regex(/^[a-f0-9]{40,64}$/) }),
   gitCommitDiff: file.extend({ hash: z.string().regex(/^[a-f0-9]{40,64}$/) }), gitDiff: hunks.extend({ staged: z.boolean().optional() }), gitHunks: hunks, gitStageHunk: hunks.extend({ patch: text }), gitRevertFile: file, gitStageFile: file, gitUnstageFile: file.extend({ originalPath: path.optional() }), gitStageAll: project, gitUnstageAll: project,
   gitGenerateCommitMessage: target.extend({ model: id.optional() }), gitCommit: project.extend({ message: z.string().trim().min(1).max(10000) }), gitPush: project, gitSync: project, gitPrTarget: project,
+  taskWorkspaceList: project,
+  taskWorkspaceRecipe: project.extend({ recipe: workspaceRecipeSchema }),
+  taskWorkspaceCreate: project.extend({ branch: id, base: id }),
+  taskWorkspaceAction: workspaceActionSchema,
   gitPushAndCreatePr: project.extend({ title: z.string().trim().min(1).max(256), body: z.string().max(50000), expectedTarget: z.object({ branch: z.string().optional(), base: z.string().optional(), remote: z.string().optional(), blocker: z.string().optional() }).optional() }), gitBranches: project, gitCheckout: branch, gitAddWorktree: branch, repoHostContext: project,
   listCommands: target, listSkills: project, listProjectFiles: project, readProjectDirectory: project.extend({ path: z.string().max(32767) }), watchProjectDirectories: project.extend({ paths: z.array(z.string().max(32767)).max(500), paneId: id.optional() }),
   listPackages: project, installPackage: packageChange, removePackage: packageChange, updatePackage: project.extend({ source: id.optional() }), loadGraphicalExtensions: project, callExtension: extensionCallParamsSchema,

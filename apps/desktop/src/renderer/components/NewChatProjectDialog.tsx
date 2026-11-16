@@ -1,3 +1,4 @@
+import TaskWorkspacePanel from "./TaskWorkspacePanel.tsx";
 import { isDesktopShell } from "../lib/platform.ts";
 import type { Project } from "../../shared/rpc-schema.ts";
 import { useState } from "react";
@@ -37,6 +38,7 @@ export default function NewChatProjectDialog({
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const newChatIn = useAppStore((s) => s.newChatIn);
   const [folderNotice, setFolderNotice] = useState("");
+  const [workspaceProject, setWorkspaceProject] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const search = query.trim().toLocaleLowerCase();
   const ordered = [...projects].sort((left, right) => {
@@ -48,6 +50,10 @@ export default function NewChatProjectDialog({
     ? ordered.filter((project) => `${project.name}\n${project.path}`.toLocaleLowerCase().includes(search))
     : ordered;
 
+  async function chooseProject(path: string) {
+    if (path !== workRoot) { setWorkspaceProject(path); return; }
+    await startChat(path);
+  }
   async function startChat(path: string) {
     onOpenChange(false);
     await newChatIn(path);
@@ -61,19 +67,18 @@ export default function NewChatProjectDialog({
     }
     const { path } = await rpc.request.pickProject({});
     if (!path) return;
-    onOpenChange(false);
-    await newChatIn(path);
-    onNavigate?.();
+    await chooseProject(path);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} onOpenChangeComplete={onOpenChangeComplete}>
       <DialogContent layout="picker" className="max-w-xl">
         <DialogHeader className="px-6 pt-6 pb-4">
-          <DialogTitle>New chat</DialogTitle>
-          <DialogDescription>Choose a project, or start without one.</DialogDescription>
+          <DialogTitle>{workspaceProject ? "Task workspace" : "New chat"}</DialogTitle>
+          <DialogDescription>{workspaceProject ? "Choose where this task works, then prepare it when needed." : "Choose a project, or start without one."}</DialogDescription>
         </DialogHeader>
 
+        {workspaceProject ? <div className="max-h-[70dvh] overflow-y-auto px-6 pb-6"><Button variant="ghost" size="sm" className="mb-3" onClick={() => setWorkspaceProject(null)}>Back to projects</Button><TaskWorkspacePanel projectDir={workspaceProject} onStart={startChat} /></div> : <>
         <Combobox.Root<Project>
           items={matches}
           inline
@@ -104,7 +109,7 @@ export default function NewChatProjectDialog({
                 key={project.path}
                 value={project}
                 index={index}
-                onClick={() => void startChat(project.path)}
+                onClick={() => void chooseProject(project.path)}
                 className="flex min-h-14 w-full shrink-0 cursor-default items-center gap-3 rounded-md px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
               >
                 {project.path === workRoot ? (
@@ -138,6 +143,7 @@ export default function NewChatProjectDialog({
           </Button>
           {folderNotice ? <p role="status" className="px-3 pt-2 text-xs text-muted-foreground">{folderNotice}</p> : null}
         </div>
+        </>}
       </DialogContent>
     </Dialog>
   );

@@ -1,3 +1,4 @@
+import { TaskWorkspaces } from "./taskWorkspaces.ts";
 import { readWorkspaceFile, saveWorkspaceFile } from "./workspaceFiles.ts";
 import { automationToolsSchema } from "../shared/automations.ts";
 import { AutomationService } from "./automations/service.ts";
@@ -670,6 +671,7 @@ const automations = new AutomationService(join(app.getPath("userData"), "automat
       signal.throwIfAborted();
       const result = await gitAddWorktree(cwd, `automation-${runId}`, true, base, async prepared => { await workspace(prepared.path); signal.throwIfAborted(); });
       if (!result.ok || !result.path) throw new Error(result.error ?? "Worktree allocation failed");
+      await taskWorkspaces.register({ path: result.path, repository: cwd, branch: `automation-${runId}`, base, owner: "automation" });
       cwd = result.path;
     }
     await workspace(cwd);
@@ -757,6 +759,7 @@ const orchestrationService = new OrchestrationService(orchestration, {
       await beforeCreate?.({ mode: "worktree", path: prepared.path, branch, base: resolvedBase, repository });
     });
     if (!result.ok || !result.path) throw new Error(result.error ?? "Worktree allocation failed");
+    await taskWorkspaces.register({ path: result.path, repository, branch, base: resolvedBase, owner: "delegate" });
     return { mode: "worktree", path: result.path, branch, base: resolvedBase, repository };
   },
   finish: async ref => { await organize(ref.file, "finish"); },
@@ -775,6 +778,7 @@ const orchestrationService = new OrchestrationService(orchestration, {
   },
 });
 function ensurePi(projectDir: string, sessionFile?: string): Promise<PiProcess> {
+  if (taskWorkspaces.isPreparing(projectDir)) return Promise.reject(new Error("Wait for workspace preparation or retirement to finish."));
   const retiring = idleRetirements.get(sessionFile ?? `new:${projectDir}`);
   if (retiring) return retiring.then(() => ensurePi(projectDir, sessionFile));
   if (shuttingDown || restartingAll || restartingProjects.has(projectDir) || (sessionFile && retiringSessions.has(sessionFile)))
@@ -1024,7 +1028,27 @@ function isThinkingLevel(level: unknown): level is ThinkingLevel {
 type HandlerMap = {
   [K in HostRequestName]: (params: HostRequests[K]["params"], pi?: PiProcess) => Promise<HostRequests[K]["response"]> | HostRequests[K]["response"];
 };
+const taskWorkspaces = new TaskWorkspaces(join(app.getPath("userData"), "task-workspaces.json"), cwd => {
+  const reasons: string[] = [];
+  if (projectHasActiveRun(cwd) || automations.ownsWorkspace(cwd)) reasons.push("Stop all agents and automations in this workspace first.");
+  if (liveTerminalProjects().includes(cwd)) reasons.push("Close the workspace's live terminals first.");
+  if ([...clients].some(client => client.dirtyFiles.length > 0)) reasons.push("Save or close unsaved editors first.");
+  return reasons;
+});
 const handlers: HandlerMap = {
+  taskWorkspaceList: ({ projectDir }) => taskWorkspaces.list(projectDir),
+  taskWorkspaceRecipe: async ({ projectDir, recipe }) => { await taskWorkspaces.recipe(projectDir, recipe); return { ok: true }; },
+  taskWorkspaceCreate: async ({ projectDir, branch, base }) => ({ path: await taskWorkspaces.create(projectDir, branch, base) }),
+  taskWorkspaceAction: async ({ projectDir, action, confirmed, copyFiles }) => {
+    if (action === "inspect") return { blockers: await taskWorkspaces.inspect(projectDir) };
+    if (action === "stop") await taskWorkspaces.stop(projectDir);
+    else {
+      if (!confirmed) throw new Error("Confirm this workspace action explicitly");
+      if (action === "remove") await taskWorkspaces.remove(projectDir);
+      else await taskWorkspaces.start(projectDir, action, copyFiles ?? []);
+    }
+    return { blockers: [] };
+  },
   automationTools: async ({ projectDir }) => {
     const cwd = projectDir ?? join(app.getPath("userData"), "work");
     await mkdir(cwd, { recursive: true });
@@ -1948,7 +1972,13 @@ const handlers: HandlerMap = {
   gitAddWorktree: async (params) => {
     try {
       const { projectDir, branch, create } = requestParams.gitCheckout.parse(params);
-      return await gitAddWorktree(projectDir, branch, create);
+      const base = await gitResolveWorktreeBase(projectDir, create ? "HEAD" : branch);
+      const result = await gitAddWorktree(projectDir, branch, create, base);
+      if (result.ok && result.path) {
+        const listing = await taskWorkspaces.list(result.path);
+        await taskWorkspaces.register({ path: result.path, repository: listing.worktrees[0]?.path ?? projectDir, branch, base, owner: "chat" });
+      }
+      return result;
     }
     catch (err) {
       return { ok: false, error: errorMessage(err) };
@@ -2356,6 +2386,7 @@ export async function invokeHostRequest<K extends HostRequestName>(name: K, raw:
   };
   const project = values.projectDir;
   const file = values.sessionFile;
+  if (project && taskWorkspaces.isPreparing(project) && (sessionWrites.has(name) || gitWorktreeWrites.has(name) || name === "terminalCreate" || name === "saveWorkspaceFile")) throw new Error("Wait for workspace preparation or retirement to finish.");
   const ownedPromptResponse = name === "extensionRespond" && !!file && orchestration.references().some(ref => ref.file === resolve(file) && (automations.ownsSession(ref.id) || automations.ownsSession(orchestration.snapshot(ref.id).relationship?.lead.id ?? "")));
   if (project && automations.ownsWorkspace(project) && !ownedPromptResponse && (name === "saveWorkspaceFile" || sessionWrites.has(name) || gitWorktreeWrites.has(name))) throw new Error("Stop the automation before writing in this workspace.");
   if (project && file && pis.has(file) && pis.get(file)?.projectDir !== project)
@@ -2417,7 +2448,10 @@ export async function invokeHostRequest<K extends HostRequestName>(name: K, raw:
   const mayWriteSession = sessionWrites.has(name) || (name === "tuiSend" && (params as HostRequests["tuiSend"]["params"]).frame.type === "nativepi_tui_input");
   let pi: PiProcess | undefined;
   let finishSessionWrite: (() => Promise<void>) | undefined;
-  if (project)
+  // Workspace actions inspect active requests themselves; counting their own
+  // request would make every prepare/retire operation block itself.
+  const countOutstanding = project && name !== "taskWorkspaceAction";
+  if (countOutstanding)
     outstanding.set(project, (outstanding.get(project) ?? 0) + 1);
   try {
     if (mayWriteSession && project) {
@@ -2464,7 +2498,7 @@ export async function invokeHostRequest<K extends HostRequestName>(name: K, raw:
     return result;
   }
   finally {
-    if (project)
+    if (countOutstanding)
       outstanding.set(project, Math.max(0, (outstanding.get(project) ?? 1) - 1));
     if (file)
       idleAfter.set(file, Date.now() + SETTLE_GRACE_MS);
@@ -2518,6 +2552,7 @@ export function shutdownHost(): Promise<void> { return shutdownTask ??= shutdown
 async function shutdown(): Promise<void> {
   shuttingDown = true;
   await automations.close();
+  await taskWorkspaces.close();
   for (const client of [...clients])
     client.dispose();
   runtimeGeneration++;

@@ -1,3 +1,5 @@
+import WorktreeDialog from "./WorktreeDialog.tsx";
+import { Button } from "@/components/ui/button.tsx";
 import StateNotice from "./StateNotice.tsx";
 import { useEffect, useState } from "react";
 import { CaretDownIcon, CheckIcon, GitBranchIcon, PlusIcon } from "../../shared/icons.ts";
@@ -33,11 +35,14 @@ export default function BranchSwitcher({
     setOpen(true);
   }, [branchMenuRequested, consumeBranchMenuRequest, handleRequests]);
 
+  const [workspacesOpen, setWorkspacesOpen] = useState(false);
+  const projectDir = useAppStore(s => s.activeProjectPath);
   if (!isRepo) return null;
 
   const label = detached ? "No branch (detached)" : (branch ?? "No branch");
 
   return (
+    <><Button variant="ghost" size="sm" onClick={() => setWorkspacesOpen(true)}>Workspaces</Button>
     <Menu open={open} onOpenChange={setOpen}>
       <MenuTrigger
         disabled={running}
@@ -56,6 +61,8 @@ export default function BranchSwitcher({
         {open ? <BranchList onDone={() => setOpen(false)} /> : null}
       </MenuPopup>
     </Menu>
+    <WorktreeDialog projectPath={workspacesOpen ? projectDir : null} onClose={() => setWorkspacesOpen(false)} />
+    </>
   );
 }
 

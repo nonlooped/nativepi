@@ -1,3 +1,4 @@
+import type { WorkspaceListing, WorkspaceRecipe } from "./task-workspaces.ts";
 import type { AutomationInput, AutomationState, AutomationTool } from "./automations.ts";
 import type { ReviewSnapshot, ReviewRange, Finding } from "./review.ts";
 import type { DictationStatus } from "./dictation.ts";
@@ -1271,6 +1272,10 @@ export type HostRequestContracts = {
       error?: string;
     };
   };
+  taskWorkspaceList: { params: { projectDir: string }; response: WorkspaceListing };
+  taskWorkspaceRecipe: { params: { projectDir: string; recipe: WorkspaceRecipe }; response: { ok: boolean } };
+  taskWorkspaceCreate: { params: { projectDir: string; branch: string; base: string }; response: { path: string } };
+  taskWorkspaceAction: { params: { projectDir: string; action: "setup" | "run" | "check" | "stop" | "inspect" | "remove"; confirmed?: boolean; copyFiles?: string[] }; response: { blockers: string[] } };
   gitAddWorktree: {
     params: {
       projectDir: string;

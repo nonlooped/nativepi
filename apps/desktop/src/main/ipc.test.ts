@@ -156,3 +156,42 @@ await fs.rm(root, { recursive: true, force: true });
   expect(stderr).toBe("");
   expect(code).toBe(0);
 }, 15000);
+
+
+test("managed workspace IPC preparation and preflight do not count their own request as an active agent", async () => {
+  const child = Bun.spawn([process.execPath, "--eval", `
+import { mock } from "bun:test";
+import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
+import { execFileSync } from "node:child_process";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+const root = await mkdtemp(join(tmpdir(), "nativepi-workspace-ipc-"));
+const repo = join(root, "project"); await mkdir(repo);
+const git = (...args) => execFileSync("git", args, { cwd: repo, stdio: "pipe" });
+git("init", "-b", "main"); git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--allow-empty", "-m", "init");
+mock.module("electron", () => ({ app: { getPath: () => root }, BrowserWindow: class {}, dialog: {}, shell: {}, powerSaveBlocker: { start: () => 1, isStarted: () => true, stop: () => {} }, nativeTheme: new EventEmitter(), systemPreferences: {} }));
+mock.module("electron-updater", () => ({ default: { autoUpdater: {} } }));
+mock.module("node-pty", () => ({ spawn: () => { throw new Error("Unexpected terminal"); } }));
+const { invokeHostRequest: request, shutdownHost } = await import(${JSON.stringify(new URL("./ipc.ts", import.meta.url).href)});
+try {
+ const { path: cwd } = await request("taskWorkspaceCreate", { projectDir: repo, branch: "task", base: "HEAD" });
+ await request("taskWorkspaceRecipe", { projectDir: repo, recipe: { setup: "echo prepared", run: "", check: "" } });
+ await assert.rejects(request("taskWorkspaceAction", { projectDir: cwd, action: "setup" }), /Confirm/);
+ await request("taskWorkspaceAction", { projectDir: cwd, action: "setup", confirmed: true });
+ let record;
+ for (let i = 0; i < 100; i++) {
+  record = (await request("taskWorkspaceList", { projectDir: repo })).worktrees.find(w => w.path === cwd).managed;
+  if (record.status !== "running") break;
+  await new Promise(resolve => setTimeout(resolve, 20));
+ }
+ assert.equal(record.status, "ready"); assert.equal(record.output.trim(), "prepared");
+ const { blockers } = await request("taskWorkspaceAction", { projectDir: cwd, action: "inspect" });
+ assert.equal(blockers.some(b => b.includes("agents")), false);
+ assert.equal(blockers.some(b => b.includes("Commits")), true);
+} finally { await shutdownHost(); await rm(root, { recursive: true, force: true }); }
+`], { cwd: fileURLToPath(new URL("../..", import.meta.url)), stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
+  expect({ code, output: stdout + stderr }).toEqual({ code: 0, output: "" });
+});
