@@ -58,8 +58,10 @@ export default defineConfig({
     },
   },
   renderer: {
+    optimizeDeps: { entries: ["index.html", "browser.html"] },
     root: "src/renderer",
     resolve: {
+      dedupe: ["react", "react-dom"],
       alias: {
         "@": resolve("src/renderer"),
         "@material-icons": materialIcons,
@@ -74,6 +76,7 @@ export default defineConfig({
       rolldownOptions: {
         input: {
           index: resolve("src/renderer/index.html"),
+          browser: resolve("src/renderer/browser.html"),
         },
       },
     },

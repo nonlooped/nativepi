@@ -1,3 +1,4 @@
+import { themeColorsSchema } from "./themes.ts";
 import { z } from "zod";
 import { jsonValueSchema } from "./json.ts";
 export const browserUrl = z
@@ -69,4 +70,46 @@ export const browserReply = z.object({
   type: z.literal("nativepi_browser_reply"),
   requestId: z.string().uuid(),
   result: browserResult,
+});
+
+// Only the app-owned renderer can use these presentation operations.
+export const browserChromeActionSchema = z.object({
+  action: z.enum([
+    "state",
+    "resume",
+    "open",
+    "show",
+    "close",
+    "back",
+    "forward",
+    "reload",
+    "navigate",
+    "handoff",
+    "layout",
+    "windowClose",
+    "windowMinimize",
+    "windowMaximize",
+    "new",
+  ]),
+  tab: z.string().uuid().optional(),
+  url: browserUrl.optional(),
+  height: z.number().int().min(40).max(300).optional(),
+});
+export const browserChromeStateSchema = z.object({
+  tabs: z
+    .array(z.object({ id: z.string().uuid(), title: z.string().max(300) }))
+    .max(8),
+  active: z.string().uuid().optional(),
+  url: z.string().max(8192),
+  handoff: z.boolean(),
+  loading: z.boolean(),
+  error: z.string().max(1000).optional(),
+  canGoBack: z.boolean(),
+  canGoForward: z.boolean(),
+});
+export const browserChromeThemeSchema = z.object({
+  appearance: z.enum(["light", "dark"]),
+  colors: themeColorsSchema,
+  scale: z.number().min(0.5).max(3),
+  motion: z.enum(["system", "always", "never"]),
 });

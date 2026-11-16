@@ -8,8 +8,8 @@ import {
 } from "electron";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import { z } from "zod";
 import {
+  browserChromeActionSchema,
   browserAction,
   browserUrl,
   type BrowserAction,
@@ -23,23 +23,9 @@ type Tab = {
   view: WebContentsView;
   logs: string[];
   generation: string;
+  loading: boolean;
+  error?: string;
 };
-const chromeAction = z.object({
-  action: z.enum([
-    "state",
-    "resume",
-    "open",
-    "show",
-    "close",
-    "back",
-    "forward",
-    "reload",
-    "navigate",
-    "handoff",
-  ]),
-  tab: z.string().uuid().optional(),
-  url: browserUrl.optional(),
-});
 export class SharedBrowser {
   private window?: BrowserWindow;
   private tabs = new Map<string, Tab>();
@@ -49,7 +35,7 @@ export class SharedBrowser {
   private epoch = 0;
   private closed = false;
   private sessionConfigured = false;
-  constructor(private readonly label = "Work chat") {}
+  private chromeHeight = 92;
   private partition = `nativepi-browser-${randomUUID()}`;
   cancel() {
     this.epoch++;
@@ -123,11 +109,12 @@ export class SharedBrowser {
     const win = (this.window = new BrowserWindow({
       width: 1100,
       height: 800,
-      minWidth: 1000,
+      minWidth: 420,
       minHeight: 400,
       maxWidth: 2400,
       maxHeight: 1800,
-      title: `NativePi · Browser · ${this.label}`,
+      title: "Browser · NativePi",
+      titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
       webPreferences: {
         preload: join(app.getAppPath(), "out/preload/browser.cjs"),
         sandbox: true,
@@ -137,7 +124,7 @@ export class SharedBrowser {
     }));
     win.webContents.on("page-title-updated", (event) => {
       event.preventDefault();
-      win.setTitle(`NativePi · Browser · ${this.label}`);
+      win.setTitle("Browser · NativePi");
     });
     win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     win.webContents.on("will-navigate", (event) => event.preventDefault());
@@ -155,17 +142,41 @@ export class SharedBrowser {
     win.on("focus", () => {
       void this.theme().catch(() => {});
     });
-    void win.loadURL(
-      "data:text/html;charset=utf-8," +
-        encodeURIComponent(
-          "<!doctype html><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'\"><title>NativePi · Work browser</title><body></body>",
-        ),
-    );
-    chromeOwners.set(win.webContents.id, this);
-    win.on("closed", () => chromeOwners.delete(win.webContents.id));
+    if (process.env.ELECTRON_RENDERER_URL)
+      void win.loadURL(
+        new URL("browser.html", process.env.ELECTRON_RENDERER_URL).href,
+      );
+    else void win.loadFile(join(app.getAppPath(), "out/renderer/browser.html"));
+    const chromeId = win.webContents.id;
+    chromeOwners.set(chromeId, this);
+    win.on("closed", () => chromeOwners.delete(chromeId));
   }
   async chrome(raw: unknown) {
-    const op = chromeAction.parse(raw);
+    const op = browserChromeActionSchema.parse(raw);
+    if (op.action === "layout") {
+      if (op.height) this.chromeHeight = op.height;
+      this.layout();
+      return;
+    }
+    if (op.action === "windowClose") {
+      this.window?.hide();
+      return;
+    }
+    if (op.action === "windowMinimize") {
+      this.window?.minimize();
+      return;
+    }
+    if (op.action === "windowMaximize") {
+      if (this.window?.isMaximized()) this.window.unmaximize();
+      else this.window?.maximize();
+      return;
+    }
+    if (op.action === "new") {
+      this.active = undefined;
+      this.layout();
+      this.state();
+      return;
+    }
     if (op.action === "state") {
       this.state();
       await this.theme();
@@ -200,36 +211,50 @@ export class SharedBrowser {
       preferences.customThemes.find((t) => t.id === preferences.themeId) ??
       builtInTheme(preferences.themeId)?.theme ??
       DEFAULT_THEME;
-    if (!this.window || this.window.isDestroyed()) return;
+    if (this.closed || !this.window || this.window.isDestroyed()) return;
     this.window.webContents.send("nativepi:browser-theme", {
       appearance,
       colors: theme.colors[appearance],
+      scale: preferences.interfaceScale,
+      motion: preferences.reducedMotion,
     });
   }
   private state() {
-    if (!this.window || this.window.isDestroyed()) return;
+    if (this.closed || !this.window || this.window.isDestroyed()) return;
+    const current = this.active ? this.tabs.get(this.active) : undefined;
+    this.layout();
     this.window.webContents.send("nativepi:browser-state", {
       tabs: [...this.tabs.values()].map((t) => ({
         id: t.id,
-        title: t.view.webContents.getTitle().slice(0, 100) || "New tab",
+        title: t.view.webContents.getTitle().slice(0, 300) || "New tab",
       })),
       active: this.active,
       url: this.active
         ? this.tabs.get(this.active)?.view.webContents.getURL()
         : "",
       handoff: this.handoff,
+      loading: current?.loading ?? false,
+      error: current?.error,
+      canGoBack:
+        current?.view.webContents.navigationHistory.canGoBack() ?? false,
+      canGoForward:
+        current?.view.webContents.navigationHistory.canGoForward() ?? false,
     });
   }
   private layout() {
-    if (!this.window || this.window.isDestroyed()) return;
+    if (this.closed || !this.window || this.window.isDestroyed()) return;
     const [width, height] = this.window.getContentSize();
     for (const tab of this.tabs.values()) {
-      tab.view.setVisible(tab.id === this.active);
+      const visible = tab.id === this.active && !tab.error;
+      const attached = this.window.contentView.children.includes(tab.view);
+      if (visible && !attached) this.window.contentView.addChildView(tab.view);
+      else if (!visible && attached)
+        this.window.contentView.removeChildView(tab.view);
       tab.view.setBounds({
         x: 0,
-        y: 96,
+        y: this.chromeHeight,
         width,
-        height: Math.max(1, height - 96),
+        height: Math.max(1, height - this.chromeHeight),
       });
     }
   }
@@ -281,7 +306,13 @@ export class SharedBrowser {
           navigateOnDragDrop: false,
         },
       });
-      const tab: Tab = { id: randomUUID(), view, logs: [], generation: "" };
+      const tab: Tab = {
+        id: randomUUID(),
+        view,
+        logs: [],
+        generation: "",
+        loading: true,
+      };
       this.tabs.set(tab.id, tab);
       this.active = tab.id;
       this.window!.contentView.addChildView(view);
@@ -300,6 +331,15 @@ export class SharedBrowser {
       wc.on("did-start-navigation", () => {
         tab.generation = "";
       });
+      wc.on("did-start-loading", () => {
+        tab.loading = true;
+        tab.error = undefined;
+        this.state();
+      });
+      wc.on("did-stop-loading", () => {
+        tab.loading = false;
+        this.state();
+      });
       wc.on("page-title-updated", () => this.state());
       wc.on("did-navigate", () => this.state());
       wc.on("console-message", (event) => {
@@ -308,7 +348,12 @@ export class SharedBrowser {
         );
         tab.logs = tab.logs.slice(-60);
       });
-      wc.on("did-fail-load", (_e, code, description, url) => {
+      wc.on("did-fail-load", (_e, code, description, url, isMainFrame) => {
+        if (isMainFrame && code !== -3) {
+          tab.error = description.slice(0, 1000);
+          tab.loading = false;
+          this.state();
+        }
         tab.logs.push(
           `load ${code}: ${description.slice(0, 200)} ${url.slice(0, 500)}`,
         );
@@ -341,8 +386,8 @@ export class SharedBrowser {
     const wc = tab.view.webContents;
     if (op.action === "close") {
       this.window!.contentView.removeChildView(tab.view);
-      wc.close();
       this.tabs.delete(tab.id);
+      wc.close();
       this.active = this.tabs.keys().next().value;
       this.layout();
       this.state();
@@ -386,6 +431,14 @@ export class SharedBrowser {
         note: "Untrusted bounded metadata; no headers, bodies or cookies.",
       };
     if (op.action === "screenshot") {
+      if (tab.error)
+        throw new Error(
+          "The page failed to load. Use diagnostics or reload before capturing it.",
+        );
+      this.active = tab.id;
+      this.layout();
+      this.state();
+      this.window!.show();
       const image = await wc.capturePage();
       const size = image.getSize();
       return {
