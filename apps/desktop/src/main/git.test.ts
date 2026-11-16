@@ -4,7 +4,7 @@ import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:f
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitLog, gitPush, gitRevertFile, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
+import { gitBranchStatus, gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitDiff, gitHunks, gitLog, gitPush, gitRevertFile, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
 /**
 * These run against a real repository rather than a mocked `git`.
 *
@@ -422,4 +422,14 @@ test("push errors retain hook diagnostics after startup output", async () => {
     await rm(dir, { recursive: true, force: true });
     await rm(remote, { recursive: true, force: true });
   }
+});
+
+test("sidebar branch summaries handle detached and unborn repositories", async () => {
+  const dir = await repo();
+  expect((await gitBranchStatus(dir)).branch).toBe("main");
+  execFileSync("git", ["checkout", "--detach"], { cwd: dir, stdio: "pipe" });
+  expect((await gitBranchStatus(dir)).detached).toBe(true);
+  const unborn = await mkdtemp(path.join(tmpdir(), "nativepi-unborn-"));
+  execFileSync("git", ["init", "-b", "new-branch"], { cwd: unborn, stdio: "pipe" });
+  expect((await gitBranchStatus(unborn)).branch).toBe("new-branch");
 });

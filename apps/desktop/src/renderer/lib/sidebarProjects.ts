@@ -21,23 +21,36 @@ export function useSidebarProjects(projects: Project[]): Record<string, SidebarP
       const version = (reads.get(path) ?? 0) + 1;
       reads.set(path, version);
       try {
-        const {status} = await rpc.request.gitStatus({projectDir: path});
+        const {status} = await rpc.request.gitStatus({projectDir: path, summaryOnly: true});
         if (!cancelled && reads.get(path) === version) setData((old) => ({...old, [path]: {...old[path], branch: projectBranch(status)}}));
       } catch {
         if (!cancelled && reads.get(path) === version) setData((old) => ({...old, [path]: {...old[path], branch: undefined}}));
       }
     };
-    for (const {path} of projects) {
-      void refresh(path);
-      void (async () => {
+    let next = 0;
+    const hydrate = async () => {
+      while (!cancelled && next < projects.length) {
+        const { path } = projects[next++]!;
+        await refresh(path);
+        if (cancelled) return;
         try {
           const {files} = await rpc.request.listProjectFiles({projectDir: path});
           const icon = await loadProjectIcon(files, (file) => rpc.request.readProjectImage({projectDir: path, file}));
           if (!cancelled) setData((old) => ({...old, [path]: {...old[path], icon}}));
         } catch { /* The project initial remains available without filesystem access. */ }
-      })();
-    }
-    const focus = () => { for (const path of paths) void refresh(path); };
+      }
+    };
+    for (let worker = 0; worker < Math.min(4, projects.length); worker++) void hydrate();
+    let refreshing = false;
+    const focus = () => {
+      if (refreshing) return;
+      refreshing = true;
+      void (async () => {
+        const folders = [...paths];
+        for (let index = 0; !cancelled && index < folders.length; index += 4)
+          await Promise.all(folders.slice(index, index + 4).map(refresh));
+      })().finally(() => { refreshing = false; });
+    };
     const changed = ({projectDir}: {projectDir: string}) => { if (paths.has(projectDir)) void refresh(projectDir); };
     window.addEventListener("focus", focus);
     const offFiles = rpc.events.on("projectFilesChanged", changed);

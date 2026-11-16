@@ -444,6 +444,7 @@ export type HostRequestContracts = {
   dictationCancel: { params: { id: string }; response: { ok: true } };
   dictationTranscribe: { params: { id: string; audio: string }; response: { text: string } };
   dictationMicrophone: { params: Record<string, never>; response: { ok: true } };
+  browserShow: { params: { projectDir: string; sessionFile?: string | null }; response: { ok: true } };
   computerStatus: { params: Record<string, never>; response: ComputerStatus };
   computerPermissions: { params: Record<string, never>; response: ComputerStatus };
   abort: {
@@ -1066,6 +1067,7 @@ export type HostRequestContracts = {
   gitStatus: {
     params: {
       projectDir: string;
+      summaryOnly?: boolean;
     };
     response: {
       status: GitStatus;
