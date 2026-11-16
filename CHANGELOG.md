@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Managed task workspaces with explicit chat isolation/base selection, reusable setup/run/check actions, opt-in local file preparation, coordinated ports, action recovery and conservative workspace retirement.
 
 ### Changed
+- Simplify workspace creation with a direct project-to-chat path, an optional separate workspace with automatic defaults, shared controls, focused action settings and on-demand output.
 - Reorganize Settings around everyday preferences, conversations, permissions, and advanced options, with search that reveals individual controls and hidden sections.
 - Reuse the composer model picker for chat titles, combine notification and image modes, and move theme, background, and provider catalogs into focused choosers while preserving existing selections.
 - Unify MCP, skills, prompts, and package management with explicit project scope and extension provenance, and show a shared pending-restart notice across settings.

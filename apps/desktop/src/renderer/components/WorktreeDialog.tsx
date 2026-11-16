@@ -35,7 +35,7 @@ export default function WorktreeDialog({
         <DialogHeader>
           <DialogTitle>Task workspaces</DialogTitle>
           <DialogDescription>
-            Choose a checkout, prepare isolated work, and safely retire finished workspaces.
+            Start a chat or manage a worktree.
           </DialogDescription>
         </DialogHeader>
         {/* Keyed on the project so switching projects cannot show the previous

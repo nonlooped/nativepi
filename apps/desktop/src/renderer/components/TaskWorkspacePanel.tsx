@@ -1,16 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { rpc } from "../lib/rpc.ts";
 import { useRequest } from "../lib/useRequest.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
+import { Checkbox } from "@/components/ui/checkbox.tsx";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select.tsx";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog.tsx";
+import SettingsDetails from "./settings/SettingsDetails.tsx";
+import { Segmented } from "./settings/rows.tsx";
+import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
+import { GearSixIcon } from "@phosphor-icons/react/GearSix";
 import type { WorkspaceRecipe } from "../../shared/task-workspaces.ts";
 
 /** Both the new-chat flow and the branch menu use this same workspace inventory. */
-export default function TaskWorkspacePanel({ projectDir, onStart }: { projectDir: string; onStart: (path: string) => Promise<void> }) {
+export default function TaskWorkspacePanel({ projectDir, onStart, initiallySeparate = false }: { projectDir: string; initiallySeparate?: boolean; onStart: (path: string) => Promise<void> }) {
   const { data, error: loadError, reload } = useRequest(() => rpc.request.taskWorkspaceList({ projectDir }), [projectDir], { keepPreviousData: true });
-  const [isolated, setIsolated] = useState(false);
-  const [branch, setBranch] = useState("");
+  const [isolated, setIsolated] = useState(initiallySeparate);
+  const [branch, setBranch] = useState(() => `task/work-${Date.now().toString(36)}`);
   const [base, setBase] = useState("HEAD");
   const [selected, setSelected] = useState(projectDir);
   const [error, setError] = useState("");
@@ -20,6 +27,10 @@ export default function TaskWorkspacePanel({ projectDir, onStart }: { projectDir
   const [files, setFiles] = useState("");
   const [consent, setConsent] = useState(false);
   const [blockers, setBlockers] = useState<string[] | null>(null);
+  const [branchOptions, setBranchOptions] = useState(false);
+  const consentId = useId();
+  const [showFiles, setShowFiles] = useState(false);
+  const [showOutput, setShowOutput] = useState(false);
   const current = data?.worktrees.find(w => w.path === selected);
   const managed = current?.managed;
   useEffect(() => { if (data) { setRecipe(data.recipe); setConsent(false); } }, [data?.recipe.setup, data?.recipe.run, data?.recipe.check]);
@@ -32,56 +43,61 @@ export default function TaskWorkspacePanel({ projectDir, onStart }: { projectDir
     try { await fn(); reload(); } catch (error) { setError(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
   }
+  const folderLabel = (workspace: { main: boolean; branch: string }, index: number) => workspace.main ? "Project folder" : /^task\/work-/.test(workspace.branch) ? `Workspace ${index}` : workspace.branch;
   const input = "space-y-1.5 text-sm";
   return <div className="space-y-5">
-    <div className="grid grid-cols-2 gap-2" role="group" aria-label="Task isolation">
-      <Button variant={!isolated ? "secondary" : "outline"} onClick={() => setIsolated(false)}>Use checkout</Button>
-      <Button variant={isolated ? "secondary" : "outline"} onClick={() => setIsolated(true)}>New worktree</Button>
-    </div>
+    <Segmented label="Task isolation" value={isolated ? "new" : "current"} options={[{ value: "current", label: "Existing folder" }, { value: "new", label: "Separate workspace" }]} onChange={value => setIsolated(value === "new")} className="w-full *:flex-1" />
     {isolated ? <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">A separate folder and branch. Starts from committed files; local changes stay here.</p>
-      <div className="grid grid-cols-2 gap-3">
+      <p className="text-sm text-muted-foreground">Work in a separate folder so your current project stays as it is.</p>
+      <Button size="sm" variant="ghost" aria-expanded={branchOptions} onClick={() => setBranchOptions(v => !v)}><CaretRightIcon className={branchOptions ? "rotate-90" : ""} />Branch options</Button>
+      {branchOptions && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className={input}>New branch<Input value={branch} onChange={e => setBranch(e.target.value)} placeholder="task/my-change" /></label>
         <label className={input}>Starting base<Input value={base} onChange={e => setBase(e.target.value)} placeholder="HEAD or origin/main" /></label>
-      </div>
-      <Button disabled={busy || !branch.trim() || !base.trim()} onClick={() => void perform(async () => {
+      </div>}
+      <div className="flex justify-end"><Button disabled={busy || !branch.trim() || !base.trim()} onClick={() => void perform(async () => {
         const result = await rpc.request.taskWorkspaceCreate({ projectDir, branch: branch.trim(), base: base.trim() });
-        setSelected(result.path); setIsolated(false); setConsent(false);
-      })}>Create workspace</Button>
+        setSelected(result.path); setIsolated(false); setConsent(false); setBranch(`task/work-${Date.now().toString(36)}`);
+      })}>Create workspace</Button></div>
     </div> : <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">Work stays in the selected checkout. Preparation runs only when you ask.</p>
-      {data ? <label className={input}>Workspace<select aria-label="Workspace" className="h-9 w-full rounded-md border bg-background px-3 text-sm" value={selected} onChange={e => { setSelected(e.target.value); setBlockers(null); setConsent(false); }}>
-        {data.worktrees.map(w => <option key={w.path} value={w.path}>{w.branch}{w.main ? " · Primary" : ""}{w.managed ? ` · ${w.managed.owner} · ${w.managed.status}` : " · Existing"}</option>)}
-      </select></label> : null}
-      <p className="break-all text-xs text-muted-foreground">{selected}</p>
-      <Button disabled={busy} onClick={() => void perform(() => onStart(selected))}>Start chat here</Button>
+      {data ? <div className="space-y-1.5"><span className="text-sm font-medium">Workspace</span><Select value={selected} onValueChange={value => { if (value) { setSelected(value); setBlockers(null); setConsent(false); setShowOutput(false); } }} items={data.worktrees.map((w, i) => ({ value: w.path, label: folderLabel(w, i) }))}>
+        <SelectTrigger aria-label="Workspace" className="w-full"><SelectValue>{current ? folderLabel(current, data.worktrees.indexOf(current)) : "Selected folder"}</SelectValue></SelectTrigger>
+        <SelectContent>{data.worktrees.map((w, i) => <SelectItem key={w.path} value={w.path}>{folderLabel(w, i)}</SelectItem>)}</SelectContent>
+      </Select></div> : null}
+      <div className="[&_summary]:py-1 [&_details]:border-0 [&_summary_span_span]:text-xs"><SettingsDetails id="workspace-location" title="Folder details"><p className="break-all text-xs leading-5 text-muted-foreground">{selected}</p>{current && <p className="mt-2 text-xs text-muted-foreground">Branch: {current.branch}{managed?.port ? ` · Port ${managed.port}` : ""}</p>}</SettingsDetails></div>
+      <div className="flex justify-end"><Button disabled={busy} onClick={() => void perform(() => onStart(selected))}>Start chat here</Button></div>
     </div>}
 
-    <div className="space-y-3 border-t pt-4">
-      <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium">Prepare & run</span><Button size="sm" variant="ghost" onClick={() => setConfigure(!configure)}>{configure ? "Hide actions" : "Project actions"}</Button></div>
-      {configure ? <div className="space-y-3">
-        <p className="text-xs text-muted-foreground">Saved locally for this repository. Commands use your shell in the selected workspace. Use PORT or NATIVEPI_WORKSPACE_PORT for concurrent servers; keep services in the foreground.</p>
+    {!isolated && <SettingsDetails id="workspace-actions" title="Prepare & run" summary={managed?.status === "failed" ? "Setup needs attention" : managed?.status === "running" ? "An action is running" : "Optional setup, app commands and cleanup"}><div className="space-y-3">
+      <div className="flex justify-end"><Button size="sm" variant="ghost" onClick={() => setConfigure(true)}><GearSixIcon />Project actions</Button></div>
+      <Dialog open={configure} onOpenChange={setConfigure}><DialogContent>
+        <DialogHeader><DialogTitle>Project actions</DialogTitle><DialogDescription>Reusable commands for this repository’s workspaces.</DialogDescription></DialogHeader>
+        <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">Commands use your shell. Use PORT for concurrent servers and keep services in the foreground.</p>
         {(["setup", "run", "check"] as const).map(action => <label key={action} className="block space-y-1 text-sm"><span>{action === "setup" ? "Setup" : action === "run" ? "Run app" : "Checks"}</span><Textarea rows={2} value={recipe[action]} placeholder={action === "setup" ? "bun install" : action === "run" ? "bun run dev" : "bun run check"} onChange={e => setRecipe({ ...recipe, [action]: e.target.value })} /></label>)}
-        <Button size="sm" variant="outline" disabled={busy} onClick={() => void perform(() => rpc.request.taskWorkspaceRecipe({ projectDir, recipe }).then(result => { setConsent(false); return result; }))}>Save actions</Button>
-      </div> : null}
+        </div><DialogFooter><Button variant="ghost" onClick={() => setConfigure(false)}>Cancel</Button><Button disabled={busy} onClick={() => void perform(() => rpc.request.taskWorkspaceRecipe({ projectDir, recipe }).then(result => { setConsent(false); setConfigure(false); return result; }))}>Save actions</Button></DialogFooter>
+      </DialogContent></Dialog>
       {managed ? <>
-        <p className="text-xs text-muted-foreground">{managed.status}{managed.action ? ` · ${managed.action}` : ""}{managed.port ? ` · Port ${managed.port}` : ""} · Base {managed.base.slice(0, 12)}</p>
+        <p role="status" className="text-[0.8125rem] text-body-muted-foreground">{{ created: "Not prepared", running: "Running", ready: "Ready", failed: "Needs attention", interrupted: "Interrupted" }[managed.status]}</p>
         {managed.status !== "running" ? <>
-          <details><summary className="cursor-pointer text-xs text-muted-foreground">Copy local environment files during setup</summary><p className="my-2 text-xs text-muted-foreground">Opt in by naming each ignored file from the primary checkout, one per line. This may copy secrets. Existing files are never overwritten. Parent folders must already exist.</p><Textarea aria-label="Ignored files to copy" rows={2} value={files} onChange={e => setFiles(e.target.value)} placeholder=".env.local" /></details>
-          <label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} />I trust the saved commands and authorize execution and the listed file copies in this workspace.</label>
+          <div className="flex items-start gap-2"><Checkbox id={consentId} checked={consent} onCheckedChange={checked => setConsent(checked === true)} /><label htmlFor={consentId} className="text-[0.8125rem] leading-5 text-body-muted-foreground">Allow saved commands and selected file copies</label></div>
         </> : null}
         <div className="flex flex-wrap gap-2">
-          {managed.status === "running" ? <Button variant="outline" size="sm" disabled={busy} onClick={() => void perform(() => rpc.request.taskWorkspaceAction({ projectDir: selected, action: "stop" }))}>Stop action</Button> : (["setup", "run", "check"] as const).map(action => <Button key={action} size="sm" variant="outline" disabled={busy || !consent || (!data?.recipe[action].trim() && action !== "setup")} onClick={() => void perform(() => rpc.request.taskWorkspaceAction({ projectDir: selected, action, confirmed: true, copyFiles: action === "setup" ? files.split("\n").map(f => f.trim()).filter(Boolean) : [] }))}>{action === "setup" ? "Prepare / retry" : action === "run" ? "Run app" : "Run checks"}</Button>)}
+          {managed.status === "running" ? <Button variant="outline" size="sm" disabled={busy} onClick={() => void perform(() => rpc.request.taskWorkspaceAction({ projectDir: selected, action: "stop" }))}>Stop action</Button> : (["setup", "run", "check"] as const).map(action => <Button key={action} size="sm" variant="outline" disabled={busy || !consent || (!data?.recipe[action].trim() && action !== "setup")} onClick={() => void perform(() => rpc.request.taskWorkspaceAction({ projectDir: selected, action, confirmed: true, copyFiles: action === "setup" ? files.split("\n").map(f => f.trim()).filter(Boolean) : [] }))}>{action === "setup" ? managed.status === "failed" || managed.status === "interrupted" ? "Retry setup" : "Prepare" : action === "run" ? "Run app" : "Run checks"}</Button>)}
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => void perform(async () => setBlockers((await rpc.request.taskWorkspaceAction({ projectDir: selected, action: "inspect" })).blockers))}>Retire…</Button>
         </div>
-        {managed.error ? <p className="text-xs text-destructive">{managed.error}</p> : null}
-        {managed.output ? <pre aria-label="Action output" className="max-h-40 overflow-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap">{managed.output}</pre> : null}
+        {managed.error ? <p className="text-xs text-destructive">{managed.action === "setup" ? "Setup did not finish. Review the output before retrying." : "The action did not finish. Review the output for details."}</p> : null}
+        <div className="flex items-center gap-2">
+          {(managed.output || managed.error) && <Button size="xs" variant="ghost" aria-expanded={showOutput} onClick={() => setShowOutput(v => !v)}>{showOutput ? "Hide output" : "Show output"}</Button>}
+          {managed.status !== "running" && <Button size="xs" variant="ghost" aria-expanded={showFiles} onClick={() => setShowFiles(v => !v)}>Local files…</Button>}
+        </div>
+        {showOutput && (managed.output || managed.error) ? <pre aria-label="Action output" className="max-h-40 overflow-auto rounded-md bg-muted/40 p-3 font-mono text-xs whitespace-pre-wrap">{managed.error ? `${managed.error}\n\n` : ""}{managed.output}</pre> : null}
+        {showFiles && <div className="space-y-2"><label className="text-sm font-medium" htmlFor="workspace-files">Copy during setup</label><Textarea id="workspace-files" aria-label="Ignored files to copy" rows={2} value={files} onChange={e => { setFiles(e.target.value); setConsent(false); }} placeholder=".env.local" /><p className="text-xs leading-5 text-muted-foreground">One ignored file per line, copied from your current checkout. May include secrets. Existing files stay untouched.</p></div>}
         {blockers ? <div className="space-y-2 rounded-md border p-3 text-xs">
           {blockers.length ? <><p className="font-medium">Workspace retained</p><ul className="list-disc space-y-1 pl-4">{blockers.map(b => <li key={b}>{b}</li>)}</ul></> : <><p>Remove this clean, published workspace folder? Its Git branch and Pi conversations will be retained.</p><Button size="sm" variant="destructive" disabled={busy} onClick={() => void perform(async () => { await rpc.request.taskWorkspaceAction({ projectDir: selected, action: "remove", confirmed: true }); setSelected(projectDir); setBlockers(null); })}>Remove workspace folder</Button></>}
         </div> : null}
-      </> : <p className="text-xs text-muted-foreground">Create an isolated workspace to use managed preparation and retirement. Existing checkouts are kept intact. Use Source control to review, commit and hand off a PR.</p>}
-    </div>
-    {busy ? <p role="status" className="text-xs text-muted-foreground">Working… The workspace is retained if an action fails.</p> : null}
+      </> : <p className="text-xs text-muted-foreground">Save setup and run commands in Project actions to reuse them in new worktrees.</p>}
+    </div></SettingsDetails>}
+    {busy ? <p role="status" className="text-xs text-muted-foreground">Working…</p> : null}
     {error || loadError ? <p role="alert" className="text-xs whitespace-pre-wrap text-destructive">{error || loadError}</p> : null}
   </div>;
 }

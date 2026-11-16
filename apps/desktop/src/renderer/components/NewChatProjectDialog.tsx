@@ -1,3 +1,4 @@
+import { Switch } from "@/components/ui/switch.tsx";
 import TaskWorkspacePanel from "./TaskWorkspacePanel.tsx";
 import { isDesktopShell } from "../lib/platform.ts";
 import type { Project } from "../../shared/rpc-schema.ts";
@@ -39,6 +40,7 @@ export default function NewChatProjectDialog({
   const newChatIn = useAppStore((s) => s.newChatIn);
   const [folderNotice, setFolderNotice] = useState("");
   const [workspaceProject, setWorkspaceProject] = useState<string | null>(null);
+  const [separate, setSeparate] = useState(false);
   const [query, setQuery] = useState("");
   const search = query.trim().toLocaleLowerCase();
   const ordered = [...projects].sort((left, right) => {
@@ -51,11 +53,15 @@ export default function NewChatProjectDialog({
     : ordered;
 
   async function chooseProject(path: string) {
-    if (path !== workRoot) { setWorkspaceProject(path); return; }
+    if (path !== workRoot && separate) { setWorkspaceProject(path); return; }
     await startChat(path);
   }
+  function changeOpen(next: boolean) {
+    if (!next) setWorkspaceProject(null);
+    onOpenChange(next);
+  }
   async function startChat(path: string) {
-    onOpenChange(false);
+    changeOpen(false);
     await newChatIn(path);
     onNavigate?.();
   }
@@ -71,14 +77,14 @@ export default function NewChatProjectDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} onOpenChangeComplete={onOpenChangeComplete}>
+    <Dialog open={open} onOpenChange={changeOpen} onOpenChangeComplete={onOpenChangeComplete}>
       <DialogContent layout="picker" className="max-w-xl">
         <DialogHeader className="px-6 pt-6 pb-4">
-          <DialogTitle>{workspaceProject ? "Task workspace" : "New chat"}</DialogTitle>
-          <DialogDescription>{workspaceProject ? "Choose where this task works, then prepare it when needed." : "Choose a project, or start without one."}</DialogDescription>
+          <DialogTitle>{workspaceProject ? "Workspace" : "New chat"}</DialogTitle>
+          <DialogDescription>{workspaceProject ? "Start in your project or a separate folder." : "Choose a project, or start without one."}</DialogDescription>
         </DialogHeader>
 
-        {workspaceProject ? <div className="max-h-[70dvh] overflow-y-auto px-6 pb-6"><Button variant="ghost" size="sm" className="mb-3" onClick={() => setWorkspaceProject(null)}>Back to projects</Button><TaskWorkspacePanel projectDir={workspaceProject} onStart={startChat} /></div> : <>
+        {workspaceProject ? <div className="max-h-[70dvh] overflow-y-auto px-6 pb-6"><Button variant="ghost" size="sm" className="mb-3" onClick={() => setWorkspaceProject(null)}>Back</Button><TaskWorkspacePanel projectDir={workspaceProject} initiallySeparate onStart={startChat} /></div> : <>
         <Combobox.Root<Project>
           items={matches}
           inline
@@ -137,6 +143,7 @@ export default function NewChatProjectDialog({
         </Combobox.Root>
 
         <div className="shrink-0 border-t border-border/40 p-3">
+          <div className="mb-2 flex items-center justify-between gap-4 px-3 py-2"><div><label htmlFor="new-chat-separate" className="text-[0.8125rem] font-medium">Use a separate workspace</label><p className="mt-1 text-xs leading-5 text-muted-foreground">Work in another folder, keeping your current files unchanged.</p></div><Switch id="new-chat-separate" checked={separate} onCheckedChange={setSeparate} /></div>
           <Button variant="ghost" className="h-10 w-full justify-start gap-3 px-3" onClick={() => void openAnotherFolder()}>
             <FolderOpenIcon className="size-4" aria-hidden="true" />
             Open folder…
