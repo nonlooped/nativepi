@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Add Codex and Anthropic OAuth subscription capacity windows, resets and refresh/stale/error states separately from local usage.
+- Add graphical Pi setup for MCP configuration and health checks, skill/prompt creation, and effective resource discovery with source, scope and diagnostics.
 - Website downloads select the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every supported architecture.
 
 ### Added

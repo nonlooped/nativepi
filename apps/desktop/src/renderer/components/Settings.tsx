@@ -23,6 +23,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 
 import AccessSettings from "./settings/AccessSettings.tsx";
+import AgentSetupSettings from "./settings/AgentSetupSettings.tsx";
 import AgentSettings from "./settings/AgentSettings.tsx";
 import AppearanceSettings from "./settings/AppearanceSettings.tsx";
 import ExtensionsManager from "./ExtensionsManager.tsx";
@@ -41,6 +42,7 @@ export const CATEGORIES = [
   { name: "Keyboard", icon: KeyboardIcon, group: "Interface", blurb: "Shortcuts for the workspace." },
   { name: "Providers", icon: PlugsConnectedIcon, group: "Pi", blurb: "Connect the model providers Pi can use." },
   { name: "Behavior", icon: BrainIcon, group: "Pi", blurb: "Computer use, reasoning, project trust, reliability, and images." },
+  { name: "Agent setup", icon: PlugsConnectedIcon, group: "Pi", blurb: "MCP servers, skills, and prompt templates." },
   { name: "Extensions", icon: PuzzlePieceIcon, group: "Pi", blurb: "Packages that extend Pi." },
   { name: "Usage", icon: ChartLineUpIcon, group: "Pi", blurb: "Local costs, tokens, and subscription limits." },
   { name: "Terminal", icon: TerminalWindowIcon, group: "Application", blurb: "The integrated terminal and Pi’s shell." },
@@ -219,6 +221,7 @@ function CategoryPanel({ category }: { category: Category }) {
       return <AgentSettings />;
     case "Providers":
       return <ProviderSettings />;
+    case "Agent setup": return <AgentSetupSettings />;
     case "Extensions":
       return (
         <div className="flex flex-col gap-8">

@@ -1279,6 +1279,10 @@ export type HostRequestContracts = {
       commands: CommandInfo[];
     };
   };
+  configureMcp: { params: import("./agent-setup.ts").McpSetupChange; response: { ok: boolean; output: string; report?: import("./agent-setup.ts").McpReport } };
+  subscriptionCapacity: { params: Record<string, never>; response: { providers: import("./subscription-capacity.ts").SubscriptionCapacity[] } };
+  agentSetup: { params: { projectDir: string }; response: import("./agent-setup.ts").AgentSetup };
+  createAgentResource: { params: import("./agent-setup.ts").ResourceChange; response: { ok: boolean; error?: string } };
   listSkills: {
     params: {
       projectDir: string;
