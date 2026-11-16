@@ -1,3 +1,4 @@
+import { ChatCircleTextIcon } from "@phosphor-icons/react/ChatCircleText";
 import { useRequest } from "../lib/useRequest.ts";
 import { reviewSnapshotSchema } from "../../shared/review.ts";
 import StateNotice from "./StateNotice.tsx";
@@ -183,6 +184,10 @@ export default function SourceControl({
           <DropdownMenuContent align="end"><DropdownMenuGroup>
             <DropdownMenuItem disabled={disabled || git.detached} onClick={() => void sync("push")}>{git.upstream ? "Push commits" : "Publish branch"}</DropdownMenuItem>
             <DropdownMenuItem disabled={disabled || git.detached || !git.upstream} onClick={() => void sync("sync")}>Sync (fast-forward only){git.behind ? ` · ${git.behind} behind` : ""}</DropdownMenuItem>
+            <DropdownMenuItem disabled={!findings.data?.findings.length} onClick={() => {
+              const first = findings.data?.findings.find(f => f.state === "open") ?? findings.data?.findings[0];
+              if (first) { setReview({ projectDir, path: first.file, staged: first.mode === "staged", findingId: first.id }); onReview?.(); }
+            }}><ChatCircleTextIcon />Review findings</DropdownMenuItem>
             {showPullRequest && <DropdownMenuItem onClick={onOpenPullRequest}><GitPullRequestIcon />Open a pull request</DropdownMenuItem>}
           </DropdownMenuGroup></DropdownMenuContent>
         </DropdownMenu>
@@ -195,10 +200,6 @@ export default function SourceControl({
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex h-11 shrink-0 items-center gap-1 border-b px-3" role="tablist" aria-label="Source control view">
           <Button role="tab" aria-selected={tab === "changes"} variant={tab === "changes" ? "secondary" : "ghost"} size="sm" onClick={() => setTab("changes")}>Changes <span className="text-xs tabular-nums text-muted-foreground">{git.files.length}</span></Button>
-          <Button size="sm" variant="ghost" disabled={!findings.data?.findings.length} title={findings.error ?? "Open saved review findings, including files without changes"} onClick={() => {
-            const first = findings.data?.findings.find(f => f.state === "open") ?? findings.data?.findings[0];
-            if (first) { setReview({ projectDir, path: first.file, staged: first.mode === "staged" }); onReview?.(); }
-          }}>Findings{findings.data ? ` ${findings.data.findings.filter(f => f.state === "open").length}` : ""}</Button>
           <Button role="tab" aria-selected={tab === "history"} variant={tab === "history" ? "secondary" : "ghost"} size="sm" onClick={() => setTab("history")}>History</Button>
           {tab === "changes" && <span className="ml-auto text-xs tabular-nums"><span className="text-success">+{git.insertions}</span> <span className="text-destructive">−{git.deletions}</span></span>}
         </div>

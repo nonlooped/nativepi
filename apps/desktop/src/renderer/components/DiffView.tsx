@@ -1,4 +1,5 @@
-import { ReviewAnchors } from "./ReviewAnchors.ts";
+import { ChatCircleTextIcon } from "@phosphor-icons/react/ChatCircleText";
+import { ReviewAnchors, ReviewControls } from "./ReviewAnchors.ts";
 import { reviewLines } from "../../shared/review.ts";
 import type { ReviewRange } from "../../shared/review.ts";
 import { PatchDiff, Virtualizer } from "@pierre/diffs/react";
@@ -11,7 +12,14 @@ import { cn } from "@/lib/utils.ts";
 /** Read-only diff surface; the host owns Git semantics. */
 export default function DiffView({ patch, className, embedded, controls, onSelect }: { patch: string; className?: string; embedded?: boolean; controls?: { wrap: boolean }; onSelect?: (range: ReviewRange) => void }) {
   const findings = useContext(ReviewAnchors);
-  const annotations = findings.filter(f => reviewLines(patch, f.range.side).has(f.range.start)).map(f => ({ side: f.range.side === "old" ? "deletions" as const : "additions" as const, lineNumber: f.range.start, metadata: f }));
+  const review = useContext(ReviewControls);
+  const groups = new Map<string, typeof findings>();
+  for (const finding of findings) {
+    if (!reviewLines(patch, finding.range.side).has(finding.range.start)) continue;
+    const key = `${finding.range.side}:${finding.range.start}`;
+    groups.set(key, [...(groups.get(key) ?? []), finding]);
+  }
+  const annotations = [...groups.values()].map(group => ({ side: group[0]!.range.side === "old" ? "deletions" as const : "additions" as const, lineNumber: group[0]!.range.start, metadata: group }));
   const container = useRef<HTMLDivElement>(null);
   const [wide, setWide] = useState(false);
   const [wrap, setWrap] = useState(false);
@@ -62,13 +70,14 @@ export default function DiffView({ patch, className, embedded, controls, onSelec
           {failed && <p role="status" className="px-3 py-2 text-muted-foreground">Syntax highlighting is unavailable. Showing plain text.</p>}
           <pre className={cn("overflow-auto p-3 font-mono leading-5", lineWrap && "whitespace-pre-wrap break-all")}>{patch}</pre>
         </>
-        : <PatchDiff patch={patch} lineAnnotations={annotations} renderAnnotation={({ metadata: f }) => <div className="border-y border-border bg-muted px-3 py-2 font-sans text-xs leading-5"><span className="font-medium">Review · {f.range.side} {f.range.start}–{f.range.end}</span><p className="whitespace-pre-wrap">{f.body}</p></div>} options={{ ...options, diffStyle: wide ? preferred : "unified", diffIndicators: "classic" }} />}
+        : <PatchDiff patch={patch} lineAnnotations={annotations} renderAnnotation={({ metadata: group }) => <div className="min-w-0 bg-background px-2 py-1 font-sans"><Button variant="ghost" size="xs" className="max-w-full justify-start gap-2" onClick={() => review?.inspect(group[0]!.id)} title="Inspect feedback"><ChatCircleTextIcon /><span className="shrink-0">{group.length === 1 ? "Feedback" : `${group.length} findings`}</span><span className="truncate font-normal">{group[0]!.body}</span></Button></div>} options={{ ...options, diffStyle: wide ? preferred : "unified", diffIndicators: "classic" }} />}
     </Virtualizer>
   </div>;
 }
 
 /** Shared file-level controls for a review containing several hunk surfaces. */
 export function DiffToolbar({ wide, wrap, onWrap }: { wide?: boolean; wrap: boolean; onWrap: () => void }) {
+  const review = useContext(ReviewControls);
   const preferred = useAppStore(s => s.preferences.diffStyle);
   const setPreference = useAppStore(s => s.setPreference);
   const toolbar = useRef<HTMLDivElement>(null);
@@ -80,7 +89,7 @@ export function DiffToolbar({ wide, wrap, onWrap }: { wide?: boolean; wrap: bool
     return () => resize.disconnect();
   }, []);
   return <div ref={toolbar} className="flex shrink-0 flex-wrap items-center gap-1 border-b bg-background px-2 py-1">
-    <span className="min-w-0 flex-1 text-xs text-muted-foreground">Diff</span>
+    <div className="flex min-w-0 flex-1 items-center gap-1">{review?.toolbar ?? <span className="text-xs text-muted-foreground">Diff</span>}</div>
     {(wide ?? measuredWide) && <Button variant="ghost" size="xs" onClick={() => setPreference("diffStyle", preferred === "split" ? "unified" : "split")}>{preferred === "split" ? "Unified view" : "Split view"}</Button>}
     <Button variant="ghost" size="xs" aria-pressed={wrap} onClick={onWrap}>Wrap lines</Button>
   </div>;
