@@ -9,6 +9,7 @@ test("usage controls retain the selected date range without extension requests",
   useAppStore.setState({ projects: [{ path: "/p", name: "Project" }], activeProjectPath: "/p", activeSessionFile: null });
   let subscriptionReads = 0;
   stubInvoke(async channel => {
+    if (channel === "subscriptionCapacity") return { providers: [] };
     if (channel === "getUsageDashboard") return { dashboard: {
       totalCost: 0, sessions: 0, daily: [], projects: [], models: [],
       tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },

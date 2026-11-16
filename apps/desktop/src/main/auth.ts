@@ -15,7 +15,7 @@ import { shapeProviders } from "../shared/providerShape.ts";
 */
 export const PI_VERSION_STRING: string = PI_VERSION;
 let runtimePromise: Promise<ModelRuntime> | undefined;
-function getRuntime(): Promise<ModelRuntime> {
+export function getRuntime(): Promise<ModelRuntime> {
   if (!runtimePromise)
     runtimePromise = ModelRuntime.create({ allowModelNetwork: true });
   return runtimePromise;

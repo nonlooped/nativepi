@@ -1,6 +1,8 @@
 import { automationToolsSchema } from "../shared/automations.ts";
 import { AutomationService } from "./automations/service.ts";
 import { githubEvents } from "./automations/github.ts";
+import { ReviewStore } from "./review.ts";
+import { runCodeReviewer } from "./codeReviewer.ts";
 import { Dictation, dictationMicrophone } from "./dictation.ts";
 import { computerStatus } from "./computerUse.ts";
 import { reduceTurnAttention, turnAttention, type TurnAttention } from "../shared/threadAttention.ts";
@@ -29,10 +31,12 @@ import { stopPackageOperations } from "./pi/services.ts";
 import { ephemeralProjects, stopEphemeral } from "./pi/ephemeral.ts";
 import { PiProcess } from "./pi/client.ts";
 import type { PiMessage } from "./pi/protocol.ts";
-import { deleteSession, listMentionThreads, listSessions, readSession, searchSessions, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
+import { readOrchestrationRecords, deleteSession, listMentionThreads, listSessions, readSession, searchSessions, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
 import { drainState, loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
-import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitCommitDetails, gitCommitDiff, gitDiff, gitHunks, gitLog, gitPrTarget, gitRevertFile, gitPush, gitPushAndCreatePr, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
+import { createCapacityReader } from "./subscriptionCapacity.ts";
+import { agentSetup, createAgentResource, configureMcp } from "./agentSetup.ts";
+import { gitBranchStatus, gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitCommitDetails, gitCommitDiff, gitDiff, gitHunks, gitLog, gitPrTarget, gitRevertFile, gitPush, gitPushAndCreatePr, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
 import { generateCommitMessage } from "./commitMessage.ts";
 import { getRepoHostContext } from "./repoHost.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
@@ -82,6 +86,7 @@ type RuntimeBinding = { file: string | undefined; generation: number; ready: Pro
 const runtimeBindings = new WeakMap<PiProcess, RuntimeBinding>();
 const conflicts = new Set<string>();
 const outstanding = new Map<string, number>();
+const readCapacity = createCapacityReader(auth.getRuntime);
 const authRoutes = new Map<string, {
   pi: PiProcess;
   id: string;
@@ -623,7 +628,7 @@ async function guardedOrchestration(ref: ThreadReference, action: "catalog" | "a
   } finally { await finish(); }
 }
 const orchestration = new OrchestrationCoordinator({
-  read: ref => readSession(ref.file),
+  read: ref => readOrchestrationRecords(ref.file),
   append: async (ref, record, signal) => {
     const stopping = record.kind === "stop" || (record.kind === "assignment" && record.assignment.state === "stopped");
     // Cold sessions recover as Interrupted; recording Stop must never boot Pi.
@@ -1251,6 +1256,7 @@ const handlers: HandlerMap = {
   dictationCancel: () => { throw new Error("Dictation needs a client"); },
   dictationTranscribe: () => { throw new Error("Dictation needs a client"); },
   dictationMicrophone: () => dictationMicrophone(),
+  browserShow: async ({projectDir,sessionFile}) => { const pi = await ensurePi(projectDir,sessionFile ?? undefined); await pi.showBrowser(); return {ok:true}; },
   computerStatus: () => computerStatus(),
   computerPermissions: () => computerStatus(true),
   abort: async ({ projectDir, sessionFile }) => {
@@ -1813,10 +1819,26 @@ const handlers: HandlerMap = {
     closeProjectTerminals(projectDir);
     return { ok: true };
   },
-  gitStatus: async ({ projectDir }) => ({ status: await gitStatus(projectDir) }),
+  gitStatus: async ({ projectDir, summaryOnly }) => ({ status: await (summaryOnly ? gitBranchStatus(projectDir) : gitStatus(projectDir)) }),
   gitLog: async ({ projectDir, query, limit }) => ({ commits: await gitLog(projectDir, query, limit) }),
   gitCommitDetails: ({ projectDir, hash }) => gitCommitDetails(projectDir, hash),
   gitCommitDiff: async ({ projectDir, hash, file }) => ({ diff: await gitCommitDiff(projectDir, hash, file) }),
+  reviewList: async ({ projectDir }) => reviews.snapshot(projectDir, undefined, "working"),
+  reviewSnapshot: async ({ projectDir, file, mode }) => reviews.snapshot(projectDir, file, mode),
+  reviewUpdate: async (p) => reviews.update(p.projectDir, p.file, p.mode, p, { notes: p.note ? [p.note] : undefined, id: p.id, state: p.state }),
+  reviewRun: async (p) => {
+    if (!await knownProject(p.projectDir)) throw new Error("That project is not available.");
+    const trust = await auth.checkTrust(p.projectDir);
+    if (trust.required && !trust.trusted) throw new Error("Trust this project before running a reviewer.");
+    if (shuttingDown || restartingAll || restartingProjects.has(p.projectDir)) throw new Error("Pi is stopping. Try after restart.");
+    const before = await reviews.snapshot(p.projectDir, p.file, p.mode);
+    if (before.scope !== p.scope || before.revision !== p.revision || before.fingerprint !== p.fingerprint) throw new Error("Code or review changed. Reload first.");
+    const patch = await reviews.patch(p.projectDir, p.file, p.mode);
+    if (!patch.trim()) throw new Error("Choose a textual diff to review.");
+    const result = await runCodeReviewer(p.projectDir, patch, p.model);
+    const snapshot = await reviews.update(p.projectDir, p.file, p.mode, p, { ...result, model: p.model });
+    return { snapshot, sessionFile: result.reviewerSession, count: result.notes.length };
+  },
   gitDiff: async ({ projectDir, file, untracked, staged }) => ({ diff: await gitDiff(projectDir, file, untracked, staged) }),
   gitHunks: async ({ projectDir, file, untracked }) => ({ hunks: await gitHunks(projectDir, file, untracked) }),
   gitStageHunk: async (params) => {
@@ -1942,6 +1964,20 @@ const handlers: HandlerMap = {
       // than reaching the menu as a shape it cannot render.
       return { commands: [] };
     }
+  },
+  configureMcp: async (params) => {
+    try {
+      const result = await configureMcp(params);
+      return typeof result === "string" ? { ok: true, output: result } : { ok: true, output: "MCP check complete.", report: result };
+    } catch (error) {
+      return { ok: false, output: errorMessage(error) };
+    }
+  },
+  subscriptionCapacity: async () => ({ providers: await readCapacity() }),
+  agentSetup: async ({ projectDir }) => agentSetup(projectDir),
+  createAgentResource: async (params) => {
+    try { await createAgentResource(params); return { ok: true }; }
+    catch (error) { return { ok: false, error: errorMessage(error) }; }
   },
   listSkills: async ({ projectDir }) => {
     try {
@@ -2254,6 +2290,7 @@ export class HostClient extends ClientLeases {
       void reconcileSessionWatch(project, file).catch(error => console.error("Could not watch session", error));
   }
 }
+const reviews = new ReviewStore(join(app.getPath("userData"), "reviews"));
 const clients = new Set<HostClient>();
 const dictation = new Dictation(status => pushDesktop("dictationStatus", status));
 let desktopClient: HostClient | undefined;

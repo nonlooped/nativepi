@@ -1,3 +1,4 @@
+import { registerBrowser } from "./browser.ts";
 import { registerMentions } from "./mentions.ts";
 import { registerOrchestration } from "./orchestration.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -14,7 +15,7 @@ export default function appTools(pi: ExtensionAPI): void {
   webAccess(pi);
   registerArtifacts(pi);
   if (process.argv.includes("--nativepi-chat")) chatMode(pi);
-  else { registerOrchestration(pi); registerComputerUse(pi); }
+  else { registerOrchestration(pi); registerComputerUse(pi); registerBrowser(pi); }
   pi.registerCommand("speed", {
     description: "Choose this chat's provider service tier",
     handler: async (args, context) => {

@@ -1,3 +1,4 @@
+import { createExtensionModuleCache } from "./extensionModules.ts";
 import * as React from "react";
 import * as JsxRuntime from "react/jsx-runtime";
 import * as JsxDevRuntime from "react/jsx-dev-runtime";
@@ -159,6 +160,11 @@ export function validateRenderer(value: unknown): NativePiRenderer {
   return parsed.data as NativePiRenderer;
 }
 
+const importRenderer = createExtensionModuleCache(async (_identity: string, code: string): Promise<NativePiRenderer> => {
+  const url = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+  try { return validateRenderer((await import(/* @vite-ignore */ url)).default); }
+  finally { URL.revokeObjectURL(url); }
+});
 export async function loadGraphicalExtensions(projectDir: string): Promise<LoadResult> {
   ensureHostGlobals();
   const { extensions } = await rpc.request.loadGraphicalExtensions({ projectDir });
@@ -170,14 +176,10 @@ export async function loadGraphicalExtensions(projectDir: string): Promise<LoadR
       errors.push({ name: ext.name, error: ext.error ?? "Failed to compile extension renderer" });
       continue;
     }
-    const url = URL.createObjectURL(new Blob([ext.code], { type: "text/javascript" }));
     try {
-      const mod = (await import(/* @vite-ignore */ url)) as { default?: unknown };
-      loaded.push({ id: ext.id, name: ext.name, renderer: validateRenderer(mod.default) });
+      loaded.push({ id: ext.id, name: ext.name, renderer: await importRenderer(ext.id, ext.code) });
     } catch (err) {
       errors.push({ name: ext.name, error: err instanceof Error ? err.message : String(err) });
-    } finally {
-      URL.revokeObjectURL(url);
     }
   }
 

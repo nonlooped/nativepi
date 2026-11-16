@@ -1,5 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import { act } from "react";
+import { act, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { stubInvoke } from "../lib/store/testBridge.ts";
 if (typeof document !== "undefined") {
@@ -36,4 +36,21 @@ domTest("failed reads can retry and oversized diffs retain a route back", async 
   expect(container.textContent).toContain("too large to preview");
   await act(async () => [...container.querySelectorAll("button")].find(button => button.textContent === "Changes")!.click());
   expect(returned).toBe(true);
+});
+
+
+domTest("feedback remains mounted across unavailable diffs and refreshes", async () => {
+  let unavailable = false;
+  stubInvoke(async () => unavailable ? { kind: "large", bytes: 1048577 } : { kind: "diff", patch: "code" });
+  function Feedback({ fallback }: { fallback?: ReactNode }) {
+    const [draft, setDraft] = useState("");
+    return <><button onClick={() => setDraft("retained feedback")}>Write feedback</button><p>{draft}</p>{fallback}</>;
+  }
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  await act(async () => root!.render(<DiffPreview projectDir="/project" path="gone" mode="working" onBack={() => {}} renderPatch={(_, fallback) => <Feedback fallback={fallback} />} />));
+  await act(async () => [...container.querySelectorAll("button")].find(button => button.textContent === "Write feedback")!.click());
+  unavailable = true;
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Reload diff"]')!.click());
+  expect(container.textContent).toContain("too large to preview");
+  expect(container.textContent).toContain("retained feedback");
 });
