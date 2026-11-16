@@ -104,6 +104,7 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
   const horizontalGroup = useRef<HTMLDivElement>(null);
   const verticalGroup = useRef<HTMLDivElement>(null);
   const browserPanel = useBrowserPanel(`${activeProjectPath}:${activeSessionFile}`);
+  const browserPanelRef = useCollapsiblePanel(!!browserPanel);
   const contextPaneWidth = useAppStore((s) => s.contextPaneWidth);
   const terminalHeight = useAppStore((s) => s.terminalHeight);
   const contextPaneOpen = useAppStore((s) => s.contextPaneOpen);
@@ -316,7 +317,10 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
             </ResizablePanel>
           </>
         ) : null}
-            {browserPanel ? <><ResizableHandle withHandle /><ResizablePanel id="browser" defaultSize="45%" minSize="320px"><BrowserPanel id={browserPanel} hidden={settingsOpen || !!appPanel} /></ResizablePanel></> : null}
+        <ResizableHandle withHandle disabled={!browserPanel} className={!browserPanel ? "w-0 opacity-0 after:hidden" : undefined} />
+        <ResizablePanel id="browser" panelRef={browserPanelRef} defaultSize="45%" minSize="320px" collapsible collapsedSize="0%" inert={!browserPanel || undefined}>
+          {browserPanel ? <BrowserPanel id={browserPanel} hidden={settingsOpen || !!appPanel} /> : null}
+        </ResizablePanel>
       </ResizablePanelGroup>
       </div>
 

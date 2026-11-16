@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Open Usage, Automations, and device sharing directly from icon buttons beside Settings in the sidebar. Simplify usage summaries and keep input/cache breakdowns limited to recorded all-time totals.
 
 ### Fixed
+- Keep browser toolbar buttons clickable on macOS and reserve the actual Windows/Linux window-control row above the browser. Collapse the browser panel in place so closing it restores the conversation header and layout.
 - Coordinate update confirmation, draft saves and background shutdown; recover unsent drafts and unsaved file edits after a renderer failure or update restart without overwriting changed files.
 - Explain that sharing and automations continue after the window closes, and show shared-link control permissions before activation.
 - Keep managed worktrees available to code review, protect active review folders from preparation/removal, and cancel and drain reviews when Pi or its host restarts.

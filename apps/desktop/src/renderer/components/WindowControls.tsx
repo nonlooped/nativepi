@@ -31,7 +31,7 @@ function DesktopWindowControls() {
   return (
     // z-[60] deliberately clears the z-50 dialog/sheet/menu layer: in a
     // frameless window, a modal must never cover the close button.
-    <div className={cn("absolute top-0 right-0 z-[60] flex h-12 items-stretch bg-transparent", NO_DRAG_REGION)}>
+    <div data-slot="window-controls" className={cn("absolute top-0 right-0 z-[60] flex h-12 items-stretch bg-transparent", NO_DRAG_REGION)}>
       <ControlButton label="Minimize" onClick={() => void rpc.request.windowMinimize({})}>
         <MinimizeGlyph />
       </ControlButton>

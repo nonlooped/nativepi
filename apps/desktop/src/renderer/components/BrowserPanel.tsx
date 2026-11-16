@@ -1,5 +1,4 @@
-import { osName } from "../lib/platform.ts";
-import { DRAG_REGION } from "../lib/utils.ts";
+import { NO_DRAG_REGION } from "../lib/utils.ts";
 import { useEffect, useRef, useState } from "react";
 export function useBrowserPanel(context: string) {
   const [id, setId] = useState<string | null>(null);
@@ -16,9 +15,10 @@ export function BrowserPanel({ id, hidden }: { id: string; hidden: boolean }) {
     let previous = "";
     const update = () => {
       const rect = node.getBoundingClientRect();
-      // Native views sit above DOM window controls regardless of CSS z-index.
-      // Leave the full h-12 title-bar row uncovered on frameless platforms.
-      const titleBar = osName() === "macOS" ? 0 : 3 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+      // Native views cover DOM controls regardless of z-index. Reserve the
+      // actual window controls' row, including interface scaling.
+      const controls = document.querySelector('[data-slot="window-controls"]')?.getBoundingClientRect();
+      const titleBar = controls ? Math.max(0, controls.bottom - rect.top) : 0;
       const bounds = hidden || !!document.querySelector('[role="dialog"], [role="alertdialog"], [data-slot="dropdown-menu-content"], [data-slot="popover-content"]') || rect.width < 1 || rect.height <= titleBar ? undefined : { x: Math.round(rect.x), y: Math.round(rect.y + titleBar), width: Math.round(rect.width), height: Math.round(rect.height - titleBar) };
       const signature = JSON.stringify(bounds) ?? "hidden";
       if (signature !== previous) { previous = signature; void bridge.layout(id, bounds); }
@@ -30,5 +30,7 @@ export function BrowserPanel({ id, hidden }: { id: string; hidden: boolean }) {
     window.addEventListener("resize", update); update();
     return () => { observer.disconnect(); overlays.disconnect(); window.removeEventListener("resize", update); void bridge.layout(id); };
   }, [id, hidden]);
-  return <div ref={ref} className="h-full w-full bg-background" aria-label="Shared browser"><div className={`h-12 bg-sidebar ${DRAG_REGION}`} /></div>;
+  // A draggable placeholder underneath a native view steals pointer events
+  // from that view's toolbar, even when its own buttons use app-no-drag.
+  return <div ref={ref} className={`h-full w-full bg-background ${NO_DRAG_REGION}`} aria-label="Shared browser" />;
 }
