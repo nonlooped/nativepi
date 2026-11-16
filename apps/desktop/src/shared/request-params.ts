@@ -62,7 +62,7 @@ export const requestParams = {
   terminalEnsure: project.extend({ shellId: id.optional() }), terminalCreate: project.extend({ shellId: id.optional(), name: z.string().max(64).optional() }), terminalListShells: empty,
   terminalRename: terminal.extend({ name: z.string().min(1).max(64) }), terminalRestart: terminal, terminalAttach: attach, terminalDetach: attach,
   terminalWrite: terminal.extend({ data: z.string().max(64 * 1024) }), terminalResize: terminal.extend({ cols: z.number().int().min(2).max(1000), rows: z.number().int().min(1).max(1000) }), terminalClear: terminal, terminalClose: terminal, terminalCloseProject: project,
-  gitStatus: project, gitLog: project.extend({ query: z.string().max(500).optional(), limit: z.number().int().min(1).max(1000).optional() }),
+  gitStatus: project.extend({ summaryOnly: z.boolean().optional() }), gitLog: project.extend({ query: z.string().max(500).optional(), limit: z.number().int().min(1).max(1000).optional() }),
   gitCommitDetails: project.extend({ hash: z.string().regex(/^[a-f0-9]{40,64}$/) }),
   gitCommitDiff: file.extend({ hash: z.string().regex(/^[a-f0-9]{40,64}$/) }), gitDiff: hunks.extend({ staged: z.boolean().optional() }), gitHunks: hunks, gitStageHunk: hunks.extend({ patch: text }), gitRevertFile: file, gitStageFile: file, gitUnstageFile: file.extend({ originalPath: path.optional() }), gitStageAll: project, gitUnstageAll: project,
   gitGenerateCommitMessage: target.extend({ model: id.optional() }), gitCommit: project.extend({ message: z.string().trim().min(1).max(10000) }), gitPush: project, gitSync: project, gitPrTarget: project,

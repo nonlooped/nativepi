@@ -13,7 +13,7 @@ import { SlidersHorizontalIcon } from "@phosphor-icons/react/SlidersHorizontal";
 import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
 import { InfoIcon } from "@phosphor-icons/react/Info";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { XIcon } from "@phosphor-icons/react/X";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { StopIcon } from "@phosphor-icons/react/Stop";
@@ -30,7 +30,7 @@ import ChatExtensionSettings from "./settings/ChatExtensionSettings.tsx";
 import ProviderSettings from "./settings/ProviderSettings.tsx";
 import GeneralSettings from "./settings/GeneralSettings.tsx";
 import AboutSettings from "./settings/AboutSettings.tsx";
-import UsageSettings from "./settings/UsageSettings.tsx";
+const UsageSettings = lazy(() => import("./settings/UsageSettings.tsx"));
 import TerminalSettings from "./settings/TerminalSettings.tsx";
 import KeybindSettings from "./settings/KeybindSettings.tsx";
 
@@ -210,7 +210,7 @@ function CategoryNav({
 function CategoryPanel({ category }: { category: Category }) {
   switch (category) {
     case "Usage":
-      return <UsageSettings />;
+      return <Suspense fallback={null}><UsageSettings /></Suspense>;
     case "Access":
       return <AccessSettings />;
     case "Appearance":

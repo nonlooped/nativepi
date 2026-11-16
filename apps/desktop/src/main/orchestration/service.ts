@@ -30,7 +30,10 @@ export class OrchestrationService {
     const refs = await this.adapter.discover();
     // One unreadable/deleted historical session must not disable every chat's
     // role hydration. Isolate it, and publish one converged discovery snapshot.
-    const hydrated = await Promise.allSettled(refs.map(ref => this.coordinator.hydrate(ref, false)));
+    const hydrated: PromiseSettledResult<void>[] = [];
+    for (let index = 0; index < refs.length; index += 8) {
+      hydrated.push(...await Promise.allSettled(refs.slice(index, index + 8).map(ref => this.coordinator.hydrate(ref, false))));
+    }
     const available = refs.filter((_, index) => hydrated[index]?.status === "fulfilled");
     this.coordinator.reconcileDiscovery(new Set(available.map(ref => ref.id)));
     return available;

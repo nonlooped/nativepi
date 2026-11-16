@@ -1066,6 +1066,7 @@ export type HostRequestContracts = {
   gitStatus: {
     params: {
       projectDir: string;
+      summaryOnly?: boolean;
     };
     response: {
       status: GitStatus;
