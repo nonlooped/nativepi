@@ -30,9 +30,6 @@
     "@earendil-works/pi-ai": "1.5.2",
     "@earendil-works/pi-coding-agent": "1.5.2",
     "@earendil-works/pi-tui": "1.5.2",
-    "@shadcn/react": "^0.3.1",
-    "@xterm/addon-fit": "^0.11.0",
-    "@xterm/xterm": "^6.0.0",
     "agent-desktop": "1.3.1",
     "apca-w3": "^0.1.9",
     "electron-updater": "^6.8.11",
@@ -41,7 +38,6 @@
     "node-pty": "^1.1.0",
     "npm": "^12.2.2",
     "parse5": "^8.1.1",
-    "recharts": "3.10.1",
     "shell-env": "^4.0.3",
     "transcribe-cpp": "0.4.2",
     "typebox": "1.4.7",
@@ -56,6 +52,7 @@
     "@phosphor-icons/react": "^2.1.10",
     "@pierre/diffs": "^1.6.4",
     "@rolldown/plugin-babel": "^0.3.1",
+    "@shadcn/react": "^0.3.1",
     "@tailwindcss/vite": "^4.3.5",
     "@types/babel__core": "^7.20.5",
     "@types/bun": "^1.4.4",
@@ -65,6 +62,8 @@
     "@types/react-dom": "^19.3.0",
     "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^6.3.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "babel-plugin-react-compiler": "^1.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -82,6 +81,7 @@
     "react-dom": "^19.3.1",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.24.0",
+    "recharts": "3.10.1",
     "rehype-highlight": "^7.0.2",
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
@@ -107,7 +107,8 @@
     },
     "files": [
       "out/**/*",
-      "resources/icon.png"
+      "resources/icon.png",
+      "!**/*.map"
     ],
     "asarUnpack": [
       "**/node_modules/@earendil-works/**/*",
@@ -162,6 +163,7 @@
       "target": [
         "AppImage"
       ]
-    }
+    },
+    "afterPack": "./scripts/prune-packaged-binaries.cjs"
   }
 }

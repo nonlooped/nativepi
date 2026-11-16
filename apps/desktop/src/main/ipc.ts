@@ -28,12 +28,12 @@ import { stopPackageOperations } from "./pi/services.ts";
 import { ephemeralProjects, stopEphemeral } from "./pi/ephemeral.ts";
 import { PiProcess } from "./pi/client.ts";
 import type { PiMessage } from "./pi/protocol.ts";
-import { deleteSession, listMentionThreads, listSessions, readSession, searchSessions, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
+import { readOrchestrationRecords, deleteSession, listMentionThreads, listSessions, readSession, searchSessions, usageDashboard, watchProjectSessions, watchSessionFile } from "./sessions.ts";
 import { drainState, loadState, saveState } from "./state.ts";
 import * as auth from "./auth.ts";
 import { createCapacityReader } from "./subscriptionCapacity.ts";
 import { agentSetup, createAgentResource, configureMcp } from "./agentSetup.ts";
-import { gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitCommitDetails, gitCommitDiff, gitDiff, gitHunks, gitLog, gitPrTarget, gitRevertFile, gitPush, gitPushAndCreatePr, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
+import { gitBranchStatus, gitAddWorktree, gitBranches, gitCheckout, gitCommit, gitCommitDetails, gitCommitDiff, gitDiff, gitHunks, gitLog, gitPrTarget, gitRevertFile, gitPush, gitPushAndCreatePr, gitStageAll, gitStagedDiff, gitStageFile, gitStageHunk, gitStatus, gitSync, gitUnstageAll, gitUnstageFile } from "./git.ts";
 import { generateCommitMessage } from "./commitMessage.ts";
 import { getRepoHostContext } from "./repoHost.ts";
 import { installPackage, listPackages, removePackage, updatePackage } from "./packages.ts";
@@ -623,7 +623,7 @@ async function guardedOrchestration(ref: ThreadReference, action: "catalog" | "a
   } finally { await finish(); }
 }
 const orchestration = new OrchestrationCoordinator({
-  read: ref => readSession(ref.file),
+  read: ref => readOrchestrationRecords(ref.file),
   append: async (ref, record, signal) => {
     const stopping = record.kind === "stop" || (record.kind === "assignment" && record.assignment.state === "stopped");
     // Cold sessions recover as Interrupted; recording Stop must never boot Pi.
@@ -1201,6 +1201,7 @@ const handlers: HandlerMap = {
   dictationCancel: () => { throw new Error("Dictation needs a client"); },
   dictationTranscribe: () => { throw new Error("Dictation needs a client"); },
   dictationMicrophone: () => dictationMicrophone(),
+  browserShow: async ({projectDir,sessionFile}) => { const pi = await ensurePi(projectDir,sessionFile ?? undefined); await pi.showBrowser(); return {ok:true}; },
   computerStatus: () => computerStatus(),
   computerPermissions: () => computerStatus(true),
   abort: async ({ projectDir, sessionFile }) => {
@@ -1763,7 +1764,7 @@ const handlers: HandlerMap = {
     closeProjectTerminals(projectDir);
     return { ok: true };
   },
-  gitStatus: async ({ projectDir }) => ({ status: await gitStatus(projectDir) }),
+  gitStatus: async ({ projectDir, summaryOnly }) => ({ status: await (summaryOnly ? gitBranchStatus(projectDir) : gitStatus(projectDir)) }),
   gitLog: async ({ projectDir, query, limit }) => ({ commits: await gitLog(projectDir, query, limit) }),
   gitCommitDetails: ({ projectDir, hash }) => gitCommitDetails(projectDir, hash),
   gitCommitDiff: async ({ projectDir, hash, file }) => ({ diff: await gitCommitDiff(projectDir, hash, file) }),
