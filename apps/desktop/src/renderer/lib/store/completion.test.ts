@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { createStore } from "zustand/vanilla";
 import "./testBridge.ts";
-import { createAppState } from "../store.ts";
+import { focusPaneStore, primaryStore, type PaneStore, createAppState } from "../store.ts";
 import { subscribeTurnCompletion } from "../completion.ts";
 import { emptyConversation } from "./conversation.ts";
 import type { AppState } from "./types.ts";
@@ -19,7 +19,7 @@ class FakeNotification {
 }
 const original = globalThis.Notification;
 const cleanups: (() => void)[] = [];
-afterEach(() => { cleanups.splice(0).forEach(fn => fn()); notices.length = 0; globalThis.Notification = original; });
+afterEach(() => { focusPaneStore(primaryStore); cleanups.splice(0).forEach(fn => fn()); notices.length = 0; globalThis.Notification = original; });
 function fixture() {
   globalThis.Notification = FakeNotification as unknown as typeof Notification;
   FakeNotification.permission = "granted";
@@ -30,6 +30,7 @@ function fixture() {
   } });
   const selections: unknown[] = [];
   store.setState({ selectChat: async (...args) => { selections.push(args); } });
+  focusPaneStore(store as PaneStore);
   cleanups.push(subscribeTurnCompletion(store));
   const finish = (extra = {}) => store.setState(state => ({ conversations: { chat: { ...state.conversations.chat!, running: false, ...extra } } }));
   return { store, finish, selections };

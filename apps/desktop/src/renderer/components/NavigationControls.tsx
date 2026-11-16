@@ -1,15 +1,13 @@
 import { CaretLeftIcon } from "@phosphor-icons/react/CaretLeft";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
 import { Button } from "@/components/ui/button.tsx";
-import { useEffect, useState } from "react";
 import { usePaneStore } from "@/lib/store.ts";
-import { createNavigationHistory } from "@/lib/navigationHistory.ts";
+import { paneNavigationHistory } from "@/lib/navigationHistory.ts";
 import { toast } from "sonner";
 
 export default function NavigationControls() {
   const store = usePaneStore();
-  const [navigation] = useState(() => createNavigationHistory(store));
-  useEffect(() => () => navigation.dispose(), [navigation]);
+  const navigation = paneNavigationHistory(store);
   const useNavigationHistory = navigation.history;
   const canGoBack = useNavigationHistory(s => !s.busy && s.index > 0);
   const canGoForward = useNavigationHistory(s => !s.busy && s.index < s.entries.length - 1);

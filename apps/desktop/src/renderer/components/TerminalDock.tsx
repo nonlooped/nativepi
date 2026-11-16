@@ -1,3 +1,5 @@
+import { absoluteProjectPath } from "../lib/paths.ts";
+import { runtime } from "../lib/store/internals.ts";
 import { openWorkspaceFile } from "../lib/workspaceEditor.ts";
 import { createKeybindingsHandler } from "tinykeys";
 import { bindings, withHint } from "../lib/shortcuts.ts";
@@ -435,7 +437,7 @@ function TerminalSurface({
   // Likewise for the editor a file link opens in: a preference the link handler
   // reads when it fires, not one the terminal has to be rebuilt around.
   const openFileLink = useEffectEvent((file: string, line?: number, column?: number) => {
-    void openWorkspaceFile(cwdRef.current, file, line, column).catch(error => toast.error(String(error)));
+    void openWorkspaceFile(projectDir, absoluteProjectPath(cwdRef.current, file), line, column, runtime(useAppStore.getState).paneId).catch(error => toast.error(String(error)));
   });
 
   useEffect(() => {

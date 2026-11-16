@@ -1,5 +1,6 @@
 import { create, useStore, type UseBoundStore, type StoreApi } from "zustand";
 import { createContext, useContext } from "react";
+import { releaseNavigationHistory } from "./navigationHistory.ts";
 import { rpc } from "./rpc.ts";
 import { createAuthSlice } from "./store/auth.ts";
 import { createChatSlice } from "./store/chat.ts";
@@ -43,6 +44,7 @@ export function createPaneStore() {
   return store;
 }
 export function releasePaneStore(store: PaneStore) {
+  releaseNavigationHistory(store);
   const owner = runtime(store.getState);
   void rpc.request.closeWorkspacePane({ paneId: owner.paneId }).catch(() => {});
   void flushPersist(store.getState).catch(() => {});
@@ -60,11 +62,12 @@ export function releasePaneStore(store: PaneStore) {
 export const useAppStore = Object.assign(function useAppStore<T>(selector: (state: AppState) => T): T {
   return useStore(useContext(PaneStoreContext), selector);
 }, {
-  getState: () => focusedStore.getState(),
+  get getState() { return focusedStore.getState; },
   setState: ((...args: Parameters<PaneStore["setState"]>) => focusedStore.setState(...args)) as PaneStore["setState"],
   subscribe: primaryStore.subscribe,
   getInitialState: primaryStore.getInitialState,
 });
+Object.defineProperty(useAppStore, "getState", { get: () => focusedStore.getState });
 export function eachPaneStore() { return [...paneStores]; }
 
 
