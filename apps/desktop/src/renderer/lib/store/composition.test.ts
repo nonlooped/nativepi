@@ -2,13 +2,13 @@ import { expect, test } from "bun:test";
 
 import "./testBridge.ts";
 
+const { useAppStore } = await import("../store.ts");
 const { createAuthSlice } = await import("./auth.ts");
 const { createChatSlice } = await import("./chat.ts");
 const { createModelSlice } = await import("./models.ts");
 const { createProjectContextSlice } = await import("./projectContext.ts");
 const { createUiSlice } = await import("./ui.ts");
 const { createWorkspaceSlice } = await import("./workspace.ts");
-const { useAppStore } = await import("../store.ts");
 
 const noopSet = () => {};
 const noopGet = () => useAppStore.getState();
