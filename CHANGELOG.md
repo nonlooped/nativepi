@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-11-16
+
 ### Added
 - Schedule Work once, daily or weekly in a chosen timezone, or watch GitHub PR check failures and review feedback, with explicit Pi configuration, workspace controls, a compact settings list, focused editing and contextual run history.
 - Add Codex and Anthropic OAuth subscription capacity windows, resets and refresh/stale/error states separately from local usage.
@@ -777,7 +779,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial NativePi desktop wrapper for the Pi coding agent (Electron + electron-vite + Bun + React 19.2 + Vite 8 + Tailwind CSS 4 + shadcn/ui + Zustand + Zod).
 - Project bootstrap, README and logo assets, build and release automation.
 
-[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.19.0...HEAD
+[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.20.0...HEAD
+[1.20.0]: https://github.com/nonlooped/nativepi/compare/v1.19.0...v1.20.0
 [1.19.0]: https://github.com/nonlooped/nativepi/compare/v1.18.0...v1.19.0
 [1.18.0]: https://github.com/nonlooped/nativepi/compare/v1.17.0...v1.18.0
 [1.17.0]: https://github.com/nonlooped/nativepi/compare/v1.16.0...v1.17.0
