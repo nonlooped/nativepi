@@ -1,9 +1,9 @@
+import { ReviewJobs } from "./reviewJobs.ts";
 import { readWorkspaceFile, saveWorkspaceFile } from "./workspaceFiles.ts";
 import { automationToolsSchema } from "../shared/automations.ts";
 import { AutomationService } from "./automations/service.ts";
 import { githubEvents } from "./automations/github.ts";
 import { ReviewStore } from "./review.ts";
-import { runCodeReviewer } from "./codeReviewer.ts";
 import { Dictation, dictationMicrophone } from "./dictation.ts";
 import { computerStatus } from "./computerUse.ts";
 import { reduceTurnAttention, turnAttention, type TurnAttention } from "../shared/threadAttention.ts";
@@ -1834,22 +1834,18 @@ const handlers: HandlerMap = {
   gitLog: async ({ projectDir, query, limit }) => ({ commits: await gitLog(projectDir, query, limit) }),
   gitCommitDetails: ({ projectDir, hash }) => gitCommitDetails(projectDir, hash),
   gitCommitDiff: async ({ projectDir, hash, file }) => ({ diff: await gitCommitDiff(projectDir, hash, file) }),
+  reviewJobs: ({ projectDir }) => reviewJobs.state(projectDir),
+  reviewStop: ({ projectDir }) => reviewJobs.stop(projectDir),
+  reviewStart: async ({ projectDir, options }) => {
+    if (!await knownProject(projectDir)) throw new Error("That project is not available.");
+    const trust = await auth.checkTrust(projectDir);
+    if (trust.required && !trust.trusted) throw new Error("Trust this project before running a reviewer.");
+    if (shuttingDown || restartingAll || restartingProjects.has(projectDir)) throw new Error("Pi is stopping. Try after restart.");
+    return reviewJobs.start(projectDir, options);
+  },
   reviewList: async ({ projectDir }) => reviews.snapshot(projectDir, undefined, "working"),
   reviewSnapshot: async ({ projectDir, file, mode }) => reviews.snapshot(projectDir, file, mode),
   reviewUpdate: async (p) => reviews.update(p.projectDir, p.file, p.mode, p, { notes: p.note ? [p.note] : undefined, id: p.id, state: p.state }),
-  reviewRun: async (p) => {
-    if (!await knownProject(p.projectDir)) throw new Error("That project is not available.");
-    const trust = await auth.checkTrust(p.projectDir);
-    if (trust.required && !trust.trusted) throw new Error("Trust this project before running a reviewer.");
-    if (shuttingDown || restartingAll || restartingProjects.has(p.projectDir)) throw new Error("Pi is stopping. Try after restart.");
-    const before = await reviews.snapshot(p.projectDir, p.file, p.mode);
-    if (before.scope !== p.scope || before.revision !== p.revision || before.fingerprint !== p.fingerprint) throw new Error("Code or review changed. Reload first.");
-    const patch = await reviews.patch(p.projectDir, p.file, p.mode);
-    if (!patch.trim()) throw new Error("Choose a textual diff to review.");
-    const result = await runCodeReviewer(p.projectDir, patch, p.model);
-    const snapshot = await reviews.update(p.projectDir, p.file, p.mode, p, { ...result, model: p.model });
-    return { snapshot, sessionFile: result.reviewerSession, count: result.notes.length };
-  },
   gitDiff: async ({ projectDir, file, untracked, staged }) => ({ diff: await gitDiff(projectDir, file, untracked, staged) }),
   gitHunks: async ({ projectDir, file, untracked }) => ({ hunks: await gitHunks(projectDir, file, untracked) }),
   gitStageHunk: async (params) => {
@@ -2543,3 +2539,5 @@ export async function stopAllPi(): Promise<void> {
   await transitionAccess("revoke");
   setSleepBlocked(false);
 }
+
+const reviewJobs = new ReviewJobs(join(app.getPath("userData"), "review-jobs"), reviews);

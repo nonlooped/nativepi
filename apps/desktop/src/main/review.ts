@@ -25,18 +25,35 @@ export class ReviewStore {
   async snapshot(projectDir: string, file: string | undefined, mode: "working" | "staged"): Promise<ReviewSnapshot> {
     const s = await this.scope(projectDir);
     const stored = await this.load(s.scope);
+    const patches = new Map<string, Promise<string>>();
+    const patchFor = (file: string, mode: "working" | "staged") => {
+      const key = JSON.stringify([file, mode]);
+      let value = patches.get(key);
+      if (!value) { value = this.patch(s.root, file, mode); patches.set(key, value); }
+      return value;
+    };
     const fingerprints = new Map<string, Promise<string>>();
     const fingerprint = (file: string, mode: "working" | "staged") => {
       const key = JSON.stringify([file, mode]);
       let pending = fingerprints.get(key);
-      if (!pending) { pending = this.patch(s.root, file, mode).then(patch => digest(s.head + patch)).catch(() => digest("unavailable")); fingerprints.set(key, pending); }
+      if (!pending) { pending = patchFor(file, mode).then(patch => digest(patch)).catch(() => digest("unavailable")); fingerprints.set(key, pending); }
       return pending;
     };
-    const currentPatch = file ? await this.patch(s.root, file, mode).catch(() => null) : "";
-    if (file) fingerprints.set(JSON.stringify([file, mode]), Promise.resolve(currentPatch === null ? digest("unavailable") : digest(s.head + currentPatch)));
+    const currentPatch = file ? await patchFor(file, mode).catch(() => null) : "";
+    if (file) fingerprints.set(JSON.stringify([file, mode]), Promise.resolve(currentPatch === null ? digest("unavailable") : digest(currentPatch)));
     const findings: ReviewSnapshot["findings"] = [];
     // Bound Git subprocess concurrency even for a large persisted review.
-    for (const f of stored.document.findings) findings.push({ ...f, stale: f.fingerprint !== await fingerprint(f.file, f.mode) });
+    for (const f of stored.document.findings) {
+      let anchor = { ...f, stale: true };
+      // A transfer between index and worktree does not change the reviewed code.
+      for (const candidate of [f.mode, f.mode === "working" ? "staged" as const : "working" as const]) {
+        const patch = await patchFor(f.file, candidate).catch(() => "");
+        try {
+          if (reviewContext(patch, f.range) === f.context) { anchor = { ...f, mode: candidate, stale: false }; break; }
+        } catch { /* Missing or ambiguous lines retain their original evidence. */ }
+      }
+      findings.push(anchor);
+    }
     return { runs: stored.document.runs, patch: currentPatch ?? "", scope: s.scope, revision: stored.revision, fingerprint: file ? await fingerprint(file, mode) : "", findings };
   }
   async patch(projectDir: string, file: string, mode: "working" | "staged") {
@@ -44,21 +61,21 @@ export class ReviewStore {
     if (preview.kind !== "diff") throw new Error("This diff is too large to review.");
     return preview.patch;
   }
-  async update(projectDir: string, file: string, mode: "working" | "staged", expected: Pick<ReviewSnapshot, "scope" | "revision" | "fingerprint">, change: { notes?: { range: Finding["range"]; body: string }[]; id?: string; state?: Finding["state"]; reviewerSession?: string; model?: string }) {
+  async update(projectDir: string, file: string, mode: "working" | "staged", expected: Pick<ReviewSnapshot, "scope" | "revision" | "fingerprint">, change: { notes?: { range: Finding["range"]; body: string }[]; id?: string; state?: Finding["state"]; reviewerSession?: string; model?: string; capturedPatch?: string }) {
     await mkdir(this.directory, { recursive: true });
     const lock = join(this.directory, expected.scope);
     if (updating.has(lock)) throw new Error("Another review update is in progress. Reload and retry.");
     updating.add(lock);
     try {
       const current = await this.snapshot(projectDir, file, mode);
-      if (current.scope !== expected.scope || current.revision !== expected.revision || (change.notes && current.fingerprint !== expected.fingerprint)) throw new Error("The review or code changed. Reload before saving feedback.");
+      if (current.scope !== expected.scope || (change.capturedPatch === undefined && (current.revision !== expected.revision || (change.notes && current.fingerprint !== expected.fingerprint)))) throw new Error("The review or code changed. Reload before saving feedback.");
       const stored = await this.load(current.scope);
-      if (stored.revision !== expected.revision) throw new Error("The review changed externally. Reload before saving.");
+      if (change.capturedPatch === undefined && stored.revision !== expected.revision) throw new Error("The review changed externally. Reload before saving.");
       if (change.notes) {
-        const patch = await this.patch(projectDir, file, mode);
+        const patch = change.capturedPatch ?? await this.patch(projectDir, file, mode);
         const scope = await this.scope(projectDir);
-        if (digest(scope.head + patch) !== expected.fingerprint || scope.scope !== expected.scope) throw new Error("The code changed. Reload before saving feedback.");
-        stored.document.findings.push(...change.notes.map(note => ({ ...note, context: reviewContext(patch, note.range), diffContext: reviewDiffContext(patch, note.range), id: randomUUID(), file, mode, fingerprint: expected.fingerprint, state: "open" as const, createdAt: new Date().toISOString(), reviewerSession: change.reviewerSession, model: change.model })));
+        if (digest(patch) !== expected.fingerprint || scope.scope !== expected.scope) throw new Error("The code changed. Reload before saving feedback.");
+        stored.document.findings.push(...change.notes.filter(note => !stored.document.findings.some(f => f.file === file && f.context === reviewContext(patch, note.range) && f.body === note.body && f.range.side === note.range.side)).map(note => ({ ...note, context: reviewContext(patch, note.range), diffContext: reviewDiffContext(patch, note.range), id: randomUUID(), file, mode, fingerprint: expected.fingerprint, state: "open" as const, createdAt: new Date().toISOString(), reviewerSession: change.reviewerSession, model: change.model })));
       } else {
         const finding = stored.document.findings.find(f => f.id === change.id);
         if (!finding || !change.state) throw new Error("Finding not found.");

@@ -8,12 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Add independent multi-file Pi reviews in Source Control, with saved review scopes and settings, host-owned progress and Stop, retained input evidence, explicit fix drafts and named-issue verification.
 - Reorganize Settings around everyday preferences, conversations, permissions, and advanced options, with search that reveals individual controls and hidden sections.
 - Reuse the composer model picker for chat titles, combine notification and image modes, and move theme, background, and provider catalogs into focused choosers while preserving existing selections.
 - Unify MCP, skills, prompts, and package management with explicit project scope and extension provenance, and show a shared pending-restart notice across settings.
 - Open Usage, Automations, and device sharing directly from icon buttons beside Settings in the sidebar. Simplify usage summaries and keep input/cache breakdowns limited to recorded all-time totals.
 
 ### Fixed
+- Deduplicate repeated review findings, preserve unchanged anchors across staging and unrelated commits, and merge completed reviewer results without discarding concurrent finding updates.
 - Harden shared browser action scripts by escaping script-sensitive characters in action arguments while preserving typed text.
 - Ensure desktop development installs the Electron binary and launches the GUI even when the shell has Electron's Node mode enabled.
 

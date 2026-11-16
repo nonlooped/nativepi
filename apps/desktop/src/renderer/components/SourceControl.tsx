@@ -1,3 +1,4 @@
+import ReviewWorkflow from "./ReviewWorkflow.tsx";
 import { ChatCircleTextIcon } from "@phosphor-icons/react/ChatCircleText";
 import { useRequest } from "../lib/useRequest.ts";
 import { reviewSnapshotSchema } from "../../shared/review.ts";
@@ -69,6 +70,11 @@ export default function SourceControl({
   const review = useAppStore(s => s.sourceControlReview);
   const findings = useRequest(async () => reviewSnapshotSchema.parse(await rpc.request.reviewList({ projectDir })), [projectDir, revision, review]);
 
+  useEffect(() => {
+    const reload = () => findings.reload();
+    window.addEventListener("nativepi-review-updated", reload);
+    return () => window.removeEventListener("nativepi-review-updated", reload);
+  }, [findings.reload]);
   const setReview = useAppStore(s => s.setSourceControlReview);
   const selected = review?.projectDir === projectDir && !review.hash ? `${review.staged ? "staged" : "changed"}:${review.path}` : null;
   function setSelected(key: string | null) {
@@ -205,6 +211,7 @@ export default function SourceControl({
           {tab === "changes" && <span className="ml-auto text-xs tabular-nums"><span className="text-success">+{git.insertions}</span> <span className="text-destructive">−{git.deletions}</span></span>}
         </div>
         {tab === "changes" ? <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+          <ReviewWorkflow projectDir={projectDir} />
           <section className="border-b p-3" aria-label="Create a commit">
             <div className="overflow-hidden rounded-xl border bg-background/35 focus-within:border-ring">
             <Textarea id="source-control-message" aria-label="Commit message" value={message} onChange={event => { ++messageVersion.current; setMessage(event.target.value); }} ref={commitInput} placeholder="Message" rows={2} className="min-h-14 resize-none rounded-none border-0 bg-transparent dark:bg-transparent shadow-none focus-visible:ring-0" />

@@ -1,3 +1,4 @@
+import { reviewJobOptionsSchema } from "./review.ts";
 import { automationInputSchema } from "./automations.ts";
 import { resourceChangeSchema, mcpSetupSchema } from "./agent-setup.ts";
 import { reviewNoteSchema } from "./review.ts";
@@ -73,10 +74,9 @@ export const requestParams = {
   terminalEnsure: project.extend({ shellId: id.optional() }), terminalCreate: project.extend({ shellId: id.optional(), name: z.string().max(64).optional() }), terminalListShells: empty,
   terminalRename: terminal.extend({ name: z.string().min(1).max(64) }), terminalRestart: terminal, terminalAttach: attach, terminalDetach: attach,
   terminalWrite: terminal.extend({ data: z.string().max(64 * 1024) }), terminalResize: terminal.extend({ cols: z.number().int().min(2).max(1000), rows: z.number().int().min(1).max(1000) }), terminalClear: terminal, terminalClose: terminal, terminalCloseProject: project,
-  reviewList: project,
+  reviewList: project, reviewJobs: project, reviewStart: project.extend({ options: reviewJobOptionsSchema }), reviewStop: project,
   reviewSnapshot: reviewFile,
   reviewUpdate: reviewExpected.extend({ note: reviewNoteSchema.optional(), id: id.optional(), state: z.enum(["open", "resolved", "dismissed"]).optional() }),
-  reviewRun: reviewExpected.extend({ model: id }),
   gitStatus: project.extend({ summaryOnly: z.boolean().optional() }), gitLog: project.extend({ query: z.string().max(500).optional(), limit: z.number().int().min(1).max(1000).optional() }),
   gitCommitDetails: project.extend({ hash: z.string().regex(/^[a-f0-9]{40,64}$/) }),
   gitCommitDiff: file.extend({ hash: z.string().regex(/^[a-f0-9]{40,64}$/) }), gitDiff: hunks.extend({ staged: z.boolean().optional() }), gitHunks: hunks, gitStageHunk: hunks.extend({ patch: text }), gitRevertFile: file, gitStageFile: file, gitUnstageFile: file.extend({ originalPath: path.optional() }), gitStageAll: project, gitUnstageAll: project,

@@ -1109,7 +1109,9 @@ export type HostRequestContracts = {
   reviewList: { params: { projectDir: string }; response: ReviewSnapshot };
   reviewSnapshot: { params: { projectDir: string; file: string; mode: "working" | "staged" }; response: ReviewSnapshot };
   reviewUpdate: { params: { projectDir: string; file: string; mode: "working" | "staged"; scope: string; revision: string; fingerprint: string; note?: { range: ReviewRange; body: string }; id?: string; state?: Finding["state"] }; response: ReviewSnapshot };
-  reviewRun: { params: { projectDir: string; file: string; mode: "working" | "staged"; scope: string; revision: string; fingerprint: string; model: string }; response: { snapshot: ReviewSnapshot; sessionFile: string; count: number } };
+  reviewJobs: { params: { projectDir: string }; response: { jobs: import("./review.ts").ReviewJob[]; options?: import("./review.ts").ReviewJobOptions } };
+  reviewStart: { params: { projectDir: string; options: import("./review.ts").ReviewJobOptions }; response: import("./review.ts").ReviewJob };
+  reviewStop: { params: { projectDir: string }; response: { ok: boolean } };
   gitDiff: {
     params: {
       projectDir: string;

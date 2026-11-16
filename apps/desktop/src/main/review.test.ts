@@ -49,7 +49,7 @@ test("rejects outdated saves, invalid lines and conflicting metadata writers; pr
   await writeFile(join(dir, "a.txt"), "external edit\n");
   await expect(store.update(dir, "a.txt", "working", await store.snapshot(dir, "a.txt", "working").then(s => ({ ...s, fingerprint: latest.fingerprint })), { notes: [note] })).rejects.toThrow("changed");
 });
-test("branches and worktrees isolate findings and staging invalidates the original side", async () => {
+test("branches and worktrees isolate findings while staging transfers unchanged anchors", async () => {
   const { dir, git, store } = await fixture();
   const initial = await store.snapshot(dir, "a.txt", "working");
   await store.update(dir, "a.txt", "working", initial, { notes: [note] });
@@ -60,7 +60,7 @@ test("branches and worktrees isolate findings and staging invalidates the origin
   const other = `${dir}-worktree`; roots.push(other); git("worktree", "add", "-b", "worktree", other);
   expect((await store.snapshot(other, "a.txt", "working")).findings).toEqual([]);
   git("add", "a.txt");
-  expect((await store.snapshot(dir, "a.txt", "working")).findings[0]!.stale).toBe(true);
+  expect((await store.snapshot(dir, "a.txt", "staged")).findings[0]).toMatchObject({ stale: false, mode: "staged", context: "1: changed" });
 });
 test("range context distinguishes deletion and addition sides and refuses gaps", () => {
   const patch = "@@ -1,2 +1,2 @@\n-before\n+after\n same\n@@ -20 +20 @@\n-last\n+next";
@@ -100,4 +100,36 @@ test("saved feedback can be resolved after the file is removed or becomes too la
   expect(large.patch).toBe("");
   expect(large.findings[0]!.state).toBe("resolved");
   expect((await store.update(dir, "a.txt", "working", large, { id: saved.findings[0]!.id, state: "open" })).findings[0]!.state).toBe("open");
+});
+
+
+test("identical re-review deduplicates and unrelated HEAD changes preserve anchors", async () => {
+  const { dir, git, store } = await fixture();
+  const first = await store.update(dir, "a.txt", "working", await store.snapshot(dir, "a.txt", "working"), { notes: [note] });
+  const again = await store.update(dir, "a.txt", "working", first, { notes: [note] });
+  expect(again.findings).toHaveLength(1);
+  expect(again.findings[0]!.id).toBe(first.findings[0]!.id);
+  await writeFile(join(dir, "b.txt"), "unrelated\n"); git("add", "b.txt"); git("commit", "-m", "unrelated");
+  expect((await store.snapshot(dir, "a.txt", "working")).findings[0]!.stale).toBe(false);
+});
+
+test("captured reviewer result merges concurrent metadata and preserves evidence after code changes", async () => {
+  const { dir, store } = await fixture();
+  const before = await store.snapshot(dir, "a.txt", "working");
+  await writeFile(join(dir, "b.txt"), "other file\n");
+  const manual = await store.update(dir, "b.txt", "working", await store.snapshot(dir, "b.txt", "working"), { notes: [{ ...note, body: "Manual concern" }] });
+  await store.update(dir, "b.txt", "working", manual, { id: manual.findings[0]!.id, state: "resolved" });
+  await writeFile(join(dir, "a.txt"), "later code\n");
+  const result = await store.update(dir, "a.txt", "working", before, { notes: [note], capturedPatch: before.patch, reviewerSession: "/sessions/review.jsonl", model: "reviewer" });
+  expect(result.findings).toHaveLength(2);
+  expect(result.findings.find(f => f.body === "Manual concern")!.state).toBe("resolved");
+  expect(result.findings.find(f => f.body === note.body)).toMatchObject({ context: "1: changed", stale: true });
+});
+
+
+test("retained hunk evidence forms a renderable single-file patch", async () => {
+  const { reviewEvidencePatch } = await import("../shared/review.ts");
+  const { parsePatchFiles } = await import("@pierre/diffs");
+  const patch = reviewEvidencePatch({ range: note.range, context: "1: changed", diffContext: "@@ -1 +1 @@\n-base\n+changed\n" });
+  expect(parsePatchFiles(patch)[0]!.files).toHaveLength(1);
 });

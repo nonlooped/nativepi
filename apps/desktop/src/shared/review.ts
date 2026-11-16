@@ -5,6 +5,24 @@ export const findingSchema = reviewNoteSchema.extend({ id: z.string(), file: z.s
 export type ReviewRange = z.infer<typeof reviewRangeSchema>;
 export type Finding = z.infer<typeof findingSchema>;
 export const reviewRunSchema = z.object({ file: z.string(), mode: z.enum(["working", "staged"]), fingerprint: z.string(), sessionFile: z.string(), model: z.string(), createdAt: z.string() }).passthrough();
+export const reviewJobOptionsSchema = z.object({
+  scope: z.enum(["uncommitted", "staged", "file", "branch"]).default("uncommitted"),
+  file: z.string().optional(), base: z.string().max(200).default("main"), model: z.string().min(1),
+  reasoning: z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]).default("high"),
+  tier: z.enum(["default", "priority"]).default("default"),
+  allowChecks: z.boolean().default(false), verifyIds: z.array(z.string()).max(100).default([]),
+});
+export type ReviewJobOptions = z.infer<typeof reviewJobOptionsSchema>;
+export const reviewInputSchema = z.object({ file: z.string(), mode: z.enum(["working", "staged"]), patch: z.string(), fingerprint: z.string() });
+export const reviewJobSchema = z.object({
+  id: z.string(), options: reviewJobOptionsSchema, status: z.enum(["running", "completed", "failed", "interrupted"]),
+  inputChanged: z.boolean().optional(), createdAt: z.string(), finishedAt: z.string().optional(), message: z.string(),
+  inputs: z.array(reviewInputSchema), skipped: z.array(z.string()), sessionFile: z.string().optional(), count: z.number().optional(),
+  verificationFiles: z.array(z.object({ file: z.string(), revision: z.string() })).default([]),
+  checks: z.array(z.object({ command: z.string(), exitCode: z.number().int().nullable(), output: z.string() })).default([]),
+  verifications: z.array(z.object({ id: z.string(), verdict: z.enum(["fixed", "persists", "uncertain"]), evidence: z.string() })).default([]),
+}).passthrough();
+export type ReviewJob = z.infer<typeof reviewJobSchema>;
 export const reviewSnapshotSchema = z.object({ scope: z.string(), revision: z.string(), fingerprint: z.string(), patch: z.string(), runs: z.array(reviewRunSchema).default([]), findings: z.array(findingSchema.extend({ stale: z.boolean() })) });
 export type ReviewSnapshot = z.infer<typeof reviewSnapshotSchema>;
 /** Lines present in the diff, never inferred from a range's numeric endpoints. */
@@ -39,4 +57,16 @@ export function reviewDiffContext(patch: string, range: ReviewRange) {
     const lines = reviewLines(chunk, range.side);
     return lines.has(range.start) || lines.has(range.end);
   }).map(chunk => chunk.length > 16000 ? chunk.slice(0, 16000) + "\n[Diff context truncated; selected code is preserved above]" : chunk).join("\n");
+}
+
+/** A complete single-file patch for the retained hunk excerpt. */
+export function reviewEvidencePatch(finding: Pick<Finding, "diffContext" | "context" | "range">) {
+  const { range } = finding;
+  const count = range.end - range.start + 1;
+  const selected = finding.context.split("\n").map(line => line.replace(/^\d+: /, ""));
+  const fallback = range.side === "new"
+    ? `@@ -0,0 +${range.start},${count} @@\n${selected.map(line => "+" + line).join("\n")}\n`
+    : `@@ -${range.start},${count} +0,0 @@\n${selected.map(line => "-" + line).join("\n")}\n`;
+  return "diff --git a/review b/review\n--- a/review\n+++ b/review\n" +
+    (finding.diffContext && !finding.diffContext.includes("[Diff context truncated") ? finding.diffContext : fallback);
 }
