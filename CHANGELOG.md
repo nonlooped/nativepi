@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Website downloads choose the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every architecture.
 
 ### Fixed
+- Ad-hoc sign completed macOS app bundles and verify their integrity before release to fix the damaged-app error on downloaded builds.
 - Update desktop and website dependencies, including WebSocket denial-of-service protection and the latest Electron and DOMPurify fixes.
 - Improve website search titles and download sharing previews, identify NativePi in structured data, redirect the legacy hostname, and keep the free/open-source and bundled-Pi note visible on short screens.
 

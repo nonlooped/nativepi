@@ -143,7 +143,7 @@
     "mac": {
       "artifactName": "${productName}-${version}-${arch}.${ext}",
       "icon": "resources/icon.png",
-      "identity": null,
+      "identity": "-",
       "target": [
         "dmg",
         "zip"

@@ -6,6 +6,10 @@ import { resolve } from 'node:path';
 const arch = process.argv[2];
 if (!['x64', 'arm64'].includes(arch)) throw new Error('Expected x64 or arm64');
 const app = resolve(`apps/desktop/release/${arch === 'x64' ? 'mac' : 'mac-arm64'}/NativePi.app/Contents`);
+// A direct Electron launch below does not exercise Gatekeeper's bundle check.
+// Reject stale signatures and changed/missing sealed resources before upload.
+console.log('Verifying packaged macOS bundle signature');
+execFileSync('/usr/bin/codesign', ['--verify', '--deep', '--strict', '--verbose=2', resolve(app, '..')], { stdio: 'inherit' });
 execFileSync(`${app}/MacOS/nativepi`, ['--input-type=module', '-e', `
   import assert from 'node:assert/strict';
   import { createRequire } from 'node:module';

@@ -8,6 +8,13 @@ import { scopeForPaths, planScope } from '../scripts/ci-scope.mjs';
 const workflow = name => Bun.YAML.parse(readFileSync(new URL(`../.github/workflows/${name}.yml`, import.meta.url), 'utf8'));
 const ci = workflow('ci');
 const release = workflow('release');
+
+test('macOS installers explicitly sign the final bundle without an Apple certificate', () => {
+  const { build } = JSON.parse(readFileSync(new URL('../apps/desktop/package.json', import.meta.url), 'utf8'));
+  // null skips signing and leaves Electron's stale signature on the renamed bundle.
+  // Explicit ad-hoc signing also works with CI's identity auto-discovery disabled.
+  expect(build.mac.identity).toBe('-');
+});
 // These guards use the boolean/equality subset shared by Actions expressions and JS.
 const allows = (expression, values) => new Function(...Object.keys(values), `return (${expression});`)(...Object.values(values));
 

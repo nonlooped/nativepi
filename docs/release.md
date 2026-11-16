@@ -40,8 +40,13 @@ bun run package --win --x64 --publish never
 Build-only runs have separate concurrency groups and do not displace queued
 publications.
 
-Output: `apps/desktop/release`. Installers are unsigned; macOS builds are also
-unnotarized and require manual updates.
+Output: `apps/desktop/release`. Installers have no trusted publisher signature.
+macOS app bundles are ad-hoc signed to seal the completed bundle, but are not
+Developer ID signed or notarized and still require manual updates and a
+Gatekeeper override on first launch. Do not set `mac.identity` to `null`: that
+skips signing and leaves Electron's stale signature on the modified bundle,
+which macOS rejects as damaged. Both macOS packaging jobs verify the complete
+bundle with `codesign --verify --deep --strict` before uploading installers.
 
 ## Packaging performance
 
