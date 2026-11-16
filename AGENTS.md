@@ -31,6 +31,7 @@ extension surfaces when upgrading Pi.
 
 ## Engineering choices
 
+- Before any new feature or UI/UX change, read and apply the [UI and UX requirements](apps/desktop/PRODUCT.md#ui-and-ux-requirements). Do not assume the person using the app is technically savvy.
 - Follow the design philosophy: create, review, enhance, polish, repeat. Use
   this process at all times instead of one-shotting designs for time or
   simplicity. Design is a very important and heavily underrated aspect of any app.
