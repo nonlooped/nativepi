@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Managed task workspaces with explicit chat isolation/base selection, reusable setup/run/check actions, opt-in local file preparation, coordinated ports, action recovery and conservative workspace retirement.
 
 ### Changed
+- Explain the website’s desktop AI workflow and account requirements, clarify the awake-computer requirement for phone access, add contextual version and installation help, and give failed downloads a direct retry and release fallback.
 - Identify the chat in each browser window, explain browser session lifetime, and show blocked downloads, popups and device permissions with an option to continue in the usual browser. Start empty browsers on a useful address screen and explain computer-only opening from another device.
 - Keep failed tool attempts visible in collapsed work, tool groups and individual results without treating a later successful response as a failed conversation.
 - Start automations with an available model, show their folder and permissions before enabling them, check GitHub readiness with guided sign-in, accept pull request links, and explain invalid trigger fields.

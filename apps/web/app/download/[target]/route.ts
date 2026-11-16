@@ -10,16 +10,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ targ
   }
 
   const nightly = new URL(request.url).searchParams.get("channel") === "nightly";
-  let destination = new URL("/download", request.url).href;
+  const fallback = new URL("/download", request.url);
+  fallback.searchParams.set("unavailable", target);
+  fallback.searchParams.set("channel", nightly ? "nightly" : "stable");
+  let destination = fallback.href;
   try {
     const response = await fetch(`https://api.github.com/repos/nonlooped/nativepi/releases${nightly ? "?per_page=100" : "/latest"}`, {
       headers: { Accept: "application/vnd.github+json" },
-      next: { revalidate: 3600 },
+      ...(new URL(request.url).searchParams.get("retry") === "1" ? { cache: "no-store" as const } : { next: { revalidate: 3600 } }),
       signal: AbortSignal.timeout(5000),
     });
     if (response.ok) destination = (nightly ? nightlyDownload : releaseDownload)(await response.json(), target) ?? destination;
   } catch {
-    // The download page still provides choices when the API is unavailable.
+    // Retain the requested build and a useful recovery when the API is unavailable.
   }
   return Response.redirect(destination, 307);
 }

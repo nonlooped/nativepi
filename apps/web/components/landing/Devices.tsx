@@ -23,12 +23,12 @@ export function Devices() {
                 <path d="M65 5v4" stroke="currentColor" strokeWidth="1.5" opacity="0.55" />
               </svg>
             </div>
-            <Image src="/app/phone.webp" alt="The same NativePi browser workspace shown in an iPhone frame." width={390} height={844} sizes="(min-width: 1400px) 185px, (min-width: 960px) 13vw, 20vw" preload />
+            <Image src="/app/phone.webp" alt="NativePi in a phone browser, connected to an awake computer running its background work." width={390} height={844} sizes="(min-width: 1400px) 185px, (min-width: 960px) 13vw, 20vw" preload />
             <div className="phone-home-area" aria-hidden="true"><span /></div>
           </div>
         </div>
       </div>
-      <p className="device-note">Your workspace, on your phone too.</p>
+      <p className="device-note">Your phone’s browser connects to your awake computer running NativePi background work.</p>
     </div>
   );
 }

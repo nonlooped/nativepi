@@ -18,13 +18,13 @@ export function Introduction() {
         </header>
         <div className="intro-main">
           <div className="intro-content" data-enter>
-            <h1 id="intro-title">Pi, on your<br /> desktop.</h1>
-            <p className="intro-description">A desktop app for the Pi coding agent.<span className="intro-extra"> Your Pi sessions and extensions, in one workspace.</span></p>
+            <h1 id="intro-title">AI for your<br />desktop.</h1>
+            <p className="intro-description">Chat, build projects and review changes in one app, powered by Pi.</p>
             <div className="landing-actions">
               <DownloadButton />
               <a className="landing-button landing-button-secondary" href={site.repo} target="_blank" rel="noreferrer noopener"><GitHubMark />Star on GitHub</a>
             </div>
-            <p className="intro-note">Free and open source. Pi included.</p>
+            <p className="intro-note">Free and open source. Pi included.<br />Connect your own AI account; its usage limits and charges apply.</p>
           </div>
           <Devices />
         </div>

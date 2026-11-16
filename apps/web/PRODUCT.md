@@ -3,8 +3,8 @@
 ## Purpose
 
 NativePi's website helps people understand the desktop app, download it, or
-support its development on GitHub. It serves existing Pi users and developers
-who prefer a graphical agent workspace. NativePi is free and MIT licensed;
+support its development on GitHub. It serves people who want to chat, build projects and review agent work in
+a graphical workspace, including those new to Pi. NativePi is free and MIT licensed;
 model-provider access is supplied by the user.
 
 ## Pages
@@ -30,9 +30,13 @@ Project documentation remains in the GitHub repository.
 - Stable is the default. Nightly installer links are explicit for each platform and architecture; release notes link to GitHub Releases.
 - Resolve the latest stable installer through GitHub's releases API. Validate
   the release shape and require an exact repository, tag, and asset URL match.
-  Missing builds, rate limits, or network failures fall back to the download page.
+  Missing builds, rate limits, or network failures return to the download page
+  with the requested build, an honest failure message, a retry that refreshes
+  the release lookup, and a GitHub Releases fallback.
 - Windows and macOS groups use the subtitle “Unsigned installer”. Linux has no
-  subtitle. Keep explanatory installation and provider paragraphs off this page.
+  subtitle. Give version and installation help in a compact disclosure beside each
+  operating system. Explain unsigned builds at that decision and link to the
+  platform’s own guidance. State that people connect their own AI access.
 - Pi is included; a separate Pi installation or NativePi account is not required.
 
 The landing page's download action resolves the latest stable installer when the browser exposes a supported platform and architecture; otherwise it opens `/download`. macOS user agents alone cannot reliably identify the CPU. All installer
@@ -70,8 +74,8 @@ through Pi APIs, and preserves third-party Pi extension support.
 Pi sessions remain authoritative and compatible with the Pi CLI. The app does
 not require product accounts, a separate conversation store, or NativePi-owned
 cloud session storage. Local workspace storage does not imply that model or web
-requests stay offline. Optional phone/browser access uses the running desktop
-app; this website does not host workspaces or agent sessions.
+requests stay offline. Optional phone/browser access uses an awake computer with NativePi background
+work running; this website does not host workspaces or agent sessions.
 
 The website uses Vercel Web Analytics. Desktop telemetry and website analytics
 are distinct. Check product claims against `apps/desktop/PRODUCT.md`, the root

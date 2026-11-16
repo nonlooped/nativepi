@@ -1,6 +1,8 @@
+import { z } from "zod";
 export const downloadTargets = ["mac-arm64", "mac-x64", "windows-x64", "linux-x64", "linux-arm64"] as const;
 export type DownloadTarget = typeof downloadTargets[number];
 export type DesktopPlatform = "mac" | "windows" | "linux";
+export const downloadFailureSchema = z.object({ unavailable: z.enum(downloadTargets), channel: z.enum(["stable", "nightly"]).default("stable") });
 
 /** Mobile browsers also advertise Mac/Linux. Check those before desktop names. */
 export function desktopPlatform(userAgent: string, maxTouchPoints = 0): DesktopPlatform | null {
