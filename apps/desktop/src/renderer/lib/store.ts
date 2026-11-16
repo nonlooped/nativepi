@@ -49,6 +49,7 @@ export function releasePaneStore(store: PaneStore) {
   void rpc.request.closeWorkspacePane({ paneId: owner.paneId }).catch(() => {});
   void flushPersist(store.getState).catch(() => {});
   owner.disposed = true;
+  store.setState({ extRenderers: [] });
   clearTimeout(owner.saveTimer);
   if (store === primaryStore) {
     // Keep the original store as the window's notification observer, without a
@@ -107,6 +108,7 @@ if (import.meta.hot) import.meta.hot.dispose(() => {
     if (owner.saveTimer) void flushPersist(store.getState).catch(() => {});
     clearTimeout(owner.saveTimer);
     owner.disposed = true;
+  store.setState({ extRenderers: [] });
   }
 });
 

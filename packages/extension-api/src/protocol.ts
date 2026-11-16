@@ -75,6 +75,9 @@ export interface ExtensionHost<Protocol extends ExtensionProtocol> {
   /** Whether this Pi process is currently hosted by NativePi. */
   readonly connected: boolean;
 
+  /** Idempotently disconnect this registration; call from Pi session_shutdown. */
+  dispose(): void;
+
   emit<Name extends EventName<Protocol>>(
     event: Name,
     ...args: EventArguments<Events<Protocol>[Name]>

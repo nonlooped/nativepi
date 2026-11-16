@@ -101,3 +101,44 @@ test("Pi rejecting an active reload retains current method registrations", async
   await expect(session.reload()).rejects.toThrow("Wait for current response");
   expect(await callExtensionMethod("@acme/live", "state", undefined)).toBe("retained");
 });
+
+test("old connections cannot emit or unregister their replacement", async () => {
+  const { frames } = host();
+  const protocol = defineProtocol({ methods: { state: { result: { parse: (value: unknown) => Number(value) } } }, events: { changed: undefined } });
+  const old = connect("lifecycle", protocol, { state: () => 1 });
+  const next = connect("lifecycle", protocol, { state: () => 2 });
+  expect(old.connected).toBe(false);
+  expect(() => old.emit("changed")).toThrow("disposed");
+  old.dispose();
+  expect(await callExtensionMethod("lifecycle", "state", undefined)).toBe(2);
+  next.dispose();
+  next.dispose();
+  expect(next.connected).toBe(false);
+  await expect(callExtensionMethod("lifecycle", "state", undefined)).rejects.toThrow("has no method");
+  expect(frames).toEqual([]);
+});
+
+test("reload rejects in-flight results and invalidates old event sources", async () => {
+  host();
+  let finish!: (value: number) => void;
+  const protocol = defineProtocol({ methods: { state: { result: { parse: (value: unknown) => Number(value) } } }, events: { changed: undefined } });
+  const connection = connect("pending", protocol, { state: () => new Promise<number>(resolve => { finish = resolve; }) });
+  const result = callExtensionMethod("pending", "state", undefined);
+  resetExtensionMethods();
+  finish(1);
+  await expect(result).rejects.toThrow("disconnected or reloaded");
+  expect(connection.connected).toBe(false);
+  expect(() => connection.emit("changed")).toThrow("disposed");
+});
+
+test("the same Pi entry can connect without a NativePi host", () => {
+  const previous = globalThis.__NATIVEPI_EXTENSION_HOST__;
+  delete globalThis.__NATIVEPI_EXTENSION_HOST__;
+  try {
+    const ui = connect("cli", defineProtocol({ methods: {}, events: { changed: undefined } }), {});
+    expect(ui.connected).toBe(false);
+    expect(() => ui.emit("changed")).not.toThrow();
+    ui.dispose();
+    expect(() => ui.emit("changed")).toThrow("disposed");
+  } finally { globalThis.__NATIVEPI_EXTENSION_HOST__ = previous; }
+});

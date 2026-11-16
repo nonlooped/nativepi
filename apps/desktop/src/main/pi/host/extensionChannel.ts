@@ -16,10 +16,12 @@ import { isJsonValue, type JsonValue } from "../../../shared/json.ts";
 * declares it, and the Pi half passes it to `connect()`.
 */
 type ExtensionMethod = (params: JsonValue | undefined) => JsonValue | Promise<JsonValue>;
+const identities = new Map<string, object>();
 const methods = new Map<string, Map<string, ExtensionMethod>>();
 /** Forget every registration from the extension runtime that just ended. */
 export function resetExtensionMethods(): void {
   methods.clear();
+  identities.clear();
 }
 /**
 * Discard handlers only when the extension runtime they close over goes away.
@@ -50,6 +52,7 @@ export function installExtensionMethodLifecycle(prototype: Pick<AgentSession, "d
 }
 export function installExtensionChannel(send: (frame: TuiHostFrame) => void): void {
   methods.clear();
+  identities.clear();
   globalThis.__NATIVEPI_EXTENSION_HOST__ = {
     register(extension, handlers) {
       const registered = new Map<string, ExtensionMethod>();
@@ -57,8 +60,11 @@ export function installExtensionChannel(send: (frame: TuiHostFrame) => void): vo
         if (name && typeof handler === "function")
           registered.set(name, handler);
       }
+      identities.set(extension, handlers);
       methods.set(extension, registered);
+      return () => { if (methods.get(extension) === registered) { methods.delete(extension); identities.delete(extension); } };
     },
+    isRegistered(extension, handlers) { return identities.get(extension) === handlers; },
     emit(extension, event, payload) {
       if (payload !== undefined && !isJsonValue(payload)) {
         console.error(`[nativepi] extension ${extension} emitted an unserializable payload for "${event}"`);
@@ -69,10 +75,13 @@ export function installExtensionChannel(send: (frame: TuiHostFrame) => void): vo
   };
 }
 export async function callExtensionMethod(extension: string, method: string, params: JsonValue | undefined): Promise<JsonValue> {
-  const handler = methods.get(extension)?.get(method);
+  const registration = methods.get(extension);
+  const handler = registration?.get(method);
   if (!handler)
     throw new Error(`Extension ${extension} has no method "${method}"`);
   const result = await handler(params);
+  if (methods.get(extension) !== registration)
+    throw new Error(`Extension ${extension} was disconnected or reloaded while "${method}" was running. Retry in the current chat.`);
   if (!isJsonValue(result))
     throw new Error(`Extension ${extension} returned a non-JSON result from "${method}"`);
   return result;
