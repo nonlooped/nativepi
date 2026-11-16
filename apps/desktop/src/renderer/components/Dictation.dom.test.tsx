@@ -1,5 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import { act } from "react";
+import { act, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { stubInvoke } from "../lib/store/testBridge.ts";
 import { useAppStore } from "../lib/store.ts";
@@ -19,8 +19,9 @@ let root: Root | undefined;
 let container: HTMLDivElement;
 let dictation!: ReturnType<typeof useDictation>;
 function Probe() {
-  dictation = useDictation();
-  return <><DictationFeedback dictation={dictation} /><ComposerInput value="Existing draft" onChange={text => useAppStore.getState().setDraft(text)} onSubmit={() => { throw new Error("Dictation must never send"); }} onAttach={() => {}} projectPath="/project" placeholder="Message" disabled={dictation.phase !== "idle"} /></>;
+  const composer = useRef<HTMLDivElement>(null);
+  dictation = useDictation(composer);
+  return <div ref={composer}><DictationFeedback dictation={dictation} /><ComposerInput value="Existing draft" onChange={text => useAppStore.getState().setDraft(text)} onSubmit={() => { throw new Error("Dictation must never send"); }} onAttach={() => {}} projectPath="/project" placeholder="Message" disabled={dictation.phase !== "idle"} /></div>;
 }
 async function mount(invoke: (channel: string, params?: unknown) => Promise<unknown>) {
   cancelled = 0;
@@ -83,4 +84,14 @@ domTest("silence leaves the draft unchanged and offers a useful error", async ()
   await act(async () => dictation.finish());
   expect(serialize(editor)).toBe("Existing draft");
   expect(container.textContent).toContain("No speech detected");
+});
+
+domTest("dictation changes only its owning composer when another pane appears first", async () => {
+  const editor = await mount(async channel => channel === "dictationStatus" ? ready : channel === "dictationTranscribe" ? { text: "Second pane speech" } : { ok: true });
+  const first = document.createElement("div"); first.setAttribute("data-composer-input", ""); first.contentEditable = "true";
+  render(first, "First pane draft"); container.prepend(first);
+  await act(async () => dictation.start());
+  await act(async () => dictation.finish());
+  expect(serialize(first)).toBe("First pane draft");
+  expect(serialize(editor)).toBe("Existing draft Second pane speech");
 });

@@ -26,7 +26,7 @@ export default function QuitDialog() {
     return () => {
       stop();
     };
-  }, []);
+  }, [useAppStore]);
 
   async function quit() {
     if (busy) return;

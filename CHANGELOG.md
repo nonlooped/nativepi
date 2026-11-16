@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Website downloads select the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every supported architecture.
 
 ### Fixed
+- Keep quit confirmation responsive after pane switches and insert dictation only into its owning conversation draft.
 - Preserve file line endings when opening and editing code, and open completion notifications in the currently focused conversation pane.
 - Honor startup project preferences when restoring panes, focus the shared terminal from conversation panes, preserve pane-local navigation and terminal file locations, refresh external MCP configuration, retain saved feedback for unavailable diffs, and keep automation ownership and Stop controls until all delegates settle.
 - Use NativePi’s bundled controls, typography, icons and themes for the shared browser, with compact tabs, responsive navigation, contextual takeover and clear empty/error states.

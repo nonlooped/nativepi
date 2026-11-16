@@ -33,7 +33,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
   const panes = useWorkspacePanes();
   const paneActive = !panes || panes.activePaneId === runtime(paneStore.getState).paneId;
   const composerRoot = useRef<HTMLDivElement>(null);
-  const dictation = useDictation();
+  const dictation = useDictation(composerRoot);
   const dictating = dictation.phase !== "idle";
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeSessionFile = useAppStore((s) => s.activeSessionFile);
