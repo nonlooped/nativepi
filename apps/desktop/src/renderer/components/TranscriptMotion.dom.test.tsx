@@ -33,22 +33,22 @@ test("completion disables Stop and a restarted run survives the previous complet
 
   expect(stop().closest("[inert]")).toBeNull();
   await running(false);
-  expect(host.textContent).toContain("Done in");
+  expect(host.textContent).toContain("Response finished in");
   expect(stop().closest("[inert]")).not.toBeNull();
   await running(true);
-  expect(host.textContent).not.toContain("Done in");
+  expect(host.textContent).not.toContain("Response finished in");
   expect(stop().closest("[inert]")).toBeNull();
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 2550)); });
-  expect(host.textContent).not.toContain("Done in");
+  expect(host.textContent).not.toContain("Response finished in");
   expect(stop().closest('[aria-hidden="true"], [inert]')).toBeNull();
 });
 test("switching conversations never carries completion feedback into the destination", async () => {
   await mount();
   await running(false);
-  expect(host.textContent).toContain("Done in");
+  expect(host.textContent).toContain("Response finished in");
   await act(async () => useAppStore.setState(state => ({ activeSessionFile: "other", conversations: {
     ...state.conversations, other: emptyConversation(),
   } })));
-  expect(host.textContent).not.toContain("Done in");
+  expect(host.textContent).not.toContain("Response finished in");
   expect(stop()).toBeUndefined();
 });
