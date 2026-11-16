@@ -1,3 +1,5 @@
+import ReviewFindings from "./ReviewFindings.tsx";
+import type { ReviewRange } from "../../shared/review.ts";
 import StateNotice from "./StateNotice.tsx";
 import { useRef, useState } from "react";
 import type { GitChangedFile } from "../../shared/pi-types.ts";
@@ -62,7 +64,7 @@ export default function SourceControlReview({ review }: { review: NonNullable<Ui
         {available && !staged && file.state !== "untracked" && <Button size="sm" variant="ghost" disabled={busy || sharedBusy} onClick={() => setConfirming(true)}>Revert file</Button>}
         {available && <Button size="sm" variant="outline" disabled={busy || sharedBusy} onClick={() => void mutate(() => staged ? rpc.request.gitUnstageFile({ projectDir, file: path, originalPath: file.originalPath }) : rpc.request.gitStageFile({ projectDir, file: path }))}>{staged ? "Unstage file" : "Stage file"}</Button>}
       </div>}
-      renderPatch={available && !staged && file.state !== "untracked" ? patch => <HunkReview projectDir={projectDir} file={file} revision={revision} disabled={busy || sharedBusy} mutate={mutate} patch={patch} /> : undefined} />
+      renderPatch={(patch, fallback) => <ReviewFindings key={`${projectDir}:${path}:${staged}`} projectDir={projectDir} file={path} mode={staged ? "staged" : "working"} focusRequest={review} patch={patch} revision={revision} onBack={() => setReview(null)}>{select => fallback ?? (available && !staged && file.state !== "untracked" ? <HunkReview projectDir={projectDir} file={file} revision={revision} disabled={busy || sharedBusy} mutate={mutate} patch={patch} onSelect={select} /> : <DiffView patch={patch} onSelect={select} />)}</ReviewFindings>} />
     <ConfirmDialog open={confirming} title="Revert file changes?" description="Discard unstaged changes in this file? Staged changes will remain. This cannot be undone." detail={path} confirmLabel="Revert changes" destructive onConfirm={() => { setConfirming(false); void mutate(() => rpc.request.gitRevertFile({ projectDir, file: path })); }} onCancel={() => setConfirming(false)} />
   </div>;
 }
@@ -73,14 +75,16 @@ function HistoricalDiff({ projectDir, hash, path, onClose }: { projectDir: strin
     <div className="min-h-0 flex-1">{error ? <div className="p-4 text-xs"><p role="alert" className="text-destructive">{error}</p><Button size="sm" variant="ghost" onClick={reload}>Try again</Button></div> : data ? <DiffView patch={data.diff.patch} /> : <div className="px-4"><StateNotice loading title="Loading diff…" /></div>}</div>
   </section>;
 }
-function HunkReview({ projectDir, file, revision, disabled, mutate, patch }: {
+function HunkReview({ projectDir, file, revision, disabled, mutate, patch, onSelect }: {
   projectDir: string; file: GitChangedFile; revision: number; disabled: boolean; patch: string;
+  onSelect: (range: ReviewRange) => void;
   mutate: (work: () => Promise<{ ok: boolean; error?: string }>) => Promise<void>;
 }) {
   const [wrap, setWrap] = useState(false);
   const { data, error } = useRequest(() => rpc.request.gitHunks({ projectDir, file: file.path, untracked: false }), [projectDir, file.path, revision]);
-  if (error) return <div className="flex h-full min-h-0 flex-col"><DiffToolbar wrap={wrap} onWrap={() => setWrap(value => !value)} /><p className="px-3 py-2 text-xs text-muted-foreground">Partial staging is unavailable: {error}</p><div className="min-h-0 flex-1"><DiffView patch={patch} controls={{ wrap }} /></div></div>;
-  if (!data || data.hunks.length < 2) return <div className="flex h-full min-h-0 flex-col"><DiffToolbar wrap={wrap} onWrap={() => setWrap(value => !value)} /><DiffView patch={patch} controls={{ wrap }} /></div>;
+  if (!patch.trim()) return <div className="flex h-full min-h-0 flex-col"><DiffToolbar wrap={wrap} onWrap={() => setWrap(value => !value)} /><p className="p-4 text-xs text-muted-foreground">No textual diff to show.</p></div>;
+  if (error) return <div className="flex h-full min-h-0 flex-col"><DiffToolbar wrap={wrap} onWrap={() => setWrap(value => !value)} /><p className="px-3 py-2 text-xs text-muted-foreground">Partial staging is unavailable: {error}</p><div className="min-h-0 flex-1"><DiffView patch={patch} onSelect={onSelect} controls={{ wrap }} /></div></div>;
+  if (!data || data.hunks.length < 2) return <div className="flex h-full min-h-0 flex-col"><DiffToolbar wrap={wrap} onWrap={() => setWrap(value => !value)} /><DiffView patch={patch} onSelect={onSelect} controls={{ wrap }} /></div>;
   return <div className="flex h-full min-h-0 flex-col">
     <DiffToolbar wrap={wrap} onWrap={() => setWrap(value => !value)} />
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -88,7 +92,7 @@ function HunkReview({ projectDir, file, revision, disabled, mutate, patch }: {
       <div className="flex items-center justify-between gap-2 bg-muted/40 px-3 py-2"><span className="text-xs text-muted-foreground">Unstaged · Change {index + 1} of {data.hunks.length}</span>
         <Button size="xs" variant="outline" disabled={disabled} onClick={() => void mutate(() => rpc.request.gitStageHunk({ projectDir, file: file.path, untracked: false, patch: hunk.patch }))}>Stage change</Button>
       </div>
-      <DiffView patch={hunk.patch} embedded controls={{ wrap }} />
+      <DiffView patch={hunk.patch} onSelect={onSelect} embedded controls={{ wrap }} />
     </section>)}
     </div>
   </div>;

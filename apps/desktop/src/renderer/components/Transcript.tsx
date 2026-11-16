@@ -19,7 +19,7 @@ import { WrenchIcon } from "@phosphor-icons/react/Wrench";
 import { toast } from "sonner";
 import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState, useLayoutEffect, type ReactElement, type ReactNode } from "react";
 import type { AssistantMessage, SessionEntry, ToolCall, ToolResultMessage } from "../../shared/pi-types.ts";
-import { imagesOf, isUser, textOf } from "../../shared/messages.ts";
+import { imagesOf, isUser, isAssistant, textOf } from "../../shared/messages.ts";
 import { groupWork, toolGroupLabel, hasPendingGraphicalTool, toolArgSummary, toolResultsById } from "../lib/transcript.ts";
 import { diffPatchFor, fileDir, fileName, turnChanges, type FileChange } from "../lib/changes.ts";
 import { formatDuration, formatElapsed, pluralize } from "../lib/format.ts";
@@ -215,7 +215,7 @@ function TranscriptContent() {
               // keying on that would remount the block and discard whichever
               // tool panels the user had opened while watching it run.
               <MessageScrollerItem key={`${selectionVersion}:response:${index}`} messageId={item.id} className={index >= lastUserIndex ? "[content-visibility:visible]" : undefined}>
-                <DeferredTranscriptItem entryId={item.id} immediate={index >= items.length - 20
+                <DeferredTranscriptItem entryId={item.id} text={item.messages.map(message => textOf(message.content)).join("\n\n")} immediate={index >= items.length - 20
                   || targetItem === item
                   || hasPendingGraphicalTool(item.messages.flatMap(message => message.content), results, graphicalTools)}>
                 <AssistantResponse
@@ -232,7 +232,7 @@ function TranscriptContent() {
               </MessageScrollerItem>
             ) : (
               <MessageScrollerItem key={`${selectionVersion}:${item.entry.id}`} messageId={item.entry.id} className={index >= lastUserIndex ? "[content-visibility:visible]" : undefined}>
-                <DeferredTranscriptItem entryId={item.entry.id} immediate={index >= items.length - 20
+                <DeferredTranscriptItem entryId={item.entry.id} text={item.entry.type === "message" && (isUser(item.entry.message) || isAssistant(item.entry.message)) ? textOf(item.entry.message.content) : ""} immediate={index >= items.length - 20
                   || transcriptTarget?.entry === item.entry.id || item.entry.type !== "message"}>
                 <EntryView entry={item.entry} />
                 </DeferredTranscriptItem>

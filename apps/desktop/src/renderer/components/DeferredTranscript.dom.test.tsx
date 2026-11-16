@@ -66,33 +66,40 @@ function resetChat(entries = history) {
     transcriptTarget: null, conversations: { chat: { ...emptyConversation(), entries } } });
 }
 domTest("long transcripts initially mount only recent messages and reveal a deep link immediately", async () => {
-  resetChat();
+  const entries = structuredClone(history);
+  const assistant = entries[1] as Extract<SessionEntry, { type: "message" }>;
+  assistant.message = { role: "assistant", content: [{ type: "text", text: "Answer 0\n```js\nconst old = 1;\n```" }], timestamp: 1 } as typeof assistant.message;
+  resetChat(entries);
   await mount(<Transcript />);
+  expect(container.querySelector('button[aria-label="Copy code"]')).toBeNull();
   expect(container.textContent).toContain("Answer 99");
-  expect(container.textContent).not.toContain("Answer 0");
+  expect(container.textContent).toContain("Answer 0");
   const scroll = HTMLElement.prototype.scrollIntoView;
   HTMLElement.prototype.scrollIntoView = () => {};
   try {
     await act(async () => useAppStore.setState({ transcriptTarget: { session: "chat", entry: "a0" } }));
     expect(container.textContent).toContain("Answer 0");
     expect(useAppStore.getState().transcriptTarget?.entry).toBe("a0");
+    expect(container.querySelector('button[aria-label="Copy code"]')).not.toBeNull();
     await act(async () => useAppStore.setState({ transcriptTarget: null }));
     await act(async () => useAppStore.setState(s => ({ selectionVersion: s.selectionVersion + 1 })));
-    expect(container.textContent).not.toContain("Answer 0");
+    expect(container.textContent).toContain("Answer 0");
+    expect(container.querySelector('button[aria-label="Copy code"]')).toBeNull();
   } finally { HTMLElement.prototype.scrollIntoView = scroll; }
 });
 
-domTest("Select All reveals complete history before selection without affecting text fields", async () => {
+domTest("Select All keeps complete history selectable without mounting historical Markdown", async () => {
   resetChat();
   await mount(<Transcript />);
   const viewport = container.querySelector<HTMLElement>('[data-slot="message-scroller-viewport"]')!;
   const input = document.createElement("textarea");
   viewport.append(input);
   await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "a", ctrlKey: true, bubbles: true })));
-  expect(container.textContent).not.toContain("Answer 0");
+  expect(container.textContent).toContain("Answer 0");
   await act(async () => viewport.dispatchEvent(new KeyboardEvent("keydown", { key: "a", ctrlKey: true, bubbles: true })));
   expect(container.textContent).toContain("Answer 0");
-  expect(container.querySelectorAll('article[id^="entry-a"]')).toHaveLength(100);
+  // Copy/select text is already present; old interactive children must still be deferred.
+  expect(observers[0]!.targets.size).toBeGreaterThan(0);
 });
 
 domTest("an offscreen pending graphical tool mounts without waiting for scrolling", async () => {
@@ -108,7 +115,7 @@ domTest("an offscreen pending graphical tool mounts without waiting for scrollin
   await mount(<Transcript />);
   expect(container.textContent).toContain("Pending question");
   expect(container.textContent).toContain("Answer 99");
-  expect(container.textContent).not.toContain("Answer 1");
+  expect(container.textContent).toContain("Answer 1");
 });
 
 domTest("a grouped assistant target reveals collapsed work by its own durable ID", async () => {
@@ -133,7 +140,18 @@ domTest("missing targets are consumed without substituting another message", asy
   await mount(<Transcript />);
   await act(async () => useAppStore.setState({ transcriptTarget: { session: "chat", entry: "deleted-or-other-branch" } }));
   expect(useAppStore.getState().transcriptTarget).toBeNull();
-  expect(container.textContent).not.toContain("Answer 0");
+  expect(container.textContent).toContain("Answer 0");
+});
+
+domTest("Select All leaves historical interactive state deferred until it approaches the viewport", async () => {
+  await mount(<DeferredTranscript><div data-slot="message-scroller-viewport"><DeferredTranscriptItem immediate={false} entryId="interactive" text="Historical text"><StatefulMessage /></DeferredTranscriptItem></div></DeferredTranscript>);
+  const viewport = container.querySelector<HTMLElement>('[data-slot="message-scroller-viewport"]')!;
+  await act(async () => viewport.dispatchEvent(new KeyboardEvent("keydown", { key: "a", metaKey: true, bubbles: true })));
+  expect(container.textContent).toBe("Historical text");
+  expect(container.querySelector("button")).toBeNull();
+  await act(async () => observers[0]!.reveal(container.querySelector("#entry-interactive")!));
+  await act(async () => container.querySelector("button")!.click());
+  expect(container.textContent).toBe("Clicked 1");
 });
 
 domTest("a deep link scrolls its own pane when another pane has the same entry ID", async () => {

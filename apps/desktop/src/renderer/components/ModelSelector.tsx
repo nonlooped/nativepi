@@ -1,3 +1,5 @@
+import type { ChatTitleModel } from "../../shared/chat-title.ts";
+import type { Relationship } from "../../shared/orchestration.ts";
 import { LightningIcon } from "@phosphor-icons/react/Lightning";
 import { serviceTierTarget } from "../../shared/service-tier.ts";
 import { BrainIcon } from "@phosphor-icons/react/Brain";
@@ -29,14 +31,22 @@ import { withHint } from "../lib/shortcuts.ts";
 import BrandIcon from "./BrandIcon.tsx";
 import ServiceTierSelector from "./ServiceTierSelector.tsx";
 
-export default function ModelSelector() {
+export interface ModelSelection {
+  models: ChatTitleModel[];
+  configuration: Relationship["configuration"];
+  onChange: (configuration: Relationship["configuration"]) => void;
+  loading: boolean;
+  error?: string;
+  retry: () => void;
+}
+export default function ModelSelector({ selection }: { selection?: ModelSelection } = {}) {
   const keybindingOverrides = useAppStore(s => s.keybindingOverrides);
-  const models = useAppStore((s) => s.models);
-  const catalogLoading = useAppStore(s => s.modelsLoading);
-  const catalogError = useAppStore(s => s.modelsError);
-  const refreshModels = useAppStore(s => s.refreshModels);
-  const model = useAppStore((s) => s.model);
-  const setModel = useAppStore((s) => s.setModel);
+  const storedModels = useAppStore((s) => s.models);
+  const storedCatalogLoading = useAppStore(s => s.modelsLoading);
+  const storedCatalogError = useAppStore(s => s.modelsError);
+  const storedRefreshModels = useAppStore(s => s.refreshModels);
+  const storedModel = useAppStore((s) => s.model);
+  const storedSetModel = useAppStore((s) => s.setModel);
   const favoriteModels = useAppStore((s) => s.favoriteModels ?? []);
   const providers = useAppStore((s) => s.providers);
   const providersLoaded = useAppStore((s) => s.providersLoaded);
@@ -44,8 +54,19 @@ export default function ModelSelector() {
   const tierTarget = useAppStore(s => s.serviceTierTarget);
   const project = useAppStore(s => s.activeProjectPath);
   const session = useAppStore(s => s.activeSessionFile);
-  const priority = !!project && !!model && tierTarget === serviceTierTarget(project, session, model) && tier?.tier === "priority";
-  const thinkingLevel = useAppStore((s) => s.thinkingLevel);
+  const storedThinkingLevel = useAppStore((s) => s.thinkingLevel);
+  const models = selection?.models ?? storedModels;
+  const model = selection ? models.find(m => m.provider === selection.configuration.provider && m.id === selection.configuration.model) ?? null : storedModel;
+  const priority = selection ? selection.configuration.tier === "priority" : !!project && !!model && tierTarget === serviceTierTarget(project, session, model) && tier?.tier === "priority";
+  const catalogLoading = selection?.loading ?? storedCatalogLoading;
+  const catalogError = selection ? selection.error : storedCatalogError;
+  const refreshModels = selection?.retry ?? storedRefreshModels;
+  const thinkingLevel = selection?.configuration.reasoning ?? storedThinkingLevel;
+  const setModel = selection ? (next: ModelInfo) => {
+    const choice = selection.models.find(m => m.provider === next.provider && m.id === next.id);
+    if (!choice) return;
+    selection.onChange({ ...selection.configuration, provider: choice.provider, model: choice.id, reasoning: choice.thinkingLevels.includes(selection.configuration.reasoning) ? selection.configuration.reasoning : choice.thinkingLevels[0] ?? "off", tier: choice.tiers.includes(selection.configuration.tier ?? "default") ? selection.configuration.tier : "default" });
+  } : storedSetModel;
   const openSettings = useAppStore((s) => s.openSettings);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -90,7 +111,7 @@ export default function ModelSelector() {
     : model && availableProviders.includes(model.provider) ? model.provider : availableProviders[0] ?? "favorites";
   const favoriteModelKeys = new Set(favoriteModels);
   const providerNames = new Map(providers.map((item) => [item.id, item.name]));
-  const label = model ? friendlyModelName(model) : "Model";
+  const label = model ? friendlyModelName(model) : selection ? selection.configuration.model ? "Unavailable model" : "Choose a model" : "Model";
   const queryTerms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
 
   const visibleModels = models.filter((item) => {
@@ -103,7 +124,7 @@ export default function ModelSelector() {
   });
 
   if (models.length === 0 && catalogError && !catalogLoading) return <Button variant="ghost" title={catalogError} onClick={() => void refreshModels()}><WarningCircleIcon />Retry models</Button>;
-  if (models.length === 0 && providersLoaded && (!catalogLoading || !providers.some(provider => provider.ready))) {
+  if (!selection && models.length === 0 && providersLoaded && (!catalogLoading || !providers.some(provider => provider.ready))) {
     const ready = providers.some((item) => item.ready);
     return (
       <Button
@@ -118,6 +139,7 @@ export default function ModelSelector() {
     );
   }
 
+  if (selection && !catalogLoading && !models.length && !catalogError) return <Button type="button" variant="ghost" onClick={() => openSettings("Providers")}><WarningCircleIcon />Connect a provider</Button>;
   return (
     <Popover
       open={open}
@@ -220,21 +242,27 @@ export default function ModelSelector() {
         </div>
 
         <div className="flex shrink-0 items-start gap-2 border-t border-border/50 p-2">
-          <ReasoningControl />
-          <ServiceTierSelector />
+          <ReasoningControl selection={selection} />
+          <ServiceTierSelector selection={selection ? { tier: selection.configuration.tier ?? "default", tiers: selection.models.find(m => m.provider === selection.configuration.provider && m.id === selection.configuration.model)?.tiers ?? [], onChange: tier => selection.onChange({ ...selection.configuration, tier }) } : undefined} />
         </div>
       </PopoverContent>
     </Popover>
   );
 }
 
-function ReasoningControl() {
-  const thinkingLevel = useAppStore((s) => s.thinkingLevel);
-  const thinkingLevels = useAppStore((s) => s.thinkingLevels);
-  const loading = useAppStore((s) => s.thinkingLevelsLoading);
-  const error = useAppStore((s) => s.thinkingLevelsError);
-  const retry = useAppStore((s) => s.refreshThinkingLevels);
-  const setThinkingLevel = useAppStore((s) => s.setThinkingLevel);
+function ReasoningControl({ selection }: { selection?: ModelSelection }) {
+  const storedThinkingLevel = useAppStore((s) => s.thinkingLevel);
+  const storedThinkingLevels = useAppStore((s) => s.thinkingLevels);
+  const storedLoading = useAppStore((s) => s.thinkingLevelsLoading);
+  const storedError = useAppStore((s) => s.thinkingLevelsError);
+  const storedRetry = useAppStore((s) => s.refreshThinkingLevels);
+  const storedSetThinkingLevel = useAppStore((s) => s.setThinkingLevel);
+  const thinkingLevel = selection?.configuration.reasoning ?? storedThinkingLevel;
+  const thinkingLevels = selection ? selection.models.find(m => m.provider === selection.configuration.provider && m.id === selection.configuration.model)?.thinkingLevels ?? [] : storedThinkingLevels;
+  const loading = selection?.loading ?? storedLoading;
+  const error = selection ? selection.error : storedError;
+  const retry = selection?.retry ?? storedRetry;
+  const setThinkingLevel = selection ? (reasoning: typeof thinkingLevel) => selection.onChange({ ...selection.configuration, reasoning }) : storedSetThinkingLevel;
   const options = thinkingLevels.map((level) => ({ value: level, label: thinkingLabel(level) }));
 
   return (

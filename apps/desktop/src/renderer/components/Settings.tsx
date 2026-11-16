@@ -1,3 +1,5 @@
+import AutomationSettings from "./settings/AutomationSettings.tsx";
+import { CalendarCheckIcon } from "@phosphor-icons/react/CalendarCheck";
 import ConnectionNotice from "./ConnectionNotice.tsx";
 import { transitionView } from "../lib/viewTransition.ts";
 import { SettingsDialogAppearance } from "./ui/dialog-styles.ts";
@@ -13,7 +15,7 @@ import { SlidersHorizontalIcon } from "@phosphor-icons/react/SlidersHorizontal";
 import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { WifiHighIcon } from "@phosphor-icons/react/WifiHigh";
 import { InfoIcon } from "@phosphor-icons/react/Info";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { XIcon } from "@phosphor-icons/react/X";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/SidebarSimple";
 import { StopIcon } from "@phosphor-icons/react/Stop";
@@ -23,6 +25,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 
 import AccessSettings from "./settings/AccessSettings.tsx";
+import AgentSetupSettings from "./settings/AgentSetupSettings.tsx";
 import AgentSettings from "./settings/AgentSettings.tsx";
 import AppearanceSettings from "./settings/AppearanceSettings.tsx";
 import ExtensionsManager from "./ExtensionsManager.tsx";
@@ -30,7 +33,7 @@ import ChatExtensionSettings from "./settings/ChatExtensionSettings.tsx";
 import ProviderSettings from "./settings/ProviderSettings.tsx";
 import GeneralSettings from "./settings/GeneralSettings.tsx";
 import AboutSettings from "./settings/AboutSettings.tsx";
-import UsageSettings from "./settings/UsageSettings.tsx";
+const UsageSettings = lazy(() => import("./settings/UsageSettings.tsx"));
 import TerminalSettings from "./settings/TerminalSettings.tsx";
 import KeybindSettings from "./settings/KeybindSettings.tsx";
 
@@ -41,8 +44,10 @@ export const CATEGORIES = [
   { name: "Keyboard", icon: KeyboardIcon, group: "Interface", blurb: "Shortcuts for the workspace." },
   { name: "Providers", icon: PlugsConnectedIcon, group: "Pi", blurb: "Connect the model providers Pi can use." },
   { name: "Behavior", icon: BrainIcon, group: "Pi", blurb: "Computer use, reasoning, project trust, reliability, and images." },
+  { name: "Agent setup", icon: PlugsConnectedIcon, group: "Pi", blurb: "MCP servers, skills, and prompt templates." },
   { name: "Extensions", icon: PuzzlePieceIcon, group: "Pi", blurb: "Packages that extend Pi." },
   { name: "Usage", icon: ChartLineUpIcon, group: "Pi", blurb: "Local costs, tokens, and subscription limits." },
+  { name: "Automations", icon: CalendarCheckIcon, group: "Application", blurb: "Scheduled Work and GitHub PR watches." },
   { name: "Terminal", icon: TerminalWindowIcon, group: "Application", blurb: "The integrated terminal and Pi’s shell." },
   { name: "Access", icon: WifiHighIcon, group: "Application", blurb: "Open this workspace from another device." },
   { name: "About", icon: InfoIcon, group: "Application", blurb: "Updates, diagnostics, and local files." },
@@ -66,11 +71,8 @@ function SettingsContent() {
   const closeSettings = useAppStore((s) => s.closeSettings);
   const loadPiSettings = useAppStore((s) => s.loadPiSettings);
   const initialCategory = useAppStore((s) => s.settingsCategory);
-  const [category, setCategory] = useState<Category>(settingsPage(initialCategory));
+  const category = settingsPage(initialCategory);
 
-  useEffect(() => {
-    if (initialCategory) setCategory(settingsPage(initialCategory));
-  }, [initialCategory]);
   const [railSheetOpen, setRailSheetOpen] = useState(false);
 
   // Pi's settings file is shared with the Pi command line and editable by hand,
@@ -83,7 +85,7 @@ function SettingsContent() {
     <CategoryNav
       category={category}
       onSelect={(next) => {
-        transitionView("category", () => setCategory(next));
+        transitionView("category", () => useAppStore.setState({ settingsCategory: next }));
         setRailSheetOpen(false);
       }}
     />
@@ -210,7 +212,7 @@ function CategoryNav({
 function CategoryPanel({ category }: { category: Category }) {
   switch (category) {
     case "Usage":
-      return <UsageSettings />;
+      return <Suspense fallback={null}><UsageSettings /></Suspense>;
     case "Access":
       return <AccessSettings />;
     case "Appearance":
@@ -219,6 +221,7 @@ function CategoryPanel({ category }: { category: Category }) {
       return <AgentSettings />;
     case "Providers":
       return <ProviderSettings />;
+    case "Agent setup": return <AgentSetupSettings />;
     case "Extensions":
       return (
         <div className="flex flex-col gap-8">
@@ -228,6 +231,8 @@ function CategoryPanel({ category }: { category: Category }) {
       );
     case "Keyboard":
       return <KeybindSettings />;
+    case "Automations":
+      return <AutomationSettings />;
     case "Terminal":
       return <TerminalSettings />;
     case "General":

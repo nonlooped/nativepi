@@ -1,3 +1,6 @@
+import { automationInputSchema } from "./automations.ts";
+import { resourceChangeSchema, mcpSetupSchema } from "./agent-setup.ts";
+import { reviewNoteSchema } from "./review.ts";
 import { dictationAudioSchema } from "./dictation.ts";
 import { serviceTierSchema } from "./service-tier.ts";
 import { thinkingLevelSchema } from "./pi-values.ts";
@@ -21,8 +24,13 @@ const complete = target.extend({ lines: z.array(z.string().max(1000000)).max(100
 const auth = z.object({ projectDir: path.optional(), sessionFile: path.nullable().optional(), providerId: id });
 const packageChange = project.extend({ source: id, scope: z.enum(["user", "project"]) });
 const branch = project.extend({ branch: id, create: z.boolean() });
+const reviewFile = file.extend({ mode: z.enum(["working", "staged"]) });
+const reviewExpected = reviewFile.extend({ scope: z.string().regex(/^[a-f0-9]{64}$/), revision: z.string().regex(/^[a-f0-9]{64}$/), fingerprint: z.string().regex(/^[a-f0-9]{64}$/) });
 const hunks = file.extend({ untracked: z.boolean() });
 export const requestParams = {
+  automationTools: z.object({ projectDir: path.optional() }),
+  automationList: empty, automationSave: automationInputSchema, automationDelete: z.object({ id: z.string().uuid() }), automationRun: z.object({ id: z.string().uuid() }), automationStop: z.object({ id: z.string().uuid() }),
+  configureMcp: mcpSetupSchema, subscriptionCapacity: empty, agentSetup: project, createAgentResource: resourceChangeSchema,
   orchestrationSnapshot: z.object({ sessionFile: path.optional() }),
   stopThread: z.object({ sessionFile: path }),
   wakeThread: z.object({ threadId: id, messageIds: z.array(id).min(1).max(100) }),
@@ -38,6 +46,7 @@ export const requestParams = {
   getChatTitleModels: z.object({ projectDir: path.optional(), sessionFile: path.nullable().optional() }),
   dictationStatus: empty, dictationInstall: z.object({ id }), dictationCancel: z.object({ id }),
   dictationTranscribe: z.object({ id, audio: dictationAudioSchema }), dictationMicrophone: empty,
+  browserShow: target,
   computerStatus: empty, computerPermissions: empty,
   abort: target, getModels: target, getState: target, getThinkingLevels: target,
   setModel: target.extend({ provider: id, modelId: id }), setThinkingLevel: target.extend({ level: thinking }),
@@ -64,7 +73,11 @@ export const requestParams = {
   terminalEnsure: project.extend({ shellId: id.optional() }), terminalCreate: project.extend({ shellId: id.optional(), name: z.string().max(64).optional() }), terminalListShells: empty,
   terminalRename: terminal.extend({ name: z.string().min(1).max(64) }), terminalRestart: terminal, terminalAttach: attach, terminalDetach: attach,
   terminalWrite: terminal.extend({ data: z.string().max(64 * 1024) }), terminalResize: terminal.extend({ cols: z.number().int().min(2).max(1000), rows: z.number().int().min(1).max(1000) }), terminalClear: terminal, terminalClose: terminal, terminalCloseProject: project,
-  gitStatus: project, gitLog: project.extend({ query: z.string().max(500).optional(), limit: z.number().int().min(1).max(1000).optional() }),
+  reviewList: project,
+  reviewSnapshot: reviewFile,
+  reviewUpdate: reviewExpected.extend({ note: reviewNoteSchema.optional(), id: id.optional(), state: z.enum(["open", "resolved", "dismissed"]).optional() }),
+  reviewRun: reviewExpected.extend({ model: id }),
+  gitStatus: project.extend({ summaryOnly: z.boolean().optional() }), gitLog: project.extend({ query: z.string().max(500).optional(), limit: z.number().int().min(1).max(1000).optional() }),
   gitCommitDetails: project.extend({ hash: z.string().regex(/^[a-f0-9]{40,64}$/) }),
   gitCommitDiff: file.extend({ hash: z.string().regex(/^[a-f0-9]{40,64}$/) }), gitDiff: hunks.extend({ staged: z.boolean().optional() }), gitHunks: hunks, gitStageHunk: hunks.extend({ patch: text }), gitRevertFile: file, gitStageFile: file, gitUnstageFile: file.extend({ originalPath: path.optional() }), gitStageAll: project, gitUnstageAll: project,
   gitGenerateCommitMessage: target.extend({ model: id.optional() }), gitCommit: project.extend({ message: z.string().trim().min(1).max(10000) }), gitPush: project, gitSync: project, gitPrTarget: project,

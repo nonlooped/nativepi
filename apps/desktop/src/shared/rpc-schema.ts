@@ -1,3 +1,5 @@
+import type { AutomationInput, AutomationState, AutomationTool } from "./automations.ts";
+import type { ReviewSnapshot, ReviewRange, Finding } from "./review.ts";
 import type { DictationStatus } from "./dictation.ts";
 import type { ComputerStatus } from "./computer-use.ts";
 import type { OrchestrationSnapshot, OrganizationSnapshot } from "./orchestration.ts";
@@ -267,6 +269,12 @@ export const nativePiStateSchema = z.object({
 });
 export type NativePiState = z.infer<typeof nativePiStateSchema>;
 export type HostRequestContracts = {
+  automationTools: { params: { projectDir?: string }; response: AutomationTool[] };
+  automationList: { params: Record<string, never>; response: AutomationState };
+  automationSave: { params: AutomationInput; response: AutomationState };
+  automationDelete: { params: { id: string }; response: AutomationState };
+  automationRun: { params: { id: string }; response: AutomationState };
+  automationStop: { params: { id: string }; response: AutomationState };
   orchestrationSnapshot: { params: { sessionFile?: string }; response: OrchestrationSnapshot };
   stopThread: { params: { sessionFile: string }; response: { ok: boolean } };
   wakeThread: { params: { threadId: string; messageIds: string[] }; response: { ok: boolean } };
@@ -444,6 +452,7 @@ export type HostRequestContracts = {
   dictationCancel: { params: { id: string }; response: { ok: true } };
   dictationTranscribe: { params: { id: string; audio: string }; response: { text: string } };
   dictationMicrophone: { params: Record<string, never>; response: { ok: true } };
+  browserShow: { params: { projectDir: string; sessionFile?: string | null }; response: { ok: true } };
   computerStatus: { params: Record<string, never>; response: ComputerStatus };
   computerPermissions: { params: Record<string, never>; response: ComputerStatus };
   abort: {
@@ -1073,6 +1082,7 @@ export type HostRequestContracts = {
   gitStatus: {
     params: {
       projectDir: string;
+      summaryOnly?: boolean;
     };
     response: {
       status: GitStatus;
@@ -1096,6 +1106,10 @@ export type HostRequestContracts = {
     params: { projectDir: string; hash: string; file: string };
     response: { diff: GitDiff };
   };
+  reviewList: { params: { projectDir: string }; response: ReviewSnapshot };
+  reviewSnapshot: { params: { projectDir: string; file: string; mode: "working" | "staged" }; response: ReviewSnapshot };
+  reviewUpdate: { params: { projectDir: string; file: string; mode: "working" | "staged"; scope: string; revision: string; fingerprint: string; note?: { range: ReviewRange; body: string }; id?: string; state?: Finding["state"] }; response: ReviewSnapshot };
+  reviewRun: { params: { projectDir: string; file: string; mode: "working" | "staged"; scope: string; revision: string; fingerprint: string; model: string }; response: { snapshot: ReviewSnapshot; sessionFile: string; count: number } };
   gitDiff: {
     params: {
       projectDir: string;
@@ -1287,6 +1301,10 @@ export type HostRequestContracts = {
       commands: CommandInfo[];
     };
   };
+  configureMcp: { params: import("./agent-setup.ts").McpSetupChange; response: { ok: boolean; output: string; report?: import("./agent-setup.ts").McpReport } };
+  subscriptionCapacity: { params: Record<string, never>; response: { providers: import("./subscription-capacity.ts").SubscriptionCapacity[] } };
+  agentSetup: { params: { projectDir: string }; response: import("./agent-setup.ts").AgentSetup };
+  createAgentResource: { params: import("./agent-setup.ts").ResourceChange; response: { ok: boolean; error?: string } };
   listSkills: {
     params: {
       projectDir: string;

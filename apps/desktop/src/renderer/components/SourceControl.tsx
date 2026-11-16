@@ -1,3 +1,6 @@
+import { ChatCircleTextIcon } from "@phosphor-icons/react/ChatCircleText";
+import { useRequest } from "../lib/useRequest.ts";
+import { reviewSnapshotSchema } from "../../shared/review.ts";
 import StateNotice from "./StateNotice.tsx";
 import { DRAG_REGION, NO_DRAG_REGION, WINDOW_CONTROLS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { createKeybindingsHandler } from "tinykeys";
@@ -54,6 +57,7 @@ export default function SourceControl({
 }) {
   const useAppStore = usePaneStore();
   const keybindingOverrides = useAppStore(s => s.keybindingOverrides);
+  const revision = useAppStore(s => s.gitRevision);
   const gitLoading = useAppStore(s => s.gitLoading);
   const gitError = useAppStore(s => s.gitError);
   const refreshGit = useAppStore((s) => s.refreshGit);
@@ -63,6 +67,8 @@ export default function SourceControl({
   const setDraft = useAppStore(s => s.setSourceControlDraft);
   const setMessage = (message: string) => setDraft(projectDir, message);
   const review = useAppStore(s => s.sourceControlReview);
+  const findings = useRequest(async () => reviewSnapshotSchema.parse(await rpc.request.reviewList({ projectDir })), [projectDir, revision, review]);
+
   const setReview = useAppStore(s => s.setSourceControlReview);
   const selected = review?.projectDir === projectDir && !review.hash ? `${review.staged ? "staged" : "changed"}:${review.path}` : null;
   function setSelected(key: string | null) {
@@ -179,6 +185,10 @@ export default function SourceControl({
           <DropdownMenuContent align="end"><DropdownMenuGroup>
             <DropdownMenuItem disabled={disabled || git.detached} onClick={() => void sync("push")}>{git.upstream ? "Push commits" : "Publish branch"}</DropdownMenuItem>
             <DropdownMenuItem disabled={disabled || git.detached || !git.upstream} onClick={() => void sync("sync")}>Sync (fast-forward only){git.behind ? ` · ${git.behind} behind` : ""}</DropdownMenuItem>
+            <DropdownMenuItem disabled={!findings.data?.findings.length} onClick={() => {
+              const first = findings.data?.findings.find(f => f.state === "open") ?? findings.data?.findings[0];
+              if (first) { setReview({ projectDir, path: first.file, staged: first.mode === "staged", findingId: first.id }); onReview?.(); }
+            }}><ChatCircleTextIcon />Review findings</DropdownMenuItem>
             {showPullRequest && <DropdownMenuItem onClick={onOpenPullRequest}><GitPullRequestIcon />Open a pull request</DropdownMenuItem>}
           </DropdownMenuGroup></DropdownMenuContent>
         </DropdownMenu>

@@ -47,6 +47,7 @@ export default defineConfig({
       rolldownOptions: {
         input: {
           index: resolve("src/preload/index.ts"),
+          browser: resolve("src/preload/browser.ts"),
         },
         external: ["electron", /^electron\//],
         output: {
@@ -57,8 +58,10 @@ export default defineConfig({
     },
   },
   renderer: {
+    optimizeDeps: { entries: ["index.html", "browser.html"] },
     root: "src/renderer",
     resolve: {
+      dedupe: ["react", "react-dom"],
       alias: {
         "@": resolve("src/renderer"),
         "@material-icons": materialIcons,
@@ -73,6 +76,7 @@ export default defineConfig({
       rolldownOptions: {
         input: {
           index: resolve("src/renderer/index.html"),
+          browser: resolve("src/renderer/browser.html"),
         },
       },
     },
@@ -80,7 +84,7 @@ export default defineConfig({
       // Local Access reuses this renderer during development. The RPC remains
       // token-protected and only starts when Local Access is enabled in the app.
       host: true,
-      port: Number(process.env.NATIVEPI_DEV_PORT || 5173),
+      port: Number(process.env.NATIVEPI_DEV_PORT || process.env.NATIVEPI_VITE_PORT || 5173),
       strictPort: true,
     },
   },
