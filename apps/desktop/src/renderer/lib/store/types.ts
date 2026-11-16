@@ -371,7 +371,7 @@ export interface UiSlice {
   setSourceControlBusy: (busy: boolean) => void;
   sourceControlDrafts: Record<string, string>;
   setSourceControlDraft: (projectDir: string, message: string) => void;
-  sourceControlReview: { projectDir: string; path: string; staged: boolean; hash?: string } | null;
+  sourceControlReview: { projectDir: string; path: string; staged: boolean; hash?: string; findingId?: string } | null;
   setSourceControlReview: (review: UiSlice["sourceControlReview"]) => void;
   contextPaneTab: "files" | "changes";
   setContextPaneTab: (tab: "files" | "changes") => void;

@@ -1,3 +1,4 @@
+import type { ReviewSnapshot, ReviewRange, Finding } from "./review.ts";
 import type { DictationStatus } from "./dictation.ts";
 import type { ComputerStatus } from "./computer-use.ts";
 import type { OrchestrationSnapshot, OrganizationSnapshot } from "./orchestration.ts";
@@ -1088,6 +1089,10 @@ export type HostRequestContracts = {
     params: { projectDir: string; hash: string; file: string };
     response: { diff: GitDiff };
   };
+  reviewList: { params: { projectDir: string }; response: ReviewSnapshot };
+  reviewSnapshot: { params: { projectDir: string; file: string; mode: "working" | "staged" }; response: ReviewSnapshot };
+  reviewUpdate: { params: { projectDir: string; file: string; mode: "working" | "staged"; scope: string; revision: string; fingerprint: string; note?: { range: ReviewRange; body: string }; id?: string; state?: Finding["state"] }; response: ReviewSnapshot };
+  reviewRun: { params: { projectDir: string; file: string; mode: "working" | "staged"; scope: string; revision: string; fingerprint: string; model: string }; response: { snapshot: ReviewSnapshot; sessionFile: string; count: number } };
   gitDiff: {
     params: {
       projectDir: string;
