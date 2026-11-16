@@ -2,9 +2,13 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { stubInvoke } from "../lib/store/testBridge.ts";
+import { useWorkspaceEditor } from "../lib/workspaceEditor.ts";
+import { runtime } from "../lib/store/internals.ts";
 import { useAppStore } from "../lib/store.ts";
 import { THEME_CHANGE_EVENT } from "../lib/themes.ts";
 
+const linkProviders: { provideLinks(line: number, callback: (links: { activate(): void }[]) => void): void }[] = [];
+let terminalLine = "";
 const terminalOptions: Record<string, unknown>[] = [];
 
 mock.module("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} } }));
@@ -16,7 +20,8 @@ mock.module("@xterm/xterm", () => ({ Terminal: class {
   loadAddon() {}
   element?: HTMLTextAreaElement;
   open(container: HTMLElement) { this.element = document.createElement("textarea"); this.element.className = "xterm-helper-textarea"; container.append(this.element); }
-  registerLinkProvider() { return { dispose() {} }; }
+  buffer = { active: { getLine: () => ({ length: terminalLine.length, translateToString: () => terminalLine, getCell: (index: number) => ({ getChars: () => terminalLine[index] ?? "", getWidth: () => 1 }) }) } };
+  registerLinkProvider(provider: typeof linkProviders[number]) { linkProviders.push(provider); return { dispose() {} }; }
   onData() { return { dispose() {} }; }
   write() {}
   focus() { this.element?.focus(); }
@@ -35,7 +40,7 @@ let container: HTMLDivElement | undefined;
 afterEach(async () => {
   if (root) await act(async () => { root!.unmount(); });
   container?.remove(); root = undefined;
-  terminalOptions.length = 0;
+  terminalOptions.length = 0; linkProviders.length = 0; terminalLine = "";
   document.documentElement.style.removeProperty("--sidebar");
 });
 async function render() {
@@ -152,4 +157,26 @@ domTest("terminal keyboard commands switch focus, split, and close only the curr
     await press("KeyT", { shiftKey: true });
     expect(inputs()).toHaveLength(3);
   } finally { await act(async () => useAppStore.setState(original, true)); }
+});
+
+
+domTest("terminal-relative file links select the owning pane's project workspace", async () => {
+  useWorkspaceEditor.setState({ buffers: {}, selected: {}, loading: {} });
+  const reads: unknown[] = [];
+  stubInvoke(async (channel, params) => {
+    if (channel === "terminalEnsure") return { terminals: [session("cwd-link")] };
+    if (channel === "terminalListShells") return { shells: [] };
+    if (channel === "terminalAttach") return { output: "\u001b]7;file://localhost/project/src\u0007", sequence: 0 };
+    if (channel === "readWorkspaceFile") { reads.push(params); return { text: "code", revision: "revision" }; }
+    return { ok: true };
+  });
+  await render();
+  terminalLine = "file.ts:12:3";
+  let links: { activate(): void }[] = [];
+  linkProviders[0]!.provideLinks(1, value => { links = value; });
+  expect(links).toHaveLength(1);
+  await act(async () => links[0]!.activate());
+  expect(reads).toEqual([{ projectDir: "/project", file: "/project/src/file.ts" }]);
+  const selected = useWorkspaceEditor.getState().selected[`${runtime(useAppStore.getState).paneId}:/project`];
+  expect(useWorkspaceEditor.getState().buffers[selected!]).toMatchObject({ file: "/project/src/file.ts", line: 12, column: 3 });
 });
