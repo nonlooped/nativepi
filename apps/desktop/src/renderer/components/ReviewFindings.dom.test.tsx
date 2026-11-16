@@ -14,16 +14,18 @@ let root: Root | undefined;
 let container: HTMLDivElement;
 afterEach(async () => { if (root) await act(async () => root!.unmount()); root = undefined; container?.remove(); });
 test("line feedback saves, selected findings prepare a batch, stale refresh preserves open state", async () => {
+  let reads = 0;
   let snapshot: ReviewSnapshot = { runs: [], scope: "scope", revision: "0", fingerprint: "code", patch: "@@ -1 +1 @@\n-old\n+new", findings: [] };
   stubInvoke(async (name, params: any) => {
-    if (name === "reviewSnapshot") return snapshot;
+    if (name === "reviewJobs") return { jobs: [{ id: "job", options: { model: "provider/reviewer" }, status: "completed", createdAt: "now", message: "Completed", inputs: [], skipped: [] }] };
+    if (name === "reviewSnapshot") { reads++; return snapshot; }
     if (name === "reviewUpdate") {
       snapshot = { ...snapshot, revision: "1", findings: [{ ...params.note, id: "finding", file: "a.txt", mode: "working", state: "open", fingerprint: "code", context: "1: new", createdAt: "now", stale: false }] };
       return snapshot;
     }
     return {};
   });
-  useAppStore.setState({ activeProjectPath: "/project", activeSessionFile: null, drafts: {}, models: [] });
+  useAppStore.setState({ activeProjectPath: "/project", activeSessionFile: "/project/work.jsonl", sessionsByProject: { "/project": [{ path: "/project/work.jsonl", name: "Work target", firstMessage: "", lastPrompt: "", providers: [], id: "work", messageCount: 0, created: "", modified: "" }] }, selectChat: async () => {}, drafts: {}, models: [] });
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   let closed = false;
   function Surface({ select }: { select: (range: {side: "new"; start: number; end: number}) => void }) { const controls = useContext(ReviewControls); return <>{controls?.toolbar}<button onClick={() => select({ side: "new", start: 1, end: 1 })}>Select line</button></>; }
@@ -36,13 +38,17 @@ test("line feedback saves, selected findings prepare a batch, stale refresh pres
   await act(async () => document.body.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
   await act(async () => button("Findings 1").click());
   expect(container.textContent).toContain("Check this value");
+  expect(reads).toBe(1);
   snapshot = { ...snapshot, findings: snapshot.findings.map(f => ({ ...f, stale: true })) };
   await act(async () => root!.render(render(1)));
   expect(container.textContent).toContain("Changed");
   expect(container.textContent).toContain("1 open");
   await act(async () => document.body.querySelector<HTMLButtonElement>('button[aria-label="Select findings"]')!.click());
   await act(async () => document.body.querySelector<HTMLButtonElement>('[role="checkbox"]')!.click());
-  await act(async () => button("Send 1 selected to Pi…").click());
+  await act(async () => button("Request fixes for 1 selected…").click());
+  expect(closed).toBe(false);
+  expect(document.body.textContent).toContain("You can edit it before sending");
+  await act(async () => button("Prepare draft").click());
   expect(closed).toBe(true);
   expect(Object.values(useAppStore.getState().drafts).join("\n")).toContain("a.txt (working, new side, lines 1-1; STALE");
 });

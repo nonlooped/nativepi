@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils.ts";
 export default function DiffView({ patch, className, embedded, controls, onSelect }: { patch: string; className?: string; embedded?: boolean; controls?: { wrap: boolean }; onSelect?: (range: ReviewRange) => void }) {
   const findings = useContext(ReviewAnchors);
   const review = useContext(ReviewControls);
+  const focused = findings.find(f => f.id === review?.focused);
   const groups = new Map<string, typeof findings>();
   for (const finding of findings) {
     if (!reviewLines(patch, finding.range.side).has(finding.range.start)) continue;
@@ -57,6 +58,7 @@ export default function DiffView({ patch, className, embedded, controls, onSelec
     enableLineSelection: !!onSelect,
     onLineSelected: (range: import("@pierre/diffs").SelectedLineRange | null) => {
       if (!range || (range.endSide && range.endSide !== range.side)) return;
+      if (focused && focused.range.start === Math.min(range.start, range.end) && focused.range.end === Math.max(range.start, range.end) && focused.range.side === (range.side === "deletions" ? "old" : "new")) return;
       onSelect?.({ side: range.side === "deletions" ? "old" : "new", start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) });
     },
   };
@@ -70,7 +72,7 @@ export default function DiffView({ patch, className, embedded, controls, onSelec
           {failed && <p role="status" className="px-3 py-2 text-muted-foreground">Syntax highlighting is unavailable. Showing plain text.</p>}
           <pre className={cn("overflow-auto p-3 font-mono leading-5", lineWrap && "whitespace-pre-wrap break-all")}>{patch}</pre>
         </>
-        : <PatchDiff patch={patch} lineAnnotations={annotations} renderAnnotation={({ metadata: group }) => <div className="min-w-0 bg-background px-2 py-1 font-sans"><Button variant="ghost" size="xs" className="max-w-full justify-start gap-2" onClick={() => review?.inspect(group[0]!.id)} title="Inspect feedback"><ChatCircleTextIcon /><span className="shrink-0">{group.length === 1 ? "Feedback" : `${group.length} findings`}</span><span className="truncate font-normal">{group[0]!.body}</span></Button></div>} options={{ ...options, diffStyle: wide ? preferred : "unified", diffIndicators: "classic" }} />}
+        : <PatchDiff selectedLines={focused ? { start: focused.range.start, end: focused.range.end, side: focused.range.side === "old" ? "deletions" : "additions" } : null} patch={patch} lineAnnotations={annotations} renderAnnotation={({ metadata: group }) => <div onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} className="min-w-0 bg-background px-2 py-1 font-sans"><Button variant="ghost" size="xs" className="max-w-full justify-start gap-2" onClick={() => review?.inspect(group[0]!.id)} title="Inspect feedback"><ChatCircleTextIcon /><span className="shrink-0">{group.length === 1 ? "Feedback" : `${group.length} findings`}</span><span className="truncate font-normal">{group[0]!.body}</span></Button></div>} options={{ ...options, diffStyle: wide ? preferred : "unified", diffIndicators: "classic" }} />}
     </Virtualizer>
   </div>;
 }

@@ -408,7 +408,7 @@ process.once("disconnect", () => {
 // Before `main`, because extensions call `connect()` during activation.
 installExtensionChannel(send);
 const appTools = fileURLToPath(new URL("./app-tools.js", import.meta.url));
-void configureHttp().then(() => main(["--mode", "rpc", ...(process.argv.includes("--no-session") ? [] : ["-e", appTools]), ...process.argv.slice(2).filter(arg => arg !== "--nativepi-chat")])).then(() => {
+void configureHttp().then(() => main(["--mode", "rpc", ...(process.argv.includes("--no-session") || process.argv.includes("--nativepi-reviewer") ? [] : ["-e", appTools]), ...process.argv.slice(2).filter(arg => arg !== "--nativepi-chat" && arg !== "--nativepi-reviewer")])).then(() => {
   frames.dispose();
   if (process.connected) process.disconnect?.();
 }, error => {
