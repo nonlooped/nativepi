@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { defineRenderer, type RendererContext } from "@nativepi/extension-api";
-import { Badge } from "@nativepi/extension-api/ui";
 import { protocol } from "./protocol.ts";
 
 function Activity({ context }: { context: RendererContext<typeof protocol> }) {
@@ -16,9 +15,9 @@ function Activity({ context }: { context: RendererContext<typeof protocol> }) {
       .catch(reason => { if (active) setError(String(reason)); });
     return () => { active = false; off(); };
   }, [call, on]);
-  return <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", padding: "0.5rem", color: "var(--muted-foreground)", fontSize: "0.875rem" }}>
-    <Badge variant="secondary">{state.tools} tools</Badge>
-    <span>{error || (state.lastTool ? `Last: ${state.lastTool}` : "No tools used in this runtime")}</span>
+  return <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", padding: "0.25rem 0.5rem", color: "var(--muted-foreground)", fontSize: "0.75rem" }}>
+    <span>{state.tools} {state.tools === 1 ? "action" : "actions"}</span>
+    <span>{error || (state.lastTool ? `Latest: ${state.lastTool}` : "No activity yet")}</span>
   </div>;
 }
 export default defineRenderer({ apiVersion: 1, requires: ["scoped-handles", "host-dispose"], protocol,

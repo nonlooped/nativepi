@@ -1,3 +1,4 @@
+import SettingsDetails from "./settings/SettingsDetails.tsx";
 import { copyText } from "@/lib/clipboard.ts";
 import type { SetupResource } from "../../shared/agent-setup.ts";
 import ChatExtensionSettings from "./settings/ChatExtensionSettings.tsx";
@@ -247,15 +248,14 @@ export default function ExtensionsManager({ projectDir: context, resources = [] 
       {query.trim() && !packageRows.some(pkg => matches(pkg.source)) && !localExtensions?.some(extension => matches(extension.path)) ? <p role="status" className="text-sm text-muted-foreground">No matching packages.</p> : null}
     </>}
     {graphicalErrors.length || errors.length ? <div className="flex flex-col gap-3">
-      <StateNotice title="Some extensions could not load" detail={[...errors, ...graphicalErrors.map(error => `${error.name}: ${error.error}`)].join("\n")} />
-      <p className="text-xs text-muted-foreground">Fix the source or install a compatible package, then reload. An optional graphical error does not disable the package’s Pi entry.</p>
-      <div><Button variant="outline" size="sm" disabled={running || busy !== null} onClick={async () => {
+      <div className="flex items-start justify-between gap-4 border-t border-border/40 pt-4"><div className="min-w-0"><p className="text-sm font-medium">Some extensions could not load</p><p className="mt-1 text-[0.8125rem] leading-5 text-body-muted-foreground">Update the affected packages, then reload.</p></div><Button variant="outline" size="sm" disabled={running || busy !== null} onClick={async () => {
         setBusy("reload"); setActionError(undefined);
         try { await reloadExtensions(); refresh(); }
         catch (error) { setActionError(actionErrorMessage(error, "Extensions could not reload.")); }
         finally { setBusy(null); }
       }}>{busy === "reload" ? "Reloading…" : "Reload extensions"}</Button></div>
-      {running ? <p className="text-xs text-muted-foreground">Wait for running turns to finish before reloading.</p> : null}
+      {running ? <p className="text-xs text-muted-foreground">Finish running chats before reloading.</p> : null}
+      <SettingsDetails id="extension-load-errors" title="Error details" summary={`${errors.length + graphicalErrors.length} load ${errors.length + graphicalErrors.length === 1 ? "error" : "errors"}`}><div className="space-y-3 text-xs leading-5 text-body-muted-foreground">{errors.map((error, i) => <p key={i} className="break-words">{error}</p>)}{graphicalErrors.map(error => <div key={error.name}><p className="font-medium text-foreground">{error.name}</p><p className="mt-1 break-words">{error.error}</p></div>)}<p>A display error can leave the package’s agent tools available.</p></div></SettingsDetails>
     </div> : null}
     <ExtensionSettings />
     <ConfirmDialog open={pendingRemoval !== null} title="Remove this package?" description={<>Pi will no longer load this source for {pendingRemoval?.scope === "project" ? "this project" : "your user account"}. You can install it again from the same source.</>} detail={pendingRemoval?.source} confirmLabel="Remove package" destructive onCancel={() => setPendingRemoval(null)} onConfirm={() => { const target = pendingRemoval; setPendingRemoval(null); if (target) void remove(target); }} />
