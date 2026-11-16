@@ -52,3 +52,29 @@ test("add dialog submits only the chosen transport and exposes restart after a s
     expect(document.getElementById("server-executable")).toBeNull();
   } finally { await act(async () => root.unmount()); container.remove(); }
 });
+
+
+test("refresh discards connection results and displays newly discovered servers", async () => {
+  useAppStore.setState({ activeProjectPath: null, projects: [], conversations: {} });
+  let externalEdit = false;
+  const server = (name: string, state = "not-checked") => ({ name, scope: "global", source: "/agent/mcp.json", enabled: true, state, exposure: "codemode", tools: [] });
+  stubInvoke(async channel => {
+    if (channel === "workWorkspace") return { path: "/work" };
+    if (channel === "agentSetup") return { projectTrusted: false, resources: [], errors: [], servers: [server(externalEdit ? "new-server" : "old-server")] };
+    if (channel === "configureMcp") return { ok: true, output: "", report: { servers: [server("old-server", "connected")], errors: [] } };
+    throw new Error(channel);
+  });
+  const container = document.createElement("div"); document.body.append(container);
+  const root = createRoot(container);
+  const button = (text: string) => [...container.querySelectorAll("button")].find(b => b.textContent?.trim() === text)!;
+  try {
+    await act(async () => root.render(<AgentSetupSettings />));
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Check servers and tools"]')!.click());
+    expect(container.textContent).toContain("tools connected");
+    externalEdit = true;
+    await act(async () => button("Refresh").click());
+    expect(container.textContent).toContain("new-server");
+    expect(container.textContent).toContain("Not checked");
+    expect(container.textContent).not.toContain("old-server");
+  } finally { await act(async () => root.unmount()); container.remove(); }
+});

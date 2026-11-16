@@ -132,7 +132,7 @@ export default function AgentSetupSettings() {
     })}
     <SettingsSection heading="Resources">
       <ActionRow label="Pi packages" description="Install skills, prompts and extensions together."><Button variant="outline" size="sm" onClick={() => openSettings("Extensions")}>Manage packages</Button></ActionRow>
-      <ActionRow label="Refresh discovery" description="Read changes made outside NativePi."><Button variant="outline" size="sm" disabled={request.loading} onClick={request.reload}>Refresh</Button></ActionRow>
+      <ActionRow label="Refresh discovery" description="Read changes made outside NativePi."><Button variant="outline" size="sm" disabled={request.loading} onClick={() => { setReport(null); request.reload(); }}>Refresh</Button></ActionRow>
     </SettingsSection>
     {!!(request.data?.errors.length || checked?.errors.length || checked?.note) && <details className="text-[0.8125rem] leading-5 text-body-muted-foreground"><summary className="cursor-pointer py-2 font-medium text-foreground">View diagnostics</summary><div className="space-y-2 py-2 [overflow-wrap:anywhere]">{[...(request.data?.errors ?? []), ...(checked?.errors ?? []), ...(checked?.note ? [checked.note] : [])].map((detail, index) => <p key={index}>{detail}</p>)}</div></details>}
     {dialog && cwd && <AddCapabilityDialog key={`${dialog.kind}:${dialog.server?.name ?? "new"}`} kind={dialog.kind} server={dialog.server} cwd={cwd} projectAvailable={cwd !== workspace.data?.path && !!request.data?.projectTrusted} onClose={() => setDialog(null)} onSaved={savedKind => { didChange(); setDialog(null); showHint(savedKind === "mcp" ? "Server saved" : `${labels[savedKind]} created`); }} />}
