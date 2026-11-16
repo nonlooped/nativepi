@@ -22,3 +22,15 @@ test("shortcut search cancels recording before typing, and the modified filter r
   expect(useAppStore.getState().keybindingOverrides).toEqual({});
   expect(host.textContent).toContain("No matching shortcuts");
 });
+
+
+test("disable and reset update the effective binding without losing other custom keys", async () => {
+  useAppStore.setState({ ready: false, keybindingOverrides: { search: "$mod+KeyU" } });
+  host = document.createElement("div"); document.body.append(host); root = createRoot(host);
+  await act(() => root.render(<KeybindSettings />));
+  await act(() => host.querySelector<HTMLButtonElement>('[aria-label="Disable Focus message composer shortcut"]')!.click());
+  expect(useAppStore.getState().keybindingOverrides).toEqual({ search: "$mod+KeyU", focusComposer: "" });
+  expect(host.querySelector('[aria-label^="Change shortcut for Focus message composer"]')!.textContent).toContain("Unassigned");
+  await act(() => host.querySelector<HTMLButtonElement>('[aria-label="Reset Focus message composer to default"]')!.click());
+  expect(useAppStore.getState().keybindingOverrides).toEqual({ search: "$mod+KeyU" });
+});

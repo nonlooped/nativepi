@@ -40,8 +40,9 @@ export default function KeybindSettings() {
   useEffect(() => {
     if (!recordingId) return;
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.repeat) return;
       event.preventDefault();
-      event.stopPropagation();
+      event.stopImmediatePropagation();
       if (event.key === "Escape") {
         setRecordingId(null);
         return;
@@ -81,7 +82,7 @@ export default function KeybindSettings() {
             {shortcuts.map((shortcut) => {
               const recording = recordingId === shortcut.id;
               const hint = hintFor(shortcut.id, overrides);
-              const unbound = overrides[shortcut.id] === "";
+              const unbound = !hint;
               const customized = isCustomized(shortcut.id, overrides);
               const bindingDescription = recording
                 ? "Recording shortcut"
@@ -93,18 +94,19 @@ export default function KeybindSettings() {
                   key={shortcut.id}
                   className={cn(
                     "group flex flex-col gap-2 py-2.5 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-center @min-[36rem]/settings-content:justify-between @min-[36rem]/settings-content:gap-8",
-                    unbound && "rounded-lg bg-warning/10 px-2",
+
                   )}
                 >
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <p className="text-sm font-medium">{shortcut.label}</p>
                     <p className="text-xs leading-relaxed text-body-muted-foreground">
                       {unbound
-                        ? "Unbound when another shortcut took these keys."
+                        ? `${shortcut.description} No shortcut assigned.`
                         : shortcut.description}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
+                    {hint ? <Button variant="ghost" size="sm" aria-label={`Disable ${shortcut.label} shortcut`} onClick={() => { setRecordingId(null); setKeybinding(shortcut.id, ""); }}>Disable</Button> : null}
                     {customized ? (
                       <Button
                         variant="ghost"
