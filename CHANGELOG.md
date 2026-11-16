@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Website downloads choose the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every architecture.
 
 ### Fixed
+- Reduce memory spikes during historical chat discovery, reuse unchanged Pi session summaries and extension renderer modules, keep Select All responsive in long chats, defer settings code, and limit sidebar repository work.
+- Reduce packaged application size by excluding dependency source maps, renderer-only dependency copies, and computer-use binaries for other platforms.
 - Keep delegate Stop fences intact across queued work and cold startup, terminate unresponsive Pi writers, retry failed inbox delivery, and release waits promptly for clarification questions.
 - Avoid archive scans before Stop and thread controls; reuse revision-validated history discovery and scan each session directory once.
 - Ad-hoc sign completed macOS app bundles and verify their integrity before release to fix the damaged-app error on downloaded builds.

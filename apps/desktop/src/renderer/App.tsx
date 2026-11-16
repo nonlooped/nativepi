@@ -29,7 +29,7 @@ import NativePiWordmark from "./components/NativePiWordmark.tsx";
 import NavigationControls from "./components/NavigationControls.tsx";
 import ProjectStatus, { PiStartingNotice } from "./components/ProjectStatus.tsx";
 import QuitDialog from "./components/QuitDialog.tsx";
-import Settings from "./components/Settings.tsx";
+const Settings = lazy(() => import("./components/Settings.tsx"));
 import Toaster from "./components/Toaster.tsx";
 import TrustDialog from "./components/TrustDialog.tsx";
 import WindowControls from "./components/WindowControls.tsx";
@@ -423,7 +423,7 @@ export default function App() {
         <SettingsDialog.Portal>
           <SettingsDialog.Backdrop className="settings-backdrop fixed inset-0 z-40 bg-overlay/40 backdrop-blur-[2px]" />
           <SettingsDialog.Popup aria-label="Settings" className="settings-viewport fixed inset-x-0 top-[var(--app-viewport-top,0px)] z-40 mx-auto h-[var(--app-height,100dvh)] w-full overflow-hidden bg-background/95 outline-none backdrop-blur-xl sm:top-[calc(var(--app-viewport-top,0px)+var(--app-height,100dvh)*0.5)] sm:-translate-y-1/2 sm:h-[calc(var(--app-height,100dvh)*0.88)] sm:max-h-[54rem] sm:w-[94%] sm:max-w-[70rem] sm:rounded-xl sm:border sm:border-border/40 sm:shadow-lg">
-            <Settings />
+            <Suspense fallback={null}><Settings /></Suspense>
           </SettingsDialog.Popup>
         </SettingsDialog.Portal>
       </SettingsDialog.Root>

@@ -21,6 +21,10 @@ execFileSync(`${app}/MacOS/nativepi`, ['--input-type=module', '-e', `
   console.log('Packaged Electron started (' + process.arch + ')');
   assert.equal(process.arch, process.argv[2]);
   const unpacked = file => file.replace(/app\\.asar([/\\\\])/, 'app.asar.unpacked$1');
+  console.log('Loading Pi SDK through the packaged ASAR namespace');
+  const pi = await import(pathToFileURL(join(process.argv[1], 'Resources/app.asar/node_modules/@earendil-works/pi-coding-agent/dist/index.js')));
+  assert.equal(typeof pi.SessionManager.list, 'function');
+  assert.equal(typeof pi.ModelRuntime.create, 'function');
   console.log('Loading Koffi');
   require('koffi');
   console.log('Loading transcription library');

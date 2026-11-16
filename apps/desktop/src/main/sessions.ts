@@ -3,6 +3,7 @@ import { open, readFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { z } from "zod";
+import { ORCHESTRATION_ENTRY } from "../shared/orchestration.ts";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { chatTitle, isAssistant, isUser, sessionPromptSummary, textOf } from "../shared/messages.ts";
 import type { FileEntry, SessionSearchResult, SessionSummary, UsageDashboard } from "../shared/pi-types.ts";
@@ -28,6 +29,14 @@ export function parseSessionEntry(value: unknown): FileEntry | undefined {
   }
   return entry as FileEntry;
 }
+/** Read only coordination records; never retain historical tool output or images. */
+export async function readOrchestrationRecords(sessionFile: string) {
+  const entries: FileEntry[] = [];
+  for await (const entry of streamSession(sessionFile)) {
+    if ("customType" in entry && entry.customType === ORCHESTRATION_ENTRY) entries.push(entry);
+  }
+  return entries;
+}
 export async function readSession(sessionFile: string) {
   const entries: FileEntry[] = [];
   for await (const entry of streamSession(sessionFile))
@@ -43,9 +52,10 @@ const sidebarFieldsCache = new Map<string, {
 }>();
 const sessionListCache = new Map<string, Promise<SessionSummary[]>>();
 const completedLists = new Map<string, { directory: string; revision: string; sessions: SessionSummary[]; bytes: number }>();
-async function listingRevision(directory: string) {
+async function listingRevision(directory: string, signal?: AbortSignal) {
   // Include empty and malformed files too: an append can make either visible
   // without changing the directory mtime. Pi still discovers/parses sessions.
+  signal?.throwIfAborted();
   const names = await readdir(directory).catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT") return [];
     throw error;
@@ -53,6 +63,7 @@ async function listingRevision(directory: string) {
   const files = names.filter(name => name.endsWith(".jsonl")).sort();
   const revisions: string[] = [];
   for (let i = 0; i < files.length; i += 10) {
+    signal?.throwIfAborted();
     revisions.push(...await Promise.all(files.slice(i, i + 10).map(async name => {
       const value = await stat(path.join(directory, name)).catch(() => undefined);
       return `${name}:${value ? `${value.dev}:${value.ino}:${value.size}:${value.mtimeMs}:${value.ctimeMs}` : "missing"}`;
@@ -60,13 +71,13 @@ async function listingRevision(directory: string) {
   }
   return { value: JSON.stringify(revisions), files: files.length };
 }
-async function validatedSessionList(projectDir: string): Promise<SessionSummary[]> {
+async function validatedSessionList(projectDir: string, signal?: AbortSignal): Promise<SessionSummary[]> {
   const cached = completedLists.get(projectDir);
   const directory = cached?.directory ?? SessionManager.create(projectDir).getSessionDir();
-  const before = await listingRevision(directory);
+  const before = await listingRevision(directory, signal);
   if (cached?.revision === before.value) return cached.sessions;
-  const { sessions, parsedFiles } = await listSessionsUncached(projectDir);
-  const after = await listingRevision(directory);
+  const { sessions, parsedFiles } = await listSessionsUncached(projectDir, signal);
+  const after = await listingRevision(directory, signal);
   // Never certify a scan assembled while another process was writing.
   // Pi skips unreadable/malformed files. Do not make a partial discovery sticky
   // if a transient read failure recovers without a change to file metadata.
@@ -82,15 +93,16 @@ async function validatedSessionList(projectDir: string): Promise<SessionSummary[
   }
   return sessions;
 }
-async function sessionSidebarFields(sessionFile: string): Promise<{
+async function sessionSidebarFields(sessionFile: string, signal?: AbortSignal): Promise<{
   lastPrompt: string;
   providers: string[];
 }> {
+  signal?.throwIfAborted();
   const revision = await stat(sessionFile).then(value => `${value.ino}:${value.size}:${value.mtimeMs}:${value.ctimeMs}`).catch(() => "missing");
   const cached = sidebarFieldsCache.get(sessionFile);
   if (cached && cached.revision === revision)
     return cached.result;
-  const result = await sessionSidebarFieldsUncached(sessionFile);
+  const result = await sessionSidebarFieldsUncached(sessionFile, signal);
   // A full scan larger than capacity must not evict entries it has yet to
   // reach. Keep warm hits while still refreshing externally changed files.
   if (sidebarFieldsCache.has(sessionFile) || sidebarFieldsCache.size < 500) {
@@ -98,12 +110,12 @@ async function sessionSidebarFields(sessionFile: string): Promise<{
   }
   return result;
 }
-async function sessionSidebarFieldsUncached(sessionFile: string): Promise<{
+async function sessionSidebarFieldsUncached(sessionFile: string, signal?: AbortSignal): Promise<{
   lastPrompt: string;
   providers: string[];
 }> {
   try {
-    const contents = await readFile(sessionFile, "utf8");
+    const contents = await readFile(sessionFile, { encoding: "utf8", signal });
     let lastPrompt = "";
     const providers: string[] = [];
     const seen = new Set<string>();
@@ -139,6 +151,7 @@ async function sessionSidebarFieldsUncached(sessionFile: string): Promise<{
     return { lastPrompt, providers };
   }
   catch {
+    signal?.throwIfAborted();
     // A session can disappear between Pi's directory scan and this read. Keep
     // the remaining list usable; the watcher will remove this row momentarily.
     return { lastPrompt: "", providers: [] };
@@ -150,7 +163,8 @@ function rememberProvider(provider: string, providers: string[], seen: Set<strin
   seen.add(provider);
   providers.push(provider);
 }
-export function listSessions(projectDir: string): Promise<SessionSummary[]> {
+export function listSessions(projectDir: string, signal?: AbortSignal): Promise<SessionSummary[]> {
+  if (signal) return validatedSessionList(projectDir, signal);
   const cached = sessionListCache.get(projectDir);
   if (cached)
     return cached;
@@ -168,18 +182,19 @@ export async function listMentionThreads() {
   return (await SessionManager.listAll()).map(session => ({ path: session.path, id: session.id, title: session.name || session.firstMessage || "Untitled thread", cwd: session.cwd }));
 }
 
-async function listSessionsUncached(projectDir: string) {
-  const sessions = await SessionManager.list(projectDir);
+async function listSessionsUncached(projectDir: string, signal?: AbortSignal) {
+  const sessions = await SessionManager.list(projectDir, undefined, undefined, signal);
   const filtered = sessions.filter((session) => session.messageCount > 0 || !!session.name);
   // Process with limited concurrency so 200 files do not open at once (EMFILE)
   // and benefit from the mtime cache above.
   const results: SessionSummary[] = [];
   const concurrency = 10;
   for (let i = 0; i < filtered.length; i += concurrency) {
+    signal?.throwIfAborted();
     const chunk = filtered.slice(i, i + concurrency);
     const mapped = await Promise.all(chunk.map(async (session) => {
       const mtimeMs = await sessionMtime(session.path);
-      const { lastPrompt, providers } = await sessionSidebarFields(session.path);
+      const { lastPrompt, providers } = await sessionSidebarFields(session.path, signal);
       return {
         path: session.path,
         id: session.id,
@@ -202,7 +217,7 @@ export async function searchSessions(projectDirs: string[], rawQuery: string, si
     return [];
   signal?.throwIfAborted();
   const summaries = (await Promise.all(projectDirs.map(async (projectDir) => {
-    const sessions = await listSessions(projectDir);
+    const sessions = await listSessions(projectDir, signal);
     return sessions.map((session) => ({ projectDir, session, title: chatTitle(session) }));
   }))).flat();
   const results: SessionSearchResult[] = summaries.flatMap(({ projectDir, session, title }) => title.toLocaleLowerCase().includes(query)
