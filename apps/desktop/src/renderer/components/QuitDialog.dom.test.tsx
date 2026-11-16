@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { rpc } from "../lib/rpc.ts";
 import { stubInvoke } from "../lib/store/testBridge.ts";
-import { useAppStore } from "../lib/store.ts";
+import { PaneStoreContext, createPaneStore, releasePaneStore, focusPaneStore, primaryStore, useAppStore } from "../lib/store.ts";
 import QuitDialog from "./QuitDialog.tsx";
 const domTest = test.skipIf(typeof document === "undefined");
 let root: Root | undefined;
@@ -31,4 +31,22 @@ domTest("confirmed quit waits for the latest draft save and keeps the modal open
   expect(calls.map(([c]) => c)).toEqual(["saveState", "confirmQuit"]);
   expect(document.querySelector('[role="dialog"]')).not.toBeNull();
   expect(document.body.textContent).toContain("Could not close NativePi");
+});
+
+
+domTest("quit confirmation still opens after the shared shell switches pane stores", async () => {
+  const first = createPaneStore(), second = createPaneStore();
+  let requested!: (payload: unknown) => void;
+  rpc.events.on = ((channel: string, listener: (payload: unknown) => void) => { if (channel === "quitRequested") requested = listener; return () => {}; }) as typeof rpc.events.on;
+  stubInvoke(async () => ({ ok: true }));
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+  try {
+    focusPaneStore(first);
+    await act(async () => root!.render(<PaneStoreContext value={first}><QuitDialog /></PaneStoreContext>));
+    focusPaneStore(second);
+    await act(async () => root!.render(<PaneStoreContext value={second}><QuitDialog /></PaneStoreContext>));
+    await act(async () => requested({ work: { runs: [], terminals: [], viewers: 0, dirtyFiles: ["unsaved.ts"] } }));
+    expect(document.body.textContent).toContain("Discard edits and quit");
+    expect(document.body.textContent).toContain("unsaved.ts");
+  } finally { releasePaneStore(first); releasePaneStore(second); focusPaneStore(primaryStore); }
 });

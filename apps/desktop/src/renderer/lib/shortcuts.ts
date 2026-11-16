@@ -1,6 +1,10 @@
 export type ThreadShortcutId = `thread${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10}`;
 
 export type ShortcutId =
+  | "jumpToFile"
+  | "nextPane"
+  | "previousPane"
+  | "splitConversation"
   | ThreadShortcutId
   | "focusTerminal"
   | "newTerminal"
@@ -51,6 +55,10 @@ export interface ShortcutDef {
 export const THREAD_SHORTCUTS: { id: ThreadShortcutId; index: number }[] = Array.from({ length: 10 }, (_, index) => ({ id: `thread${index + 1}` as ThreadShortcutId, index }));
 
 export const SHORTCUTS: ShortcutDef[] = [
+  { id: "jumpToFile", binding: "$mod+KeyP", label: "Jump to file", description: "Search files in the active pane’s workspace.", group: "Navigation" },
+  { id: "nextPane", binding: "Alt+BracketRight", label: "Next conversation pane", description: "Focus the next workspace pane.", group: "Navigation" },
+  { id: "previousPane", binding: "Alt+BracketLeft", label: "Previous conversation pane", description: "Focus the previous workspace pane.", group: "Navigation" },
+  { id: "splitConversation", binding: "$mod+Alt+Backslash", label: "Split conversation", description: "Add another independently selectable conversation pane.", group: "Navigation" },
   ...THREAD_SHORTCUTS.map(({ id, index }): ShortcutDef => ({
     id, binding: `$mod+Digit${(index + 1) % 10}`, label: `Open sidebar thread ${index + 1}`,
     description: `Open thread ${index + 1} in the current sidebar order, respecting filters and collapsed sections.`, group: "Navigation",

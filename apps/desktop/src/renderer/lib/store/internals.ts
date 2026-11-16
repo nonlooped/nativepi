@@ -1,7 +1,8 @@
+import { clientIdentity } from "../clientIdentity.ts";
 import type { NativePiState } from "../../../shared/rpc-schema.ts";
 import { draftKeyFor } from "../../../shared/messages.ts";
 import { isRemote, rpc } from "../rpc.ts";
-import { dropAllSurfaces } from "../tuiSurfaces.ts";
+
 import { NO_EXTENSION_UI_STATE, type GetState, type SetState } from "./types.ts";
 import { patchConversation } from "./conversation.ts";
 
@@ -10,7 +11,7 @@ export function runtime(get: GetState) {
   let value = runtimes.get(get);
   if (!value) {
     value = {
-      lastChats: {}, selection: 0, folder: 0, epoch: 0, modelProjection: 0, levelsProjection: 0, lastGitRefresh: 0,
+      paneId: clientIdentity(), lastChats: {}, selection: 0, folder: 0, epoch: 0, modelProjection: 0, levelsProjection: 0, lastGitRefresh: 0,
       draftReports: new Map(), eventVersions: new Map(), runtimes: new Map(), bindings: new Map(),
       projectEpochs: new Map(), runtimeProjects: new Map(), eventWatermarks: new Map(),
       acknowledgedEvents: new Map(), retired: new Set(), blockedDrafts: new Set(),
@@ -20,6 +21,7 @@ export function runtime(get: GetState) {
   return value;
 }
 interface Runtime {
+  paneId: string;
   lastChats: Record<string, string>;
   selection: number;
   folder: number;
@@ -178,7 +180,7 @@ export function enterProjectFolder(set: SetState, get: GetState, path: string): 
     providersLoaded: false, providersLoading: false, providersError: undefined,
     authFlow: null,
   }));
-  dropAllSurfaces();
+  // Other panes may still be displaying these host-owned surfaces.
   void rpc.request.tuiSend({ projectDir: path, sessionFile: get().activeSessionFile, frame: { type: "nativepi_tui_sync" } }).catch(() => {});
   persist(get);
   // The trust check does not depend on the session list, and a round trip

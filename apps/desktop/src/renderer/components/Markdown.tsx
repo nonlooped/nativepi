@@ -1,3 +1,5 @@
+import { toast } from "sonner";
+import { openWorkspaceFile } from "../lib/workspaceEditor.ts";
 import { copyText } from "@/lib/clipboard.ts";
 import { CheckIcon } from "@phosphor-icons/react/Check";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
@@ -214,7 +216,7 @@ export function handleMarkdownLink(event: Pick<MouseEvent<HTMLAnchorElement>, "p
   if (/^mailto:/i.test(href)) { void rpc.request.openExternal({ url: href }); return; }
   if (/^[a-z][a-z\d+.-]*:/i.test(href)) return;
   const state = useAppStore.getState();
-  if (state.activeProjectPath) void rpc.request.openFileIn({ projectDir: state.activeProjectPath, file: href, editorId: state.preferences.preferredEditorId });
+  if (state.activeProjectPath) void openWorkspaceFile(state.activeProjectPath, href).catch(error => toast.error(String(error)));
 }
 
 export function markdownUrlTransform(url: string, key: string): string {

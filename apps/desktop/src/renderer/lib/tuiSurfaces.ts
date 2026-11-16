@@ -28,7 +28,10 @@ const buffers = new Map<string, string>();
 const completeHistories = new Set<string>();
 const listeners = new Map<string, Set<(data: string) => void>>();
 
-export function writeSurface(surfaceId: string, data: string): void {
+const processedFrames = new WeakSet<object>();
+export function writeSurface(surfaceId: string, data: string, frame?: object): void {
+  if (frame && processedFrames.has(frame)) return;
+  if (frame) processedFrames.add(frame);
   const clearAt = data.lastIndexOf(CLEAR);
   const held = buffers.get(surfaceId) ?? "";
   // A full redraw makes the history irrelevant: keep the redraw and drop the rest.
@@ -70,4 +73,9 @@ export function dropAllSurfaces(): void {
   buffers.clear();
   completeHistories.clear();
   listeners.clear();
+}
+
+/** A newly announced surface can reuse an ID; keep a surface another pane is displaying. */
+export function resetUnobservedSurface(surfaceId: string) {
+  if (!listeners.get(surfaceId)?.size) dropSurface(surfaceId);
 }

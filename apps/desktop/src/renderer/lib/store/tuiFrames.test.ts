@@ -3,7 +3,7 @@ import type { TuiHostFrame } from "../../../shared/tui-frames.ts";
 
 import { stubInvoke } from "./testBridge.ts";
 
-const { useAppStore } = await import("../store.ts");
+const { useAppStore, primaryStore } = await import("../store.ts");
 const { onSurfaceWrite, surfaceBuffer } = await import("../tuiSurfaces.ts");
 const { registerComposerInserter } = await import("../composerInsert.ts");
 
@@ -153,7 +153,7 @@ test("an extension paste goes to the caret, and to the end when there is none", 
   const unregister = registerComposerInserter((text) => {
     seen.push(text);
     return true;
-  });
+  }, primaryStore.getState);
   store.onTuiFrame({ projectDir: "A:\\proj-a", frame: { type: "nativepi_tui_paste", text: "#412" } });
   unregister();
 

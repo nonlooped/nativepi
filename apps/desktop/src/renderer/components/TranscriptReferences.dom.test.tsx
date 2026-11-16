@@ -21,7 +21,7 @@ async function mount(text: string, provider = false) {
   calls.length = 0;
   stubInvoke(async (name, params) => {
     calls.push({ name, params });
-    return name === "listMentionThreads" ? { threads: [] } : name === "listSkills" ? { skills: [{ name: "review", path: "/skills/review/SKILL.md", description: "Review changes", scope: "user" }] }
+    return name === "readWorkspaceFile" ? { text: "file text", revision: "a".repeat(64) } : name === "listMentionThreads" ? { threads: [] } : name === "listSkills" ? { skills: [{ name: "review", path: "/skills/review/SKILL.md", description: "Review changes", scope: "user" }] }
       : name === "readProjectMedia" ? { src: "data:video/mp4;base64,YQ==" } : { ok: true };
   });
   useAppStore.setState({ activeProjectPath: "/project", activeSessionFile: "chat.jsonl", sessionsByProject: {}, transcriptTarget: null,
@@ -44,11 +44,13 @@ async function click(text: string) {
   await act(async () => element!.click());
 }
 
-domTest("file locations open the user's editor with exact line and column", async () => {
+domTest("file locations open an in-app buffer at the referenced line", async () => {
   await mount("Read src/app.ts:12:4.");
   expect(calls).toHaveLength(0);
   await click("app.ts:12:4");
-  expect(calls).toEqual([{ name: "openFileIn", params: { projectDir: "/project", file: "src/app.ts", line: 12, column: 4, editorId: useAppStore.getState().preferences.preferredEditorId } }]);
+  expect(calls).toEqual([{ name: "readWorkspaceFile", params: { projectDir: "/project", file: "src/app.ts" } }]);
+  const { useWorkspaceEditor } = await import("../lib/workspaceEditor.ts");
+  expect(Object.values(useWorkspaceEditor.getState().buffers).find(b => b.file === "src/app.ts")?.line).toBe(12);
 });
 
 domTest("known slash skills use Pi's metadata and expose instructions", async () => {

@@ -16,7 +16,7 @@ import { AutocompleteMenu, useComposerAutocomplete } from "./ComposerAutocomplet
 import { Kbd } from "./ui/kbd.tsx";
 import { cn } from "@/lib/utils.ts";
 import { rpc } from "@/lib/rpc.ts";
-import { useAppStore } from "../lib/store.ts";
+import { useAppStore, usePaneStore } from "../lib/store.ts";
 
 /**
  * The message field: prose with skill and file chips in it.
@@ -50,6 +50,7 @@ export default function ComposerInput({
   suggestion?: string | null;
   onDismissSuggestion?: () => void;
 }) {
+  const useAppStore = usePaneStore();
   const root = useRef<HTMLDivElement>(null);
   const [editorHeight, setEditorHeight] = useState<number>();
   useLayoutEffect(() => {
@@ -100,7 +101,7 @@ export default function ComposerInput({
     // the text — that is the point of `applyCompletion` — so the edit is asked
     // for rather than assumed. Everything else is inserted here.
     if (option.kind === "extension") {
-      void applyExtensionCompletion(element, projectPath, useAppStore.getState().activeSessionFile, option, emit);
+      void applyExtensionCompletion(element, projectPath, useAppStore.getState().activeSessionFile, option, emit, useAppStore);
       return;
     }
     // A command stays editable text — the user types its arguments next — where
@@ -127,7 +128,7 @@ export default function ComposerInput({
       emit();
       caretTo(element, caret + text.length);
       return true;
-    });
+    }, useAppStore.getState);
   }, [emit]);
 
   const sync = useCallback(() => {
@@ -266,6 +267,7 @@ async function applyExtensionCompletion(
   sessionFile: string | null,
   option: ExtensionCompletionOption,
   emit: () => void,
+  useAppStore: ReturnType<typeof usePaneStore>,
 ): Promise<void> {
   if (!projectPath) return;
   const caret = caretOffset(element);

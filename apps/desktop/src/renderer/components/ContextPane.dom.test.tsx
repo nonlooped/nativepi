@@ -70,7 +70,7 @@ test("search finds unexpanded project paths, opens them, and preserves the query
   stubInvoke(async (channel, params) => {
     if (channel === "readProjectDirectory") return { entries: [] };
     if (channel === "listProjectFiles") { searches++; return { files: ["src/deep/Button.tsx", "README.md"] }; }
-    if (channel === "openFileIn") { opened = params; return { ok: true }; }
+    if (channel === "readWorkspaceFile") { opened = params; return { text: "button", revision: "a".repeat(64) }; }
     return {};
   });
   await mount("/project");

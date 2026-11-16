@@ -31,7 +31,7 @@ import { showAttachmentsRejected } from "../toast.tsx";
 import { MAX_IMAGE_BYTES } from "../../../shared/images.ts";
 import type { ImageAttachment } from "../../../shared/rpc-schema.ts";
 import { isChatFinished, togglePinnedPath } from "../chatOrganization.ts";
-import { dropAllSurfaces } from "../tuiSurfaces.ts";
+
 import { isAssistant, isUser, sessionPromptSummary, textOf } from "../../../shared/messages.ts";
 import { draftKeyFor } from "../../../shared/messages.ts";
 import { NO_EXTENSION_UI_STATE, type ChatSlice, type Conversation, type GetState, type PendingMessage, type SetState, type SliceCreator } from "./types.ts";
@@ -120,7 +120,7 @@ function removeSidebarSession(set: SetState, get: GetState, projectDir: string, 
 }
 
 function clearSessionExtensionUi(set: SetState) {
-  dropAllSurfaces();
+  // Other panes may still be displaying these host-owned surfaces.
   set({
     extStatuses: {},
     extWidgets: {},
@@ -328,7 +328,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
         persist(get);
         // Watch the chat being viewed for writes from another NativePi window or
         // a Pi CLI in a terminal.
-        void rpc.request.watchSession({ projectDir: projectPath, sessionFile }).catch(() => {});
+        void rpc.request.watchSession({ paneId: runtime(get).paneId, projectDir: projectPath, sessionFile }).catch(() => {});
         void rpc.request.tuiSend({
           projectDir: projectPath,
           sessionFile,
@@ -362,7 +362,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
         coldChatTokens.set(projectDir, nextColdChatToken++);
       }
       if (projectDir) {
-        void rpc.request.watchSession({ projectDir, sessionFile: null }).catch(() => {});
+        void rpc.request.watchSession({ paneId: runtime(get).paneId, projectDir, sessionFile: null }).catch(() => {});
         patchConversation(set, projectDir, null, () => ({ ...emptyConversation(), projectDir }));
       }
       set((state) => ({ selectionVersion: state.selectionVersion + 1, activeSessionFile: null, confirmedNewLead: null, orchestrationError: null, isNewChat: true, thinkingLevelReady: false, thinkingLevelVersion: state.thinkingLevelVersion + 1 }));
@@ -637,7 +637,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
           void get().refreshOrchestration();
           if (needsRecovery) requireModelStateRecovery(set, get,
             get().thinkingLevelsError ?? "Pi’s session changed. Retry to read the current model.");
-          void rpc.request.watchSession({ projectDir, sessionFile: res.sessionFile }).catch(() => {});
+          void rpc.request.watchSession({ paneId: runtime(get).paneId, projectDir, sessionFile: res.sessionFile }).catch(() => {});
         }
       }
     },

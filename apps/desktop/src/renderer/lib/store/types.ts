@@ -373,6 +373,7 @@ export interface UiSlice {
   setSourceControlDraft: (projectDir: string, message: string) => void;
   sourceControlReview: { projectDir: string; path: string; staged: boolean; hash?: string; findingId?: string } | null;
   setSourceControlReview: (review: UiSlice["sourceControlReview"]) => void;
+  fileSearchRequest: number;
   contextPaneTab: "files" | "changes";
   setContextPaneTab: (tab: "files" | "changes") => void;
   reopenLastProject: boolean;

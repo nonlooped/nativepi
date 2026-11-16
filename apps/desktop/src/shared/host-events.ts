@@ -19,7 +19,7 @@ export const hostEventSchemas = {
   windowFullScreen: z.object({ fullscreen: z.boolean() }),
   windowMaximized: z.object({ maximized: z.boolean() }),
   updateState: z.looseObject({ status: z.enum(["unsupported", "manual", "idle", "checking", "available", "downloading", "ready", "error"]), channel: z.enum(["stable", "nightly"]) }),
-  quitRequested: z.object({ work: z.object({ runs: z.array(z.string()), terminals: z.array(z.string()), viewers: z.number().int().nonnegative() }) }),
+  quitRequested: z.object({ work: z.object({ dirtyFiles: z.array(z.string()).optional(), runs: z.array(z.string()), terminals: z.array(z.string()), viewers: z.number().int().nonnegative() }) }),
   terminalData: terminal.extend({ data: z.string(), sequence: z.number().int().nonnegative() }),
   terminalExit: terminal.extend({ exitCode: z.number() }),
   terminalRestart: target.extend({ terminal: z.looseObject({ id: z.string(), projectDir: z.string(), name: z.string(), shellId: z.string(), exited: z.boolean(), exitCode: z.number().optional() }) }),

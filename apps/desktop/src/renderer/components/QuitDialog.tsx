@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { PendingWork } from "../../shared/rpc-schema.ts";
-import { useAppStore } from "../lib/store.ts";
+import { useAppStore, usePaneStore, focusedPaneStore } from "../lib/store.ts";
 import { flushPersist } from "../lib/store/internals.ts";
 import { rpc } from "../lib/rpc.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -15,17 +15,18 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
  * the close was refused, and the safe answer should not need a deliberate click.
  */
 export default function QuitDialog() {
+  const useAppStore = usePaneStore();
   const [work, setWork] = useState<PendingWork | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const projects = useAppStore((s) => s.projects);
 
   useEffect(() => {
-    const stop = rpc.events.on("quitRequested", (payload) => setWork(payload.work));
+    const stop = rpc.events.on("quitRequested", (payload) => { if (useAppStore === focusedPaneStore()) setWork(payload.work); });
     return () => {
       stop();
     };
-  }, []);
+  }, [useAppStore]);
 
   async function quit() {
     if (busy) return;
@@ -42,6 +43,7 @@ export default function QuitDialog() {
 
   const rows = summarize(work);
   const runs = work.runs.length;
+  const dirtyFiles = work.dirtyFiles ?? [];
   const viewers = work.viewers;
 
   return (
@@ -49,12 +51,12 @@ export default function QuitDialog() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {runs > 0
+            {dirtyFiles.length ? "Unsaved file edits" : runs > 0
               ? "Pi is still working"
               : rows.length > 0 ? "Terminals are still open" : "Other devices are connected"}
           </DialogTitle>
           <DialogDescription>
-            {runs > 0
+            {dirtyFiles.length ? "Unsaved file edits" : runs > 0
               ? "Quitting stops the active turn. Messages already written are saved."
               : rows.length > 0
                 ? "Quitting closes these shells and ends whatever they are running."
@@ -89,12 +91,13 @@ export default function QuitDialog() {
             then meeting Delete chat in the same slot. Escape, the backdrop and
             the close button still mean keep working. */}
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+        {dirtyFiles.length ? <p className="text-sm text-destructive">Quitting will discard unsaved edits: {dirtyFiles.join(", ")}. Keep working to save them.</p> : null}
         <DialogFooter>
           <Button variant="ghost" onClick={() => setWork(null)}>
             Keep working
           </Button>
           <Button variant="destructive" disabled={busy} onClick={() => void quit()}>
-            {rows.length > 0 ? "Stop and quit" : "Disconnect and quit"}
+            {dirtyFiles.length ? "Discard edits and quit" : rows.length > 0 ? "Stop and quit" : "Disconnect and quit"}
           </Button>
         </DialogFooter>
       </DialogContent>

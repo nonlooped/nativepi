@@ -1,3 +1,6 @@
+import { absoluteProjectPath } from "../lib/paths.ts";
+import { runtime } from "../lib/store/internals.ts";
+import { openWorkspaceFile } from "../lib/workspaceEditor.ts";
 import { createKeybindingsHandler } from "tinykeys";
 import { bindings, withHint } from "../lib/shortcuts.ts";
 import { workspaceShortcutsBlocked } from "../lib/shortcutContext.ts";
@@ -15,7 +18,7 @@ import { toast } from "sonner";
 import type { ShellProfile, TerminalSession } from "../../shared/rpc-schema.ts";
 import { findTerminalLinks } from "../lib/terminalLinks.ts";
 import { currentTerminalColors, THEME_CHANGE_EVENT } from "../lib/themes.ts";
-import { useAppStore } from "../lib/store.ts";
+import { useAppStore, usePaneStore, focusedPaneStore } from "../lib/store.ts";
 import { useReducedMotion } from "../lib/motion.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -64,6 +67,7 @@ export default function TerminalDock({
   projectDir: string;
   onMinimize: () => void;
 }) {
+  const useAppStore = usePaneStore();
   const [state, setState] = useState<DockState>({ terminals: [], shells: [], error: null, closing: false, restarts: {} });
   const { terminals, shells, error, closing, restarts } = state;
   const dockRef = useRef<HTMLElement>(null);
@@ -93,7 +97,7 @@ export default function TerminalDock({
 
   const runShortcut = useEffectEvent((action: "new" | "horizontal" | "vertical" | "next" | "previous" | "close", event: KeyboardEvent) => {
     const s = useAppStore.getState();
-    if (closing || s.activeProjectPath !== projectDir || s.destination === "chat" || workspaceShortcutsBlocked()) return;
+    if (useAppStore !== focusedPaneStore() || closing || s.activeProjectPath !== projectDir || s.destination === "chat" || workspaceShortcutsBlocked()) return;
     event.preventDefault();
     event.stopPropagation();
     const current = Math.max(0, terminals.findIndex(terminal => terminal.id === lastFocused.current));
@@ -407,6 +411,7 @@ function TerminalSurface({
   onRename: () => void;
   onHide: () => void;
 }) {
+  const useAppStore = usePaneStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -419,7 +424,6 @@ function TerminalSurface({
   const scrollback = useAppStore((s) => s.preferences.terminalScrollback);
   const cursorBlink = useAppStore((s) => s.preferences.terminalCursorBlink);
   const reducedMotion = useReducedMotion();
-  const preferredEditorId = useAppStore((s) => s.preferences.preferredEditorId);
   const terminalId = session.id;
 
   // A shell that had already exited before this surface mounted has no exit
@@ -433,11 +437,7 @@ function TerminalSurface({
   // Likewise for the editor a file link opens in: a preference the link handler
   // reads when it fires, not one the terminal has to be rebuilt around.
   const openFileLink = useEffectEvent((file: string, line?: number, column?: number) => {
-    void rpc.request
-      .openFileIn({ projectDir: cwdRef.current, file, editorId: preferredEditorId, line, column })
-      .then((result) => {
-        if (!result.ok) toast.error(result.error ?? `Could not open ${file}.`);
-      });
+    void openWorkspaceFile(projectDir, absoluteProjectPath(cwdRef.current, file), line, column, runtime(useAppStore.getState).paneId).catch(error => toast.error(String(error)));
   });
 
   useEffect(() => {

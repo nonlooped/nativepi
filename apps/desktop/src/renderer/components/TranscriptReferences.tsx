@@ -1,3 +1,5 @@
+import { runtime } from "../lib/store/internals.ts";
+import { openWorkspaceFile } from "../lib/workspaceEditor.ts";
 import { copyText } from "@/lib/clipboard.ts";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { GlobeIcon } from "@phosphor-icons/react/Globe";
@@ -11,7 +13,7 @@ import type { SkillInfo } from "../../shared/pi-types.ts";
 import { chatTitle } from "../../shared/messages.ts";
 import { CHIP_CLASS } from "../lib/composerChips.ts";
 import { referenceFor, type Reference } from "../lib/markdownReferences.ts";
-import { useAppStore } from "../lib/store.ts";
+import { useAppStore, usePaneStore, focusedPaneStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from "./ui/context-menu.tsx";
@@ -39,7 +41,7 @@ export function TranscriptReferenceProvider({ children }: { children: ReactNode 
   return <ReferenceSkills value={loaded?.key === key && trust && !trustPrompt ? loaded.skills : EMPTY_SKILLS}>{children}</ReferenceSkills>;
 }
 
-export async function openReference(reference: Reference) {
+export async function openReference(reference: Reference, useAppStore = focusedPaneStore()) {
   const state = useAppStore.getState();
   if (reference.kind === "web" || reference.kind === "pull-request") {
     await rpc.request.openExternal({ url: reference.url });
@@ -78,13 +80,18 @@ export async function openReference(reference: Reference) {
       file = path.slice(separator + 1);
     }
     if (!projectDir) { toast.error("Open a project to open this reference."); return; }
-    const result = await rpc.request.openFileIn({ projectDir, file, editorId: state.preferences.preferredEditorId,
-      ...(reference.kind === "file" ? { line: reference.line, column: reference.column } : {}) });
-    if (!result.ok) toast.error(result.error ?? "Could not open this reference.");
+    if (reference.kind === "skill") {
+      const result = await rpc.request.openFileIn({ projectDir, file, editorId: state.preferences.preferredEditorId });
+      if (!result.ok) toast.error(result.error);
+      return;
+    }
+    await openWorkspaceFile(projectDir, file, reference.kind === "file" ? reference.line : undefined, reference.kind === "file" ? reference.column : undefined, runtime(useAppStore.getState).paneId).catch(error => toast.error(String(error)));
+
   }
 }
 
 export function ReferenceChip({ value, label, source, composer = false }: { value: string; label?: ReactNode; source?: string; composer?: boolean }) {
+  const store = usePaneStore();
   const skills = useReferenceSkills();
   const sessions = useAppStore(s => s.sessionsByProject);
   const repoHost = useAppStore(s => s.repoHost);
@@ -102,7 +109,7 @@ export function ReferenceChip({ value, label, source, composer = false }: { valu
     : ref.kind === "skill" ? composer ? <svg viewBox="0 0 16 16" aria-hidden="true" className="size-3 shrink-0"><path fill="currentColor" d="M9.6 1 3 8.6h3.6L6 15l6.6-7.6H9L9.6 1Z" /></svg> : <LightningIcon /> : ref.kind === "thread" ? <ChatCircleIcon />
     : ref.kind === "pull-request" ? <GitPullRequestIcon /> : <GlobeIcon />;
   const chipClass = composer && (ref.kind === "skill" || ref.kind === "file") ? CHIP_CLASS[ref.kind] : "transcript-reference";
-  const open = () => { void openReference(ref).catch(() => toast.error("Could not open this reference.")); };
+  const open = () => { void openReference(ref, store).catch(() => toast.error("Could not open this reference.")); };
   if (ref.kind === "pull-request") {
     const url = ref.url.split(/[?#]/, 1)[0];
     const metadata = repoHost?.kind === "pr" && (url === repoHost.url || url.startsWith(`${repoHost.url}/`)) ? repoHost : null;

@@ -48,3 +48,15 @@ export function createNavigationHistory(app: StoreApi<AppState>) {
   }
   return { history, navigate, dispose: unsubscribe };
 }
+
+
+const paneHistories = new WeakMap<StoreApi<AppState>, ReturnType<typeof createNavigationHistory>>();
+export function paneNavigationHistory(store: StoreApi<AppState>) {
+  let history = paneHistories.get(store);
+  if (!history) { history = createNavigationHistory(store); paneHistories.set(store, history); }
+  return history;
+}
+export function releaseNavigationHistory(store: StoreApi<AppState>) {
+  paneHistories.get(store)?.dispose();
+  paneHistories.delete(store);
+}

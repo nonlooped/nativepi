@@ -1,3 +1,4 @@
+import { readWorkspaceFile, saveWorkspaceFile } from "./workspaceFiles.ts";
 import { automationToolsSchema } from "../shared/automations.ts";
 import { AutomationService } from "./automations/service.ts";
 import { githubEvents } from "./automations/github.ts";
@@ -357,6 +358,7 @@ function forwardEvent(projectDir: string, pi: PiProcess, event: PiMessage): void
 }
 /** Ask before closing active work or disconnecting other viewers. */
 let quitConfirmed = false;
+export const quitWasConfirmed = () => quitConfirmed;
 export function quitBlocked(): boolean {
   if (quitConfirmed)
     return false;
@@ -366,9 +368,10 @@ export function quitBlocked(): boolean {
     .map((pi) => pi.projectDir).concat(ephemeralProjects());
   const terminals = liveTerminalProjects();
   const viewers = localServerStatus().clients.length;
-  if (runs.length === 0 && terminals.length === 0 && viewers === 0)
+  const dirtyFiles = [...new Set([...clients].flatMap(client => client.dirtyFiles))];
+  if (runs.length === 0 && terminals.length === 0 && viewers === 0 && dirtyFiles.length === 0)
     return false;
-  pushDesktop("quitRequested", { work: { runs, terminals, viewers } });
+  pushDesktop("quitRequested", { work: { runs, terminals, viewers, dirtyFiles } });
   return true;
 }
 function stopSessionWatch(sessionFile: string): void {
@@ -1619,6 +1622,14 @@ const handlers: HandlerMap = {
       return { ok: false, error: errorMessage(err) };
     }
   },
+  workspaceDirty: () => ({ ok: true }),
+  closeWorkspacePane: () => ({ ok: true }),
+  readWorkspaceFile: async ({ projectDir, file }) => {
+    try { return await readWorkspaceFile(projectDir, file); } catch (error) { return { error: errorMessage(error) }; }
+  },
+  saveWorkspaceFile: async ({ projectDir, file, text, revision }) => {
+    try { return await saveWorkspaceFile(projectDir, file, text, revision); } catch (error) { return { ok: false, error: errorMessage(error) }; }
+  },
   openFileIn: async (params) => {
     try {
       const { projectDir, file, editorId, line, column } = requestParams.openFileIn.parse(params);
@@ -2273,12 +2284,16 @@ function accessStatus(localError?: string): AccessStatus {
   };
 }
 export class HostClient extends ClientLeases {
+  dirtyFiles: string[] = [];
+  panes = new Map<string, HostClient>();
   activeProject?: string;
   sessions = new Map<string, string>();
   projects = new Set<string>();
   directories = new Map<string, string[]>();
   constructor() { super(); clients.add(this); }
   override dispose(): void {
+    for (const pane of this.panes.values()) pane.dispose();
+    this.panes.clear();
     super.dispose();
     clients.delete(this);
     for (const project of this.projects)
@@ -2302,9 +2317,25 @@ const sessionWrites = new Set<HostRequestName>(["submit", "enqueue", "setModel",
 // mutations acquire Pi before capturing the binding they may write through.
 const existingSessionWrites = new Set<HostRequestName>(["enqueue", "extensionRespond", "tuiSend", "deleteChat"]);
 const gitWorktreeWrites = new Set<HostRequestName>(["gitCheckout", "gitRevertFile", "gitStageHunk", "gitStageFile", "gitUnstageFile", "gitStageAll", "gitUnstageAll", "gitCommit", "gitSync"]);
-export async function invokeHostRequest<K extends HostRequestName>(name: K, raw: HostRequests[K]["params"], client = desktopClient ??= new HostClient()): Promise<HostRequests[K]["response"]> {
+export async function invokeHostRequest<K extends HostRequestName>(name: K, raw: HostRequests[K]["params"], rootClient = desktopClient ??= new HostClient()): Promise<HostRequests[K]["response"]> {
   const params = validateHostRequest(name, raw);
   const record = params as Record<string, unknown>;
+  if (rootClient.disposed) throw new Error("This client disconnected");
+  if (name === "workspaceDirty") { rootClient.dirtyFiles = record.files as string[]; return { ok: true } as HostRequests[K]["response"]; }
+  if (name === "closeWorkspacePane") {
+    const paneId = record.paneId as string;
+    rootClient.panes.get(paneId)?.dispose(); rootClient.panes.delete(paneId);
+    return { ok: true } as HostRequests[K]["response"];
+  }
+  let client = rootClient;
+  if (typeof record.paneId === "string") {
+    let pane = rootClient.panes.get(record.paneId);
+    if (!pane) {
+      if (rootClient.panes.size >= 4) throw new Error("Too many workspace panes");
+      pane = new HostClient(); rootClient.panes.set(record.paneId, pane);
+    }
+    client = pane;
+  }
   for (const key of ["projectDir", "sessionFile"] as const)
     if (typeof record[key] === "string")
       record[key] = resolve(record[key]);
@@ -2326,7 +2357,7 @@ export async function invokeHostRequest<K extends HostRequestName>(name: K, raw:
   const project = values.projectDir;
   const file = values.sessionFile;
   const ownedPromptResponse = name === "extensionRespond" && !!file && orchestration.references().some(ref => ref.file === resolve(file) && (automations.ownsSession(ref.id) || automations.ownsSession(orchestration.snapshot(ref.id).relationship?.lead.id ?? "")));
-  if (project && automations.ownsWorkspace(project) && !ownedPromptResponse && (sessionWrites.has(name) || gitWorktreeWrites.has(name))) throw new Error("Stop the automation before writing in this workspace.");
+  if (project && automations.ownsWorkspace(project) && !ownedPromptResponse && (name === "saveWorkspaceFile" || sessionWrites.has(name) || gitWorktreeWrites.has(name))) throw new Error("Stop the automation before writing in this workspace.");
   if (project && file && pis.has(file) && pis.get(file)?.projectDir !== project)
     throw new Error("That chat belongs to another project");
   if (gitWorktreeWrites.has(name) && project && projectHasActiveRun(project))

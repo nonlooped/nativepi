@@ -1,16 +1,14 @@
 import { CaretLeftIcon } from "@phosphor-icons/react/CaretLeft";
 import { CaretRightIcon } from "@phosphor-icons/react/CaretRight";
 import { Button } from "@/components/ui/button.tsx";
-import { useAppStore } from "@/lib/store.ts";
-import { createNavigationHistory } from "@/lib/navigationHistory.ts";
+import { usePaneStore } from "@/lib/store.ts";
+import { paneNavigationHistory } from "@/lib/navigationHistory.ts";
 import { toast } from "sonner";
 
-const navigation = createNavigationHistory(useAppStore);
-// The hook name keeps React Compiler from caching the subscription result.
-const useNavigationHistory = navigation.history;
-if (import.meta.hot) import.meta.hot.dispose(navigation.dispose);
-
 export default function NavigationControls() {
+  const store = usePaneStore();
+  const navigation = paneNavigationHistory(store);
+  const useNavigationHistory = navigation.history;
   const canGoBack = useNavigationHistory(s => !s.busy && s.index > 0);
   const canGoForward = useNavigationHistory(s => !s.busy && s.index < s.entries.length - 1);
   function go(direction: -1 | 1) {

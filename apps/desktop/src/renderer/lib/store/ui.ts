@@ -27,6 +27,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   setSourceControlDraft: (projectDir, message) => set(s => ({ sourceControlDrafts: { ...s.sourceControlDrafts, [projectDir]: message } })),
   sourceControlReview: null,
   setSourceControlReview: (sourceControlReview) => set({ sourceControlReview }),
+  fileSearchRequest: 0,
   contextPaneTab: "files",
   setContextPaneTab: (contextPaneTab) => set({ contextPaneTab }),
   reopenLastProject: true,

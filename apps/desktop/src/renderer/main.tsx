@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
-import App from "./App.tsx";
+import App from "./Workspace.tsx";
 import AppBoundary from "./components/AppBoundary.tsx";
 import { isDesktopShell, osName } from "./lib/platform.ts";
 import { rpc } from "./lib/rpc.ts";

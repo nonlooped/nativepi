@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.20.0] - 2026-11-16
 
 ### Added
+- Resizable conversation workspaces with up to three independently selectable panes, keyboard navigation, saved layouts, and a full-width active pane on narrow screens.
+- In-app text/code and Markdown editing from Files, transcript links, terminals, and diffs, also over authenticated Local Access, with highlighting, search, explicit saves, dirty feedback, undo/redo, and disk conflict protection.
 - Schedule Work once, daily or weekly in a chosen timezone, or watch GitHub PR check failures and review feedback, with explicit Pi configuration, workspace controls, a compact settings list, focused editing and contextual run history.
 - Add Codex and Anthropic OAuth subscription capacity windows, resets and refresh/stale/error states separately from local usage.
 - Add graphical Pi setup with compact MCP, skill and prompt management lists, focused setup dialogs, connection checks, and source/scope diagnostics.
@@ -17,10 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared live browser in Work, including project-free chats: chat-owned temporary tabs, navigation, agent snapshots and actions, screenshots, diagnostics, and explicit human handoff for sign-in and consent.
 - Website downloads select the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every supported architecture.
 
-### Added
-- Website downloads choose the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every architecture.
-
 ### Fixed
+- Keep quit confirmation responsive after pane switches and insert dictation only into its owning conversation draft.
+- Preserve file line endings when opening and editing code, and open completion notifications in the currently focused conversation pane.
+- Honor startup project preferences when restoring panes, focus the shared terminal from conversation panes, preserve pane-local navigation and terminal file locations, refresh external MCP configuration, retain saved feedback for unavailable diffs, and keep automation ownership and Stop controls until all delegates settle.
 - Use NativePi’s bundled controls, typography, icons and themes for the shared browser, with compact tabs, responsive navigation, contextual takeover and clear empty/error states.
 - Reduce memory spikes during historical chat discovery, reuse unchanged Pi session summaries and extension renderer modules, keep Select All responsive in long chats, defer settings code, and limit sidebar repository work.
 - Reduce packaged application size by excluding dependency source maps, renderer-only dependency copies, and computer-use binaries for other platforms.

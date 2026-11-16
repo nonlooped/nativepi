@@ -38,6 +38,8 @@ ipcMain.handle("nativepi:invoke", async (_event, name: HostRequestName, params: 
 // Not named `__dirname`: rolldown injects a CommonJS `__dirname` shim at the top
 // of the main bundle, and a same-named top-level const collides with it at load.
 const mainDir = import.meta.dirname;
+// Separate development worktrees can be inspected without sharing app state or locks.
+if (!app.isPackaged && process.env.NATIVEPI_DEV_USER_DATA) app.setPath("userData", process.env.NATIVEPI_DEV_USER_DATA);
 app.setName("NativePi");
 installDiagnostics();
 /**
@@ -157,6 +159,7 @@ async function createMainWindow(): Promise<void> {
     if (host?.quitBlocked())
       event.preventDefault();
   });
+  win.webContents.on("will-prevent-unload", event => { if (host?.quitWasConfirmed()) event.preventDefault(); });
   win.on("closed", () => host?.setMainWindow(null));
   win.on("ready-to-show", () => win.show());
   const sendMaximized = () => {

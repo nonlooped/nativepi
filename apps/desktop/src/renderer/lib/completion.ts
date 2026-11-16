@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { isAssistant } from "../../shared/messages.ts";
 import { formatElapsed } from "./format.ts";
-import { useAppStore } from "./store.ts";
+import { useAppStore, primaryStore, focusedPaneStore } from "./store.ts";
 
 type CompletionStore = Pick<typeof useAppStore, "getState" | "subscribe">;
 
@@ -19,7 +19,8 @@ export function subscribeTurnCompletion(store: CompletionStore = useAppStore): (
       running.set(key, { running: chat.running, startedAt: chat.runStartedAt });
       if (!previous?.running || chat.running || chat.aborted || !chat.sessionFile || !chat.projectDir) continue;
       if (!state.preferences.notifyOnTurnEnd) continue;
-      if (key === (state.activeSessionFile ?? state.activeProjectPath) && document.hasFocus()) continue;
+      const focused = focusedPaneStore().getState();
+      if (key === (focused.activeSessionFile ?? focused.activeProjectPath) && document.hasFocus()) continue;
       const sessionFile = chat.sessionFile, projectDir = chat.projectDir;
       const summary = state.sessionsByProject[projectDir]?.find(session => session.path === sessionFile);
       const title = chat.sessionName || summary?.name || summary?.firstMessage || "Untitled chat";
@@ -43,7 +44,7 @@ export function subscribeTurnCompletion(store: CompletionStore = useAppStore): (
             notification.close();
             notifications.delete(notification);
             void window.nativepi?.focusWindow?.().catch(report);
-            void store.getState().selectChat(sessionFile, projectDir).catch(report);
+            void focusedPaneStore().getState().selectChat(sessionFile, projectDir).catch(report);
           };
         } catch (error) { report(error); }
       };
@@ -68,5 +69,5 @@ export function subscribeTurnCompletion(store: CompletionStore = useAppStore): (
 
 /** Notify for any chat that finishes, including work continuing in the background. */
 export function useTurnCompletionSignal(): void {
-  useEffect(() => subscribeTurnCompletion(), []);
+  useEffect(() => subscribeTurnCompletion(primaryStore), []);
 }

@@ -5,7 +5,7 @@ import { expect, test } from "bun:test";
 import { transformAsync } from "@babel/core";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { useAppStore } from "../lib/store.ts";
+import { PaneStoreContext, createPaneStore, releasePaneStore, useAppStore } from "../lib/store.ts";
 
 // Exercise the production compiler: uncompiled hooks also worked before this
 // regression, while the compiled buttons cached their initial disabled state.
@@ -60,4 +60,29 @@ test("compiled navigation updates both mounted controls and survives a sidebar h
     container.remove();
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+
+test("switching pane context navigates only that pane and retains each history", async () => {
+  const { default: NavigationControls } = await import("./NavigationControls.tsx");
+  const left = createPaneStore(), right = createPaneStore();
+  for (const [store, session] of [[left, "left-a"], [right, "right-a"]] as const) store.setState({
+    ready: true, destination: "work", activeProjectPath: "/project", activeSessionFile: session, isNewChat: false,
+    setDestination: async destination => { store.setState({ destination }); },
+    selectChat: async session => { store.setState({ activeSessionFile: session }); },
+  });
+  const container = document.createElement("div"); document.body.append(container); const root = createRoot(container);
+  const back = () => container.querySelector<HTMLButtonElement>('[aria-label="Go back"]')!;
+  try {
+    await act(async () => root.render(<PaneStoreContext value={left}><NavigationControls /></PaneStoreContext>));
+    await act(async () => left.setState({ activeSessionFile: "left-b" }));
+    await act(async () => root.render(<PaneStoreContext value={right}><NavigationControls /></PaneStoreContext>));
+    await act(async () => right.setState({ activeSessionFile: "right-b" }));
+    await act(async () => back().click());
+    expect(right.getState().activeSessionFile).toBe("right-a");
+    expect(left.getState().activeSessionFile).toBe("left-b");
+    await act(async () => root.render(<PaneStoreContext value={left}><NavigationControls /></PaneStoreContext>));
+    await act(async () => back().click());
+    expect(left.getState().activeSessionFile).toBe("left-a");
+  } finally { await act(async () => root.unmount()); container.remove(); releasePaneStore(left); releasePaneStore(right); }
 });

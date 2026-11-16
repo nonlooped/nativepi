@@ -55,6 +55,7 @@ export interface ImageAttachment {
 * can turn a path into the name the user gave it.
 */
 export interface PendingWork {
+  dirtyFiles?: string[];
   /** Projects with an agent turn in flight. */
   runs: string[];
   /** Projects owning a terminal whose shell is still alive. */
@@ -562,6 +563,7 @@ export type HostRequestContracts = {
   };
   watchSession: {
     params: {
+      paneId?: string;
       projectDir: string;
       sessionFile: string | null;
     };
@@ -571,6 +573,7 @@ export type HostRequestContracts = {
   };
   watchProjectSessions: {
     params: {
+      paneId?: string;
       projectDir: string;
     };
     response: {
@@ -579,6 +582,7 @@ export type HostRequestContracts = {
   };
   unwatchProjectSessions: {
     params: {
+      paneId?: string;
       projectDir: string;
     };
     response: {
@@ -815,6 +819,10 @@ export type HostRequestContracts = {
       error?: string;
     };
   };
+  workspaceDirty: { params: { files: string[] }; response: { ok: boolean } };
+  closeWorkspacePane: { params: { paneId: string }; response: { ok: boolean } };
+  readWorkspaceFile: { params: { projectDir: string; file: string }; response: { text?: string; revision?: string; error?: string } };
+  saveWorkspaceFile: { params: { projectDir: string; file: string; text: string; revision: string }; response: { ok: boolean; revision?: string; conflict?: boolean; error?: string } };
   readProjectImage: {
     params: {
       projectDir: string;
@@ -1344,6 +1352,7 @@ export type HostRequestContracts = {
   */
   watchProjectDirectories: {
     params: {
+      paneId?: string;
       projectDir: string;
       paths: string[];
     };

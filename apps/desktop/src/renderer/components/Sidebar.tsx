@@ -1,3 +1,4 @@
+import { runtime } from "../lib/store/internals.ts";
 import { copyText } from "../lib/clipboard.ts";
 import { isDesktopShell } from "../lib/platform.ts";
 import ChatAttention from "./ChatAttention.tsx";
@@ -20,7 +21,7 @@ import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
 import type { Project } from "../../shared/rpc-schema.ts";
 import type { SessionSummary } from "../../shared/pi-types.ts";
 import { useWorkProjects } from "../lib/workProjects.ts";
-import { useAppStore } from "../lib/store.ts";
+import { useAppStore, usePaneStore } from "../lib/store.ts";
 import { timeAgo } from "../lib/format.ts";
 import { chatTitle } from "../lib/transcript.ts";
 import { withHint } from "../lib/shortcuts.ts";
@@ -85,6 +86,7 @@ export default function Sidebar(props: SidebarProps) {
 }
 
 function WorkContents(props: SidebarProps) {
+  const useAppStore = usePaneStore();
   const { presentation, onClose, onOpenSearch, onOpenNewChat } = props;
   const overlay = props.overlay ?? false;
   const projects = useWorkProjects();
@@ -132,6 +134,8 @@ function WorkContents(props: SidebarProps) {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => { watchedProjects.current.clear(); }, [useAppStore]);
+
   // A flat focus queue needs every pinned project's shell list. Pi's session
   // files remain the source of truth; this only keeps their summaries warm.
   useEffect(() => {
@@ -139,7 +143,7 @@ function WorkContents(props: SidebarProps) {
     for (const path of wanted) {
       if (!watchedProjects.current.has(path)) {
         watchedProjects.current.add(path);
-        void rpc.request.watchProjectSessions({ projectDir: path });
+        void rpc.request.watchProjectSessions({ paneId: runtime(useAppStore.getState).paneId, projectDir: path });
       }
       if ((useAppStore.getState().sessionLoadStates[path] ?? "unloaded") === "unloaded") {
         void refreshSessions(path);
@@ -635,6 +639,7 @@ function ChatHistoryState({
 }
 
 function ChatContents(props: SidebarProps) {
+  const useAppStore = usePaneStore();
   const { onClose, onOpenSearch, onOpenNewChat } = props;
   const overlay = props.overlay ?? false;
   const root = useAppStore(s => s.chatRoot);
@@ -659,8 +664,8 @@ function ChatContents(props: SidebarProps) {
   useEffect(() => {
     if (!root) return;
     void refresh(root).catch(() => setError("Could not load chats. Try searching or reopen Chat."));
-    void rpc.request.watchProjectSessions({ projectDir: root });
-    return () => { void rpc.request.unwatchProjectSessions({ projectDir: root }); };
+    void rpc.request.watchProjectSessions({ paneId: runtime(useAppStore.getState).paneId, projectDir: root });
+    return () => { void rpc.request.unwatchProjectSessions({ paneId: runtime(useAppStore.getState).paneId, projectDir: root }); };
   }, [root, refresh]);
   const folder = folders.find(f => f.id === removing);
   function newChat(folderId: string | null) {

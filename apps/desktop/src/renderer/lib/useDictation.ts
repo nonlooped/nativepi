@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { dictationStatusSchema, type DictationStatus } from "../../shared/dictation.ts";
 import { caretOffset, caretTo, render, serialize } from "./composerDom.ts";
 import { recordDictation, type DictationRecorder } from "./dictationRecorder.ts";
 import { isRemote, rpc } from "./rpc.ts";
-import { useAppStore } from "./store.ts";
+import { useAppStore, usePaneStore } from "./store.ts";
 
 type Operation = { id: string; controller: AbortController; recorder?: DictationRecorder; finish?: () => void };
 type Phase = "idle" | "preparing" | "recording" | "transcribing";
-export function useDictation() {
+export function useDictation(composer: RefObject<HTMLElement | null>) {
+  const useAppStore = usePaneStore();
   const [phase, setPhase] = useState<Phase>("idle");
   const [status, setStatus] = useState<DictationStatus | null>(null);
   const [setup, setSetup] = useState(false);
@@ -33,7 +34,7 @@ export function useDictation() {
       }
     });
     return () => { off(); navigation(); cancel(); };
-  }, []);
+  }, [useAppStore]);
   useEffect(() => {
     if (phase === "idle") return;
     const key = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); cancel(); } };
@@ -76,7 +77,7 @@ export function useDictation() {
     const project = state.activeProjectPath;
     const session = state.activeSessionFile;
     const selectionVersion = state.selectionVersion;
-    const element = document.querySelector<HTMLElement>("[data-composer-input]");
+    const element = composer.current?.querySelector<HTMLElement>("[data-composer-input]");
     const before = element ? serialize(element) : "";
     const caret = element ? caretOffset(element) ?? before.length : before.length;
     try {

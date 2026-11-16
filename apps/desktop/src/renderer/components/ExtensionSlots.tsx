@@ -17,7 +17,7 @@ import { subscribeToExtension } from "../lib/extensionEvents.ts";
 import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
 import { absoluteProjectPath } from "../lib/paths.ts";
 import { rpc } from "../lib/rpc.ts";
-import { activeConversation, useAppStore } from "../lib/store.ts";
+import { activeConversation, useAppStore, usePaneStore, type PaneStore } from "../lib/store.ts";
 import { showExtensionNotification } from "../lib/toast.tsx";
 import ExtensionBoundary from "./ExtensionBoundary.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -25,7 +25,7 @@ import { SettingsSection } from "./settings/rows.tsx";
 
 const TuiAutoPane = lazy(() => import("./TuiSurface.tsx").then((module) => ({ default: module.TuiAutoPane })));
 
-type BaseContext = Pick<RendererContext, "project" | "session" | "agent"> & { draftGeneration: number };
+type BaseContext = Pick<RendererContext, "project" | "session" | "agent"> & { draftGeneration: number; store: PaneStore };
 
 const EMPTY_PROTOCOL: ExtensionProtocol = { methods: {}, events: {} };
 
@@ -50,9 +50,11 @@ function parse<Output extends JsonValue | undefined>(schema: ValueSchema<Output>
  * rather than when they are built, which is also the correct reading — a call
  * fired from a click belongs to the session on screen then, not at render.
  */
-const bridges = new Map<string, { protocol: ExtensionProtocol; channel: RendererChannel }>();
+const paneBridges = new WeakMap<PaneStore, Map<string, { protocol: ExtensionProtocol; channel: RendererChannel }>>();
 
-function bridgeFor(extension: string, protocol: ExtensionProtocol): RendererChannel {
+function bridgeFor(extension: string, protocol: ExtensionProtocol, useAppStore: PaneStore): RendererChannel {
+  let bridges = paneBridges.get(useAppStore);
+  if (!bridges) { bridges = new Map(); paneBridges.set(useAppStore, bridges); }
   const existing = bridges.get(extension);
   if (existing?.protocol === protocol) return existing.channel;
 
@@ -93,14 +95,14 @@ function bridgeFor(extension: string, protocol: ExtensionProtocol): RendererChan
           return;
         }
         (handler as (payload: JsonValue | undefined) => void)(parse(schema, payload, `Invalid payload for "${event}"`));
-      });
+      }, useAppStore.getState);
     },
   } as unknown as RendererChannel;
   bridges.set(extension, { protocol, channel });
   return channel;
 }
 
-const actions = new Map<string, RendererActions>();
+const paneActions = new WeakMap<PaneStore, Map<string, RendererActions>>();
 
 function projectRelativeFile(file: string): string {
   const normalized = file.replace(/\\/g, "/");
@@ -117,7 +119,9 @@ function projectRelativeFile(file: string): string {
   return file;
 }
 
-function actionsFor(extension: string): RendererActions {
+function actionsFor(extension: string, useAppStore: PaneStore): RendererActions {
+  let actions = paneActions.get(useAppStore);
+  if (!actions) { actions = new Map(); paneActions.set(useAppStore, actions); }
   const existing = actions.get(extension);
   if (existing) return existing;
   const next: RendererActions = {
@@ -160,12 +164,13 @@ function contextFor(base: BaseContext, extension: LoadedExtension): RendererCont
     session: base.session,
     agent: base.agent,
     extension: { id: extension.id, name: extension.name },
-    channel: bridgeFor(extension.name, extension.renderer.protocol ?? EMPTY_PROTOCOL),
-    actions: actionsFor(extension.name),
+    channel: bridgeFor(extension.name, extension.renderer.protocol ?? EMPTY_PROTOCOL, base.store),
+    actions: actionsFor(extension.name, base.store),
   };
 }
 
 function useRendererContext(): BaseContext {
+  const store = usePaneStore();
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const projectName = useAppStore((s) => s.projects.find((project) => project.path === s.activeProjectPath)?.name);
   const sessionFile = useAppStore((s) => s.activeSessionFile);
@@ -176,7 +181,7 @@ function useRendererContext(): BaseContext {
   const model = useAppStore((s) => s.model);
   const thinkingLevel = useAppStore((s) => s.thinkingLevel);
   return {
-    draftGeneration,
+    draftGeneration, store,
     project: { path: projectDir ?? "", name: projectName ?? projectDir ?? "" },
     session: { file: sessionFile, name: sessionName },
     agent: { status, running, model, thinkingLevel },

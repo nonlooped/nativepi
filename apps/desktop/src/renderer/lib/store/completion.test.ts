@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { createStore } from "zustand/vanilla";
 import "./testBridge.ts";
-import { createAppState } from "../store.ts";
+import { focusPaneStore, primaryStore, type PaneStore, createAppState } from "../store.ts";
 import { subscribeTurnCompletion } from "../completion.ts";
 import { emptyConversation } from "./conversation.ts";
 import type { AppState } from "./types.ts";
@@ -19,7 +19,7 @@ class FakeNotification {
 }
 const original = globalThis.Notification;
 const cleanups: (() => void)[] = [];
-afterEach(() => { cleanups.splice(0).forEach(fn => fn()); notices.length = 0; globalThis.Notification = original; });
+afterEach(() => { focusPaneStore(primaryStore); cleanups.splice(0).forEach(fn => fn()); notices.length = 0; globalThis.Notification = original; });
 function fixture() {
   globalThis.Notification = FakeNotification as unknown as typeof Notification;
   FakeNotification.permission = "granted";
@@ -30,6 +30,7 @@ function fixture() {
   } });
   const selections: unknown[] = [];
   store.setState({ selectChat: async (...args) => { selections.push(args); } });
+  focusPaneStore(store as PaneStore);
   cleanups.push(subscribeTurnCompletion(store));
   const finish = (extra = {}) => store.setState(state => ({ conversations: { chat: { ...state.conversations.chat!, running: false, ...extra } } }));
   return { store, finish, selections };
@@ -106,4 +107,17 @@ test("Pi assistant errors identify a failed turn without a separate UI error", (
   const { finish } = fixture();
   finish({ entries: [{ type: "message", id: "failed", parentId: null, timestamp: "2026-11-15T00:00:00Z", message: { role: "assistant", content: [], stopReason: "error" } }] });
   expect(notices[0]?.options.body).toContain("Failed");
+});
+
+test("notification clicks use the pane focused at click time after the observer pane closes", async () => {
+  const { store: observer, finish, selections: observedSelections } = fixture();
+  const target = createStore<AppState>()(createAppState);
+  const selections: unknown[] = [];
+  target.setState({ selectChat: async (...args) => { selections.push(args); } });
+  finish();
+  observer.setState({ activeProjectPath: null, activeSessionFile: null });
+  focusPaneStore(target as PaneStore);
+  notices[0]!.onclick!();
+  expect(selections).toEqual([["chat", "/repo"]]);
+  expect(observedSelections).toEqual([]);
 });

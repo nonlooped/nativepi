@@ -13,7 +13,7 @@ import { GitCommitIcon } from "@phosphor-icons/react/GitCommit";
 import { GitPullRequestIcon } from "@phosphor-icons/react/GitPullRequest";
 import { SparkleIcon } from "@phosphor-icons/react/Sparkle";
 import type { GitChangedFile, GitStatus } from "../../shared/pi-types.ts";
-import { activeConversation, useAppStore } from "../lib/store.ts";
+import { activeConversation, useAppStore, usePaneStore } from "../lib/store.ts";
 import GitHistory from "./GitHistory.tsx";
 import ChangeTree from "./ChangeTree.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -55,6 +55,7 @@ export default function SourceControl({
   onClose?: () => void;
   onReview?: () => void;
 }) {
+  const useAppStore = usePaneStore();
   const keybindingOverrides = useAppStore(s => s.keybindingOverrides);
   const revision = useAppStore(s => s.gitRevision);
   const gitLoading = useAppStore(s => s.gitLoading);

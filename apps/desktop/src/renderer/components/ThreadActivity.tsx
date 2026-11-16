@@ -8,7 +8,7 @@ import { useState, type ReactNode } from "react";
 import { StopIcon } from "@phosphor-icons/react/Stop";
 import { ArrowUpLeftIcon } from "@phosphor-icons/react/ArrowUpLeft";
 import { Button } from "./ui/button.tsx";
-import { thinkingLabel, useAppStore } from "../lib/store.ts";
+import { thinkingLabel, useAppStore, usePaneStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { toast } from "sonner";
 import type { ThreadSnapshot } from "../../shared/orchestration.ts";
@@ -17,6 +17,7 @@ async function stop(file: string) {
   try { await rpc.request.stopThread({ sessionFile: file }); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not stop thread"); }
 }
 export function DelegateRows({ leadFile }: { leadFile: string }) {
+  const useAppStore = usePaneStore();
   const threads = useAppStore(s => s.orchestration.threads);
   const selected = useAppStore(s => s.activeSessionFile);
   const lead = threads.find(thread => thread.ref.file === leadFile);
@@ -29,6 +30,7 @@ export function DelegateRows({ leadFile }: { leadFile: string }) {
   </div>;
 }
 export function DelegateFooter({ thread }: { thread: ThreadSnapshot }) {
+  const useAppStore = usePaneStore();
   const threads = useAppStore(s => s.orchestration.threads);
   const models = useAppStore(s => s.models);
   const relationship = thread.relationship!;
@@ -74,6 +76,7 @@ export default function ThreadActivity() {
 
 /** Cold metadata must settle before any user input surface is mounted. */
 export function ThreadInputBoundary({ children }: { children: ReactNode }) {
+  const useAppStore = usePaneStore();
   const file = useAppStore(s => s.activeSessionFile);
   const destination = useAppStore(s => s.destination);
   const loaded = useAppStore(s => s.orchestrationLoaded);

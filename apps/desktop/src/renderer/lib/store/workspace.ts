@@ -19,7 +19,7 @@ import {
   requireModelStateRecovery,
 } from "./internals.ts";
 import { emptyConversation, patchConversation } from "./conversation.ts";
-import { dropAllSurfaces } from "../tuiSurfaces.ts";
+
 import { NO_EXTENSION_UI_STATE, type SliceCreator, type WorkspaceSlice } from "./types.ts";
 
 // Request-stage failures are handled under their captured recovery owner.
@@ -75,7 +75,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       }));
       const active = get().activeProjectPath;
       if (active && affectedTarget(active, get().activeSessionFile)) {
-        dropAllSurfaces();
+        // Other panes may still be displaying these host-owned surfaces.
         set(state => ({ extPrompts: [], extStatuses: {}, extWidgets: {}, extSurfaces: [], extTriggers: [], extUiState: NO_EXTENSION_UI_STATE,
           extRenderers: [], extLoadErrors: [], selectionVersion: state.selectionVersion + 1,
           models: [], model: undefined, providers: [], providersLoaded: false, thinkingLevelReady: false,
@@ -233,7 +233,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
         }
       }
       await rpc.request.terminalCloseProject({ projectDir: path });
-      await rpc.request.unwatchProjectSessions({ projectDir: path });
+      await rpc.request.unwatchProjectSessions({ paneId: runtime(get).paneId, projectDir: path });
       set((s) => {
         const conversations = Object.fromEntries(
           Object.entries(s.conversations).filter(([, conversation]) => conversation.projectDir !== path),

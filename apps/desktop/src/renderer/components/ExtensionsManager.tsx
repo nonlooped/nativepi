@@ -12,7 +12,7 @@ import { WarningCircleIcon } from "@phosphor-icons/react/WarningCircle";
 import npmLogo from "material-icon-theme/icons/npm.svg?raw";
 import type { PackageInfo } from "../../shared/pi-types.ts";
 import { showHint } from "../lib/toast.tsx";
-import { useAppStore } from "../lib/store.ts";
+import { useAppStore, usePaneStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import StateNotice from "./StateNotice.tsx";
 import { useRequest } from "../lib/useRequest.ts";
@@ -89,6 +89,7 @@ export function canReloadProjectAfterPackageChange(projectDir: string) {
 }
 
 export default function ExtensionsManager() {
+  const useAppStore = usePaneStore();
   const projectDir = useAppStore((s) => s.activeProjectPath);
   const addProject = useAppStore((s) => s.addProject);
   const reloadExtensions = useAppStore((s) => s.reloadExtensions);

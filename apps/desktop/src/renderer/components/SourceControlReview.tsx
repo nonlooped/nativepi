@@ -4,7 +4,7 @@ import StateNotice from "./StateNotice.tsx";
 import { useRef, useState } from "react";
 import type { GitChangedFile } from "../../shared/pi-types.ts";
 import type { UiSlice } from "../lib/store/types.ts";
-import { useAppStore } from "../lib/store.ts";
+import { useAppStore, usePaneStore } from "../lib/store.ts";
 import { useRequest } from "../lib/useRequest.ts";
 import { rpc } from "../lib/rpc.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -13,6 +13,7 @@ import DiffView, { DiffToolbar } from "./DiffView.tsx";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 
 export default function SourceControlReview({ review }: { review: NonNullable<UiSlice["sourceControlReview"]> }) {
+  const useAppStore = usePaneStore();
   const { projectDir, path, staged, hash } = review;
   const git = useAppStore(s => s.git);
   const revision = useAppStore(s => s.gitRevision);

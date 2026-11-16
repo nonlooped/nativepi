@@ -18,7 +18,7 @@ import { textOf } from "../../shared/messages.ts";
 import { fileManagerName } from "../lib/paths.ts";
 import { chatTitle } from "../lib/transcript.ts";
 import ConfirmDialog from "./ConfirmDialog.tsx";
-import { useAppStore } from "../lib/store.ts";
+import { useAppStore, usePaneStore } from "../lib/store.ts";
 import { rpc } from "../lib/rpc.ts";
 import { showHint } from "../lib/toast.tsx";
 import StateNotice from "./StateNotice.tsx";
@@ -66,6 +66,7 @@ export default function SessionMenu({
   finished?: boolean;
   children: React.ReactElement;
 }) {
+  const useAppStore = usePaneStore();
   const [dialog, setDialog] = useState<DialogKind | null>(null);
   const [exportPath, setExportPath] = useState<string>("");
 

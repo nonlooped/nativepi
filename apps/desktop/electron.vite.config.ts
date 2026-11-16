@@ -84,7 +84,7 @@ export default defineConfig({
       // Local Access reuses this renderer during development. The RPC remains
       // token-protected and only starts when Local Access is enabled in the app.
       host: true,
-      port: Number(process.env.NATIVEPI_VITE_PORT || 5173),
+      port: Number(process.env.NATIVEPI_DEV_PORT || process.env.NATIVEPI_VITE_PORT || 5173),
       strictPort: true,
     },
   },
