@@ -136,6 +136,7 @@
       }
     ],
     "win": {
+      "files": ["!**/node_modules/agent-desktop/bin/*-{darwin,linux}-*"],
       "icon": "resources/icon.ico",
       "verifyUpdateCodeSignature": false,
       "target": [
@@ -149,6 +150,7 @@
       "installerSidebar": "resources/installer-sidebar.bmp"
     },
     "mac": {
+      "files": ["!**/node_modules/agent-desktop/bin/*-{linux,win32}-*"],
       "artifactName": "${productName}-${version}-${arch}.${ext}",
       "icon": "resources/icon.png",
       "identity": "-",
@@ -164,6 +166,7 @@
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "linux": {
+      "files": ["!**/node_modules/agent-desktop/bin/*-{darwin,win32}-*"],
       "artifactName": "${productName}-${version}-${arch}.${ext}",
       "icon": "resources/icon.png",
       "category": "Development",

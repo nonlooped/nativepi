@@ -1,0 +1,10 @@
+{
+  "name": "@nativepi/release-tools",
+  "private": true,
+  "dependencies": {
+    "@nativepi/desktop": "workspace:*",
+    "electron": "^45.3.2",
+    "electron-builder": "^26.18.0",
+    "node-gyp": "13.1.0"
+  }
+}

@@ -61,28 +61,41 @@ No new certificates or paid signing services are required for this host.
 
 ## Packaging performance
 
-Release packaging installs only the desktop workspace and its workspace dependencies.
+Release packaging installs the production closure of `@nativepi/release-tools`: the
+desktop runtime and the locked Electron, electron-builder, and node-gyp toolchain.
+Renderer build and test dependencies are installed only by CI or the fallback build.
+Keep the tool versions in `apps/release-tools/package.json` aligned with the desktop
+devDependencies. Packaging resolves Electron from that installed toolchain and
+passes its exact version to electron-builder.
 Bun's extracted package cache is not restored: its many-file extraction was slower
 than installation on the Windows and Intel macOS runners. Electron and packaging
 tool downloads remain cached by host/target architecture and locked tool versions.
 
 Full non-PR CI retains the platform-independent `apps/desktop/out` build for seven
 days. Releases reuse it only from the successful main-push CI run certifying the
-same source commit, or from their own reusable checks. If that artifact is absent
-or expired, one Ubuntu job builds it before the five packaging jobs start. Release
-versions are applied to package metadata during packaging; the shared build does
+same source commit, or from their own reusable checks. Plan locates the certified
+artifact so the normal path starts packaging without another preparation runner.
+If the artifact is absent or expired, one Ubuntu job builds it before the five
+packaging jobs start. Release versions are applied to package metadata during packaging; the shared build does
 not embed a release version. Local `bun run package` still builds before packaging.
 
-Both macOS jobs use Apple Silicon runners. The x64 job installs x64 optional
-native dependencies explicitly, then runs native dependency smoke checks in the
-packaged x64 Electron under Rosetta before uploading installers. The check covers
-terminal spawning, Koffi, transcription-library loading, extension compilation,
-and the computer-use binary/helper architecture. It does not replace an Intel
-hardware end-to-end check of dictation and desktop permissions.
+The macOS x64 job uses `macos-15-intel`, and arm64 uses Apple Silicon. Native
+smoke checks run in the packaged Electron on each architecture before uploading
+installers, preserving signature verification, terminal spawning, Koffi,
+transcription-library loading, extension compilation, and computer-use binary/helper
+checks. These checks do not replace end-to-end dictation and desktop permission tests.
+
+macOS ZIP/DMG compression uses level 3. It preserves the signed bundle, formats,
+feeds, and blockmaps while trading slightly larger downloads for faster packaging.
+Windows NSIS and Linux AppImage compression retain their defaults.
+
+Platform file exclusions skip foreign computer-use binaries before copying them;
+the afterPack hook still removes binaries for the other CPU architecture. The
+development installation is left intact.
 
 When comparing release times, include setup/cache and post-job cache saves, and
-compare cold and warm runs of the same commit. macOS x64 packaging can be returned
-to `macos-15-intel` without changing the artifact layout or installer targets.
+compare cold and warm runs of the same commit. Release publication remains
+serialized to protect version selection, stable commits, and immutable tags.
 
 ## Extension packages and tooling
 

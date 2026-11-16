@@ -64,6 +64,7 @@ jobs:
       build: ${{ steps.plan.outputs.build }}
       certified: ${{ steps.plan.outputs.certified }}
       ci-run: ${{ steps.plan.outputs.ci-run }}
+      desktop_run: ${{ steps.artifact.outputs.run }}
       publish: ${{ steps.plan.outputs.release }}
       version: ${{ steps.plan.outputs.version }}
       tag: ${{ steps.plan.outputs.tag }}
@@ -143,6 +144,19 @@ jobs:
           printf 'release=%s\nbuild=%s\n' "$release" "$release" >> "$GITHUB_OUTPUT"
           echo "${CHANNEL^}: $reason" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Find certified desktop build
+        id: artifact
+        if: steps.plan.outputs.build == 'true' && steps.plan.outputs.certified == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RUN: ${{ steps.plan.outputs.ci-run }}
+        run: |
+          artifact=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CI_RUN/artifacts" \
+            --paginate --jq '.artifacts[] | select(.name == "desktop-build-${{ github.sha }}" and .expired == false) | .id')
+          if [ -n "$artifact" ]; then
+            echo "run=$CI_RUN" >> "$GITHUB_OUTPUT"
+          fi
+
   checks:
     name: Checks
     needs: plan
@@ -154,6 +168,7 @@ jobs:
     needs: [plan, checks]
     if: >-
       !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.build == 'true' &&
+      needs.plan.outputs.desktop_run == '' &&
       (needs.checks.result == 'success' ||
        (needs.plan.outputs.certified == 'true' && needs.checks.result == 'skipped'))
     runs-on: ubuntu-24.04
@@ -205,7 +220,9 @@ jobs:
     name: Package (${{ matrix.platform }} ${{ matrix.arch }})
     needs: [plan, checks, build]
     if: >-
-      !cancelled() && needs.build.result == 'success' && needs.plan.result == 'success' && needs.plan.outputs.build == 'true' &&
+      !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.build == 'true' &&
+      (needs.build.result == 'success' ||
+       (needs.build.result == 'skipped' && needs.plan.outputs.certified == 'true' && needs.plan.outputs.desktop_run != '')) &&
       (needs.checks.result == 'success' ||
        (needs.plan.outputs.certified == 'true' && needs.checks.result == 'skipped'))
     strategy:
@@ -215,7 +232,7 @@ jobs:
           - os: windows-2025
             platform: win
             arch: x64
-          - os: macos-15
+          - os: macos-15-intel
             platform: mac
             arch: x64
           - os: macos-latest
@@ -244,7 +261,8 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
         with:
-          install-filter: '@nativepi/desktop...'
+          install-filter: '@nativepi/release-tools...'
+          production: 'true'
           install-cpu: ${{ matrix.arch }}
           electron-cache: 'true'
       - name: Download desktop build
@@ -252,7 +270,7 @@ jobs:
         with:
           name: desktop-build-${{ github.sha }}
           path: apps/desktop/out
-          run-id: ${{ needs.build.outputs.run }}
+          run-id: ${{ needs.plan.outputs.desktop_run || needs.build.outputs.run }}
           github-token: ${{ github.token }}
       - name: Prepare macOS terminal helpers
         if: matrix.platform == 'mac'
@@ -260,15 +278,20 @@ jobs:
       # node-pty ships prebuilds for Windows and macOS only; compile on each Linux architecture.
       - name: Build the Linux terminal addon
         if: matrix.platform == 'linux'
-        # Resolve the desktop's compiler before entering Bun's isolated addon directory.
-        run: bun run --cwd apps/desktop node-gyp rebuild --directory node_modules/node-pty
+        # Use the production packaging toolchain; the addon remains in the desktop workspace.
+        run: bun run --cwd apps/release-tools node-gyp rebuild --directory ../desktop/node_modules/node-pty
       - name: Set the release version
         if: needs.plan.outputs.publish == 'true'
         shell: bash
         run: bun scripts/release.mjs set-version "$VERSION"
       - name: Package without publishing
         working-directory: apps/desktop
-        run: bun run electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
+        shell: bash
+        run: |
+          # Keep ZIP/DMG formats and signed contents; trade a little size for faster compression.
+          if [ "${{ matrix.platform }}" = mac ]; then export ELECTRON_BUILDER_COMPRESSION_LEVEL=3; fi
+          electron_version=$(node -p 'require("../release-tools/node_modules/electron/package.json").version')
+          node ../release-tools/node_modules/electron-builder/cli.js --${{ matrix.platform }} --${{ matrix.arch }} --config.electronVersion="$electron_version" --publish never
       - name: Smoke-test packaged macOS native dependencies
         if: matrix.platform == 'mac'
         run: node scripts/smoke-packaged-mac.mjs "${{ matrix.arch }}"

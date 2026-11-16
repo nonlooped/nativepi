@@ -77,7 +77,7 @@ test('release does not allocate packaging runners for failed, cancelled, or unce
   ];
   for (const [certified, result, expected] of cases) {
     const needs = {
-      plan: { result: 'success', outputs: { build: 'true', publish: 'true', certified } },
+      plan: { result: 'success', outputs: { build: 'true', publish: 'true', certified, desktop_run: '' } },
       checks: { result }, build: { result: 'success' }, package: { result: 'success' },
     };
     for (const job of ['build', 'package', 'release']) {
@@ -140,10 +140,10 @@ test('scope CLI compares a PR merge with its base, excluding changes already on 
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
-
 test('release packaging installs the desktop dependency closure without restoring the full Bun cache', () => {
   const setup = release.jobs.package.steps.find(step => step.uses === './.github/actions/setup');
-  expect(setup.with['install-filter']).toBe('@nativepi/desktop...');
+  expect(setup.with['install-filter']).toBe('@nativepi/release-tools...');
+  expect(setup.with.production).toBe('true');
   expect(setup.with['bun-cache']).toBeUndefined();
   expect(setup.with['install-cpu']).toBe('${{ matrix.arch }}');
 });
@@ -171,7 +171,7 @@ test('packaging cache follows tool versions rather than app versions or unrelate
 });
 
 test('failed build preparation prevents packaging even with certified CI', () => {
-  const needs = { plan: { result: 'success', outputs: { build: 'true', certified: 'true' } }, checks: { result: 'skipped' } };
+  const needs = { plan: { result: 'success', outputs: { build: 'true', certified: 'true', desktop_run: '' } }, checks: { result: 'skipped' } };
   for (const result of ['failure', 'cancelled', 'skipped']) {
     expect(Boolean(allows(release.jobs.package.if, { needs: { ...needs, build: { result } }, cancelled: () => false }))).toBe(false);
   }
@@ -203,5 +203,88 @@ test('build preparation reuses only the selected run and falls back when its art
     expect(run({ ARTIFACT_ID: '' })).toBe('run=456\n');
     expect(() => run({ API_FAILURE: 'true' })).toThrow();
     expect(readFileSync(output, 'utf8')).toBe('');
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test('certified artifacts bypass preparation but never failed checks or preparation', () => {
+  const needs = {
+    plan: { result: 'success', outputs: { build: 'true', certified: 'true', desktop_run: '123' } },
+    checks: { result: 'skipped' }, build: { result: 'skipped' },
+  };
+  const evaluate = job => Boolean(allows(release.jobs[job].if, { needs, cancelled: () => false }));
+  expect(evaluate('build')).toBe(false);
+  expect(evaluate('package')).toBe(true);
+  for (const checks of ['failure', 'cancelled']) {
+    needs.checks.result = checks;
+    expect(evaluate('package')).toBe(false);
+  }
+  needs.checks.result = 'skipped';
+  for (const build of ['failure', 'cancelled']) {
+    needs.build.result = build;
+    expect(evaluate('package')).toBe(false);
+  }
+  needs.build.result = 'skipped';
+  needs.plan.outputs.desktop_run = '';
+  expect(evaluate('build')).toBe(true);
+  expect(evaluate('package')).toBe(false);
+  needs.plan.outputs.desktop_run = '123';
+  needs.plan.outputs.certified = 'false';
+  expect(evaluate('package')).toBe(false);
+});
+
+test('planning discovers only the certified commit artifact and fails closed on API errors', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'nativepi-plan-artifact-'));
+  const output = join(cwd, 'output');
+  const command = release.jobs.plan.steps.find(step => step.id === 'artifact').run.replaceAll('${{ github.sha }}', 'source-sha');
+  try {
+    const gh = join(cwd, 'gh');
+    writeFileSync(gh, `#!/usr/bin/env node
+      const args = process.argv.slice(2);
+      if (args[1] !== 'repos/owner/repo/actions/runs/123/artifacts') process.exit(2);
+      if (!args.includes('.artifacts[] | select(.name == "desktop-build-source-sha" and .expired == false) | .id')) process.exit(3);
+      if (process.env.API_FAILURE) process.exit(1);
+      console.log(process.env.ARTIFACT_ID || '');
+    `);
+    chmodSync(gh, 0o755);
+    const run = overrides => {
+      writeFileSync(output, '');
+      execFileSync('bash', ['-e', '-o', 'pipefail', '-c', command], { cwd, env: {
+        ...process.env, PATH: `${cwd}:${process.env.PATH}`, GITHUB_REPOSITORY: 'owner/repo',
+        CI_RUN: '123', GITHUB_OUTPUT: output, ...overrides,
+      } });
+      return readFileSync(output, 'utf8');
+    };
+    expect(run({ ARTIFACT_ID: '789' })).toBe('run=123\n');
+    expect(run({ ARTIFACT_ID: '' })).toBe('');
+    expect(() => run({ API_FAILURE: 'true' })).toThrow();
+    expect(readFileSync(output, 'utf8')).toBe('');
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test('production packaging retains the same locked tool versions as local packaging', () => {
+  const tools = JSON.parse(readFileSync(new URL('../apps/release-tools/package.json', import.meta.url), 'utf8'));
+  const desktop = JSON.parse(readFileSync(new URL('../apps/desktop/package.json', import.meta.url), 'utf8'));
+  expect(tools.private).toBe(true);
+  expect(tools.dependencies['@nativepi/desktop']).toBe('workspace:*');
+  for (const name of ['electron', 'electron-builder', 'node-gyp']) {
+    expect(tools.dependencies[name]).toBe(desktop.devDependencies[name]);
+  }
+});
+
+test('setup installs the frozen production closure for the selected CPU without omitting native optionals', () => {
+  const setup = Bun.YAML.parse(readFileSync(new URL('../.github/actions/setup/action.yml', import.meta.url), 'utf8'));
+  const command = setup.runs.steps.find(step => step.name === 'Install dependencies').run;
+  const cwd = mkdtempSync(join(tmpdir(), 'nativepi-install-args-'));
+  try {
+    const bun = join(cwd, 'bun');
+    writeFileSync(bun, '#!/usr/bin/env node\nconsole.log(JSON.stringify(process.argv.slice(2)));\n');
+    chmodSync(bun, 0o755);
+    const run = env => JSON.parse(execFileSync('bash', ['-e', '-o', 'pipefail', '-c', command], {
+      cwd, encoding: 'utf8', env: { ...process.env, PATH: `${cwd}:${process.env.PATH}`,
+        INSTALL_FILTER: '', INSTALL_CPU: '', INSTALL_PRODUCTION: 'false', ...env },
+    }));
+    expect(run({})).toEqual(['install', '--frozen-lockfile']);
+    expect(run({ INSTALL_FILTER: '@nativepi/release-tools...', INSTALL_CPU: 'x64', INSTALL_PRODUCTION: 'true' }))
+      .toEqual(['install', '--frozen-lockfile', '--filter', '@nativepi/release-tools...', '--cpu', 'x64', '--production']);
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });

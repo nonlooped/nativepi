@@ -87,6 +87,15 @@
         "zustand": "^5.1.0",
       },
     },
+    "apps/release-tools": {
+      "name": "@nativepi/release-tools",
+      "dependencies": {
+        "@nativepi/desktop": "workspace:*",
+        "electron": "^45.3.2",
+        "electron-builder": "^26.18.0",
+        "node-gyp": "13.1.0",
+      },
+    },
     "apps/web": {
       "name": "@nativepi/web",
       "version": "0.1.0",
@@ -617,6 +626,8 @@
     "@nativepi/desktop": ["@nativepi/desktop@workspace:apps/desktop"],
 
     "@nativepi/extension-api": ["@nativepi/extension-api@workspace:packages/extension-api"],
+
+    "@nativepi/release-tools": ["@nativepi/release-tools@workspace:apps/release-tools"],
 
     "@nativepi/web": ["@nativepi/web@workspace:apps/web"],
 

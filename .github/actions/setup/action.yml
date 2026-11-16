@@ -15,6 +15,11 @@ inputs:
     required: false
     default: ""
 
+  production:
+    description: Install production dependencies only
+    required: false
+    default: "false"
+
   install-cpu:
     description: Target CPU for optional native dependencies (host CPU by default)
     required: false
@@ -81,8 +86,10 @@ runs:
       env:
         INSTALL_FILTER: ${{ inputs.install-filter }}
         INSTALL_CPU: ${{ inputs.install-cpu }}
+        INSTALL_PRODUCTION: ${{ inputs.production }}
       run: |
         args=(--frozen-lockfile)
         if [[ -n "$INSTALL_FILTER" ]]; then args+=(--filter "$INSTALL_FILTER"); fi
         if [[ -n "$INSTALL_CPU" ]]; then args+=(--cpu "$INSTALL_CPU"); fi
+        if [[ "$INSTALL_PRODUCTION" = true ]]; then args+=(--production); fi
         bun install "${args[@]}"
