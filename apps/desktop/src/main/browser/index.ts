@@ -440,6 +440,7 @@ export class SharedBrowser {
       this.state();
       this.window!.show();
       const image = await wc.capturePage();
+      check();
       const size = image.getSize();
       return {
         image: {

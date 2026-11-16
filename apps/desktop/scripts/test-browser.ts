@@ -61,6 +61,27 @@ try {
  const fresh = await a.run({action:'snapshot',tab});
  await page.webContents.executeJavaScript('document.querySelector("input").setAttribute("placeholder","changed")');
  await assert.rejects(a.run({action:'click',tab,ref:fresh.items.find(x=>x.role==='button').ref}),/STALE/);
+ console.log('bounded snapshots and disabled selections');
+ await page.webContents.executeJavaScript("document.body.innerHTML = '<select aria-label=\"Disabled\" disabled><option value=\"a\">A</option><option value=\"b\">B</option></select><select aria-label=\"Options\"><option value=\"a\">A</option><option disabled value=\"b\">B</option><optgroup disabled><option value=\"c\">C</option></optgroup></select>'; globalThis.changes=0; document.addEventListener('change',()=>globalThis.changes++);");
+ for (const [name,value] of [['Disabled','b'],['Options','b'],['Options','c']]) {
+   const disabled = await a.run({action:'snapshot',tab});
+   await assert.rejects(a.run({action:'select',tab,ref:disabled.items.find(x=>x.name===name && x.role==='select').ref,text:value}),/enabled/);
+ }
+ assert.equal(await page.webContents.executeJavaScript('globalThis.changes'),0);
+ await page.webContents.executeJavaScript("document.body.innerHTML = Array.from({length:300},(_,i)=>'<button style=\"display:block;height:40px\">Item '+i+'</button>').join(''); window.scrollTo(0,0);");
+ assert.ok(!(await a.run({action:'snapshot',tab})).items.some(x=>x.name==='Item 299'));
+ for(let i=0;i<15;i++) await a.run({action:'scroll',tab,delta:2000});
+ assert.ok((await a.run({action:'snapshot',tab})).items.some(x=>x.name==='Item 299'));
+ const originalCapture = page.webContents.capturePage.bind(page.webContents);
+ let releaseCapture;
+ page.webContents.capturePage = async () => { const image = await originalCapture(); await new Promise(r=>releaseCapture=r); return image; };
+ const capture = a.run({action:'screenshot',tab});
+ while (!releaseCapture) await new Promise(r=>setTimeout(r,10));
+ await a.chrome({action:'handoff',tab});
+ releaseCapture();
+ await assert.rejects(capture,/cancelled|handoff/i);
+ page.webContents.capturePage = originalCapture;
+ await a.chrome({action:'resume'});
  console.log('cancel'); const stop = new AbortController(); const slow = a.run({action:'navigate',tab,url:url+'/slow'},stop.signal);
  const queued = a.run({action:'reload',tab}); queued.catch(()=>{}); setTimeout(()=>stop.abort(),100);
  await assert.rejects(slow); await assert.rejects(queued,/cancelled/);

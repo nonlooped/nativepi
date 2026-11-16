@@ -7,7 +7,9 @@ export function snapshotPage(token: string) {
   ]
     .filter(
       (el) =>
-        el.getClientRects().length &&
+        [...el.getClientRects()].some(rect =>
+          rect.bottom > 0 && rect.right > 0 && rect.top < innerHeight && rect.left < innerWidth
+        ) &&
         getComputedStyle(el).visibility !== "hidden",
     )
     .slice(0, 250);
@@ -74,8 +76,10 @@ export function snapshotPage(token: string) {
       if (!(el instanceof HTMLElement)) throw new Error("Unsupported element.");
       if (action === "click") el.click();
       else if (action === "select" && el instanceof HTMLSelectElement) {
-        if (![...el.options].some((o) => o.value === text))
-          throw new Error("Option not found.");
+        const option = [...el.options].find((o) => o.value === text);
+        if (!option) throw new Error("Option not found.");
+        if (el.matches(":disabled") || option.disabled || option.parentElement?.matches("optgroup:disabled"))
+          throw new Error("Select and option must be enabled.");
         el.value = text!;
         el.dispatchEvent(new Event("input", { bubbles: true }));
         el.dispatchEvent(new Event("change", { bubbles: true }));
