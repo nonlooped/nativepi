@@ -64,4 +64,6 @@ test("a chat browser starts without navigating and blocked actions remain denied
   browser.setOwner("Updated chat name");
   expect(window.title).toContain("Updated chat name");
   browser.dispose();
+  browser.setOwner("Late reply from the closed chat");
+  expect(window.title).toContain("Updated chat name");
 });

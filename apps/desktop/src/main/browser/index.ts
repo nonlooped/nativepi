@@ -42,6 +42,7 @@ export class SharedBrowser {
   private partition = `nativepi-browser-${randomUUID()}`;
   private ownerTitle = "New Work chat";
   setOwner(title: string) {
+    if (this.closed) return;
     this.ownerTitle = title.trim().slice(0, 200) || "New Work chat";
     this.window?.setTitle(`Browser · ${this.ownerTitle} · NativePi`);
     this.state();
