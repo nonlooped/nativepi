@@ -1,6 +1,9 @@
 export type ThreadShortcutId = `thread${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10}`;
 
 export type ShortcutId =
+  | "nextWorkspaceTab"
+  | "previousWorkspaceTab"
+  | "closeWorkspaceTab"
   | "jumpToFile"
   | "nextPane"
   | "previousPane"
@@ -55,6 +58,9 @@ export interface ShortcutDef {
 export const THREAD_SHORTCUTS: { id: ThreadShortcutId; index: number }[] = Array.from({ length: 10 }, (_, index) => ({ id: `thread${index + 1}` as ThreadShortcutId, index }));
 
 export const SHORTCUTS: ShortcutDef[] = [
+  { id: "nextWorkspaceTab", binding: "Control+Tab", label: "Next workspace tab", description: "Show the next conversation, file or diff in the focused pane.", group: "Navigation" },
+  { id: "previousWorkspaceTab", binding: "Control+Shift+Tab", label: "Previous workspace tab", description: "Show the previous tab in the focused pane.", group: "Navigation" },
+  { id: "closeWorkspaceTab", binding: "$mod+KeyW", label: "Close workspace tab", description: "Close the current tab, keeping conversations and runs available.", group: "Navigation" },
   { id: "jumpToFile", binding: "$mod+KeyP", label: "Jump to file", description: "Search files in the active pane’s workspace.", group: "Navigation" },
   { id: "nextPane", binding: "Alt+BracketRight", label: "Next conversation pane", description: "Focus the next workspace pane.", group: "Navigation" },
   { id: "previousPane", binding: "Alt+BracketLeft", label: "Previous conversation pane", description: "Focus the previous workspace pane.", group: "Navigation" },

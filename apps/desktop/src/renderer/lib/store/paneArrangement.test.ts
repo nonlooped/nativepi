@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createPaneStore, releasePaneStore } from "../store.ts";
-import { restorePaneSelection } from "../paneArrangement.ts";
+import { paneArrangementSchema, restorePaneSelection } from "../paneArrangement.ts";
 
 test("startup restoration respects the Work preference for every pane while preserving Chat", async () => {
   const stores = [createPaneStore(), createPaneStore()];
@@ -20,4 +20,13 @@ test("startup restoration respects the Work preference for every pane while pres
     await restorePaneSelection(stores[1]!, { project: "/chat", session: "chat-session" });
     expect(stores[1]!.getState()).toMatchObject({ activeProjectPath: "/chat", activeSessionFile: "chat-session" });
   } finally { stores.forEach(releasePaneStore); }
+});
+
+
+test("corrupt tab metadata cannot destroy a valid pane arrangement, and stale active ids fall back to an open tab", () => {
+  const base = { orientation: "horizontal", active: 0, panes: [{ project: "/project", session: "a", tabs: { project: { tabs: [{ kind: "unknown" }], active: "stale" } } }] };
+  const restored = paneArrangementSchema.parse(base);
+  expect(restored.panes[0]).toEqual({ project: "/project", session: "a", tabs: {} });
+  const clean = paneArrangementSchema.parse({ ...base, panes: [{ project: "/project", session: "a", tabs: { project: { tabs: [{ kind: "thread", session: "a" }, { kind: "thread", session: "a" }], active: "missing" } } }] });
+  expect(clean.panes[0]?.tabs?.project).toEqual({ tabs: [{ kind: "thread", session: "a" }], active: '{"kind":"thread","session":"a"}' });
 });

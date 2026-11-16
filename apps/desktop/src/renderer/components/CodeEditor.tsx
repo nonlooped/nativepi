@@ -26,7 +26,8 @@ export default function CodeEditor({ value, file, documentId, line, column, jump
   useEffect(() => {
     if (!mount.current) return;
     const saved = editorDocuments.get(documentId);
-    const document = saved ?? { state: null as unknown as EditorState, lineSeparator: new Compartment(), changed: (text: string) => change.current(text) };
+    const scroll = saved?.scroll;
+    const document: NonNullable<ReturnType<typeof editorDocuments.get>> = saved ?? { state: null as unknown as EditorState, lineSeparator: new Compartment(), changed: (text: string) => change.current(text) };
     document.changed = text => change.current(text);
     const initial = EditorState.create({ doc: value, extensions: [basicSetup, document.lineSeparator.of(EditorState.lineSeparator.of(value.match(/\r\n|\n|\r/)?.[0] ?? "\n")),
       syntaxHighlighting(HighlightStyle.define([{ tag: tags.keyword, color: "var(--primary)" }, { tag: tags.string, color: "var(--success)" }, { tag: tags.comment, color: "var(--muted-foreground)", fontStyle: "italic" }, { tag: tags.number, color: "var(--primary)" } ])),
@@ -39,10 +40,13 @@ export default function CodeEditor({ value, file, documentId, line, column, jump
     editorDocuments.set(documentId, document);
     const editor = new EditorView({ parent: mount.current, state: document.state });
     view.current = editor; publish.current(editor);
+    const rememberScroll = () => { document.scroll = { top: editor.scrollDOM.scrollTop, left: editor.scrollDOM.scrollLeft }; };
+    editor.scrollDOM.addEventListener("scroll", rememberScroll);
+    if (scroll) editor.requestMeasure({ read: () => scroll, write: () => { editor.scrollDOM.scrollTop = scroll.top; editor.scrollDOM.scrollLeft = scroll.left; } });
     let disposed = false;
     const language = languages.find(language => language.filename?.test(file) || language.extensions.some(ext => file.toLowerCase().endsWith(`.${ext}`)));
     void language?.load().then(support => { if (!disposed) editor.dispatch({ effects: StateEffect.appendConfig.of(support) }); });
-    return () => { disposed = true; publish.current(null); view.current = null; editor.destroy(); };
+    return () => { editor.scrollDOM.removeEventListener("scroll", rememberScroll); disposed = true; publish.current(null); view.current = null; editor.destroy(); };
   }, [file, documentId]);
   useEffect(() => {
     const editor = view.current;

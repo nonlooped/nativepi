@@ -1,5 +1,6 @@
 import { create, useStore, type UseBoundStore, type StoreApi } from "zustand";
 import { createContext, useContext } from "react";
+import { releaseWorkspaceTabs } from "./workspaceTabs.ts";
 import { releaseNavigationHistory } from "./navigationHistory.ts";
 import { rpc } from "./rpc.ts";
 import { createAuthSlice } from "./store/auth.ts";
@@ -44,6 +45,7 @@ export function createPaneStore() {
   return store;
 }
 export function releasePaneStore(store: PaneStore) {
+  releaseWorkspaceTabs(store);
   releaseNavigationHistory(store);
   const owner = runtime(store.getState);
   void rpc.request.closeWorkspacePane({ paneId: owner.paneId }).catch(() => {});
@@ -104,6 +106,7 @@ if (import.meta.hot) import.meta.hot.dispose(() => {
   window.removeEventListener?.("beforeunload", beforeUnload);
   for (const unsubscribe of unsubscribeHostEvents) unsubscribe();
   for (const store of paneStores) {
+    releaseWorkspaceTabs(store);
     const owner = runtime(store.getState);
     if (owner.saveTimer) void flushPersist(store.getState).catch(() => {});
     clearTimeout(owner.saveTimer);

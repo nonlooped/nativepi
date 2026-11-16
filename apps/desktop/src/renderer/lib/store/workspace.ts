@@ -1,3 +1,4 @@
+import { rememberWorkspaceTab } from "../workspaceTabs.ts";
 import { isChatFinished } from "../chatOrganization.ts";
 import { rpc } from "../rpc.ts";
 import { sanitizeOverrides } from "../shortcuts.ts";
@@ -251,6 +252,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
     },
 
     selectProject: async (path) => {
+      const restoreTab = rememberWorkspaceTab(get, path);
       const folder = enterProjectFolder(set, get, path);
 
       // A chat still running in this project wins over the last-opened one: the
@@ -282,6 +284,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
         else get().newChat();
       }
 
+      if (folder.stillSelected()) restoreTab();
       await applyFolderTrust(set, get, path, folder);
       if (selectedRememberedChat && !historyLoaded) void get().refreshSessions(path);
     },

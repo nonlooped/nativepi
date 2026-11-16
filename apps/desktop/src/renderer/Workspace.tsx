@@ -1,3 +1,4 @@
+import { paneWorkspaceTabs } from "./lib/workspaceTabs.ts";
 import ConnectionNotice from "./components/ConnectionNotice.tsx";
 import { createKeybindingsHandler } from "tinykeys";
 import { bindings } from "./lib/shortcuts.ts";
@@ -8,12 +9,8 @@ import { readPaneArrangement, restorePaneSelection } from "./lib/paneArrangement
 import App, { ConversationSurface } from "./App.tsx";
 import { WorkspacePanesContext, THREAD_DRAG_TYPE, type PaneThread, type PaneSide } from "./lib/workspacePanes.ts";
 import ThreadDropTarget from "./components/ThreadDropTarget.tsx";
-import WorkspacePaneMenu from "./components/WorkspacePaneMenu.tsx";
-import { usePaneStore, activeConversation } from "./lib/store.ts";
+import { activeConversation } from "./lib/store.ts";
 import { chatTitle } from "./lib/transcript.ts";
-import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
-import { ChatCircleIcon } from "@phosphor-icons/react/ChatCircle";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./components/ui/dropdown-menu.tsx";
 import { Button } from "./components/ui/button.tsx";
 import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "./components/ui/resizable.tsx";
 import { createPaneStore, focusPaneStore, primaryStore, PaneStoreContext, releasePaneStore, type PaneStore } from "./lib/store.ts";
@@ -69,7 +66,7 @@ export default function Workspace() {
   const save = () => {
     if (!initialized.current) return;
     const value = current.current;
-    try { localStorage.setItem("nativepi-conversation-panes", JSON.stringify({ orientation: value.orientation, active: value.active, sizes: sizes.current, panes: value.stores.map(store => ({ project: store.getState().activeProjectPath, session: store.getState().activeSessionFile })) })); } catch { console.warn("Could not save conversation pane layout."); }
+    try { localStorage.setItem("nativepi-conversation-panes", JSON.stringify({ orientation: value.orientation, active: value.active, sizes: sizes.current, panes: value.stores.map(store => ({ project: store.getState().activeProjectPath, session: store.getState().activeSessionFile, tabs: paneWorkspaceTabs(store).state.getState().scopes })) })); } catch { console.warn("Could not save conversation pane layout."); }
   };
   useEffect(() => {
     const update = () => setWidth(window.innerWidth);
@@ -81,7 +78,8 @@ export default function Workspace() {
   useEffect(() => {
     let mirroring = false;
     setTitles(stores.map(paneTitle));
-    return stores.map(store => store.subscribe((next, previous) => {
+    const stopTabs = initialized.current ? stores.map(store => paneWorkspaceTabs(store).state.subscribe(save)) : [];
+    const stopStores = stores.map(store => store.subscribe((next, previous) => {
       if (next.activeProjectPath !== previous.activeProjectPath || next.activeSessionFile !== previous.activeSessionFile) save();
       if (next.activeSessionFile !== previous.activeSessionFile || next.sessionsByProject !== previous.sessionsByProject || activeConversation(next).sessionName !== activeConversation(previous).sessionName) setTitles(stores.map(paneTitle));
       if (mirroring) return;
@@ -94,7 +92,8 @@ export default function Workspace() {
       }
       if (Object.keys(patch).length) for (const other of new Set([primaryStore, ...stores])) if (other !== store) other.setState(patch);
       mirroring = false;
-    })).reduce((dispose, stop) => () => { dispose(); stop(); }, () => {});
+    }));
+    return () => { stopTabs.forEach(stop => stop()); stopStores.forEach(stop => stop()); };
   }, [stores]);
   useEffect(() => {
 
@@ -103,10 +102,12 @@ export default function Workspace() {
       await initializePane(primaryStore);
       if (disposed) return;
       await restorePaneSelection(primaryStore, restored?.panes[0]);
+      paneWorkspaceTabs(primaryStore, restored?.panes[0]?.tabs);
       const extras: PaneStore[] = [];
       for (const pane of restored?.panes.slice(1) ?? []) {
         const store = createPaneStore(); await store.getState().init();
         await restorePaneSelection(store, pane);
+        paneWorkspaceTabs(store, pane.tabs);
         extras.push(store);
       }
       if (disposed) { extras.forEach(releasePaneStore); return; }
@@ -182,7 +183,7 @@ export default function Workspace() {
             {stores.map((store, index) => <Fragment key={paneIdentity(store)}>
               {index > 0 && !narrow ? <ResizableHandle withHandle /> : null}
               <ResizablePanel id={`pane-${index}`} minSize={narrow ? 0 : orientation === "horizontal" ? "320px" : "180px"} defaultSize={narrow ? (index === active ? "100%" : "0%") : undefined} style={narrow ? { flexGrow: index === active ? 1 : 0, flexBasis: 0 } : undefined} className={narrow && index !== active ? "hidden" : ""}>
-                <Pane store={store} index={index} active={index === active} multiple={stores.length > 1} onFocus={() => focus(index)} onStart={onStart} />
+                <Pane store={store} index={index} active={index === active} onFocus={() => focus(index)} onStart={onStart} />
               </ResizablePanel>
             </Fragment>)}
           </ResizablePanelGroup>
@@ -196,39 +197,13 @@ function paneTitle(store: PaneStore) {
   const session = (state.sessionsByProject[state.activeProjectPath ?? ""] ?? []).find(session => session.path === state.activeSessionFile);
   return session ? chatTitle(session) : activeConversation(state).sessionName || (state.isNewChat ? "New chat" : "Conversation");
 }
-function Pane({ store, index, active, multiple, onFocus, onStart }: { store: PaneStore; index: number; active: boolean; multiple: boolean; onFocus: () => void; onStart: () => void }) {
+function Pane({ store, index, active, onFocus, onStart }: { store: PaneStore; index: number; active: boolean; onFocus: () => void; onStart: () => void }) {
   const element = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(window.innerWidth);
   useEffect(() => { const observer = new ResizeObserver(entries => { if (entries[0]) setWidth(entries[0].contentRect.width); }); if (element.current) observer.observe(element.current); return () => observer.disconnect(); }, []);
   return <PaneStoreContext value={store}><PaneWidthContext value={width}>
     <div ref={element} data-workspace-pane={index} data-pane-active={active} className="@container/conversation flex h-full min-h-0 min-w-0 flex-col" onPointerDownCapture={onFocus} onFocusCapture={onFocus} onDragOverCapture={event => { if (!event.dataTransfer.types.includes(THREAD_DRAG_TYPE)) onFocus(); }}>
-      {multiple ? <ConversationPaneHeader active={active} /> : null}
       <ThreadDropTarget index={index}><ConversationSurface onStart={onStart} /></ThreadDropTarget>
     </div>
   </PaneWidthContext></PaneStoreContext>;
-}
-function ConversationPaneHeader({ active }: { active: boolean }) {
-  const useAppStore = usePaneStore();
-  const project = useAppStore(s => s.activeProjectPath);
-  const selected = useAppStore(s => s.activeSessionFile);
-  const sessions = useAppStore(s => s.sessionsByProject[project ?? ""]);
-  const name = useAppStore(s => activeConversation(s).sessionName);
-  const isNewChat = useAppStore(s => s.isNewChat);
-  const running = useAppStore(s => activeConversation(s).running);
-  const file = useWorkspaceEditor(s => s.selected[`${runtime(useAppStore.getState).paneId}:${project}`]);
-  if (file) return null;
-  const session = sessions?.find(session => session.path === selected);
-  const title = session ? chatTitle(session) : name || (isNewChat ? "New chat" : "Conversation");
-  return <div className={`flex h-10 shrink-0 items-center gap-2 border-b px-3 ${active ? "border-border bg-muted/30" : "border-border/40"}`}>
-    <ChatCircleIcon className="shrink-0 text-muted-foreground" />
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start px-1" title={title} />}><span className="truncate text-sm font-medium">{title}</span><CaretDownIcon data-icon="inline-end" className="text-muted-foreground" /></DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-72">
-        {(sessions ?? []).map(session => <DropdownMenuItem key={session.path} onClick={() => void useAppStore.getState().selectChat(session.path, project!)}><span className="truncate">{chatTitle(session)}</span></DropdownMenuItem>)}
-        {!sessions?.length ? <DropdownMenuItem disabled>Choose a chat from the sidebar</DropdownMenuItem> : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
-    {running ? <span className="size-1.5 shrink-0 rounded-full bg-primary" title="Pi is running" /> : null}
-    <WorkspacePaneMenu />
-  </div>;
 }

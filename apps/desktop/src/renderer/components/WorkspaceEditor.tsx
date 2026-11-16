@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { EditorView } from "@codemirror/view";
 import { undo, redo } from "@codemirror/commands";
-import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { ArrowDownIcon } from "@phosphor-icons/react/ArrowDown";
 import { ArrowSquareOutIcon } from "@phosphor-icons/react/ArrowSquareOut";
@@ -16,7 +15,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import ConfirmDialog from "./ConfirmDialog.tsx";
 import CodeEditor from "./CodeEditor.tsx";
 import Markdown from "./Markdown.tsx";
-import FileTypeIcon from "./FileTypeIcon.tsx";
 import { WorkspacePaneActions } from "./WorkspacePaneMenu.tsx";
 import { useWorkspacePanes } from "../lib/workspacePanes.ts";
 import { useWorkspaceEditor } from "../lib/workspaceEditor.ts";
@@ -34,7 +32,7 @@ export default function WorkspaceEditor({ projectDir }: { projectDir: string }) 
   const buffer = key ? buffers[key] : undefined;
   const editorId = useAppStore(s => s.preferences.preferredEditorId);
   const [preview, setPreview] = useState(false);
-  const [confirmation, setConfirmation] = useState<"close" | "reload" | null>(null);
+  const [confirmation, setConfirmation] = useState(false);
   const [searchMode, setSearchMode] = useState<"find" | "line" | null>(null);
   const [query, setQuery] = useState("");
   const view = useRef<EditorView | null>(null);
@@ -52,9 +50,8 @@ export default function WorkspaceEditor({ projectDir }: { projectDir: string }) 
   if (!buffer || !key) return null;
   const dirty = buffer.text !== buffer.saved;
   const markdown = /\.(md|markdown|mdx)$/i.test(buffer.file);
-  const act = (action: "close" | "reload") => {
-    if (dirty) setConfirmation(action);
-    else if (action === "close") useWorkspaceEditor.getState().close(key);
+  const reload = () => {
+    if (dirty) setConfirmation(true);
     else void useWorkspaceEditor.getState().refresh(key, true);
   };
   const save = () => void useWorkspaceEditor.getState().save(key).then(ok => { if (ok) window.dispatchEvent(new CustomEvent("workspace-file-saved", { detail: projectDir })); });
@@ -82,10 +79,7 @@ export default function WorkspaceEditor({ projectDir }: { projectDir: string }) 
     if (e.altKey && e.key.toLowerCase() === "g") { e.preventDefault(); e.stopPropagation(); setPreview(false); setSearchMode("line"); }
   }}>
     <header className="flex h-10 shrink-0 items-center gap-1 border-b border-border/60 px-2 [[data-pane-active=true]_&]:bg-muted/30">
-      <Button size="icon-sm" variant="ghost" title="Back to conversation" aria-label="Back to conversation" onClick={() => useWorkspaceEditor.setState(s => ({ selected: Object.fromEntries(Object.entries(s.selected).filter(([id]) => id !== selectionKey)) }))}><ArrowLeftIcon /></Button>
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]" role="tablist" aria-label="Open files">
-        {Object.values(buffers).filter(b => b.projectDir === projectDir).map(b => <Button key={b.key} role="tab" aria-selected={b.key === key} size="sm" variant={b.key === key ? "secondary" : "ghost"} className="max-w-56 shrink-0 gap-2 px-2" title={b.file} onClick={() => useWorkspaceEditor.setState(s => ({ selected: { ...s.selected, [selectionKey]: b.key } }))}><FileTypeIcon path={b.file} /><span className="truncate text-xs">{b.file.split("/").at(-1)}</span>{b.text !== b.saved ? <span className="size-1.5 shrink-0 rounded-full bg-foreground/60" aria-label="Unsaved changes" /> : null}</Button>)}
-      </div>
+      <span className="min-w-0 flex-1 truncate px-1 text-xs text-muted-foreground" title={buffer.file}>{buffer.file}</span>
       <span className="shrink-0 text-xs text-muted-foreground" role="status">{buffer.saving ? "Saving…" : buffer.conflict ? "Conflict" : dirty ? "Unsaved" : "Saved"}</span>
       <Button size="icon-sm" variant="ghost" title="Save file (Mod+S)" aria-label="Save file" disabled={buffer.saving || !dirty || buffer.conflict} onClick={save}><FloppyDiskIcon /></Button>
       <DropdownMenu>
@@ -97,21 +91,20 @@ export default function WorkspaceEditor({ projectDir }: { projectDir: string }) 
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled={preview} onClick={() => { if (view.current) undo(view.current); }}>Undo</DropdownMenuItem>
           <DropdownMenuItem disabled={preview} onClick={() => { if (view.current) redo(view.current); }}>Redo</DropdownMenuItem>
-          <DropdownMenuItem disabled={buffer.saving} onClick={() => act("reload")}><ArrowClockwiseIcon />Reload from disk</DropdownMenuItem>
+          <DropdownMenuItem disabled={buffer.saving} onClick={() => reload()}><ArrowClockwiseIcon />Reload from disk</DropdownMenuItem>
           {!isRemote ? <DropdownMenuItem onClick={() => void rpc.request.openFileIn({ projectDir, file: buffer.file, editorId }).then(result => { if (!result.ok) toast.error(result.error); })}><ArrowSquareOutIcon />Open in external editor</DropdownMenuItem> : null}
           {panes && panes.count > 1 ? <><DropdownMenuSeparator /><DropdownMenuSub><DropdownMenuSubTrigger>Pane</DropdownMenuSubTrigger><DropdownMenuSubContent><WorkspacePaneActions /></DropdownMenuSubContent></DropdownMenuSub></> : null}
         </DropdownMenuContent>
       </DropdownMenu>
-      <Button size="icon-sm" variant="ghost" title="Close file" aria-label="Close file" disabled={buffer.saving} onClick={() => act("close")}><XIcon /></Button>
     </header>
     {searchMode ? <div className="flex shrink-0 items-center gap-1 border-b border-border/40 px-3 py-2" onKeyDown={e => { if (e.key === "Escape") { setSearchMode(null); view.current?.focus(); } }}>
       <Input ref={searchInput} aria-label={searchMode === "find" ? "Find in file" : "Go to line"} placeholder={searchMode === "find" ? "Find in file…" : "Line number…"} value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === "Enter") search(); }} className="h-8 min-w-0 flex-1" />
       <Button size="icon-sm" variant="ghost" title={searchMode === "find" ? "Find next" : "Go to line"} aria-label={searchMode === "find" ? "Find next" : "Go to line"} onClick={search}><ArrowDownIcon /></Button>
       <Button size="icon-sm" variant="ghost" aria-label="Close search" onClick={() => { setSearchMode(null); view.current?.focus(); }}><XIcon /></Button>
     </div> : null}
-    {buffer.error ? <div role="alert" className="flex shrink-0 items-center gap-2 bg-warning/10 px-3 py-2 text-xs text-warning"><WarningCircleIcon className="shrink-0" /><p className="min-w-0 flex-1" title={buffer.error}>{buffer.conflict ? "Changed on disk. Your edits are kept." : buffer.error}</p><Button size="xs" variant="ghost" disabled={buffer.saving} onClick={() => buffer.conflict ? act("reload") : save()}>{buffer.conflict ? "Reload" : "Retry"}</Button></div> : null}
+    {buffer.error ? <div role="alert" className="flex shrink-0 items-center gap-2 bg-warning/10 px-3 py-2 text-xs text-warning"><WarningCircleIcon className="shrink-0" /><p className="min-w-0 flex-1" title={buffer.error}>{buffer.conflict ? "Changed on disk. Your edits are kept." : buffer.error}</p><Button size="xs" variant="ghost" disabled={buffer.saving} onClick={() => buffer.conflict ? reload() : save()}>{buffer.conflict ? "Reload" : "Retry"}</Button></div> : null}
     {preview ? <div className="min-h-0 flex-1 overflow-auto px-6 py-5"><Markdown>{buffer.text}</Markdown></div> : null}
     <div className={preview ? "hidden" : "flex min-h-0 flex-1"}><CodeEditor key={key} file={buffer.file} documentId={`${key}:${paneId}`} value={buffer.text} line={buffer.line} column={buffer.column} jumpRequest={buffer.jumpRequest} onChange={text => useWorkspaceEditor.getState().edit(key, text)} onView={editor => { view.current = editor; }} /></div>
-    <ConfirmDialog open={confirmation !== null} title="Discard unsaved edits?" description="Your changes to this file will be discarded. Cancel to return and save them." detail={buffer.file} confirmLabel="Discard edits" destructive onCancel={() => setConfirmation(null)} onConfirm={() => { if (confirmation === "close") useWorkspaceEditor.getState().close(key); else void useWorkspaceEditor.getState().refresh(key, true); setConfirmation(null); }} />
+    <ConfirmDialog open={confirmation} title="Discard unsaved edits?" description="Your changes to this file will be discarded. Cancel to return and save them." detail={buffer.file} confirmLabel="Discard edits" destructive onCancel={() => setConfirmation(false)} onConfirm={() => { void useWorkspaceEditor.getState().refresh(key, true); setConfirmation(false); }} />
   </section>;
 }

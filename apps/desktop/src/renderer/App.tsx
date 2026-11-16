@@ -2,6 +2,8 @@ import { BrowserPanel, useBrowserPanel } from "./components/BrowserPanel.tsx";
 import { usePaneView } from "./lib/paneView.ts";
 import { useWorkspacePanes } from "./lib/workspacePanes.ts";
 import { runtime } from "./lib/store/internals.ts";
+import WorkspaceTabs, { useWorkspaceTabs } from "./components/WorkspaceTabs.tsx";
+import { tabId } from "./lib/workspaceTabs.ts";
 import WorkspaceEditor from "./components/WorkspaceEditor.tsx";
 import { useWorkspaceEditor } from "./lib/workspaceEditor.ts";
 import { GlobeHemisphereWestIcon } from "@phosphor-icons/react/GlobeHemisphereWest";
@@ -104,17 +106,15 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
   const horizontalGroup = useRef<HTMLDivElement>(null);
   const verticalGroup = useRef<HTMLDivElement>(null);
   const browserPanel = useBrowserPanel(`${activeProjectPath}:${activeSessionFile}`);
-  const browserPanelRef = useCollapsiblePanel(!!browserPanel);
+  const browserPanelRef = useCollapsiblePanel(!!browserPanel, ready);
   const contextPaneWidth = useAppStore((s) => s.contextPaneWidth);
   const terminalHeight = useAppStore((s) => s.terminalHeight);
   const contextPaneOpen = useAppStore((s) => s.contextPaneOpen);
-  const sourceControlReview = useAppStore(s => s.sourceControlReview);
   useEffect(() => {
     const saved = (event: Event) => { if ((event as CustomEvent).detail === useAppStore.getState().activeProjectPath) void useAppStore.getState().refreshGit(); };
     window.addEventListener("workspace-file-saved", saved);
     return () => window.removeEventListener("workspace-file-saved", saved);
   }, [useAppStore]);
-  useEffect(() => { if (sourceControlReview) useWorkspaceEditor.setState(s => ({ selected: Object.fromEntries(Object.entries(s.selected).filter(([project]) => project !== `${runtime(useAppStore.getState).paneId}:${activeProjectPath}`)) })); }, [sourceControlReview]);
 
   const toggleContextPane = useAppStore((s) => s.toggleContextPane);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
@@ -489,7 +489,6 @@ export function ConversationSurface({ onStart }: { onStart: () => void }) {
   const activeSessionFile = useAppStore(s => s.activeSessionFile);
   const isNewChat = useAppStore(s => s.isNewChat);
   const selectionVersion = useAppStore(s => s.selectionVersion);
-  const chatMode = useAppStore(s => s.destination === "chat");
   const sourceControlReview = useAppStore(s => s.sourceControlReview);
   const { extensionView, setExtensionView } = usePaneView();
   const editorOpen = useWorkspaceEditor(s => s.selected[`${runtime(useAppStore.getState).paneId}:${activeProjectPath ?? ""}`]);
@@ -498,12 +497,23 @@ export function ConversationSurface({ onStart }: { onStart: () => void }) {
   const error = useAppStore(s => activeConversation(s).error);
   const composerReady = useAppStore(s => s.providersLoaded && s.providers.some(provider => provider.ready));
   const hasConversation = useAppStore(s => !!s.activeSessionFile || activeConversation(s).entries.length > 0 || !!activeConversation(s).streaming || activeConversation(s).pending.length > 0 || activeConversation(s).running);
-  useEffect(() => { useAppStore.getState().setSourceControlReview(null); }, [activeProjectPath, activeSessionFile, isNewChat]);
+  const { controller: tabsController, strip } = useWorkspaceTabs();
+  const selectedTab = strip?.tabs.find(tab => tabId(tab) === strip.active);
   useEffect(() => setExtensionView(null), [activeProjectPath, activeSessionFile, selectionVersion]);
-  return <>            {activeProjectPath ? (
-              !chatMode && openingFile ? <div className="px-4"><StateNotice loading title={`Opening ${openingFile}…`} /></div> : !chatMode && editorOpen ? <WorkspaceEditor projectDir={activeProjectPath} /> : !chatMode && sourceControlReview?.projectDir === activeProjectPath ? (
-                <Suspense fallback={<SurfaceLoading label="Loading diff…" />}><SourceControlReview key={`${activeProjectPath}:${sourceControlReview.path}:${sourceControlReview.staged}:${sourceControlReview.hash ?? ""}`} review={sourceControlReview} /></Suspense>
-              ) : extensionView ? (
+  return <WorkspaceTabs>
+            {activeProjectPath ? (
+              !selectedTab ? <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-sm text-muted-foreground"><p>No open tabs</p><Button variant="outline" size="sm" onClick={() => tabsController.record()}>Reopen conversation</Button></div> :
+              selectedTab.kind === "file" && openingFile ? <div className="px-4"><StateNotice loading title={`Opening ${openingFile}…`} /></div> : selectedTab.kind === "file" && editorOpen ? <WorkspaceEditor projectDir={activeProjectPath} /> : null
+            ) : null}
+            {activeProjectPath ? strip?.tabs.filter(tab => tab.kind === "diff").map(tab => {
+              const active = tabId(tab) === strip.active;
+              const review = active && sourceControlReview?.projectDir === activeProjectPath ? sourceControlReview : { projectDir: activeProjectPath, path: tab.path, staged: tab.staged, hash: tab.hash };
+              return <div key={`${activeProjectPath}:${tabId(tab)}`} className={active ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+                <Suspense fallback={<SurfaceLoading label="Loading diff…" />}><SourceControlReview review={review} /></Suspense>
+              </div>;
+            }) : null}
+            {activeProjectPath ? <div className={selectedTab?.kind === "thread" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+              {extensionView ? (
                 <Suspense fallback={<SurfaceLoading label="Loading extension view…" />}>
                   <ExtensionConversationView active={extensionView} onClose={() => setExtensionView(null)} />
                 </Suspense>
@@ -525,10 +535,8 @@ export function ConversationSurface({ onStart }: { onStart: () => void }) {
                   <ThreadActivity />
                   <WorkspaceComposer prominent={!hasConversation} visible={hasConversation || (isNewChat && composerReady)} />
                 </div>
-              )
-            ) : (
-              <WelcomeScreen onStart={onStart} />
-            )}</>;
+              )}</div> : <WelcomeScreen onStart={onStart} />}
+  </WorkspaceTabs>;
 }
 
 /** The drag-region title bar: project, chat title, and pane toggles. */
