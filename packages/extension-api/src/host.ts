@@ -11,7 +11,8 @@ import type {
 type RegisteredMethod = (params: JsonValue | undefined) => JsonValue | Promise<JsonValue>;
 
 interface NativePiExtensionHost {
-  register(extension: string, methods: Readonly<Record<string, RegisteredMethod>>): void;
+  register(extension: string, methods: Readonly<Record<string, RegisteredMethod>>): void | (() => void);
+  isRegistered?(extension: string, methods: Readonly<Record<string, RegisteredMethod>>): boolean;
   emit(extension: string, event: string, payload: JsonValue | undefined): void;
 }
 
@@ -69,11 +70,18 @@ export function connect<Protocol extends ExtensionProtocol>(
   }
 
   const nativeHost = globalThis.__NATIVEPI_EXTENSION_HOST__;
-  nativeHost?.register(extension, registered);
+  const unregister = nativeHost?.register(extension, registered);
+  let disposed = false;
 
   return {
-    connected: nativeHost !== undefined,
+    get connected() { return !disposed && nativeHost !== undefined && (nativeHost.isRegistered?.(extension, registered) ?? true); },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      unregister?.();
+    },
     emit(event, ...args) {
+      if (disposed || (nativeHost?.isRegistered && !nativeHost.isRegistered(extension, registered))) throw new Error(`Extension ${extension} connection has been disposed.`);
       const name = event as string;
       if (!(name in protocol.events)) throw new Error(`Extension ${extension} emitted undeclared event "${name}".`);
       const schema = protocol.events[name];

@@ -152,6 +152,7 @@ export interface Conversation {
   historyLoading?: boolean;
   historyError?: string;
   streaming: AssistantMessage | null;
+  toolProgress?: Record<string, { text: string; details?: unknown }>;
   running: boolean;
   promptSuggestion?: { text: string; timestamp: number };
   aborted: boolean;

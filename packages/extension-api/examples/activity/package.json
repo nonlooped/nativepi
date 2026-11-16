@@ -1,0 +1,8 @@
+{
+  "name": "nativepi-example-activity",
+  "private": true,
+  "type": "module",
+  "pi": { "extensions": ["./extension.ts"] },
+  "nativepi": { "renderer": "./renderer.tsx" },
+  "dependencies": { "@nativepi/extension-api": "file:../.." }
+}

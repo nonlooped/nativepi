@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { isJsonValue } from "../../../shared/json.ts";
 import type {
   AgentMessage,
   AssistantMessage,
@@ -13,11 +15,34 @@ import { stripAnsi } from "../ansi.ts";
 import { showExtensionNotification } from "../toast.tsx";
 import type { Conversation, ExtensionPrompt, GetState, SetState } from "./types.ts";
 
+const toolUpdate = z.object({
+  toolCallId: z.string().min(1),
+  partialResult: z.object({
+    content: z.array(z.looseObject({ type: z.string(), text: z.string().optional() })),
+    details: z.unknown().optional(),
+  }),
+});
+
 /** Fold one Pi event into a conversation patch. Pure, so it can be read as a table. */
 export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
   switch (event.type) {
+    case "tool_execution_update": {
+      const parsed = toolUpdate.safeParse(event);
+      if (!parsed.success) return {};
+      const { toolCallId, partialResult } = parsed.data;
+      return { toolProgress: { ...s.toolProgress, [toolCallId]: {
+        text: partialResult.content.filter(part => part.type === "text").map(part => part.text ?? "").join("\n"),
+        ...(isJsonValue(partialResult.details) ? { details: partialResult.details } : {}),
+      } } };
+    }
+    case "tool_execution_end": {
+      if (typeof event.toolCallId !== "string") return {};
+      const { [event.toolCallId]: _finished, ...remaining } = s.toolProgress ?? {};
+      return { toolProgress: remaining };
+    }
     case "agent_start":
       return {
+        toolProgress: {},
         promptSuggestion: undefined,
         running: true,
         retry: null,
@@ -31,6 +56,7 @@ export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
       // never finalized with message_end, so it isn't lost when the preview clears.
       if (s.streaming)
         return {
+          toolProgress: {},
           running: false,
           aborted: event.aborted === true,
           runStartedAt: null,
@@ -38,7 +64,7 @@ export function reduce(s: Conversation, event: PiEvent): Partial<Conversation> {
           retry: null,
           entries: [...s.entries, liveEntry(s.streaming)],
         };
-      return { running: false, aborted: event.aborted === true, runStartedAt: null, streaming: null, retry: null };
+      return { toolProgress: {}, running: false, aborted: event.aborted === true, runStartedAt: null, streaming: null, retry: null };
     case "agent_end":
       return {};
     case "message_start": {

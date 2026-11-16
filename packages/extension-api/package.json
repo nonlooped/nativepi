@@ -18,7 +18,8 @@
   },
   "files": [
     "src",
-    "README.md"
+    "README.md",
+    "COMPATIBILITY.md"
   ],
   "keywords": [
     "nativepi",

@@ -29,7 +29,7 @@ const REACT_EXPORTS = [
 ];
 const JSX_EXPORTS = ["jsx", "jsxs", "Fragment"];
 const JSX_DEV_EXPORTS = ["jsxDEV", "Fragment"];
-const API_EXPORTS = ["defineProtocol", "defineRenderer", "extensionApiVersion", "version"];
+const API_EXPORTS = ["defineProtocol", "defineRenderer", "extensionApiVersion", "hostCapabilities", "version"];
 // NativePi's interface components, lent to extensions so their UI carries real
 // styles. Tailwind cannot see extension code, so a class an extension writes has
 // no rule behind it and only a shared component can look native.

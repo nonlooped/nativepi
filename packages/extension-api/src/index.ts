@@ -27,6 +27,10 @@ export const version: string = pkg.version;
  */
 export const extensionApiVersion = 1 as const;
 
+/** Additive host features. Require only the features your renderer needs. */
+export const hostCapabilities = ["scoped-handles", "host-dispose", "tool-progress"] as const;
+export type HostCapability = typeof hostCapabilities[number];
+
 export interface ToolCall<Arguments extends Record<string, unknown> = Record<string, unknown>> {
   id: string;
   name: string;
@@ -79,6 +83,8 @@ export interface RendererContext<Protocol extends ExtensionProtocol = ExtensionP
     model?: RendererModel;
     thinkingLevel: string;
   };
+  /** Available on hosts with scoped-handles; delegate composers are read-only. */
+  composer?: { writable: boolean };
   channel: RendererChannel<Protocol>;
   actions: RendererActions;
 }
@@ -90,6 +96,8 @@ export type ToolRenderer<
 > = (props: {
   call: ToolCall<Arguments>;
   result?: ToolResult<Details>;
+  /** Latest transient Pi tool update, cleared on completion or turn settlement. */
+  progress?: { text: string; details?: Details };
   context: RendererContext<Protocol>;
 }) => ReactNode;
 
@@ -138,6 +146,8 @@ export interface NativePiRenderer<Protocol extends ExtensionProtocol = Extension
   apiVersion: typeof extensionApiVersion;
   /** Required only when the renderer talks to its Pi half. */
   protocol?: Protocol;
+  /** Older hosts reject unknown requirements before mounting contributions. */
+  requires?: readonly HostCapability[];
   tools?: Record<string, ToolRenderer<Protocol>>;
   entries?: Record<string, EntryRenderer<Protocol>>;
   composerWidgets?: ComposerWidget<Protocol>[];
