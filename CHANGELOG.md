@@ -8,12 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Shared live browser in Work, including project-free chats: chat-owned temporary tabs, navigation, agent snapshots and actions, screenshots, diagnostics, and explicit human handoff for sign-in and consent.
 - Website downloads select the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every supported architecture.
 
 ### Added
 - Website downloads choose the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every architecture.
 
 ### Fixed
+- Use NativePi’s bundled controls, typography, icons and themes for the shared browser, with compact tabs, responsive navigation, contextual takeover and clear empty/error states.
 - Reduce memory spikes during historical chat discovery, reuse unchanged Pi session summaries and extension renderer modules, keep Select All responsive in long chats, defer settings code, and limit sidebar repository work.
 - Reduce packaged application size by excluding dependency source maps, renderer-only dependency copies, and computer-use binaries for other platforms.
 - Keep delegate Stop fences intact across queued work and cold startup, terminate unresponsive Pi writers, retry failed inbox delivery, and release waits promptly for clarification questions.

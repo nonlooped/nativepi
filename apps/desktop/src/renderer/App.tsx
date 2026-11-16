@@ -1,3 +1,4 @@
+import { BrowserIcon } from "@phosphor-icons/react/Browser";
 import StateNotice from "./components/StateNotice.tsx";
 import ConnectionNotice from "./components/ConnectionNotice.tsx";
 import ThreadActivity, { ThreadInputBoundary } from "./components/ThreadActivity.tsx";
@@ -594,6 +595,17 @@ function WorkspaceHeader({
       ) : null}
       {!chatMode && !projectFree && activeProjectPath ? <SourceControlButton onClick={() => onOpenContext("changes")} active={contextDocked} /> : null}
       {activeProjectPath ? <ProjectStatus compact={compact} className={NO_DRAG_REGION} /> : null}
+      {!chatMode && activeProjectPath ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className={NO_DRAG_REGION}
+          title={isRemote ? "The shared browser opens on the host desktop; Local Access cannot display it" : "Open this chat's shared browser"}
+          onClick={() => void rpc.request.browserShow({ projectDir: activeProjectPath, sessionFile: isNewChat ? null : activeSession?.path }).catch(error => toast.error(String(error)))}
+        >
+          <BrowserIcon /><span className="max-[600px]:hidden">Browser</span>
+        </Button>
+      ) : null}
       {!chatMode && activeProjectPath ? (
         <Button
           variant="ghost"
