@@ -1,4 +1,4 @@
-import type { AutomationInput, AutomationState } from "./automations.ts";
+import type { AutomationInput, AutomationState, AutomationTool } from "./automations.ts";
 import type { DictationStatus } from "./dictation.ts";
 import type { ComputerStatus } from "./computer-use.ts";
 import type { OrchestrationSnapshot, OrganizationSnapshot } from "./orchestration.ts";
@@ -267,6 +267,7 @@ export const nativePiStateSchema = z.object({
 });
 export type NativePiState = z.infer<typeof nativePiStateSchema>;
 export type HostRequestContracts = {
+  automationTools: { params: { projectDir?: string }; response: AutomationTool[] };
   automationList: { params: Record<string, never>; response: AutomationState };
   automationSave: { params: AutomationInput; response: AutomationState };
   automationDelete: { params: { id: string }; response: AutomationState };

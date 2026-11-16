@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Schedule Work once, daily or weekly in a chosen timezone, or watch GitHub PR check failures and review feedback, with explicit Pi configuration, workspace controls and transcript-linked run history.
+- Schedule Work once, daily or weekly in a chosen timezone, or watch GitHub PR check failures and review feedback, with explicit Pi configuration, workspace controls, a compact settings list, focused editing and contextual run history.
 - Website downloads select the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every supported architecture.
 
 ### Added

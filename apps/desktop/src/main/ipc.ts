@@ -1,3 +1,4 @@
+import { automationToolsSchema } from "../shared/automations.ts";
 import { AutomationService } from "./automations/service.ts";
 import { githubEvents } from "./automations/github.ts";
 import { Dictation, dictationMicrophone } from "./dictation.ts";
@@ -1015,6 +1016,15 @@ type HandlerMap = {
   [K in HostRequestName]: (params: HostRequests[K]["params"], pi?: PiProcess) => Promise<HostRequests[K]["response"]> | HostRequests[K]["response"];
 };
 const handlers: HandlerMap = {
+  automationTools: async ({ projectDir }) => {
+    const cwd = projectDir ?? join(app.getPath("userData"), "work");
+    await mkdir(cwd, { recursive: true });
+    const pi = await ensurePi(cwd);
+    const state = await pi.request<RpcSessionState>({ type: "get_state" });
+    if (!state.sessionId) throw new Error("Pi session identity unavailable");
+    const catalog = z.object({ tools: automationToolsSchema }).parse(await pi.orchestration({ id: state.sessionId, cwd, file: state.sessionFile ?? "" }, "catalog"));
+    return catalog.tools;
+  },
   automationList: async () => automations.snapshot(),
   automationSave: async input => automations.put({ ...input, project: input.project ? resolve(input.project) : null }),
   automationDelete: async ({ id }) => automations.remove(id),

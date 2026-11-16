@@ -6,14 +6,34 @@ import type {
   AutomationInput,
 } from "../../../shared/automations.ts";
 const id = "11111111-1111-4111-8111-111111111111";
+globalThis.requestAnimationFrame = window.requestAnimationFrame.bind(window);
+globalThis.cancelAnimationFrame = window.cancelAnimationFrame.bind(window);
 let state: AutomationState;
+let read: (() => Promise<AutomationState>) | undefined;
+let saved: AutomationInput | undefined;
 mock.module("../../lib/rpc.ts", () => ({
   isRemote: false,
   rpc: {
     events: { on: () => () => {} },
     request: {
-      automationList: async () => state,
+      automationList: async () => (read ? read() : state),
+      getChatTitleModels: async () => ({
+        models: [
+          {
+            provider: "p",
+            id: "chosen",
+            name: "Chosen model",
+            thinkingLevels: ["off", "high"],
+            tiers: ["default", "priority"],
+          },
+        ],
+      }),
+      automationTools: async () => [
+        { name: "read", description: "Read files" },
+        { name: "edit", description: "Edit files" },
+      ],
       automationSave: async (input: AutomationInput) => {
+        saved = input;
         state = {
           ...state,
           automations: state.automations.map((a) => ({ ...a, input })),
@@ -33,6 +53,8 @@ let root: Root | undefined, container: HTMLDivElement;
 afterEach(async () => {
   if (root) await act(async () => root!.unmount());
   root = undefined;
+  read = undefined;
+  saved = undefined;
   container?.remove();
 });
 test("pause updates the displayed persisted state and delete retains run history", async () => {
@@ -83,10 +105,158 @@ test("pause updates the displayed persisted state and delete retains run history
     [...container.querySelectorAll("button")].find(
       (b) => b.textContent === name,
     )!;
-  await act(async () => button("Pause").click());
+  await act(async () =>
+    container.querySelector<HTMLButtonElement>('[role="switch"]')!.click(),
+  );
   expect(container.textContent).toContain("Paused");
-  expect(button("Enable")).toBeDefined();
-  await act(async () => button("Delete").click());
+  expect(
+    container.querySelector('[aria-label="Enable Daily inspection"]'),
+  ).not.toBeNull();
+  await act(async () =>
+    container
+      .querySelector<HTMLButtonElement>(
+        '[aria-label="Actions for Daily inspection"]',
+      )!
+      .click(),
+  );
+  await act(async () =>
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')]
+      .find((b) => b.textContent === "Delete")!
+      .click(),
+  );
+  await act(async () =>
+    [...document.querySelectorAll<HTMLButtonElement>("button")]
+      .find((b) => b.textContent === "Delete automation")!
+      .click(),
+  );
   expect(container.textContent).not.toContain("Edit");
-  expect(container.textContent).toContain("Exact model unavailable");
+  await act(async () => button("All run history").click());
+  expect(document.body.textContent).toContain("Exact model unavailable");
+});
+
+test("a deferred list shows loading, a read failure offers retry, and retry recovers", async () => {
+  const pending = Promise.withResolvers<AutomationState>();
+  read = () => pending.promise;
+  state = { version: 1, automations: [], runs: [] };
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+  await act(async () => root!.render(<AutomationSettings />));
+  expect(container.textContent).toContain("Loading automations");
+  await act(async () => {
+    pending.reject(new Error("Offline"));
+    await Promise.resolve();
+  });
+  expect(container.textContent).toContain("Could not load automations");
+  read = async () => state;
+  await act(async () =>
+    [...container.querySelectorAll<HTMLButtonElement>("button")]
+      .find((b) => b.textContent === "Try again")!
+      .click(),
+  );
+  expect(container.textContent).toContain("No automations yet");
+});
+
+test("editor saves catalog model/reasoning/speed choices without changing the manual chat", async () => {
+  const { default: AutomationEditor } = await import("./AutomationEditor.tsx");
+  const { useAppStore } = await import("../../lib/store.ts");
+  const manual = { provider: "manual", id: "unchanged", name: "Manual model" };
+  useAppStore.setState({
+    model: manual,
+    modelsError: "Manual catalog unavailable",
+    thinkingLevelsError: "Manual levels unavailable",
+    projects: [],
+    providers: [],
+    favoriteModels: [],
+  });
+  const initial: AutomationInput = {
+    name: "Inspect",
+    prompt: "Read only",
+    enabled: false,
+    project: null,
+    workspace: "shared",
+    configuration: {
+      provider: "old",
+      model: "unavailable",
+      reasoning: "off",
+      tools: ["read"],
+    },
+    trigger: { kind: "daily", time: "09:00", timezone: "UTC" },
+  };
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+  await act(async () =>
+    root!.render(
+      <AutomationEditor
+        initial={initial}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    ),
+  );
+  await act(async () =>
+    [...document.querySelectorAll<HTMLButtonElement>("button")]
+      .find((b) => b.textContent === "GitHub")!
+      .click(),
+  );
+  expect(document.querySelector('[aria-label="Repeat"]')).toBeNull();
+  expect(
+    document.querySelector<HTMLInputElement>("#automation-instructions")?.value,
+  ).toBe("Read only");
+  expect(document.querySelector("#automation-repo")).not.toBeNull();
+  await act(async () =>
+    [...document.querySelectorAll<HTMLButtonElement>("button")]
+      .find((b) => b.textContent === "Schedule")!
+      .click(),
+  );
+  expect(document.querySelector("#automation-repo")).toBeNull();
+  await act(async () =>
+    document
+      .querySelector<HTMLButtonElement>("[data-model-picker-trigger]")!
+      .click(),
+  );
+  await act(async () =>
+    [...document.querySelectorAll<HTMLButtonElement>("[data-model-choice]")]
+      .find((b) => b.textContent?.includes("Chosen model"))!
+      .click(),
+  );
+  await act(async () =>
+    document
+      .querySelector<HTMLButtonElement>('[aria-label="Reasoning effort"]')!
+      .click(),
+  );
+  await act(async () =>
+    [...document.querySelectorAll<HTMLElement>('[role="option"]')]
+      .find((b) => b.textContent === "High")!
+      .click(),
+  );
+  await act(async () =>
+    document
+      .querySelector<HTMLButtonElement>('[aria-label="Service tier"]')!
+      .click(),
+  );
+  await act(async () =>
+    [...document.querySelectorAll<HTMLElement>('[role="option"]')]
+      .find((b) => b.textContent?.includes("Priority"))!
+      .click(),
+  );
+  await act(async () =>
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    ),
+  );
+  await act(async () =>
+    document
+      .querySelector<HTMLFormElement>("form")!
+      .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })),
+  );
+  expect(saved?.configuration).toEqual({
+    provider: "p",
+    model: "chosen",
+    reasoning: "high",
+    tier: "priority",
+    tools: ["read"],
+  });
+  expect(useAppStore.getState().model).toEqual(manual);
 });

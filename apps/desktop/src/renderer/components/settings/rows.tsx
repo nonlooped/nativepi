@@ -117,6 +117,7 @@ export function SelectRow<T extends string>({
   options,
   onChange,
   disabled,
+  inline,
 }: {
   label: string;
   description?: string;
@@ -124,12 +125,13 @@ export function SelectRow<T extends string>({
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
   disabled?: boolean;
+  inline?: boolean;
 }) {
   return (
     // Base UI's Select trigger is a button, not a labelable form control, so the
     // row labels the group instead of pointing `for` at something that would
     // reject it.
-    <Row label={label} description={description} disabled={disabled}>
+    <Row label={label} description={description} disabled={disabled} inline={inline}>
       <Select
         value={value}
         onValueChange={(next) => {
@@ -139,7 +141,7 @@ export function SelectRow<T extends string>({
         items={options}
       >
         {/* Match the trigger’s data-size specificity for a compact height. */}
-        <SelectTrigger aria-label={label} className="w-full px-3 text-sm data-[size=default]:h-8 @min-[36rem]/settings-content:w-auto @min-[36rem]/settings-content:min-w-44">
+        <SelectTrigger aria-label={label} className={cn("w-full px-3 text-sm data-[size=default]:h-8 @min-[36rem]/settings-content:w-auto @min-[36rem]/settings-content:min-w-44", inline && "w-auto max-w-56")}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -162,6 +164,7 @@ export function ChoiceRow<T extends string>({
   options,
   onChange,
   disabled,
+  inline,
 }: {
   label: string;
   description?: string;
@@ -169,9 +172,10 @@ export function ChoiceRow<T extends string>({
   options: SegmentedOption<T>[];
   onChange: (value: T) => void;
   disabled?: boolean;
+  inline?: boolean;
 }) {
   return (
-    <Row label={label} description={description} disabled={disabled}>
+    <Row label={label} description={description} disabled={disabled} inline={inline}>
       <Segmented label={label} value={value} options={options} onChange={onChange} disabled={disabled} />
     </Row>
   );

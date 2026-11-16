@@ -6,8 +6,14 @@ Each accepted run gets a fresh ordinary Pi Work session, configured through the
 same Pi host as manual work. Third-party extensions remain available when selected.
 No manual conversation or interrupted run is resumed automatically.
 
-Choose a pinned project or No project, shared folder or a new retained Git
-worktree, exact provider/model, reasoning, service tier and allowed tool names.
+The settings list shows each trigger, next run and current state. Open a row to
+edit it, use its action menu to run or delete it, or open its last run for history.
+
+The focused editor offers a pinned project or No project and schedule or GitHub
+fields for the selected trigger. Its shared composer model picker selects an exact
+model, reasoning and speed without changing the active manual chat. Execution
+options reveal shared folder or retained Git worktree selection and Standard, Read
+files or Custom tools. Custom choices come from Pi’s current tool catalog.
 Pi validates the configuration before dispatch; unsupported settings fail without
 substitution. Worktrees start from the committed local base, without copying dirty
 files or installing dependencies. Users own integration and cleanup. Tools have

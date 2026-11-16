@@ -24,6 +24,7 @@ const packageChange = project.extend({ source: id, scope: z.enum(["user", "proje
 const branch = project.extend({ branch: id, create: z.boolean() });
 const hunks = file.extend({ untracked: z.boolean() });
 export const requestParams = {
+  automationTools: z.object({ projectDir: path.optional() }),
   automationList: empty, automationSave: automationInputSchema, automationDelete: z.object({ id: z.string().uuid() }), automationRun: z.object({ id: z.string().uuid() }), automationStop: z.object({ id: z.string().uuid() }),
   orchestrationSnapshot: z.object({ sessionFile: path.optional() }),
   stopThread: z.object({ sessionFile: path }),

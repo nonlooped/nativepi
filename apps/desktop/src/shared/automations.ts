@@ -103,3 +103,13 @@ export type AutomationInput = z.infer<typeof automationInputSchema>;
 export type Automation = z.infer<typeof automationSchema>;
 export type AutomationRun = z.infer<typeof automationRunSchema>;
 export type AutomationState = z.infer<typeof automationStateSchema>;
+
+export const automationToolsSchema = z
+  .array(
+    z.object({
+      name: z.string().min(1).max(500),
+      description: z.string().max(32000).optional(),
+    }),
+  )
+  .max(1000);
+export type AutomationTool = z.infer<typeof automationToolsSchema>[number];
