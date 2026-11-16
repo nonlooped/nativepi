@@ -161,3 +161,7 @@ Switching files, sessions, or projects retains unsaved buffers in memory. Closin
 Accessibility is not a product objective or a reason to expand visible interface chrome. NativePi does not add redundant controls, alternate workflows, or special presentation solely to satisfy accessibility audits.
 
 Standard semantic desktop controls, keyboard operation, visible focus treatment, and correct dialog, menu, field, and sheet behavior remain baseline implementation quality. These requirements must preserve intentional product interactions, including the left sidebar's right-click-only chat management menus. Product copy must not require prior familiarity with Pi's terminal interface.
+
+## Independent code review
+
+Source Control offers independent multi-file Pi reviews with explicit uncommitted, staged, selected-file and branch-versus-base scopes. Host-owned jobs retain progress, interruption/error outcomes, exact reviewed patches, skipped inputs and ordinary Pi transcript references. Reviewers have repository read/search tools; shell checks require explicit unsandboxed-shell permission. Fix requests prepare drafts in a selected Work chat; fresh verification names concerns and retains verdict/evidence history without automatically resolving them. Input staleness, current anchors, check results and human acceptance remain separate. See [code review](../../docs/code-review.md) for limits and integration boundaries.
