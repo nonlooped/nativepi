@@ -1,3 +1,4 @@
+import { automationInputSchema } from "./automations.ts";
 import { dictationAudioSchema } from "./dictation.ts";
 import { serviceTierSchema } from "./service-tier.ts";
 import { thinkingLevelSchema } from "./pi-values.ts";
@@ -23,6 +24,7 @@ const packageChange = project.extend({ source: id, scope: z.enum(["user", "proje
 const branch = project.extend({ branch: id, create: z.boolean() });
 const hunks = file.extend({ untracked: z.boolean() });
 export const requestParams = {
+  automationList: empty, automationSave: automationInputSchema, automationDelete: z.object({ id: z.string().uuid() }), automationRun: z.object({ id: z.string().uuid() }), automationStop: z.object({ id: z.string().uuid() }),
   orchestrationSnapshot: z.object({ sessionFile: path.optional() }),
   stopThread: z.object({ sessionFile: path }),
   wakeThread: z.object({ threadId: id, messageIds: z.array(id).min(1).max(100) }),

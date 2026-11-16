@@ -11,14 +11,14 @@ async function repositoryEnv(): Promise<NodeJS.ProcessEnv> {
   return path ? { ...process.env, PATH: path } : process.env;
 }
 
-export async function runRepositoryCommand(executable: string, args: string[], cwd: string, maxBuffer = 16 * 1024 * 1024): Promise<{
+export async function runRepositoryCommand(executable: string, args: string[], cwd: string, maxBuffer = 16 * 1024 * 1024, timeout?: number): Promise<{
   stdout: string;
   stderr: string;
   code: number;
 }> {
   const env = await repositoryEnv();
   return new Promise(resolve => {
-    execFile(executable, args, { cwd, env, maxBuffer, windowsHide: true }, (error, stdout, stderr) => {
+    execFile(executable, args, { cwd, env, maxBuffer, timeout, windowsHide: true }, (error, stdout, stderr) => {
       const code = error && typeof (error as {
         code?: unknown;
       }).code === "number"
