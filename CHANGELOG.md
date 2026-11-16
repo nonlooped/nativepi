@@ -7,15 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Managed task workspaces with explicit chat isolation/base selection, reusable setup/run/check actions, opt-in local file preparation, coordinated ports, action recovery and conservative workspace retirement.
+
 ### Changed
 - Keep extension recovery compact with contextual error details and a quiet activity example.
 - Harden graphical extension lifecycle with pane-bound handles, stale-call rejection, listener cleanup, explicit host disposal, live tool progress and capability requirements. Add load-error recovery, a runnable Pi/NativePi activity example and a compatibility guide.
+- Simplify workspace creation with a direct project-to-chat path, an optional separate workspace with automatic defaults, shared controls, focused action settings and on-demand output.
 - Reorganize Settings around everyday preferences, conversations, permissions, and advanced options, with search that reveals individual controls and hidden sections.
 - Reuse the composer model picker for chat titles, combine notification and image modes, and move theme, background, and provider catalogs into focused choosers while preserving existing selections.
 - Unify MCP, skills, prompts, and package management with explicit project scope and extension provenance, and show a shared pending-restart notice across settings.
 - Open Usage, Automations, and device sharing directly from icon buttons beside Settings in the sidebar. Simplify usage summaries and keep input/cache breakdowns limited to recorded all-time totals.
 
 ### Fixed
+- Restore login-shell tools for workspace actions, retain automation ownership at the primary checkout, protect running commands during shutdown, and recover the workspace picker after retirement.
 - Harden shared browser action scripts by escaping script-sensitive characters in action arguments while preserving typed text.
 - Ensure desktop development installs the Electron binary and launches the GUI even when the shell has Electron's Node mode enabled.
 

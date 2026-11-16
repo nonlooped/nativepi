@@ -4,7 +4,7 @@ import { shellEnv } from "shell-env";
 // Finder/desktop launches do not inherit the PATH configured in shell profiles.
 // Resolve it once, without replacing app-owned or caller-provided environment.
 let loginPath: Promise<string | undefined> | undefined;
-async function repositoryEnv(): Promise<NodeJS.ProcessEnv> {
+export async function repositoryEnv(): Promise<NodeJS.ProcessEnv> {
   if (process.platform === "win32") return process.env;
   loginPath ??= shellEnv().then(env => env.PATH).catch(() => undefined);
   const path = await loginPath;

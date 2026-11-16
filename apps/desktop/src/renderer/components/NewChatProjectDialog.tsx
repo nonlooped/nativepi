@@ -1,3 +1,5 @@
+import { Switch } from "@/components/ui/switch.tsx";
+import TaskWorkspacePanel from "./TaskWorkspacePanel.tsx";
 import { isDesktopShell } from "../lib/platform.ts";
 import type { Project } from "../../shared/rpc-schema.ts";
 import { useState } from "react";
@@ -37,6 +39,8 @@ export default function NewChatProjectDialog({
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const newChatIn = useAppStore((s) => s.newChatIn);
   const [folderNotice, setFolderNotice] = useState("");
+  const [workspaceProject, setWorkspaceProject] = useState<string | null>(null);
+  const [separate, setSeparate] = useState(false);
   const [query, setQuery] = useState("");
   const search = query.trim().toLocaleLowerCase();
   const ordered = [...projects].sort((left, right) => {
@@ -48,8 +52,16 @@ export default function NewChatProjectDialog({
     ? ordered.filter((project) => `${project.name}\n${project.path}`.toLocaleLowerCase().includes(search))
     : ordered;
 
+  async function chooseProject(path: string) {
+    if (path !== workRoot && separate) { setWorkspaceProject(path); return; }
+    await startChat(path);
+  }
+  function changeOpen(next: boolean) {
+    if (!next) setWorkspaceProject(null);
+    onOpenChange(next);
+  }
   async function startChat(path: string) {
-    onOpenChange(false);
+    changeOpen(false);
     await newChatIn(path);
     onNavigate?.();
   }
@@ -61,19 +73,18 @@ export default function NewChatProjectDialog({
     }
     const { path } = await rpc.request.pickProject({});
     if (!path) return;
-    onOpenChange(false);
-    await newChatIn(path);
-    onNavigate?.();
+    await chooseProject(path);
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} onOpenChangeComplete={onOpenChangeComplete}>
+    <Dialog open={open} onOpenChange={changeOpen} onOpenChangeComplete={onOpenChangeComplete}>
       <DialogContent layout="picker" className="max-w-xl">
         <DialogHeader className="px-6 pt-6 pb-4">
-          <DialogTitle>New chat</DialogTitle>
-          <DialogDescription>Choose a project, or start without one.</DialogDescription>
+          <DialogTitle>{workspaceProject ? "Workspace" : "New chat"}</DialogTitle>
+          <DialogDescription>{workspaceProject ? "Start in your project or a separate folder." : "Choose a project, or start without one."}</DialogDescription>
         </DialogHeader>
 
+        {workspaceProject ? <div className="max-h-[70dvh] overflow-y-auto px-6 pb-6"><Button variant="ghost" size="sm" className="mb-3" onClick={() => setWorkspaceProject(null)}>Back</Button><TaskWorkspacePanel projectDir={workspaceProject} initiallySeparate onStart={startChat} /></div> : <>
         <Combobox.Root<Project>
           items={matches}
           inline
@@ -104,7 +115,7 @@ export default function NewChatProjectDialog({
                 key={project.path}
                 value={project}
                 index={index}
-                onClick={() => void startChat(project.path)}
+                onClick={() => void chooseProject(project.path)}
                 className="flex min-h-14 w-full shrink-0 cursor-default items-center gap-3 rounded-md px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 data-highlighted:bg-accent data-highlighted:text-accent-foreground"
               >
                 {project.path === workRoot ? (
@@ -132,12 +143,14 @@ export default function NewChatProjectDialog({
         </Combobox.Root>
 
         <div className="shrink-0 border-t border-border/40 p-3">
+          <div className="mb-2 flex items-center justify-between gap-4 px-3 py-2"><div><label htmlFor="new-chat-separate" className="text-[0.8125rem] font-medium">Use a separate workspace</label><p className="mt-1 text-xs leading-5 text-muted-foreground">Work in another folder, keeping your current files unchanged.</p></div><Switch id="new-chat-separate" checked={separate} onCheckedChange={setSeparate} /></div>
           <Button variant="ghost" className="h-10 w-full justify-start gap-3 px-3" onClick={() => void openAnotherFolder()}>
             <FolderOpenIcon className="size-4" aria-hidden="true" />
             Open folder…
           </Button>
           {folderNotice ? <p role="status" className="px-3 pt-2 text-xs text-muted-foreground">{folderNotice}</p> : null}
         </div>
+        </>}
       </DialogContent>
     </Dialog>
   );

@@ -43,6 +43,7 @@ export default function QuitDialog() {
 
   const rows = summarize(work);
   const runs = work.runs.length;
+  const commands = work.commands?.length ?? 0;
   const dirtyFiles = work.dirtyFiles ?? [];
   const viewers = work.viewers;
 
@@ -53,12 +54,12 @@ export default function QuitDialog() {
           <DialogTitle>
             {dirtyFiles.length ? "Unsaved file edits" : runs > 0
               ? "Pi is still working"
-              : rows.length > 0 ? "Terminals are still open" : "Other devices are connected"}
+              : commands > 0 ? "Project commands are still running" : rows.length > 0 ? "Terminals are still open" : "Other devices are connected"}
           </DialogTitle>
           <DialogDescription>
             {dirtyFiles.length ? "Unsaved file edits" : runs > 0
               ? "Quitting stops the active turn. Messages already written are saved."
-              : rows.length > 0
+              : commands > 0 ? "Quitting stops setup, app servers and checks in these projects." : rows.length > 0
                 ? "Quitting closes these shells and ends whatever they are running."
                 : `${devices(viewers)} reading NativePi over the shared link, which this window serves. Quitting ends their session.`}
           </DialogDescription>
@@ -109,17 +110,19 @@ interface Row {
   path: string;
   running: boolean;
   terminals: number;
+  commands: number;
 }
 
 /** One row per project, running ones first, so a project is never listed twice. */
 function summarize(work: PendingWork): Row[] {
   const rows = new Map<string, Row>();
   const row = (path: string) => {
-    const existing = rows.get(path) ?? { path, running: false, terminals: 0 };
+    const existing = rows.get(path) ?? { path, running: false, terminals: 0, commands: 0 };
     rows.set(path, existing);
     return existing;
   };
   for (const path of work.runs) row(path).running = true;
+  for (const path of work.commands ?? []) row(path).commands += 1;
   for (const path of work.terminals) row(path).terminals += 1;
   return [...rows.values()].sort((a, b) => Number(b.running) - Number(a.running) || a.path.localeCompare(b.path));
 }
@@ -130,7 +133,7 @@ function devices(count: number): string {
 }
 
 function describe(row: Row): string {
-  const terminals = row.terminals === 0 ? "" : `${row.terminals} terminal${row.terminals === 1 ? "" : "s"}`;
+  const terminals = [row.commands ? `${row.commands} command${row.commands === 1 ? "" : "s"}` : "", row.terminals ? `${row.terminals} terminal${row.terminals === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ");
   if (!row.running) return terminals;
   return terminals ? `running · ${terminals}` : "running";
 }

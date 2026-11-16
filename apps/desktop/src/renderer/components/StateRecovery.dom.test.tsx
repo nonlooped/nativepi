@@ -62,6 +62,7 @@ domTest("About failures settle and can be retried instead of keeping ellipses", 
 domTest("worktree creation is unavailable until branch discovery succeeds", async () => {
   stubInvoke(() => new Promise(() => {}));
   await render(<WorktreeDialog projectPath="/p" onClose={() => {}} />);
+  await click("Existing branch…");
   const input = document.querySelector("input")!;
   await act(async () => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!; setter.call(input, "feature"); input.dispatchEvent(new Event("input", { bubbles: true })); });
   expect([...document.querySelectorAll("button")].some(button => button.textContent?.includes("feature") && !button.disabled)).toBe(false);
@@ -75,6 +76,7 @@ domTest("worktree transport errors are shown and creation can be retried", async
     return { ok: false, error: "Branch already exists" };
   });
   await render(<WorktreeDialog projectPath="/p" onClose={() => {}} />);
+  await click("Existing branch…");
   await click("feature"); expect(document.body.textContent).toContain("Git unavailable");
   fail = false; await click("feature"); expect(document.body.textContent).toContain("Branch already exists");
 });

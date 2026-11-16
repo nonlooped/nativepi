@@ -64,3 +64,28 @@ test("Local Access explains how to open another project without invoking a nativ
   expect(calls).not.toContain("pickProject");
   expect(document.querySelector('[role="dialog"]')).not.toBeNull();
 });
+
+
+test("choosing a project starts a chat directly without workspace configuration", async () => {
+  useAppStore.setState({ projects: [{ path: "/repo", name: "Repo" }] });
+  await mount();
+  const option = [...document.querySelectorAll('[role="option"]')].find(el => el.textContent?.includes("Repo")) as HTMLElement;
+  await act(async () => option.click());
+  expect(useAppStore.getState()).toMatchObject({ activeProjectPath: "/repo", isNewChat: true });
+});
+
+test("a separate workspace is an explicit choice before selecting the project", async () => {
+  useAppStore.setState({ projects: [{ path: "/repo", name: "Repo" }] });
+  stubInvoke(async channel => channel === "taskWorkspaceList" ? { recipe: { setup: "", run: "", check: "" }, worktrees: [{ path: "/repo", branch: "main", main: true }, { path: "/task", branch: "task/new", main: false }] } : channel === "taskWorkspaceCreate" ? { path: "/task" } : {});
+  await mount();
+  await act(async () => (document.querySelector('[role="switch"]') as HTMLElement).click());
+  await act(async () => ([...document.querySelectorAll('[role="option"]')].find(el => el.textContent?.includes("Repo")) as HTMLElement).click());
+  expect(document.body.textContent).toContain("Create workspace");
+  expect(useAppStore.getState().activeSessionFile).toBe("/previous");
+  const create = [...document.querySelectorAll("button")].find(button => button.textContent === "Create workspace")!;
+  expect(create.disabled).toBe(false);
+  await act(async () => create.click());
+  await act(async () => [...document.querySelectorAll("button")].find(button => button.textContent === "Start chat here")!.click());
+  expect(useAppStore.getState().activeProjectPath).toBe("/task");
+  expect(document.querySelector('input[aria-label="Search projects"]')).not.toBeNull();
+});
