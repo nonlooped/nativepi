@@ -1,3 +1,4 @@
+import type { WorkspaceListing, WorkspaceRecipe } from "./task-workspaces.ts";
 import type { AutomationInput, AutomationState, AutomationTool } from "./automations.ts";
 import type { ReviewSnapshot, ReviewRange, Finding } from "./review.ts";
 import type { DictationStatus } from "./dictation.ts";
@@ -56,6 +57,8 @@ export interface ImageAttachment {
 */
 export interface PendingWork {
   dirtyFiles?: string[];
+  /** Projects with an owned setup, app server or check command running. */
+  commands?: string[];
   /** Projects with an agent turn in flight. */
   runs: string[];
   /** Projects owning a terminal whose shell is still alive. */
@@ -1271,6 +1274,10 @@ export type HostRequestContracts = {
       error?: string;
     };
   };
+  taskWorkspaceList: { params: { projectDir: string }; response: WorkspaceListing };
+  taskWorkspaceRecipe: { params: { projectDir: string; recipe: WorkspaceRecipe }; response: { ok: boolean } };
+  taskWorkspaceCreate: { params: { projectDir: string; branch: string; base: string }; response: { path: string } };
+  taskWorkspaceAction: { params: { projectDir: string; action: "setup" | "run" | "check" | "stop" | "inspect" | "remove"; confirmed?: boolean; copyFiles?: string[] }; response: { blockers: string[] } };
   gitAddWorktree: {
     params: {
       projectDir: string;

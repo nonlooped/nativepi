@@ -1,3 +1,4 @@
+import TaskWorkspacePanel from "./TaskWorkspacePanel.tsx";
 import StateNotice from "./StateNotice.tsx";
 import { useState } from "react";
 import { FolderOpenIcon } from "@phosphor-icons/react/FolderOpen";
@@ -27,18 +28,20 @@ export default function WorktreeDialog({
   projectPath: string | null;
   onClose: () => void;
 }) {
+  const [existingBranch, setExistingBranch] = useState(false);
   return (
     <Dialog open={projectPath !== null} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-h-[85dvh] max-w-xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Worktrees</DialogTitle>
+          <DialogTitle>Task workspaces</DialogTitle>
           <DialogDescription>
-            Work on another branch in its own folder. NativePi opens each worktree as a separate project.
+            Start a chat or manage a worktree.
           </DialogDescription>
         </DialogHeader>
         {/* Keyed on the project so switching projects cannot show the previous
             repository's branches while the new ones load. */}
-        {projectPath ? <Branches key={projectPath} projectPath={projectPath} onClose={onClose} /> : null}
+        {projectPath ? existingBranch ? <Branches key={projectPath} projectPath={projectPath} onClose={onClose} /> : <TaskWorkspacePanel key={projectPath} projectDir={projectPath} onStart={async path => { await useAppStore.getState().newChatIn(path); onClose(); }} /> : null}
+        <Button variant="ghost" size="sm" onClick={() => setExistingBranch(!existingBranch)}>{existingBranch ? "Back to workspaces" : "Existing branch…"}</Button>
       </DialogContent>
     </Dialog>
   );
