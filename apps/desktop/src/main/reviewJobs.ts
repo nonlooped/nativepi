@@ -57,6 +57,8 @@ export class ReviewJobs {
   async start(projectDir: string, supplied: ReviewJobOptions) {
     const root = await realpath(projectDir);
     if (this.closing) throw new Error("Review host is stopping.");
+    const finishing = this.active.get(root);
+    if (finishing && finishing.job.status !== "running") await finishing.done;
     if (this.active.has(root)) throw new Error("A review is already running in this checkout.");
     const options = reviewJobOptionsSchema.parse(supplied);
     const job: ReviewJob = { id: randomUUID(), options, status: "running", createdAt: new Date().toISOString(), message: "Collecting review inputs…", inputs: [], skipped: [], checks: [], verifications: [], verificationFiles: [] };
