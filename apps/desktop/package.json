@@ -19,7 +19,7 @@
   "main": "./out/main/index.js",
   "scripts": {
     "postinstall": "bun scripts/prepare-node-pty.mjs",
-    "dev": "bun scripts/prepare-node-pty.mjs && electron-vite dev",
+    "dev": "install-electron && bun scripts/prepare-node-pty.mjs && ELECTRON_RUN_AS_NODE= electron-vite dev",
     "build": "bun scripts/prepare-node-pty.mjs && electron-vite build",
     "typecheck": "tsc --noEmit",
     "package": "bun run build && electron-builder",

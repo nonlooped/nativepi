@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Ensure desktop development installs the Electron binary and launches the GUI even when the shell has Electron's Node mode enabled.
+
 ## [1.20.0] - 2026-11-16
 
 ### Added
