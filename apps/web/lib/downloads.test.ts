@@ -1,8 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { desktopPlatform } from "./downloads";
-import { releaseDownload } from "./releases";
+import { desktopPlatform, desktopTarget } from "./downloads";
+import { releaseDownload, nightlyDownload } from "./releases";
 import { GET } from "../app/download/[target]/route";
 import { site } from "./site";
 
@@ -23,6 +23,27 @@ describe("download selection", () => {
     assert.equal(desktopPlatform("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", 5), null);
     assert.equal(desktopPlatform("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)"), null);
     assert.equal(desktopPlatform("unknown browser"), null);
+  });
+
+  it("uses reliable CPU information and falls back for ambiguous or unsupported devices", () => {
+    assert.equal(desktopTarget("Windows NT 10.0; Win64; x64"), "windows-x64");
+    assert.equal(desktopTarget("Windows NT 10.0; Win64; x64", "arm", "64"), null);
+    assert.equal(desktopTarget("Macintosh; Intel Mac OS X", "arm", "64"), "mac-arm64");
+    assert.equal(desktopTarget("Macintosh; Intel Mac OS X", "x86", "64"), "mac-x64");
+    assert.equal(desktopTarget("Macintosh; Intel Mac OS X"), null);
+    assert.equal(desktopTarget("Linux aarch64"), "linux-arm64");
+    assert.equal(desktopTarget("Linux i686"), null);
+    assert.equal(desktopTarget("Linux; Android", "arm", "64"), null);
+  });
+
+  it("only serves a nightly when explicitly requested and refuses unrelated prereleases", () => {
+    const nightly = JSON.parse(JSON.stringify(release).replaceAll("1.19.0", "1.20.0-nightly.202611160100"));
+    nightly.prerelease = true;
+    assert.equal(releaseDownload(nightly, "mac-arm64"), null);
+    assert.equal(nightlyDownload([release, nightly], "mac-arm64"), nightly.assets[0].browser_download_url);
+    assert.equal(nightlyDownload([release], "mac-arm64"), null);
+    assert.equal(nightlyDownload([{ ...nightly, draft: true }], "mac-arm64"), null);
+    assert.equal(nightlyDownload([{ ...nightly, assets: [] }, nightly], "mac-arm64"), null);
   });
 
   it("selects the actual installer format for every released architecture", () => {
@@ -51,10 +72,11 @@ describe("download selection", () => {
     try {
       globalThis.fetch = async () => Response.json(release);
       assert.equal((await GET(request, context)).headers.get("location"), release.assets[0].browser_download_url);
+      assert.equal((await GET(new Request(`${request.url}?channel=nightly`), context)).headers.get("location"), `${site.url}/download`);
       globalThis.fetch = async () => new Response("rate limited", { status: 403 });
-      assert.equal((await GET(request, context)).headers.get("location"), site.releasesLatest);
+      assert.equal((await GET(request, context)).headers.get("location"), `${site.url}/download`);
       globalThis.fetch = async () => { throw new Error("network unavailable"); };
-      assert.equal((await GET(request, context)).headers.get("location"), site.releasesLatest);
+      assert.equal((await GET(request, context)).headers.get("location"), `${site.url}/download`);
       assert.equal((await GET(request, { params: Promise.resolve({ target: "invalid" }) })).headers.get("location"), `${site.url}/download`);
     } finally { globalThis.fetch = originalFetch; }
   });

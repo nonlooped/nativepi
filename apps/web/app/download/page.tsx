@@ -54,7 +54,8 @@ export default function DownloadPage() {
         <div className="download-main">
           <div className="download-intro">
             <h1>Download <span>NativePi</span></h1>
-            <p>Free and open source. Pi is included.</p>
+            <p>Latest stable release. Free, with Pi included.</p>
+            <p className="download-nightly-note">Nightly builds include the newest changes and may be unstable.</p>
           </div>
 
           <div className="download-platforms">
@@ -66,9 +67,11 @@ export default function DownloadPage() {
                 </div>
                 <div className="download-builds">
                   {platformDownloads[id].map(build => (
-                    <a className="download-build" key={build.target} href={`/download/${build.target}`} aria-label={`Download NativePi for ${platformNames[id]}, ${build.label}`}>
+                    <div className="download-choice" key={build.target}><a className="download-build" href={`/download/${build.target}`} aria-label={`Download NativePi for ${platformNames[id]}, ${build.label}`}>
                       <span>{build.label}</span><span className="download-build-action"><ArrowDownIcon aria-hidden="true" /></span>
                     </a>
+                    <a className="download-nightly" href={`/download/${build.target}?channel=nightly`} aria-label={`Download latest nightly for ${platformNames[id]}, ${build.label}`}>Nightly <ArrowDownIcon aria-hidden="true" /></a>
+                    </div>
                   ))}
                 </div>
               </section>

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Website downloads select the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every supported architecture.
+
+### Added
+- Website downloads choose the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every architecture.
+
 ### Fixed
 - Update desktop and website dependencies, including WebSocket denial-of-service protection and the latest Electron and DOMPurify fixes.
 - Improve website search titles and download sharing previews, identify NativePi in structured data, redirect the legacy hostname, and keep the free/open-source and bundled-Pi note visible on short screens.

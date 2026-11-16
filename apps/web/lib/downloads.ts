@@ -18,3 +18,15 @@ export const platformDownloads: Record<DesktopPlatform, { target: DownloadTarget
   windows: [{ target: "windows-x64", label: "x64" }],
   linux: [{ target: "linux-x64", label: "x64" }, { target: "linux-arm64", label: "ARM64" }],
 };
+
+/** Prefer explicit architecture hints; macOS user agents conceal the real CPU. */
+export function desktopTarget(userAgent: string, architecture = "", bitness = "", maxTouchPoints = 0): DownloadTarget | null {
+  const platform = desktopPlatform(userAgent, maxTouchPoints);
+  if (!platform) return null;
+  const arm = /^(arm|arm64|aarch64)$/i.test(architecture) || /aarch64|arm64/i.test(userAgent);
+  const x64 = (/^(x86|x64)$/i.test(architecture) && bitness === "64") || /x86_64|amd64|Win64|WOW64/i.test(userAgent);
+  if (platform === "windows") return !arm && x64 ? "windows-x64" : null;
+  if (arm) return `${platform}-arm64`;
+  if (x64) return `${platform}-x64`;
+  return null;
+}

@@ -27,15 +27,15 @@ Project documentation remains in the GitHub repository.
 - Windows x64: `.exe` installer.
 - macOS Apple Silicon and Intel: `.dmg` disk images.
 - Linux x64 and ARM64: AppImages.
-- Stable is the default. Nightly builds and release notes link to GitHub Releases.
+- Stable is the default. Nightly installer links are explicit for each platform and architecture; release notes link to GitHub Releases.
 - Resolve the latest stable installer through GitHub's releases API. Validate
   the release shape and require an exact repository, tag, and asset URL match.
-  Missing builds, rate limits, or network failures fall back to the release page.
+  Missing builds, rate limits, or network failures fall back to the download page.
 - Windows and macOS groups use the subtitle “Unsigned installer”. Linux has no
   subtitle. Keep explanatory installation and provider paragraphs off this page.
 - Pi is included; a separate Pi installation or NativePi account is not required.
 
-The landing page's download action opens `/download` directly. All installer
+The landing page's download action resolves the latest stable installer when the browser exposes a supported platform and architecture; otherwise it opens `/download`. macOS user agents alone cannot reliably identify the CPU. All installer
 choices and release links must work without JavaScript.
 
 ## Brand and design

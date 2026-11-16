@@ -69,3 +69,13 @@
   .download-build { font-size: 12px; padding-left: 10px; gap: 6px; }
   .download-build-action { width: 26px; height: 26px; }
 }
+
+.download-choice { min-width: 0; width: 176px; }
+.download-nightly { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; color: var(--landing-muted); font-size: 12px; }
+.download-nightly svg { width: 13px; height: 13px; }
+.download-nightly:hover { color: var(--landing-ink); }
+.download-intro > .download-nightly-note { font-size: 13px; color: var(--landing-muted); margin-top: 16px; }
+.download-builds:has(> .download-choice:only-child) { grid-template-columns: 1fr; }
+
+@media (max-width: 1279px) { .download-choice { width: 164px; } }
+@media (max-width: 640px) { .download-choice { width: 100%; } }
