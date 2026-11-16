@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Website downloads select the latest stable installer for detected platforms, fall back to the downloads page, and offer explicit nightly installers for every supported architecture.
 
 ### Fixed
-- Preserve pane-local navigation and terminal file locations, refresh external MCP configuration, retain saved feedback for unavailable diffs, and keep automation ownership and Stop controls until all delegates settle.
+- Honor startup project preferences when restoring panes, focus the shared terminal from conversation panes, preserve pane-local navigation and terminal file locations, refresh external MCP configuration, retain saved feedback for unavailable diffs, and keep automation ownership and Stop controls until all delegates settle.
 - Use NativePi’s bundled controls, typography, icons and themes for the shared browser, with compact tabs, responsive navigation, contextual takeover and clear empty/error states.
 - Reduce memory spikes during historical chat discovery, reuse unchanged Pi session summaries and extension renderer modules, keep Select All responsive in long chats, defer settings code, and limit sidebar repository work.
 - Reduce packaged application size by excluding dependency source maps, renderer-only dependency copies, and computer-use binaries for other platforms.

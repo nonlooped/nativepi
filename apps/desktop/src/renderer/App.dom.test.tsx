@@ -13,7 +13,7 @@ mock.module("./components/Sidebar.tsx", () => ({ default: (props: { overlay?: bo
   : <div id="projects" data-slot="resizable-panel" /> }));
 mock.module("./components/ChatSearchDialog.tsx", () => ({ default: ({ open }: { open: boolean }) => open ? <input aria-label="Search destination" autoFocus /> : null }));
 mock.module("./components/ContextPane.tsx", () => ({ default: () => <div>Files</div> }));
-mock.module("./components/TerminalDock.tsx", () => ({ default: () => null }));
+mock.module("./components/TerminalDock.tsx", () => ({ default: () => <div className="terminal-dock"><div data-terminal-active><textarea className="xterm-helper-textarea" aria-label="Shell" /></div></div> }));
 mock.module("./components/ProjectStatus.tsx", () => ({ default: () => null, PiStartingNotice: () => null }));
 mock.module("./components/ExtensionSlots.tsx", () => ({ ExtensionConversationControls: () => null, ExtensionConversationView: ({ active }: { active: string }) => <div>Extension view: {active}</div> }));
 mock.module("./components/Composer.tsx", () => ({ default: () => <textarea aria-label="Message" /> }));
@@ -57,7 +57,7 @@ afterEach(async () => {
   workspaceLayout = "wide";
   container?.remove();
 });
-async function mount() {
+async function mount(renderWorkspace?: (onStart: () => void) => ReactNode) {
   useAppStore.setState({
     ready: true, init: async () => {}, destination: "work", settingsOpen: false,
     projects: [{ path: "/project", name: "Project" }], activeProjectPath: "/project",
@@ -68,7 +68,7 @@ async function mount() {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
-  await act(async () => root!.render(<App />));
+  await act(async () => root!.render(<App renderWorkspace={renderWorkspace} />));
 }
 function expectConversation() {
   expect(container.querySelector('[data-chat-state="thread"] [data-testid="chat-backdrop"]')).not.toBeNull();
@@ -244,4 +244,15 @@ test("Chat can select and close extension views from workspace overflow without 
   await act(async () => select().click());
   expect(container.textContent).not.toContain("Extension view:");
   await act(async () => useAppStore.setState({ extRenderers: [] }));
+});
+
+
+test("focus terminal moves from a conversation pane to the shared shell", async () => {
+  useAppStore.setState({ terminalProjects: new Set(["/project"]), keybindingOverrides: { focusTerminal: "Control+Shift+KeyY" }, extSurfaces: [] });
+  await mount(() => <div data-pane-active="true"><textarea aria-label="Pane composer" /></div>);
+  const composer = container.querySelector<HTMLTextAreaElement>('[aria-label="Pane composer"]')!;
+  const shell = container.querySelector<HTMLTextAreaElement>('[aria-label="Shell"]')!;
+  composer.focus();
+  await act(async () => composer.dispatchEvent(new KeyboardEvent("keydown", { key: "Y", code: "KeyY", ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true })));
+  expect(document.activeElement).toBe(shell);
 });

@@ -873,8 +873,8 @@ export function useWorkspaceShortcuts(
         const s = useAppStore.getState();
         if (!s.activeProjectPath || s.destination === "chat") return;
         s.openTerminal(s.activeProjectPath);
-        ((document.querySelector<HTMLElement>("[data-pane-active=true]") ?? document).querySelector<HTMLElement>('.terminal-dock [data-terminal-active] .xterm-helper-textarea')
-          ?? (document.querySelector<HTMLElement>("[data-pane-active=true]") ?? document).querySelector<HTMLElement>(".terminal-dock .xterm-helper-textarea"))?.focus();
+        (document.querySelector<HTMLElement>('.terminal-dock [data-terminal-active] .xterm-helper-textarea')
+          ?? document.querySelector<HTMLElement>(".terminal-dock .xterm-helper-textarea"))?.focus();
       }),
       jumpToFile: workspace(() => {
         const s = useAppStore.getState(); if (!s.activeProjectPath || s.destination === "chat") return;

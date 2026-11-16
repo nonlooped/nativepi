@@ -7,3 +7,12 @@ export const paneArrangementSchema = z.object({
 export function readPaneArrangement() {
   try { return paneArrangementSchema.parse(JSON.parse(localStorage.getItem("nativepi-conversation-panes") ?? "null")); } catch { return undefined; }
 }
+
+
+export async function restorePaneSelection(store: Pick<import("./store.ts").PaneStore, "getState">, pane: { project: string | null; session: string | null } | undefined) {
+  if (!pane?.project) return;
+  const state = store.getState();
+  if (!state.reopenLastProject && pane.project !== state.chatRoot) return;
+  if (pane.session) await store.getState().selectChat(pane.session, pane.project);
+  else await store.getState().selectProject(pane.project);
+}

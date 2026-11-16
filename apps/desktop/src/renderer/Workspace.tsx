@@ -3,7 +3,7 @@ import { bindings } from "./lib/shortcuts.ts";
 import { workspaceShortcutsBlocked } from "./lib/shortcutContext.ts";
 import { focusedPaneStore } from "./lib/store.ts";
 import { Fragment, useEffect, useRef, useState } from "react";
-import { readPaneArrangement } from "./lib/paneArrangement.ts";
+import { readPaneArrangement, restorePaneSelection } from "./lib/paneArrangement.ts";
 import App, { ConversationSurface } from "./App.tsx";
 import { WorkspacePanesContext } from "./lib/workspacePanes.ts";
 import WorkspacePaneMenu from "./components/WorkspacePaneMenu.tsx";
@@ -91,15 +91,11 @@ export default function Workspace() {
     void (async () => {
       await initializePane(primaryStore);
       if (disposed) return;
-      const first = restored?.panes[0];
-      if (first?.project) {
-        if (first.session) await primaryStore.getState().selectChat(first.session, first.project);
-        else await primaryStore.getState().selectProject(first.project);
-      }
+      await restorePaneSelection(primaryStore, restored?.panes[0]);
       const extras: PaneStore[] = [];
       for (const pane of restored?.panes.slice(1) ?? []) {
         const store = createPaneStore(); await store.getState().init();
-        if (pane.project) { if (pane.session) await store.getState().selectChat(pane.session, pane.project); else await store.getState().selectProject(pane.project); }
+        await restorePaneSelection(store, pane);
         extras.push(store);
       }
       if (disposed) { extras.forEach(releasePaneStore); return; }
