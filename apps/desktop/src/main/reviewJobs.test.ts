@@ -128,3 +128,26 @@ test("host shutdown cancels and drains active review evidence before returning",
   expect((await new ReviewJobs(f.directory, f.reviews).state(f.root)).jobs[0]).toMatchObject({ status: "interrupted", sessionFile: "/sessions/stopped-review.jsonl" });
   await expect(f.jobs.start(f.root, options)).rejects.toThrow("stopping");
 });
+
+test("review-again waits for the completed run's journal to finish saving", async () => {
+  const entered = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const f = await fixture(async () => ({ notes: [], reviewerSession: "/review", checks: [], verifications: [] }));
+  // Delay the persistence boundary, not model behavior, to expose the gap between
+  // displaying completion and releasing the host-owned run.
+  const storage = f.jobs as any;
+  const save = storage.save.bind(storage);
+  let gated = false;
+  storage.save = async (root: string, job: any) => {
+    if (job.status === "completed" && !gated) { gated = true; entered.resolve(); await release.promise; }
+    await save(root, job);
+  };
+  const first = await f.jobs.start(f.root, options);
+  await entered.promise;
+  const next = f.jobs.start(f.root, options).then(value => value, error => error);
+  release.resolve();
+  const second = await next;
+  expect(second).not.toBeInstanceOf(Error);
+  expect(second.id).not.toBe(first.id);
+  await settled(f.jobs, f.root);
+});
