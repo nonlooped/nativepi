@@ -15,8 +15,8 @@ a disconnect: an acknowledgement may have been lost. Inspect the current chat
 before submitting again. After a transport failure, use **Try again** to reconnect
 and reconcile; it reloads the document, with the normal unsaved-editor warning.
 
-**Settings → General → Background service** shows status, starts the host,
-explicitly stops all its work, and controls start at login. Stop requires a
+**Settings → General → Background work** shows status. Its **Manage…** dialog
+starts or stops all work and controls start at sign-in. Stop requires a
 confirmation. Closing the desktop is not Stop. Starting the desktop again starts
 a stopped host, but does not resume interrupted Pi turns.
 
@@ -101,7 +101,11 @@ import `ipc.ts` into the desktop client or allocate Pi from a window lifecycle.
 Keep window controls and update installation on the desktop side. New event types
 must update the existing schemas; breaking semantic changes bump the protocol.
 New UI resources need a host owner or an honest unavailable state while detached.
-No unmerged companion worktree APIs are required by this implementation.
+The host also owns workspace commands and independent reviews. Reviews protect
+their managed worktree from preparation/removal and are cancelled and drained on
+Pi restart or host shutdown. Closing a desktop client preserves them. The combined
+lifecycle smoke exercises worktree commands, extension calls and a real Pi review
+across client disconnect/reconnect.
 
 ## Focused lifecycle verification
 

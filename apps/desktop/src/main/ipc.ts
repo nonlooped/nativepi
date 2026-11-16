@@ -23,7 +23,7 @@ import type { ChatTitleCatalog } from "../shared/chat-title.ts";
 import { serviceTierStateSchema } from "../shared/service-tier.ts";
 import { readProjectDiffPreview } from "./diffPreview.ts";
 import { app, BrowserWindow, dialog, shell } from "electron";
-import { mkdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, realpath, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
@@ -1030,7 +1030,12 @@ const searchControllers = new Map<string, AbortController>();
 /** Capped because it is a watcher each: an explorer with 500 folders open is already past useful. */
 async function knownProject(projectDir: string): Promise<boolean> {
   const project = resolve(projectDir);
-  return (await loadState()).projects.some((entry) => resolve(entry.path) === project);
+  const pinned = (await loadState()).projects;
+  if (pinned.some(entry => resolve(entry.path) === project)) return true;
+  const canonical = await realpath(project).catch(() => undefined);
+  if (!canonical) return false;
+  if (await taskWorkspaces.owns(canonical)) return true;
+  return (await Promise.all(pinned.map(entry => realpath(entry.path).catch(() => undefined)))).includes(canonical);
 }
 function isThinkingLevel(level: unknown): level is ThinkingLevel {
   return thinkingLevelSchema.safeParse(level).success;
@@ -1040,7 +1045,7 @@ type HandlerMap = {
 };
 const taskWorkspaces = new TaskWorkspaces(join(app.getPath("userData"), "task-workspaces.json"), cwd => {
   const reasons: string[] = [];
-  if (projectHasActiveRun(cwd) || automations.ownsWorkspace(cwd)) reasons.push("Stop all agents and automations in this workspace first.");
+  if (projectHasActiveRun(cwd) || automations.ownsWorkspace(cwd) || ephemeralProjects().includes(cwd) || reviewJobs.activeProjects().includes(cwd)) reasons.push("Stop all agents and automations in this workspace first.");
   if (liveTerminalProjects().includes(cwd)) reasons.push("Close the workspace's live terminals first.");
   if ([...clients].some(client => client.dirtyFiles.length > 0)) reasons.push("Save or close unsaved editors first.");
   return reasons;
@@ -2392,7 +2397,7 @@ export async function invokeHostRequest<K extends HostRequestName>(name: K, raw:
   };
   const project = values.projectDir;
   const file = values.sessionFile;
-  if (project && taskWorkspaces.isPreparing(project) && (sessionWrites.has(name) || gitWorktreeWrites.has(name) || name === "terminalCreate" || name === "saveWorkspaceFile")) throw new Error("Wait for workspace preparation or retirement to finish.");
+  if (project && taskWorkspaces.isPreparing(project) && (sessionWrites.has(name) || gitWorktreeWrites.has(name) || name === "reviewStart" || name === "terminalCreate" || name === "saveWorkspaceFile")) throw new Error("Wait for workspace preparation or retirement to finish.");
   const ownedPromptResponse = name === "extensionRespond" && !!file && orchestration.references().some(ref => ref.file === resolve(file) && (automations.ownsSession(ref.id) || automations.ownsSession(orchestration.snapshot(ref.id).relationship?.lead.id ?? "")));
   if (project && automations.ownsWorkspace(project) && !ownedPromptResponse && (name === "saveWorkspaceFile" || sessionWrites.has(name) || gitWorktreeWrites.has(name))) throw new Error("Stop the automation before writing in this workspace.");
   if (project && file && pis.has(file) && pis.get(file)?.projectDir !== project)
@@ -2533,6 +2538,7 @@ function retireRuntimes(projectDir?: string): Promise<void> {
   const previous = [...retirementTasks.values()];
   const task = (async () => {
     try {
+      await reviewJobs.stop(projectDir);
       await Promise.all([stopEphemeral(projectDir), ...all.map(pi => pi.stop()), ...previous]);
       await Promise.allSettled(acquisitions);
       for (const [key, pi] of pis)
@@ -2558,8 +2564,8 @@ export function shutdownHost(): Promise<void> { return shutdownTask ??= shutdown
 async function shutdown(): Promise<void> {
   shuttingDown = true;
   await automations.close();
-  await taskWorkspaces.close();
   await reviewJobs.close();
+  await taskWorkspaces.close();
   for (const client of [...clients])
     client.dispose();
   runtimeGeneration++;

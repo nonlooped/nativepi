@@ -15,7 +15,7 @@ export class ReviewJobs {
   private active = new Map<string, { job: ReviewJob; abort: AbortController; done: Promise<void> }>();
   private closing = false;
   activeProjects() { return [...this.active.keys()]; }
-  async close() { this.closing = true; const active = [...this.active.values()]; for (const run of active) run.abort.abort(); await Promise.all(active.map(run => run.done)); }
+  async close() { this.closing = true; await this.stop(); }
   constructor(private directory: string, private reviews: ReviewStore, private reviewer = runCodeReviewer) {}
   private path(root: string) { return join(this.directory, `${hash(root)}.json`); }
   private async load(root: string) {
@@ -48,14 +48,18 @@ export class ReviewJobs {
     }
     return { options: document.options, jobs: document.jobs.map(j => active?.id === j.id ? active : j.status === "running" ? { ...j, status: "interrupted" as const, message: "App stopped before this review completed. It will not resume automatically." } : j) };
   }
-  async stop(projectDir: string) {
-    const root = await realpath(projectDir);
-    const active = this.active.get(root);
-    active?.abort.abort();
+  async stop(projectDir?: string) {
+    const root = projectDir ? await realpath(projectDir) : undefined;
+    const active = [...this.active].filter(([cwd]) => !root || cwd === root).map(([, run]) => run);
+    for (const run of active) run.abort.abort();
+    await Promise.all(active.map(run => run.done));
     return { ok: true };
   }
   async start(projectDir: string, supplied: ReviewJobOptions) {
     const root = await realpath(projectDir);
+    if (this.closing) throw new Error("Review host is stopping.");
+    const finishing = this.active.get(root);
+    if (finishing && finishing.job.status !== "running") await finishing.done;
     if (this.closing) throw new Error("Review host is stopping.");
     if (this.active.has(root)) throw new Error("A review is already running in this checkout.");
     const options = reviewJobOptionsSchema.parse(supplied);

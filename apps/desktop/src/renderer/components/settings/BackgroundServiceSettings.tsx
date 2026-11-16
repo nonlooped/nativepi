@@ -29,7 +29,7 @@ export default function BackgroundServiceSettings() {
     <Dialog open={manage} onOpenChange={setManage}><DialogContent>
       <DialogHeader><DialogTitle>Background work</DialogTitle><DialogDescription>Manage work that continues after you close NativePi.</DialogDescription></DialogHeader>
       <SwitchRow label="Start at sign-in" description="Start background work when you sign in to this computer. Available in installed builds." checked={status?.startAtLogin ?? false} disabled={busy || !status} onChange={enabled => void act(enabled ? "enableLogin" : "disableLogin")} />
-      <ActionRow label={status?.running ? "Stop background work" : "Resume background work"} description={status?.running ? "Ends running agents, terminals and shared access links." : "Your saved chats remain available."}>
+      <ActionRow label={status?.running ? "Stop background work" : "Resume background work"} description={status?.running ? "Stops agents, project commands, terminals and shared links." : "Your saved chats remain available."}>
         <Button size="sm" variant="outline" disabled={busy || !status} onClick={() => status?.running ? setConfirmStop(true) : void act("start")}>{busy ? "Working…" : status?.running ? "Stop work…" : "Resume work"}</Button>
       </ActionRow>
       {status && !status.compatible && <p role="alert" className="text-xs leading-5 text-destructive">Stop background work, then restart NativePi to use the updated version.</p>}

@@ -1581,7 +1581,10 @@ test("a detached live Pi turn provides a fenced display snapshot without startin
   await request("ensurePi", target, client);
   const pi = processes.at(-1)!;
   pi.emit("agent_start");
-  pi.event({ type: "message_update", message: { role: "assistant", content: [{ type: "text", text: "Still working" }] } });
+  pi.event({ type: "message_start", message: { role: "assistant", content: [] } });
+  pi.event({ type: "message_update", assistantMessageEvent: { type: "text_start", contentIndex: 0 } });
+  pi.event({ type: "message_update", assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "Still " } });
+  pi.event({ type: "message_update", assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "working" } });
   pi.event({ type: "extension_ui_request", id: "question-1", method: "confirm", title: "Continue?" });
   client.dispose();
   const reconnected = new HostClient();

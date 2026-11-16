@@ -18,6 +18,7 @@ export class TaskWorkspaces {
   private records: WorkspaceRecord[] = [];
   private recipes: Record<string, WorkspaceRecipe> = {};
   private jobs = new Map<string, { child: ChildProcess; done: Promise<void> }>();
+  async owns(cwd: string) { await this.loaded; const root = await realpath(cwd); return this.records.some(record => record.path === root); }
   runningProjects() { return [...this.jobs.keys()]; }
   private closing = false;
   private exclusive = new Set<string>();

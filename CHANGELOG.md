@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Open Usage, Automations, and device sharing directly from icon buttons beside Settings in the sidebar. Simplify usage summaries and keep input/cache breakdowns limited to recorded all-time totals.
 
 ### Fixed
+- Keep managed worktrees available to code review, protect active review folders from preparation/removal, and cancel and drain reviews when Pi or its host restarts.
 - Restore login-shell tools for workspace actions, retain automation ownership at the primary checkout, protect running commands during shutdown, and recover the workspace picker after retirement.
 - Keep review sessions recoverable during interruption, support new repositories and colored Git configurations, reset file-only defaults for project reviews, and drain reviews on host shutdown.
 - Deduplicate repeated review findings, preserve unchanged anchors across staging and unrelated commits, and merge completed reviewer results without discarding concurrent finding updates.

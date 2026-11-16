@@ -16,11 +16,11 @@ test("incompatible-host recovery is usable before a workspace can initialize", a
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   await act(async () => root.render(<ConnectionNotice startupError="Host version is incompatible" />));
   const button = (text: string) => [...document.querySelectorAll("button")].find(b => b.textContent === text)!;
-  await act(async () => button("Stop incompatible service…").click());
+  await act(async () => button("Stop background work…").click());
   expect(actions).toEqual([]);
   await act(async () => button("Cancel").click());
   expect(actions).toEqual([]);
-  await act(async () => button("Stop incompatible service…").click());
+  await act(async () => button("Stop background work…").click());
   await act(async () => button("Stop all work").click());
   expect(actions).toEqual(["stop"]);
   expect(host.textContent).toContain("Reconnect to start the current version");
