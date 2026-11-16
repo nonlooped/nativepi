@@ -192,7 +192,7 @@ try {
  assert.equal(record.status, "ready"); assert.equal(record.output.trim(), "prepared");
  const { blockers } = await request("taskWorkspaceAction", { projectDir: cwd, action: "inspect" });
  assert.equal(blockers.some(b => b.includes("agents")), false);
- assert.equal(blockers.some(b => b.includes("Commits")), true);
+ assert.equal(blockers.some(b => b.includes("have not been published")), true);
  await request("taskWorkspaceRecipe", { projectDir: repo, recipe: { setup: "", run: '\"'+process.execPath+'\" -e \"setTimeout(() => {},30000)\"', check: "" } });
  await request("taskWorkspaceAction", { projectDir: cwd, action: "run", confirmed: true });
  assert.equal(quitBlocked(), true, "an owned workspace action must block host shutdown");
