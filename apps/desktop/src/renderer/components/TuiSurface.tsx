@@ -23,7 +23,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
  * lays itself out in cells and cannot be asked to reflow like a div.
  */
 
-/** Matches the integrated terminal, so extension UI and shell output read alike. */
 const FONT_FAMILY = "Consolas, 'Cascadia Mono', ui-monospace, monospace";
 // xterm clamps this to its unsigned-integer ceiling: effectively unlimited
 // without NativePi choosing a content limit for historical timeline entries.

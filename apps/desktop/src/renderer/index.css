@@ -13,6 +13,22 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "JetBrains Mono NL Nerd Font Mono";
+  src: url("./assets/fonts/JetBrainsMonoNLNerdFontMono-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono NL Nerd Font Mono";
+  src: url("./assets/fonts/JetBrainsMonoNLNerdFontMono-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /* Component utilities must use the same preference as CSS and WAAPI. A plain

@@ -18,6 +18,7 @@ import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { toast } from "sonner";
 import type { ShellProfile, TerminalSession } from "../../shared/rpc-schema.ts";
 import { findTerminalLinks } from "../lib/terminalLinks.ts";
+import { loadTerminalFont, TERMINAL_FALLBACK_FONT, TERMINAL_FONT } from "../lib/terminalFont.ts";
 import { currentTerminalColors, THEME_CHANGE_EVENT } from "../lib/themes.ts";
 import { useAppStore, usePaneStore, focusedPaneStore } from "../lib/store.ts";
 import { useReducedMotion } from "../lib/motion.ts";
@@ -453,7 +454,7 @@ function TerminalSurface({
       allowTransparency: true,
       cursorBlink: cursorBlink && !reducedMotion,
       cursorStyle: "block",
-      fontFamily: "Consolas, 'Cascadia Mono', ui-monospace, monospace",
+      fontFamily: TERMINAL_FALLBACK_FONT,
       fontSize,
       lineHeight: 1.2,
       scrollback,
@@ -540,6 +541,11 @@ function TerminalSurface({
       terminal.options.theme = currentTerminalColors();
     };
     window.addEventListener(THEME_CHANGE_EVENT, applyColors);
+    void loadTerminalFont().then((loaded) => {
+      if (disposed || !loaded) return;
+      terminal.options.fontFamily = TERMINAL_FONT;
+      resize();
+    });
     resize();
     terminal.focus();
 
@@ -579,11 +585,13 @@ function TerminalSurface({
     if (terminalRef.current) terminalRef.current.options.cursorBlink = cursorBlink && !reducedMotion;
   }, [cursorBlink, reducedMotion]);
 
+  // FitAddon measures the terminal's parent, so keep padding outside that element.
   return (
     <ContextMenu>
       <ContextMenuTrigger
         render={
-          <div ref={containerRef} className="terminal-surface relative min-h-0 flex-1 px-3 py-3">
+          <div className="relative flex min-h-0 flex-1 flex-col px-3 py-3">
+            <div ref={containerRef} className="terminal-surface min-h-0 flex-1" />
             {attachError ? (
               <div className="absolute inset-0 z-10 grid place-content-center gap-2 bg-background/90 text-center text-sm">
                 <span>Could not attach to this terminal.</span>

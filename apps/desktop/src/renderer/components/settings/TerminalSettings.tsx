@@ -2,11 +2,9 @@ import { useState } from "react";
 import { Input } from "../ui/input.tsx";
 import SettingsDetails from "./SettingsDetails.tsx";
 import { useAppStore } from "../../lib/store.ts";
+import { TERMINAL_FONT } from "../../lib/terminalFont.ts";
 import PiPanel from "./PiPanel.tsx";
 import { ActionRow, SelectRow, SettingsSection, SliderRow, SwitchRow, TextRow } from "./rows.tsx";
-
-/** The same stack `TerminalDock` hands to xterm, so the preview is not a guess. */
-const TERMINAL_FONT = "Consolas, 'Cascadia Mono', ui-monospace, monospace";
 
 /** Presentation for the integrated terminal; Pi’s command shell is a separate section. */
 export default function TerminalSettings() {
