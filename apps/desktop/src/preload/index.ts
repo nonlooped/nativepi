@@ -1,3 +1,5 @@
+import { browserAnnotationEventSchema } from "../shared/browserAnnotation.ts";
+import type { z } from "zod";
 import type { ServiceAction, ServiceStatus } from "../shared/background-service.ts";
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "electron";
 import { validHostEvent } from "../shared/host-events.ts";
@@ -7,6 +9,7 @@ import type { HostEventName, HostEvents, HostRequestName, HostRequests } from ".
 // builds per-channel request functions over this single invoke boundary.
 export type NativePiApi = {
   browserPanel?: {
+    onAnnotation(listener: (event: z.infer<typeof browserAnnotationEventSchema>) => void): () => void;
     onChange(listener: (id: string | null) => void): () => void;
     layout(id: string, bounds?: { x: number; y: number; width: number; height: number }): Promise<void>;
   };
@@ -30,6 +33,7 @@ export type NativePiApi = {
 };
 const api: NativePiApi = {
   browserPanel: {
+    onAnnotation(listener) { const receive = (_event: IpcRendererEvent, raw: unknown) => { const parsed = browserAnnotationEventSchema.safeParse(raw); if (parsed.success) listener(parsed.data); }; ipcRenderer.on("nativepi:browser-annotation", receive); return () => ipcRenderer.removeListener("nativepi:browser-annotation", receive); },
     onChange(listener) { const receive = (_event: IpcRendererEvent, id: string | null) => listener(id); ipcRenderer.on("nativepi:browser-panel", receive); return () => { ipcRenderer.removeListener("nativepi:browser-panel", receive); }; },
     layout: (id, bounds) => ipcRenderer.invoke("nativepi:browser-panel", { id, bounds }),
   },

@@ -1,3 +1,4 @@
+import { useComposerFocus } from "../lib/useComposerFocus.ts";
 import { useWorkspacePanes } from "../lib/workspacePanes.ts";
 import { usePaneStore } from "../lib/store.ts";
 import { runtime } from "../lib/store/internals.ts";
@@ -33,6 +34,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
   const panes = useWorkspacePanes();
   const paneActive = !panes || panes.activePaneId === runtime(paneStore.getState).paneId;
   const composerRoot = useRef<HTMLDivElement>(null);
+  const focus = useComposerFocus();
   const dictation = useDictation(composerRoot);
   const dictating = dictation.phase !== "idle";
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -72,7 +74,12 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
     prevHadEditorSurface.current = !!editorSurface;
   }, [editorSurface]);
 
+  const hasExtensionControls = useAppStore((s) => s.extRenderers.some((ext) => (ext.renderer.composerControls?.length ?? 0) > 0));
   const [dropTarget, setDropTarget] = useState(false);
+  // Focus changes layout immediately so a compact Send/Dictate button stays
+  // under the pointer. The existing focus halo supplies the visual transition.
+  const compact = !prominent && !focus.within && !dictating && !dropTarget;
+  const inlineControls = compact && !hasExtensionControls;
   const disabled = !activeProjectPath;
   // Images being read hold the send: they belong to this message, and Enter a
   // moment too early would send the text alone and leave them for the next one.
@@ -155,6 +162,9 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
     // otherwise. `env()` is 0 everywhere else.
     <div
       ref={composerRoot}
+      data-composer-compact={compact}
+      onFocusCapture={focus.onFocusCapture}
+      onBlurCapture={focus.onBlurCapture}
       className={cn(
         "flex shrink-0 flex-col gap-2 px-5 pb-[max(1rem,env(safe-area-inset-bottom))]",
         prominent ? "w-full pt-0" : cn(SCROLLBAR_GUTTER_OFFSET, "pt-2"),
@@ -192,55 +202,62 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
         ) : null}
         {!isRemote ? <DictationFeedback dictation={dictation} /> : null}
         <ComposerAttachments />
-        <ComposerInput
-          suggestion={attached === 0 && preparing === 0 ? suggestion : null}
-          onDismissSuggestion={dismissSuggestion}
-          value={draft}
-          onChange={setDraft}
-          onSubmit={submit}
-          onAttach={(files) => void attach(files)}
-          projectPath={activeProjectPath}
-          disabled={disabled || dictating}
-          autoFocus={prominent && paneActive}
-          // During a turn, name the active send behavior; when idle, show the
-          // prefixes that open the composer's search menus.
-          placeholder={
-            disabled
-              ? "Open a project to begin"
-              : blocked
-                ? "Add to your draft…"
-                : steering
-                  ? "Steer this turn…"
-                  : running
-                    ? "Queue a follow-up…"
-                    : "Ask Pi… @ files · $ skills · / commands"
-          }
-        />
-        {/* Reply controls stay inside the composer; checkout controls sit below. */}
-        <div className="flex items-end gap-1 px-1">
-          <div className="flex min-w-0 flex-1 flex-wrap @max-[30rem]/conversation:flex-nowrap items-center gap-1">
-            <AttachButton disabled={disabled} onPick={attach} />
-            <ModelSelector />
-            <ComposerControls />
-          </div>
-          <div className="flex items-center gap-1">
-            {!isRemote ? <DictationButton dictation={dictation} disabled={disabled || blocked} /> : null}
-            <Button
-              size="icon-lg"
-              className="rounded-full shadow-sm shadow-foreground/10 hover:shadow-md hover:shadow-foreground/15 active:shadow-none disabled:bg-muted disabled:text-muted-foreground/40 disabled:opacity-100 disabled:shadow-none"
-              onClick={submit}
-              disabled={!canSend}
-              title={sendLabel(running, steering)}
-              aria-label={sendLabel(running, steering)}
-            >
-              {/* Steering redirects the turn in flight; it is not the same act as
-                  sending, so it does not wear the same glyph. */}
-              <ContextualIcon
-                active={steering}
-                activeIcon={<ArrowBendUpRightIcon weight="bold" />}
-                inactiveIcon={<PaperPlaneRightIcon weight="fill" />}
-              />
-            </Button>
+        <div className={cn("flex min-w-0", inlineControls ? "items-center" : "flex-col")}>
+          <ComposerInput
+            compact={compact}
+            suggestion={attached === 0 && preparing === 0 ? suggestion : null}
+            onDismissSuggestion={dismissSuggestion}
+            value={draft}
+            onChange={setDraft}
+            onSubmit={submit}
+            onAttach={(files) => void attach(files)}
+            projectPath={activeProjectPath}
+            disabled={disabled || dictating}
+            autoFocus={prominent && paneActive}
+            // During a turn, name the active send behavior; when idle, show the
+            // prefixes that open the composer's search menus.
+            placeholder={
+              disabled
+                ? "Open a project to begin"
+                : blocked
+                  ? "Add to your draft…"
+                  : steering
+                    ? "Steer this turn…"
+                    : running
+                      ? "Queue a follow-up…"
+                      : compact
+                        ? "Reply to Pi…"
+                        : "Ask Pi… @ files · $ skills · / commands"
+            }
+          />
+          {/* Reply controls stay inside the composer; checkout controls sit below. */}
+          <div className={cn("flex items-end gap-1 px-1", inlineControls && "shrink-0")}>
+            <div className="flex min-w-0 flex-1 flex-wrap @max-[30rem]/conversation:flex-nowrap items-center gap-1">
+              <div className={cn("min-w-0 items-center gap-1", compact ? "hidden" : "contents")}>
+                <AttachButton disabled={disabled} onPick={attach} />
+                <ModelSelector />
+              </div>
+              <ComposerControls />
+            </div>
+            <div className="flex items-center gap-1">
+              {!isRemote ? <DictationButton dictation={dictation} disabled={disabled || blocked} /> : null}
+              <Button
+                size="icon-lg"
+                className="rounded-full shadow-sm shadow-foreground/10 hover:shadow-md hover:shadow-foreground/15 active:shadow-none disabled:bg-muted disabled:text-muted-foreground/40 disabled:opacity-100 disabled:shadow-none"
+                onClick={submit}
+                disabled={!canSend}
+                title={sendLabel(running, steering)}
+                aria-label={sendLabel(running, steering)}
+              >
+                {/* Steering redirects the turn in flight; it is not the same act as
+                    sending, so it does not wear the same glyph. */}
+                <ContextualIcon
+                  active={steering}
+                  activeIcon={<ArrowBendUpRightIcon weight="bold" />}
+                  inactiveIcon={<PaperPlaneRightIcon weight="fill" />}
+                />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

@@ -1,3 +1,6 @@
+import { createKeybindingsHandler } from "tinykeys";
+import { bindings, hintFor, withHint } from "../lib/shortcuts.ts";
+import { workspaceShortcutsBlocked } from "../lib/shortcutContext.ts";
 import { useEffect, useRef, useState } from "react";
 import { EditorView } from "@codemirror/view";
 import { undo, redo } from "@codemirror/commands";
@@ -25,6 +28,7 @@ import { toast } from "sonner";
 
 export default function WorkspaceEditor({ projectDir }: { projectDir: string }) {
   const panes = useWorkspacePanes();
+  const overrides = useAppStore(s => s.keybindingOverrides);
   const paneId = runtime(usePaneStore().getState).paneId;
   const selectionKey = `${paneId}:${projectDir}`;
   const buffers = useWorkspaceEditor(s => s.buffers);
@@ -74,20 +78,23 @@ export default function WorkspaceEditor({ projectDir }: { projectDir: string }) 
     editor.focus();
   };
   return <section className="flex min-h-0 flex-1 flex-col bg-background" aria-label={`Editor: ${buffer.file}`} onKeyDownCapture={e => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); e.stopPropagation(); if (!buffer.saving && !buffer.conflict) save(); }
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") { e.preventDefault(); e.stopPropagation(); setPreview(false); setSearchMode("find"); requestAnimationFrame(() => searchInput.current?.focus()); }
-    if (e.altKey && e.key.toLowerCase() === "g") { e.preventDefault(); e.stopPropagation(); setPreview(false); setSearchMode("line"); }
+    if (workspaceShortcutsBlocked()) return;
+    createKeybindingsHandler(bindings({
+      saveFile: event => { event.preventDefault(); event.stopPropagation(); if (!buffer.saving && !buffer.conflict && dirty) save(); },
+      findInFile: event => { event.preventDefault(); event.stopPropagation(); setPreview(false); setSearchMode("find"); requestAnimationFrame(() => searchInput.current?.focus()); },
+      goToLine: event => { event.preventDefault(); event.stopPropagation(); setPreview(false); setSearchMode("line"); },
+    }, overrides), { ignore: () => false })(e.nativeEvent);
   }}>
     <header className="flex h-10 shrink-0 items-center gap-1 border-b border-border/60 px-2 [[data-pane-active=true]_&]:bg-muted/30">
       <span className="min-w-0 flex-1 truncate px-1 text-xs text-muted-foreground" title={buffer.file}>{buffer.file}</span>
       <span className="shrink-0 text-xs text-muted-foreground" role="status">{buffer.saving ? "Saving…" : buffer.conflict ? "Conflict" : dirty ? "Unsaved" : "Saved"}</span>
-      <Button size="icon-sm" variant="ghost" title="Save file (Mod+S)" aria-label="Save file" disabled={buffer.saving || !dirty || buffer.conflict} onClick={save}><FloppyDiskIcon /></Button>
+      <Button size="icon-sm" variant="ghost" title={withHint("Save file", "saveFile", overrides)} aria-label="Save file" disabled={buffer.saving || !dirty || buffer.conflict} onClick={save}><FloppyDiskIcon /></Button>
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="File actions" title="File actions" />}><DotsThreeIcon /></DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           {markdown ? <DropdownMenuItem onClick={() => setPreview(!preview)}>{preview ? "Edit Markdown" : "Preview Markdown"}</DropdownMenuItem> : null}
-          <DropdownMenuItem onClick={() => { setPreview(false); setSearchMode("find"); }}><MagnifyingGlassIcon />Find in file<span className="ml-auto text-xs text-muted-foreground">Mod F</span></DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { setPreview(false); setSearchMode("line"); }}>Go to line<span className="ml-auto text-xs text-muted-foreground">Alt G</span></DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setPreview(false); setSearchMode("find"); }}><MagnifyingGlassIcon />Find in file<span className="ml-auto text-xs text-muted-foreground">{hintFor("findInFile", overrides)}</span></DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setPreview(false); setSearchMode("line"); }}>Go to line<span className="ml-auto text-xs text-muted-foreground">{hintFor("goToLine", overrides)}</span></DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled={preview} onClick={() => { if (view.current) undo(view.current); }}>Undo</DropdownMenuItem>
           <DropdownMenuItem disabled={preview} onClick={() => { if (view.current) redo(view.current); }}>Redo</DropdownMenuItem>

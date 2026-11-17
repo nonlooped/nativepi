@@ -99,6 +99,7 @@ export default function TerminalDock({
   const runShortcut = useEffectEvent((action: "new" | "horizontal" | "vertical" | "next" | "previous" | "close", event: KeyboardEvent) => {
     const s = useAppStore.getState();
     if (useAppStore !== focusedPaneStore() || closing || s.activeProjectPath !== projectDir || s.destination === "chat" || workspaceShortcutsBlocked()) return;
+    if ((action === "close" || action === "next" || action === "previous") && !dockRef.current?.contains(document.activeElement)) return;
     event.preventDefault();
     event.stopPropagation();
     const current = Math.max(0, terminals.findIndex(terminal => terminal.id === lastFocused.current));

@@ -4,6 +4,10 @@ export type ShortcutId =
   | "nextWorkspaceTab"
   | "previousWorkspaceTab"
   | "closeWorkspaceTab"
+  | "openBrowser"
+  | "saveFile"
+  | "findInFile"
+  | "goToLine"
   | "jumpToFile"
   | "nextPane"
   | "previousPane"
@@ -61,9 +65,13 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: "nextWorkspaceTab", binding: "Control+Tab", label: "Next workspace tab", description: "Show the next conversation, file or diff in the focused pane.", group: "Navigation" },
   { id: "previousWorkspaceTab", binding: "Control+Shift+Tab", label: "Previous workspace tab", description: "Show the previous tab in the focused pane.", group: "Navigation" },
   { id: "closeWorkspaceTab", binding: "$mod+KeyW", label: "Close workspace tab", description: "Close the current tab, keeping conversations and runs available.", group: "Navigation" },
+  { id: "openBrowser", binding: "$mod+Alt+KeyB", label: "Open browser", description: "Open the active Work chat’s shared browser on this computer.", group: "Navigation" },
+  { id: "saveFile", binding: "$mod+KeyS", label: "Save file", description: "Save the file while its editor is focused.", group: "Navigation" },
+  { id: "findInFile", binding: "$mod+KeyF", label: "Find in file", description: "Find text while the file editor is focused.", group: "Navigation" },
+  { id: "goToLine", binding: "Alt+KeyG", label: "Go to line", description: "Go to a line while the file editor is focused.", group: "Navigation" },
   { id: "jumpToFile", binding: "$mod+KeyP", label: "Jump to file", description: "Search files in the active pane’s workspace.", group: "Navigation" },
-  { id: "nextPane", binding: "Alt+BracketRight", label: "Next conversation pane", description: "Focus the next workspace pane.", group: "Navigation" },
-  { id: "previousPane", binding: "Alt+BracketLeft", label: "Previous conversation pane", description: "Focus the previous workspace pane.", group: "Navigation" },
+  { id: "nextPane", binding: "$mod+Alt+BracketRight", label: "Next conversation pane", description: "Focus the next workspace pane.", group: "Navigation" },
+  { id: "previousPane", binding: "$mod+Alt+BracketLeft", label: "Previous conversation pane", description: "Focus the previous workspace pane.", group: "Navigation" },
   { id: "splitConversation", binding: "$mod+Alt+Backslash", label: "Split conversation", description: "Add another independently selectable conversation pane.", group: "Navigation" },
   ...THREAD_SHORTCUTS.map(({ id, index }): ShortcutDef => ({
     id, binding: `$mod+Digit${(index + 1) % 10}`, label: `Open sidebar thread ${index + 1}`,
@@ -101,21 +109,21 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: "nextTerminal",
     binding: "$mod+Alt+ArrowRight",
     label: "Next terminal",
-    description: "Focus the next split in the open terminal dock.",
+    description: "Focus the next split while the terminal dock is focused.",
     group: "Terminal",
   },
   {
     id: "previousTerminal",
     binding: "$mod+Alt+ArrowLeft",
     label: "Previous terminal",
-    description: "Focus the previous split in the open terminal dock.",
+    description: "Focus the previous split while the terminal dock is focused.",
     group: "Terminal",
   },
   {
     id: "closeTerminal",
     binding: "$mod+Alt+KeyW",
     label: "Close current terminal",
-    description: "End the last focused shell in the open terminal dock.",
+    description: "End the focused shell while the terminal dock is focused.",
     group: "Terminal",
   },
   {
@@ -127,7 +135,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   },
   {
     id: "refreshSourceControl",
-    binding: "$mod+Shift+KeyR",
+    binding: "",
     label: "Refresh source control",
     description: "Refresh Git status for the active Work project.",
     group: "Source control",
@@ -142,7 +150,7 @@ export const SHORTCUTS: ShortcutDef[] = [
 
   {
     id: "focusComposer",
-    binding: "$mod+KeyL",
+    binding: "$mod+Shift+KeyL",
     label: "Focus message composer",
     description: "Return to the message field without changing your draft.",
     group: "Chat",
@@ -219,7 +227,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   },
   {
     id: "importChat",
-    binding: "$mod+Shift+KeyO",
+    binding: "",
     label: "Import chat",
     description: "Import an existing Pi session file into the current destination.",
     group: "Chat",
@@ -249,7 +257,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: "jumpToLatest",
     binding: "$mod+End",
     label: "Jump to latest",
-    description: "Scroll the transcript to the newest message and resume auto-follow.",
+    description: "Scroll the transcript to the newest message and resume auto-follow, outside editable fields.",
     group: "Navigation",
   },
   {
@@ -308,7 +316,10 @@ export function defaultBindingFor(id: ShortcutId): string {
 /** The binding actually in effect: the user's override if they set one, else the default. */
 export function bindingFor(id: ShortcutId, overrides: KeybindingOverrides = {}): string {
   const override = overrides[id];
-  return override !== undefined ? override : defaultBindingFor(id);
+  if (override !== undefined) return override;
+  const binding = defaultBindingFor(id);
+  // Saved custom keys win over defaults introduced by a newer app version.
+  return Object.values(overrides).includes(binding) ? "" : binding;
 }
 
 export function isCustomized(id: ShortcutId, overrides: KeybindingOverrides = {}): boolean {
@@ -390,6 +401,8 @@ const KEY_LABELS: Record<string, string> = {
   Period: ".",
   Comma: ",",
   Slash: "/",
+  Backquote: "`",
+  Backslash: "\\",
   BracketLeft: "[",
   BracketRight: "]",
 };
@@ -441,13 +454,19 @@ export function bindings(
   const map: Record<string, (event: KeyboardEvent) => void> = {};
   for (const [id, handler] of Object.entries(handlers) as [ShortcutId, (event: KeyboardEvent) => void][]) {
     const binding = bindingFor(id, overrides);
-    if (binding) map[binding] = handler;
+    if (binding) map[binding] = event => {
+      if (event.defaultPrevented || event.isComposing || event.repeat) return;
+      // A custom bare character must not turn ordinary typing into navigation.
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key?.length === 1
+        && (event.target as HTMLElement | null)?.closest?.('input, textarea, [contenteditable="true"]')) return;
+      handler(event);
+    };
   }
   // The plus character shares Equal on common keyboards. Keep the alias only
   // while the default is active, and never steal an explicitly bound shortcut.
   if (handlers.increaseScale && bindingFor("increaseScale", overrides) === "$mod+Equal"
     && !SHORTCUTS.some((shortcut) => bindingFor(shortcut.id, overrides) === "$mod+Shift+Equal")) {
-    map["$mod+Shift+Equal"] = handlers.increaseScale;
+    map["$mod+Shift+Equal"] = map["$mod+Equal"]!;
   }
   return map;
 }
