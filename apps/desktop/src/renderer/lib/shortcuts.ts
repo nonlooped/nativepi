@@ -1,6 +1,9 @@
 export type ThreadShortcutId = `thread${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10}`;
 
 export type ShortcutId =
+  | "nextWorkspaceTab"
+  | "previousWorkspaceTab"
+  | "closeWorkspaceTab"
   | "openBrowser"
   | "saveFile"
   | "findInFile"
@@ -59,6 +62,9 @@ export interface ShortcutDef {
 export const THREAD_SHORTCUTS: { id: ThreadShortcutId; index: number }[] = Array.from({ length: 10 }, (_, index) => ({ id: `thread${index + 1}` as ThreadShortcutId, index }));
 
 export const SHORTCUTS: ShortcutDef[] = [
+  { id: "nextWorkspaceTab", binding: "Control+Tab", label: "Next workspace tab", description: "Show the next conversation, file or diff in the focused pane.", group: "Navigation" },
+  { id: "previousWorkspaceTab", binding: "Control+Shift+Tab", label: "Previous workspace tab", description: "Show the previous tab in the focused pane.", group: "Navigation" },
+  { id: "closeWorkspaceTab", binding: "$mod+KeyW", label: "Close workspace tab", description: "Close the current tab, keeping conversations and runs available.", group: "Navigation" },
   { id: "openBrowser", binding: "$mod+Alt+KeyB", label: "Open browser", description: "Open the active Work chat’s shared browser on this computer.", group: "Navigation" },
   { id: "saveFile", binding: "$mod+KeyS", label: "Save file", description: "Save the file while its editor is focused.", group: "Navigation" },
   { id: "findInFile", binding: "$mod+KeyF", label: "Find in file", description: "Find text while the file editor is focused.", group: "Navigation" },
