@@ -1,4 +1,4 @@
-import { readAnnotation, annotationLabel, annotationMessage } from "../../shared/browserAnnotation.ts";
+import { readAnnotation, annotationLabel } from "../../shared/browserAnnotation.ts";
 import { referenceFor } from "./markdownReferences.ts";
 import { CHIP_CLASS } from "./composerChips.ts";
 import { chipText, parseSegments, type ChipKind } from "./composerText.ts";
@@ -79,10 +79,12 @@ export function createChip(document: Document, kind: ChipKind, value: string): H
     remove.type = "button";
     remove.setAttribute("data-remove-annotation", "");
     remove.setAttribute("aria-label", `Remove ${annotationLabel(annotation)}`);
-    remove.textContent = "×";
-    remove.className = "shrink-0 rounded px-0.5 text-muted-foreground hover:text-foreground focus-visible:outline focus-visible:outline-ring";
+    // Phosphor X, regular; an icon button aligned with the reference glyph.
+    remove.innerHTML = '<svg viewBox="0 0 256 256" aria-hidden="true" class="size-3"><path fill="currentColor" d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg>';
+    remove.title = "Remove reference";
+    remove.className = "inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-foreground/10 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none";
     chip.appendChild(remove);
-    chip.title = annotationMessage(annotation);
+    chip.title = `${annotationLabel(annotation)}\n${annotation.title || "Browser page"}\n${annotation.url}\nCaptured page element; the page may have changed.`;
     return chip;
   }
   chip.title = kind === "skill" ? `Skill: ${value}` : value;

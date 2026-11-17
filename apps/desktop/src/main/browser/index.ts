@@ -22,7 +22,6 @@ import { browserActionScript } from "./actionScript.ts";
 
 import { browserElementSchema, type BrowserAnnotation } from "../../shared/browserAnnotation.ts";
 import { inspectAnnotationPoint } from "./annotationPage.ts";
-import { annotationOverlayHtml } from "./annotationOverlay.ts";
 
 type Tab = {
   id: string;
@@ -257,10 +256,13 @@ export class SharedBrowser {
     picker.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     picker.webContents.on("will-navigate", event => event.preventDefault());
     try {
-      await picker.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(annotationOverlayHtml)}`);
+      if (process.env.ELECTRON_RENDERER_URL)
+        await picker.webContents.loadURL(new URL("browser.html?picker=1", process.env.ELECTRON_RENDERER_URL).href);
+      else await picker.webContents.loadFile(join(app.getAppPath(), "out/renderer/browser.html"), { query: { picker: "1" } });
       if (this.picker !== picker || epoch !== this.pickingEpoch) return;
       this.state();
-      picker.webContents.focus();
+      await this.theme();
+      if (this.picker === picker && epoch === this.pickingEpoch) picker.webContents.focus();
     } catch (error) { if (this.picker === picker) this.stopPicking(); throw error; }
   }
   private async annotationPoint(x: number | undefined, y: number | undefined, capture: boolean) {
@@ -277,7 +279,6 @@ export class SharedBrowser {
     const annotation = { version: 1 as const, id: randomUUID(), tab: tab.id, title: wc.getTitle().slice(0, 300), url, capturedAt: new Date().toISOString(), element: parsed.data };
     this.annotate!(annotation);
     this.stopPicking();
-    this.blocked(tab, "Selection finished. Normal browsing restored.");
     return { selected: true };
   }
   private async theme() {
@@ -293,12 +294,15 @@ export class SharedBrowser {
       builtInTheme(preferences.themeId)?.theme ??
       DEFAULT_THEME;
     if (this.closed || !this.window || this.window.isDestroyed()) return;
-    this.chromeView?.webContents.send("nativepi:browser-theme", {
+    const payload = {
       appearance,
       colors: theme.colors[appearance],
       scale: preferences.interfaceScale,
       motion: preferences.reducedMotion,
-    });
+    };
+    this.chromeView?.webContents.send("nativepi:browser-theme", payload);
+    if (this.picker && !this.picker.webContents.isDestroyed())
+      this.picker.webContents.send("nativepi:browser-theme", payload);
   }
   private state() {
     if (this.closed || !this.window || this.window.isDestroyed()) return;

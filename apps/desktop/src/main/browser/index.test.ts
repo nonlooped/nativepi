@@ -123,6 +123,7 @@ test("picking fences agent actions, preserves takeover and discards navigation/c
   expect(annotations).toMatchObject([{ tab, url: "https://example.com", element: { selector: "button:nth-of-type(2)", text: "Buy" } }]);
   expect(state.handoff).toBe(true);
   expect(state.selecting).toBe(false);
+  expect(state.notice).toBeUndefined(); // The chip is the success feedback; do not add a toolbar row.
   await browser.chrome({ action: "annotate" });
   browser.setBounds(); // Hide, change chat, or place an app-owned dialog above it.
   expect(state.selecting).toBe(false);

@@ -17,11 +17,11 @@ import { InfoIcon } from "@phosphor-icons/react/Info";
 import { Button } from "../components/ui/button.tsx";
 import { Input } from "../components/ui/input.tsx";
 import { cn, NO_DRAG_REGION } from "../lib/utils.ts";
-import { themeCssProperties } from "../../shared/themeCss.ts";
+import { applyBrowserTheme } from "./theme.ts";
+import ElementPicker from "./ElementPicker.tsx";
 import {
   browserUrl,
   browserChromeStateSchema,
-  browserChromeThemeSchema,
   type browserChromeActionSchema,
 } from "../../shared/browser.ts";
 import "../index.css";
@@ -103,25 +103,7 @@ function BrowserChrome() {
       const parsed = browserChromeStateSchema.safeParse(raw);
       if (parsed.success) useBrowser.getState().update(parsed.data);
     });
-    const stopTheme = bridge.onTheme((raw) => {
-      const parsed = browserChromeThemeSchema.safeParse(raw);
-      if (!parsed.success) return;
-      const theme = parsed.data;
-      const root = document.documentElement;
-      root.classList.toggle("dark", theme.appearance === "dark");
-      root.style.colorScheme = theme.appearance;
-      root.style.fontSize = `${16 * theme.scale}px`;
-      root.dataset.motion =
-        theme.motion === "always"
-          ? "reduced"
-          : theme.motion === "never"
-            ? "full"
-            : "";
-      for (const [property, value] of Object.entries(
-        themeCssProperties(theme.colors),
-      ))
-        root.style.setProperty(property, value);
-    });
+    const stopTheme = bridge.onTheme(applyBrowserTheme);
     void bridge.invoke({ action: "state" });
     return () => {
       stopState();
@@ -203,7 +185,7 @@ function BrowserChrome() {
               <div
                 key={tab.id}
                 className={cn(
-                  "flex h-7 min-w-0 max-w-48 shrink-0 items-center rounded-md",
+                  "flex h-7 min-w-0 max-w-[min(12rem,100%)] shrink-0 items-center rounded-md",
                   tab.id === state.active && "bg-secondary",
                 )}
               >
@@ -214,7 +196,7 @@ function BrowserChrome() {
                   onClick={() => void send("show", { tab: tab.id })}
                   title={tab.title}
                   className={cn(
-                    "min-w-0 max-w-40",
+                    "min-w-0 max-w-40 shrink flex-1 justify-start",
                     tab.id === state.active && "text-foreground",
                   )}
                 >
@@ -247,7 +229,6 @@ function BrowserChrome() {
             >
               <PlusIcon />
             </IconAction>
-            {active && <IconAction label="Select element for message" disabled={state.selecting || state.loading || !!state.error} onClick={() => void send("annotate")}><CursorClickIcon /></IconAction>}
             {active && (
               <Button
                 variant={state.handoff ? "secondary" : "ghost"}
@@ -341,8 +322,21 @@ function BrowserChrome() {
           >
             <ArrowRightIcon />
           </Button>
+          {active ? (
+            <Button
+              type="button"
+              variant={state.selecting ? "secondary" : "ghost"}
+              size="icon-sm"
+              title={state.selecting ? "Cancel selection (Esc)" : "Select an element for your message"}
+              aria-label={state.selecting ? "Cancel selection (Esc)" : "Select element for message"}
+              aria-pressed={!!state.selecting}
+              disabled={state.loading || !!state.error}
+              onClick={() => void send(state.selecting ? "cancelAnnotation" : "annotate")}
+            >
+              <CursorClickIcon />
+            </Button>
+          ) : null}
         </form>
-        {state.selecting ? <div role="status" className="flex items-center gap-2 border-b bg-accent px-4 py-2 text-xs text-accent-foreground"><CursorClickIcon className="size-4 shrink-0" /><span className="min-w-0 flex-1">Click an element to add to your message. Esc cancels.</span><Button size="xs" variant="outline" onClick={() => void send("cancelAnnotation")}>Cancel</Button></div> : null}
         {state.notice ? <div role="status" className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-xs leading-5 text-body-muted-foreground"><WarningCircleIcon className="size-4 shrink-0" /><span className="min-w-0 flex-1">{state.notice.message}</span>{state.notice.url ? <Button type="button" size="xs" variant="outline" title="Opens outside this chat; you may need to sign in there" onClick={() => void send("openExternal", { url: state.notice?.url })}>Open in usual browser</Button> : null}<IconAction label="Dismiss notice" onClick={() => void send("dismissNotice")}><XIcon /></IconAction></div> : null}
         {error && (
           <div
@@ -414,4 +408,9 @@ function BrowserChrome() {
     </div>
   );
 }
-createRoot(document.getElementById("root")!).render(<BrowserChrome />);
+const picking = new URLSearchParams(location.search).has("picker");
+if (picking) {
+  document.documentElement.style.background = "transparent";
+  document.body.style.background = "transparent";
+}
+createRoot(document.getElementById("root")!).render(picking ? <ElementPicker bridge={bridge} /> : <BrowserChrome />);

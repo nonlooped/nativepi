@@ -3,9 +3,9 @@
 export function inspectAnnotationPoint(x: number, y: number, capture: boolean) {
   const el = document.elementFromPoint(x, y);
   if (!el || el === document.documentElement || el === document.body)
-    return { error: "Point to a page element." };
+    return { error: "Point to an element to select it." };
   if (el.closest("iframe,frame,object,embed") || el.shadowRoot)
-    return { error: "Frames and shadow content can’t be selected. Choose an element in the main page." };
+    return { error: "This content can’t be selected. Choose an element on the main page." };
   const rect = el.getBoundingClientRect();
   const bounds = { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
   if (!capture) return { bounds, tag: el.tagName.toLowerCase() };

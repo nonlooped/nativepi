@@ -166,7 +166,14 @@ export default function ComposerInput({
   const offeredSuggestion = value.length === 0 && !disabled && !complete.open ? suggestion : null;
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest("[data-remove-annotation]")) return;
+    const remove = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-remove-annotation]");
+    if (remove) {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        remove.click();
+      }
+      return;
+    }
     // The open menu owns Enter and the arrows; sending is what Enter means only
     // once there is nothing to insert.
     if (complete.onKeyDown(event)) return;

@@ -240,10 +240,11 @@ domTest("browser annotation chips survive editing and support explicit removal w
   let submitted = false;
   await act(async () => root!.render(<ComposerInput value={draft} onChange={change} onSubmit={() => { submitted = true; }} onAttach={() => {}} projectPath="/project" placeholder="Ask Pi" disabled={false} />));
   expect(serialize(container.querySelector('[data-composer-input]')!)).toBe(draft);
-  const remove = container.querySelector('button[aria-label="Remove button: Buy"]') as HTMLButtonElement;
+  const remove = container.querySelector('button[aria-label="Remove Buy"]') as HTMLButtonElement;
   await act(async () => remove.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
   expect(submitted).toBe(false);
-  await act(async () => remove.click());
   expect(draft).toBe(`Change  and ${token} please`);
   expect(container.querySelectorAll('[data-chip="browser"]').length).toBe(1);
+  await act(async () => (container.querySelector('[data-remove-annotation]') as HTMLButtonElement).click());
+  expect(draft).toBe("Change  and  please");
 });

@@ -40,12 +40,21 @@ export function BrowserPanel({ id, hidden }: { id: string; hidden: boolean }) {
       const signature = JSON.stringify(bounds) ?? "hidden";
       if (signature !== previous) { previous = signature; void bridge.layout(id, bounds); }
     };
+    // The panel library may finish its resize after the window event. Native
+    // child views must also follow that settled layout when Chromium defers a
+    // ResizeObserver frame (for example while a child view owns input).
+    let resizeTask: ReturnType<typeof setTimeout> | undefined;
+    const resized = () => {
+      update();
+      clearTimeout(resizeTask);
+      resizeTask = setTimeout(update, 0);
+    };
     const observer = new ResizeObserver(update); observer.observe(node);
     const overlays = new MutationObserver(update);
     overlays.observe(document.body, { childList: true, subtree: true });
     overlays.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "class"] });
-    window.addEventListener("resize", update); update();
-    return () => { observer.disconnect(); overlays.disconnect(); window.removeEventListener("resize", update); void bridge.layout(id); };
+    window.addEventListener("resize", resized); update();
+    return () => { observer.disconnect(); overlays.disconnect(); window.removeEventListener("resize", resized); clearTimeout(resizeTask); void bridge.layout(id); };
   }, [id, hidden]);
   // A draggable placeholder underneath a native view steals pointer events
   // from that view's toolbar, even when its own buttons use app-no-drag.

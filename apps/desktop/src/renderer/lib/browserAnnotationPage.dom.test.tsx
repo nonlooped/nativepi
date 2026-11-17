@@ -19,10 +19,10 @@ test("captured structure identifies the exact sibling and omits all editable con
 test("frames and shadow hosts fail explicitly and text collection stays bounded", () => {
   const frame = document.createElement("iframe"); document.body.append(frame);
   document.elementFromPoint = () => frame;
-  expect(inspectAnnotationPoint(10, 20, true).error).toContain("Frames");
+  expect(inspectAnnotationPoint(10, 20, true).error).toContain("can’t be selected");
   const host = document.createElement("div"); host.attachShadow({ mode: "open" }); document.body.append(host);
   document.elementFromPoint = () => host;
-  expect(inspectAnnotationPoint(10, 20, true).error).toContain("shadow");
+  expect(inspectAnnotationPoint(10, 20, true).error).toContain("can’t be selected");
   const target = document.createElement("p"); target.textContent = "x".repeat(5000); document.body.append(target);
   document.elementFromPoint = () => target;
   expect(inspectAnnotationPoint(10, 20, true).element!.text).toHaveLength(600);
