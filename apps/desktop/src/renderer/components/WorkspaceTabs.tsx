@@ -4,6 +4,7 @@ import { createKeybindingsHandler } from "tinykeys";
 import { ChatCircleIcon } from "@phosphor-icons/react/ChatCircle";
 import { GitDiffIcon } from "@phosphor-icons/react/GitDiff";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
+import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { XIcon } from "@phosphor-icons/react/X";
 import { Button } from "./ui/button.tsx";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu.tsx";
@@ -24,21 +25,26 @@ export function useWorkspaceTabs() {
   const strip = useStore(controller.state, s => s.scopes[scope]);
   return { controller, strip };
 }
-export default function WorkspaceTabs({ children }: { children: React.ReactNode }) {
+export default function WorkspaceTabs({ children, onNew }: { children: React.ReactNode; onNew?: () => void }) {
   const useAppStore = usePaneStore();
   const { controller, strip } = useWorkspaceTabs();
   const buffers = useWorkspaceEditor(s => s.buffers);
-  const sessions = useAppStore(s => s.sessionsByProject[s.activeProjectPath ?? ""]);
+  const sessions = useAppStore(s => s.sessionsByProject);
   const conversations = useAppStore(s => s.conversations);
   const overrides = useAppStore(s => s.keybindingOverrides);
   const error = useStore(controller.state, s => s.error);
   const scope = useAppStore(tabScope);
+  const projects = useAppStore(s => s.projects);
+  const workRoot = useAppStore(s => s.workRoot);
+  const chatRoot = useAppStore(s => s.chatRoot);
   const [closing, setClosing] = useState<{ tab: WorkspaceTab; scope: string }>();
   useEffect(() => setClosing(undefined), [scope]);
   const root = useRef<HTMLDivElement>(null);
   const tabs = strip?.tabs ?? [];
-  const title = (tab: WorkspaceTab) => tab.kind === "file" ? tab.file.split(/[\\/]/).at(-1)! : tab.kind === "diff" ? `${tab.path.split(/[\\/]/).at(-1)} · ${tab.hash ? tab.hash.slice(0, 7) : tab.staged ? "Staged" : "Changes"}` : tab.session ? (() => { const session = sessions?.find(s => s.path === tab.session); return session ? chatTitle(session) : conversations[tab.session]?.sessionName || "Conversation"; })() : "New chat";
-  const bufferFor = (tab: WorkspaceTab) => tab.kind === "file" ? Object.values(buffers).find(b => b.projectDir === useAppStore.getState().activeProjectPath && b.file === tab.file) : undefined;
+  const mixedProjects = new Set(tabs.map(tab => tab.projectDir)).size > 1;
+  const projectName = (tab: WorkspaceTab) => tab.projectDir === workRoot ? "No project" : tab.projectDir === chatRoot ? "Chat" : projects.find(p => p.path === tab.projectDir)?.name ?? tab.projectDir.split(/[\\/]/).filter(Boolean).at(-1) ?? tab.projectDir;
+  const title = (tab: WorkspaceTab) => tab.kind === "file" ? tab.file.split(/[\\/]/).at(-1)! : tab.kind === "diff" ? `${tab.path.split(/[\\/]/).at(-1)} · ${tab.hash ? tab.hash.slice(0, 7) : tab.staged ? "Staged" : "Changes"}` : tab.session ? (() => { const session = sessions[tab.projectDir]?.find(s => s.path === tab.session); return session ? chatTitle(session) : conversations[tab.session]?.sessionName || "Conversation"; })() : "New chat";
+  const bufferFor = (tab: WorkspaceTab) => tab.kind === "file" ? Object.values(buffers).find(b => b.projectDir === tab.projectDir && b.file === tab.file) : undefined;
   const close = (tab: WorkspaceTab) => { if (controller.needsDiscard(tab)) setClosing({ tab, scope }); else void controller.close(tab); };
   const select = (tab: WorkspaceTab) => void controller.activate(tab);
   const move = (offset: number, focus = false) => {
@@ -68,20 +74,22 @@ export default function WorkspaceTabs({ children }: { children: React.ReactNode 
           const label = title(tab);
           const detail = tab.kind === "file" ? tab.file : tab.kind === "diff" ? `${tab.path}\n${tab.hash ? `Commit ${tab.hash}` : tab.staged ? "Live staged changes" : "Live unstaged changes"}` : "Conversation";
           return <div key={id} className={`group/tab relative flex h-7 max-w-56 min-w-28 shrink-0 items-center rounded-md ${selected ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted"}`} onPointerDown={event => { if (event.button === 1) event.preventDefault(); }} onAuxClick={event => { if (event.button === 1) close(tab); }}>
-            <Button role="tab" aria-selected={selected} tabIndex={selected ? 0 : -1} variant="ghost" size="sm" className="h-full min-w-0 flex-1 justify-start gap-2 rounded-md pr-8 pl-2 text-xs hover:bg-transparent" title={`${label}\n${detail}`} onClick={() => select(tab)}>
+            <Button role="tab" aria-selected={selected} tabIndex={selected ? 0 : -1} variant="ghost" size="sm" className="h-full min-w-0 flex-1 justify-start gap-2 rounded-md pr-8 pl-2 text-xs hover:bg-transparent" title={`${label}\n${projectName(tab)}\n${detail}`} onClick={() => select(tab)}>
               {tab.kind === "file" ? <FileTypeIcon path={tab.file} /> : tab.kind === "diff" ? <GitDiffIcon /> : <ChatCircleIcon />}
               <span className="truncate">{label}</span>
+              {mixedProjects ? <span className="max-w-20 truncate text-muted-foreground/70">{projectName(tab)}</span> : null}
               {dirty ? <span className="size-1.5 shrink-0 rounded-full bg-foreground/60" aria-label="Unsaved changes" /> : tab.kind === "thread" && tab.session && conversations[tab.session]?.running ? <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-label="Running" /> : null}
             </Button>
             <Button variant="ghost" size="icon-xs" className={`absolute right-1 size-5 ${selected ? "" : "opacity-0 group-hover/tab:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"}`} title={withHint("Close tab", "closeWorkspaceTab", overrides)} aria-label={`Close ${label}`} disabled={buffer?.saving} onClick={() => close(tab)}><XIcon className="size-3" /></Button>
           </div>;
         })}
       </div>
-      {tabs.length > 1 ? <DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" title="All open tabs" aria-label="All open tabs" />}><CaretDownIcon /></DropdownMenuTrigger><DropdownMenuContent align="end" className="max-h-80 w-72 overflow-auto">{tabs.map(tab => <DropdownMenuItem key={tabId(tab)} onClick={() => select(tab)}><span className="min-w-0 flex-1 truncate">{title(tab)}</span>{strip?.active === tabId(tab) ? <span className="text-xs text-muted-foreground">Active</span> : null}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu> : null}
+      {tabs.length > 1 ? <DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" title="All open tabs" aria-label="All open tabs" />}><CaretDownIcon /></DropdownMenuTrigger><DropdownMenuContent align="end" className="max-h-80 w-72 overflow-auto">{tabs.map(tab => <DropdownMenuItem key={tabId(tab)} onClick={() => select(tab)}><span className="min-w-0 flex-1 truncate" title={tab.projectDir}>{title(tab)}{mixedProjects ? <span className="ml-2 text-muted-foreground">{projectName(tab)}</span> : null}</span>{strip?.active === tabId(tab) ? <span className="text-xs text-muted-foreground">Active</span> : null}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu> : null}
+      {onNew ? <Button variant="ghost" size="icon-sm" title="New tab" aria-label="New tab" onClick={onNew}><PlusIcon /></Button> : null}
       <WorkspacePaneMenu />
     </div>
     {error ? <div role="alert" className="flex items-center gap-2 border-b px-3 py-2 text-xs text-destructive"><span className="min-w-0 flex-1">{error}</span><Button variant="ghost" size="xs" onClick={() => { const tab = tabs.find(t => tabId(t) === strip?.active); if (tab) select(tab); }}>Try again</Button></div> : null}
     {children}
-    <ConfirmDialog open={!!closing} title="Discard unsaved edits?" description="Your changes to this file will be discarded. Cancel to return and save them." detail={closing?.tab.kind === "file" ? closing.tab.file : undefined} confirmLabel="Discard edits" destructive onCancel={() => setClosing(undefined)} onConfirm={() => { if (closing && closing.scope === scope) void controller.close(closing.tab, true); setClosing(undefined); }} />
+    <ConfirmDialog open={!!closing} title="Discard unsaved edits?" description="Your changes to this file will be discarded. Cancel to return and save them." detail={closing?.tab.kind === "file" ? `${projectName(closing.tab)} / ${closing.tab.file}` : undefined} confirmLabel="Discard edits" destructive onCancel={() => setClosing(undefined)} onConfirm={() => { if (closing && closing.scope === scope) void controller.close(closing.tab, true); setClosing(undefined); }} />
   </div>;
 }

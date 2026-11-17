@@ -16,9 +16,9 @@ function pane(project = "/project") {
   });
   return app;
 }
-const thread = (session: string | null): WorkspaceTab => ({ kind: "thread", session });
-const file: WorkspaceTab = { kind: "file", file: "one.ts" };
-const diff: WorkspaceTab = { kind: "diff", path: "one.ts", staged: false };
+const thread = (session: string | null, projectDir = "/project"): WorkspaceTab => ({ kind: "thread", projectDir, session });
+const file: WorkspaceTab = { kind: "file", projectDir: "/project", file: "one.ts" };
+const diff: WorkspaceTab = { kind: "diff", projectDir: "/project", path: "one.ts", staged: false };
 function reader() { stubInvoke(async () => ({ text: "original", revision: "v1" })); }
 afterEach(() => { stores.splice(0).forEach(releasePaneStore); useWorkspaceEditor.setState({ buffers: {}, selected: {}, loading: {} }); });
 
@@ -75,10 +75,10 @@ test("a delayed file read cannot steal selection after returning to a thread or 
   finish({ text: "late", revision: "v1" }); await opening;
   expect(tabs.current().active).toBe(tabId(thread("a")));
   expect(useWorkspaceEditor.getState().selected[`${runtime(app.getState).paneId}:/project`]).toBeUndefined();
-  const more = tabs.activate({ kind: "file", file: "two.ts" });
+  const more = tabs.activate({ kind: "file", projectDir: "/project", file: "two.ts" });
   app.setState({ activeProjectPath: "/other" }); await app.getState().selectChat("other", "/other");
   finish({ text: "other late", revision: "v1" }); await more;
-  expect(tabs.current().tabs).toEqual([thread("other")]);
+  expect(tabs.current().tabs).toEqual([thread("a"), file, { kind: "file", projectDir: "/project", file: "two.ts" }, thread("other", "/other")]);
   await app.getState().selectChat("a", "/project");
   expect(tabs.current().tabs).toContainEqual(file);
 });
@@ -103,7 +103,7 @@ test("pane metadata restores tab order and a clean file lazily, with retryable e
 });
 
 
-test("project switches restore the previous file tab and unsaved buffer without changing another pane", async () => {
+test("project navigation leaves all tabs available and reopening a file preserves edits without changing another pane", async () => {
   const app = pane(), other = pane();
   const a = paneWorkspaceTabs(app), b = paneWorkspaceTabs(other);
   stubInvoke(async channel => {
@@ -116,8 +116,9 @@ test("project switches restore the previous file tab and unsaved buffer without 
   const key = Object.keys(useWorkspaceEditor.getState().buffers)[0]!;
   useWorkspaceEditor.getState().edit(key, "keep my work");
   await app.getState().selectProject("/other");
-  expect(a.current().tabs).toEqual([thread(null)]);
+  expect(a.current().tabs).toEqual([thread("a"), file, thread(null, "/other")]);
   await app.getState().selectProject("/project");
+  await a.activate(file);
   expect(a.current().active).toBe(tabId(file));
   expect(useWorkspaceEditor.getState().buffers[key]?.text).toBe("keep my work");
   expect(b.current().tabs).toEqual([thread("a")]);
@@ -144,4 +145,73 @@ test("closing a pane during a file read cannot publish a selection into the rele
   await opening;
   expect(useWorkspaceEditor.getState().selected[`${paneId}:/project`]).toBeUndefined();
   expect(useWorkspaceEditor.getState().loading[`${paneId}:/project`]).toBeUndefined();
+});
+
+test("four conversations from three projects stay in one strip, including project-free work, and can open from no selection", async () => {
+  const app = pane();
+  app.setState({ workRoot: "/free" });
+  const tabs = paneWorkspaceTabs(app);
+  await app.getState().selectChat("b", "/project");
+  await app.getState().selectChat("c", "/other");
+  await app.getState().selectChat("d", "/free");
+  expect(tabs.current().tabs).toEqual([thread("a"), thread("b"), thread("c", "/other"), thread("d", "/free")]);
+  await tabs.activate(thread("b"));
+  expect(app.getState()).toMatchObject({ activeProjectPath: "/project", activeSessionFile: "b" });
+  expect(tabs.current().tabs).toHaveLength(4);
+  app.setState({ activeProjectPath: null, activeSessionFile: null });
+  await tabs.activate(thread("c", "/other"));
+  expect(app.getState()).toMatchObject({ activeProjectPath: "/other", activeSessionFile: "c" });
+  expect(tabs.current().tabs).toHaveLength(4);
+  await tabs.close(thread("c", "/other"));
+  expect(app.getState()).toMatchObject({ activeProjectPath: "/free", activeSessionFile: "d" });
+});
+
+test("same-named files and diffs belong to their own folders; closing an inactive dirty file protects that file", async () => {
+  reader(); const app = pane(), tabs = paneWorkspaceTabs(app);
+  const otherFile = { ...file, projectDir: "/other" };
+  const otherDiff = { ...diff, projectDir: "/other" };
+  await tabs.activate(file);
+  const key = Object.keys(useWorkspaceEditor.getState().buffers)[0]!;
+  useWorkspaceEditor.getState().edit(key, "original project's edits");
+  await tabs.activate(otherFile);
+  await tabs.activate(otherDiff);
+  await tabs.activate(diff);
+  expect(tabs.current().tabs).toEqual([thread("a"), file, otherFile, otherDiff, diff]);
+  expect(app.getState().activeProjectPath).toBe("/project");
+  expect(app.getState().sourceControlReview).toMatchObject({ projectDir: "/project", path: "one.ts" });
+  await tabs.activate(otherDiff);
+  expect(tabs.needsDiscard(file)).toBe(true);
+  await tabs.close(file);
+  expect(tabs.current().tabs).toContainEqual(file);
+  expect(useWorkspaceEditor.getState().buffers[key]?.text).toBe("original project's edits");
+  expect(tabs.current().active).toBe(tabId(otherDiff));
+});
+
+test("persisted mixed-project tabs restore the selected file from a different starting folder without adding intermediate chats", async () => {
+  reader(); const app = pane("/start");
+  const otherFile = { ...file, projectDir: "/other" };
+  const tabs = paneWorkspaceTabs(app, workspaceTabsSchema.parse({ work: { tabs: [thread("a"), thread("b"), otherFile], active: tabId(otherFile) } }));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(app.getState().activeProjectPath).toBe("/other");
+  expect(tabs.current().tabs).toEqual([thread("a"), thread("b"), otherFile]);
+  expect(useWorkspaceEditor.getState().buffers[useWorkspaceEditor.getState().selected[`${runtime(app.getState).paneId}:/other`]!]?.file).toBe("one.ts");
+});
+
+test("old per-project tab metadata migrates into one strip without dropping same-project conversations", () => {
+  const metadata = workspaceTabsSchema.parse({
+    '["work","/project"]': { tabs: [{ kind: "thread", session: "a" }, { kind: "thread", session: "b" }], active: '{"kind":"thread","session":"b"}' },
+    '["work","/other"]': { tabs: [{ kind: "file", file: "one.ts" }], active: '{"kind":"file","file":"one.ts"}' },
+  });
+  expect(metadata.work?.tabs).toEqual([thread("a"), thread("b"), { kind: "file", file: "one.ts", projectDir: "/other" }]);
+  expect(metadata.work?.active).toBe(tabId({ kind: "file", file: "one.ts", projectDir: "/other" }));
+});
+
+
+test("restoration keeps tabs available without reopening a project when the startup preference is off", async () => {
+  const app = pane(); app.setState({ activeProjectPath: null, activeSessionFile: null, reopenLastProject: false });
+  const tabs = paneWorkspaceTabs(app, { work: { tabs: [thread("a")], active: tabId(thread("a")) } });
+  expect(app.getState().activeProjectPath).toBeNull();
+  expect(tabs.current()).toEqual({ tabs: [thread("a")], active: null });
+  await tabs.activate(thread("a"));
+  expect(app.getState()).toMatchObject({ activeProjectPath: "/project", activeSessionFile: "a" });
 });

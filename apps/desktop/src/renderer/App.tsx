@@ -2,6 +2,7 @@ import { BrowserPanel, useBrowserPanel } from "./components/BrowserPanel.tsx";
 import { usePaneView } from "./lib/paneView.ts";
 import { useWorkspacePanes } from "./lib/workspacePanes.ts";
 import { runtime } from "./lib/store/internals.ts";
+import WorkspaceDiff from "./components/WorkspaceDiff.tsx";
 import WorkspaceTabs, { useWorkspaceTabs } from "./components/WorkspaceTabs.tsx";
 import { tabId } from "./lib/workspaceTabs.ts";
 import WorkspaceEditor from "./components/WorkspaceEditor.tsx";
@@ -36,7 +37,6 @@ import { ExtensionConversationControls, ExtensionConversationView } from "./comp
 import DropZone from "./components/DropZone.tsx";
 import ExtensionUi from "./components/ExtensionUi.tsx";
 import NativePiWordmark from "./components/NativePiWordmark.tsx";
-import NavigationControls from "./components/NavigationControls.tsx";
 import ProjectStatus, { PiStartingNotice } from "./components/ProjectStatus.tsx";
 import QuitDialog from "./components/QuitDialog.tsx";
 import { UpdateInstallDialog, RecoveredWorkDialog } from "./components/WorkRecovery.tsx";
@@ -74,7 +74,6 @@ import { useWorkspaceLayout, useWorkspaceHeight, type WorkspaceLayout } from "./
 
 const ChatSearchDialog = lazy(() => import("./components/ChatSearchDialog.tsx"));
 const NewChatProjectDialog = lazy(() => import("./components/NewChatProjectDialog.tsx"));
-const SourceControlReview = lazy(() => import("./components/SourceControlReview.tsx"));
 const ContextPane = lazy(() => import("./components/ContextPane.tsx"));
 const TerminalDock = lazy(() => import("./components/TerminalDock.tsx"));
 const Transcript = lazy(() => import("./components/Transcript.tsx"));
@@ -500,17 +499,15 @@ export function ConversationSurface({ onStart }: { onStart: () => void }) {
   const { controller: tabsController, strip } = useWorkspaceTabs();
   const selectedTab = strip?.tabs.find(tab => tabId(tab) === strip.active);
   useEffect(() => setExtensionView(null), [activeProjectPath, activeSessionFile, selectionVersion]);
-  return <WorkspaceTabs>
+  return <WorkspaceTabs onNew={onStart}>
             {activeProjectPath ? (
               !selectedTab ? <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-sm text-muted-foreground"><p>No open tabs</p><Button variant="outline" size="sm" onClick={() => tabsController.record()}>Reopen conversation</Button></div> :
               selectedTab.kind === "file" && openingFile ? <div className="px-4"><StateNotice loading title={`Opening ${openingFile}…`} /></div> : selectedTab.kind === "file" && editorOpen ? <WorkspaceEditor projectDir={activeProjectPath} /> : null
             ) : null}
-            {activeProjectPath ? strip?.tabs.filter(tab => tab.kind === "diff").map(tab => {
+            {activeProjectPath ? strip?.tabs.filter(tab => tab.kind === "diff").filter(tab => tab.projectDir === activeProjectPath).map(tab => {
               const active = tabId(tab) === strip.active;
               const review = active && sourceControlReview?.projectDir === activeProjectPath ? sourceControlReview : { projectDir: activeProjectPath, path: tab.path, staged: tab.staged, hash: tab.hash };
-              return <div key={`${activeProjectPath}:${tabId(tab)}`} className={active ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
-                <Suspense fallback={<SurfaceLoading label="Loading diff…" />}><SourceControlReview review={review} /></Suspense>
-              </div>;
+              return <WorkspaceDiff key={tabId(tab)} tab={tab} review={review} active={active} />;
             }) : null}
             {activeProjectPath ? <div className={selectedTab?.kind === "thread" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
               {extensionView ? (
@@ -600,7 +597,6 @@ function WorkspaceHeader({
             <SidebarSimpleIcon className="size-[20px]" />
           </Button>
         ) : null}
-        {!sidebarDocked ? <div className="hidden @min-[30rem]/conversation:block"><NavigationControls /></div> : null}
         <div className="flex min-w-0 flex-1 items-center">
           {activeProjectPath ? (
             <div className="flex h-full min-w-0 items-center gap-3 text-sm">

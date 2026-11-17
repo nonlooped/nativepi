@@ -256,3 +256,13 @@ test("focus terminal moves from a conversation pane to the shared shell", async 
   await act(async () => composer.dispatchEvent(new KeyboardEvent("keydown", { key: "Y", code: "KeyY", ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true })));
   expect(document.activeElement).toBe(shell);
 });
+
+
+test("workspace tabs replace back/forward controls and retain conversation locations across projects", async () => {
+  await mount();
+  await act(async () => useAppStore.setState(s => ({ activeProjectPath: "/other", activeSessionFile: "other-thread", selectionVersion: s.selectionVersion + 1 })));
+  expect(container.querySelector('[aria-label="Go back"]')).toBeNull();
+  expect(container.querySelector('[aria-label="Go forward"]')).toBeNull();
+  expect(container.querySelectorAll('[role="tab"]') .length).toBeGreaterThanOrEqual(2);
+  expect(container.querySelector('[aria-label="New tab"]')).not.toBeNull();
+});

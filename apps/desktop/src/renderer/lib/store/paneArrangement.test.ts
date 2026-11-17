@@ -24,9 +24,9 @@ test("startup restoration respects the Work preference for every pane while pres
 
 
 test("corrupt tab metadata cannot destroy a valid pane arrangement, and stale active ids fall back to an open tab", () => {
-  const base = { orientation: "horizontal", active: 0, panes: [{ project: "/project", session: "a", tabs: { project: { tabs: [{ kind: "unknown" }], active: "stale" } } }] };
+  const base = { orientation: "horizontal", active: 0, panes: [{ project: "/project", session: "a", tabs: { work: { tabs: [{ kind: "unknown" }], active: "stale" } } }] };
   const restored = paneArrangementSchema.parse(base);
   expect(restored.panes[0]).toEqual({ project: "/project", session: "a", tabs: {} });
-  const clean = paneArrangementSchema.parse({ ...base, panes: [{ project: "/project", session: "a", tabs: { project: { tabs: [{ kind: "thread", session: "a" }, { kind: "thread", session: "a" }], active: "missing" } } }] });
-  expect(clean.panes[0]?.tabs?.project).toEqual({ tabs: [{ kind: "thread", session: "a" }], active: '{"kind":"thread","session":"a"}' });
+  const clean = paneArrangementSchema.parse({ ...base, panes: [{ project: "/project", session: "a", tabs: { work: { tabs: [{ kind: "thread", projectDir: "/project", session: "a" }, { kind: "thread", projectDir: "/project", session: "a" }], active: "missing" } } }] });
+  expect(clean.panes[0]?.tabs?.work).toEqual({ tabs: [{ kind: "thread", session: "a", projectDir: "/project" }], active: '["thread","/project","a"]' });
 });

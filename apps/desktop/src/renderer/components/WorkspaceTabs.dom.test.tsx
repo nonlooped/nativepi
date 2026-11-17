@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { stubInvoke } from "../lib/store/testBridge.ts";
 import { createPaneStore, PaneStoreContext, releasePaneStore, type PaneStore } from "../lib/store.ts";
-import { paneWorkspaceTabs } from "../lib/workspaceTabs.ts";
+import { paneWorkspaceTabs, tabId } from "../lib/workspaceTabs.ts";
 import { useWorkspaceEditor } from "../lib/workspaceEditor.ts";
 mock.module("./FileTypeIcon.tsx", () => ({ default: () => null }));
 const { default: WorkspaceTabs } = await import("./WorkspaceTabs.tsx");
@@ -19,7 +19,7 @@ async function mount() {
     keybindingOverrides: { nextWorkspaceTab: "Alt+KeyN", closeWorkspaceTab: "Alt+KeyW" },
   });
   const tabs = paneWorkspaceTabs(app);
-  await tabs.activate({ kind: "thread", session: "b" }); await tabs.activate({ kind: "file", file: "one.ts" });
+  await tabs.activate({ kind: "thread", projectDir: "/project", session: "b" }); await tabs.activate({ kind: "file", projectDir: "/project", file: "one.ts" });
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<PaneStoreContext value={app}><WorkspaceTabs><input aria-label="Editor" /></WorkspaceTabs></PaneStoreContext>));
   return tabs;
@@ -48,4 +48,18 @@ test("rebound tab shortcuts work from content, respect dialogs, and arrow naviga
   const dialog = document.createElement("div"); dialog.setAttribute("role", "dialog"); document.body.append(dialog);
   await key(input, "w", "KeyW", true); expect(active()).toBe("Review settings"); dialog.remove();
   await key(input, "w", "KeyW", true); expect(active()).toContain("one.ts");
+});
+
+
+test("restoring mixed-project tabs loads their names even when another folder is selected", async () => {
+  await mount();
+  await act(async () => {
+    app.setState({ sessionsByProject: {}, sessionLoadStates: {}, refreshSessions: async project => {
+      await Promise.resolve();
+      app.setState(s => ({ sessionsByProject: { ...s.sessionsByProject, [project]: [{ path: project === "/other" ? "c" : "a", name: project === "/other" ? "Migration" : "Release" }] as any }, sessionLoadStates: { ...s.sessionLoadStates, [project]: "loaded" } }));
+    } });
+    const other = { kind: "thread" as const, projectDir: "/other", session: "c" };
+    paneWorkspaceTabs(app, { work: { tabs: [{ kind: "thread", projectDir: "/project", session: "a" }, other], active: tabId({ kind: "thread", projectDir: "/project", session: "a" }) } });
+  });
+  expect([...container.querySelectorAll('[role="tab"]')].map(tab => tab.textContent)).toEqual(["Releaseproject", "Migrationother"]);
 });
