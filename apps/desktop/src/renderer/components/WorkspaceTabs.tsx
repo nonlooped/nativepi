@@ -115,7 +115,7 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
         {visibleTabs.map(tab => {
           const id = tabId(tab), selected = strip?.active === id, buffer = bufferFor(tab), dirty = buffer && buffer.text !== buffer.saved;
           const label = title(tab);
-          const context = selected || (mixedProjects && tab.projectDir !== currentProject) ? projectName(tab) : undefined;
+          const context = !selected && mixedProjects && tab.projectDir !== currentProject ? projectName(tab) : undefined;
           const detail = tab.kind === "file" ? tab.file : tab.kind === "diff" ? `${tab.path}\n${tab.hash ? `Commit ${tab.hash}` : tab.staged ? "Live staged changes" : "Live unstaged changes"}` : "Conversation";
           return <div key={id} className="group/tab relative w-44 min-w-0" onPointerDown={event => { if (event.button === 1) event.preventDefault(); }} onAuxClick={event => { if (event.button === 1) close(tab); }}>
             <Button role="tab" aria-label={label} aria-selected={selected} tabIndex={selected ? 0 : -1} variant="ghost"

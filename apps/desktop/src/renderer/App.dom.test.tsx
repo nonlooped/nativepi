@@ -132,14 +132,16 @@ test("completed user resizes save all three dimensions, while automatic layouts 
 });
 
 
-test("the integrated tab header retains active project context when switching folders", async () => {
+test("the integrated tab shows the active project's name on hover when switching folders", async () => {
   await mount();
   const selected = () => container.querySelector('header [role="tab"][aria-selected="true"]');
-  expect(selected()?.textContent).toContain("Project");
+  expect(selected()?.getAttribute("title")?.split("\n")[1]).toBe("Project");
+  expect(selected()?.textContent).not.toContain("Project");
   await act(async () => useAppStore.setState(s => ({
     projects: [{ path: "/other", name: "Other" }], activeProjectPath: "/other", selectionVersion: s.selectionVersion + 1,
   })));
-  expect(selected()?.textContent).toContain("Other");
+  expect(selected()?.getAttribute("title")?.split("\n")[1]).toBe("Other");
+  expect(selected()?.textContent).not.toContain("Other");
   expect(container.querySelectorAll('[role="tablist"]')).toHaveLength(1);
 });
 

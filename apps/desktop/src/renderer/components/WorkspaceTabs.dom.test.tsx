@@ -70,7 +70,7 @@ test("restoring mixed-project tabs shows each thread's name and project icon", a
   const tabs = [...container.querySelectorAll('[role="tab"]')];
   expect(tabs.map(tab => tab.getAttribute("aria-label"))).toEqual(["Release", "Migration"]);
   expect(tabs.map(tab => tab.querySelector("img")?.getAttribute("src"))).toEqual([firstIcon, otherIcon]);
-  expect(tabs[0]?.textContent).toContain("Releaseproject");
+  expect(tabs[0]?.textContent).not.toContain("project");
   expect(tabs[1]?.textContent).toContain("Migrationother");
 });
 
