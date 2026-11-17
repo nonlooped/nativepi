@@ -8,7 +8,7 @@ import { DictationButton, DictationFeedback } from "./DictationControls.tsx";
 import { ArrowBendUpRightIcon, PaperPlaneRightIcon } from "../../shared/icons.ts"
 import { PaperclipIcon } from "@phosphor-icons/react/Paperclip";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { draftKeyFor } from "../../shared/messages.ts";
+import { composerKey } from "../lib/draftThreads.ts";
 import { classifyDrop, draggingFiles, mentionPath } from "../lib/drops.ts";
 import { activeConversation, useAppStore } from "../lib/store.ts";
 import { offeredPromptSuggestion } from "../lib/store/conversation.ts";
@@ -38,9 +38,8 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
   const dictation = useDictation(composerRoot);
   const dictating = dictation.phase !== "idle";
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
-  const activeSessionFile = useAppStore((s) => s.activeSessionFile);
   const draft = useAppStore((s) =>
-    activeProjectPath ? (s.drafts[draftKeyFor(activeProjectPath, activeSessionFile)] ?? "") : "",
+    activeProjectPath ? (s.drafts[composerKey(s)] ?? "") : "",
   );
   const running = useAppStore((s) => activeConversation(s).running);
   const suggestion = useAppStore((s) => s.preferences.promptSuggestions && s.extPrompts.length === 0
@@ -52,13 +51,13 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
   const enqueue = useAppStore((s) => s.enqueue);
   const behavior = useAppStore((s) => s.sendBehavior);
   const attached = useAppStore(
-    (s) => (activeProjectPath ? (s.attachments[draftKeyFor(activeProjectPath, activeSessionFile)]?.length ?? 0) : 0),
+    (s) => (activeProjectPath ? (s.attachments[composerKey(s)]?.length ?? 0) : 0),
   );
   const attach = useAppStore((s) => s.attach);
   const openProjectPath = useAppStore((s) => s.openProjectPath);
   const importSession = useAppStore((s) => s.importSession);
   const preparing = useAppStore(
-    (s) => (activeProjectPath ? (s.preparing[draftKeyFor(activeProjectPath, activeSessionFile)] ?? 0) : 0),
+    (s) => (activeProjectPath ? (s.preparing[composerKey(s)] ?? 0) : 0),
   );
   const editorSurface = useAppStore((s) => s.extSurfaces.find((surface) => surface.placement === "editor"));
   const prevHadEditorSurface = useRef(!!editorSurface);

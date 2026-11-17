@@ -1,5 +1,6 @@
 import { clientIdentity } from "../clientIdentity.ts";
 import type { NativePiState } from "../../../shared/rpc-schema.ts";
+import { composerKey } from "../draftThreads.ts";
 import { draftKeyFor } from "../../../shared/messages.ts";
 import { isRemote, rpc } from "../rpc.ts";
 
@@ -105,11 +106,15 @@ export function reportDraft(get: GetState, projectDir: string | null, sessionFil
   reports.set(key, timer);
 }
 
-export function writeDraft(set: SetState, get: GetState, projectDir: string | null, sessionFile: string | null, text: string): void {
-  const key = draftKeyFor(projectDir, sessionFile);
-  set(state => ({ drafts: { ...state.drafts, [key]: text } }));
+export function writeDraft(set: SetState, get: GetState, projectDir: string | null, sessionFile: string | null, text: string, key = composerKey(get(), projectDir, sessionFile)): void {
+  set(state => {
+    const drafts = { ...state.drafts };
+    if (text || sessionFile) drafts[key] = text;
+    else delete drafts[key];
+    return { drafts };
+  });
   persist(get);
-  reportDraft(get, projectDir, sessionFile, text);
+  if (key === composerKey(get(), projectDir, sessionFile)) reportDraft(get, projectDir, sessionFile, text);
 }
 
 /** When git was last refreshed, so a busy turn cannot spam `git status`. */
@@ -271,7 +276,7 @@ export function persist(get: GetState): void {
 /** Where the current composer draft is stored. */
 export function draftKey(get: GetState): string {
   const s = get();
-  return draftKeyFor(s.activeProjectPath, s.activeSessionFile);
+  return composerKey(s);
 }
 
 /** Authoritative reads and model controls supersede both model and levels work. */

@@ -287,3 +287,26 @@ test("returning to a destination draft opens only the draft even when history ha
   await app.getState().setDestination("chat");
   expect(tabs.current().tabs).toEqual([thread("a"), thread(null, "/chat")]);
 });
+
+test("two unsent threads in one project reopen independently and clearing one leaves its composer editable", async () => {
+  const app = pane();
+  const tabs = paneWorkspaceTabs(app);
+  const project = "/project";
+  const { composerKey, draftThreads } = await import("../draftThreads.ts");
+  await app.getState().newChatIn(project);
+  app.getState().setDraft("First idea");
+  await app.getState().newChatIn(project);
+  expect(app.getState().drafts[composerKey(app.getState())]).toBeUndefined();
+  app.getState().setDraft("Second idea");
+  const second = tabs.current().tabs.at(-1)!;
+  await tabs.activate(thread(null));
+  expect(app.getState().drafts[composerKey(app.getState())]).toBe("First idea");
+  app.getState().setDraft("");
+  expect(tabs.current().tabs).toEqual([thread("a"), second]);
+  expect(draftThreads(app.getState().drafts).map(d => d.text)).toEqual(["Second idea"]);
+  expect(tabs.state.getState().emptyComposer).toBe(true);
+  app.getState().setDraft("Revised idea");
+  expect(tabs.current().active).toBe(tabId(thread(null)));
+  await tabs.activate(second);
+  expect(app.getState().drafts[composerKey(app.getState())]).toBe("Second idea");
+});

@@ -151,7 +151,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       const s = get(); if (!s.chatRoot) return;
       // Retain the folder and remaining memberships if any session cannot be deleted.
       for (const [session, folder] of Object.entries(s.chatFolderBySession)) {
-        if (folder !== id || session === s.chatRoot) continue;
+        if (folder !== id || session === s.chatRoot || session.startsWith("new:") || session.startsWith("draft:")) continue;
         const result = await get().deleteChat(session, s.chatRoot);
         if (!result.ok) throw new Error(result.error ?? "A chat could not be deleted.");
         if (get().sessionsByProject[s.chatRoot]?.some(value => value.path === session)) throw new Error("A chat could not be deleted. The folder has been retained.");

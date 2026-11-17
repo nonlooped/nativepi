@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useEffectEvent, useLayoutEffect, 
 import { createPortal } from "react-dom";
 import { useStore } from "zustand";
 import { createKeybindingsHandler } from "tinykeys";
+import { draftTitle, threadDraftKey } from "../lib/draftThreads.ts";
+import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
 import { ChatCircleIcon } from "@phosphor-icons/react/ChatCircle";
 import { GitDiffIcon } from "@phosphor-icons/react/GitDiff";
 import { CaretDownIcon } from "@phosphor-icons/react/CaretDown";
@@ -38,6 +40,8 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
   const useAppStore = usePaneStore();
   const { controller, strip } = useWorkspaceTabs();
   const buffers = useWorkspaceEditor(s => s.buffers);
+  const drafts = useAppStore(s => s.drafts);
+  const textFor = (tab: WorkspaceTab) => tab.kind === "thread" && !tab.session ? drafts[threadDraftKey(tab.projectDir, tab.draftId)]?.trim() : undefined;
   const sessions = useAppStore(s => s.sessionsByProject);
   const conversations = useAppStore(s => s.conversations);
   const overrides = useAppStore(s => s.keybindingOverrides);
@@ -85,12 +89,22 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
   const mixedProjects = new Set(tabs.map(tab => tab.projectDir)).size > 1;
   const projectName = (tab: WorkspaceTab) => tab.projectDir === workRoot ? "No project" : tab.projectDir === chatRoot ? "Chat" : projects.find(p => p.path === tab.projectDir)?.name ?? tab.projectDir.split(/[\\/]/).filter(Boolean).at(-1) ?? tab.projectDir;
   const icon = (tab: WorkspaceTab) => {
+    if (textFor(tab)) return <NotePencilIcon className="size-4 text-muted-foreground" />;
     if (tab.kind === "file") return <FileTypeIcon path={tab.file} />;
     if (tab.kind === "diff") return <GitDiffIcon className="size-4" />;
     if (tab.projectDir === workRoot || tab.projectDir === chatRoot) return <ChatCircleIcon className="size-4" />;
     return <ProjectIcon name={projectName(tab)} src={host?.projectPresentation[tab.projectDir]?.icon} className="size-4 leading-none" />;
   };
-  const title = (tab: WorkspaceTab) => tab.kind === "file" ? tab.file.split(/[\\/]/).at(-1)! : tab.kind === "diff" ? `${tab.path.split(/[\\/]/).at(-1)} · ${tab.hash ? tab.hash.slice(0, 7) : tab.staged ? "Staged" : "Changes"}` : tab.session ? (() => { const session = sessions[tab.projectDir]?.find(s => s.path === tab.session); return session ? chatTitle(session) : conversations[tab.session]?.sessionName || "Conversation"; })() : "New chat";
+  function title(tab: WorkspaceTab) {
+    if (tab.kind === "file") return tab.file.split(/[\\/]/).at(-1)!;
+    if (tab.kind === "diff") return `${tab.path.split(/[\\/]/).at(-1)} · ${tab.hash ? tab.hash.slice(0, 7) : tab.staged ? "Staged" : "Changes"}`;
+    if (!tab.session) {
+      const text = textFor(tab);
+      return text ? draftTitle(text) : "New chat";
+    }
+    const session = sessions[tab.projectDir]?.find(s => s.path === tab.session);
+    return session ? chatTitle(session) : conversations[tab.session]?.sessionName || "Conversation";
+  }
   const bufferFor = (tab: WorkspaceTab) => tab.kind === "file" ? Object.values(buffers).find(b => b.projectDir === tab.projectDir && b.file === tab.file) : undefined;
   const close = (tab: WorkspaceTab) => { if (controller.needsDiscard(tab)) setClosing({ tab, scope }); else void controller.close(tab); };
   const select = (tab: WorkspaceTab) => void controller.activate(tab);

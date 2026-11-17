@@ -189,6 +189,7 @@ export interface ChatSlice {
   conversations: Record<string, Conversation>;
   sendBehavior: "steer" | "followUp";
 
+  projectDraftIds: Record<string, string | undefined>;
   drafts: Record<string, string>;
   /**
    * Images waiting to go out with the draft they were added to, under the same
@@ -209,7 +210,7 @@ export interface ChatSlice {
   returnChatToFocus: (sessionFile: string) => void;
   selectChat: (sessionFile: string, projectDir?: string) => Promise<void>;
   newChat: () => void;
-  newChatIn: (projectDir: string) => Promise<void>;
+  newChatIn: (projectDir: string, resume?: { draftId?: string }) => Promise<void>;
   importSession: (projectDir?: string, sourceFile?: string) => Promise<boolean>;
   setDraft: (text: string) => void;
   quoteInReply: (text: string, source?: { session: string; entry: string }) => void;
