@@ -226,6 +226,29 @@ domTest("long chip labels and drafts retain raw references and caret offsets aft
   expect(caretOffset(editor)).toBe(draft.length + 7);
 });
 
+domTest("browser annotation chips survive editing and support explicit removal without losing other draft text", async () => {
+  const { annotationToken } = await import("../../shared/browserAnnotation.ts");
+  const annotation = {
+    version: 1 as const, id: "00000000-0000-4000-8000-000000000001", browser: "00000000-0000-4000-8000-000000000002", tab: "00000000-0000-4000-8000-000000000003",
+    title: "Store", url: "http://localhost:8080/cart", capturedAt: "2026-11-17T00:00:00.000Z",
+    element: { selector: "button:nth-of-type(2)", tag: "button", text: "Buy", attributes: {} },
+  };
+  mount();
+  const token = annotationToken(annotation);
+  let draft = `Change ${token} and ${token} please`;
+  const change = (text: string) => { draft = text; };
+  let submitted = false;
+  await act(async () => root!.render(<ComposerInput value={draft} onChange={change} onSubmit={() => { submitted = true; }} onAttach={() => {}} projectPath="/project" placeholder="Ask Pi" disabled={false} />));
+  expect(serialize(container.querySelector('[data-composer-input]')!)).toBe(draft);
+  const remove = container.querySelector('button[aria-label="Remove Buy"]') as HTMLButtonElement;
+  await act(async () => remove.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+  expect(submitted).toBe(false);
+  expect(draft).toBe(`Change  and ${token} please`);
+  expect(container.querySelectorAll('[data-chip="browser"]').length).toBe(1);
+  await act(async () => (container.querySelector('[data-remove-annotation]') as HTMLButtonElement).click());
+  expect(draft).toBe("Change  and  please");
+});
+
 domTest("compacting and refocusing retains the editor, draft chips and selection", async () => {
   mount();
   stubInvoke(async () => ({}));

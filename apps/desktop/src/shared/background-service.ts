@@ -1,3 +1,4 @@
+import { browserAnnotationTargetSchema } from "./browserAnnotation.ts";
 import { preferencesSchema } from "./rpc-schema.ts";
 import { z } from "zod";
 // Increment when request/event semantics cease to be compatible. App versions
@@ -10,6 +11,7 @@ export interface ServiceStatus { running: boolean; compatible: boolean; version?
 export const browserRelaySchema = z.object({
   type: z.literal("browser"), id: z.string().uuid(), browser: z.string().uuid(),
   method: z.enum(["show", "setOwner", "run", "chrome", "cancel", "dispose"]),
+  annotationTarget: browserAnnotationTargetSchema.optional(),
   ownerTitle: z.string().max(200).optional(),
   input: z.unknown().optional(), preferences: preferencesSchema.optional(),
 });

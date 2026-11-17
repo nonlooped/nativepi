@@ -10,9 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.21.0] - 2026-11-17
 
 ### Added
+- Select page elements in the live browser and attach removable references to a chat draft. Captured page identity, locators and bounded element context travel with messages to Pi; picking never activates the page’s controls.
 - Managed task workspaces with explicit chat isolation/base selection, reusable setup/run/check actions, opt-in local file preparation, coordinated ports, action recovery and conservative workspace retirement.
 
 ### Changed
+- Keep browser element selection in the existing toolbar, with a quiet themed hint and compact, name-first composer references. Long labels truncate without hiding removal controls; successful picks add no status banner.
 - Keep existing-thread composers compact while reading, with ellipsized draft previews and stable Send/Dictate targets on focus. Preserve drafts, selections and composer menus; new chats keep the full composer.
 - Refine keyboard defaults, protect dialogs, typing and terminal focus, make file commands rebindable, add a shared-browser shortcut, and offer compact shortcut action menus in Settings while preserving saved custom keys.
 - Keep Files and Source control navigation immediate, show welcome controls together without a delayed entrance, and cancel navigation snapshots immediately when reduced motion is enabled.
@@ -43,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Open Usage, Automations, and device sharing directly from icon buttons beside Settings in the sidebar. Simplify usage summaries and keep input/cache breakdowns limited to recorded all-time totals.
 
 ### Fixed
+- Keep live browser views aligned with their panel after window resizing, including narrow layouts where native views previously retained their old bounds.
 - Keep browser toolbar buttons clickable on macOS and reserve the actual Windows/Linux window-control row above the browser. Collapse the browser panel in place so closing it restores the conversation header and layout.
 - Coordinate update confirmation, draft saves and background shutdown; recover unsent drafts and unsaved file edits after a renderer failure or update restart without overwriting changed files.
 - Explain that sharing and automations continue after the window closes, and show shared-link control permissions before activation.

@@ -268,6 +268,7 @@ export class PiProcess {
     const {SharedBrowser} = await import("../browser/relay.ts");
     this.browser ??= new SharedBrowser();
     this.browser.setOwner(this.browserTitle);
+    this.browser.annotationTarget = this.boundSessionFile ? { projectDir: this.projectDir, sessionFile: this.boundSessionFile } : undefined;
     if (url) { await this.browser.chrome({ action: "open", url }); return; }
     await this.browser.show();
   }
@@ -284,6 +285,7 @@ export class PiProcess {
       if (controller.signal.aborted) throw new Error("Browser cancelled.");
       this.browser ??= new SharedBrowser();
       this.browser.setOwner(this.browserTitle);
+      this.browser.annotationTarget = this.boundSessionFile ? { projectDir: this.projectDir, sessionFile: this.boundSessionFile } : undefined;
       const data = await this.browser.run(operation,controller.signal);
       const image = operation.action === "screenshot" ? (data as {image: unknown}).image : undefined;
       const result = browserResult.parse(JSON.parse(JSON.stringify({ok:true,data: image ? {tab:operation.action === "screenshot" ? operation.tab : undefined} : data,image})));

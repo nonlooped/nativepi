@@ -92,9 +92,15 @@ export const browserChromeActionSchema = z.object({
     "new",
     "openExternal",
     "dismissNotice",
+    "annotate",
+    "cancelAnnotation",
+    "annotationPoint",
   ]),
   tab: z.string().uuid().optional(),
   url: browserUrl.optional(),
+  x: z.number().int().min(0).max(16000).optional(),
+  y: z.number().int().min(0).max(16000).optional(),
+  capture: z.boolean().optional(),
   height: z.number().int().min(40).max(1600).optional(),
 });
 export const browserChromeStateSchema = z.object({
@@ -105,6 +111,7 @@ export const browserChromeStateSchema = z.object({
     .max(8),
   active: z.string().uuid().optional(),
   url: z.string().max(8192),
+  selecting: z.boolean().optional(),
   handoff: z.boolean(),
   loading: z.boolean(),
   error: z.string().max(1000).optional(),
