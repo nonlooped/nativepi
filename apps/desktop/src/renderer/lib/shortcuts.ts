@@ -215,7 +215,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: "resetScale",
     binding: "$mod+Alt+Digit0",
     label: "Reset interface scale",
-    description: "Return to the default 110% scale.",
+    description: "Return to the default interface scale.",
     group: "Application",
   },
   {
