@@ -2,7 +2,7 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { stubInvoke } from "../lib/store/testBridge.ts";
-import { createPaneStore, PaneStoreContext, releasePaneStore, type PaneStore } from "../lib/store.ts";
+import { createPaneStore, focusPaneStore, PaneStoreContext, releasePaneStore, type PaneStore } from "../lib/store.ts";
 import { paneWorkspaceTabs, tabId } from "../lib/workspaceTabs.ts";
 import { useWorkspaceEditor } from "../lib/workspaceEditor.ts";
 mock.module("./FileTypeIcon.tsx", () => ({ default: () => null }));
@@ -11,9 +11,10 @@ globalThis.requestAnimationFrame = window.requestAnimationFrame.bind(window);
 globalThis.cancelAnimationFrame = window.cancelAnimationFrame.bind(window);
 let root: Root, container: HTMLDivElement, app: PaneStore;
 afterEach(async () => { if (root) await act(async () => root.unmount()); container?.remove(); if (app) releasePaneStore(app); useWorkspaceEditor.setState({ buffers: {}, selected: {}, loading: {} }); });
-async function mount(projectPresentation = {}) {
+async function mount(projectPresentation = {}, onNew?: () => void) {
   stubInvoke(async () => ({ text: "saved", revision: "v1" }));
   app = createPaneStore();
+  focusPaneStore(app);
   app.setState({ ready: true, activeProjectPath: "/project", activeSessionFile: "a", sessionsByProject: { "/project": [{ path: "a", name: "Plan release", providers: [] }, { path: "b", name: "Review settings", providers: [] }] as any },
     selectChat: async session => { app.setState(s => ({ activeSessionFile: session, selectionVersion: s.selectionVersion + 1 })); },
     keybindingOverrides: { nextWorkspaceTab: "Alt+KeyN", closeWorkspaceTab: "Alt+KeyW" },
@@ -23,7 +24,7 @@ async function mount(projectPresentation = {}) {
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<PaneStoreContext value={app}>
     <WorkspaceTabHostContext value={{ integrated: false, element: null, projectPresentation }}>
-      <WorkspaceTabs><input aria-label="Editor" /></WorkspaceTabs>
+      <WorkspaceTabs onNew={onNew}><input aria-label="Editor" /></WorkspaceTabs>
     </WorkspaceTabHostContext>
   </PaneStoreContext>));
   return tabs;
@@ -33,7 +34,9 @@ function active() { return container.querySelector('[role="tab"][aria-selected="
 test("tab close asks before discarding edits; cancel keeps the buffer and discard selects its neighbour", async () => {
   await mount(); const key = Object.keys(useWorkspaceEditor.getState().buffers)[0]!;
   await act(async () => useWorkspaceEditor.getState().edit(key, "unsaved"));
-  await act(async () => button("Close one.ts").click());
+  await act(() => container.querySelector("input")!.dispatchEvent(new KeyboardEvent("keydown", {
+    key: "w", code: "KeyW", altKey: true, bubbles: true, cancelable: true,
+  })));
   expect(document.querySelector('[role="alertdialog"]')?.textContent).toContain("Discard unsaved edits?");
   await act(async () => button("Cancel").click());
   expect(active()).toContain("one.ts"); expect(useWorkspaceEditor.getState().buffers[key]?.text).toBe("unsaved");
@@ -52,6 +55,41 @@ test("rebound tab shortcuts work from content, respect dialogs, and arrow naviga
   const dialog = document.createElement("div"); dialog.setAttribute("role", "dialog"); document.body.append(dialog);
   await key(input, "w", "KeyW", true); expect(active()).toBe("Review settings"); dialog.remove();
   await key(input, "w", "KeyW", true); expect(active()).toContain("one.ts");
+});
+
+test("default tab shortcuts work from outside the strip and only affect the focused pane", async () => {
+  let opened = 0;
+  await mount({}, () => { opened++; });
+  const other = createPaneStore();
+  const outside = document.createElement("button");
+  document.body.append(outside);
+  outside.focus();
+  const mod = /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? { metaKey: true } : { ctrlKey: true };
+  const press = (keys: KeyboardEventInit) => act(async () => {
+    outside.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...keys }));
+  });
+  const next = { key: "Tab", code: "Tab", ctrlKey: true };
+  const close = { key: "w", code: "KeyW", ...mod };
+  try {
+    await act(() => app.setState({ keybindingOverrides: {} }));
+    focusPaneStore(other);
+    await press(next);
+    expect(active()).toBe("one.ts");
+    focusPaneStore(app);
+    await press(next);
+    expect(active()).toBe("Plan release");
+    await press({ ...next, shiftKey: true });
+    expect(active()).toBe("one.ts");
+    await press(close);
+    expect(active()).toBe("Review settings");
+    await press({ ...close, repeat: true });
+    expect(active()).toBe("Review settings");
+    await press({ key: "t", code: "KeyT", ...mod });
+    expect(opened).toBe(1);
+  } finally {
+    outside.remove();
+    releasePaneStore(other);
+  }
 });
 
 

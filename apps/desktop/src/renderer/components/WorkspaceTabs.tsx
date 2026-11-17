@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useStore } from "zustand";
 import { createKeybindingsHandler } from "tinykeys";
@@ -13,7 +13,7 @@ import ConfirmDialog from "./ConfirmDialog.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
 import ProjectIcon from "./ProjectIcon.tsx";
 import WorkspacePaneMenu from "./WorkspacePaneMenu.tsx";
-import { usePaneStore } from "../lib/store.ts";
+import { focusedPaneStore, usePaneStore } from "../lib/store.ts";
 import { paneWorkspaceTabs, tabId, tabScope, type WorkspaceTab } from "../lib/workspaceTabs.ts";
 import { useWorkspaceEditor } from "../lib/workspaceEditor.ts";
 import { chatTitle } from "../lib/transcript.ts";
@@ -102,6 +102,31 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
     select(next);
     if (focus) requestAnimationFrame(() => bar.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus());
   };
+  const runShortcut = useEffectEvent((action: "new" | "next" | "previous" | "close", event: KeyboardEvent) => {
+    if (useAppStore !== focusedPaneStore() || workspaceShortcutsBlocked()) return;
+    const active = tabs[activeIndex];
+    const run = {
+      new: onNew,
+      next: active && (() => move(1)),
+      previous: active && (() => move(-1)),
+      close: active && (() => close(active)),
+    }[action];
+    if (!run) return;
+    event.preventDefault();
+    event.stopPropagation();
+    run();
+  });
+  useEffect(() => {
+    // Capture before a focused editor or terminal handles the same keystroke.
+    const handler = createKeybindingsHandler(bindings({
+      newWorkspaceTab: event => runShortcut("new", event),
+      nextWorkspaceTab: event => runShortcut("next", event),
+      previousWorkspaceTab: event => runShortcut("previous", event),
+      closeWorkspaceTab: event => runShortcut("close", event),
+    }, overrides), { ignore: event => event.isComposing });
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [overrides]);
   const tabBar = <div ref={bar} className={cn("flex min-w-0 shrink-0 items-center gap-1", host?.integrated ? "h-full" : "h-10 border-b border-border/60 px-2 [[data-pane-active=true]_&]:bg-muted/30")}>
     <div ref={lane} className="flex min-w-0 flex-1 items-center gap-1">
       {tabs.length > 0 && <div role="tablist" aria-label="Workspace tabs" className={cn(NO_DRAG_REGION, "flex min-w-0 items-center gap-0.5")} onKeyDown={event => {
@@ -144,18 +169,11 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu> : null}
-      {onNew ? <Button variant="ghost" size="icon-sm" className={NO_DRAG_REGION} title="New tab" aria-label="New tab" onClick={onNew}><PlusIcon /></Button> : null}
+      {onNew ? <Button variant="ghost" size="icon-sm" className={NO_DRAG_REGION} title={withHint("New tab", "newWorkspaceTab", overrides)} aria-label="New tab" onClick={onNew}><PlusIcon /></Button> : null}
     </div>
     <WorkspacePaneMenu />
   </div>;
-  return <div className="flex min-h-0 min-w-0 flex-1 flex-col" onKeyDownCapture={event => {
-    if (workspaceShortcutsBlocked() || event.nativeEvent.isComposing) return;
-    createKeybindingsHandler(bindings({
-      nextWorkspaceTab: e => { e.preventDefault(); e.stopPropagation(); move(1); },
-      previousWorkspaceTab: e => { e.preventDefault(); e.stopPropagation(); move(-1); },
-      closeWorkspaceTab: e => { e.preventDefault(); e.stopPropagation(); const tab = tabs.find(t => tabId(t) === strip?.active); if (tab) close(tab); },
-    }, overrides), { ignore: e => e.repeat || e.isComposing })(event.nativeEvent);
-  }}>
+  return <div className="flex min-h-0 min-w-0 flex-1 flex-col">
     {host?.integrated ? host.element ? createPortal(tabBar, host.element) : null : tabBar}
     {error ? <div role="alert" className="flex items-center gap-2 border-b px-3 py-2 text-xs text-destructive"><span className="min-w-0 flex-1">{error}</span><Button variant="ghost" size="xs" onClick={() => { const tab = tabs.find(t => tabId(t) === strip?.active); if (tab) select(tab); }}>Try again</Button></div> : null}
     {children}

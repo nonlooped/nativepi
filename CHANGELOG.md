@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Make workspace tab shortcuts work throughout the focused pane. Use Ctrl+Tab or Ctrl+Shift+Tab to switch tabs and Ctrl+W (Command+W on Mac) to close the active tab. The desktop window no longer responds to browser reload or page zoom shortcuts.
+
+### Added
+- Open a new workspace tab with Ctrl+T (Command+T on Mac). Customize tab shortcuts in Settings.
+
 ### Changed
 - Bundle JetBrains Mono Nerd Font Mono for the built-in terminal, including support for prompt icons.
 - Default the interface scale to 100% and return to it with the reset shortcut. Keep saved scale preferences.

@@ -175,13 +175,6 @@ async function createMainWindow(): Promise<void> {
     const audio = "mediaTypes" in details && details.mediaTypes?.length === 1 && details.mediaTypes[0] === "audio";
     callback(permission !== "media" || (contents === win.webContents && details.isMainFrame && !!audio));
   });
-  // Let the renderer's saved interface scale handle these keys. Electron's
-  // default View menu otherwise consumes them and applies a second page zoom.
-  win.webContents.on("before-input-event", (_event, input) => {
-    const modifier = isMac ? input.meta : input.control;
-    win.webContents.setIgnoreMenuShortcuts(modifier && !input.alt
-      && ["Equal", "Minus", "Digit0"].includes(input.code));
-  });
 
   // The renderer's beforeunload protects unsaved buffers. Pi and terminals
   // stay in the independent service, including when this renderer crashes.
@@ -254,6 +247,25 @@ if (serviceMode) {
   app.whenReady().then(() => runHost(hostData)).catch(error => { console.error("Host startup failed", error); app.exit(1); });
 } else {
   app.whenReady().then(async () => {
+    const isMac = process.platform === "darwin";
+    const template: MenuItemConstructorOptions[] = [
+      ...(isMac ? [{ role: "appMenu" } as const] : []),
+      { label: "File", submenu: isMac
+        ? [{ label: "Close Window", click: () => BrowserWindow.getFocusedWindow()?.close() }]
+        : [{ role: "quit" }] },
+      { role: "editMenu" },
+      { label: "View", submenu: [
+        { role: "togglefullscreen" },
+        {
+          label: "Toggle Developer Tools",
+          click: () => BrowserWindow.getFocusedWindow()?.webContents.toggleDevTools(),
+        },
+      ] },
+      { label: "Window", submenu: [{ role: "minimize" }, { role: "zoom" }] },
+    ];
+    // Workspace tabs and interface scale own their shortcuts. Leave browser
+    // reload and page zoom out of the native menu so they have no accelerators.
+    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
     await ensureHost().catch(error => console.error("Host unavailable", error instanceof Error ? error.message : "Startup failed"));
     startUpdates(state => { for (const win of BrowserWindow.getAllWindows()) win.webContents.send("updateState", state); }, hostData);
     await createWindow();
