@@ -70,13 +70,14 @@ test("overflow keeps the selected tab visible and the menu follows selection wit
   let resize = () => {};
   globalThis.ResizeObserver = class {
     constructor(private callback: ResizeObserverCallback) {}
-    observe(element: Element) { if (element.getAttribute("role") === "tablist") resize = () => this.callback([], this as unknown as ResizeObserver); }
+    observe(element: Element) { if (element.querySelector(':scope > [role="tablist"]')) resize = () => this.callback([], this as unknown as ResizeObserver); }
     disconnect() {} unobserve() {}
   } as typeof ResizeObserver;
   try {
     await mount();
-    const list = container.querySelector<HTMLElement>('[role="tablist"]')!;
-    Object.defineProperty(list, "clientWidth", { configurable: true, value: 160 });
+    const lane = container.querySelector('[role="tablist"]')!.parentElement!;
+    let width = 160;
+    Object.defineProperty(lane, "clientWidth", { get: () => width });
     await act(async () => resize());
     expect([...container.querySelectorAll('[role="tab"]')].map(tab => tab.getAttribute("aria-label"))).toEqual(["one.ts"]);
     await act(async () => button("All open tabs").click());
@@ -86,5 +87,9 @@ test("overflow keeps the selected tab visible and the menu follows selection wit
     await act(async () => review.click());
     expect(app.getState().activeSessionFile).toBe("b");
     expect(active()).toBe("Review settings");
+    width = 384;
+    await act(async () => resize());
+    expect(button("All open tabs")).toBeUndefined();
+    expect([...container.querySelectorAll('[role="tab"]')].map(tab => tab.getAttribute("aria-label"))).toEqual(["Plan release", "Review settings", "one.ts"]);
   } finally { globalThis.ResizeObserver = OriginalObserver; }
 });

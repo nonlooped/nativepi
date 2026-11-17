@@ -45,20 +45,29 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
   useEffect(() => setClosing(undefined), [scope]);
   const host = useContext(WorkspaceTabHostContext);
   const bar = useRef<HTMLDivElement>(null);
-  const list = useRef<HTMLDivElement>(null);
+  const lane = useRef<HTMLDivElement>(null);
   const [availableWidth, setAvailableWidth] = useState(0);
   const currentProject = useAppStore(s => s.activeProjectPath);
   useLayoutEffect(() => {
-    const element = list.current;
-    if (!element) return;
-    const measure = () => setAvailableWidth(element.clientWidth);
+    const element = lane.current;
+    const stripElement = bar.current;
+    if (!element || !stripElement) return;
+    const root = document.documentElement;
+    const measure = () => setAvailableWidth(element.clientWidth / (parseFloat(getComputedStyle(root).fontSize) || 16));
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
+    // The strip height changes with interface scale even if the lane width stays fixed.
+    observer.observe(stripElement);
     return () => observer.disconnect();
-  }, [host?.element]);
+  }, [host?.integrated, host?.element]);
   const tabs = strip?.tabs ?? [];
-  const capacity = availableWidth ? Math.max(1, Math.floor(availableWidth / 144)) : tabs.length;
+  // Count from the full lane so mounting the overflow button cannot change the threshold.
+  const tabWidth = 8;
+  const actionWidth = 2; // icon-sm plus the gap, in rem
+  const tabSpace = availableWidth - (onNew ? actionWidth : 0);
+  const needsOverflow = availableWidth > 0 && tabs.length > Math.max(1, Math.floor(tabSpace / tabWidth));
+  const capacity = needsOverflow ? Math.max(1, Math.floor((tabSpace - actionWidth) / tabWidth)) : tabs.length;
   const activeIndex = tabs.findIndex(tab => tabId(tab) === strip?.active);
   const visibleTabs = tabs.filter((tab, index) => index < capacity - (activeIndex >= capacity ? 1 : 0) || tabId(tab) === strip?.active);
   const overflow = visibleTabs.length < tabs.length;
@@ -81,48 +90,50 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
     select(next);
     if (focus) requestAnimationFrame(() => bar.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus());
   };
-  const tabBar = <div ref={bar} className={cn(NO_DRAG_REGION, "flex min-w-0 shrink-0 items-center gap-1", host?.integrated ? "h-full flex-1" : "h-12 border-b border-border/60 px-2 [[data-pane-active=true]_&]:bg-muted/30")}>
-    <div ref={list} role="tablist" aria-label="Workspace tabs" className="flex min-w-0 flex-1 items-center gap-1" style={{ maxWidth: `${tabs.length * 14}rem` }} onKeyDown={event => {
-      if (!(event.target as HTMLElement).closest('[role="tab"]')) return;
-      if (event.key === "ArrowRight" || event.key === "ArrowLeft") { event.preventDefault(); move(event.key === "ArrowRight" ? 1 : -1, true); }
-      if (event.key === "Home" || event.key === "End") {
-        event.preventDefault(); const tab = event.key === "Home" ? tabs[0] : tabs.at(-1);
-        if (tab) { select(tab); requestAnimationFrame(() => bar.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus()); }
-      }
-    }}>
-      {visibleTabs.map(tab => {
-        const id = tabId(tab), selected = strip?.active === id, buffer = bufferFor(tab), dirty = buffer && buffer.text !== buffer.saved;
-        const label = title(tab);
-        const context = selected || (mixedProjects && tab.projectDir !== currentProject) ? projectName(tab) : undefined;
-        const detail = tab.kind === "file" ? tab.file : tab.kind === "diff" ? `${tab.path}\n${tab.hash ? `Commit ${tab.hash}` : tab.staged ? "Live staged changes" : "Live unstaged changes"}` : "Conversation";
-        return <div key={id} className="group/tab relative min-w-0 max-w-56 flex-1" onPointerDown={event => { if (event.button === 1) event.preventDefault(); }} onAuxClick={event => { if (event.button === 1) close(tab); }}>
-          <Button role="tab" aria-label={label} aria-selected={selected} tabIndex={selected ? 0 : -1} variant={selected ? "secondary" : "ghost"} className="h-10 w-full min-w-0 justify-start gap-2 pr-8 pl-2.5 text-left" title={`${label}\n${projectName(tab)}\n${detail}`} onClick={() => select(tab)}>
-            {tab.kind === "file" ? <FileTypeIcon path={tab.file} /> : tab.kind === "diff" ? <GitDiffIcon className="size-4" /> : <ChatCircleIcon className="size-4" />}
-            <span className="min-w-0 flex-1">
-              <span className={cn("block truncate text-sm leading-5", selected && "font-medium")}>{label}</span>
-              <span className="block h-4 truncate text-xs leading-4 font-normal text-muted-foreground">{context}</span>
-            </span>
-            {dirty ? <span className="size-1.5 shrink-0 rounded-full bg-foreground/60" aria-label="Unsaved changes" /> : tab.kind === "thread" && tab.session && conversations[tab.session]?.running ? <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-label="Running" /> : null}
-          </Button>
-          <Button variant="ghost" size="icon-xs" className={cn("absolute top-1/2 right-1 -translate-y-1/2", !selected && "opacity-0 group-hover/tab:opacity-100 group-focus-within/tab:opacity-100 [@media(hover:none)]:opacity-100")} title={withHint("Close tab", "closeWorkspaceTab", overrides)} aria-label={`Close ${label}`} disabled={buffer?.saving} onClick={() => close(tab)}><XIcon className="size-3" /></Button>
-        </div>;
-      })}
+  const tabBar = <div ref={bar} className={cn("flex min-w-0 shrink-0 items-center gap-1", host?.integrated ? "h-full" : "h-10 border-b border-border/60 px-2 [[data-pane-active=true]_&]:bg-muted/30")}>
+    <div ref={lane} className="flex min-w-0 flex-1 items-center gap-1">
+      {tabs.length > 0 && <div role="tablist" aria-label="Workspace tabs" className={cn(NO_DRAG_REGION, "flex min-w-0 items-center gap-0.5")} onKeyDown={event => {
+        if (!(event.target as HTMLElement).closest('[role="tab"]')) return;
+        if (event.key === "ArrowRight" || event.key === "ArrowLeft") { event.preventDefault(); move(event.key === "ArrowRight" ? 1 : -1, true); }
+        if (event.key === "Home" || event.key === "End") {
+          event.preventDefault(); const tab = event.key === "Home" ? tabs[0] : tabs.at(-1);
+          if (tab) { select(tab); requestAnimationFrame(() => bar.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus()); }
+        }
+      }}>
+        {visibleTabs.map(tab => {
+          const id = tabId(tab), selected = strip?.active === id, buffer = bufferFor(tab), dirty = buffer && buffer.text !== buffer.saved;
+          const label = title(tab);
+          const context = mixedProjects && (selected || tab.projectDir !== currentProject) ? projectName(tab) : undefined;
+          const detail = tab.kind === "file" ? tab.file : tab.kind === "diff" ? `${tab.path}\n${tab.hash ? `Commit ${tab.hash}` : tab.staged ? "Live staged changes" : "Live unstaged changes"}` : "Conversation";
+          return <div key={id} className="group/tab relative min-w-0 max-w-52" onPointerDown={event => { if (event.button === 1) event.preventDefault(); }} onAuxClick={event => { if (event.button === 1) close(tab); }}>
+            <Button role="tab" aria-label={label} aria-selected={selected} tabIndex={selected ? 0 : -1} variant="ghost"
+              className="relative h-8 w-full min-w-0 justify-start gap-1.5 rounded-sm pr-6 pl-2 text-left active:scale-none aria-selected:bg-muted/45 aria-selected:font-medium aria-selected:text-foreground aria-selected:after:absolute aria-selected:after:inset-x-2 aria-selected:after:bottom-0 aria-selected:after:h-px aria-selected:after:rounded-full aria-selected:after:bg-active"
+              title={`${label}\n${projectName(tab)}\n${detail}`} onClick={() => select(tab)}>
+              {tab.kind === "file" ? <FileTypeIcon path={tab.file} size={14} /> : tab.kind === "diff" ? <GitDiffIcon className="size-3.5" /> : <ChatCircleIcon className="size-3.5" />}
+              <span className="min-w-0 truncate">{label}</span>
+              {context && <span className="min-w-0 max-w-[30%] truncate border-l border-border pl-1.5 text-xs font-normal text-muted-foreground">{context}</span>}
+              {dirty ? <span className="size-1.5 shrink-0 rounded-full bg-foreground/60" aria-label="Unsaved changes" /> : tab.kind === "thread" && tab.session && conversations[tab.session]?.running ? <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-label="Running" /> : null}
+            </Button>
+            <Button variant="ghost" size="icon-xs" className={cn("absolute top-1/2 right-0.5 size-5 -translate-y-1/2", !selected && "opacity-0 group-hover/tab:opacity-100 group-focus-within/tab:opacity-100 [@media(hover:none)]:opacity-100")} title={withHint("Close tab", "closeWorkspaceTab", overrides)} aria-label={`Close ${label}`} disabled={buffer?.saving} onClick={() => close(tab)}><XIcon className="size-3" /></Button>
+          </div>;
+        })}
+      </div>}
+      {overflow ? <DropdownMenu>
+        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className={NO_DRAG_REGION} title="All open tabs" aria-label="All open tabs" />}><CaretDownIcon /></DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="max-h-80 w-72 overflow-auto">
+          <DropdownMenuRadioGroup value={strip?.active ?? ""} onValueChange={id => { const tab = tabs.find(tab => tabId(tab) === id); if (tab) select(tab); }}>
+            {groups.map((group, index) => <DropdownMenuGroup key={index}>
+              {mixedProjects ? <DropdownMenuLabel>{projectName(group.tabs[0]!)}</DropdownMenuLabel> : null}
+              {group.tabs.map(tab => <DropdownMenuRadioItem key={tabId(tab)} value={tabId(tab)} title={`${title(tab)}\n${tab.kind === "file" ? tab.file : tab.projectDir}`}>
+                {tab.kind === "file" ? <FileTypeIcon path={tab.file} /> : tab.kind === "diff" ? <GitDiffIcon /> : <ChatCircleIcon />}
+                <span className="min-w-0 flex-1 line-clamp-2 whitespace-normal break-words text-left leading-5">{title(tab)}</span>
+              </DropdownMenuRadioItem>)}
+            </DropdownMenuGroup>)}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu> : null}
+      {onNew ? <Button variant="ghost" size="icon-sm" className={NO_DRAG_REGION} title="New tab" aria-label="New tab" onClick={onNew}><PlusIcon /></Button> : null}
     </div>
-    {overflow ? <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" title="All open tabs" aria-label="All open tabs" />}><CaretDownIcon /></DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="max-h-80 w-72 overflow-auto">
-        <DropdownMenuRadioGroup value={strip?.active ?? ""} onValueChange={id => { const tab = tabs.find(tab => tabId(tab) === id); if (tab) select(tab); }}>
-          {groups.map((group, index) => <DropdownMenuGroup key={index}>
-            {mixedProjects ? <DropdownMenuLabel>{projectName(group.tabs[0]!)}</DropdownMenuLabel> : null}
-            {group.tabs.map(tab => <DropdownMenuRadioItem key={tabId(tab)} value={tabId(tab)} title={`${title(tab)}\n${tab.kind === "file" ? tab.file : tab.projectDir}`}>
-              {tab.kind === "file" ? <FileTypeIcon path={tab.file} /> : tab.kind === "diff" ? <GitDiffIcon /> : <ChatCircleIcon />}
-              <span className="min-w-0 flex-1 line-clamp-2 whitespace-normal break-words text-left leading-5">{title(tab)}</span>
-            </DropdownMenuRadioItem>)}
-          </DropdownMenuGroup>)}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu> : null}
-    {onNew ? <Button variant="ghost" size="icon-sm" title="New tab" aria-label="New tab" onClick={onNew}><PlusIcon /></Button> : null}
     <WorkspacePaneMenu />
   </div>;
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col" onKeyDownCapture={event => {
