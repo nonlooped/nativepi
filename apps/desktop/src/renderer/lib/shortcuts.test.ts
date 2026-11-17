@@ -33,7 +33,7 @@ describe("hints", () => {
 
 describe("the registry", () => {
   test("no two shortcuts claim the same binding", () => {
-    const all = SHORTCUTS.map((shortcut) => shortcut.binding);
+    const all = SHORTCUTS.map((shortcut) => shortcut.binding).filter(Boolean);
     expect(new Set(all).size).toBe(all.length);
   });
 });
@@ -44,7 +44,7 @@ describe("bindings()", () => {
     const map = bindings({ newChat: noop, stopTurn: noop });
 
     expect(Object.keys(map).sort()).toEqual([bindingFor("newChat"), bindingFor("stopTurn")].sort());
-    expect(map[bindingFor("newChat")]).toBe(noop);
+    expect(typeof map[bindingFor("newChat")]).toBe("function");
   });
 
   test("omitted shortcuts are not bound", () => {
@@ -54,7 +54,7 @@ describe("bindings()", () => {
   test("an override changes which key fires the handler", () => {
     const noop = () => {};
     const map = bindings({ newChat: noop }, { newChat: "$mod+KeyG" });
-    expect(map).toEqual({ "$mod+KeyG": noop });
+    expect(Object.keys(map)).toEqual(["$mod+KeyG"]);
   });
 
   test("an empty-string override disables the shortcut", () => {
@@ -76,7 +76,7 @@ describe("overrides", () => {
   });
 
   test("conflictFor finds the shortcut already holding a binding", () => {
-    expect(conflictFor("newChat", defaultBindingFor("importChat"))).toBe("importChat");
+    expect(conflictFor("newChat", defaultBindingFor("search"))).toBe("search");
     expect(conflictFor("newChat", "$mod+KeyG")).toBeUndefined();
     expect(conflictFor("newChat", "")).toBeUndefined();
   });
@@ -140,11 +140,29 @@ describe("parseKeyEvent", () => {
 describe("interface scale shortcuts", () => {
   test("accepts equals and shifted plus without stealing a rebound key", () => {
     const increase = () => {};
-    expect(bindings({ increaseScale: increase })).toEqual({
-      "$mod+Equal": increase, "$mod+Shift+Equal": increase,
-    });
+    const defaults = bindings({ increaseScale: increase });
+    expect(Object.keys(defaults)).toEqual(["$mod+Equal", "$mod+Shift+Equal"]);
+    expect(defaults["$mod+Equal"]).toBe(defaults["$mod+Shift+Equal"]);
     expect(bindings({ increaseScale: increase }, { increaseScale: "" })).toEqual({});
-    expect(bindings({ increaseScale: increase }, { increaseScale: "$mod+KeyG" })).toEqual({ "$mod+KeyG": increase });
-    expect(bindings({ increaseScale: increase }, { newChat: "$mod+Shift+Equal" })).toEqual({ "$mod+Equal": increase });
+    expect(Object.keys(bindings({ increaseScale: increase }, { increaseScale: "$mod+KeyG" }))).toEqual(["$mod+KeyG"]);
+    expect(Object.keys(bindings({ increaseScale: increase }, { newChat: "$mod+Shift+Equal" }))).toEqual(["$mod+Equal"]);
   });
+});
+
+
+test("saved custom bindings retain ownership when a new default uses their keys", () => {
+  const saved = sanitizeOverrides({ search: "$mod+Alt+KeyB", focusComposer: "$mod+KeyL", importChat: "$mod+Shift+KeyO" });
+  expect(bindingFor("openBrowser", saved)).toBe("");
+  expect(bindingFor("search", saved)).toBe("$mod+Alt+KeyB");
+  expect(bindingFor("focusComposer", saved)).toBe("$mod+KeyL");
+  expect(bindingFor("importChat", saved)).toBe("$mod+Shift+KeyO");
+});
+
+test("shared dispatch ignores repeat, composition and keys already handled by a control", () => {
+  let calls = 0;
+  const handler = bindings({ newChat: () => { calls++; } })[bindingFor("newChat")]!;
+  for (const flag of ["repeat", "isComposing", "defaultPrevented"]) handler({ [flag]: true } as unknown as KeyboardEvent);
+  expect(calls).toBe(0);
+  handler({} as KeyboardEvent);
+  expect(calls).toBe(1);
 });
