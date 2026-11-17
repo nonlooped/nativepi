@@ -117,8 +117,13 @@ export function createWorkspaceTabs(app: PaneStore, initial: WorkspaceTabScopes 
     if (!s.ready || !s.activeProjectPath) return;
     const tab: WorkspaceTab = { kind: "thread", projectDir: s.activeProjectPath, session: s.activeSessionFile };
     const strip = current();
-    if (promote && tab.session && strip.active === tabId({ kind: "thread", projectDir: tab.projectDir, session: null })) {
-      update({ tabs: strip.tabs.filter(t => tabId(t) !== tabId(tab)).map(t => t.kind === "thread" && t.projectDir === tab.projectDir && t.session === null ? tab : t), active: tabId(tab) });
+    if (promote && tab.session) {
+      const draft = tabId({ kind: "thread", projectDir: tab.projectDir, session: null });
+      if (strip.tabs.some(t => tabId(t) === draft)) {
+        const selected = strip.active === draft;
+        update({ tabs: strip.tabs.filter(t => tabId(t) !== tabId(tab)).map(t => tabId(t) === draft ? tab : t), active: selected ? tabId(tab) : strip.active });
+        if (!selected) return;
+      } else if (strip.active !== tabId(tab)) return;
     } else show(tab);
     reflect(tab);
   }
@@ -200,4 +205,16 @@ export function paneWorkspaceTabs(app: PaneStore, initial?: WorkspaceTabScopes) 
 }
 export function releaseWorkspaceTabs(app: PaneStore) {
   controllers.get(app)?.dispose(); controllers.delete(app);
+}
+
+/** Pi created the session; update its existing draft tab without navigating. */
+export function bindWorkspaceDraft(get: PaneStore["getState"], projectDir: string, session: string) {
+  const controller = [...controllers].find(([app]) => app.getState === get)?.[1];
+  if (!controller) return;
+  const draft = tabId({ kind: "thread", projectDir, session: null });
+  const tab: WorkspaceTab = { kind: "thread", projectDir, session };
+  controller.state.setState(s => ({ scopes: Object.fromEntries(Object.entries(s.scopes).map(([scope, strip]) => {
+    if (!strip || !strip.tabs.some(t => tabId(t) === draft)) return [scope, strip];
+    return [scope, { tabs: strip.tabs.filter(t => tabId(t) !== tabId(tab)).map(t => tabId(t) === draft ? tab : t), active: strip.active === draft ? tabId(tab) : strip.active }];
+  })) }));
 }

@@ -215,3 +215,26 @@ test("restoration keeps tabs available without reopening a project when the star
   await tabs.activate(thread("a"));
   expect(app.getState()).toMatchObject({ activeProjectPath: "/project", activeSessionFile: "a" });
 });
+
+
+for (const target of [file, diff, thread("other", "/other")]) test(`a first send finishing behind ${target.kind} promotes its draft tab without changing the selection`, async () => {
+  const app = pane(), tabs = paneWorkspaceTabs(app);
+  app.getState().newChat();
+  app.getState().setDraft("Start the work");
+  let finish!: (value: unknown) => void;
+  stubInvoke(async channel => {
+    if (channel === "submit") return new Promise(resolve => { finish = resolve; });
+    if (channel === "readWorkspaceFile") return { text: "original", revision: "v1" };
+    if (channel === "readSessionSnapshot") return { consistency: "stable", entries: [], liveEvents: [], eventWatermark: 0 };
+    if (channel === "orchestrationSnapshot") return { revision: 0, threads: [] };
+    return { ok: true };
+  });
+  const sending = app.getState().send();
+  await tabs.activate(target);
+  finish({ ok: true, sessionFile: "created" }); await sending;
+  expect(tabs.current().active).toBe(tabId(target));
+  expect(tabs.current().tabs).toEqual([thread("a"), thread("created"), target]);
+  expect(app.getState().activeProjectPath).toBe(target.projectDir);
+  if (target.kind === "file") expect(useWorkspaceEditor.getState().selected[`${runtime(app.getState).paneId}:/project`]).toBeDefined();
+  if (target.kind === "diff") expect(app.getState().sourceControlReview).toMatchObject({ projectDir: "/project", path: "one.ts" });
+});
