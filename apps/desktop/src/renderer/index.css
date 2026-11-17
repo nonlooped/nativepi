@@ -964,21 +964,27 @@ html[data-motion="reduced"] *::after {
 .chat-stage { position: relative; overflow: hidden; }
 
 .app-viewport:has(> .chat-landscape) .conversation-shell { background: transparent; }
-.app-viewport:has(> .chat-landscape) .sidebar-panel {
-  background: color-mix(in srgb, var(--sidebar) 82%, transparent);
-  backdrop-filter: blur(12px);
-  box-shadow: inset -1px 0 color-mix(in srgb, var(--foreground) 6%, transparent),
-    12px 0 32px -24px color-mix(in srgb, var(--foreground) 28%, transparent);
-}
-.app-viewport:has(> .chat-landscape) .context-pane {
-  background: color-mix(in srgb, var(--sidebar) 82%, transparent);
-  backdrop-filter: blur(12px);
-  box-shadow: inset 1px 0 color-mix(in srgb, var(--foreground) 6%, transparent),
-    -12px 0 32px -24px color-mix(in srgb, var(--foreground) 28%, transparent);
-}
 .app-viewport:has(> .chat-landscape) {
   --dock-fill: var(--glass-sidebar, var(--sidebar));
   --dock-edge: color-mix(in srgb, var(--dock-fill) 80%, transparent);
+}
+
+/* Paint the side tapers beneath both the conversation and the terminal so the
+   three gradients meet without covering any content or resize targets. */
+.app-viewport:has(> .chat-landscape) #conversation {
+  background:
+    linear-gradient(to right, var(--dock-edge), transparent) left / var(--left-taper, 0px) 100% no-repeat,
+    linear-gradient(to left, var(--dock-edge), transparent) right / var(--right-taper, 0px) 100% no-repeat;
+}
+#projects:not([inert]) ~ #conversation { --left-taper: min(136px, 18%); }
+#conversation:has(~ #context:not([inert])) { --right-taper: min(136px, 18%); }
+.app-viewport:has(> .chat-landscape) #projects .sidebar-panel {
+  background: linear-gradient(to left, var(--dock-edge), var(--dock-fill) 36px);
+  box-shadow: none;
+}
+.app-viewport:has(> .chat-landscape) #context .context-pane {
+  background: linear-gradient(to right, var(--dock-edge), var(--dock-fill) 36px);
+  box-shadow: none;
 }
 .app-viewport:has(> .chat-landscape):has([data-terminal-pane]) .conversation-shell {
   background: linear-gradient(to bottom, transparent, var(--dock-edge))
@@ -989,7 +995,7 @@ html[data-motion="reduced"] *::after {
   background: linear-gradient(to bottom, var(--dock-edge), var(--dock-fill) 36px);
   box-shadow: none;
 }
-.app-viewport:has(> .chat-landscape) [data-slot="resizable-handle"]:has(+ [data-terminal-pane]):not(:hover, :focus-visible) {
+.app-viewport:has(> .chat-landscape) :is(#projects + [data-slot="resizable-handle"], [data-slot="resizable-handle"]:has(+ #context, + [data-terminal-pane])):not(:hover, :focus-visible) {
   background: var(--dock-edge);
 }
 
