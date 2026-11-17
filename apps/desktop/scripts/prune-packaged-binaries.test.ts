@@ -41,7 +41,7 @@ test('platform file collection excludes foreign computer-use binaries before cop
     ] as const) {
       const filter = getNodeModuleFileMatcher(root, join(root, 'out'), (value: string) => value,
         build[platform], { config: build, debugLogger: { isEnabled: false } }).createFilter();
-      expect(names.filter(name => filter(join(bin, name), statSync(join(bin, name))))).toEqual(kept);
+      expect(names.filter(name => filter(join(bin, name), statSync(join(bin, name))))).toEqual([...kept]);
     }
     expect((await readdir(bin)).sort()).toEqual([...names].sort());
   } finally { await rm(root, { recursive: true, force: true }); }
