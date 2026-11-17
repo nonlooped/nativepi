@@ -118,6 +118,11 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   background: color-mix(in srgb, var(--foreground) 6%, var(--background));
 }
 
+/* Match the native controls' fixed 24px centerline at every interface scale. */
+html[data-shell="desktop"][data-window-controls="native"] header.workspace-tab-frame {
+  height: 48px;
+}
+
 html[data-shell="desktop"][data-window-controls="native"] .workspace-tab-frame > .native-header-content {
   top: 0;
 }

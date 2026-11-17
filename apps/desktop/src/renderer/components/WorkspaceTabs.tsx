@@ -141,8 +141,8 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
     return () => window.removeEventListener("keydown", handler, true);
   }, [overrides]);
   const tabBar = <div ref={bar} className={cn("flex min-w-0 shrink-0 items-center gap-1", host?.integrated ? "h-full" : "workspace-tab-frame h-10 px-2")}>
-    <div ref={lane} className="flex h-full min-w-0 flex-1 items-end gap-1">
-      {tabs.length > 0 && <div role="tablist" aria-label="Workspace tabs" className={cn(NO_DRAG_REGION, "flex min-w-0 items-center gap-0.5")} onKeyDown={event => {
+    <div ref={lane} className="flex h-full min-w-0 flex-1 items-center gap-1">
+      {tabs.length > 0 && <div role="tablist" aria-label="Workspace tabs" className={cn(NO_DRAG_REGION, "flex h-full min-w-0 items-stretch gap-0.5")} onKeyDown={event => {
         if (!(event.target as HTMLElement).closest('[role="tab"]')) return;
         if (event.key === "ArrowRight" || event.key === "ArrowLeft") { event.preventDefault(); move(event.key === "ArrowRight" ? 1 : -1, true); }
         if (event.key === "Home" || event.key === "End") {
@@ -157,7 +157,7 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
           const detail = tab.kind === "file" ? tab.file : tab.kind === "diff" ? `${tab.path}\n${tab.hash ? `Commit ${tab.hash}` : tab.staged ? "Live staged changes" : "Live unstaged changes"}` : "Conversation";
           return <div key={id} data-selected={selected} className="workspace-tab group/tab relative w-44 min-w-0" onPointerDown={event => { if (event.button === 1) event.preventDefault(); }} onAuxClick={event => { if (event.button === 1) close(tab); }}>
             <Button role="tab" aria-label={label} aria-selected={selected} tabIndex={selected ? 0 : -1} variant="ghost"
-              className="relative h-8 w-full min-w-0 justify-start gap-2 rounded-t-lg rounded-b-none border-0 pr-7 pl-2.5 text-left text-[0.8125rem] focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring focus-visible:ring-0 active:not-aria-[haspopup]:scale-none aria-selected:bg-background aria-selected:font-medium aria-selected:text-foreground"
+              className="absolute inset-x-0 top-1 bottom-0 h-auto w-full min-w-0 justify-start gap-2 rounded-t-lg rounded-b-none border-0 pr-7 pb-1 pl-2.5 text-left text-[0.8125rem] focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring focus-visible:ring-0 active:not-aria-[haspopup]:scale-none aria-selected:bg-background aria-selected:font-medium aria-selected:text-foreground"
               title={`${label}\n${projectName(tab)}\n${detail}`} onClick={() => select(tab)}>
               <span className="grid size-4 shrink-0 place-items-center" aria-hidden="true">{icon(tab)}</span>
               <span className="min-w-0 truncate leading-5">{label}</span>
@@ -169,7 +169,7 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
         })}
       </div>}
       {overflow ? <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className={cn(NO_DRAG_REGION, "mb-0.5 rounded-full")} title="All open tabs" aria-label="All open tabs" />}><CaretDownIcon /></DropdownMenuTrigger>
+        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className={cn(NO_DRAG_REGION, "rounded-full")} title="All open tabs" aria-label="All open tabs" />}><CaretDownIcon /></DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="max-h-80 w-72 overflow-auto">
           <DropdownMenuRadioGroup value={strip?.active ?? ""} onValueChange={id => { const tab = tabs.find(tab => tabId(tab) === id); if (tab) select(tab); }}>
             {groups.map((group, index) => <DropdownMenuGroup key={index}>
@@ -182,7 +182,7 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu> : null}
-      {onNew ? <Button variant="ghost" size="icon-sm" className={cn(NO_DRAG_REGION, "mb-0.5 rounded-full")} title={withHint("New tab", "newWorkspaceTab", overrides)} aria-label="New tab" onClick={onNew}><PlusIcon /></Button> : null}
+      {onNew ? <Button variant="ghost" size="icon-sm" className={cn(NO_DRAG_REGION, "rounded-full")} title={withHint("New tab", "newWorkspaceTab", overrides)} aria-label="New tab" onClick={onNew}><PlusIcon /></Button> : null}
     </div>
     <WorkspacePaneMenu />
   </div>;
