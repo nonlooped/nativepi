@@ -38,13 +38,13 @@ test("focus and model shortcuts reach the existing controls, including rebinding
   const input = container!.querySelector<HTMLElement>("[data-composer-input]")!;
   let opened = 0;
   container!.querySelector("button")!.onclick = () => { opened++; };
-  await press("KeyL");
+  await press("KeyL", { shiftKey: true });
   expect(document.activeElement).toBe(input);
   await press("KeyM", { shiftKey: true });
   expect(opened).toBe(1);
   await act(async () => { useAppStore.setState({ keybindingOverrides: { focusComposer: "$mod+KeyU", selectModel: "" } }); });
   input.blur();
-  await press("KeyL");
+  await press("KeyL", { shiftKey: true });
   expect(document.activeElement).not.toBe(input);
   await press("KeyU");
   expect(document.activeElement).toBe(input);
@@ -60,7 +60,7 @@ test("focus reaches the composer before a terminal can consume the control key",
   terminal.focus();
   const mac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
   const event = new KeyboardEvent("keydown", { code: "KeyL", key: "l", bubbles: true, cancelable: true,
-    ...(mac ? { metaKey: true } : { ctrlKey: true }) });
+    ...(mac ? { metaKey: true } : { ctrlKey: true }), shiftKey: true });
   await act(async () => { terminal.dispatchEvent(event); });
   expect(document.activeElement).toBe(container!.querySelector("[data-composer-input]"));
   expect(shellKeys).toBe(0);
@@ -120,6 +120,7 @@ test("source control opens the pane for Work projects and refresh uses the exist
   expect(useAppStore.getState().contextPaneTab).toBe("changes");
   expect(useAppStore.getState().contextPaneOpen).toBe(true);
   expect(reads).toBe(1);
+  await act(async () => useAppStore.setState({ keybindingOverrides: { refreshSourceControl: "$mod+Shift+KeyR" } }));
   await press("KeyR", { shiftKey: true });
   expect(reads).toBe(2);
   await act(async () => useAppStore.setState({ destination: "chat", contextPaneTab: "files" }));
@@ -140,4 +141,35 @@ test("new terminal creates a shell before opening a hidden dock", async () => {
   expect(useAppStore.getState().terminalProjects.has("/p")).toBe(true);
   await press("KeyT", { shiftKey: true });
   expect(calls).toHaveLength(1); // An open dock owns subsequent creations.
+});
+
+
+test("dialogs and menus own app shortcuts, and held keys do not repeat navigation", async () => {
+  await mount();
+  let moves = 0;
+  await act(async () => useAppStore.setState({ selectAdjacentProject: async () => { moves++; } }));
+  await press("ArrowDown", { altKey: true, repeat: true });
+  expect(moves).toBe(0);
+  for (const role of ["dialog", "menu", "listbox"]) {
+    const overlay = document.createElement("div"); overlay.setAttribute("role", role); document.body.append(overlay);
+    await press("ArrowDown", { altKey: true });
+    expect(moves).toBe(0);
+    overlay.remove();
+  }
+  await press("ArrowDown", { altKey: true });
+  expect(moves).toBe(1);
+});
+
+test("terminal line clearing is preserved and unavailable source control does not refresh", async () => {
+  await mount();
+  const terminal = document.createElement("textarea"); container!.append(terminal); terminal.focus();
+  const mac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+  const clear = new KeyboardEvent("keydown", { code: "KeyL", bubbles: true, cancelable: true, ...(mac ? { metaKey: true } : { ctrlKey: true }) });
+  await act(async () => { terminal.dispatchEvent(clear); });
+  expect(clear.defaultPrevented).toBe(false);
+  expect(document.activeElement).toBe(terminal);
+  let reads = 0;
+  await act(async () => useAppStore.setState({ destination: "chat", refreshGit: async () => { reads++; }, keybindingOverrides: { refreshSourceControl: "$mod+Shift+KeyR" } }));
+  await press("KeyR", { shiftKey: true });
+  expect(reads).toBe(0);
 });

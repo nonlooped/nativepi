@@ -36,6 +36,7 @@ export default function ComposerInput({
   placeholder,
   disabled,
   autoFocus,
+  compact = false,
   suggestion = null,
   onDismissSuggestion,
 }: {
@@ -47,11 +48,24 @@ export default function ComposerInput({
   placeholder: string;
   disabled: boolean;
   autoFocus?: boolean;
+  compact?: boolean;
   suggestion?: string | null;
   onDismissSuggestion?: () => void;
 }) {
   const useAppStore = usePaneStore();
   const root = useRef<HTMLDivElement>(null);
+  const expandedScroll = useRef<{ text: string; top: number } | null>(null);
+  useLayoutEffect(() => {
+    const editor = root.current;
+    if (!editor) return;
+    if (compact) {
+      expandedScroll.current = { text: serialize(editor), top: editor.scrollTop };
+      editor.scrollTop = 0;
+    } else if (expandedScroll.current?.text === serialize(editor)) {
+      editor.scrollTop = expandedScroll.current.top;
+    }
+  }, [compact]);
+
   const [editorHeight, setEditorHeight] = useState<number>();
   useLayoutEffect(() => {
     const editor = root.current;
@@ -206,7 +220,7 @@ export default function ComposerInput({
   };
 
   return (
-    <div className="relative grid min-w-0">
+    <div className={cn("relative grid min-w-0 flex-1", compact && "py-1.5")}>
       <AutocompleteMenu state={complete} />
       <div
         ref={root}
@@ -221,6 +235,13 @@ export default function ComposerInput({
         aria-activedescendant={
           complete.open ? `composer-autocomplete-${complete.options[complete.active]?.value ?? ""}` : undefined
         }
+        // Expansion moves the text above this point. Keep the browser from
+        // placing a new caret using the pre-expansion pointer coordinates.
+        onPointerDown={(event) => {
+          if (!compact || disabled || event.button !== 0) return;
+          event.preventDefault();
+          event.currentTarget.focus();
+        }}
         onInput={emit}
         onClick={(event) => {
           const remove = (event.target as HTMLElement).closest("[data-remove-annotation]");
@@ -248,14 +269,15 @@ export default function ComposerInput({
         // `0.9375rem` rather than `15px`: Interface scale works by moving the
         // root font size, which an absolute length ignores — the composer was
         // the one piece of text in the window that did not scale with it.
-        style={{ maxHeight: editorHeight, minHeight: editorHeight === undefined ? undefined : 40 }}
+        style={{ maxHeight: compact ? "1.5rem" : editorHeight, minHeight: compact ? "1.5rem" : editorHeight === undefined ? undefined : 40 }}
         className={cn(
           "col-start-1 row-start-1 max-h-56 max-sm:max-h-[calc(var(--app-height,100dvh)*0.2)] [@media(max-height:600px)]:max-h-[calc(var(--app-height,100dvh)*0.2)] min-h-10 sm:min-h-16 w-full overflow-y-auto whitespace-pre-wrap break-words px-2.5 py-2 text-composer font-normal text-foreground outline-none",
+          compact && "line-clamp-1 overflow-hidden py-0 [&_[data-chip]]:max-w-1/2",
           disabled && "cursor-not-allowed opacity-50",
         )}
       />
       {value.trim() === "" ? (
-        <p aria-hidden="true" className={cn("pointer-events-none col-start-1 row-start-1 max-sm:absolute max-sm:inset-0 max-h-56 max-sm:max-h-[calc(var(--app-height,100dvh)*0.2)] [@media(max-height:600px)]:max-h-[calc(var(--app-height,100dvh)*0.2)] self-start overflow-hidden break-words px-2.5 py-2 text-composer font-normal text-placeholder-foreground", editorHeight !== undefined && "absolute inset-0 whitespace-nowrap text-ellipsis")}>
+        <p aria-hidden="true" className={cn("pointer-events-none col-start-1 row-start-1 max-sm:absolute max-sm:inset-0 max-h-56 max-sm:max-h-[calc(var(--app-height,100dvh)*0.2)] [@media(max-height:600px)]:max-h-[calc(var(--app-height,100dvh)*0.2)] self-start overflow-hidden break-words px-2.5 py-2 text-composer font-normal text-placeholder-foreground", (compact || editorHeight !== undefined) && "absolute inset-0 whitespace-nowrap text-ellipsis", compact && "py-1.5")}>
           {offeredSuggestion ? <>{offeredSuggestion} <Kbd className="ml-1 align-middle">Tab</Kbd></> : placeholder}
         </p>
       ) : null}

@@ -7,12 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-11-17
+
 ### Added
 - Select page elements in the live browser and attach removable references to a chat draft. Captured page identity, locators and bounded element context travel with messages to Pi; picking never activates the page’s controls.
 - Managed task workspaces with explicit chat isolation/base selection, reusable setup/run/check actions, opt-in local file preparation, coordinated ports, action recovery and conservative workspace retirement.
 
 ### Changed
 - Keep browser element selection in the existing toolbar, with a quiet themed hint and compact, name-first composer references. Long labels truncate without hiding removal controls; successful picks add no status banner.
+- Keep existing-thread composers compact while reading, with ellipsized draft previews and stable Send/Dictate targets on focus. Preserve drafts, selections and composer menus; new chats keep the full composer.
+- Refine keyboard defaults, protect dialogs, typing and terminal focus, make file commands rebindable, add a shared-browser shortcut, and offer compact shortcut action menus in Settings while preserving saved custom keys.
+- Keep Files and Source control navigation immediate, show welcome controls together without a delayed entrance, and cancel navigation snapshots immediately when reduced motion is enabled.
 - Display the shared browser in a resizable right-side panel with compact tabs and navigation instead of a separate window.
 - Restore Pi naming and trim explanatory UI copy while retaining workflow and recovery improvements. Revert the recent website changes.
 - Identify the chat in each browser window, explain browser session lifetime, and show blocked downloads, popups and device permissions with an option to continue in the usual browser. Start empty browsers on a useful address screen and explain computer-only opening from another device.
@@ -826,7 +831,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial NativePi desktop wrapper for the Pi coding agent (Electron + electron-vite + Bun + React 19.2 + Vite 8 + Tailwind CSS 4 + shadcn/ui + Zustand + Zod).
 - Project bootstrap, README and logo assets, build and release automation.
 
-[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.20.0...HEAD
+[Unreleased]: https://github.com/nonlooped/nativepi/compare/v1.21.0...HEAD
+[1.21.0]: https://github.com/nonlooped/nativepi/compare/v1.20.0...v1.21.0
 [1.20.0]: https://github.com/nonlooped/nativepi/compare/v1.19.0...v1.20.0
 [1.19.0]: https://github.com/nonlooped/nativepi/compare/v1.18.0...v1.19.0
 [1.18.0]: https://github.com/nonlooped/nativepi/compare/v1.17.0...v1.18.0

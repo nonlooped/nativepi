@@ -11,6 +11,7 @@ import StateNotice from "./components/StateNotice.tsx";
 import ConnectionNotice from "./components/ConnectionNotice.tsx";
 import ThreadActivity, { ThreadInputBoundary } from "./components/ThreadActivity.tsx";
 import { Dialog as SettingsDialog } from "@base-ui/react/dialog";
+import { finishViewTransition } from "./lib/viewTransition.ts";
 import { useLayoutMotion } from "./lib/layoutMotion.ts";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createKeybindingsHandler, tinykeys } from "tinykeys";
@@ -245,8 +246,10 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
               onSelectExtensionView={setExtensionView}
               onOpenSidebar={() => (layout !== "wide" ? setSidebarSheetOpen(true) : setSidebarOpen(true))}
               onOpenContext={(tab) => {
+                finishViewTransition();
                 const state = useAppStore.getState();
                 const showing = state.contextPaneTab === tab;
+                // Keep frequent file/source navigation immediate, as on main.
                 state.setContextPaneTab(tab);
                 if (layout === "wide") { if (!state.contextPaneOpen || showing) toggleContextPane(); }
                 else setContextSheetOpen(true);
@@ -641,7 +644,7 @@ function WorkspaceHeader({
           size="icon-sm"
           className={NO_DRAG_REGION}
           aria-label="Open browser"
-          title={isRemote ? "Open this chat’s browser on the computer. This device cannot display it." : "Open this chat's shared browser"}
+          title={isRemote ? "Open this chat’s browser on the computer. This device cannot display it." : withHint("Open this chat’s shared browser", "openBrowser", keybindingOverrides)}
           onClick={() => {
             if (isRemote) { toast.info("This browser opens on the computer running NativePi.", { description: "It cannot be displayed on this device.", action: { label: "Open on computer", onClick: () => void rpc.request.browserShow({ projectDir: activeProjectPath, sessionFile: isNewChat ? null : activeSession?.path }).then(() => toast.info("Browser opened on the computer."), error => toast.error(String(error))) } }); return; }
             void rpc.request.browserShow({ projectDir: activeProjectPath, sessionFile: isNewChat ? null : activeSession?.path }).catch(error => toast.error(String(error)));
@@ -820,24 +823,30 @@ export function useWorkspaceShortcuts(
   useEffect(() => {
     /** Shortcuts that need a project open do nothing without one. */
     const withProject = (run: () => void) => (event: KeyboardEvent) => {
-      if (useAppStore !== focusedPaneStore() || !activeProjectPath) return;
+      if (useAppStore !== focusedPaneStore() || !activeProjectPath || workspaceShortcutsBlocked()) return;
       event.preventDefault();
       run();
     };
     const always = (run: () => void) => (event: KeyboardEvent) => {
-      if (useAppStore !== focusedPaneStore()) return;
+      if (useAppStore !== focusedPaneStore() || workspaceShortcutsBlocked()) return;
       event.preventDefault();
       run();
     };
 
     // New navigation commands must not move focus or change conversations
     // underneath a dialog, Settings, or an extension's custom editor.
-    const workspace = (run: () => void, allowedSheet?: "sidebar" | "context") => (event: KeyboardEvent) => {
-      if (useAppStore !== focusedPaneStore() || workspaceShortcutsBlocked(allowedSheet)) return;
+    const workspace = (run: () => void, allowedSheet?: "sidebar" | "context", available = () => true) => (event: KeyboardEvent) => {
+      if (useAppStore !== focusedPaneStore() || workspaceShortcutsBlocked(allowedSheet) || !available()) return;
       event.preventDefault();
       event.stopPropagation();
       run();
     };
+
+    const workAvailable = () => {
+      const s = useAppStore.getState();
+      return s.destination === "work" && !!s.activeProjectPath;
+    };
+    const sourceControlAvailable = () => workAvailable() && useAppStore.getState().activeProjectPath !== useAppStore.getState().workRoot;
 
     // Capture these commands before xterm sends their control keys to the shell.
     const navigation = createKeybindingsHandler(bindings({
@@ -849,30 +858,33 @@ export function useWorkspaceShortcuts(
         setSidebarSheetOpen(false);
         void s.selectChat(thread.session, thread.project);
       }, "sidebar")])),
-      toggleTerminal: workspace(toggleTerminal),
-      newTerminal: workspace(() => {
-        const s = useAppStore.getState();
-        const projectDir = s.activeProjectPath;
-        // A mounted dock owns its membership. When hidden, create the shell
-        // first; mounting the dock then discovers it through terminalEnsure.
-        if (!projectDir || s.destination === "chat" || s.terminalProjects.has(projectDir)) return;
-        void rpc.request.terminalCreate({ projectDir, shellId: s.preferences.preferredShellId || undefined }).then(() => {
-          const current = useAppStore.getState();
-          if (current.activeProjectPath === projectDir && current.destination === "work") current.openTerminal(projectDir);
-        }).catch(error => toast.error(error instanceof Error ? error.message : "Could not create a terminal."));
-      }),
+      toggleTerminal: workspace(toggleTerminal, undefined, workAvailable),
+      newTerminal: event => {
+        if (useAppStore.getState().terminalProjects.has(activeProjectPath ?? "")) return;
+        workspace(() => {
+          const s = useAppStore.getState();
+          const projectDir = s.activeProjectPath;
+          // A mounted dock owns its membership. When hidden, create the shell
+          // first; mounting the dock then discovers it through terminalEnsure.
+          if (!projectDir || s.destination === "chat" || s.terminalProjects.has(projectDir)) return;
+          void rpc.request.terminalCreate({ projectDir, shellId: s.preferences.preferredShellId || undefined }).then(() => {
+            const current = useAppStore.getState();
+            if (current.activeProjectPath === projectDir && current.destination === "work") current.openTerminal(projectDir);
+          }).catch(error => toast.error(error instanceof Error ? error.message : "Could not create a terminal."));
+        }, undefined, workAvailable)(event);
+      },
       focusTerminal: workspace(() => {
         const s = useAppStore.getState();
         if (!s.activeProjectPath || s.destination === "chat") return;
         s.openTerminal(s.activeProjectPath);
         (document.querySelector<HTMLElement>('.terminal-dock [data-terminal-active] .xterm-helper-textarea')
           ?? document.querySelector<HTMLElement>(".terminal-dock .xterm-helper-textarea"))?.focus();
-      }),
+      }, undefined, workAvailable),
       jumpToFile: workspace(() => {
         const s = useAppStore.getState(); if (!s.activeProjectPath || s.destination === "chat") return;
         s.setContextPaneTab("files"); useAppStore.setState({ fileSearchRequest: s.fileSearchRequest + 1 });
         if (layout === "wide") { if (!s.contextPaneOpen) s.toggleContextPane(); } else setContextSheetOpen(true);
-      }),
+      }, undefined, workAvailable),
       openSourceControl: workspace(() => {
         const s = useAppStore.getState();
         if (!s.activeProjectPath || s.destination === "chat" || s.activeProjectPath === s.workRoot) return;
@@ -880,8 +892,16 @@ export function useWorkspaceShortcuts(
         if (layout === "wide") { if (!s.contextPaneOpen) s.toggleContextPane(); }
         else setContextSheetOpen(true);
         void s.refreshGit();
-      }, "context"),
-      refreshSourceControl: workspace(() => void useAppStore.getState().refreshGit(), "context"),
+      }, "context", sourceControlAvailable),
+      refreshSourceControl: workspace(() => {
+        const s = useAppStore.getState();
+        if (s.destination === "work" && s.activeProjectPath && s.activeProjectPath !== s.workRoot) void s.refreshGit();
+      }, "context", sourceControlAvailable),
+      openBrowser: workspace(() => {
+        const s = useAppStore.getState();
+        if (isRemote || s.destination !== "work" || !s.activeProjectPath) return;
+        void rpc.request.browserShow({ projectDir: s.activeProjectPath, sessionFile: s.isNewChat ? null : s.activeSessionFile }).catch(error => toast.error(String(error)));
+      }, undefined, () => !isRemote && workAvailable()),
       focusComposer: workspace(() => (document.querySelector<HTMLElement>("[data-pane-active=true]") ?? document).querySelector<HTMLElement>('[data-composer-input][contenteditable="true"]')?.focus()),
       selectModel: workspace(() => (document.querySelector<HTMLElement>("[data-pane-active=true]") ?? document).querySelector<HTMLButtonElement>('[data-model-picker-trigger]:not(:disabled)')?.click()),
       nextChat: workspace(() => void useAppStore.getState().selectAdjacentChat(1)),
@@ -910,7 +930,7 @@ export function useWorkspaceShortcuts(
           // Escape belongs to a single-line field first — it clears or closes
           // whatever the user is typing in. The composer is a textarea, so
           // stopping a run while writing the next message still works.
-          const modalOpen = settingsOpen || document.querySelector('[role="dialog"], [role="alertdialog"]') !== null;
+          const modalOpen = workspaceShortcutsBlocked();
           if (!modalOpen && running && (stopTurnBinding !== "Escape" || !(event.target instanceof HTMLInputElement))) {
             event.preventDefault();
             abort();
@@ -927,7 +947,11 @@ export function useWorkspaceShortcuts(
           setSearchOpen(true);
         }),
 
-        jumpToLatest: always(requestJumpToLatest),
+        jumpToLatest: (event) => {
+          // End/Home combinations belong to text selection in editable fields.
+          if ((event.target as HTMLElement)?.closest?.('input, textarea, [contenteditable="true"], .cm-editor, .terminal-dock')) return;
+          always(requestJumpToLatest)(event);
+        },
         nextProject: always(() => void selectAdjacentProject(1)),
         previousProject: always(() => void selectAdjacentProject(-1)),
 
@@ -1058,18 +1082,18 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
   return (
     <div className="flex min-h-0 flex-1 overflow-y-auto px-6 py-10">
-      <section className="stagger-enter m-auto flex w-full max-w-md flex-col items-center text-center">
+      <section className="m-auto flex w-full max-w-md flex-col items-center text-center">
         <NativePiWordmark display className="mb-6" />
-        <h1 style={{ "--i": 0 } as React.CSSProperties} className="text-balance text-headline">Start a chat</h1>
-        <p style={{ "--i": 1 } as React.CSSProperties} className="mt-3 max-w-[38ch] text-balance text-sm leading-6 text-body-muted-foreground">
+        <h1 className="text-balance text-headline">Start a chat</h1>
+        <p className="mt-3 max-w-[38ch] text-balance text-sm leading-6 text-body-muted-foreground">
           Choose a project, or start without one for general work on your device.
         </p>
-        <Button style={{ "--i": 2 } as React.CSSProperties} size="xl" className="mt-7" onClick={onStart}>
+        <Button size="xl" className="mt-7" onClick={onStart}>
           <NotePencilIcon data-icon="inline-start" weight="fill" />
           New chat
         </Button>
         {isRemote ? null : (
-          <p style={{ "--i": 3 } as React.CSSProperties} className="mt-8 flex items-center gap-2 rounded-xl border border-dashed border-border/80 px-4 py-2.5 text-xs text-muted-foreground">
+          <p className="mt-8 flex items-center gap-2 rounded-xl border border-dashed border-border/80 px-4 py-2.5 text-xs text-muted-foreground">
             <ArrowLineDownIcon aria-hidden="true" />
             Or drop a folder anywhere in this window
           </p>
