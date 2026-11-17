@@ -36,7 +36,7 @@ function tokenAt(text: string, index: number): { kind: ChipKind; value: string; 
   const rest = text.slice(index);
   if (rest.startsWith(ANNOTATION_PREFIX)) {
     const end = rest.indexOf("]", ANNOTATION_PREFIX.length);
-    if (end < 0 || end > 32000) return null;
+    if (end < 0 || end - ANNOTATION_PREFIX.length > 32000) return null;
     const value = rest.slice(ANNOTATION_PREFIX.length, end);
     if (readAnnotation(value)) return { kind: "browser", value, length: end + 1 };
     return null;

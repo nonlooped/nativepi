@@ -29,3 +29,14 @@ test("the encoded draft budget rejects large Unicode evidence before a chip can 
   expect(browserAnnotationSchema.safeParse(large).success).toBe(false);
   expect(() => annotationToken(large)).toThrow();
 });
+
+test("a valid 32000-character payload remains a chip and expands into readable evidence", () => {
+  const reference = { ...annotation, url: "https://example.com/" + "%20".repeat(2000), element: { ...annotation.element, selector: "界".repeat(1800), text: "界".repeat(400), attributes: {} } };
+  reference.url += "x".repeat(32000 - encodeURIComponent(JSON.stringify(reference)).length);
+  const token = annotationToken(reference);
+  const payload = token.slice(ANNOTATION_PREFIX.length, -1);
+  expect(payload.length).toBe(32000);
+  expect(readAnnotation(payload)).toEqual(reference);
+  expect(parseSegments(token)).toEqual([{ kind: "browser", value: payload }]);
+  expect(skillPrompt(token)).toContain(JSON.stringify(reference, null, 2));
+});
