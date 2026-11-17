@@ -7,10 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Prevent a closed browser from leaving a large empty area after project panes load or the window layout changes.
+
 ## [1.22.0] - 2026-11-17
 
 ### Fixed
-- Prevent a closed browser from leaving a large empty area after project panes load or the window layout changes.
 - Fix background service startup on Windows and an error when closing the desktop window.
 
 ### Added
