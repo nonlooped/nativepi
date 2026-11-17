@@ -20,6 +20,9 @@ import { builtInTheme, DEFAULT_THEME } from "../../shared/themes.ts";
 import { snapshotPage } from "./page.ts";
 import { browserActionScript } from "./actionScript.ts";
 
+import { browserElementSchema, type BrowserAnnotation } from "../../shared/browserAnnotation.ts";
+import { inspectAnnotationPoint } from "./annotationPage.ts";
+
 type Tab = {
   id: string;
   view: WebContentsView;
@@ -32,9 +35,13 @@ type Tab = {
 export class SharedBrowser {
   private window?: BrowserWindow;
   private chromeView?: WebContentsView;
+  private picker?: WebContentsView;
+  private pickingTab?: string;
+  private pickingEpoch = 0;
   private bounds?: { x: number; y: number; width: number; height: number };
-  constructor(private host: BrowserWindow, private reveal: () => void, private hide: () => void) {}
+  constructor(private host: BrowserWindow, private reveal: () => void, private hide: () => void, private annotate?: (annotation: Omit<BrowserAnnotation, "browser">) => void) {}
   setBounds(bounds?: { x: number; y: number; width: number; height: number }) {
+    if (!bounds) this.stopPicking();
     this.bounds = bounds;
     this.layout();
   }
@@ -63,6 +70,7 @@ export class SharedBrowser {
     this.state();
   }
   cancel() {
+    this.stopPicking();
     this.epoch++;
     for (const tab of this.tabs.values()) {
       tab.generation = "";
@@ -92,12 +100,14 @@ export class SharedBrowser {
         throw new Error(
           "Browser action cancelled. Observe before retrying; previous delivery may have occurred.",
         );
+      if (this.picker && operation.action !== "list")
+        throw new Error("Element selection active. Wait for the person to finish selecting or cancel.");
       if (
         this.handoff &&
         !["list", "show", "handoff"].includes(operation.action)
       )
         throw new Error(
-          "Human handoff active. Wait for the person to resume agent control.",
+          "Human handoff or element selection active. Wait for the person to finish and resume agent control.",
         );
       const cancel = () => this.cancel();
       signal?.addEventListener("abort", cancel, { once: true });
@@ -155,6 +165,9 @@ export class SharedBrowser {
 
   async chrome(raw: unknown) {
     const op = browserChromeActionSchema.parse(raw);
+    if (op.action === "annotate") return this.startPicking();
+    if (op.action === "cancelAnnotation") { this.stopPicking(); return; }
+    if (op.action === "annotationPoint") return this.annotationPoint(op.x, op.y, op.capture === true);
     if (op.action === "dismissNotice") {
       const tab = this.active ? this.tabs.get(this.active) : undefined;
       if (tab) tab.notice = undefined;
@@ -172,6 +185,7 @@ export class SharedBrowser {
       return;
     }
     if (op.action === "windowClose") {
+      this.stopPicking();
       this.hide();
       return;
     }
@@ -185,6 +199,7 @@ export class SharedBrowser {
       return;
     }
     if (op.action === "new") {
+      this.stopPicking();
       this.active = undefined;
       this.layout();
       this.state();
@@ -212,6 +227,60 @@ export class SharedBrowser {
     this.state();
     return result;
   }
+  private stopPicking() {
+    this.pickingEpoch++;
+    this.pickingTab = undefined;
+    const picker = this.picker;
+    this.picker = undefined;
+    if (picker) {
+      chromeOwners.delete(picker.webContents.id);
+      if (!this.host.isDestroyed()) this.host.contentView.removeChildView(picker);
+      if (!picker.webContents.isDestroyed()) picker.webContents.close();
+      this.state();
+    }
+  }
+  private async startPicking() {
+    const tab = this.active ? this.tabs.get(this.active) : undefined;
+    if (!tab || tab.loading || tab.error || !this.bounds || !this.annotate)
+      throw new Error("Open a loaded page in this chat before selecting an element.");
+    this.cancel();
+    const epoch = this.pickingEpoch;
+    const picker = new WebContentsView({ webPreferences: {
+      preload: join(app.getAppPath(), "out/preload/browser.cjs"),
+      sandbox: true, contextIsolation: true, nodeIntegration: false,
+    } });
+    picker.setBackgroundColor("#00000000");
+    this.picker = picker;
+    this.pickingTab = tab.id;
+    chromeOwners.set(picker.webContents.id, this);
+    picker.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    picker.webContents.on("will-navigate", event => event.preventDefault());
+    try {
+      if (process.env.ELECTRON_RENDERER_URL)
+        await picker.webContents.loadURL(new URL("browser.html?picker=1", process.env.ELECTRON_RENDERER_URL).href);
+      else await picker.webContents.loadFile(join(app.getAppPath(), "out/renderer/browser.html"), { query: { picker: "1" } });
+      if (this.picker !== picker || epoch !== this.pickingEpoch) return;
+      this.state();
+      await this.theme();
+      if (this.picker === picker && epoch === this.pickingEpoch) picker.webContents.focus();
+    } catch (error) { if (this.picker === picker) this.stopPicking(); throw error; }
+  }
+  private async annotationPoint(x: number | undefined, y: number | undefined, capture: boolean) {
+    const tab = this.pickingTab ? this.tabs.get(this.pickingTab) : undefined;
+    if (!this.picker || !tab || x === undefined || y === undefined) throw new Error("Selection ended. Choose Select element to try again.");
+    const epoch = this.pickingEpoch;
+    const wc = tab.view.webContents;
+    const url = wc.getURL();
+    const result = await wc.executeJavaScriptInIsolatedWorld(999, [{ code: `(${inspectAnnotationPoint.toString()})(${x},${y},${capture})` }]);
+    if (epoch !== this.pickingEpoch || wc.isDestroyed() || url !== wc.getURL()) throw new Error("Page changed. Select the element again.");
+    if (!capture || result.error) return result;
+    const parsed = browserElementSchema.safeParse(result.element);
+    if (!parsed.success) throw new Error("This element has too much identifying content. Select a smaller element.");
+    const annotation = { version: 1 as const, id: randomUUID(), tab: tab.id, title: wc.getTitle().slice(0, 300), url, capturedAt: new Date().toISOString(), element: parsed.data };
+    this.annotate!(annotation);
+    this.stopPicking();
+    return { selected: true };
+  }
   private async theme() {
     const preferences = this.preferences;
     const appearance =
@@ -225,12 +294,15 @@ export class SharedBrowser {
       builtInTheme(preferences.themeId)?.theme ??
       DEFAULT_THEME;
     if (this.closed || !this.window || this.window.isDestroyed()) return;
-    this.chromeView?.webContents.send("nativepi:browser-theme", {
+    const payload = {
       appearance,
       colors: theme.colors[appearance],
       scale: preferences.interfaceScale,
       motion: preferences.reducedMotion,
-    });
+    };
+    this.chromeView?.webContents.send("nativepi:browser-theme", payload);
+    if (this.picker && !this.picker.webContents.isDestroyed())
+      this.picker.webContents.send("nativepi:browser-theme", payload);
   }
   private state() {
     if (this.closed || !this.window || this.window.isDestroyed()) return;
@@ -248,6 +320,7 @@ export class SharedBrowser {
         ? this.tabs.get(this.active)?.view.webContents.getURL()
         : "",
       handoff: this.handoff,
+      selecting: !!this.picker,
       loading: current?.loading ?? false,
       error: current?.error,
       canGoBack:
@@ -279,6 +352,11 @@ export class SharedBrowser {
         width,
         height: Math.max(1, height - this.chromeHeight),
       });
+    }
+    if (this.picker && bounds) {
+      this.host.contentView.removeChildView(this.picker);
+      this.host.contentView.addChildView(this.picker);
+      this.picker.setBounds({ x, y: y + this.chromeHeight, width, height: Math.max(1, height - this.chromeHeight) });
     }
   }
   private async execute(op: BrowserAction, check = () => {}): Promise<unknown> {
@@ -361,6 +439,7 @@ export class SharedBrowser {
         if (!browserUrl.safeParse(event.url).success) event.preventDefault();
       });
       wc.on("did-start-navigation", () => {
+        if (this.pickingTab === tab.id) this.stopPicking();
         tab.generation = "";
       });
       wc.on("did-start-loading", () => {
@@ -372,6 +451,7 @@ export class SharedBrowser {
         tab.loading = false;
         this.state();
       });
+      wc.on("render-process-gone", () => { if (this.pickingTab === tab.id) this.stopPicking(); tab.error = "Page stopped. Reload to continue."; this.state(); });
       wc.on("page-title-updated", () => this.state());
       wc.on("did-navigate", () => this.state());
       wc.on("console-message", (event) => {

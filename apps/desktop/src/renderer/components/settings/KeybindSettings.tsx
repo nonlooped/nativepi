@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react/ArrowCounterClockwise";
+import { DotsThreeIcon } from "@phosphor-icons/react/DotsThree";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { PencilSimpleIcon } from "@phosphor-icons/react/PencilSimple";
 import { Input } from "@/components/ui/input.tsx";
-import { SettingsSection } from "./rows.tsx";
+import { ActionRow, SettingsSection } from "./rows.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Kbd } from "@/components/ui/kbd.tsx";
 import { HOVER_REVEAL, cn } from "@/lib/utils.ts";
 import { useAppStore } from "../../lib/store.ts";
 import {
-  defaultBindingFor,
   hintFor,
   isCustomized,
   parseKeyEvent,
@@ -40,8 +41,9 @@ export default function KeybindSettings() {
   useEffect(() => {
     if (!recordingId) return;
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.repeat) return;
       event.preventDefault();
-      event.stopPropagation();
+      event.stopImmediatePropagation();
       if (event.key === "Escape") {
         setRecordingId(null);
         return;
@@ -77,11 +79,10 @@ export default function KeybindSettings() {
       <div className="flex items-center gap-2"><Input aria-label="Search shortcuts" placeholder="Search shortcuts" type="search" onFocus={() => setRecordingId(null)} value={query} onChange={event => setQuery(event.target.value)} className="h-8" /><Button variant={onlyModified ? "secondary" : "outline"} size="sm" aria-pressed={onlyModified} onClick={() => { setRecordingId(null); setOnlyModified(!onlyModified); }}>Modified</Button></div>
       {groups.map(({ group, shortcuts }) => ({ group, shortcuts: shortcuts.filter(shortcut => `${shortcut.label} ${shortcut.description}`.toLowerCase().includes(query.trim().toLowerCase()) && (!onlyModified || isCustomized(shortcut.id, overrides))) })).filter(group => group.shortcuts.length).map(({ group, shortcuts }) => (
         <SettingsSection key={group} heading={group}>
-          <div className="mt-1 flex flex-col">
+          <>
             {shortcuts.map((shortcut) => {
               const recording = recordingId === shortcut.id;
               const hint = hintFor(shortcut.id, overrides);
-              const unbound = overrides[shortcut.id] === "";
               const customized = isCustomized(shortcut.id, overrides);
               const bindingDescription = recording
                 ? "Recording shortcut"
@@ -89,48 +90,25 @@ export default function KeybindSettings() {
                   ? `Current shortcut: ${hint}`
                   : "Shortcut unassigned";
               return (
-                <div
-                  key={shortcut.id}
-                  className={cn(
-                    "group flex flex-col gap-2 py-2.5 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-center @min-[36rem]/settings-content:justify-between @min-[36rem]/settings-content:gap-8",
-                    unbound && "rounded-lg bg-warning/10 px-2",
-                  )}
-                >
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <p className="text-sm font-medium">{shortcut.label}</p>
-                    <p className="text-xs leading-relaxed text-body-muted-foreground">
-                      {unbound
-                        ? "Unbound when another shortcut took these keys."
-                        : shortcut.description}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    {customized ? (
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Reset ${shortcut.label} to default`}
-                        title={defaultBindingFor(shortcut.id) ? `Reset to ${hintFor(shortcut.id)}` : "Reset to default"}
-                        onClick={() => resetKeybinding(shortcut.id)}
-                      >
-                        <ArrowCounterClockwiseIcon />
-                      </Button>
-                    ) : null}
+                <ActionRow key={shortcut.id} label={shortcut.label} description={shortcut.description}>
+                  <div className="flex items-center justify-end gap-1">
                     <button
                       type="button"
                       onClick={() => setRecordingId(recording ? null : shortcut.id)}
+                      aria-pressed={recording}
+                      title={recording ? "Press new keys. Escape to cancel." : `Change shortcut for ${shortcut.label}`}
                       aria-label={`Change shortcut for ${shortcut.label}. ${bindingDescription}.`}
                       className={cn(
-                        "flex h-8 min-w-24 items-center justify-end gap-1 rounded-md border border-input bg-input/20 px-2 outline-none transition-colors hover:bg-input/50 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30",
+                        "group flex h-8 w-44 shrink-0 items-center justify-end gap-1 rounded-md border border-input bg-input/20 px-2 outline-none transition-colors hover:bg-input/50 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30",
                         recording && "border-ring bg-input/50 ring-2 ring-ring/30",
                       )}
                     >
                       {recording ? (
-                        <span className="text-xs text-muted-foreground">Press a key…</span>
+                        <span role="status" className="text-xs text-muted-foreground">Press new keys…</span>
                       ) : (
                         <>
                           <PencilSimpleIcon
-                            className={cn(HOVER_REVEAL, "mr-auto size-3 shrink-0 text-muted-foreground group-hover:opacity-100")}
+                            className={cn(HOVER_REVEAL, "mr-auto size-3 shrink-0 text-muted-foreground group-hover:opacity-100 group-focus-visible:opacity-100")}
                           />
                           {hint ? (
                             hint.split("+").map((key) => <Kbd key={key}>{key}</Kbd>)
@@ -140,11 +118,21 @@ export default function KeybindSettings() {
                         </>
                       )}
                     </button>
+                    <DropdownMenu onOpenChange={(open) => { if (open) setRecordingId(null); }}>
+                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${shortcut.label}`} title={`Actions for ${shortcut.label}`} />}>
+                        <DotsThreeIcon />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onClick={() => setRecordingId(shortcut.id)}>Change shortcut</DropdownMenuItem>
+                        <DropdownMenuItem disabled={!hint} onClick={() => setKeybinding(shortcut.id, "")}>Disable shortcut</DropdownMenuItem>
+                        <DropdownMenuItem disabled={!customized} onClick={() => resetKeybinding(shortcut.id)}>Reset to default</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                </div>
+                </ActionRow>
               );
             })}
-          </div>
+          </>
         </SettingsSection>
       ))}
       {!groups.some(({ shortcuts }) => shortcuts.some(shortcut => `${shortcut.label} ${shortcut.description}`.toLowerCase().includes(query.trim().toLowerCase()) && (!onlyModified || isCustomized(shortcut.id, overrides)))) ? <p role="status" className="text-sm text-muted-foreground">No matching shortcuts.</p> : null}
