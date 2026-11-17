@@ -13,7 +13,7 @@ function ContextualIcon({
   activeIcon: React.ReactNode;
   inactiveIcon: React.ReactNode;
 }) {
-  const motion = "flex items-center justify-center transition-[opacity,scale] duration-150 ease-out";
+  const motion = "flex items-center justify-center transition-[opacity,scale] duration-(--motion-feedback) ease-out";
   return (
     <span className={cn("relative inline-grid size-4 shrink-0 place-items-center", className)} aria-hidden="true" {...props}>
       <span className={cn(motion, "absolute inset-0", active ? "scale-100 opacity-100" : "scale-90 opacity-0")}>
