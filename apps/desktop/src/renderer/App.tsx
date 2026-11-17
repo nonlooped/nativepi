@@ -258,7 +258,7 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
             <ConnectionNotice />
             <PiStartingNotice />
 
-            <WorkspaceTabHostContext value={{ integrated: !panes || panes.count === 1, element: tabHost }}>
+            <WorkspaceTabHostContext value={{ integrated: !panes || panes.count === 1, element: tabHost, projectPresentation }}>
               {renderWorkspace ? renderWorkspace(() => startNewChatFlow(() => setNewChatProjectOpen(true))) : <ConversationSurface onStart={() => startNewChatFlow(() => setNewChatProjectOpen(true))} />}
             </WorkspaceTabHostContext>
 

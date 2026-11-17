@@ -6,12 +6,12 @@ import { createPaneStore, PaneStoreContext, releasePaneStore, type PaneStore } f
 import { paneWorkspaceTabs, tabId } from "../lib/workspaceTabs.ts";
 import { useWorkspaceEditor } from "../lib/workspaceEditor.ts";
 mock.module("./FileTypeIcon.tsx", () => ({ default: () => null }));
-const { default: WorkspaceTabs } = await import("./WorkspaceTabs.tsx");
+const { default: WorkspaceTabs, WorkspaceTabHostContext } = await import("./WorkspaceTabs.tsx");
 globalThis.requestAnimationFrame = window.requestAnimationFrame.bind(window);
 globalThis.cancelAnimationFrame = window.cancelAnimationFrame.bind(window);
 let root: Root, container: HTMLDivElement, app: PaneStore;
 afterEach(async () => { if (root) await act(async () => root.unmount()); container?.remove(); if (app) releasePaneStore(app); useWorkspaceEditor.setState({ buffers: {}, selected: {}, loading: {} }); });
-async function mount() {
+async function mount(projectPresentation = {}) {
   stubInvoke(async () => ({ text: "saved", revision: "v1" }));
   app = createPaneStore();
   app.setState({ ready: true, activeProjectPath: "/project", activeSessionFile: "a", sessionsByProject: { "/project": [{ path: "a", name: "Plan release", providers: [] }, { path: "b", name: "Review settings", providers: [] }] as any },
@@ -21,7 +21,11 @@ async function mount() {
   const tabs = paneWorkspaceTabs(app);
   await tabs.activate({ kind: "thread", projectDir: "/project", session: "b" }); await tabs.activate({ kind: "file", projectDir: "/project", file: "one.ts" });
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
-  await act(async () => root.render(<PaneStoreContext value={app}><WorkspaceTabs><input aria-label="Editor" /></WorkspaceTabs></PaneStoreContext>));
+  await act(async () => root.render(<PaneStoreContext value={app}>
+    <WorkspaceTabHostContext value={{ integrated: false, element: null, projectPresentation }}>
+      <WorkspaceTabs><input aria-label="Editor" /></WorkspaceTabs>
+    </WorkspaceTabHostContext>
+  </PaneStoreContext>));
   return tabs;
 }
 function button(label: string) { return [...document.querySelectorAll<HTMLElement>("button")].find(b => b.getAttribute("aria-label") === label || b.textContent === label)!; }
@@ -51,8 +55,10 @@ test("rebound tab shortcuts work from content, respect dialogs, and arrow naviga
 });
 
 
-test("restoring mixed-project tabs loads their names even when another folder is selected", async () => {
-  await mount();
+test("restoring mixed-project tabs shows each thread's name and project icon", async () => {
+  const firstIcon = "data:image/png;base64,first";
+  const otherIcon = "data:image/png;base64,other";
+  await mount({ "/project": { icon: firstIcon }, "/other": { icon: otherIcon } });
   await act(async () => {
     app.setState({ sessionsByProject: {}, sessionLoadStates: {}, refreshSessions: async project => {
       await Promise.resolve();
@@ -61,7 +67,11 @@ test("restoring mixed-project tabs loads their names even when another folder is
     const other = { kind: "thread" as const, projectDir: "/other", session: "c" };
     paneWorkspaceTabs(app, { work: { tabs: [{ kind: "thread", projectDir: "/project", session: "a" }, other], active: tabId({ kind: "thread", projectDir: "/project", session: "a" }) } });
   });
-  expect([...container.querySelectorAll('[role="tab"]')].map(tab => tab.textContent)).toEqual(["Releaseproject", "Migrationother"]);
+  const tabs = [...container.querySelectorAll('[role="tab"]')];
+  expect(tabs.map(tab => tab.getAttribute("aria-label"))).toEqual(["Release", "Migration"]);
+  expect(tabs.map(tab => tab.querySelector("img")?.getAttribute("src"))).toEqual([firstIcon, otherIcon]);
+  expect(tabs[0]?.textContent).toContain("Releaseproject");
+  expect(tabs[1]?.textContent).toContain("Migrationother");
 });
 
 
@@ -83,11 +93,11 @@ test("overflow keeps the selected tab visible and the menu follows selection wit
     await act(async () => button("All open tabs").click());
     const current = document.querySelector('[role="menuitemradio"][aria-checked="true"]');
     expect(current?.textContent).toBe("one.ts");
-    const review = [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(item => item.textContent === "Review settings")!;
+    const review = [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(item => item.textContent?.endsWith("Review settings"))!;
     await act(async () => review.click());
     expect(app.getState().activeSessionFile).toBe("b");
     expect(active()).toBe("Review settings");
-    width = 384;
+    width = 544;
     await act(async () => resize());
     expect(button("All open tabs")).toBeUndefined();
     expect([...container.querySelectorAll('[role="tab"]')].map(tab => tab.getAttribute("aria-label"))).toEqual(["Plan release", "Review settings", "one.ts"]);

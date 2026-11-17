@@ -11,6 +11,7 @@ import { Button } from "./ui/button.tsx";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "./ui/dropdown-menu.tsx";
 import ConfirmDialog from "./ConfirmDialog.tsx";
 import FileTypeIcon from "./FileTypeIcon.tsx";
+import ProjectIcon from "./ProjectIcon.tsx";
 import WorkspacePaneMenu from "./WorkspacePaneMenu.tsx";
 import { usePaneStore } from "../lib/store.ts";
 import { paneWorkspaceTabs, tabId, tabScope, type WorkspaceTab } from "../lib/workspaceTabs.ts";
@@ -19,8 +20,13 @@ import { chatTitle } from "../lib/transcript.ts";
 import { bindings, withHint } from "../lib/shortcuts.ts";
 import { cn, NO_DRAG_REGION } from "../lib/utils.ts";
 import { workspaceShortcutsBlocked } from "../lib/shortcutContext.ts";
+import type { SidebarProject } from "../lib/sidebarProjects.ts";
 
-export const WorkspaceTabHostContext = createContext<{ integrated: boolean; element: HTMLElement | null } | null>(null);
+export const WorkspaceTabHostContext = createContext<{
+  integrated: boolean;
+  element: HTMLElement | null;
+  projectPresentation: Record<string, SidebarProject>;
+} | null>(null);
 
 export function useWorkspaceTabs() {
   const useAppStore = usePaneStore();
@@ -63,7 +69,7 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
   }, [host?.integrated, host?.element]);
   const tabs = strip?.tabs ?? [];
   // Count from the full lane so mounting the overflow button cannot change the threshold.
-  const tabWidth = 8;
+  const tabWidth = 11.125; // w-44 plus the gap, in rem
   const actionWidth = 2; // icon-sm plus the gap, in rem
   const tabSpace = availableWidth - (onNew ? actionWidth : 0);
   const needsOverflow = availableWidth > 0 && tabs.length > Math.max(1, Math.floor(tabSpace / tabWidth));
@@ -79,6 +85,12 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
   }
   const mixedProjects = new Set(tabs.map(tab => tab.projectDir)).size > 1;
   const projectName = (tab: WorkspaceTab) => tab.projectDir === workRoot ? "No project" : tab.projectDir === chatRoot ? "Chat" : projects.find(p => p.path === tab.projectDir)?.name ?? tab.projectDir.split(/[\\/]/).filter(Boolean).at(-1) ?? tab.projectDir;
+  const icon = (tab: WorkspaceTab) => {
+    if (tab.kind === "file") return <FileTypeIcon path={tab.file} />;
+    if (tab.kind === "diff") return <GitDiffIcon className="size-4" />;
+    if (tab.projectDir === workRoot || tab.projectDir === chatRoot) return <ChatCircleIcon className="size-4" />;
+    return <ProjectIcon name={projectName(tab)} src={host?.projectPresentation[tab.projectDir]?.icon} className="size-4 leading-none" />;
+  };
   const title = (tab: WorkspaceTab) => tab.kind === "file" ? tab.file.split(/[\\/]/).at(-1)! : tab.kind === "diff" ? `${tab.path.split(/[\\/]/).at(-1)} · ${tab.hash ? tab.hash.slice(0, 7) : tab.staged ? "Staged" : "Changes"}` : tab.session ? (() => { const session = sessions[tab.projectDir]?.find(s => s.path === tab.session); return session ? chatTitle(session) : conversations[tab.session]?.sessionName || "Conversation"; })() : "New chat";
   const bufferFor = (tab: WorkspaceTab) => tab.kind === "file" ? Object.values(buffers).find(b => b.projectDir === tab.projectDir && b.file === tab.file) : undefined;
   const close = (tab: WorkspaceTab) => { if (controller.needsDiscard(tab)) setClosing({ tab, scope }); else void controller.close(tab); };
@@ -103,15 +115,15 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
         {visibleTabs.map(tab => {
           const id = tabId(tab), selected = strip?.active === id, buffer = bufferFor(tab), dirty = buffer && buffer.text !== buffer.saved;
           const label = title(tab);
-          const context = mixedProjects && (selected || tab.projectDir !== currentProject) ? projectName(tab) : undefined;
+          const context = selected || (mixedProjects && tab.projectDir !== currentProject) ? projectName(tab) : undefined;
           const detail = tab.kind === "file" ? tab.file : tab.kind === "diff" ? `${tab.path}\n${tab.hash ? `Commit ${tab.hash}` : tab.staged ? "Live staged changes" : "Live unstaged changes"}` : "Conversation";
-          return <div key={id} className="group/tab relative min-w-0 max-w-52" onPointerDown={event => { if (event.button === 1) event.preventDefault(); }} onAuxClick={event => { if (event.button === 1) close(tab); }}>
+          return <div key={id} className="group/tab relative w-44 min-w-0" onPointerDown={event => { if (event.button === 1) event.preventDefault(); }} onAuxClick={event => { if (event.button === 1) close(tab); }}>
             <Button role="tab" aria-label={label} aria-selected={selected} tabIndex={selected ? 0 : -1} variant="ghost"
               className="relative h-8 w-full min-w-0 justify-start gap-1.5 rounded-sm pr-6 pl-2 text-left active:scale-none aria-selected:bg-muted/45 aria-selected:font-medium aria-selected:text-foreground aria-selected:after:absolute aria-selected:after:inset-x-2 aria-selected:after:bottom-0 aria-selected:after:h-px aria-selected:after:rounded-full aria-selected:after:bg-active"
               title={`${label}\n${projectName(tab)}\n${detail}`} onClick={() => select(tab)}>
-              {tab.kind === "file" ? <FileTypeIcon path={tab.file} size={14} /> : tab.kind === "diff" ? <GitDiffIcon className="size-3.5" /> : <ChatCircleIcon className="size-3.5" />}
-              <span className="min-w-0 truncate">{label}</span>
-              {context && <span className="min-w-0 max-w-[30%] truncate border-l border-border pl-1.5 text-xs font-normal text-muted-foreground">{context}</span>}
+              <span className="grid size-4 shrink-0 place-items-center" aria-hidden="true">{icon(tab)}</span>
+              <span className="min-w-0 truncate leading-5">{label}</span>
+              {context && <span className="max-w-[35%] shrink-0 truncate border-l border-border pl-1.5 text-xs/5 font-normal text-muted-foreground">{context}</span>}
               {dirty ? <span className="size-1.5 shrink-0 rounded-full bg-foreground/60" aria-label="Unsaved changes" /> : tab.kind === "thread" && tab.session && conversations[tab.session]?.running ? <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-label="Running" /> : null}
             </Button>
             <Button variant="ghost" size="icon-xs" className={cn("absolute top-1/2 right-0.5 size-5 -translate-y-1/2", !selected && "opacity-0 group-hover/tab:opacity-100 group-focus-within/tab:opacity-100 [@media(hover:none)]:opacity-100")} title={withHint("Close tab", "closeWorkspaceTab", overrides)} aria-label={`Close ${label}`} disabled={buffer?.saving} onClick={() => close(tab)}><XIcon className="size-3" /></Button>
@@ -125,7 +137,7 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
             {groups.map((group, index) => <DropdownMenuGroup key={index}>
               {mixedProjects ? <DropdownMenuLabel>{projectName(group.tabs[0]!)}</DropdownMenuLabel> : null}
               {group.tabs.map(tab => <DropdownMenuRadioItem key={tabId(tab)} value={tabId(tab)} title={`${title(tab)}\n${tab.kind === "file" ? tab.file : tab.projectDir}`}>
-                {tab.kind === "file" ? <FileTypeIcon path={tab.file} /> : tab.kind === "diff" ? <GitDiffIcon /> : <ChatCircleIcon />}
+                <span className="grid size-4 shrink-0 place-items-center" aria-hidden="true">{icon(tab)}</span>
                 <span className="min-w-0 flex-1 line-clamp-2 whitespace-normal break-words text-left leading-5">{title(tab)}</span>
               </DropdownMenuRadioItem>)}
             </DropdownMenuGroup>)}

@@ -34,8 +34,8 @@ test("compiled tabs replace history across projects, survive pane handoff and re
   const { default: WorkspaceTabs } = await import(modulePath);
   const container = document.createElement("div"); document.body.append(container); const root = createRoot(container);
   const render = async (store = left) => act(async () => root.render(<PaneStoreContext value={store}><WorkspaceTabs><input /></WorkspaceTabs></PaneStoreContext>));
-  const selected = () => container.querySelector('[role="tab"][aria-selected="true"]')?.textContent;
-  const click = async (text: string) => act(async () => { [...container.querySelectorAll<HTMLElement>('[role="tab"]')].find(x => x.textContent?.startsWith(text))!.click(); });
+  const selected = () => container.querySelector('[role="tab"][aria-selected="true"]')?.getAttribute("aria-label");
+  const click = async (label: string) => act(async () => { [...container.querySelectorAll<HTMLElement>('[role="tab"]')].find(x => x.getAttribute("aria-label") === label)!.click(); });
   try {
     await render();
     await act(async () => { await left.getState().selectChat("b", "/project"); await left.getState().selectChat("c", "/other"); });
