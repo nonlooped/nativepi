@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Managed task workspaces with explicit chat isolation/base selection, reusable setup/run/check actions, opt-in local file preparation, coordinated ports, action recovery and conservative workspace retirement.
 
 ### Changed
-- Replace back/forward navigation with one pane-local tab strip spanning projects and project-free conversations, files and live or commit diffs, with restored layouts, protected unsaved edits and rebindable navigation.
+- Replace back/forward navigation with header-integrated workspace tabs across projects and project-free conversations, files and diffs, with clear titles, grouped overflow selection, restored layouts, protected unsaved edits and rebindable navigation.
 - Display the shared browser in a resizable right-side panel with compact tabs and navigation instead of a separate window.
 - Restore Pi naming and trim explanatory UI copy while retaining workflow and recovery improvements. Revert the recent website changes.
 - Identify the chat in each browser window, explain browser session lifetime, and show blocked downloads, popups and device permissions with an option to continue in the usual browser. Start empty browsers on a useful address screen and explain computer-only opening from another device.

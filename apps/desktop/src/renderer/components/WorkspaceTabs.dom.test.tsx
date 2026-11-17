@@ -25,7 +25,7 @@ async function mount() {
   return tabs;
 }
 function button(label: string) { return [...document.querySelectorAll<HTMLElement>("button")].find(b => b.getAttribute("aria-label") === label || b.textContent === label)!; }
-function active() { return container.querySelector('[role="tab"][aria-selected="true"]')?.textContent; }
+function active() { return container.querySelector('[role="tab"][aria-selected="true"]')?.getAttribute("aria-label"); }
 test("tab close asks before discarding edits; cancel keeps the buffer and discard selects its neighbour", async () => {
   await mount(); const key = Object.keys(useWorkspaceEditor.getState().buffers)[0]!;
   await act(async () => useWorkspaceEditor.getState().edit(key, "unsaved"));
@@ -62,4 +62,29 @@ test("restoring mixed-project tabs loads their names even when another folder is
     paneWorkspaceTabs(app, { work: { tabs: [{ kind: "thread", projectDir: "/project", session: "a" }, other], active: tabId({ kind: "thread", projectDir: "/project", session: "a" }) } });
   });
   expect([...container.querySelectorAll('[role="tab"]')].map(tab => tab.textContent)).toEqual(["Releaseproject", "Migrationother"]);
+});
+
+
+test("overflow keeps the selected tab visible and the menu follows selection with conventional radio feedback", async () => {
+  const OriginalObserver = globalThis.ResizeObserver;
+  let resize = () => {};
+  globalThis.ResizeObserver = class {
+    constructor(private callback: ResizeObserverCallback) {}
+    observe(element: Element) { if (element.getAttribute("role") === "tablist") resize = () => this.callback([], this as unknown as ResizeObserver); }
+    disconnect() {} unobserve() {}
+  } as typeof ResizeObserver;
+  try {
+    await mount();
+    const list = container.querySelector<HTMLElement>('[role="tablist"]')!;
+    Object.defineProperty(list, "clientWidth", { configurable: true, value: 160 });
+    await act(async () => resize());
+    expect([...container.querySelectorAll('[role="tab"]')].map(tab => tab.getAttribute("aria-label"))).toEqual(["one.ts"]);
+    await act(async () => button("All open tabs").click());
+    const current = document.querySelector('[role="menuitemradio"][aria-checked="true"]');
+    expect(current?.textContent).toBe("one.ts");
+    const review = [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(item => item.textContent === "Review settings")!;
+    await act(async () => review.click());
+    expect(app.getState().activeSessionFile).toBe("b");
+    expect(active()).toBe("Review settings");
+  } finally { globalThis.ResizeObserver = OriginalObserver; }
 });

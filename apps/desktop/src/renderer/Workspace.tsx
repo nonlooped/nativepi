@@ -44,7 +44,10 @@ export default function Workspace() {
     window.addEventListener("dragend", end);
     return () => window.removeEventListener("dragend", end);
   }, []);
-  const [active, setActive] = useState(0);
+  const [selectedPane, setActive] = useState(0);
+  // Header portal registration can render while a closing pane is removed.
+  // Keep the selection valid until the close action commits its new index.
+  const active = Math.min(selectedPane, stores.length - 1);
   const [orientation, setOrientation] = useState<"horizontal" | "vertical">(restored?.orientation ?? "horizontal");
   const [width, setWidth] = useState(window.innerWidth);
   const [paneElement, setPaneElement] = useState<HTMLDivElement | null>(null);
