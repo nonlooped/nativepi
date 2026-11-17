@@ -1,4 +1,4 @@
-import { BrowserPanel, useBrowserPanel } from "./components/BrowserPanel.tsx";
+import { BrowserPanelSlot, useBrowserPanel } from "./components/BrowserPanel.tsx";
 import { usePaneView } from "./lib/paneView.ts";
 import { useWorkspacePanes } from "./lib/workspacePanes.ts";
 import { runtime } from "./lib/store/internals.ts";
@@ -106,7 +106,6 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
   const horizontalGroup = useRef<HTMLDivElement>(null);
   const verticalGroup = useRef<HTMLDivElement>(null);
   const browserPanel = useBrowserPanel(`${activeProjectPath}:${activeSessionFile}`);
-  const browserPanelRef = useCollapsiblePanel(!!browserPanel, ready);
   const contextPaneWidth = useAppStore((s) => s.contextPaneWidth);
   const terminalHeight = useAppStore((s) => s.terminalHeight);
   const contextPaneOpen = useAppStore((s) => s.contextPaneOpen);
@@ -322,10 +321,7 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
             </ResizablePanel>
           </>
         ) : null}
-        <ResizableHandle withHandle disabled={!browserPanel} className={!browserPanel ? "w-0 opacity-0 after:hidden" : undefined} />
-        <ResizablePanel id="browser" panelRef={browserPanelRef} defaultSize="45%" minSize="320px" collapsible collapsedSize="0%" inert={!browserPanel || undefined}>
-          {browserPanel ? <BrowserPanel id={browserPanel} hidden={settingsOpen || !!appPanel} /> : null}
-        </ResizablePanel>
+        <BrowserPanelSlot id={browserPanel} hidden={settingsOpen || !!appPanel} />
       </ResizablePanelGroup>
       </div>
 

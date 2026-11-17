@@ -1,3 +1,4 @@
+import { ResizableHandle, ResizablePanel } from "./ui/resizable.tsx";
 import { usePaneStore } from "../lib/store.ts";
 import { insertBrowserAnnotation } from "../lib/browserAnnotations.ts";
 import { showHint } from "../lib/toast.tsx";
@@ -59,4 +60,18 @@ export function BrowserPanel({ id, hidden }: { id: string; hidden: boolean }) {
   // A draggable placeholder underneath a native view steals pointer events
   // from that view's toolbar, even when its own buttons use app-no-drag.
   return <div ref={ref} className={`h-full w-full bg-background ${NO_DRAG_REGION}`} aria-label="Shared browser" />;
+}
+
+/** The browser's place in the shared workspace layout. */
+export function BrowserPanelSlot({ id, hidden }: { id: string | null; hidden: boolean }) {
+  // A mounted, collapsed panel can regain its default width when a sibling
+  // registers (for example Files after startup or a responsive layout change).
+  // Keep a closed browser out of the layout instead of collapsing it later.
+  if (!id) return null;
+  return <>
+    <ResizableHandle withHandle />
+    <ResizablePanel id="browser" defaultSize="45%" minSize="320px">
+      <BrowserPanel id={id} hidden={hidden} />
+    </ResizablePanel>
+  </>;
 }

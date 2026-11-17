@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserPanel } from "./BrowserPanel.tsx";
+import { BrowserPanel, BrowserPanelSlot } from "./BrowserPanel.tsx";
 
 test("native browser bounds follow the settled window resize without waiting for a ResizeObserver frame", async () => {
   const originalObserver = globalThis.ResizeObserver;
@@ -33,5 +33,52 @@ test("native browser bounds follow the settled window resize without waiting for
     globalThis.ResizeObserver = originalObserver;
     HTMLElement.prototype.getBoundingClientRect = originalRect;
     window.nativepi!.browserPanel = originalBridge;
+  }
+});
+
+
+test("a closed browser reserves no space when Files mounts, and opening and closing it preserves the draft", async () => {
+  const { ResizablePanel, ResizablePanelGroup } = await import("./ui/resizable.tsx");
+  const { usePanelCallbackRef } = await import("react-resizable-panels");
+  const originalWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
+  Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, get: () => 1280 });
+  Reflect.set(globalThis, "DOMRect", window.DOMRect);
+  Reflect.set(globalThis, "requestAnimationFrame", window.requestAnimationFrame.bind(window));
+  Reflect.set(globalThis, "cancelAnimationFrame", window.cancelAnimationFrame.bind(window));
+  let conversation: import("react-resizable-panels").PanelImperativeHandle | null = null;
+  function Shell({ files, browser }: { files: boolean; browser: string | null }) {
+    const [panel, ref] = usePanelCallbackRef();
+    conversation = panel;
+    return <ResizablePanelGroup orientation="horizontal">
+      <ResizablePanel id="conversation" panelRef={ref}><textarea aria-label="Draft" /></ResizablePanel>
+      {files ? <ResizablePanel id="files" defaultSize="20%">Files</ResizablePanel> : null}
+      <BrowserPanelSlot id={browser} hidden={false} />
+    </ResizablePanelGroup>;
+  }
+  const container = document.createElement("div"); document.body.append(container);
+  const root = createRoot(container);
+  async function render(files: boolean, browser: string | null = null) {
+    await act(async () => root.render(<Shell files={files} browser={browser} />));
+    await act(async () => { await new Promise(resolve => requestAnimationFrame(resolve)); });
+  }
+  try {
+    await render(false);
+    expect(conversation!.getSize().asPercentage).toBe(100);
+    const draft = container.querySelector("textarea")!;
+    draft.value = "Keep this draft"; draft.focus();
+    await render(true);
+    expect(conversation!.getSize().asPercentage).toBe(80);
+    await render(true, "browser-session");
+    expect(container.querySelector('[aria-label="Shared browser"]')).not.toBeNull();
+    expect(conversation!.getSize().asPercentage).toBe(35);
+    await render(true);
+    expect(container.querySelector('[aria-label="Shared browser"]')).toBeNull();
+    expect(conversation!.getSize().asPercentage).toBe(80);
+    expect(document.activeElement).toBe(draft);
+    expect(draft.value).toBe("Keep this draft");
+  } finally {
+    await act(async () => root.unmount()); container.remove();
+    if (originalWidth) Object.defineProperty(HTMLElement.prototype, "offsetWidth", originalWidth);
+    else Reflect.deleteProperty(HTMLElement.prototype, "offsetWidth");
   }
 });
