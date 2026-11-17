@@ -58,19 +58,21 @@ function ResizableHandle({
 }
 
 function useCollapsiblePanel(open: boolean, mountKey?: unknown) {
-  const panelRef = ResizablePrimitive.usePanelRef()
+  const [panel, panelRef] = ResizablePrimitive.usePanelCallbackRef()
 
   // Responsive layout changes can unregister a panel after its imperative ref
   // is assigned but before its Group constraints settle. Coalesce rapid
   // changes to the next frame so stale layouts never call into that gap.
+  // Observe the handle too: the shell can mount after startup, after an
+  // earlier effect ran with no panel to collapse.
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      if (open) panelRef.current?.expand()
-      else panelRef.current?.collapse()
+      if (open) panel?.expand()
+      else panel?.collapse()
     })
 
     return () => cancelAnimationFrame(frame)
-  }, [open, panelRef, mountKey])
+  }, [open, panel, mountKey])
 
   return panelRef
 }

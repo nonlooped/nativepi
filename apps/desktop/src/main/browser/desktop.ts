@@ -1,9 +1,10 @@
+import { browserAnnotationEventSchema } from "../../shared/browserAnnotation.ts";
 import { BrowserWindow, ipcMain, nativeTheme } from "electron";
 import { z } from "zod";
 import { SharedBrowser } from "./index.ts";
 import type { browserRelaySchema } from "../../shared/background-service.ts";
 const boundsSchema = z.object({ id: z.string().uuid(), bounds: z.object({ x: z.number().int().min(0), y: z.number().int().min(0), width: z.number().int().positive().max(16000), height: z.number().int().positive().max(16000) }).optional() });
-const browsers = new Map<string, { browser: SharedBrowser; window: BrowserWindow }>();
+const browsers = new Map<string, { browser: SharedBrowser; window: BrowserWindow; target?: z.infer<typeof browserRelaySchema>["annotationTarget"] }>();
 let active: string | undefined;
 ipcMain.handle("nativepi:browser-panel", (event, raw: unknown) => {
   if (event.senderFrame !== event.sender.mainFrame) return;
@@ -25,10 +26,17 @@ export async function desktopBrowserCommand(command: z.infer<typeof browserRelay
     }, () => {
       browser.setBounds();
       if (active === id) { active = undefined; window.webContents.send("nativepi:browser-panel", null); }
+    }, annotation => {
+      const target = browsers.get(id)?.target;
+      if (!target) throw new Error("Open a saved Work chat before selecting an element.");
+      const event = browserAnnotationEventSchema.safeParse({ target, annotation: { ...annotation, browser: id } });
+      if (!event.success) throw new Error("Element context is too large or unavailable. Select a smaller element or reload the page.");
+      window.webContents.send("nativepi:browser-annotation", event.data);
     });
     entry = { browser, window }; browsers.set(id, entry);
     window.once("closed", () => { browser.dispose(); browsers.delete(id); });
   }
+  entry.target = command.annotationTarget;
   const browser = entry.browser;
   if (command.ownerTitle) browser.setOwner(command.ownerTitle);
   if (command.preferences) browser.preferences = command.preferences;

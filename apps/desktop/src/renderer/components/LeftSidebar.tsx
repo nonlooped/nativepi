@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button.tsx";
 import { ResizableHandle, ResizablePanel, useCollapsiblePanel } from "@/components/ui/resizable.tsx";
 import { DRAG_REGION, NO_DRAG_REGION, TRAFFIC_LIGHTS_CLEARANCE, cn } from "@/lib/utils.ts";
 import { useAppStore } from "@/lib/store.ts";
-import NavigationControls from "./NavigationControls.tsx";
 import NativePiWordmark from "./NativePiWordmark.tsx";
 
 export default function LeftSidebar({
@@ -48,7 +47,6 @@ export default function LeftSidebar({
           <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground [[data-window-controls=custom]_&]:order-last [[data-window-controls=custom]_&]:ml-1" onClick={onClose} title="Close sidebar" aria-label="Close sidebar">
             <SidebarSimpleIcon className="size-[20px]" />
           </Button>
-          <NavigationControls />
         </div>
       </div>
 

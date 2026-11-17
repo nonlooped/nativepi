@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { transitionView } from "./viewTransition.ts";
+import { finishViewTransition, transitionView } from "./viewTransition.ts";
 
 const original = document.startViewTransition;
 const originalMatchMedia = window.matchMedia;
@@ -13,7 +13,7 @@ afterEach(async () => {
   delete document.documentElement.dataset["motion"];
 });
 function browser() {
-  window.matchMedia = (() => ({ matches: false })) as unknown as typeof window.matchMedia;
+  window.matchMedia = (() => ({ matches: false, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
   document.startViewTransition = ((update: () => void) => {
     let end!: () => void;
     const finished = new Promise<void>(resolve => { end = resolve; });
@@ -55,4 +55,49 @@ test("browsers without view transitions still navigate synchronously", () => {
   let changed = false;
   transitionView("context", () => { changed = true; });
   expect(changed).toBe(true);
+});
+
+test("enabling reduced motion releases a pending snapshot without another navigation", async () => {
+  browser();
+  const seen: string[] = [];
+  transitionView("context", () => seen.push("files"));
+  document.documentElement.dataset["motion"] = "reduced";
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(seen).toEqual(["files"]);
+  expect(pending[0]!.skipped).toBe(true);
+  expect(document.documentElement.dataset["viewChange"]).toBeUndefined();
+  pending[0]!.update();
+  expect(seen).toEqual(["files"]);
+});
+
+test("the system preference releases a running transition and subscriptions are cleaned up", async () => {
+  const query = new window.EventTarget();
+  let reduced = false;
+  Object.defineProperty(query, "matches", { get: () => reduced });
+  browser();
+  window.matchMedia = (() => query) as unknown as typeof window.matchMedia;
+  transitionView("category", () => {});
+  pending[0]!.update();
+  reduced = true;
+  query.dispatchEvent(new Event("change"));
+  expect(pending[0]!.skipped).toBe(true);
+  expect(document.documentElement.dataset["viewChange"]).toBeUndefined();
+  reduced = false;
+  transitionView("category", () => {});
+  pending[0]!.end();
+  await Promise.resolve();
+  expect(document.documentElement.dataset["viewChange"]).toBe("category");
+  pending[1]!.end();
+  await Promise.resolve();
+  expect(document.documentElement.dataset["viewChange"]).toBeUndefined();
+});
+
+test("a toggle can decide from the committed destination before the browser captures it", () => {
+  browser();
+  let tab = "files";
+  transitionView("context", () => { tab = "changes"; });
+  finishViewTransition();
+  expect(tab).toBe("changes");
+  expect(pending[0]!.skipped).toBe(true);
+  expect(document.documentElement.dataset["viewChange"]).toBeUndefined();
 });

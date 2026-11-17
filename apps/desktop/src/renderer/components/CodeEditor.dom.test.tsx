@@ -28,3 +28,24 @@ for (const separator of ["\r\n", "\n"]) test(`editor preserves ${JSON.stringify(
     expect(value).toBe("edited external\nreplacement\n");
   } finally { await act(async () => root.unmount()); container.remove(); editorDocuments.clear(); }
 });
+
+
+test("switching away and back restores the editor selection, undo buffer and scroll position", async () => {
+  let view: EditorView | null = null;
+  let value = "first\nsecond\nthird";
+  const container = document.createElement("div"); document.body.append(container);
+  const root = createRoot(container);
+  const render = async (key: string) => act(async () => root.render(<CodeEditor key={key} file="file.txt" documentId="view-state-test" value={value} onChange={text => { value = text; }} onView={editor => { view = editor; }} />));
+  try {
+    await render("open");
+    await act(async () => view!.dispatch({ changes: { from: 0, insert: "edit " }, selection: { anchor: 8 } }));
+    view!.scrollDOM.scrollTop = 220;
+    view!.scrollDOM.dispatchEvent(new Event("scroll"));
+    await render("return");
+
+    expect(view!.state.selection.main.head).toBe(8);
+    expect(editorDocuments.get("view-state-test")?.scroll?.top).toBe(220);
+    await act(async () => { undo(view!); });
+    expect(value).toBe("first\nsecond\nthird");
+  } finally { await act(async () => root.unmount()); container.remove(); editorDocuments.clear(); }
+});

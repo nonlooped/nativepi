@@ -1,7 +1,8 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import { act, type ReactNode, type Ref } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { useAppStore, activeConversation } from "./lib/store.ts";
+import { releaseWorkspaceTabs } from "./lib/workspaceTabs.ts";
+import { primaryStore, useAppStore, activeConversation } from "./lib/store.ts";
 import { emptyConversation } from "./lib/store/conversation.ts";
 
 // Keep the workspace's real state subscriptions and routing; unrelated chrome
@@ -56,6 +57,7 @@ afterEach(async () => {
   root = undefined;
   workspaceLayout = "wide";
   container?.remove();
+  releaseWorkspaceTabs(primaryStore);
 });
 async function mount(renderWorkspace?: (onStart: () => void) => ReactNode) {
   useAppStore.setState({
@@ -130,13 +132,15 @@ test("completed user resizes save all three dimensions, while automatic layouts 
 });
 
 
-test("workspace breadcrumb uses the active project's icon and updates on project changes", async () => {
+test("the integrated tab header retains active project context when switching folders", async () => {
   await mount();
-  expect(container.querySelector("header img")?.getAttribute("src")).toBe("data:image/png;base64,project");
-  await act(async () => useAppStore.setState({
-    projects: [{ path: "/other", name: "Other" }], activeProjectPath: "/other",
-  }));
-  expect(container.querySelector("header img")?.getAttribute("src")).toBe("data:image/png;base64,other");
+  const selected = () => container.querySelector('header [role="tab"][aria-selected="true"]');
+  expect(selected()?.textContent).toContain("Project");
+  await act(async () => useAppStore.setState(s => ({
+    projects: [{ path: "/other", name: "Other" }], activeProjectPath: "/other", selectionVersion: s.selectionVersion + 1,
+  })));
+  expect(selected()?.textContent).toContain("Other");
+  expect(container.querySelectorAll('[role="tablist"]')).toHaveLength(1);
 });
 
 
@@ -255,4 +259,23 @@ test("focus terminal moves from a conversation pane to the shared shell", async 
   composer.focus();
   await act(async () => composer.dispatchEvent(new KeyboardEvent("keydown", { key: "Y", code: "KeyY", ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true })));
   expect(document.activeElement).toBe(shell);
+});
+
+
+test("workspace tabs replace back/forward controls and retain conversation locations across projects", async () => {
+  await mount();
+  await act(async () => useAppStore.setState(s => ({ activeProjectPath: "/other", activeSessionFile: "other-thread", selectionVersion: s.selectionVersion + 1 })));
+  expect(container.querySelector('[aria-label="Go back"]')).toBeNull();
+  expect(container.querySelector('[aria-label="Go forward"]')).toBeNull();
+  expect(container.querySelectorAll('[role="tab"]') .length).toBeGreaterThanOrEqual(2);
+  expect(container.querySelector('[aria-label="New tab"]')).not.toBeNull();
+});
+
+
+test("tab shortcuts work from the integrated header portal", async () => {
+  await mount();
+  await act(async () => useAppStore.setState(s => ({ activeSessionFile: "b", selectionVersion: s.selectionVersion + 1, keybindingOverrides: { nextWorkspaceTab: "Alt+KeyN" } })));
+  const tab = container.querySelector<HTMLElement>('header [role="tab"][aria-selected="true"]')!;
+  await act(async () => tab.dispatchEvent(new KeyboardEvent("keydown", { key: "n", code: "KeyN", altKey: true, bubbles: true, cancelable: true })));
+  expect(useAppStore.getState().activeSessionFile).toBe("a");
 });

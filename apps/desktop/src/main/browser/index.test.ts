@@ -13,6 +13,9 @@ class Contents extends EventEmitter {
   popup!: (details: { url: string }) => { action: string };
   setWindowOpenHandler(handler: typeof this.popup) { this.popup = handler; }
   isDestroyed() { return false; }
+  script: () => Promise<unknown> = async () => ({});
+  executeJavaScriptInIsolatedWorld() { return this.script(); }
+  focus() {}
   stop() {}
   close() {}
   async loadFile() {}
@@ -36,7 +39,7 @@ class Window extends EventEmitter {
   async loadFile() {}
 }
 const session = Object.assign(new EventEmitter(), { setPermissionRequestHandler(handler: typeof permission) { permission = handler; }, setPermissionCheckHandler() {}, clearStorageData: async () => {}, webRequest: { onBeforeRequest() {} } });
-mock.module("electron", () => ({ BrowserWindow: Window, WebContentsView: class { webContents = new Contents(); setBounds() {} }, ipcMain: { handle() {} }, session: { fromPartition: () => session }, nativeTheme: {}, app: { getAppPath: () => "/app" }, shell: { openExternal: async (url: string) => { opened = url; } } }));
+mock.module("electron", () => ({ BrowserWindow: Window, WebContentsView: class { webContents = new Contents(); setBounds() {} setBackgroundColor() {} }, ipcMain: { handle() {} }, session: { fromPartition: () => session }, nativeTheme: {}, app: { getAppPath: () => "/app" }, shell: { openExternal: async (url: string) => { opened = url; } } }));
 mock.module("../state.ts", () => ({ loadState: async () => ({ preferences: {} }) }));
 const { SharedBrowser } = await import("./index.ts");
 test("a chat browser starts without navigating and blocked actions remain denied with explicit recovery", async () => {
@@ -81,4 +84,50 @@ test("a chat browser starts without navigating and blocked actions remain denied
   expect(host.contentView.children).toHaveLength(0);
   browser.setOwner("Late reply from the closed chat");
   expect(state.ownerTitle).toBe("Updated chat name");
+});
+
+test("picking fences agent actions, preserves takeover and discards navigation/cancellation races", async () => {
+  const host = new Window();
+  const annotations: unknown[] = [];
+  const browser = new SharedBrowser(host as never, () => {}, () => {}, annotation => { annotations.push(annotation); });
+  browser.setBounds({ x: 500, y: 0, width: 600, height: 700 });
+  await browser.chrome({ action: "open", url: "https://example.com" });
+  const tab = state.active;
+  const contents = host.contentView.children[1].webContents as Contents;
+  contents.emit("did-stop-loading");
+  await browser.chrome({ action: "handoff", tab });
+  await browser.chrome({ action: "annotate" });
+  expect(state.selecting).toBe(true);
+  expect(host.contentView.children).toHaveLength(3);
+  await expect(browser.run({ action: "snapshot", tab })).rejects.toThrow(/handoff|selection/);
+  await expect(browser.run({ action: "show", tab })).rejects.toThrow("selection");
+  await browser.chrome({ action: "cancelAnnotation" });
+  expect(state.selecting).toBe(false);
+  expect(state.handoff).toBe(true);
+  expect(host.contentView.children).toHaveLength(2);
+  await browser.chrome({ action: "annotate" });
+  contents.script = async () => ({ error: "Frames and shadow content can’t be selected." });
+  expect(await browser.chrome({ action: "annotationPoint", x: 20, y: 30, capture: true })).toEqual({ error: "Frames and shadow content can’t be selected." });
+  expect(state.selecting).toBe(true);
+  let finish!: (value: unknown) => void;
+  contents.script = () => new Promise(resolve => { finish = resolve; });
+  const pending = browser.chrome({ action: "annotationPoint", x: 20, y: 30, capture: true });
+  contents.emit("did-start-navigation");
+  finish({ element: { selector: "button", tag: "button", text: "Buy", attributes: {} } });
+  await expect(pending).rejects.toThrow("Page changed");
+  expect(annotations).toEqual([]);
+  expect(state.selecting).toBe(false);
+  contents.script = async () => ({ element: { selector: "button:nth-of-type(2)", tag: "button", text: "Buy", attributes: {} } });
+  await browser.chrome({ action: "annotate" });
+  await browser.chrome({ action: "annotationPoint", x: 20, y: 30, capture: true });
+  expect(annotations).toMatchObject([{ tab, url: "https://example.com", element: { selector: "button:nth-of-type(2)", text: "Buy" } }]);
+  expect(state.handoff).toBe(true);
+  expect(state.selecting).toBe(false);
+  expect(state.notice).toBeUndefined(); // The chip is the success feedback; do not add a toolbar row.
+  await browser.chrome({ action: "annotate" });
+  browser.setBounds(); // Hide, change chat, or place an app-owned dialog above it.
+  expect(state.selecting).toBe(false);
+  await expect(browser.chrome({ action: "annotationPoint", x: 20, y: 30, capture: true })).rejects.toThrow("Selection ended");
+  browser.dispose();
+  expect(host.contentView.children).toHaveLength(0);
 });

@@ -2,7 +2,8 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { stubInvoke } from "../lib/store/testBridge.ts";
-import { useAppStore } from "../lib/store.ts";
+import { paneWorkspaceTabs } from "../lib/workspaceTabs.ts";
+import { primaryStore, useAppStore } from "../lib/store.ts";
 import { emptyConversation } from "../lib/store/conversation.ts";
 import type { SessionEntry } from "../../shared/pi-types.ts";
 import Transcript from "./Transcript.tsx";
@@ -62,6 +63,7 @@ afterEach(async () => {
   root = undefined;
   restoreGeometry?.();
   container?.remove();
+  paneWorkspaceTabs(primaryStore).positions.clear();
 });
 const viewport = () => container.querySelector<HTMLElement>('[data-slot="message-scroller-viewport"]')!;
 
@@ -93,4 +95,13 @@ domTest("a fresh jump request returns to the end after scrolling up", async () =
   viewport().scrollTop = 400;
   await act(async () => useAppStore.getState().requestJumpToLatest());
   expect(viewport().scrollTop).toBe(1600);
+});
+
+
+domTest("returning to a conversation restores its reading offset after the scroller settles", async () => {
+  await mount(history);
+  await act(async () => { viewport().scrollTop = 460; viewport().dispatchEvent(new Event("scroll", { bubbles: true })); });
+  await act(async () => root!.render(<Transcript key="return" />));
+  await act(async () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  expect(viewport().scrollTop).toBe(460);
 });

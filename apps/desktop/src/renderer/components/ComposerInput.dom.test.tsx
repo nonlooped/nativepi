@@ -225,3 +225,64 @@ domTest("long chip labels and drafts retain raw references and caret offsets aft
   expect(changes).toEqual([`${draft} edited`]);
   expect(caretOffset(editor)).toBe(draft.length + 7);
 });
+
+domTest("browser annotation chips survive editing and support explicit removal without losing other draft text", async () => {
+  const { annotationToken } = await import("../../shared/browserAnnotation.ts");
+  const annotation = {
+    version: 1 as const, id: "00000000-0000-4000-8000-000000000001", browser: "00000000-0000-4000-8000-000000000002", tab: "00000000-0000-4000-8000-000000000003",
+    title: "Store", url: "http://localhost:8080/cart", capturedAt: "2026-11-17T00:00:00.000Z",
+    element: { selector: "button:nth-of-type(2)", tag: "button", text: "Buy", attributes: {} },
+  };
+  mount();
+  const token = annotationToken(annotation);
+  let draft = `Change ${token} and ${token} please`;
+  const change = (text: string) => { draft = text; };
+  let submitted = false;
+  await act(async () => root!.render(<ComposerInput value={draft} onChange={change} onSubmit={() => { submitted = true; }} onAttach={() => {}} projectPath="/project" placeholder="Ask Pi" disabled={false} />));
+  expect(serialize(container.querySelector('[data-composer-input]')!)).toBe(draft);
+  const remove = container.querySelector('button[aria-label="Remove Buy"]') as HTMLButtonElement;
+  await act(async () => remove.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+  expect(submitted).toBe(false);
+  expect(draft).toBe(`Change  and ${token} please`);
+  expect(container.querySelectorAll('[data-chip="browser"]').length).toBe(1);
+  await act(async () => (container.querySelector('[data-remove-annotation]') as HTMLButtonElement).click());
+  expect(draft).toBe("Change  and  please");
+});
+
+domTest("compacting and refocusing retains the editor, draft chips and selection", async () => {
+  mount();
+  stubInvoke(async () => ({}));
+  const value = `Review ${chipText("file", "src/app.ts")}\nKeep this second line`;
+  const draw = (compact: boolean) => <ComposerInput compact={compact} value={value} onChange={() => {}}
+    onSubmit={() => {}} onAttach={() => {}} projectPath="/project" placeholder="Message" disabled={false} />;
+  await act(async () => root!.render(draw(false)));
+  const editor = container.querySelector<HTMLElement>("[data-composer-input]")!;
+  await act(async () => { editor.focus(); caretTo(editor, 3); });
+  await act(async () => root!.render(draw(true)));
+  await act(async () => root!.render(draw(false)));
+  expect(container.querySelector("[data-composer-input]")).toBe(editor);
+  expect(serialize(editor)).toBe(value);
+  expect(caretOffset(editor)).toBe(3);
+  expect(editor.querySelector("[data-chip]")?.getAttribute("data-value")).toBe("src/app.ts");
+});
+
+domTest("pressing a compact draft resumes its caret without applying stale pointer coordinates", async () => {
+  mount();
+  stubInvoke(async () => ({}));
+  const changes: string[] = [];
+  const value = `Review ${chipText("file", "src/app.ts")}\nKeep this second line`;
+  await act(async () => root!.render(<ComposerInput compact value={value} onChange={text => changes.push(text)}
+    onSubmit={() => {}} onAttach={() => {}} projectPath="/project" placeholder="Message" disabled={false} />));
+  const editor = container.querySelector<HTMLElement>("[data-composer-input]")!;
+  await act(async () => { editor.focus(); caretTo(editor, 3); editor.blur(); });
+  const press = new window.PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0 });
+  await act(async () => { editor.dispatchEvent(press); });
+  expect(press.defaultPrevented).toBe(true);
+  expect(document.activeElement).toBe(editor);
+  expect(caretOffset(editor)).toBe(3);
+  expect(serialize(editor)).toBe(value);
+  expect(changes).toEqual([]);
+  const secondary = new window.PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 2 });
+  await act(async () => { editor.dispatchEvent(secondary); });
+  expect(secondary.defaultPrevented).toBe(false);
+});

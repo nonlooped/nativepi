@@ -1,3 +1,4 @@
+import { readAnnotation, annotationLabel } from "../../shared/browserAnnotation.ts";
 import { referenceFor } from "./markdownReferences.ts";
 import { CHIP_CLASS } from "./composerChips.ts";
 import { chipText, parseSegments, type ChipKind } from "./composerText.ts";
@@ -32,6 +33,13 @@ const SKILL_GLYPH =
  * than as a page with a folded corner.
  */
 function chipGlyph(document: Document, kind: ChipKind, value: string): Node {
+  if (kind === "browser") {
+    const glyph = document.createElement("span");
+    glyph.className = "inline-flex shrink-0";
+    // Phosphor Crosshair, regular. Static markup, matching the editor's skill glyph.
+    glyph.innerHTML = '<svg viewBox="0 0 256 256" aria-hidden="true" class="size-3"><path fill="currentColor" d="M232,120h-8.34A96.14,96.14,0,0,0,136,32.34V24a8,8,0,0,0-16,0v8.34A96.14,96.14,0,0,0,32.34,120H24a8,8,0,0,0,0,16h8.34A96.14,96.14,0,0,0,120,223.66V232a8,8,0,0,0,16,0v-8.34A96.14,96.14,0,0,0,223.66,136H232a8,8,0,0,0,0-16Zm-96,87.6V200a8,8,0,0,0-16,0v7.6A80.15,80.15,0,0,1,48.4,136H56a8,8,0,0,0,0-16H48.4A80.15,80.15,0,0,1,120,48.4V56a8,8,0,0,0,16,0V48.4A80.15,80.15,0,0,1,207.6,120H200a8,8,0,0,0,0,16h7.6A80.15,80.15,0,0,1,136,207.6ZM128,88a40,40,0,1,0,40,40A40,40,0,0,0,128,88Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,152Z"/></svg>';
+    return glyph;
+  }
   if (kind === "skill" || value.startsWith("nativepi://")) {
     const glyph = document.createElement("span");
     glyph.className = "inline-flex shrink-0";
@@ -63,8 +71,22 @@ export function createChip(document: Document, kind: ChipKind, value: string): H
 
   const label = document.createElement("span");
   label.className = "min-w-0 truncate";
-  label.textContent = reference?.kind === "model" ? reference.label : reference?.kind === "thread" ? new URL(value).searchParams.get("title") || "Thread" : kind === "file" ? basename(value) : value;
+  const annotation = kind === "browser" ? readAnnotation(value) : null;
+  label.textContent = annotation ? annotationLabel(annotation) : reference?.kind === "model" ? reference.label : reference?.kind === "thread" ? new URL(value).searchParams.get("title") || "Thread" : kind === "file" ? basename(value) : value;
   chip.appendChild(label);
+  if (annotation) {
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.setAttribute("data-remove-annotation", "");
+    remove.setAttribute("aria-label", `Remove ${annotationLabel(annotation)}`);
+    // Phosphor X, regular; an icon button aligned with the reference glyph.
+    remove.innerHTML = '<svg viewBox="0 0 256 256" aria-hidden="true" class="size-3"><path fill="currentColor" d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg>';
+    remove.title = "Remove reference";
+    remove.className = "inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-foreground/10 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none";
+    chip.appendChild(remove);
+    chip.title = `${annotationLabel(annotation)}\n${annotation.title || "Browser page"}\n${annotation.url}\nCaptured page element; the page may have changed.`;
+    return chip;
+  }
   chip.title = kind === "skill" ? `Skill: ${value}` : value;
   return chip;
 }
@@ -78,7 +100,7 @@ function basename(path: string): string {
 function chipKind(node: Node): ChipKind | null {
   if (!(node instanceof HTMLElement)) return null;
   const kind = node.getAttribute(CHIP_ATTRIBUTE);
-  return kind === "skill" || kind === "file" ? kind : null;
+  return kind === "skill" || kind === "file" || kind === "browser" ? kind : null;
 }
 
 /** The draft behind a subtree, chips included. */

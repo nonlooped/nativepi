@@ -11,6 +11,7 @@ const keyFor = (projectDir: string, file: string) => JSON.stringify([projectDir,
 export const useWorkspaceEditor = create<{
   buffers: Record<string, FileBuffer>; selected: Record<string, string>; loading: Record<string, string>;
   open: (projectDir: string, file: string, line?: number, paneId?: string, column?: number) => Promise<void>;
+  cancelOpen: (selectionKey: string) => void;
   edit: (key: string, text: string) => void;
   save: (key: string) => Promise<boolean>;
   refresh: (key: string, discard?: boolean) => Promise<void>;
@@ -37,6 +38,10 @@ export const useWorkspaceEditor = create<{
         set(s => ({ loading: Object.fromEntries(Object.entries(s.loading).filter(([id]) => id !== selectionKey)) }));
       }
     }
+  },
+  cancelOpen: selectionKey => {
+    openRequests.delete(selectionKey);
+    set(s => ({ loading: Object.fromEntries(Object.entries(s.loading).filter(([id]) => id !== selectionKey)) }));
   },
   edit: (key, text) => set(s => ({ buffers: { ...s.buffers, [key]: { ...s.buffers[key]!, text } } })),
   save: async key => {

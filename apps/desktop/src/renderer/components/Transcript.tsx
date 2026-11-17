@@ -1,3 +1,4 @@
+import { paneWorkspaceTabs } from "../lib/workspaceTabs.ts";
 import StateNotice from "./StateNotice.tsx";
 import { computerEnvelopeSchema } from "../../shared/computer-use.ts";
 import { MonitorIcon } from "@phosphor-icons/react/Monitor";
@@ -64,8 +65,10 @@ const DiffView = lazy(() => import("./DiffView.tsx"));
 const HtmlArtifact = lazy(() => import("./HtmlArtifact.tsx"));
 
 export default function Transcript() {
+  const store = usePaneStore();
+  const positions = paneWorkspaceTabs(store).positions;
   return (
-    <MessageScrollerProvider defaultScrollPosition="end">
+    <MessageScrollerProvider defaultScrollPosition={positions.has(store.getState().activeSessionFile ?? "") ? "start" : "end"}>
       <TranscriptReferenceProvider><DeferredTranscript><TranscriptContent /></DeferredTranscript></TranscriptReferenceProvider>
     </MessageScrollerProvider>
   );
@@ -129,7 +132,28 @@ function TranscriptContent() {
   // Earlier turns retain content-visibility to keep long histories inexpensive.
   const lastUserIndex = items.findLastIndex(item => item.type === "entry" && item.entry.type === "message" && isUser(item.entry.message));
 
-  const { scrollToEnd } = useMessageScroller();
+  const { scrollToEnd, scrollToMessage, scrollToStart } = useMessageScroller();
+  const positions = paneWorkspaceTabs(useAppStore).positions;
+  const positionKey = useAppStore(s => s.activeSessionFile ?? s.activeProjectPath ?? "");
+  const restorePosition = useRef(positions.get(positionKey));
+  useEffect(() => {
+    const saved = restorePosition.current;
+    if (!saved || historyLoading || !entries.length) return;
+    let settle = 0;
+    const frame = requestAnimationFrame(() => {
+      if (!scrollToMessage(saved.message, { align: "start", behavior: "instant" })) return;
+      // The scroller first lays out its anchor/spacer. Restore the exact reading
+      // offset after that layout, then leave it in ordinary free scrolling.
+      settle = requestAnimationFrame(() => {
+        scrollToStart({ behavior: "instant" });
+        const viewport = paneRoot.current?.querySelector<HTMLElement>('[data-slot="message-scroller-viewport"]');
+        const message = [...(viewport?.querySelectorAll<HTMLElement>("[data-message-id]") ?? [])].find(element => element.dataset.messageId === saved.message);
+        if (viewport && message) viewport.scrollTop = message.getBoundingClientRect().top - viewport.getBoundingClientRect().top + saved.offset;
+        restorePosition.current = undefined;
+      });
+    });
+    return () => { cancelAnimationFrame(frame); cancelAnimationFrame(settle); };
+  }, [historyLoading, entries, scrollToMessage, scrollToStart]);
   const [transcriptSelection, setTranscriptSelection] = useState("");
 
   // The end of a run is the payoff of the whole loop, so the status pill
@@ -201,7 +225,13 @@ function TranscriptContent() {
           className="min-h-0 flex-1"
         >
         <MessageScroller className="min-h-0 flex-1">
-          <MessageScrollerViewport aria-label="Conversation transcript" aria-live="off">
+          <MessageScrollerViewport aria-label="Conversation transcript" aria-live="off" onScroll={event => {
+            const viewport = event.currentTarget;
+            if (!viewport.clientHeight || restorePosition.current) return;
+            const top = viewport.getBoundingClientRect().top;
+            const message = [...viewport.querySelectorAll<HTMLElement>("[data-message-id]")].find(element => element.getBoundingClientRect().bottom > top);
+            if (message?.dataset.messageId) positions.set(positionKey, { message: message.dataset.messageId, offset: top - message.getBoundingClientRect().top });
+          }}>
             <MessageScrollerContent className={cn("mx-auto w-full max-w-(--conversation-width) gap-3 px-5 py-6", (running || runDone) && "pb-16")}>
           {historyError ? <MessageScrollerItem messageId="history-error"><StateNotice title="Could not load this conversation" detail={historyError} retry={reloadHistory} /></MessageScrollerItem>
             : historyLoading ? <MessageScrollerItem messageId="history-loading"><StateNotice loading title="Loading conversation…" detail="Your draft stays editable while messages load." /></MessageScrollerItem> : null}

@@ -1,3 +1,4 @@
+import { bindWorkspaceDraft } from "../workspaceTabs.ts";
 import { toast } from "sonner";
 import { quoteMarkdown } from "../markdownReferences.ts";
 import { chipText, skillPrompt } from "../composerText.ts";
@@ -621,6 +622,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
             };
           });
         }
+        if (!s.activeSessionFile && coldChatTokens.get(projectDir) === coldChatToken) bindWorkspaceDraft(get, projectDir, res.sessionFile);
         hydration.retry(projectDir, res.sessionFile);
         setLastChat(get, projectDir, res.sessionFile);
         persist(get);

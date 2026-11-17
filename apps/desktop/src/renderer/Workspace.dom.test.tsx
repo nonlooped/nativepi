@@ -8,12 +8,20 @@ import { draftKeyFor } from "../shared/messages.ts";
 import { nativePiStateSchema } from "../shared/rpc-schema.ts";
 import type { SessionSummary } from "../shared/pi-types.ts";
 import SessionMenu from "./components/SessionMenu.tsx";
-import { THREAD_DRAG_TYPE } from "./lib/workspacePanes.ts";
+import { useWorkspacePanes, THREAD_DRAG_TYPE } from "./lib/workspacePanes.ts";
 
 const rows = ["b", "c", "d"].map(id => ({ path: `/other/${id}.jsonl`, name: `Chat ${id}`, providers: [], firstMessage: `Chat ${id}` } as unknown as SessionSummary));
+function PaneTestActions() {
+  const panes = useWorkspacePanes();
+  return panes && panes.count > 1 ? <>
+    <button aria-label="Close focused pane" onClick={() => panes.close(panes.active)} />
+    <button aria-label="Focus first pane" onClick={() => panes.select(0)} />
+  </> : null;
+}
 mock.module("./App.tsx", () => ({
   default: ({ renderWorkspace }: { renderWorkspace: (onStart: () => void) => React.ReactNode }) => <>
     <aside>{rows.map(session => <SessionMenu key={session.path} projectPath="/other" session={session} selected={false} running={false} pinned={false}><button>{session.name}</button></SessionMenu>)}</aside>
+    <PaneTestActions />
     {renderWorkspace(() => {})}
   </>,
   ConversationSurface: () => {
@@ -150,4 +158,18 @@ test("closing the workspace during a pending split releases its unpublished pane
   await act(async () => resolve(snapshot));
   expect(eachPaneStore()).toHaveLength(1);
   expect(primaryStore.getState().drafts[draftKeyFor("/first", "/first/a.jsonl")]).toBe("Keep this draft");
+});
+
+
+test("closing either focused split pane leaves a valid selection and preserves the retained pane's work", async () => {
+  await mount(); await menu("b");
+  await act(async () => container.querySelector<HTMLElement>('[aria-label="Close focused pane"]')!.click());
+  expect(chats()).toEqual(["/first/a.jsonl"]);
+  expect(primaryStore.getState().conversations["/first/a.jsonl"]?.running).toBe(true);
+  await menu("b");
+  await act(async () => container.querySelector<HTMLElement>('[aria-label="Focus first pane"]')!.click());
+  await act(async () => container.querySelector<HTMLElement>('[aria-label="Close focused pane"]')!.click());
+  expect(chats()).toEqual(["/other/b.jsonl"]);
+  expect(container.querySelector('[data-pane-active="true"] [data-open-chat]')?.getAttribute("data-open-chat")).toBe("/other/b.jsonl");
+  expect(eachPaneStore().find(store => store.getState().activeSessionFile === "/other/b.jsonl")?.getState().drafts[draftKeyFor("/first", "/first/a.jsonl")]).toBe("Keep this draft");
 });

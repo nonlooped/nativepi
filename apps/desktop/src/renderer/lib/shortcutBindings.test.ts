@@ -49,6 +49,12 @@ describe("every shortcut fires on the keystroke it advertises", () => {
   // tinykeys resolves $mod from the runtime's navigator (Bun exposes the host OS).
   const mod = /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? { meta: true } : { ctrl: true };
   const cases: [ShortcutId, Keystroke][] = [
+    ["openBrowser", { key: "b", code: "KeyB", ...mod, alt: true }],
+    ["saveFile", { key: "s", code: "KeyS", ...mod }],
+    ["findInFile", { key: "f", code: "KeyF", ...mod }],
+    ["goToLine", { key: "g", code: "KeyG", alt: true }],
+    ["nextPane", { key: "]", code: "BracketRight", ...mod, alt: true }],
+    ["previousPane", { key: "[", code: "BracketLeft", ...mod, alt: true }],
     ...Array.from({ length: 10 }, (_, index): [ShortcutId, Keystroke] => [`thread${index + 1}` as ShortcutId, { key: String((index + 1) % 10), code: `Digit${(index + 1) % 10}`, ...mod }]),
     ["focusTerminal", { key: "~", code: "Backquote", ...mod, shift: true }],
     ["newTerminal", { key: "T", code: "KeyT", ...mod, shift: true }],
@@ -58,10 +64,10 @@ describe("every shortcut fires on the keystroke it advertises", () => {
     ["previousTerminal", { key: "ArrowLeft", code: "ArrowLeft", ...mod, alt: true }],
     ["closeTerminal", { key: "w", code: "KeyW", ...mod, alt: true }],
     ["openSourceControl", { key: "G", code: "KeyG", ...mod, shift: true }],
-    ["refreshSourceControl", { key: "R", code: "KeyR", ...mod, shift: true }],
+
     ["commitChanges", { key: "Enter", code: "Enter", ...mod }],
     ["resetScale", { key: "0", code: "Digit0", ...mod, alt: true }],
-    ["focusComposer", { key: "l", code: "KeyL", ...mod }],
+    ["focusComposer", { key: "L", code: "KeyL", ...mod, shift: true }],
     ["selectModel", { key: "M", code: "KeyM", ...mod, shift: true }],
     ["nextChat", { key: "}", code: "BracketRight", ...mod, shift: true }],
     ["previousChat", { key: "{", code: "BracketLeft", ...mod, shift: true }],
@@ -69,7 +75,7 @@ describe("every shortcut fires on the keystroke it advertises", () => {
     ["showWork", { key: "2", code: "Digit2", ...mod, alt: true }],
     ["openProject", { key: "o", code: "KeyO", ...mod }],
     ["newChat", { key: "N", code: "KeyN", ...mod, shift: true }],
-    ["importChat", { key: "O", code: "KeyO", ...mod, shift: true }],
+
     ["search", { key: "k", code: "KeyK", ...mod }],
     ["stopTurn", { key: "Escape", code: "Escape" }],
     ["toggleSidebar", { key: "b", code: "KeyB", ...mod }],
