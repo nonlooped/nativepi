@@ -11,7 +11,7 @@ import StateNotice from "./components/StateNotice.tsx";
 import ConnectionNotice from "./components/ConnectionNotice.tsx";
 import ThreadActivity, { ThreadInputBoundary } from "./components/ThreadActivity.tsx";
 import { Dialog as SettingsDialog } from "@base-ui/react/dialog";
-import { finishViewTransition, transitionView } from "./lib/viewTransition.ts";
+import { finishViewTransition } from "./lib/viewTransition.ts";
 import { useLayoutMotion } from "./lib/layoutMotion.ts";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createKeybindingsHandler, tinykeys } from "tinykeys";
@@ -249,11 +249,8 @@ export default function App({ initialize = true, renderWorkspace }: { initialize
                 finishViewTransition();
                 const state = useAppStore.getState();
                 const showing = state.contextPaneTab === tab;
-                // Only swap the contents of an already visible pane. Opening
-                // the pane lets its container carry the content entrance.
-                if (layout === "wide" && state.contextPaneOpen && !showing) {
-                  transitionView("context", () => state.setContextPaneTab(tab));
-                } else state.setContextPaneTab(tab);
+                // Keep frequent file/source navigation immediate, as on main.
+                state.setContextPaneTab(tab);
                 if (layout === "wide") { if (!state.contextPaneOpen || showing) toggleContextPane(); }
                 else setContextSheetOpen(true);
               }}
@@ -1064,7 +1061,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
   return (
     <div className="flex min-h-0 flex-1 overflow-y-auto px-6 py-10">
-      <section className="welcome-enter m-auto flex w-full max-w-md flex-col items-center text-center">
+      <section className="m-auto flex w-full max-w-md flex-col items-center text-center">
         <NativePiWordmark display className="mb-6" />
         <h1 className="text-balance text-headline">Start a chat</h1>
         <p className="mt-3 max-w-[38ch] text-balance text-sm leading-6 text-body-muted-foreground">

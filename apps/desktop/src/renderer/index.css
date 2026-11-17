@@ -462,12 +462,6 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   animation: status-enter 150ms ease-out;
 }
 
-/* The welcome surface carries its copy and primary action together. No
-   invisible-but-focusable controls waiting for a child stagger. */
-.welcome-enter {
-  animation: status-enter 150ms ease-out;
-}
-
 @keyframes status-enter {
   from {
     opacity: 0;
