@@ -242,3 +242,24 @@ domTest("compacting and refocusing retains the editor, draft chips and selection
   expect(caretOffset(editor)).toBe(3);
   expect(editor.querySelector("[data-chip]")?.getAttribute("data-value")).toBe("src/app.ts");
 });
+
+domTest("pressing a compact draft resumes its caret without applying stale pointer coordinates", async () => {
+  mount();
+  stubInvoke(async () => ({}));
+  const changes: string[] = [];
+  const value = `Review ${chipText("file", "src/app.ts")}\nKeep this second line`;
+  await act(async () => root!.render(<ComposerInput compact value={value} onChange={text => changes.push(text)}
+    onSubmit={() => {}} onAttach={() => {}} projectPath="/project" placeholder="Message" disabled={false} />));
+  const editor = container.querySelector<HTMLElement>("[data-composer-input]")!;
+  await act(async () => { editor.focus(); caretTo(editor, 3); editor.blur(); });
+  const press = new window.PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0 });
+  await act(async () => { editor.dispatchEvent(press); });
+  expect(press.defaultPrevented).toBe(true);
+  expect(document.activeElement).toBe(editor);
+  expect(caretOffset(editor)).toBe(3);
+  expect(serialize(editor)).toBe(value);
+  expect(changes).toEqual([]);
+  const secondary = new window.PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 2 });
+  await act(async () => { editor.dispatchEvent(secondary); });
+  expect(secondary.defaultPrevented).toBe(false);
+});

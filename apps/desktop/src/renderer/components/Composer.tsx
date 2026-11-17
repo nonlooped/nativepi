@@ -74,10 +74,12 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
     prevHadEditorSurface.current = !!editorSurface;
   }, [editorSurface]);
 
+  const hasExtensionControls = useAppStore((s) => s.extRenderers.some((ext) => (ext.renderer.composerControls?.length ?? 0) > 0));
   const [dropTarget, setDropTarget] = useState(false);
   // Focus changes layout immediately so a compact Send/Dictate button stays
   // under the pointer. The existing focus halo supplies the visual transition.
   const compact = !prominent && !focus.within && !dictating && !dropTarget;
+  const inlineControls = compact && !hasExtensionControls;
   const disabled = !activeProjectPath;
   // Images being read hold the send: they belong to this message, and Enter a
   // moment too early would send the text alone and leave them for the next one.
@@ -177,8 +179,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
           treated as a project or a chat instead. */}
       <div
         className={cn(
-          "composer-surface relative mx-auto flex w-full max-w-(--conversation-width) flex-col rounded-2xl border border-transparent bg-card px-3 pt-2",
-          compact ? "pb-2" : "pb-3",
+          "composer-surface relative mx-auto flex w-full max-w-(--conversation-width) flex-col rounded-2xl border border-transparent bg-card px-3 pb-3 pt-2",
           dropTarget && "ring-2 ring-ring",
         )}
         onDragOver={(event) => {
@@ -201,7 +202,7 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
         ) : null}
         {!isRemote ? <DictationFeedback dictation={dictation} /> : null}
         <ComposerAttachments />
-        <div className={cn("flex min-w-0", compact ? "items-center" : "flex-col")}>
+        <div className={cn("flex min-w-0", inlineControls ? "items-center" : "flex-col")}>
           <ComposerInput
             compact={compact}
             suggestion={attached === 0 && preparing === 0 ? suggestion : null}
@@ -230,9 +231,9 @@ export default function Composer({ prominent = false }: { prominent?: boolean })
             }
           />
           {/* Reply controls stay inside the composer; checkout controls sit below. */}
-          <div className={cn("flex items-end gap-1 px-1", compact && "shrink-0")}>
+          <div className={cn("flex items-end gap-1 px-1", inlineControls && "shrink-0")}>
             <div className="flex min-w-0 flex-1 flex-wrap @max-[30rem]/conversation:flex-nowrap items-center gap-1">
-              <div className={cn("min-w-0 items-center gap-1", compact ? "hidden" : "flex")}>
+              <div className={cn("min-w-0 items-center gap-1", compact ? "hidden" : "contents")}>
                 <AttachButton disabled={disabled} onPick={attach} />
                 <ModelSelector />
               </div>
