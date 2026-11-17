@@ -15,6 +15,26 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Component utilities must use the same preference as CSS and WAAPI. A plain
+   OS media query would still hide indicators when Settings forces full motion. */
+@custom-variant motion-reduce {
+  &:where(html[data-motion="reduced"], html[data-motion="reduced"] *) {
+    @slot;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:where(html:not([data-motion="full"]), html:not([data-motion="full"]) *) {
+      @slot;
+    }
+  }
+}
+
+:root {
+  --motion-feedback: 150ms;
+  --motion-layout: 180ms;
+  --motion-surface: 200ms;
+  --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 html,
 body {
   height: 100%;
@@ -446,20 +466,20 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
 }
 
 .terminal-dock-enter {
-  animation: terminal-dock-enter 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: terminal-dock-enter var(--motion-layout) var(--motion-ease-out);
 }
 
 @keyframes terminal-dock-enter {
   from {
     opacity: 0;
-    transform: translateY(0.75rem);
+    transform: translateY(0.375rem);
   }
 }
 
 /* Feedback surfaces enter once, without animating transcript text or replaying
    on streaming updates. Removal stays immediate for queues and attachments. */
 .status-enter {
-  animation: status-enter 150ms ease-out;
+  animation: status-enter var(--motion-feedback) ease-out;
 }
 
 @keyframes status-enter {
@@ -475,7 +495,7 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
 .disclosure-panel {
   height: var(--collapsible-panel-height);
   overflow: hidden;
-  transition: height 180ms cubic-bezier(0.16, 1, 0.3, 1), opacity 150ms ease-out;
+  transition: height var(--motion-layout) var(--motion-ease-out), opacity var(--motion-feedback) ease-out;
 }
 
 .disclosure-panel[data-starting-style],
@@ -483,6 +503,47 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   height: 0;
   opacity: 0;
 }
+
+/* Native details retain search-driven opening and keyboard semantics. Animate
+   only these opt-in settings disclosures; large inventories stay immediate. */
+@supports (interpolate-size: allow-keywords) and selector(details::details-content) {
+  .settings-details::details-content {
+    interpolate-size: allow-keywords;
+    block-size: 0;
+    opacity: 0;
+    overflow: clip;
+    transition: block-size var(--motion-layout) var(--motion-ease-out),
+      opacity var(--motion-feedback) ease-out,
+      content-visibility var(--motion-layout) allow-discrete;
+  }
+  .settings-details[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html:not([data-motion="full"]) .settings-details::details-content {
+      transition-duration: 0.01ms !important;
+    }
+  }
+  html[data-motion="reduced"] .settings-details::details-content {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* One indicator carries the selection; the two labels stay still and usable. */
+.destination-switch { position: relative; isolation: isolate; }
+.destination-switch::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0.25rem auto 0.25rem 0.25rem;
+  width: calc((100% - 0.5rem) / 2);
+  border-radius: var(--radius-md);
+  background: var(--secondary);
+  translate: 0 0;
+  transition: translate var(--motion-layout) var(--motion-ease-out);
+}
+.destination-switch[data-destination="work"]::before { translate: 100% 0; }
 
 .sidebar-panel {
   container-name: sidebar;
@@ -1146,10 +1207,10 @@ button.transcript-activity-row:focus-visible { outline: 2px solid var(--ring); o
 .chat-stage[data-new="true"] .new-chat-scroll { padding-block: 1rem 0; }
 .chat-stage[data-new="true"] .new-chat-content { padding-block: 0; }
 .chat-stage[data-new="true"] .workspace-composer { padding-bottom: 2rem; }
-.chat-stage[data-new="false"] > .conversation-content { animation: status-enter 150ms ease-out; }
+.chat-stage[data-new="false"] > .conversation-content { animation: view-enter var(--motion-surface) ease-out; }
 
-.settings-backdrop { transition: opacity 200ms ease-out; }
-.settings-viewport { transition: opacity 200ms ease-out, scale 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+.settings-backdrop { transition: opacity var(--motion-surface) ease-out; }
+.settings-viewport { transition: opacity var(--motion-surface) ease-out, scale var(--motion-surface) var(--motion-ease-out); }
 .settings-backdrop[data-starting-style], .settings-backdrop[data-ending-style] { opacity: 0; }
 .settings-viewport[data-starting-style], .settings-viewport[data-ending-style] { opacity: 0; scale: 0.98; }
 
@@ -1172,9 +1233,12 @@ button.transcript-activity-row:focus-visible { outline: 2px solid var(--ring); o
 ::view-transition { pointer-events: none; }
 ::view-transition-group(*) { animation-duration: 180ms; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
 ::view-transition-old(*), ::view-transition-new(*) { animation-duration: 150ms; }
-/* Dense pane contents leave before their replacements become legible. */
-::view-transition-old(context-content) { animation: view-leave 70ms ease-out both; }
-::view-transition-new(context-content) { animation: view-enter 110ms 70ms ease-out both; }
+/* Dense contents leave before replacements become legible. Navigation and
+   focus commit together; only the captured content has this short sequence. */
+::view-transition-old(context-content),
+::view-transition-old(settings-category) { animation: view-leave 70ms ease-out both; }
+::view-transition-new(context-content),
+::view-transition-new(settings-category) { animation: view-enter 110ms 70ms ease-out both; }
 @keyframes view-leave { to { opacity: 0; } }
 @keyframes view-enter { from { opacity: 0; } }
 

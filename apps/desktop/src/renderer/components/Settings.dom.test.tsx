@@ -83,3 +83,22 @@ test("the header X closes settings", async () => {
   await mount(); await act(() => container.querySelector<HTMLButtonElement>('[aria-label="Close settings"]')!.click());
   expect(useAppStore.getState().settingsOpen).toBe(false);
 });
+
+test("a search hit on the current page reveals its controls without waiting for a snapshot", async () => {
+  await mount("Advanced");
+  const original = document.startViewTransition;
+  let capturedUpdate: (() => void) | undefined;
+  document.startViewTransition = ((update: () => void) => {
+    capturedUpdate = update;
+    return { ready: Promise.resolve(), finished: Promise.resolve(), skipTransition() {} };
+  }) as typeof document.startViewTransition;
+  try {
+    await search("scrollback");
+    await click("ScrollbackAdvanced");
+    expect(container.querySelector<HTMLDetailsElement>('[data-setting="terminal"]')?.open).toBe(true);
+    expect(container.querySelector('input[aria-label="Search settings"]')).toHaveProperty("value", "");
+  } finally {
+    await act(() => capturedUpdate?.());
+    document.startViewTransition = original;
+  }
+});

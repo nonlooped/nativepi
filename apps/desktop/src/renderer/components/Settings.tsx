@@ -1,5 +1,5 @@
 import ConnectionNotice from "./ConnectionNotice.tsx";
-import { transitionView } from "../lib/viewTransition.ts";
+import { finishViewTransition, transitionView } from "../lib/viewTransition.ts";
 import { SettingsDialogAppearance } from "./ui/dialog-styles.ts";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 import { ArrowUpRightIcon } from "@phosphor-icons/react/ArrowUpRight";
@@ -37,6 +37,7 @@ function SettingsContent() {
   const piSettings = useAppStore(s => s.piSettings);
   const { page, target } = settingsDestination(initial);
   const [railOpen, setRailOpen] = useState(false);
+  const railNavigation = useRef(false);
   const [query, setQuery] = useState("");
   const content = useRef<HTMLDivElement>(null);
   useEffect(() => { void load(); }, [load]);
@@ -57,7 +58,15 @@ function SettingsContent() {
     node.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled), summary')?.focus({ preventScroll: true });
   }, [initial, navigationVersion, page, piSettings, target]);
   function navigate(destination: string) {
-    transitionView("category", () => openSettings(destination));
+    railNavigation.current = railOpen;
+    finishViewTransition();
+    // A search hit on this page only reveals/focuses a setting. Capturing the
+    // whole page would hide that feedback behind an unnecessary view swap.
+    const currentPage = settingsDestination(useAppStore.getState().settingsCategory).page;
+    // The closing sheet already carries this change; don't run a page snapshot
+    // beneath it or postpone mounting the control that will receive focus.
+    if (railOpen || settingsDestination(destination).page === currentPage) openSettings(destination);
+    else transitionView("category", () => openSettings(destination));
     setQuery(""); setRailOpen(false);
   }
   const rail = <CategoryNav page={page} query={query} setQuery={setQuery} onSelect={navigate} />;
@@ -78,7 +87,13 @@ function SettingsContent() {
         </div>
       </main>
     </div>
-    <Sheet open={railOpen} onOpenChange={setRailOpen}><SheetContent side="left" className="w-[min(20rem,85vw)] border-sidebar-border bg-sidebar p-0">
+    <Sheet open={railOpen} onOpenChange={setRailOpen}><SheetContent side="left" finalFocus={() => {
+      if (!railNavigation.current) return;
+      railNavigation.current = false;
+      const { target } = settingsDestination(useAppStore.getState().settingsCategory);
+      return target ? content.current?.querySelector<HTMLElement>(`[data-setting="${target}"]`)
+        ?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled), summary') : undefined;
+    }} className="w-[min(20rem,85vw)] border-sidebar-border bg-sidebar p-0">
       <SheetTitle className="sr-only">Settings categories</SheetTitle><SheetDescription className="sr-only">Search settings or choose a page.</SheetDescription>
       <div className="flex h-full flex-col"><div className="h-12 shrink-0 px-4 pt-4 text-sm font-medium">Settings</div>{rail}</div>
     </SheetContent></Sheet>

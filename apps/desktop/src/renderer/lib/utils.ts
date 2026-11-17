@@ -24,8 +24,8 @@ export const SCROLLBAR_GUTTER_OFFSET = "scrollbar-gutter-offset"
 
 /** A control that is revealed on hover, and therefore always shown on touch. */
 export const HOVER_REVEAL =
-  "hover-reveal opacity-0 transition-opacity duration-150 ease-out"
+  "hover-reveal opacity-0 transition-opacity duration-(--motion-feedback) ease-out"
 
 /** Shared, interruptible motion for menus and anchored selection surfaces. */
 export const POPUP_MOTION =
-  "origin-(--transform-origin) transition-[opacity,scale] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0"
+  "origin-(--transform-origin) transition-[opacity,scale] duration-(--motion-feedback) ease-(--motion-ease-out) data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0"
