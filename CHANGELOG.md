@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- Fade the chat artwork into the open terminal dock.
+- Taper the chat artwork gradually across the top edge of the open terminal dock.
 - Coordinate settings, sheets, and conversation entrances with shared motion timing; add a sliding Chat/Work indicator, smooth settings disclosures, and subtle checkbox feedback. Honor the app's motion override consistently, reveal same-page settings search results immediately, and keep focus on the chosen setting after its navigation sheet closes.
 
 ## [1.23.0] - 2026-11-17

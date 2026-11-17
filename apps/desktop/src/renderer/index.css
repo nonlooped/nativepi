@@ -976,16 +976,21 @@ html[data-motion="reduced"] *::after {
   box-shadow: inset 1px 0 color-mix(in srgb, var(--foreground) 6%, transparent),
     -12px 0 32px -24px color-mix(in srgb, var(--foreground) 28%, transparent);
 }
+.app-viewport:has(> .chat-landscape) {
+  --dock-fill: var(--glass-sidebar, var(--sidebar));
+  --dock-edge: color-mix(in srgb, var(--dock-fill) 80%, transparent);
+}
 .app-viewport:has(> .chat-landscape):has([data-terminal-pane]) .conversation-shell {
-  background: linear-gradient(to bottom, transparent, var(--glass-sidebar, var(--sidebar)))
-    bottom / 100% min(64px, 18%) no-repeat;
+  background: linear-gradient(to bottom, transparent, var(--dock-edge))
+    bottom / 100% min(136px, 30%) no-repeat;
 }
 .app-viewport:has(> .chat-landscape) .terminal-dock {
-  background: var(--glass-sidebar, var(--sidebar));
+  /* Carry the last of the grain across the divider and settle before the prompt. */
+  background: linear-gradient(to bottom, var(--dock-edge), var(--dock-fill) 36px);
   box-shadow: none;
 }
 .app-viewport:has(> .chat-landscape) [data-slot="resizable-handle"]:has(+ [data-terminal-pane]):not(:hover, :focus-visible) {
-  background: var(--glass-sidebar, var(--sidebar));
+  background: var(--dock-edge);
 }
 
 .new-chat {
@@ -1038,6 +1043,7 @@ html[data-motion="reduced"] *::after {
 
 /* Layered translucency is decoration: honor the system's request for solid surfaces. */
 @media (prefers-reduced-transparency: reduce) {
+  .app-viewport:has(> .chat-landscape) { --dock-edge: var(--dock-fill); }
   .app-viewport:has(> .chat-landscape) .sidebar-panel,
   .app-viewport:has(> .chat-landscape) .context-pane {
     background: var(--sidebar);
