@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Managed task workspaces with explicit chat isolation/base selection, reusable setup/run/check actions, opt-in local file preparation, coordinated ports, action recovery and conservative workspace retirement.
 
 ### Changed
+- Keep existing-thread composers compact while reading, with ellipsized draft previews and stable Send/Dictate targets on focus. Preserve drafts, selections and composer menus; new chats keep the full composer.
 - Refine keyboard defaults, protect dialogs, typing and terminal focus, make file commands rebindable, add a shared-browser shortcut, and offer compact shortcut action menus in Settings while preserving saved custom keys.
 - Keep Files and Source control navigation immediate, show welcome controls together without a delayed entrance, and cancel navigation snapshots immediately when reduced motion is enabled.
 - Display the shared browser in a resizable right-side panel with compact tabs and navigation instead of a separate window.
