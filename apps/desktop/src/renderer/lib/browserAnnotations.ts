@@ -1,5 +1,5 @@
 import { annotationToken, browserAnnotationEventSchema, MAX_ANNOTATIONS } from "../../shared/browserAnnotation.ts";
-import { draftKeyFor } from "../../shared/messages.ts";
+import { composerKey } from "./draftThreads.ts";
 import { parseSegments } from "./composerText.ts";
 import type { PaneStore } from "./store.ts";
 
@@ -11,7 +11,7 @@ export function insertBrowserAnnotation(store: PaneStore, raw: unknown): { added
   const state = store.getState();
   if (state.activeProjectPath !== target.projectDir || state.activeSessionFile !== target.sessionFile)
     return { added: false, error: "Selection cancelled because you changed chats. Select the element again." };
-  const key = draftKeyFor(target.projectDir, target.sessionFile);
+  const key = composerKey(state);
   const draft = state.drafts[key] ?? "";
   if (parseSegments(draft).filter(segment => segment.kind === "browser").length >= MAX_ANNOTATIONS)
     return { added: false, error: "Up to eight elements per message. Remove one before selecting another." };

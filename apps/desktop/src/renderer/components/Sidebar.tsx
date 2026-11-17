@@ -1,3 +1,5 @@
+import { draftThreads, draftTitle } from "../lib/draftThreads.ts";
+import { paneWorkspaceTabs } from "../lib/workspaceTabs.ts";
 import { runtime } from "../lib/store/internals.ts";
 import { copyText } from "../lib/clipboard.ts";
 import { isDesktopShell } from "../lib/platform.ts";
@@ -94,6 +96,28 @@ export default function Sidebar(props: SidebarProps) {
   </LeftSidebar>;
 }
 
+function useVisibleDrafts(scope?: string | null) {
+  const useAppStore = usePaneStore();
+  const drafts = useAppStore(s => s.drafts);
+  const chatRoot = useAppStore(s => s.chatRoot);
+  const destination = useAppStore(s => s.destination);
+  return draftThreads(drafts).filter(d => (destination === "chat") === (d.projectDir === chatRoot) && (!scope || scope === d.projectDir));
+}
+
+function DraftRows({ drafts, onSelect }: { drafts: ReturnType<typeof draftThreads>; onSelect?: () => void }) {
+  const useAppStore = usePaneStore();
+  const activeProject = useAppStore(s => s.activeSessionFile ? null : s.activeProjectPath);
+  const ids = useAppStore(s => s.projectDraftIds);
+  return drafts.map(d => {
+    const label = draftTitle(d.text);
+    return <Button key={d.key} variant={activeProject === d.projectDir && ids[d.projectDir] === d.draftId ? "secondary" : "ghost"}
+      className="w-full shrink-0 justify-start gap-2 px-3 text-sm" title={label}
+      onClick={() => { void paneWorkspaceTabs(useAppStore).activate({ kind: "thread", projectDir: d.projectDir, session: null, draftId: d.draftId }); onSelect?.(); }}>
+      <NotePencilIcon className="size-4 text-muted-foreground" /><span className="truncate">{label}</span>
+    </Button>;
+  });
+}
+
 function WorkContents(props: SidebarProps) {
   const useAppStore = usePaneStore();
   const { presentation, onClose, onOpenSearch, onOpenNewChat } = props;
@@ -129,6 +153,7 @@ function WorkContents(props: SidebarProps) {
   const editorId = useAppStore((s) => s.preferences.preferredEditorId);
   const keybindingOverrides = useAppStore((s) => s.keybindingOverrides);
   const scope = useAppStore((s) => s.sidebarScope);
+  const drafts = useVisibleDrafts(scope);
   const setScope = useAppStore((s) => s.setSidebarScope);
   const finishedOpen = useAppStore(s => s.sidebarFinishedOpen);
   const finishedLimit = useAppStore(s => s.sidebarFinishedLimit);
@@ -331,6 +356,7 @@ function WorkContents(props: SidebarProps) {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3">
+        <DraftRows drafts={drafts} onSelect={overlay ? onClose : undefined} />
         {loading && pinned.length === 0 && focus.length === 0 ? (
           <ChatHistoryState loading title="Gathering your chats" detail="Reading Pi session history across your projects." />
         ) : null}
@@ -380,7 +406,7 @@ function WorkContents(props: SidebarProps) {
           ))}
         </div>
 
-        {!loading && projects.length > 0 && failedProjects.length === 0 && pinned.length === 0 && focus.length === 0 && finished.length > 0 ? (
+        {!drafts.length && !loading && projects.length > 0 && failedProjects.length === 0 && pinned.length === 0 && focus.length === 0 && finished.length > 0 ? (
           <div className="px-3 pt-3 text-xs leading-relaxed text-muted-foreground">
             <p className="font-medium text-sidebar-foreground/80">No recent chats</p>
             <p className="mt-0.5">Start a chat, or reopen one from History.</p>
@@ -653,6 +679,7 @@ function ChatContents(props: SidebarProps) {
   const overlay = props.overlay ?? false;
   const root = useAppStore(s => s.chatRoot);
   const sessions = useAppStore(s => root ? s.sessionsByProject[root] : undefined);
+  const drafts = useVisibleDrafts();
   const folders = useAppStore(s => s.chatFolders);
   const membership = useAppStore(s => s.chatFolderBySession);
   const conversations = useAppStore(s => s.conversations);
@@ -713,15 +740,17 @@ function ChatContents(props: SidebarProps) {
     </div>
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3">
       {error ? <p role="alert" className="py-2 text-sm text-destructive">{error}</p> : null}
+      <DraftRows drafts={drafts.filter(d => !folders.some(f => f.id === membership[d.key]))} onSelect={overlay ? onClose : undefined} />
       {folders.map(f => {
         const expanded = !collapsed.includes(f.id);
+        const folderDrafts = drafts.filter(d => membership[d.key] === f.id);
         const children = sessions?.filter(session => membership[session.path] === f.id) ?? [];
         return <section key={f.id} className="mb-1" aria-label={f.name}>
           <div className="group/folder flex items-center rounded-md hover:bg-sidebar-accent/50">
             <Button variant="ghost" className="min-w-0 flex-1 justify-start gap-2 text-muted-foreground hover:text-sidebar-foreground" aria-expanded={expanded} onClick={() => toggleFolder(f.id)}>
               <CaretDownIcon className={expanded ? "" : "-rotate-90"} />
               <FolderIcon weight="fill" style={{ color: f.color }} /><span className="truncate">{f.name}</span>
-              <span className="ml-auto text-xs tabular-nums text-muted-foreground">{children.length}</span>
+              <span className="ml-auto text-xs tabular-nums text-muted-foreground">{children.length + folderDrafts.length}</span>
             </Button>
             <div className="flex shrink-0 opacity-100 [@media(hover:hover)]:opacity-0 group-hover/folder:opacity-100 group-focus-within/folder:opacity-100">
               <Button variant="ghost" size="icon-sm" aria-label={`New chat in ${f.name}`} onClick={() => newChat(f.id)}><PlusIcon /></Button>
@@ -729,13 +758,14 @@ function ChatContents(props: SidebarProps) {
             </div>
           </div>
           {expanded ? <div className="ml-5 flex flex-col gap-1.5 border-l pl-2" style={{ borderColor: f.color + "55" }}>
+            <DraftRows drafts={folderDrafts} onSelect={overlay ? onClose : undefined} />
             {children.map(chatRow)}
-            {!children.length ? <Button variant="ghost" className="w-full justify-start text-muted-foreground font-normal" onClick={() => newChat(f.id)}>Start a chat here</Button> : null}
+            {!children.length && !folderDrafts.length ? <Button variant="ghost" className="w-full justify-start text-muted-foreground font-normal" onClick={() => newChat(f.id)}>Start a chat here</Button> : null}
           </div> : null}
         </section>;
       })}
       <div className="flex flex-col gap-1.5">{sessions?.filter(session => !folders.some(folder => folder.id === membership[session.path])).map(chatRow)}</div>
-      {sessions?.length === 0 && folders.length === 0 ? <p className="px-2 py-4 text-sm text-muted-foreground">Start a conversation, or create a folder for related chats.</p> : null}
+      {!drafts.length && sessions?.length === 0 && folders.length === 0 ? <p className="px-2 py-4 text-sm text-muted-foreground">Start a conversation, or create a folder for related chats.</p> : null}
     </div>
     <Dialog open={create} onOpenChange={setCreate}>
       <DialogContent>

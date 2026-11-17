@@ -1,3 +1,4 @@
+import { useStore } from "zustand";
 import { BrowserPanelSlot, useBrowserPanel } from "./components/BrowserPanel.tsx";
 import { usePaneView } from "./lib/paneView.ts";
 import { useWorkspacePanes } from "./lib/workspacePanes.ts";
@@ -499,19 +500,20 @@ export function ConversationSurface({ onStart }: { onStart: () => void }) {
   const composerReady = useAppStore(s => s.providersLoaded && s.providers.some(provider => provider.ready));
   const hasConversation = useAppStore(s => !!s.activeSessionFile || activeConversation(s).entries.length > 0 || !!activeConversation(s).streaming || activeConversation(s).pending.length > 0 || activeConversation(s).running);
   const { controller: tabsController, strip } = useWorkspaceTabs();
+  const emptyComposer = useStore(tabsController.state, s => s.emptyComposer);
   const selectedTab = strip?.tabs.find(tab => tabId(tab) === strip.active);
   useEffect(() => setExtensionView(null), [activeProjectPath, activeSessionFile, selectionVersion]);
   return <WorkspaceTabs onNew={onStart}>
             {activeProjectPath ? (
-              !selectedTab ? <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-sm text-muted-foreground"><p>No open tabs</p><Button variant="outline" size="sm" onClick={() => tabsController.record()}>Reopen conversation</Button></div> :
-              selectedTab.kind === "file" && openingFile ? <div className="px-4"><StateNotice loading title={`Opening ${openingFile}…`} /></div> : selectedTab.kind === "file" && editorOpen ? <WorkspaceEditor projectDir={activeProjectPath} /> : null
+              !selectedTab && !emptyComposer ? <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-sm text-muted-foreground"><p>No open tabs</p><Button variant="outline" size="sm" onClick={() => tabsController.record()}>Reopen conversation</Button></div> :
+              selectedTab?.kind === "file" && openingFile ? <div className="px-4"><StateNotice loading title={`Opening ${openingFile}…`} /></div> : selectedTab?.kind === "file" && editorOpen ? <WorkspaceEditor projectDir={activeProjectPath} /> : null
             ) : null}
             {activeProjectPath ? strip?.tabs.filter(tab => tab.kind === "diff").filter(tab => tab.projectDir === activeProjectPath).map(tab => {
               const active = tabId(tab) === strip.active;
               const review = active && sourceControlReview?.projectDir === activeProjectPath ? sourceControlReview : { projectDir: activeProjectPath, path: tab.path, staged: tab.staged, hash: tab.hash };
               return <WorkspaceDiff key={tabId(tab)} tab={tab} review={review} active={active} />;
             }) : null}
-            {activeProjectPath ? <div className={selectedTab?.kind === "thread" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+            {activeProjectPath ? <div className={emptyComposer || selectedTab?.kind === "thread" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
               {extensionView ? (
                 <Suspense fallback={<SurfaceLoading label="Loading extension view…" />}>
                   <ExtensionConversationView active={extensionView} onClose={() => setExtensionView(null)} />

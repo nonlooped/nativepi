@@ -1,6 +1,6 @@
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
 import { XIcon } from "@phosphor-icons/react/X";
-import { draftKeyFor } from "../../shared/messages.ts";
+import { composerKey } from "../lib/draftThreads.ts";
 import { dataUrl } from "../lib/attachments.ts";
 import { copyDataImage } from "../lib/clipboard.ts";
 import type { ImageAttachment } from "../../shared/rpc-schema.ts";
@@ -31,8 +31,8 @@ import { Dialog, DialogViewerContent } from "@/components/ui/dialog.tsx";
  * `image.png`. The name is still shown, because a picked file has a real one.
  */
 export default function ComposerAttachments() {
-  const images = useAppStore((s) => s.attachments[draftKeyFor(s.activeProjectPath, s.activeSessionFile)]);
-  const preparing = useAppStore((s) => s.preparing[draftKeyFor(s.activeProjectPath, s.activeSessionFile)] ?? 0);
+  const images = useAppStore((s) => s.attachments[composerKey(s)]);
+  const preparing = useAppStore((s) => s.preparing[composerKey(s)] ?? 0);
   const detach = useAppStore((s) => s.detach);
 
   if ((!images || images.length === 0) && preparing === 0) return null;

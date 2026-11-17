@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { stubInvoke } from "./testBridge.ts";
 import { createPaneStore, releasePaneStore, type PaneStore } from "../store.ts";
-import { paneWorkspaceTabs, tabId, tabScope, workspaceTabsSchema, type WorkspaceTab } from "../workspaceTabs.ts";
+import { paneWorkspaceTabs, tabId, workspaceTabsSchema, type WorkspaceTab } from "../workspaceTabs.ts";
 import { useWorkspaceEditor } from "../workspaceEditor.ts";
 import { runtime } from "./internals.ts";
 import { emptyConversation } from "./conversation.ts";
@@ -84,7 +84,7 @@ test("a delayed file read cannot steal selection after returning to a thread or 
 });
 
 test("pane metadata restores tab order and a clean file lazily, with retryable errors and no saved buffer contents", async () => {
-  const app = pane(); const scope = tabScope(app.getState());
+  const app = pane(); const scope = app.getState().destination;
   const metadata = workspaceTabsSchema.parse({ [scope]: { tabs: [thread("a"), file, diff], active: tabId(file) } });
   stubInvoke(async () => { throw new Error("File unavailable"); });
   const tabs = paneWorkspaceTabs(app, metadata);
@@ -94,7 +94,7 @@ test("pane metadata restores tab order and a clean file lazily, with retryable e
   reader(); await tabs.activate(file);
   const key = Object.keys(useWorkspaceEditor.getState().buffers)[0]!;
   useWorkspaceEditor.getState().edit(key, "private unsaved text");
-  const serialized = JSON.stringify(tabs.state.getState().scopes);
+  const serialized = JSON.stringify(tabs.current());
   expect(serialized).not.toContain("private unsaved text");
   expect(serialized).not.toContain("original");
   expect(tabs.state.getState().error).toBeUndefined();
@@ -202,6 +202,7 @@ test("old per-project tab metadata migrates into one strip without dropping same
     '["work","/project"]': { tabs: [{ kind: "thread", session: "a" }, { kind: "thread", session: "b" }], active: '{"kind":"thread","session":"b"}' },
     '["work","/other"]': { tabs: [{ kind: "file", file: "one.ts" }], active: '{"kind":"file","file":"one.ts"}' },
   });
+  if ("tabs" in metadata) throw new Error("Expected legacy layout");
   expect(metadata.work?.tabs).toEqual([thread("a"), thread("b"), { kind: "file", file: "one.ts", projectDir: "/other" }]);
   expect(metadata.work?.active).toBe(tabId({ kind: "file", file: "one.ts", projectDir: "/other" }));
 });
@@ -237,4 +238,75 @@ for (const target of [file, diff, thread("other", "/other")]) test(`a first send
   expect(app.getState().activeProjectPath).toBe(target.projectDir);
   if (target.kind === "file") expect(useWorkspaceEditor.getState().selected[`${runtime(app.getState).paneId}:/project`]).toBeDefined();
   if (target.kind === "diff") expect(app.getState().sourceControlReview).toMatchObject({ projectDir: "/project", path: "one.ts" });
+});
+
+test("selecting one sidebar chat keeps the work tab available across destinations", async () => {
+  const app = createPaneStore(); stores.push(app);
+  const projectDir = "/chat";
+  const sessions = ["picked", "unopened"].map(path => ({
+    path, id: path, name: path, firstMessage: "", lastPrompt: "", providers: [], messageCount: 0, created: "", modified: "",
+  }));
+  stubInvoke(async channel => {
+    if (channel === "checkTrust") return { required: true, trusted: false };
+    if (channel === "readSessionSnapshot") return { consistency: "stable", entries: [], liveEvents: [], eventWatermark: 0 };
+    if (channel === "orchestrationSnapshot") return { revision: 0, threads: [] };
+    return {};
+  });
+  app.setState({ ready: true, chatRoot: projectDir, activeProjectPath: "/project", activeSessionFile: "a", isNewChat: false,
+    sessionLoadStates: { "/chat": "loaded", "/project": "loaded" }, sessionsByProject: { "/chat": sessions } });
+  const tabs = paneWorkspaceTabs(app);
+  const picked = thread("picked", projectDir);
+  await app.getState().selectChat("picked", "/chat");
+  expect(tabs.current().tabs).toEqual([thread("a"), picked]);
+  await tabs.activate(thread("a"));
+  expect(app.getState().destination).toBe("work");
+  expect(tabs.current().tabs).toEqual([thread("a"), picked]);
+  await tabs.close(thread("a"));
+  expect(tabs.current()).toEqual({ tabs: [picked], active: tabId(picked) });
+});
+
+test("legacy destination strips merge in visible order and retain selection after saving again", () => {
+  const app = pane("/chat");
+  app.setState({ destination: "chat", chatRoot: "/chat" });
+  const chat = thread("a", "/chat");
+  const tabs = paneWorkspaceTabs(app, {
+    chat: { tabs: [chat], active: tabId(chat) },
+    work: { tabs: [thread("work"), chat], active: tabId(thread("work")) },
+  });
+  expect(tabs.current()).toEqual({ tabs: [chat, thread("work")], active: tabId(chat) });
+  expect(workspaceTabsSchema.parse(tabs.current())).toEqual(tabs.current());
+});
+
+test("returning to a destination draft opens only the draft even when history has sessions", async () => {
+  const app = createPaneStore(); stores.push(app);
+  app.setState({ ready: true, activeProjectPath: "/project", activeSessionFile: "a", isNewChat: false,
+    chatRoot: "/chat", destinationDrafts: { chat: true }, sessionLoadStates: { "/chat": "loaded" },
+    sessionsByProject: { "/chat": [{ path: "unopened", id: "old", providers: [], created: "", modified: "", firstMessage: "", lastPrompt: "", messageCount: 0 }] } });
+  stubInvoke(async () => ({ required: true, trusted: false }));
+  const tabs = paneWorkspaceTabs(app);
+  await app.getState().setDestination("chat");
+  expect(tabs.current().tabs).toEqual([thread("a"), thread(null, "/chat")]);
+});
+
+test("two unsent threads in one project reopen independently and clearing one leaves its composer editable", async () => {
+  const app = pane();
+  const tabs = paneWorkspaceTabs(app);
+  const project = "/project";
+  const { composerKey, draftThreads } = await import("../draftThreads.ts");
+  await app.getState().newChatIn(project);
+  app.getState().setDraft("First idea");
+  await app.getState().newChatIn(project);
+  expect(app.getState().drafts[composerKey(app.getState())]).toBeUndefined();
+  app.getState().setDraft("Second idea");
+  const second = tabs.current().tabs.at(-1)!;
+  await tabs.activate(thread(null));
+  expect(app.getState().drafts[composerKey(app.getState())]).toBe("First idea");
+  app.getState().setDraft("");
+  expect(tabs.current().tabs).toEqual([thread("a"), second]);
+  expect(draftThreads(app.getState().drafts).map(d => d.text)).toEqual(["Second idea"]);
+  expect(tabs.state.getState().emptyComposer).toBe(true);
+  app.getState().setDraft("Revised idea");
+  expect(tabs.current().active).toBe(tabId(thread(null)));
+  await tabs.activate(second);
+  expect(app.getState().drafts[composerKey(app.getState())]).toBe("Second idea");
 });

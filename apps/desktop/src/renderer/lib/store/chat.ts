@@ -1,4 +1,6 @@
-import { bindWorkspaceDraft } from "../workspaceTabs.ts";
+import { clientIdentity } from "../clientIdentity.ts";
+import { composerKey, threadDraftKey } from "../draftThreads.ts";
+import { editWorkspaceDraft, bindWorkspaceDraft } from "../workspaceTabs.ts";
 import { toast } from "sonner";
 import { quoteMarkdown } from "../markdownReferences.ts";
 import { chipText, skillPrompt } from "../composerText.ts";
@@ -34,7 +36,7 @@ import type { ImageAttachment } from "../../../shared/rpc-schema.ts";
 import { isChatFinished, togglePinnedPath } from "../chatOrganization.ts";
 
 import { isAssistant, isUser, sessionPromptSummary, textOf } from "../../../shared/messages.ts";
-import { draftKeyFor } from "../../../shared/messages.ts";
+
 import { NO_EXTENSION_UI_STATE, type ChatSlice, type Conversation, type GetState, type PendingMessage, type SetState, type SliceCreator } from "./types.ts";
 
 const MAX_REMOTE_IMAGE_BATCH_BYTES = 48 * 1024 * 1024;
@@ -215,7 +217,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
   const sessionRefreshes = new Map<string, Promise<void>>();
   const attachmentTargets = new Map<string, { key: string }>();
   const coldChatTokens = new Map<string, number>();
-  const coldSubmits = new Map<string, { token: number | undefined; conversation: Conversation; runtimeId?: string; echoedSessions: Set<string> }>();
+  const coldSubmits = new Map<string, { token: number | undefined; conversation: Conversation; key: string; runtimeId?: string; echoedSessions: Set<string> }>();
   const hydration = createHydration(set, get);
   const attachmentTarget = (key: string) => {
     let target = attachmentTargets.get(key);
@@ -241,7 +243,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
     const submitting = coldSubmits.get(projectDir);
     if (!submitting || coldChatTokens.get(projectDir) !== submitting.token) return;
     submitting.conversation = conversationFor(get(), projectDir, null);
-    const target = attachmentTargets.get(draftKeyFor(projectDir, null));
+    const target = attachmentTargets.get(submitting.key);
     if (target) moveAttachments(target, `submitting:${submitting.token}:${projectDir}`);
   }
   return {
@@ -259,6 +261,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
     conversations: {},
     sendBehavior: "followUp",
     drafts: {},
+    projectDraftIds: {},
     attachments: {},
     preparing: {},
 
@@ -359,7 +362,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
       if (projectDir) {
         detachColdChat(projectDir);
         if (coldSubmits.has(projectDir)) runtime(get).blockedDrafts.add(projectDir);
-        attachmentTargets.delete(draftKeyFor(projectDir, null));
+        attachmentTargets.delete(composerKey(get(), projectDir, null));
         coldChatTokens.set(projectDir, nextColdChatToken++);
       }
       if (projectDir) {
@@ -373,9 +376,17 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
       if (projectDir && !coldSubmits.has(projectDir) && trust && !get().trustPrompt) void warmProject(set, get, projectDir).catch(() => {});
     },
 
-    newChatIn: async (projectDir) => {
+    newChatIn: async (projectDir, resume) => {
       rememberProject(set, get, projectDir);
       const folder = projectDir !== get().activeProjectPath ? enterProjectFolder(set, get, projectDir) : null;
+      const currentId = get().projectDraftIds[projectDir];
+      const key = threadDraftKey(projectDir, currentId);
+      const occupied = get().drafts[key]?.trim() || get().attachments[key]?.length || get().preparing[key] || coldSubmits.has(projectDir);
+      const draftId = resume ? resume.draftId : occupied ? clientIdentity() : currentId;
+      set(state => ({ projectDraftIds: { ...state.projectDraftIds, [projectDir]: draftId } }));
+      if (resume && projectDir === get().chatRoot) {
+        get().moveToChatFolder(projectDir, get().chatFolderBySession[threadDraftKey(projectDir, draftId)] ?? null);
+      }
       get().newChat();
       if (folder) await applyFolderTrust(set, get, projectDir, folder);
     },
@@ -404,7 +415,16 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
 
     setDraft: (text) => {
       if (get().destination === "work" && get().activeSessionFile && ((get().ready && get().confirmedNewLead !== get().activeSessionFile && (!get().orchestrationLoaded || !get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile))) || get().orchestration.threads.some(thread => thread.ref.file === get().activeSessionFile && (thread.available === false || thread.relationship || thread.roleUnavailable)))) return;
-      writeDraft(set, get, get().activeProjectPath, get().activeSessionFile, text);
+      const state = get();
+      const key = draftKey(get);
+      const previous = state.drafts[key];
+      writeDraft(set, get, state.activeProjectPath, state.activeSessionFile, text);
+      if (state.activeProjectPath && !state.activeSessionFile && !!previous?.trim() !== !!text.trim()) {
+        if (state.activeProjectPath === state.chatRoot) {
+          state.moveToChatFolder(key, text.trim() ? state.chatFolderBySession[state.chatRoot] ?? null : null);
+        }
+        editWorkspaceDraft(get, state.activeProjectPath, state.projectDraftIds[state.activeProjectPath], !!text.trim());
+      }
     },
 
     insertIntoComposer: (text) => {
@@ -520,10 +540,10 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
             coldChatTokens.set(projectDir, token);
             return token;
           })());
-      get().setDraft("");
+      writeDraft(set, get, projectDir, get().activeSessionFile, "");
       clearAttachments(set, key);
 
-      const submitting = { token: coldChatToken, conversation: optimisticConversation, runtimeId: runtime(get).runtimes.get(projectDir), echoedSessions: new Set<string>() };
+      const submitting = { key, token: coldChatToken, conversation: optimisticConversation, runtimeId: runtime(get).runtimes.get(projectDir), echoedSessions: new Set<string>() };
       if (!s.activeSessionFile) coldSubmits.set(projectDir, submitting);
       let res: Awaited<ReturnType<typeof rpc.request.submit>>;
       try {
@@ -553,7 +573,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
         // would send a message about a screenshot that is no longer attached. They
         // go in front of whatever was attached while the send was in flight — the
         // composer stayed usable, and those images are for the next message.
-        writeDraft(set, get, projectDir, s.activeSessionFile, restoredDraft(text, get().drafts[key]));
+        writeDraft(set, get, projectDir, s.activeSessionFile, restoredDraft(text, get().drafts[key]), key);
         moveAttachments(target, key);
         addAttachments(set, key, images, true);
         return;
@@ -561,9 +581,10 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
       if (res.sessionFile) {
         if (s.activeSessionFile) patchConversation(set, projectDir, res.sessionFile, { projectDir, sessionFile: res.sessionFile });
         if (!s.activeSessionFile) {
-          if (projectDir === s.chatRoot && s.chatFolderBySession[projectDir]) {
-            const folderId = s.chatFolderBySession[projectDir]!;
-            if (get().chatFolders.some(folder => folder.id === folderId)) get().moveToChatFolder(res.sessionFile, folderId);
+          if (projectDir === s.chatRoot) {
+            const folderId = s.chatFolderBySession[key] ?? s.chatFolderBySession[projectDir];
+            if (s.chatFolderBySession[key]) get().moveToChatFolder(key, null);
+            if (folderId && get().chatFolders.some(folder => folder.id === folderId)) get().moveToChatFolder(res.sessionFile, folderId);
           }
           const timestamp = new Date().toISOString();
           const draftEntries = coldChatTokens.get(projectDir) === coldChatToken
@@ -595,13 +616,14 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
               if (item.id === pendingEntry?.id && submitting.echoedSessions.has(res.sessionFile!)) continue;
               if (!pending.some((candidate) => candidate.id === item.id)) pending.push(item);
             }
-            const coldDraftKey = draftKeyFor(projectDir, null);
-            const coldDraft = sameColdChat ? state.drafts[coldDraftKey] : undefined;
+            const coldDraftKey = key;
+            const ownsDraft = sameColdChat || key !== composerKey(state, projectDir, null);
+            const coldDraft = ownsDraft ? state.drafts[coldDraftKey] : undefined;
 
             const drafts = { ...state.drafts };
             const attachments = { ...state.attachments };
             const preparing = { ...state.preparing };
-            if (sameColdChat) {
+            if (ownsDraft) {
               delete drafts[coldDraftKey];
               delete attachments[coldDraftKey];
               delete preparing[coldDraftKey];
@@ -622,7 +644,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
             };
           });
         }
-        if (!s.activeSessionFile && coldChatTokens.get(projectDir) === coldChatToken) bindWorkspaceDraft(get, projectDir, res.sessionFile);
+        if (!s.activeSessionFile && (coldChatTokens.get(projectDir) === coldChatToken || s.projectDraftIds[projectDir] !== get().projectDraftIds[projectDir])) bindWorkspaceDraft(get, projectDir, res.sessionFile, s.projectDraftIds[projectDir]);
         hydration.retry(projectDir, res.sessionFile);
         setLastChat(get, projectDir, res.sessionFile);
         persist(get);
@@ -656,7 +678,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
       // No optimistic entry: Pi echoes the queued message back via queue_update,
       // which is the source of truth for what's pending.
       patchConversation(set, projectDir, sessionFile, { error: undefined });
-      get().setDraft("");
+      writeDraft(set, get, projectDir, get().activeSessionFile, "");
       clearAttachments(set, key);
 
       /**
@@ -688,7 +710,7 @@ export const createChatSlice: SliceCreator<ChatSlice> = (set, get) => {
           error: res.error ?? "Failed to queue message",
           errorRecovery: "retrySend",
         });
-        writeDraft(set, get, projectDir, sessionFile, restoredDraft(text, get().drafts[key]));
+        writeDraft(set, get, projectDir, sessionFile, restoredDraft(text, get().drafts[key]), key);
         addAttachments(set, key, images, true);
       }
     },
