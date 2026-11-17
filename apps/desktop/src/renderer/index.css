@@ -995,8 +995,29 @@ html[data-motion="reduced"] *::after {
   background: linear-gradient(to bottom, var(--dock-edge), var(--dock-fill) 36px);
   box-shadow: none;
 }
-.app-viewport:has(> .chat-landscape) :is(#projects + [data-slot="resizable-handle"], [data-slot="resizable-handle"]:has(+ #context, + [data-terminal-pane])):not(:hover, :focus-visible) {
+.app-viewport:has(> .chat-landscape) :is(#projects + [data-slot="resizable-handle"], [data-slot="resizable-handle"]:has(+ #context)):not(:hover, :focus-visible),
+.app-viewport:has(> .chat-landscape) [data-slot="resizable-handle"]:has(+ [data-terminal-pane]):not(:hover, :focus-visible) {
   background: var(--dock-edge);
+}
+
+/* Continue the dock's base under the sidebars. One backdrop follows the
+   resized terminal, so its solid lower half meets solid panel edges. */
+@supports (top: anchor(top)) {
+  [data-terminal-pane] { anchor-name: --terminal-pane; }
+  .app-viewport:has(> .chat-landscape):has([data-terminal-pane])::after {
+    content: "";
+    position: absolute;
+    position-anchor: --terminal-pane;
+    inset: calc(anchor(top) - 136px) 0 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, var(--dock-edge) 136px, var(--dock-fill) 172px);
+  }
+  .app-viewport:has(> .chat-landscape):has([data-terminal-pane]) .conversation-shell,
+  .app-viewport:has(> .chat-landscape) .terminal-dock,
+  .app-viewport:has(> .chat-landscape) [data-slot="resizable-handle"]:has(+ [data-terminal-pane]):not(:hover, :focus-visible) {
+    background: transparent;
+  }
 }
 
 .new-chat {
@@ -1091,9 +1112,12 @@ html[data-motion="reduced"] *::after {
 }
 
 .app-viewport:has(> .chat-landscape) .composer-surface {
-  background: color-mix(in srgb, var(--card) 88%, transparent);
-  border-color: color-mix(in srgb, var(--foreground) 7%, transparent);
-  box-shadow: 0 8px 40px -16px color-mix(in srgb, var(--foreground) 16%, transparent);
+  background: color-mix(in srgb, var(--glass-surface, var(--card)) 60%, var(--background));
+  border-color: color-mix(in srgb, var(--foreground) 10%, transparent);
+  box-shadow: 0 0 26px 5px color-mix(in srgb, var(--background) 78%, transparent);
+}
+.app-viewport:has(> .chat-landscape) .composer-surface:focus-within {
+  border-color: color-mix(in srgb, var(--ring) 55%, var(--border));
 }
 
 .app-viewport:has(> .chat-landscape) [data-slot="bubble"][data-variant="secondary"] > [data-slot="bubble-content"] {
