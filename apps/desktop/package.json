@@ -1,7 +1,7 @@
 {
   "name": "@nativepi/desktop",
   "private": true,
-  "version": "1.21.0",
+  "version": "1.22.0",
   "description": "A free, open-source desktop interface for the Pi coding agent on Windows, macOS, and Linux.",
   "author": "nonlooped",
   "keywords": [
@@ -136,7 +136,9 @@
       }
     ],
     "win": {
-      "files": ["!**/node_modules/agent-desktop/bin/*-{darwin,linux}-*"],
+      "files": [
+        "!**/node_modules/agent-desktop/bin/*-{darwin,linux}-*"
+      ],
       "icon": "resources/icon.ico",
       "verifyUpdateCodeSignature": false,
       "target": [
@@ -150,7 +152,9 @@
       "installerSidebar": "resources/installer-sidebar.bmp"
     },
     "mac": {
-      "files": ["!**/node_modules/agent-desktop/bin/*-{linux,win32}-*"],
+      "files": [
+        "!**/node_modules/agent-desktop/bin/*-{linux,win32}-*"
+      ],
       "artifactName": "${productName}-${version}-${arch}.${ext}",
       "icon": "resources/icon.png",
       "identity": "-",
@@ -166,7 +170,9 @@
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "linux": {
-      "files": ["!**/node_modules/agent-desktop/bin/*-{darwin,win32}-*"],
+      "files": [
+        "!**/node_modules/agent-desktop/bin/*-{darwin,win32}-*"
+      ],
       "artifactName": "${productName}-${version}-${arch}.${ext}",
       "icon": "resources/icon.png",
       "category": "Development",
