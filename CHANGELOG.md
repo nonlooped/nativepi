@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Refine keyboard defaults, protect dialogs, typing and terminal focus, make file commands rebindable, add a shared-browser shortcut, and offer compact shortcut action menus in Settings while preserving saved custom keys.
+- Keep Files and Source control navigation immediate, show welcome controls together without a delayed entrance, and cancel navigation snapshots immediately when reduced motion is enabled.
 - Display the shared browser in a resizable right-side panel with compact tabs and navigation instead of a separate window.
 - Restore Pi naming and trim explanatory UI copy while retaining workflow and recovery improvements. Revert the recent website changes.
 - Identify the chat in each browser window, explain browser session lifetime, and show blocked downloads, popups and device permissions with an option to continue in the usual browser. Start empty browsers on a useful address screen and explain computer-only opening from another device.
