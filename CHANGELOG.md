@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Open Usage, Automations, and device sharing directly from icon buttons beside Settings in the sidebar. Simplify usage summaries and keep input/cache breakdowns limited to recorded all-time totals.
 
 ### Fixed
+- Restore the full conversation area when the closed browser panel mounts after startup, including delayed loading and shell remounts.
 - Keep live browser views aligned with their panel after window resizing, including narrow layouts where native views previously retained their old bounds.
 - Keep browser toolbar buttons clickable on macOS and reserve the actual Windows/Linux window-control row above the browser. Collapse the browser panel in place so closing it restores the conversation header and layout.
 - Coordinate update confirmation, draft saves and background shutdown; recover unsent drafts and unsaved file edits after a renderer failure or update restart without overwriting changed files.
