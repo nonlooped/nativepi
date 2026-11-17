@@ -14,7 +14,7 @@ import FileTypeIcon from "./FileTypeIcon.tsx";
 import ProjectIcon from "./ProjectIcon.tsx";
 import WorkspacePaneMenu from "./WorkspacePaneMenu.tsx";
 import { focusedPaneStore, usePaneStore } from "../lib/store.ts";
-import { paneWorkspaceTabs, tabId, tabScope, type WorkspaceTab } from "../lib/workspaceTabs.ts";
+import { paneWorkspaceTabs, tabId, type WorkspaceTab } from "../lib/workspaceTabs.ts";
 import { useWorkspaceEditor } from "../lib/workspaceEditor.ts";
 import { chatTitle } from "../lib/transcript.ts";
 import { bindings, withHint } from "../lib/shortcuts.ts";
@@ -31,8 +31,7 @@ export const WorkspaceTabHostContext = createContext<{
 export function useWorkspaceTabs() {
   const useAppStore = usePaneStore();
   const controller = paneWorkspaceTabs(useAppStore);
-  const scope = useAppStore(tabScope);
-  const strip = useStore(controller.state, s => s.scopes[scope]);
+  const strip = useStore(controller.state, s => s.strip);
   return { controller, strip };
 }
 export default function WorkspaceTabs({ children, onNew }: { children: React.ReactNode; onNew?: () => void }) {
@@ -43,7 +42,7 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
   const conversations = useAppStore(s => s.conversations);
   const overrides = useAppStore(s => s.keybindingOverrides);
   const error = useStore(controller.state, s => s.error);
-  const scope = useAppStore(tabScope);
+  const scope = useAppStore(s => s.destination);
   const projects = useAppStore(s => s.projects);
   const workRoot = useAppStore(s => s.workRoot);
   const chatRoot = useAppStore(s => s.chatRoot);

@@ -129,7 +129,7 @@ export interface WorkspaceSlice {
   addProject: () => Promise<void>;
   openProjectPath: (path: string) => Promise<void>;
   removeProject: (path: string) => Promise<void>;
-  selectProject: (path: string) => Promise<void>;
+  selectProject: (path: string, options?: { draft?: boolean }) => Promise<void>;
   selectAdjacentChat: (direction: 1 | -1) => Promise<void>;
   selectAdjacentProject: (direction: 1 | -1) => Promise<void>;
   restartPi: (projectDir?: string) => Promise<void>;

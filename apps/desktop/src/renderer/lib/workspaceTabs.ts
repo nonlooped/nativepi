@@ -18,9 +18,10 @@ export type WorkspaceTab = z.infer<typeof tabSchema>;
 export function tabId(tab: WorkspaceTab): string {
   return JSON.stringify(tab.kind === "thread" ? [tab.kind, tab.projectDir, tab.session] : tab.kind === "file" ? [tab.kind, tab.projectDir, tab.file] : [tab.kind, tab.projectDir, tab.path, tab.staged, tab.hash ?? null]);
 }
-const stripSchema = z.object({ tabs: z.array(tabSchema).max(200), active: z.string().nullable() }).transform(strip => {
-  const tabs = strip.tabs.filter((tab, index) => strip.tabs.findIndex(other => tabId(other) === tabId(tab)) === index);
-  return { tabs, active: tabs.some(tab => tabId(tab) === strip.active) ? strip.active : tabs[0] ? tabId(tabs[0]) : null };
+const stripSchema = z.object({ tabs: z.array(tabSchema), active: z.string().nullable() }).transform(strip => {
+  const byId = new Map(strip.tabs.map(tab => [tabId(tab), tab]));
+  const tabs = [...byId.values()];
+  return { tabs, active: strip.active === null || byId.has(strip.active) ? strip.active : tabs[0] ? tabId(tabs[0]) : null };
 });
 const scopesSchema = z.object({ work: stripSchema.optional(), chat: stripSchema.optional() }).strict();
 const legacyScopesSchema = z.record(z.string(), z.object({ tabs: z.array(legacyTabSchema).max(200), active: z.string().nullable() })).transform((scopes, context) => {
@@ -39,24 +40,32 @@ const legacyScopesSchema = z.record(z.string(), z.object({ tabs: z.array(legacyT
   return result;
 }).pipe(scopesSchema);
 /** Migrate the first tab layout without dropping any project's open locations. */
-export const workspaceTabsSchema = z.union([scopesSchema, legacyScopesSchema]);
-export type WorkspaceTabScopes = z.infer<typeof workspaceTabsSchema>;
-export const tabScope = (state: ReturnType<PaneStore["getState"]>) => state.destination;
+export const workspaceTabsSchema = z.union([stripSchema, scopesSchema, legacyScopesSchema]);
+export type SavedWorkspaceTabs = z.infer<typeof workspaceTabsSchema>;
+function restoredStrip(layout: SavedWorkspaceTabs, destination: "work" | "chat") {
+  if ("tabs" in layout) return layout;
+  const visible = layout[destination];
+  const other = layout[destination === "work" ? "chat" : "work"];
+  if (!other) return visible;
+  if (!visible) return { ...other, active: null };
+  const ids = new Set(visible.tabs.map(tabId));
+  return { tabs: [...visible.tabs, ...other.tabs.filter(tab => !ids.has(tabId(tab)))], active: visible.active };
+}
 const empty = { tabs: [] as WorkspaceTab[], active: null as string | null };
 const controllers = new Map<PaneStore, ReturnType<typeof createWorkspaceTabs>>();
 
-/** Each destination has one pane-local strip, independent of its selected folder. */
-export function createWorkspaceTabs(app: PaneStore, initial: WorkspaceTabScopes = {}) {
+/** Open locations belong to the pane across folders and destinations. */
+export function createWorkspaceTabs(app: PaneStore, initial: SavedWorkspaceTabs = {}) {
   const positions = new Map<string, { message: string; offset: number }>();
   const diffPositions = new Map<string, Map<number, { top: number; left: number }>>();
-  const state = create<{ scopes: WorkspaceTabScopes; error?: string }>(() => ({ scopes: initial }));
+  const state = create<{ strip: typeof empty; error?: string }>(() => ({ strip: empty }));
   const paneId = runtime(app.getState).paneId;
   let applying = false;
   let sequence = 0;
-  const current = () => state.getState().scopes[tabScope(app.getState())] ?? empty;
+  const current = () => state.getState().strip;
   const selectionKey = (project = app.getState().activeProjectPath) => `${paneId}:${project ?? ""}`;
   function update(strip: typeof empty) {
-    state.setState(s => ({ scopes: { ...s.scopes, [tabScope(app.getState())]: strip }, error: undefined }));
+    state.setState({ strip, error: undefined });
   }
   function show(tab: WorkspaceTab) {
     const strip = current(), id = tabId(tab);
@@ -155,13 +164,23 @@ export function createWorkspaceTabs(app: PaneStore, initial: WorkspaceTabScopes 
       applying = true; try { app.getState().setSourceControlReview(null); } finally { applying = false; }
     }
   });
-  if (!initial[tabScope(app.getState())]) { const s = app.getState(); if (s.ready && s.activeProjectPath) show({ kind: "thread", projectDir: s.activeProjectPath, session: s.activeSessionFile }); }
-  else {
-    const selected = current().tabs.find(t => tabId(t) === current().active);
-    if (selected && (app.getState().reopenLastProject || selected.projectDir === app.getState().chatRoot)) void activate(selected);
-    else if (selected) update({ ...current(), active: null });
-    else reflect(undefined);
+  function restore(layout: SavedWorkspaceTabs) {
+    const s = app.getState();
+    const strip = restoredStrip(layout, s.destination);
+    update(strip ?? empty);
+    if (!("tabs" in layout) && !layout[s.destination]) {
+      if (s.ready && s.activeProjectPath) show({ kind: "thread", projectDir: s.activeProjectPath, session: s.activeSessionFile });
+      return;
+    }
+    if (!strip) return;
+    const selected = strip.tabs.find(t => tabId(t) === strip.active);
+    if (selected && (s.reopenLastProject || selected.projectDir === s.chatRoot)) void activate(selected);
+    else {
+      if (selected) update({ ...strip, active: null });
+      reflect(undefined);
+    }
   }
+  restore(initial);
   function refreshTitles() {
     if (!app.getState().ready) return;
     for (const project of new Set(current().tabs.filter(tab => tab.kind === "thread").map(tab => tab.projectDir))) {
@@ -170,7 +189,7 @@ export function createWorkspaceTabs(app: PaneStore, initial: WorkspaceTabScopes 
   }
   refreshTitles();
   function shared(tab: WorkspaceTab) {
-    return [...controllers.entries()].some(([other, controller]) => other !== app && Object.values(controller.state.getState().scopes).some(strip => strip?.tabs.some(t => tabId(t) === tabId(tab))));
+    return [...controllers.entries()].some(([other, controller]) => other !== app && controller.current().tabs.some(t => tabId(t) === tabId(tab)));
   }
   function needsDiscard(tab: WorkspaceTab) {
     const b = bufferFor(tab); return !!b && b.text !== b.saved && !shared(tab);
@@ -188,17 +207,17 @@ export function createWorkspaceTabs(app: PaneStore, initial: WorkspaceTabScopes 
     }
     if (strip.active === id) { if (next) await activate(next); else reflect(undefined); }
   }
-  return { state, positions, diffPositions, refreshTitles, current, activate, close, needsDiscard, record, dispose: () => {
+  return { state, restore, positions, diffPositions, refreshTitles, current, activate, close, needsDiscard, record, dispose: () => {
     unsubscribe(); stopEditor();
     for (const key of Object.keys(useWorkspaceEditor.getState().loading)) if (key.startsWith(`${paneId}:`)) useWorkspaceEditor.getState().cancelOpen(key);
     useWorkspaceEditor.setState(s => ({ selected: Object.fromEntries(Object.entries(s.selected).filter(([key]) => !key.startsWith(`${paneId}:`))) }));
   } };
 }
-export function paneWorkspaceTabs(app: PaneStore, initial?: WorkspaceTabScopes) {
+export function paneWorkspaceTabs(app: PaneStore, initial?: SavedWorkspaceTabs) {
   let controller = controllers.get(app);
   if (!controller) { controller = createWorkspaceTabs(app, initial); controllers.set(app, controller); return controller; }
-  if (initial) { controller.state.setState({ scopes: initial }); const strip = controller.current(); const selected = strip.tabs.find(tab => tabId(tab) === strip.active); if (selected && (app.getState().reopenLastProject || selected.projectDir === app.getState().chatRoot)) void controller.activate(selected);
-    else if (selected) controller.state.setState(s => ({ scopes: { ...s.scopes, [tabScope(app.getState())]: { ...strip, active: null } } }));
+  if (initial) {
+    controller.restore(initial);
     controller.refreshTitles();
   }
   return controller;
@@ -213,8 +232,10 @@ export function bindWorkspaceDraft(get: PaneStore["getState"], projectDir: strin
   if (!controller) return;
   const draft = tabId({ kind: "thread", projectDir, session: null });
   const tab: WorkspaceTab = { kind: "thread", projectDir, session };
-  controller.state.setState(s => ({ scopes: Object.fromEntries(Object.entries(s.scopes).map(([scope, strip]) => {
-    if (!strip || !strip.tabs.some(t => tabId(t) === draft)) return [scope, strip];
-    return [scope, { tabs: strip.tabs.filter(t => tabId(t) !== tabId(tab)).map(t => tabId(t) === draft ? tab : t), active: strip.active === draft ? tabId(tab) : strip.active }];
-  })) }));
+  const strip = controller.current();
+  if (!strip.tabs.some(t => tabId(t) === draft)) return;
+  controller.state.setState({ strip: {
+    tabs: strip.tabs.filter(t => tabId(t) !== tabId(tab)).map(t => tabId(t) === draft ? tab : t),
+    active: strip.active === draft ? tabId(tab) : strip.active,
+  } });
 }

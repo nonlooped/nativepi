@@ -1,3 +1,4 @@
+import "./testBridge.ts";
 import { expect, test } from "bun:test";
 import { createPaneStore, releasePaneStore } from "../store.ts";
 import { paneArrangementSchema, restorePaneSelection } from "../paneArrangement.ts";
@@ -28,5 +29,6 @@ test("corrupt tab metadata cannot destroy a valid pane arrangement, and stale ac
   const restored = paneArrangementSchema.parse(base);
   expect(restored.panes[0]).toEqual({ project: "/project", session: "a", tabs: {} });
   const clean = paneArrangementSchema.parse({ ...base, panes: [{ project: "/project", session: "a", tabs: { work: { tabs: [{ kind: "thread", projectDir: "/project", session: "a" }, { kind: "thread", projectDir: "/project", session: "a" }], active: "missing" } } }] });
-  expect(clean.panes[0]?.tabs?.work).toEqual({ tabs: [{ kind: "thread", session: "a", projectDir: "/project" }], active: '["thread","/project","a"]' });
+  const layout = clean.panes[0]?.tabs;
+  expect(layout && "work" in layout && layout.work).toEqual({ tabs: [{ kind: "thread", session: "a", projectDir: "/project" }], active: '["thread","/project","a"]' });
 });

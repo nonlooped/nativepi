@@ -69,7 +69,7 @@ export default function Workspace() {
   const save = () => {
     if (!initialized.current) return;
     const value = current.current;
-    try { localStorage.setItem("nativepi-conversation-panes", JSON.stringify({ orientation: value.orientation, active: value.active, sizes: sizes.current, panes: value.stores.map(store => ({ project: store.getState().activeProjectPath, session: store.getState().activeSessionFile, tabs: paneWorkspaceTabs(store).state.getState().scopes })) })); } catch { console.warn("Could not save conversation pane layout."); }
+    try { localStorage.setItem("nativepi-conversation-panes", JSON.stringify({ orientation: value.orientation, active: value.active, sizes: sizes.current, panes: value.stores.map(store => ({ project: store.getState().activeProjectPath, session: store.getState().activeSessionFile, tabs: paneWorkspaceTabs(store).current() })) })); } catch { console.warn("Could not save conversation pane layout."); }
   };
   useEffect(() => {
     const update = () => setWidth(window.innerWidth);

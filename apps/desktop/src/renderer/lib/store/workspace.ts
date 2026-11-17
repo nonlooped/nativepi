@@ -128,10 +128,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       if (target) {
         const remembered = getLastChat(get, target);
         if (remembered && !s.destinationDrafts[destination]) await get().selectChat(remembered, target);
-        else {
-          await get().selectProject(target);
-          if (get().destination === destination && s.destinationDrafts[destination]) get().newChat();
-        }
+        else await get().selectProject(target, { draft: s.destinationDrafts[destination] });
       } else set({ activeProjectPath: null, activeSessionFile: null });
       persist(get);
     },
@@ -209,8 +206,7 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       // is still loading, so its result may already have been pushed and missed.
       void rpc.request.updateState({}).then((update) => get().onUpdateState(update));
       if (restoreProject) {
-        await get().selectProject(restoreProject);
-        if (loaded.destinationDrafts?.[loaded.destination]) get().newChat();
+        await get().selectProject(restoreProject, { draft: loaded.destinationDrafts?.[loaded.destination] });
       }
     },
 
@@ -250,8 +246,14 @@ export const createWorkspaceSlice: SliceCreator<WorkspaceSlice> = (set, get) => 
       persist(get);
     },
 
-    selectProject: async (path) => {
+    selectProject: async (path, options) => {
       const folder = enterProjectFolder(set, get, path);
+      if (options?.draft) {
+        get().newChat();
+        if (get().sessionLoadStates[path] !== "loaded") void get().refreshSessions(path);
+        await applyFolderTrust(set, get, path, folder);
+        return;
+      }
 
       // A chat still running in this project wins over the last-opened one: the
       // user coming back mid-run should land on the run, not beside it.
