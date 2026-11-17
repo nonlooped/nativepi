@@ -10,7 +10,9 @@ export const serviceMode = process.argv.includes("--nativepi-service");
 export function serviceFile(root: string) { return join(root, "background", "host.json"); }
 export function launchHost(root: string) {
   const args = [...(app.isPackaged ? [] : [app.getAppPath()]), "--nativepi-service", `--nativepi-data-dir=${root}`];
-  const child = spawn(process.env.APPIMAGE || process.execPath, args, { detached: true, stdio: "ignore", env: { ...process.env, ELECTRON_RUN_AS_NODE: "" } });
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  const child = spawn(process.env.APPIMAGE || process.execPath, args, { detached: true, stdio: "ignore", env });
   child.on("error", () => {});
   child.unref();
 }

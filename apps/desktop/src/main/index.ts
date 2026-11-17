@@ -185,8 +185,9 @@ async function createMainWindow(): Promise<void> {
 
   // The renderer's beforeunload protects unsaved buffers. Pi and terminals
   // stay in the independent service, including when this renderer crashes.
-  closeGuards.set(win.webContents.id, protectDesktopEdits(win));
-  win.on("closed", () => { closeGuards.delete(win.webContents.id); });
+  const contentsId = win.webContents.id;
+  closeGuards.set(contentsId, protectDesktopEdits(win));
+  win.on("closed", () => { closeGuards.delete(contentsId); });
   win.webContents.on("console-message", (_event, level, message) => recordRendererLog(level, message));
   win.webContents.on("render-process-gone", (_event, details) => {
     if (details.reason !== "clean-exit") {
