@@ -587,7 +587,7 @@ function WorkspaceHeader({
 
   return (
     <header
-      className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-2 pr-2 ${sidebarDocked ? "pl-2 sm:pl-5" : "pl-3"} ${sidebarDocked ? "" : TRAFFIC_LIGHTS_CLEARANCE} ${contextDocked ? "" : WINDOW_CONTROLS_CLEARANCE}`}
+      className={`${DRAG_REGION} flex h-12 shrink-0 items-center gap-2 pr-2 ${(!panes || panes.count === 1) ? "workspace-tab-frame" : ""} ${sidebarDocked ? "pl-2 sm:pl-5" : "pl-3"} ${sidebarDocked ? "" : TRAFFIC_LIGHTS_CLEARANCE} ${contextDocked ? "" : WINDOW_CONTROLS_CLEARANCE}`}
     >
       <div className="native-header-content flex h-full min-w-0 flex-1 items-center gap-2">
         {!sidebarDocked ? (
