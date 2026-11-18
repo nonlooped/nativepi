@@ -409,7 +409,10 @@ function WorkContents(props: SidebarProps) {
         {!drafts.length && !loading && projects.length > 0 && failedProjects.length === 0 && pinned.length === 0 && focus.length === 0 && finished.length > 0 ? (
           <div className="px-3 pt-3 text-xs leading-relaxed text-muted-foreground">
             <p className="font-medium text-sidebar-foreground/80">No recent chats</p>
-            <p className="mt-0.5">Start a chat, or reopen one from History.</p>
+            <p className="mt-0.5">
+              <Button variant="link" size="xs" className="h-auto px-0 align-baseline underline decoration-current/50 underline-offset-2" onClick={onOpenNewChat}>Start a chat</Button>
+              {" or reopen one from History."}
+            </p>
           </div>
         ) : null}
 

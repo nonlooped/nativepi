@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make workspace tab shortcuts work throughout the focused pane. Use Ctrl+Tab or Ctrl+Shift+Tab to switch tabs and Ctrl+W (Command+W on Mac) to close the active tab. The desktop window no longer responds to browser reload or page zoom shortcuts.
 
 ### Added
+- Start a chat directly from the Work sidebar’s “No recent chats” message.
 - Resume unsent threads from the sidebar or workspace tabs. Clearing the draft removes it from both.
 - Open a new workspace tab with Ctrl+T (Command+T on Mac). Customize tab shortcuts in Settings.
 
