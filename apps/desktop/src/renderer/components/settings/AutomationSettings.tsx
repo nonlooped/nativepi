@@ -84,13 +84,13 @@ export default function AutomationSettings() {
     <div className="flex min-w-0 flex-col gap-6">
       <div className={empty ? "flex flex-col gap-2" : "flex flex-wrap items-center justify-between gap-3"}>
         {empty && <h2 className="text-sm font-semibold">No automations yet</h2>}
-        <Button size="sm" variant={empty ? "default" : "outline"} className="w-fit shrink-0" onClick={() => setEditor("new")}>
+        <p className={empty ? "text-[0.8125rem] leading-5 text-body-muted-foreground" : "min-w-48 flex-1 text-[0.8125rem] leading-5 text-body-muted-foreground"}>
+          Tasks run while this computer is awake and background work is running, even with the window closed.
+        </p>
+        <Button size="sm" variant={empty ? "default" : "outline"} className={empty ? "mt-1 w-fit shrink-0" : "w-fit shrink-0"} onClick={() => setEditor("new")}>
           <PlusIcon />
           New automation
         </Button>
-        <p className={empty ? "text-[0.8125rem] leading-5 text-body-muted-foreground" : "order-first min-w-48 flex-1 text-[0.8125rem] leading-5 text-body-muted-foreground"}>
-          Tasks run while this computer is awake and background work is running, even with the window closed.
-        </p>
       </div>
       {error && (
         <StateNotice

@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Open a new workspace tab with Ctrl+T (Command+T on Mac). Customize tab shortcuts in Settings.
 
 ### Changed
+- Explain when automations run before offering New automation in the empty Automations view.
 - Show the project folder and branch controls below the composer at the same size.
 - Match the sidebar’s Chat and Work switch to the app’s other segmented controls, use sentence-case section labels, and give Chat and Work the same search shortcut hints and empty-state guidance.
 - Bundle JetBrains Mono Nerd Font Mono for the built-in terminal, including support for prompt icons.
