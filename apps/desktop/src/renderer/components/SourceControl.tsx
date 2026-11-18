@@ -222,13 +222,14 @@ export default function SourceControl({
     {error && <div className="shrink-0 border-b border-border/40 px-4"><StateNotice title="Could not finish this change" detail={error} /></div>}
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex h-11 shrink-0 items-center gap-1 border-b border-border/40 px-3" role="tablist" aria-label="Source control view">
-          <Button role="tab" aria-selected={tab === "changes"} variant={tab === "changes" ? "secondary" : "ghost"} size="sm" onClick={() => setTab("changes")}>Changes <span className="text-xs tabular-nums text-muted-foreground">{git.files.length}</span></Button>
+          <Button role="tab" aria-selected={tab === "changes"} variant={tab === "changes" ? "secondary" : "ghost"} size="sm" onClick={() => setTab("changes")}>Changes {git.files.length > 0 && <span className="text-xs tabular-nums text-muted-foreground">{git.files.length}</span>}</Button>
           <Button role="tab" aria-selected={tab === "history"} variant={tab === "history" ? "secondary" : "ghost"} size="sm" onClick={() => setTab("history")}>History</Button>
-          {tab === "changes" && <span className="ml-auto text-xs tabular-nums"><span className="text-success">+{git.insertions}</span> <span className="text-destructive">−{git.deletions}</span></span>}
+          {tab === "changes" && git.files.length > 0 && <span className="ml-auto text-xs tabular-nums"><span className="text-success">+{git.insertions}</span> <span className="text-destructive">−{git.deletions}</span></span>}
         </div>
         {tab === "changes" ? <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+          {git.files.length === 0 && <p className="border-b border-border/40 px-4 py-6 text-sm">No local changes</p>}
           <ReviewWorkflow projectDir={projectDir} />
-          <section className="border-b border-border/40 p-3" aria-label="Create a commit">
+          {git.files.length > 0 && <section className="border-b border-border/40 p-3" aria-label="Create a commit">
             <div className="overflow-hidden rounded-xl border border-border/50 bg-sidebar/40 focus-within:border-ring/60">
             <Textarea id="source-control-message" aria-label="Commit message" value={message} onChange={event => { ++messageVersion.current; setMessage(event.target.value); }} ref={commitInput} placeholder="Message" rows={2} className="min-h-14 resize-none rounded-none border-0 bg-transparent dark:bg-transparent shadow-none focus-visible:ring-0" />
             <div className="flex min-w-0 items-center gap-1 px-2 pb-2">
@@ -244,7 +245,7 @@ export default function SourceControl({
               </DropdownMenu>
             </div>
             </div>
-          </section>
+          </section>}
           {git.files.length > 0 && <div className="p-3 pb-1"><Input className="border-border/40 bg-transparent dark:bg-transparent" aria-label="Filter changed files" placeholder="Filter files…" value={filter} onChange={event => setFilter(event.target.value)} /></div>}
           <ChangeTree projectDir={projectDir} filtered={!!filter} title="Staged" files={visible(stagedFiles)} staged selected={selected} disabled={disabled} onSelect={setSelected}
             onFiles={files => void mutate(async () => { for (const file of files) { const result = await rpc.request.gitUnstageFile({ projectDir, file: file.path, originalPath: file.originalPath }); if (!result.ok) return result; } return { ok: true }; })}
@@ -252,7 +253,7 @@ export default function SourceControl({
           <ChangeTree projectDir={projectDir} filtered={!!filter} title="Changes" files={visible(changedFiles)} staged={false} selected={selected} disabled={disabled} onSelect={setSelected} onRevert={setPendingRevert}
             onFiles={files => void mutate(async () => { for (const file of files) { const result = await rpc.request.gitStageFile({ projectDir, file: file.path }); if (!result.ok) return result; } return { ok: true }; })}
             onAll={() => void mutate(() => rpc.request.gitStageAll({ projectDir }))} />
-          {git.files.length === 0 ? <p className="px-4 py-8 text-center text-sm text-muted-foreground">Working tree is clean</p> : filter && !visible(git.files).length ? <p className="p-4 text-xs text-muted-foreground">No files match this filter.</p> : null}
+          {git.files.length > 0 && filter && !visible(git.files).length ? <p className="p-4 text-xs text-muted-foreground">No files match this filter.</p> : null}
           {git.lineCountsIncomplete && <p className="px-3 py-2 text-xs text-muted-foreground">Line totals exclude large untracked files.</p>}
           <RepoHostPanel />
         </div> : null}
