@@ -45,9 +45,10 @@ export default function UsageSettings() {
   return (
     <div className="flex flex-col gap-8">
       <SubscriptionCapacity />
-      <div className="flex flex-col gap-4 border-b border-border/40 pb-5 @min-[44rem]/settings-content:flex-row @min-[44rem]/settings-content:items-end @min-[44rem]/settings-content:justify-between">
-        <div className="flex flex-col gap-2">
-          <p className="text-sm text-body-muted-foreground">
+      <div className="flex flex-col gap-3 border-b border-border/40 pb-2 @min-[44rem]/settings-content:flex-row @min-[44rem]/settings-content:items-center @min-[44rem]/settings-content:justify-between">
+        <div className="flex flex-col gap-0.5">
+          <h2 className="text-sm font-semibold">Local activity</h2>
+          <p className="text-xs text-muted-foreground">
             {period}
           </p>
         </div>
@@ -87,8 +88,8 @@ export default function UsageSettings() {
               className="min-w-0 flex-1 @min-[36rem]/settings-content:flex-none"
             />
             <Button
-              variant="outline"
-              size="icon"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => {
                 dashboardReader.invalidate(selectedProjects);
                 request.reload();
@@ -129,7 +130,7 @@ function Dashboard({ dashboard, range }: { dashboard: UsageDashboard; range: Ran
             <h2 className="text-sm font-semibold">Estimated cost by provider</h2>
             <span className="text-lg font-medium tabular-nums">{cost(view.totalCost)}</span>
           </div>
-          <p className="mt-1 max-w-sm text-xs leading-5 text-body-muted-foreground">API-equivalent estimates from Pi’s local records, not provider invoices.</p>
+          <p className="mt-1 max-w-sm text-xs leading-5 text-body-muted-foreground">Estimated at API rates from Pi’s local records. Your provider bill may differ.</p>
 
           <div className="mt-5 flex flex-col gap-4">
             {providers.map((provider, index) => {

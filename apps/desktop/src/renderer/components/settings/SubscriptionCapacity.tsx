@@ -29,7 +29,6 @@ export default function SubscriptionCapacity() {
     {request.data?.providers.length === 0 && <div className="flex items-center justify-between gap-3 py-3"><p className="text-[0.8125rem] text-body-muted-foreground">Connect a subscription account to see its limits.</p><Button variant="ghost" size="sm" onClick={() => openSettings("Providers")}>Connect</Button></div>}
     <div>{supported.map(provider => <ProviderCapacity key={provider.provider} provider={provider} now={now} expanded={expanded === provider.provider} onExpand={() => setExpanded(expanded === provider.provider ? null : provider.provider)} />)}</div>
     {unsupported.length > 0 && <details className="py-3 text-xs text-muted-foreground"><summary className="cursor-pointer">{unsupported.length === 1 ? `${unsupported[0]!.name}: quota unavailable` : `Quota unavailable for ${unsupported.length} connections`}</summary><div className="space-y-1 pt-2">{unsupported.map(provider => <p key={provider.provider}>{provider.name} — {provider.message ?? "No subscription quota endpoint."}</p>)}</div></details>}
-    {supported.length > 0 && <p className="pt-2 text-xs leading-5 text-muted-foreground">Provider account limits. Local tokens and API-equivalent costs are shown below.</p>}
   </section>;
 }
 
