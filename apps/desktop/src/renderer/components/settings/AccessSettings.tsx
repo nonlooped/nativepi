@@ -106,7 +106,6 @@ export default function AccessSettings() {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-[0.8125rem] leading-5 text-body-muted-foreground">Anyone with the complete link can read your chats and control NativePi, including work on this computer. Only share it with people you trust.</p>
       <ChoiceRow label="Connection" value={scope} options={[{ value: "local", label: "Same network" }, { value: "remote", label: "Anywhere" }]} onChange={setScope} />
       {shared ? <p role="status" className="text-xs text-muted-foreground">Active sharing: {[status.local.running ? "same network" : "", remote.state === "running" ? "public link" : ""].filter(Boolean).join(" and ") || "starting"}. Both connections can stay active.</p> : null}
       {scope === "local" ? <SettingsCard
@@ -116,7 +115,8 @@ export default function AccessSettings() {
         status={status.local.running ? "Serving on your network" : "Not shared"}
         description="Use NativePi from another device on the same network. This computer must stay awake; sharing continues when you close the window."
         error={status.local.error}
-        action={
+      >
+        <SharingControls>
           <Button
             variant={status.local.running ? "destructive" : "outline"}
             size="sm"
@@ -134,8 +134,7 @@ export default function AccessSettings() {
             />
             {busy === "local" ? "Working…" : status.local.running ? "Stop network sharing" : "Share on network"}
           </Button>
-        }
-      >
+        </SharingControls>
         {localLink ? (
           <LinkPanel
             scope="local"
@@ -155,8 +154,8 @@ export default function AccessSettings() {
         status={remoteStatus(remote)}
         description={remote.preparing ?? remoteDescription(remote)}
         error={remote.error}
-        action={<RemoteAction status={remote} busy={Boolean(busy)} onRun={run} />}
       >
+        <SharingControls><RemoteAction status={remote} busy={Boolean(busy)} onRun={run} /></SharingControls>
         {remote.link ? (
           <LinkPanel
             scope="remote"
@@ -304,6 +303,17 @@ export default function AccessSettings() {
   );
 }
 
+function SharingControls({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-start gap-3 border-t border-border/40 pt-3 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-center @min-[36rem]/settings-content:justify-between">
+      <p className="max-w-[64ch] text-[0.8125rem] leading-5 text-body-muted-foreground">
+        Anyone with the complete link can read your chats and control NativePi on this computer. Share it only with people you trust.
+      </p>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
 /**
  * The link, and the two ways it leaves this window.
  *
@@ -334,7 +344,7 @@ function LinkPanel({
   const choices = addresses?.map((address) => ({ value: address, label: hostname(address) })) ?? [];
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="mt-3 flex flex-col gap-2.5">
       <div className="flex items-center gap-2">
         {/* Titled because it truncates: the tail of a link carries the token,
             and the field showing it should not be the one place it cannot be
@@ -387,7 +397,7 @@ function LinkPanel({
       ) : null}
 
       <p className="text-xs leading-5 text-body-muted-foreground">
-        Anyone with the complete link can control NativePi. {note}
+        {note}
       </p>
     </div>
   );
