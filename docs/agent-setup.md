@@ -45,9 +45,9 @@ IPC summary excludes credentials. Explicit checks continue to use the CLI.
 
 ## Provider quota coverage
 
-The Usage icon beside Settings in the main sidebar shows compact provider rows with remaining-capacity progress
+Settings → Providers shows connected accounts and their subscription limits with remaining-capacity progress
 and concise reset times. Expand a row for timestamps and supplied metadata.
-Unsupported connections share a quiet disclosure. It separates provider account limits from model-reported local
+Unsupported connections share a disclosure. Open Usage from the sidebar for model-reported local
 tokens and API-equivalent costs. Local costs are not subscription charges and
 session tokens are never used to infer remaining account quota.
 

@@ -51,6 +51,7 @@ export const SETTINGS_ENTRIES: { page: Category; target: string; label: string; 
   ["Conversations", "title-generation", "Title generation", "chat titles naming title model reasoning effort service tier priority automatic"],
   ["Keyboard", "shortcuts", "Keyboard shortcuts", "keybindings keys recording reset modified"],
   ["Providers", "accounts", "Connected accounts", "provider login sign in authentication oauth api key environment reconnect disconnect"],
+  ["Providers", "limits", "Subscription limits", "capacity quota reset plan remaining"],
   ["Providers", "accounts", "Add provider", "connect model account subscription"],
   ["Tools & extensions", "mcp", "MCP servers", "connections tools add http url local command executable diagnostics"],
   ["Tools & extensions", "skills", "Skills", "instructions discovery resources add source"],

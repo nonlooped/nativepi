@@ -7,7 +7,7 @@ const Usage = lazy(() => import("./settings/UsageSettings.tsx"));
 const Automations = lazy(() => import("./settings/AutomationSettings.tsx"));
 const Access = lazy(() => import("./settings/AccessSettings.tsx"));
 const titles = { usage: "Usage", automations: "Automations", access: "Open on another device" };
-const descriptions = { usage: "Account limits and activity recorded on this computer.", automations: "Schedule Work tasks and watch GitHub pull requests.", access: "Use NativePi from a browser while this computer stays on." };
+const descriptions = { usage: "Activity recorded on this computer. Costs are estimates based on API rates.", automations: "Schedule Work tasks and watch GitHub pull requests.", access: "Use NativePi from a browser while this computer stays on." };
 
 export default function AppPanel() {
   const panel = useAppStore(s => s.appPanel);

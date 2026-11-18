@@ -99,7 +99,7 @@ function SettingsContent() {
     </SheetContent></Sheet>
   </div>;
 }
-const APP_LINKS = [{ name: "Usage", query: "usage cost tokens quota limits subscription activity", panel: "usage" }, { name: "Automations", query: "automation schedule github watch history", panel: "automations" }, { name: "Open on another device", query: "access sharing local remote network link qr devices", panel: "access" }] as const;
+const APP_LINKS = [{ name: "Usage", query: "usage cost tokens sessions activity", panel: "usage" }, { name: "Automations", query: "automation schedule github watch history", panel: "automations" }, { name: "Open on another device", query: "access sharing local remote network link qr devices", panel: "access" }] as const;
 function CategoryNav({ page, query, setQuery, onSelect }: { page: Category; query: string; setQuery: (value: string) => void; onSelect: (page: string) => void }) {
   const openPanel = useAppStore(s => s.openAppPanel);
   const searching = !!query.trim();

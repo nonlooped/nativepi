@@ -1,5 +1,4 @@
 import SettingsDetails from "./SettingsDetails.tsx";
-import SubscriptionCapacity from "./SubscriptionCapacity.tsx";
 import StateNotice from "../StateNotice.tsx";
 import { useState } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
@@ -44,10 +43,9 @@ export default function UsageSettings() {
 
   return (
     <div className="flex flex-col gap-8">
-      <SubscriptionCapacity />
       <div className="flex flex-col gap-3 border-b border-border/40 pb-2 @min-[44rem]/settings-content:flex-row @min-[44rem]/settings-content:items-center @min-[44rem]/settings-content:justify-between">
         <div className="flex flex-col gap-0.5">
-          <h2 className="text-sm font-semibold">Local activity</h2>
+          <h2 className="text-sm font-semibold">Reporting period</h2>
           <p className="text-xs text-muted-foreground">
             {period}
           </p>
@@ -121,18 +119,18 @@ function Dashboard({ dashboard, range }: { dashboard: UsageDashboard; range: Ran
   const providers = groupByProvider(view.models);
   const activeDays = view.daily.length;
 
-
   return (
-    <div className="flex flex-col gap-9">
-      <section className="grid gap-8 border-b border-border/40 pb-9 @min-[52rem]/settings-content:grid-cols-[minmax(16rem,0.72fr)_minmax(30rem,1.45fr)] @min-[52rem]/settings-content:gap-10">
-        <div className="flex flex-col">
-          <div className="flex items-baseline justify-between gap-4">
-            <h2 className="text-sm font-semibold">Estimated cost by provider</h2>
-            <span className="text-lg font-medium tabular-nums">{cost(view.totalCost)}</span>
-          </div>
-          <p className="mt-1 max-w-sm text-xs leading-5 text-body-muted-foreground">Estimated at API rates from Pi’s local records. Your provider bill may differ.</p>
-
-          <div className="mt-5 flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <dl className="grid grid-cols-2 gap-x-5 gap-y-4 @min-[36rem]/settings-content:grid-cols-4">
+        <Metric label="Processed tokens" value={formatTokens(view.tokens.total)} />
+        <Metric label="Estimated cost" value={cost(view.totalCost)} />
+        <Metric label="Sessions" value={view.sessions.toLocaleString()} />
+        <Metric label="Active days" value={activeDays.toLocaleString()} />
+      </dl>
+      <UsageChart daily={view.daily} providers={providers.slice(0, 4)} />
+      <div className="border-t border-border/40">
+        <SettingsDetails id="usage-providers" title="Provider breakdown" summary={providers.map(provider => prettyProvider(provider.provider)).join(" · ")}>
+            <div className="mt-5 flex flex-col gap-4">
             {providers.map((provider, index) => {
               const share = view.totalCost > 0 ? (provider.cost / view.totalCost) * 100 : 0;
               return (
@@ -151,28 +149,20 @@ function Dashboard({ dashboard, range }: { dashboard: UsageDashboard; range: Ran
                 </div>
               );
             })}
-          </div>
-        </div>
-
-        <UsageChart daily={view.daily} providers={providers.slice(0, 4)} />
-      </section>
-
-      <dl className="grid grid-cols-3 gap-5">
-        <Metric label="Processed tokens" value={formatTokens(view.tokens.total)} detail="Recorded in this period" />
-        <Metric label="Sessions" value={view.sessions.toLocaleString()} detail="With recorded activity" />
-        <Metric label="Active days" value={activeDays.toLocaleString()} detail="In this period" />
-      </dl>
-      <SettingsDetails id="usage-models" title="Model breakdown" summary={`${view.models.length} models in this period`}>
-        <ModelBreakdown models={view.models} totalCost={view.totalCost} />
-      </SettingsDetails>
-      {range === "all" ? <SettingsDetails id="usage-tokens" title="Input and output tokens" summary="Breakdown across all recorded activity.">
-        <dl className="grid grid-cols-2 gap-5 py-3">
-          <Metric label="Uncached input" value={formatTokens(dashboard.tokens.input)} detail="Recorded input tokens" />
-          <Metric label="Cached input" value={formatTokens(dashboard.tokens.cacheRead)} detail="Recorded cache reads" />
-          <Metric label="Cache writes" value={formatTokens(dashboard.tokens.cacheWrite)} detail="Recorded cache writes" />
-          <Metric label="Output" value={formatTokens(dashboard.tokens.output)} detail="Recorded output tokens" />
-        </dl>
-      </SettingsDetails> : null}
+            </div>
+        </SettingsDetails>
+        <SettingsDetails id="usage-models" title="Model breakdown" summary={`${view.models.length} models in this period`}>
+          <ModelBreakdown models={view.models} totalCost={view.totalCost} />
+        </SettingsDetails>
+        {range === "all" ? <SettingsDetails id="usage-tokens" title="Input and output tokens" summary="Breakdown across all recorded activity.">
+          <dl className="grid grid-cols-2 gap-5 py-3">
+            <Metric label="Uncached input" value={formatTokens(dashboard.tokens.input)} detail="Recorded input tokens" />
+            <Metric label="Cached input" value={formatTokens(dashboard.tokens.cacheRead)} detail="Recorded cache reads" />
+            <Metric label="Cache writes" value={formatTokens(dashboard.tokens.cacheWrite)} detail="Recorded cache writes" />
+            <Metric label="Output" value={formatTokens(dashboard.tokens.output)} detail="Recorded output tokens" />
+          </dl>
+        </SettingsDetails> : null}
+      </div>
 
     </div>
   );
@@ -201,7 +191,7 @@ function UsageChart({ daily, providers }: { daily: UsageDashboard["daily"]; prov
   const axis = axisTicks(max);
 
   return (
-    <div className="min-w-0 @min-[52rem]/settings-content:border-l @min-[52rem]/settings-content:border-border/40 @min-[52rem]/settings-content:pl-10">
+    <div className="min-w-0 border-t border-border/40 pt-5">
       <div className="flex flex-col gap-3 @min-[36rem]/settings-content:flex-row @min-[36rem]/settings-content:items-start @min-[36rem]/settings-content:justify-between">
         <div className="flex flex-col gap-1">
           <h2 className="text-sm font-semibold">Daily usage</h2>
@@ -228,7 +218,7 @@ function UsageChart({ daily, providers }: { daily: UsageDashboard["daily"]; prov
       {data.length === 0 ? (
         <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">No usage in this period.</div>
       ) : (
-        <ChartContainer config={config} className="mt-5 h-64 w-full aspect-auto" initialDimension={{ width: 640, height: 256 }}>
+        <ChartContainer config={config} className="mt-3 h-52 w-full aspect-auto" initialDimension={{ width: 640, height: 208 }}>
           <AreaChart accessibilityLayer data={data} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
             <CartesianGrid vertical={false} className="stroke-border/60" />
             <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={10} minTickGap={28} tick={{ fontSize: "var(--text-xs)", fill: "var(--muted-foreground)" }} />
@@ -299,12 +289,12 @@ function UsageTooltip({
   );
 }
 
-function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {
+function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="min-w-0">
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="mt-1.5 text-lg font-medium tabular-nums">{value}</dd>
-      <p className="mt-0.5 truncate text-xs text-body-muted-foreground" title={detail}>{detail}</p>
+      {detail && <p className="mt-0.5 text-xs text-body-muted-foreground">{detail}</p>}
     </div>
   );
 }
@@ -312,10 +302,6 @@ function Metric({ label, value, detail }: { label: string; value: string; detail
 function ModelBreakdown({ models, totalCost }: { models: UsageDashboard["models"]; totalCost: number }) {
   return (
     <div className="min-w-0">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 className="text-sm font-semibold">Model breakdown</h2>
-        <span className="text-xs text-muted-foreground">{models.length} {models.length === 1 ? "model" : "models"}</span>
-      </div>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[32rem] text-sm">
           <thead className="text-xs text-muted-foreground">

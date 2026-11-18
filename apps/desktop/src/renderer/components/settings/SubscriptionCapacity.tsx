@@ -19,9 +19,9 @@ export default function SubscriptionCapacity() {
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(timer); }, []);
   const supported = request.data?.providers.filter(provider => provider.status !== "unsupported" || provider.windows.length) ?? [];
   const unsupported = request.data?.providers.filter(provider => provider.status === "unsupported" && !provider.windows.length) ?? [];
-  return <section aria-label="Subscription capacity" className="min-w-0">
+  return <section aria-label="Subscription limits" className="min-w-0">
     <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-2">
-      <h2 className="text-sm font-semibold">Subscription capacity</h2>
+      <h2 className="text-sm font-semibold">Subscription limits</h2>
       <Button variant="ghost" size="icon-sm" disabled={request.loading} onClick={request.reload} aria-label="Refresh capacity" title="Refresh capacity"><ArrowClockwiseIcon className={request.loading ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>
     </div>
     {request.error && <StateNotice title="Could not refresh capacity" detail={request.error} retry={request.reload} />}
