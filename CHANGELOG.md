@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Bundle JetBrains Mono Nerd Font Mono for the built-in terminal, including support for prompt icons.
 - Default the interface scale to 100% and return to it with the reset shortcut. Keep saved scale preferences.
-- Use a compact, single-line workspace tab strip with equal-width tabs, truncated long titles, and project icons on conversation tabs. Show the active tab's project name on hover.
+- Connect the selected workspace tab to its pane with curved corners and a theme-tinted tab strip. Align tab labels and actions with the sidebar toggle and window controls. Keep equal-width tabs, truncated long titles, and project icons on project tabs. Show the model provider’s logo on chat tabs. Move project names out of Work tab labels and into their hover tooltips.
 - Taper the chat artwork gradually across the edges of the docked side panels and terminal. Soften the composer’s resting outline and blend its fill into the canvas.
 - Coordinate settings, sheets, and conversation entrances with shared motion timing; add a sliding Chat/Work indicator, smooth settings disclosures, and subtle checkbox feedback. Honor the app's motion override consistently, reveal same-page settings search results immediately, and keep focus on the chosen setting after its navigation sheet closes.
 

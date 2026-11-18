@@ -113,6 +113,45 @@ html[data-shell="desktop"][data-window-controls="native"] .traffic-lights-cleara
   top: calc(24px - 1.5rem);
 }
 
+/* The selected tab shares its fill and bottom edge with the workspace. */
+.workspace-tab-frame {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--background));
+}
+
+/* Match the native controls' fixed 24px centerline at every interface scale. */
+html[data-shell="desktop"][data-window-controls="native"] header.workspace-tab-frame {
+  height: 48px;
+}
+
+html[data-shell="desktop"][data-window-controls="native"] .workspace-tab-frame > .native-header-content {
+  top: 0;
+}
+
+.workspace-tab[data-selected="true"]::before,
+.workspace-tab[data-selected="true"]::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  width: .5rem;
+  height: .5rem;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(circle at var(--corner) top, transparent calc(.5rem - .5px), var(--background) .5rem);
+}
+
+.workspace-tab[data-selected="true"]::before { right: 100%; --corner: left; }
+.workspace-tab[data-selected="true"]::after { left: 100%; --corner: right; }
+
+.workspace-tab[data-selected="false"]:has(+ .workspace-tab[data-selected="false"])::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: 25%;
+  height: 50%;
+  border-right: 1px solid var(--border);
+  pointer-events: none;
+}
+
 /* The project pane keeps its navigation below the title-bar row, so window
    controls never push its actions into a different position. The container
    query only simplifies labels when the resizable pane reaches its floor. */
