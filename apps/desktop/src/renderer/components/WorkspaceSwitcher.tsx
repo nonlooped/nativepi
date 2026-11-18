@@ -12,8 +12,8 @@ export default function WorkspaceSwitcher() {
   const [open, setOpen] = useState(false);
   if (!path || hidden) return null;
   const label = name ?? path.split(/[\\/]/).filter(Boolean).at(-1) ?? "Project folder";
-  return <>{isRepo ? <Button variant="ghost" size="sm" className="max-w-56" title="Choose the folder for this work, or create a separate workspace" onClick={() => setOpen(true)}><FolderIcon /><span className="truncate">{label}</span></Button>
-    : <span className="flex min-w-0 items-center gap-1.5 px-2 text-xs text-muted-foreground"><FolderIcon /><span className="truncate">{label}</span></span>}
+  return <>{isRepo ? <Button variant="ghost" className="max-w-56 min-w-0 gap-1.5 rounded-lg px-2" title="Choose the folder for this work, or create a separate workspace" onClick={() => setOpen(true)}><FolderIcon /><span className="truncate">{label}</span></Button>
+    : <span className="flex h-8 min-w-0 items-center gap-1.5 px-2 text-sm text-muted-foreground"><FolderIcon className="size-4 shrink-0" /><span className="truncate">{label}</span></span>}
     <WorktreeDialog projectPath={open ? path : null} onClose={() => setOpen(false)} />
   </>;
 }

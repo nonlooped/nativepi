@@ -44,7 +44,7 @@ export default function BranchSwitcher({
         title={running ? "Stop the current run before switching branches" : "Choose a version of this project (Git branch)"}
         aria-label={`Branch: ${label}`}
         className={cn(
-          "flex h-8 min-w-0 max-w-48 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+          "flex h-8 min-w-0 max-w-48 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none hover:bg-accent hover:text-accent-foreground aria-expanded:bg-accent aria-expanded:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
           className,
         )}
       >
