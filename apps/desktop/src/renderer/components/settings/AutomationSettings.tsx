@@ -78,17 +78,19 @@ export default function AutomationSettings() {
       clearInterval(timer);
     };
   }, []);
+  const empty = state?.automations.length === 0;
   const runs = state?.runs ?? [];
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[0.8125rem] text-body-muted-foreground">
-          Runs while this computer is awake and background work is running. Closing the window does not pause tasks.
-        </p>
-        <Button size="sm" variant="outline" onClick={() => setEditor("new")}>
+      <div className={empty ? "flex flex-col gap-2" : "flex flex-wrap items-center justify-between gap-3"}>
+        {empty && <h2 className="text-sm font-semibold">No automations yet</h2>}
+        <Button size="sm" variant={empty ? "default" : "outline"} className="w-fit shrink-0" onClick={() => setEditor("new")}>
           <PlusIcon />
           New automation
         </Button>
+        <p className={empty ? "text-[0.8125rem] leading-5 text-body-muted-foreground" : "order-first min-w-48 flex-1 text-[0.8125rem] leading-5 text-body-muted-foreground"}>
+          Tasks run while this computer is awake and background work is running, even with the window closed.
+        </p>
       </div>
       {error && (
         <StateNotice
@@ -100,14 +102,9 @@ export default function AutomationSettings() {
       {!state && !error ? (
         <StateNotice loading title="Loading automations…" />
       ) : null}
-      {state && (
+      {state && !empty && (
         <SettingsSection heading="Saved automations">
-          {!state.automations.length ? (
-            <p className="py-6 text-sm text-body-muted-foreground">
-              No automations yet. Schedule a task or watch a pull request.
-            </p>
-          ) : (
-            state.automations
+          {state.automations
               .toSorted((a, b) => a.input.name.localeCompare(b.input.name))
               .map((a) => {
                 const latest = runs.findLast(
@@ -238,8 +235,7 @@ export default function AutomationSettings() {
                     </div>
                   </div>
                 );
-              })
-          )}
+              })}
         </SettingsSection>
       )}
       {runs.length > 0 && (
