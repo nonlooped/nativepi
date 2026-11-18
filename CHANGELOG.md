@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Give Jump to latest its own space above the composer so conversation content stays readable.
 - Show a clean project’s status first in Source Control and reveal commit controls when files change.
 - Keep Work and Chat tabs together in each pane when opening a conversation, cycling with Ctrl+Tab, or closing a tab.
 - Make workspace tab shortcuts work throughout the focused pane. Use Ctrl+Tab or Ctrl+Shift+Tab to switch tabs and Ctrl+W (Command+W on Mac) to close the active tab. The desktop window no longer responds to browser reload or page zoom shortcuts.

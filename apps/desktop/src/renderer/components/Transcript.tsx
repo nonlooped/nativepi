@@ -315,19 +315,11 @@ function TranscriptContent() {
         activeTool={activeToolName(items, results)}
       />
 
-      {/* The transient-affordance layer: run status and jump-to-latest, the two
-          controls that act on the view rather than on the message being typed.
-          Both float over the same strip above the composer, so they stack here
-          rather than being positioned independently and landing on each other.
-          The run pill sits last because DESIGN puts it directly above the
-          composer; the jump control rides above it. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-3 flex flex-col items-center gap-2">
-        {/* `static` undoes the primitive's own absolute placement, which is
-            written for a viewport it is no longer a child of. */}
+      <div className="pointer-events-none flex shrink-0 flex-col items-center gap-2 [&:has([data-active=true])]:pb-2">
         <MessageScrollerButton
           ref={jumpButton}
           direction="end"
-          className="pointer-events-auto static h-8 w-auto translate-x-0 gap-1.5 bg-popover/90 px-3 text-xs backdrop-blur-md ring-1 ring-foreground/10"
+          className="pointer-events-auto static data-[active=false]:hidden h-8 w-auto translate-x-0 gap-1.5 bg-popover/90 px-3 text-xs backdrop-blur-md ring-1 ring-foreground/10"
         >
           <ArrowDownIcon data-icon="inline-start" weight="bold" className="size-3" />
           Jump to latest
