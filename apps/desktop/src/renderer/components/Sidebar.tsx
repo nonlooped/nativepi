@@ -382,7 +382,7 @@ function WorkContents(props: SidebarProps) {
         ) : null}
 
         {pinned.length > 0 ? (
-          <div className="flex h-9 shrink-0 items-center gap-2 px-3 text-[0.6875rem] tracking-[0.06em] uppercase">
+          <div className="flex h-9 shrink-0 items-center gap-2 px-3 text-xs">
             <h2 className="font-medium text-muted-foreground">Pinned</h2>
             <span className="tabular-nums text-muted-foreground/70">{pinned.length}</span>
           </div>
@@ -415,13 +415,9 @@ function WorkContents(props: SidebarProps) {
         </div>
 
         {!drafts.length && !loading && projects.length > 0 && failedProjects.length === 0 && pinned.length === 0 && focus.length === 0 && finished.length > 0 ? (
-          <div className="px-3 pt-3 text-xs leading-relaxed text-muted-foreground">
-            <p className="font-medium text-sidebar-foreground/80">No recent chats</p>
-            <p className="mt-0.5">
-              <Button variant="link" size="xs" className="h-auto px-0 align-baseline underline decoration-current/50 underline-offset-2" onClick={onOpenNewChat}>Start a chat</Button>
-              {" or reopen one from History."}
-            </p>
-          </div>
+          <SidebarEmptyState title="No recent chats">
+            <StartChatLink onClick={onOpenNewChat} /> or reopen one from History.
+          </SidebarEmptyState>
         ) : null}
 
         {!loading && projects.length === 0 ? (
@@ -432,7 +428,7 @@ function WorkContents(props: SidebarProps) {
 
         {finished.length > 0 ? (
           <section className="mt-auto shrink-0 pt-8" aria-label="Chat history">
-            <button type="button" onClick={() => useAppStore.setState({ sidebarFinishedOpen: !finishedOpen })} aria-expanded={finishedOpen} className="flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[0.6875rem] tracking-[0.06em] uppercase text-muted-foreground transition-colors hover:text-sidebar-foreground">
+            <button type="button" onClick={() => useAppStore.setState({ sidebarFinishedOpen: !finishedOpen })} aria-expanded={finishedOpen} className="flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-xs text-muted-foreground transition-colors hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none">
               <span className="font-medium">History</span>
               <span data-finished-count className="ml-auto tabular-nums text-muted-foreground">{finished.length}</span>
               <CaretDownIcon className={cn("transition-transform", !finishedOpen && "-rotate-90")} weight="bold" />
@@ -449,14 +445,14 @@ function WorkContents(props: SidebarProps) {
                   />
                 ))}
                 {finished.length > finishedLimit ? (
-                  <button
-                    type="button"
-                    className="flex h-8 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
+                  <Button
+                    variant="ghost"
+                    className="h-9 w-full justify-start gap-2 px-3 text-xs font-normal text-muted-foreground hover:bg-sidebar-accent/40"
                     onClick={() => useAppStore.setState({ sidebarFinishedLimit: finishedLimit + 25 })}
                   >
-                    <span className="text-base leading-none">+</span>
+                    <CaretDownIcon data-icon="inline-start" />
                     Show {Math.min(25, finished.length - finishedLimit)} more
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             ) : null}
@@ -660,6 +656,19 @@ function ProjectActionsMenuItems({
   );
 }
 
+function SidebarEmptyState({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="px-3 pt-3 text-xs leading-relaxed text-muted-foreground">
+      <p className="font-medium text-sidebar-foreground/80">{title}</p>
+      <p className="mt-0.5">{children}</p>
+    </div>
+  );
+}
+
+function StartChatLink({ onClick }: { onClick: () => void }) {
+  return <Button variant="link" size="xs" className="h-auto px-0 align-baseline underline decoration-current/50 underline-offset-2" onClick={onClick}>Start a chat</Button>;
+}
+
 function ChatHistoryState({
   loading,
   title,
@@ -697,6 +706,7 @@ function ChatContents(props: SidebarProps) {
   const active = useAppStore(s => s.activeSessionFile);
   const refresh = useAppStore(s => s.refreshSessions);
   const collapsed = useAppStore(s => s.collapsedChatFolders);
+  const keybindingOverrides = useAppStore(s => s.keybindingOverrides);
   const toggleFolder = useAppStore(s => s.toggleChatFolder);
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
@@ -744,9 +754,9 @@ function ChatContents(props: SidebarProps) {
   return <>
     <div className={cn("flex flex-col gap-2 px-3 pb-3 pt-3", NO_DRAG_REGION)}>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" className="min-w-0 flex-1 justify-start text-muted-foreground" onClick={onOpenSearch}><MagnifyingGlassIcon className="size-4" />Search</Button>
+        <Button variant="ghost" className="min-w-0 flex-1 justify-start text-muted-foreground" onClick={onOpenSearch} title={withHint("Search chats and messages", "search", keybindingOverrides)} aria-label="Search chats and messages"><MagnifyingGlassIcon data-icon="inline-start" className="size-4" />Search</Button>
         <Button variant="ghost" size="icon" aria-label="New folder" title="New folder" onClick={() => setCreate(true)}><FolderPlusIcon className="size-4" /></Button>
-        <Button variant="ghost" size="icon" aria-label="New chat" title="New chat" onClick={() => newChat(null)}><NotePencilIcon className="size-4" /></Button>
+        <Button variant="ghost" size="icon" aria-label="New chat" title={withHint("New chat", "newChat", keybindingOverrides)} onClick={() => newChat(null)}><NotePencilIcon className="size-4" /></Button>
       </div>
     </div>
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3">
@@ -776,7 +786,11 @@ function ChatContents(props: SidebarProps) {
         </section>;
       })}
       <div className="flex flex-col gap-1.5">{sessions?.filter(session => !folders.some(folder => folder.id === membership[session.path])).map(chatRow)}</div>
-      {!drafts.length && sessions?.length === 0 && folders.length === 0 ? <p className="px-2 py-4 text-sm text-muted-foreground">Start a conversation, or create a folder for related chats.</p> : null}
+      {!drafts.length && sessions?.length === 0 && folders.length === 0 ? (
+        <SidebarEmptyState title="No chats yet">
+          <StartChatLink onClick={() => newChat(null)} /> or create a folder for related chats.
+        </SidebarEmptyState>
+      ) : null}
     </div>
     <Dialog open={create} onOpenChange={setCreate}>
       <DialogContent>

@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Open a new workspace tab with Ctrl+T (Command+T on Mac). Customize tab shortcuts in Settings.
 
 ### Changed
+- Match the sidebar’s Chat and Work switch to the app’s other segmented controls, use sentence-case section labels, and give Chat and Work the same search shortcut hints and empty-state guidance.
 - Bundle JetBrains Mono Nerd Font Mono for the built-in terminal, including support for prompt icons.
 - Default the interface scale to 100% and return to it with the reset shortcut. Keep saved scale preferences.
 - Connect the selected workspace tab to its pane with curved corners and a theme-tinted tab strip. Align tab labels and actions with the sidebar toggle and window controls. Keep equal-width tabs, truncated long titles, and project icons on project tabs. Show the model provider’s logo on chat tabs. Move project names out of Work tab labels and into their hover tooltips.

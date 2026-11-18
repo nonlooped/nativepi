@@ -594,7 +594,9 @@ html[data-shell="desktop"][data-window-controls="native"] .workspace-tab-frame >
   inset: 0.25rem auto 0.25rem 0.25rem;
   width: calc((100% - 0.5rem) / 2);
   border-radius: var(--radius-md);
-  background: var(--secondary);
+  /* Matches the settings segmented control: the selection is a raised pill. */
+  background: var(--background);
+  box-shadow: 0 0 0 1px var(--border), 0 1px 2px 0 rgb(0 0 0 / 0.05);
   translate: 0 0;
   transition: translate var(--motion-layout) var(--motion-ease-out);
 }

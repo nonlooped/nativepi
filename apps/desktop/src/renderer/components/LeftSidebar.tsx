@@ -50,8 +50,8 @@ export default function LeftSidebar({
         </div>
       </div>
 
-      <div className="destination-switch mx-3 my-2 flex rounded-lg bg-sidebar-accent/60 p-1" data-destination={destination} aria-label="Destination">
-        {(["chat", "work"] as const).map(mode => <Button key={mode} variant="ghost" size="sm" className={cn("flex-1 active:not-aria-[haspopup]:scale-100", destination === mode && "bg-transparent text-secondary-foreground hover:bg-transparent")} aria-pressed={destination === mode} title={mode === "chat" ? "Conversations for questions and ideas. Chats stay in this destination." : "Tasks on your computer. Chats stay in this destination."} onClick={() => void setDestination(mode)}>{mode === "chat" ? "Chat" : "Work"}</Button>)}
+      <div className="destination-switch mx-3 my-2 flex rounded-lg bg-muted/40 p-1" data-destination={destination} aria-label="Destination">
+        {(["chat", "work"] as const).map(mode => <Button key={mode} variant="ghost" size="sm" className={cn("flex-1 text-muted-foreground active:not-aria-[haspopup]:scale-100", destination === mode && "bg-transparent font-medium text-foreground hover:bg-transparent hover:text-foreground")} aria-pressed={destination === mode} title={mode === "chat" ? "Conversations for questions and ideas. Chats stay in this destination." : "Tasks on your computer. Chats stay in this destination."} onClick={() => void setDestination(mode)}>{mode === "chat" ? "Chat" : "Work"}</Button>)}
       </div>
       {children}
 
