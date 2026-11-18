@@ -4,7 +4,7 @@ import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { capacitySchema, type SubscriptionCapacity } from "../shared/subscription-capacity.ts";
 const percent = z.number().finite().min(0).max(100);
 const codexWindow = z.object({ used_percent: percent, limit_window_seconds: z.number().positive().optional(), reset_at: z.number().finite().optional() });
-const codexSchema = z.object({ plan_type: z.string().optional(), credits: z.object({ balance: z.union([z.string().max(100), z.number().finite()]).nullish(), unlimited: z.boolean().optional() }).nullish(), rate_limit: z.object({ primary_window: codexWindow.nullish(), secondary_window: codexWindow.nullish() }).nullish(), additional_rate_limits: z.array(z.object({ limit_name: z.string(), rate_limit: z.object({ primary_window: codexWindow.nullish(), secondary_window: codexWindow.nullish() }) })).optional() });
+const codexSchema = z.object({ plan_type: z.string().optional(), credits: z.object({ balance: z.union([z.string().max(100), z.number().finite()]).nullish(), unlimited: z.boolean().optional() }).nullish(), rate_limit: z.object({ primary_window: codexWindow.nullish(), secondary_window: codexWindow.nullish() }).nullish(), additional_rate_limits: z.array(z.object({ limit_name: z.string(), rate_limit: z.object({ primary_window: codexWindow.nullish(), secondary_window: codexWindow.nullish() }) })).nullish() });
 const claudeWindow = z.object({ utilization: percent, resets_at: z.string().datetime({ offset: true }).nullish() });
 const claudeSchema = z.record(z.string(), z.unknown());
 export function parseCapacity(provider: string, body: unknown): Pick<SubscriptionCapacity, "windows" | "plan" | "details"> {

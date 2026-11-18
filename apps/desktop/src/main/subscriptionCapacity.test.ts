@@ -8,6 +8,13 @@ test("Codex windows retain zero usage, plan, additional limits and reset seconds
   expect(result.windows).toEqual([{ label: "Usage · 5 hours", usedPercent: 0, resetAt: "2027-01-15T08:00:00.000Z" }, { label: "Review · long window", usedPercent: 72 }]);
   expect(() => parseCapacity("openai-codex", { rate_limit: { primary_window: { used_percent: 101 } } })).toThrow();
 });
+test("Codex keeps primary usage when additional limits are null", () => {
+  const result = parseCapacity("openai-codex", {
+    rate_limit: { primary_window: { used_percent: 24, limit_window_seconds: 18000 }, secondary_window: null },
+    additional_rate_limits: null,
+  });
+  expect(result.windows).toEqual([{ label: "Usage · 5 hours", usedPercent: 24 }]);
+});
 test("Claude ignores absent windows and rejects malformed supplied windows", () => {
   expect(parseCapacity("anthropic", { five_hour: { utilization: 35.5, resets_at: "2026-11-16T12:00:00Z" }, seven_day: null }).windows).toEqual([{ label: "5 hours", usedPercent: 35.5, resetAt: "2026-11-16T12:00:00.000Z" }]);
   expect(() => parseCapacity("anthropic", { five_hour: { utilization: "unknown" } })).toThrow();
