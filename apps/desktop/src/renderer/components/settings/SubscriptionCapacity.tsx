@@ -27,7 +27,10 @@ export default function SubscriptionCapacity({ onManage, dialog }: { onManage?: 
     {!request.data && request.loading && <StateNotice title="Loading provider limits…" loading />}
     {providers.map(provider => <ProviderCapacity key={provider.provider} provider={provider} now={now} expanded={expanded === provider.provider} onExpand={() => setExpanded(expanded === provider.provider ? null : provider.provider)} />)}
     {request.data && !request.error && providers.length === 0 && <div className="space-y-3 pt-4">
-      <p className="text-sm text-muted-foreground">No subscription usage to show.</p>
+      <div>
+        <p className="text-sm font-medium">No usage limits to show</p>
+        <p className="mt-0.5 text-[0.8125rem] leading-5 text-body-muted-foreground">Limits appear here for connected subscriptions that report them.</p>
+      </div>
       <Button variant="outline" size="sm" onClick={() => { onManage?.(); openSettings("Providers"); }}>Manage accounts</Button>
     </div>}
   </section>;

@@ -20,6 +20,6 @@ test("refresh removes a failed provider even when cached limits exist", async ()
     expect(container.textContent).not.toContain("Anthropic");
     expect(container.textContent).not.toContain("Quota refresh failed");
     expect(container.querySelector('[role="progressbar"]')).toBeNull();
-    expect(container.textContent).toContain("No subscription usage to show.");
+    expect(container.textContent).toContain("No usage limits to show");
   } finally { await act(async () => root.unmount()); container.remove(); }
 });
