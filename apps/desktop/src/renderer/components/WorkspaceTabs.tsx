@@ -2,7 +2,9 @@ import { createContext, useContext, useEffect, useEffectEvent, useLayoutEffect, 
 import { createPortal } from "react-dom";
 import { useStore } from "zustand";
 import { createKeybindingsHandler } from "tinykeys";
-import { draftTitle, threadDraftKey } from "../lib/draftThreads.ts";
+import BrandIcon from "./BrandIcon.tsx";
+import { providerIconName } from "../lib/providerIcons.ts";
+import { composerKey, draftTitle, threadDraftKey } from "../lib/draftThreads.ts";
 import { NotePencilIcon } from "@phosphor-icons/react/NotePencil";
 import { ChatCircleIcon } from "@phosphor-icons/react/ChatCircle";
 import { GitDiffIcon } from "@phosphor-icons/react/GitDiff";
@@ -48,6 +50,8 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
   const error = useStore(controller.state, s => s.error);
   const scope = useAppStore(s => s.destination);
   const projects = useAppStore(s => s.projects);
+  const currentThreadKey = useAppStore(s => composerKey(s));
+  const currentProvider = useAppStore(s => s.model?.provider);
   const workRoot = useAppStore(s => s.workRoot);
   const chatRoot = useAppStore(s => s.chatRoot);
   const [closing, setClosing] = useState<{ tab: WorkspaceTab; scope: string }>();
@@ -89,10 +93,17 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
   const mixedProjects = new Set(tabs.map(tab => tab.projectDir)).size > 1;
   const projectName = (tab: WorkspaceTab) => tab.projectDir === workRoot ? "No project" : tab.projectDir === chatRoot ? "Chat" : projects.find(p => p.path === tab.projectDir)?.name ?? tab.projectDir.split(/[\\/]/).filter(Boolean).at(-1) ?? tab.projectDir;
   const icon = (tab: WorkspaceTab) => {
-    if (textFor(tab)) return <NotePencilIcon className="size-4 text-muted-foreground" />;
     if (tab.kind === "file") return <FileTypeIcon path={tab.file} />;
     if (tab.kind === "diff") return <GitDiffIcon className="size-4" />;
-    if (tab.projectDir === workRoot || tab.projectDir === chatRoot) return <ChatCircleIcon className="size-4" />;
+    const projectFree = tab.projectDir === workRoot || tab.projectDir === chatRoot;
+    if (projectFree) {
+      const key = tab.session ?? threadDraftKey(tab.projectDir, tab.draftId);
+      const liveProvider = tab.projectDir === currentProject && key === currentThreadKey ? currentProvider : undefined;
+      const provider = liveProvider ?? sessions[tab.projectDir]?.find(session => session.path === tab.session)?.providers[0];
+      if (provider) return <BrandIcon name={providerIconName(provider)} className="size-4" />;
+    }
+    if (textFor(tab)) return <NotePencilIcon className="size-4 text-muted-foreground" />;
+    if (projectFree) return <ChatCircleIcon className="size-4" />;
     return <ProjectIcon name={projectName(tab)} src={host?.projectPresentation[tab.projectDir]?.icon} className="size-4 leading-none" />;
   };
   function title(tab: WorkspaceTab) {
