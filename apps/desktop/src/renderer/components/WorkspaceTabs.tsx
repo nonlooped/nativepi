@@ -164,7 +164,7 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
         {visibleTabs.map(tab => {
           const id = tabId(tab), selected = strip?.active === id, buffer = bufferFor(tab), dirty = buffer && buffer.text !== buffer.saved;
           const label = title(tab);
-          const context = !selected && mixedProjects && tab.projectDir !== currentProject ? projectName(tab) : undefined;
+          const showChatContext = !selected && tab.projectDir === chatRoot && mixedProjects && tab.projectDir !== currentProject;
           const detail = tab.kind === "file" ? tab.file : tab.kind === "diff" ? `${tab.path}\n${tab.hash ? `Commit ${tab.hash}` : tab.staged ? "Live staged changes" : "Live unstaged changes"}` : "Conversation";
           return <div key={id} data-selected={selected} className="workspace-tab group/tab relative w-44 min-w-0" onPointerDown={event => { if (event.button === 1) event.preventDefault(); }} onAuxClick={event => { if (event.button === 1) close(tab); }}>
             <Button role="tab" aria-label={label} aria-selected={selected} tabIndex={selected ? 0 : -1} variant="ghost"
@@ -172,7 +172,7 @@ export default function WorkspaceTabs({ children, onNew }: { children: React.Rea
               title={`${label}\n${projectName(tab)}\n${detail}`} onClick={() => select(tab)}>
               <span className="grid size-4 shrink-0 place-items-center" aria-hidden="true">{icon(tab)}</span>
               <span className="min-w-0 truncate leading-5">{label}</span>
-              {context && <span className="max-w-[35%] shrink-0 truncate border-l border-border pl-1.5 text-xs/5 font-normal text-muted-foreground">{context}</span>}
+              {showChatContext && <span className="max-w-[35%] shrink-0 truncate border-l border-border pl-1.5 text-xs/5 font-normal text-muted-foreground">Chat</span>}
               {dirty ? <span className="size-1.5 shrink-0 rounded-full bg-foreground/60" aria-label="Unsaved changes" /> : tab.kind === "thread" && tab.session && conversations[tab.session]?.running ? <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-label="Running" /> : null}
             </Button>
             <Button variant="ghost" size="icon-xs" className={cn("absolute top-1/2 right-1 size-5 rounded-full -translate-y-1/2", !selected && "opacity-0 group-hover/tab:opacity-100 group-focus-within/tab:opacity-100 [@media(hover:none)]:opacity-100")} title={withHint("Close tab", "closeWorkspaceTab", overrides)} aria-label={`Close ${label}`} disabled={buffer?.saving} onClick={() => close(tab)}><XIcon className="size-3" /></Button>
