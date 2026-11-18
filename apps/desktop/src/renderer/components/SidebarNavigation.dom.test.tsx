@@ -10,10 +10,14 @@ let root: Root; let host: HTMLDivElement;
 afterEach(async () => { await act(() => root?.unmount()); host?.remove(); });
 test("sidebar footer opens settings, usage, automations, and sharing without a category detour", async () => {
   useAppStore.setState({ ready: false, destination: "chat", chatRoot: null, projects: [], conversations: {}, appPanel: null, settingsOpen: false });
-  stubInvoke(async () => ({}));
+  stubInvoke(async channel => channel === "subscriptionCapacity" ? { providers: [] } : {});
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   await act(() => root.render(<Sidebar presentation={{}} overlay onClose={() => {}} onOpenSearch={() => {}} onOpenNewChat={() => {}} />));
-  for (const [label, panel] of [["Usage", "usage"], ["Automations", "automations"], ["Open on another device", "access"]] as const) {
+  await act(() => host.querySelector<HTMLButtonElement>('button[aria-label="Usage"]')!.click());
+  expect(document.body.textContent).toContain("No subscription usage to show.");
+  expect(useAppStore.getState().appPanel).toBeNull();
+  await act(() => host.querySelector<HTMLButtonElement>('button[aria-label="Usage"]')!.click());
+  for (const [label, panel] of [ ["Automations", "automations"], ["Open on another device", "access"]] as const) {
     await act(() => host.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!.click());
     expect(useAppStore.getState().appPanel).toBe(panel);
     expect(useAppStore.getState().settingsOpen).toBe(false);

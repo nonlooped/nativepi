@@ -13,11 +13,11 @@ export default function AppPanel() {
   const panel = useAppStore(s => s.appPanel);
   const close = useAppStore(s => s.closeAppPanel);
   return <SettingsDialogAppearance value={true}><Dialog open={!!panel} onOpenChange={open => { if (!open) close(); }}>
-    <DialogContent className={`max-h-[min(48rem,calc(var(--app-height,100dvh)-2rem))] w-[calc(100vw-2rem)] gap-6 ${panel === "usage" ? "max-w-xl" : "max-w-4xl"}`}>
+    <DialogContent className={`max-h-[min(48rem,calc(var(--app-height,100dvh)-2rem))] w-[calc(100vw-2rem)] gap-6 ${panel === "usage" ? "max-w-sm" : "max-w-4xl"}`}>
       {panel ? <>
-        <DialogHeader><DialogTitle>{titles[panel]}</DialogTitle><DialogDescription>{descriptions[panel]}</DialogDescription></DialogHeader>
+        <DialogHeader className={panel === "usage" ? "sr-only" : undefined}><DialogTitle>{titles[panel]}</DialogTitle><DialogDescription>{descriptions[panel]}</DialogDescription></DialogHeader>
         <div className="@container/settings-content min-h-0 min-w-0 overflow-y-auto"><Suspense fallback={<StateNotice loading title="Loading…" />}>
-          {panel === "usage" ? <Usage /> : panel === "automations" ? <Automations /> : <Access />}
+          {panel === "usage" ? <Usage dialog /> : panel === "automations" ? <Automations /> : <Access />}
         </Suspense></div>
       </> : null}
     </DialogContent>

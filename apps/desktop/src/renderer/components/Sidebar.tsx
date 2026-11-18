@@ -1,3 +1,5 @@
+import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover.tsx";
+import SubscriptionCapacity from "./settings/SubscriptionCapacity.tsx";
 import { draftThreads, draftTitle } from "../lib/draftThreads.ts";
 import { paneWorkspaceTabs } from "../lib/workspaceTabs.ts";
 import { runtime } from "../lib/store/internals.ts";
@@ -86,9 +88,15 @@ export default function Sidebar(props: SidebarProps) {
   const destination = useAppStore(s => s.destination);
   const openSettings = useAppStore(s => s.openSettings);
   const openPanel = useAppStore(s => s.openAppPanel);
-  const open = (panel: "usage" | "automations" | "access") => { openPanel(panel); if (props.overlay) props.onClose(); };
+  const [usageOpen, setUsageOpen] = useState(false);
+  const open = (panel: "automations" | "access") => { openPanel(panel); if (props.overlay) props.onClose(); };
   return <LeftSidebar footer={<>
-    <Button variant="ghost" size="icon" aria-label="Usage" title="Usage" className="text-muted-foreground" onClick={() => open("usage")}><ChartLineUpIcon /></Button>
+    <Popover open={usageOpen && (props.open ?? true)} onOpenChange={setUsageOpen}>
+      <PopoverTrigger render={<Button variant="ghost" size="icon" aria-label="Usage" title="Usage" className="text-muted-foreground" />}><ChartLineUpIcon /></PopoverTrigger>
+      <PopoverContent side="top" align="start" sideOffset={8} aria-label="Subscription usage" className="w-80 p-4">
+        <SubscriptionCapacity onManage={() => { setUsageOpen(false); if (props.overlay) props.onClose(); }} />
+      </PopoverContent>
+    </Popover>
     <Button variant="ghost" size="icon" aria-label="Automations" title="Automations" className="text-muted-foreground" onClick={() => open("automations")}><CalendarCheckIcon /></Button>
     <Button variant="ghost" size="icon" aria-label="Open on another device" title="Open on another device" className="text-muted-foreground" onClick={() => open("access")}><WifiHighIcon /></Button>
   </>} actionIcon={<GearSixIcon data-icon="inline-start" />} actionLabel="Settings" onAction={() => { openSettings(); if (props.overlay) props.onClose(); }} onClose={props.onClose} open={props.open ?? true} overlay={props.overlay} layoutKey={props.layoutKey}>
