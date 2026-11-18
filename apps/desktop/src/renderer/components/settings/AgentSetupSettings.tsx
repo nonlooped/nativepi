@@ -1,6 +1,5 @@
 import { useFormDraft, forgetFormDrafts } from "../../lib/formDrafts.ts";
 import { useContext, useState } from "react";
-import { ArrowClockwiseIcon } from "@phosphor-icons/react/ArrowClockwise";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { PlugsConnectedIcon } from "@phosphor-icons/react/PlugsConnected";
 import { BookOpenIcon } from "@phosphor-icons/react/BookOpen";
@@ -51,6 +50,12 @@ export default function AgentSetupSettings({ tab = "mcp" }: { tab?: string }) {
   const resources = request.data?.resources.filter(resource => resource.kind === kind) ?? [];
   const count = kind === "mcp" ? servers.length : resources.length;
 
+  const emptyConnections = tab === "mcp" && !!request.data && !count && !request.error;
+  function refreshResources() {
+    setReport(null);
+    request.reload();
+  }
+
   function didChange() {
     setReport(null);
     useAppStore.getState().requirePiRestart();
@@ -100,20 +105,27 @@ export default function AgentSetupSettings({ tab = "mcp" }: { tab?: string }) {
       {[["mcp", "Connections"], ["skills", "Skills"], ["prompts", "Saved prompts"], ["packages", "Packages"]].map(([value, label]) => <Button key={value} variant={tab === value ? "secondary" : "ghost"} size="sm" aria-current={tab === value ? "page" : undefined}
         onClick={() => { setQuery(""); setExpanded(null); openSettings(`Tools & extensions#${value}`); }}>{label}</Button>)}
     </nav>
-    <p className="-mt-4 text-[0.8125rem] leading-5 text-body-muted-foreground">{tab === "packages" ? "Install tools, skills and extensions from authors you trust. Packages run code on your computer." : kind === "mcp" ? "Connect MCP tools to Pi." : kind === "skill" ? "Reusable instructions for Pi." : "Reusable prompts, available from the slash menu."}</p>
+    {!emptyConnections && <p className="-mt-4 text-[0.8125rem] leading-5 text-body-muted-foreground">{tab === "packages" ? "Install tools, skills and extensions from authors you trust. Packages run code on your computer." : kind === "mcp" ? "Connect MCP tools to Pi." : kind === "skill" ? "Reusable instructions for Pi." : "Reusable prompts, available from the slash menu."}</p>}
     {tab === "packages" ? <div data-setting="packages"><ExtensionsManager key={cwd} projectDir={cwd} resources={request.data?.resources} /></div> : <>
-    <div className="flex flex-wrap items-center gap-2">
+    {emptyConnections ? <section data-setting={tab} aria-label="MCP servers" className="-mt-2">
+      <h2 className="text-sm font-semibold">No connections yet</h2>
+      <p className="mt-1 text-[0.8125rem] leading-5 text-body-muted-foreground">Connect an MCP server to give Pi tools from another app or service.</p>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Button size="sm" disabled={!cwd || busy} onClick={() => setDialog({ kind })}><PlusIcon />Add MCP server</Button>
+        <Button variant="ghost" size="sm" disabled={request.loading} onClick={refreshResources}>Refresh</Button>
+      </div>
+    </section> : <div className="flex flex-wrap items-center gap-2">
       <Input aria-label="Search resources" placeholder={`Search ${activeKind === "mcp" ? "servers" : activeKind === "skill" ? "skills" : "prompts"}`} value={query} onChange={event => setQuery(event.target.value)} className="h-8 min-w-32 flex-1" />
-      <Button variant="outline" size="sm" disabled={request.loading} onClick={() => { setReport(null); request.reload(); }}>Refresh</Button>
-    </div>
+      <Button variant="outline" size="sm" disabled={request.loading} onClick={refreshResources}>Refresh</Button>
+    </div>}
     {error && <StateNotice title="Could not complete the action" detail={error} />}
     {request.error && <StateNotice title="Could not discover Pi resources" detail={request.error} retry={request.reload} />}
     {request.loading && !request.data && <StateNotice title="Loading agent setup…" loading />}
-    <section key={kind} data-setting={tab} aria-label={kind === "mcp" ? "MCP servers" : kind === "skill" ? "Skills" : "Prompt templates"}>
+    {!emptyConnections && <section key={kind} data-setting={tab} aria-label={kind === "mcp" ? "MCP servers" : kind === "skill" ? "Skills" : "Prompt templates"}>
         <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-2">
           <h2 className="text-sm font-semibold">{kind === "mcp" ? "Connections" : kind === "skill" ? "Skills" : "Saved prompts"}<span className="ml-2 text-xs font-normal tabular-nums text-muted-foreground">{count}</span></h2>
           <div className="flex shrink-0 items-center gap-1">
-            {kind === "mcp" && <Button variant="ghost" size="icon-sm" disabled={busy || !cwd} aria-label="Check servers and tools" title="Check connections and tools · runs configured servers" onClick={() => void checkServers()}><ArrowClockwiseIcon className={busy ? "animate-spin motion-reduce:animate-none" : undefined} /></Button>}
+            {kind === "mcp" && count > 0 && <Button variant="ghost" size="sm" disabled={busy || !cwd} aria-label="Check servers and tools" title="Check connections and tools · runs configured servers" onClick={() => void checkServers()}>{busy ? "Checking…" : "Check connections"}</Button>}
             <Button variant="ghost" size="sm" disabled={!cwd || busy} onClick={() => setDialog({ kind })}><PlusIcon />Add<span className="sr-only"> {(kind === "mcp" ? "MCP server" : labels[kind].toLowerCase())}</span></Button>
           </div>
         </div>
@@ -142,8 +154,8 @@ export default function AgentSetupSettings({ tab = "mcp" }: { tab?: string }) {
               </div>
           </SettingsEntity>;
         })}</div>
-      </section>
-    {query.trim() && !(activeKind === "mcp" ? servers : request.data?.resources.filter(resource => resource.kind === activeKind) ?? []).some(item => `${item.name} ${"description" in item ? item.description : ""} ${item.scope}`.toLowerCase().includes(query.trim().toLowerCase())) ? <p role="status" className="text-sm text-muted-foreground">No matching resources.</p> : null}
+      </section>}
+    {!emptyConnections && query.trim() && !(activeKind === "mcp" ? servers : request.data?.resources.filter(resource => resource.kind === activeKind) ?? []).some(item => `${item.name} ${"description" in item ? item.description : ""} ${item.scope}`.toLowerCase().includes(query.trim().toLowerCase())) ? <p role="status" className="text-sm text-muted-foreground">No matching resources.</p> : null}
     </>}
     {!!(request.data?.errors.length || checked?.errors.length || checked?.note) && <details className="text-[0.8125rem] leading-5 text-body-muted-foreground"><summary className="cursor-pointer py-2 font-medium text-foreground">View diagnostics</summary><div className="space-y-2 py-2 [overflow-wrap:anywhere]">{[...(request.data?.errors ?? []), ...(checked?.errors ?? []), ...(checked?.note ? [checked.note] : [])].map((detail, index) => <p key={index}>{detail}</p>)}</div></details>}
     {dialog && cwd && <AddCapabilityDialog key={`${dialog.kind}:${dialog.server?.name ?? "new"}`} kind={dialog.kind} server={dialog.server} cwd={cwd} projectAvailable={cwd !== workspace.data?.path && !!request.data?.projectTrusted} onClose={() => setDialog(null)} onSaved={savedKind => { didChange(); setDialog(null); showHint(savedKind === "mcp" ? "Server saved" : `${labels[savedKind]} created`); }} />}
