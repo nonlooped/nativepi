@@ -35,7 +35,7 @@ export function SettingsSection({
         </h2>
         {description ? <p className="mt-1 max-w-[60ch] text-pretty text-[0.8125rem] leading-5 text-body-muted-foreground">{description}</p> : null}
       </div>
-      <FieldGroup className="settings-list gap-0 [&>.settings-row+.settings-row]:border-t [&>.settings-row+.settings-row]:border-border/30">{children}</FieldGroup>
+      <FieldGroup className="settings-list gap-0 [&>.settings-row+.settings-row]:border-t [&>.settings-row+.settings-row]:border-border/30 [&>.settings-row+.settings-details]:border-t [&>.settings-row+.settings-details]:border-border/30">{children}</FieldGroup>
     </section>
   );
 }

@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Open a new workspace tab with Ctrl+T (Command+T on Mac). Customize tab shortcuts in Settings.
 
 ### Changed
+- Group Pi’s configuration files with diagnostics under Settings → About → Support, and remove the extra gap where update controls are unavailable.
 - Space and divide every Settings → Advanced section evenly.
 - Explain when automations run before offering New automation in the empty Automations view.
 - Show the project folder and branch controls below the composer at the same size.

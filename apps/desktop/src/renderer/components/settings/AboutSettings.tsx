@@ -141,6 +141,54 @@ export default function AboutSettings() {
     }
   };
 
+  // Pi locations are support material; they sit with diagnostics when that section is shown.
+  const configuration = (
+    <SettingsDetails id="configuration" title="Configuration files" summary="Pi’s local settings and credential locations.">
+      {paths.error ? <StateNotice title="Could not read Pi locations" detail={paths.error} retry={paths.reload} /> : paths.loading ? <StateNotice loading title="Reading Pi locations…" /> : <>
+      <ReadonlyRow
+        label="Configuration"
+        value={paths.data?.paths.agentDir ?? "…"}
+        action={
+          paths.data ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title={`Show in ${fileManagerName()}`}
+              aria-label={`Show the configuration folder in ${fileManagerName()}`}
+              onClick={() => void rpc.request.showInFolder({ path: paths.data!.paths.agentDir })}
+            >
+              <FolderOpenIcon />
+            </Button>
+          ) : null
+        }
+      />
+      <ReadonlyRow
+        label="Settings"
+        description="The file this screen writes. Shared with the Pi command line."
+        value={paths.data?.paths.settingsFile ?? "…"}
+        action={
+          paths.data ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title={`Show in ${fileManagerName()}`}
+              aria-label={`Show the settings file in ${fileManagerName()}`}
+              onClick={() => void rpc.request.showInFolder({ path: paths.data!.paths.settingsFile })}
+            >
+              <FolderOpenIcon />
+            </Button>
+          ) : null
+        }
+      />
+      <ReadonlyRow
+        label="Credentials"
+        description="Written by Pi. NativePi stores none of its own."
+        value={paths.data?.paths.authFile ?? "Unavailable"}
+      />
+      </>}
+    </SettingsDetails>
+  );
+
   return (
     <div className="flex flex-col gap-8">
       <SettingsSection id="version" heading="Version">
@@ -158,7 +206,7 @@ export default function AboutSettings() {
         </>}
       </SettingsSection>
 
-      <div data-setting="updates"><Updates /></div>
+      <div data-setting="updates" className="empty:hidden"><Updates /></div>
       {!isRemote ? (
         <SettingsSection id="support" heading="Support">
           <ActionRow
@@ -170,53 +218,9 @@ export default function AboutSettings() {
               {exporting ? "Copying…" : "Copy diagnostics"}
             </Button>
           </ActionRow>
+          {configuration}
         </SettingsSection>
-      ) : null}
-
-      <SettingsDetails id="configuration" title="Configuration files" summary="Pi’s local settings and credential locations.">
-        {paths.error ? <StateNotice title="Could not read Pi locations" detail={paths.error} retry={paths.reload} /> : paths.loading ? <StateNotice loading title="Reading Pi locations…" /> : <>
-        <ReadonlyRow
-          label="Configuration"
-          value={paths.data?.paths.agentDir ?? "…"}
-          action={
-            paths.data ? (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                title={`Show in ${fileManagerName()}`}
-                aria-label={`Show the configuration folder in ${fileManagerName()}`}
-                onClick={() => void rpc.request.showInFolder({ path: paths.data!.paths.agentDir })}
-              >
-                <FolderOpenIcon />
-              </Button>
-            ) : null
-          }
-        />
-        <ReadonlyRow
-          label="Settings"
-          description="The file this screen writes. Shared with the Pi command line."
-          value={paths.data?.paths.settingsFile ?? "…"}
-          action={
-            paths.data ? (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                title={`Show in ${fileManagerName()}`}
-                aria-label={`Show the settings file in ${fileManagerName()}`}
-                onClick={() => void rpc.request.showInFolder({ path: paths.data!.paths.settingsFile })}
-              >
-                <FolderOpenIcon />
-              </Button>
-            ) : null
-          }
-        />
-        <ReadonlyRow
-          label="Credentials"
-          description="Written by Pi. NativePi stores none of its own."
-          value={paths.data?.paths.authFile ?? "Unavailable"}
-        />
-        </>}
-      </SettingsDetails>
+      ) : configuration}
     </div>
   );
 }
