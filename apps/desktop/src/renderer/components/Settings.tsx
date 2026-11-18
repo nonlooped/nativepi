@@ -15,6 +15,7 @@ import { NO_DRAG_REGION, cn } from "@/lib/utils.ts";
 import AgentSetupSettings from "./settings/AgentSetupSettings.tsx";
 import AgentSettings from "./settings/AgentSettings.tsx";
 import AppearanceSettings from "./settings/AppearanceSettings.tsx";
+import UsageSettings from "./settings/UsageSettings.tsx";
 import ProviderSettings from "./settings/ProviderSettings.tsx";
 import GeneralSettings from "./settings/GeneralSettings.tsx";
 import ConversationSettings from "./settings/ConversationSettings.tsx";
@@ -99,7 +100,7 @@ function SettingsContent() {
     </SheetContent></Sheet>
   </div>;
 }
-const APP_LINKS = [{ name: "Usage", query: "usage cost tokens sessions activity", panel: "usage" }, { name: "Automations", query: "automation schedule github watch history", panel: "automations" }, { name: "Open on another device", query: "access sharing local remote network link qr devices", panel: "access" }] as const;
+const APP_LINKS = [{ name: "Usage", query: "subscription usage limits quota capacity reset remaining", panel: "usage" }, { name: "Automations", query: "automation schedule github watch history", panel: "automations" }, { name: "Open on another device", query: "access sharing local remote network link qr devices", panel: "access" }] as const;
 function CategoryNav({ page, query, setQuery, onSelect }: { page: Category; query: string; setQuery: (value: string) => void; onSelect: (page: string) => void }) {
   const openPanel = useAppStore(s => s.openAppPanel);
   const searching = !!query.trim();
@@ -134,6 +135,7 @@ function CategoryPanel({ page, target }: { page: Category; target?: string }) {
     case "Appearance": return <AppearanceSettings />;
     case "Conversations": return <ConversationSettings />;
     case "Keyboard": return <KeybindSettings />;
+    case "Tokens": return <div data-setting="activity"><p className="mb-5 text-sm text-muted-foreground">Activity recorded on this computer. Costs are estimates based on API rates.</p><UsageSettings /></div>;
     case "Providers": return <div data-setting="accounts"><ProviderSettings /></div>;
     case "Tools & extensions": return <AgentSetupSettings tab={target} />;
     case "Permissions": return <PermissionsSettings />;

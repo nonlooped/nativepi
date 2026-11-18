@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make workspace tab shortcuts work throughout the focused pane. Use Ctrl+Tab or Ctrl+Shift+Tab to switch tabs and Ctrl+W (Command+W on Mac) to close the active tab. The desktop window no longer responds to browser reload or page zoom shortcuts.
 
 ### Added
-- Separate subscription limits into Providers settings. Usage now opens with period totals, a full-width daily chart, and expandable provider and model breakdowns.
+- Move local activity, tokens, and estimated costs to Settings → Tokens. Sidebar Usage shows subscription limits for accounts with available readings.
 - Place the link access warning beside the sharing controls in Open on another device.
 - Put New automation directly in the empty Automations view, alongside its background-running requirements.
 - Make adding the first MCP server easier to find in Tools & extensions, and label the action for checking configured connections.

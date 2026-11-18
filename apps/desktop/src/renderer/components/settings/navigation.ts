@@ -6,6 +6,7 @@ import { PlugsConnectedIcon } from "@phosphor-icons/react/PlugsConnected";
 import { PuzzlePieceIcon } from "@phosphor-icons/react/PuzzlePiece";
 import { ShieldCheckIcon } from "@phosphor-icons/react/ShieldCheck";
 import { WrenchIcon } from "@phosphor-icons/react/Wrench";
+import { ChartBarIcon } from "@phosphor-icons/react/ChartBar";
 import { InfoIcon } from "@phosphor-icons/react/Info";
 
 export const CATEGORIES = [
@@ -14,6 +15,7 @@ export const CATEGORIES = [
   { name: "Conversations", icon: ChatsCircleIcon, group: "Preferences" },
   { name: "Keyboard", icon: KeyboardIcon, group: "Preferences" },
   { name: "Providers", icon: PlugsConnectedIcon, group: "Agent" },
+  { name: "Tokens", icon: ChartBarIcon, group: "Agent" },
   { name: "Tools & extensions", icon: PuzzlePieceIcon, group: "Agent" },
   { name: "Permissions", icon: ShieldCheckIcon, group: "Agent" },
   { name: "Advanced", icon: WrenchIcon, group: "App" },
@@ -51,7 +53,7 @@ export const SETTINGS_ENTRIES: { page: Category; target: string; label: string; 
   ["Conversations", "title-generation", "Title generation", "chat titles naming title model reasoning effort service tier priority automatic"],
   ["Keyboard", "shortcuts", "Keyboard shortcuts", "keybindings keys recording reset modified"],
   ["Providers", "accounts", "Connected accounts", "provider login sign in authentication oauth api key environment reconnect disconnect"],
-  ["Providers", "limits", "Subscription limits", "capacity quota reset plan remaining"],
+  ["Tokens", "activity", "Token activity", "tokens usage estimated cost sessions chart models projects"],
   ["Providers", "accounts", "Add provider", "connect model account subscription"],
   ["Tools & extensions", "mcp", "MCP servers", "connections tools add http url local command executable diagnostics"],
   ["Tools & extensions", "skills", "Skills", "instructions discovery resources add source"],

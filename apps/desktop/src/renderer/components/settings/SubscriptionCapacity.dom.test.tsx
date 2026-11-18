@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { stubInvoke } from "../../lib/store/testBridge.ts";
 import SubscriptionCapacity from "./SubscriptionCapacity.tsx";
 
-test("refresh shows provider errors while retaining clearly stale quota", async () => {
+test("refresh removes a failed provider even when cached limits exist", async () => {
   let failed = false;
   stubInvoke(async channel => {
     if (channel !== "subscriptionCapacity") throw new Error(channel);
@@ -16,9 +16,10 @@ test("refresh shows provider errors while retaining clearly stale quota", async 
     await act(async () => root.render(<SubscriptionCapacity />));
     expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuetext")).toBe("27% used · 73% remaining");
     failed = true;
-    await act(async () => container.querySelector("button")!.click());
-    expect(container.textContent).toContain("Stale");
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe("Quota refresh failed");
-    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuetext")).toBe("27% used · 73% remaining");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Refresh capacity"]')!.click());
+    expect(container.textContent).not.toContain("Anthropic");
+    expect(container.textContent).not.toContain("Quota refresh failed");
+    expect(container.querySelector('[role="progressbar"]')).toBeNull();
+    expect(container.textContent).toContain("No subscription usage to show.");
   } finally { await act(async () => root.unmount()); container.remove(); }
 });

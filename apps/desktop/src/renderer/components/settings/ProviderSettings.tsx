@@ -1,4 +1,3 @@
-import SubscriptionCapacity from "./SubscriptionCapacity.tsx";
 import StateNotice from "../StateNotice.tsx";
 import { useEffect, useRef, useState } from "react";
 import { CircleNotchIcon } from "@phosphor-icons/react/CircleNotch";
@@ -80,7 +79,6 @@ export default function ProviderSettings() {
     </div>
     {connected.length ? <ProviderGroup heading="Connected accounts" providers={connected} selected={selected} setSelected={setSelected} authFlow={authFlow} cancelLogin={cancelLogin} />
       : <p className="text-sm leading-6 text-body-muted-foreground">Connect a model provider to start chatting. NativePi uses Pi’s authentication and models.</p>}
-    {connected.length > 0 && <div data-setting="limits"><SubscriptionCapacity /></div>}
     <Dialog open={adding} onOpenChange={open => { setAdding(open); if (!open && authFlow && !connected.some(provider => provider.id === authFlow.providerId)) cancelLogin(); }}>
       <DialogContent className="max-h-[min(40rem,calc(var(--app-height,100dvh)-2rem))] max-w-xl">
         <DialogHeader><DialogTitle>Connect an AI account</DialogTitle><DialogDescription>Choose your AI service. Supported subscriptions can sign in; API keys may have separate charges.</DialogDescription></DialogHeader>
