@@ -7,7 +7,7 @@
     },
     "apps/desktop": {
       "name": "@nativepi/desktop",
-      "version": "1.23.0",
+      "version": "1.24.0",
       "dependencies": {
         "@codemirror/commands": "^6.11.1",
         "@codemirror/language": "^6.13.1",
