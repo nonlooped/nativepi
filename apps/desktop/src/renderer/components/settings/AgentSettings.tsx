@@ -8,13 +8,15 @@ import { SelectRow, SwitchRow } from "./rows.tsx";
 
 export default function AgentSettings() {
   const update = useAppStore(s => s.updatePiSetting);
+  const loaded = useAppStore(s => s.piSettings);
+  // Every disclosure is a sibling so the list keeps one rhythm of rows and dividers.
   return <div>
-    <PiPanel>{settings => <>
-      <SettingsDetails id="runtime" title="Runtime" summary={[
-        settings.defaultThinkingLevel ? `Default reasoning: ${settings.defaultThinkingLevel}` : "Model chooses reasoning",
-        settings.autoCompaction ? "automatic compaction" : "compaction off",
-        settings.autoRetry ? "automatic retries" : "retries off",
-      ].join(" · ")}>
+    <SettingsDetails id="runtime" title="Runtime" summary={loaded ? [
+      loaded.defaultThinkingLevel ? `Default reasoning: ${loaded.defaultThinkingLevel}` : "Model chooses reasoning",
+      loaded.autoCompaction ? "automatic compaction" : "compaction off",
+      loaded.autoRetry ? "automatic retries" : "retries off",
+    ].join(" · ") : undefined}>
+      <PiPanel>{settings => <div>
         <SelectRow label="Default reasoning" description="For newly started Pi sessions. Existing chats keep their selection; change it in the composer."
           value={settings.defaultThinkingLevel} options={[
             { value: "", label: "Let the model decide" }, { value: "off", label: "Off" }, { value: "minimal", label: "Minimal" },
@@ -23,11 +25,11 @@ export default function AgentSettings() {
           ]} onChange={value => void update("defaultThinkingLevel", value)} />
         <SwitchRow label="Compact automatically" description="Summarize older messages before the context fills up." checked={settings.autoCompaction} onChange={value => void update("autoCompaction", value)} />
         <SwitchRow label="Retry failed requests" description="Retry temporary provider errors." checked={settings.autoRetry} onChange={value => void update("autoRetry", value)} />
-      </SettingsDetails>
-      <SettingsDetails id="images" title="Image handling" summary={settings.blockImages ? "Image input disabled" : settings.autoResizeImages ? "Optimize large images" : "Send original images"}>
-        <ImageInputSettings settings={settings} />
-      </SettingsDetails>
-    </>}</PiPanel>
+      </div>}</PiPanel>
+    </SettingsDetails>
+    <SettingsDetails id="images" title="Image handling" summary={loaded ? loaded.blockImages ? "Image input disabled" : loaded.autoResizeImages ? "Optimize large images" : "Send original images" : undefined}>
+      <PiPanel>{settings => <ImageInputSettings settings={settings} />}</PiPanel>
+    </SettingsDetails>
     <SettingsDetails id="terminal" title="Terminal" summary="Font, cursor, and scrollback for the integrated terminal."><TerminalSettings /></SettingsDetails>
     <SettingsDetails id="shell" title="Pi shell" summary="Executable and command prefix used by Pi’s command tool."><PiShellSettings /></SettingsDetails>
   </div>;
